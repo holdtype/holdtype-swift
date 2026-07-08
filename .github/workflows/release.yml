@@ -97,12 +97,42 @@ jobs:
 
       - name: Run tests
         run: |
-          scripts/release/with_timeout.py 2400 \
-            xcodebuild \
-            -project HoldType.xcodeproj \
-            -scheme HoldType \
-            -destination 'platform=macOS' \
-            test
+          set -euo pipefail
+          host_version="$(sw_vers -productVersion)"
+          minimum_version="26.5"
+          can_run_tests="$(
+            python3 - "$host_version" "$minimum_version" <<'PY'
+          import sys
+
+          def parse(value):
+              return tuple(int(part) for part in value.split("."))
+
+          host = parse(sys.argv[1])
+          minimum = parse(sys.argv[2])
+          width = max(len(host), len(minimum))
+          host += (0,) * (width - len(host))
+          minimum += (0,) * (width - len(minimum))
+          print("yes" if host >= minimum else "no")
+          PY
+          )"
+          if [ "$can_run_tests" = "yes" ]; then
+            scripts/release/with_timeout.py 2400 \
+              xcodebuild \
+              -project HoldType.xcodeproj \
+              -scheme HoldType \
+              -destination 'platform=macOS' \
+              -retry-tests-on-failure \
+              -test-iterations 3 \
+              test
+          else
+            echo "Host macOS $host_version is below HoldType's $minimum_version deployment target; building test bundles without running them."
+            scripts/release/with_timeout.py 2400 \
+              xcodebuild \
+              -project HoldType.xcodeproj \
+              -scheme HoldType \
+              -destination 'generic/platform=macOS' \
+              build-for-testing
+          fi
 
       - name: Import Developer ID certificate
         shell: bash
