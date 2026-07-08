@@ -182,7 +182,8 @@ organization that should own the `brew bump-cask-pr` fork.
 The first public Homebrew install command will be:
 
 ```sh
-brew install --cask holdtype/tap/holdtype
+brew tap holdtype/tap
+brew install --cask holdtype
 ```
 
 The shorter command:
@@ -452,7 +453,8 @@ scripts/release/verify_homebrew_tap_release.py \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --minimum-macos ">= :tahoe"
-brew install --cask holdtype/tap/holdtype
+brew tap holdtype/tap
+brew install --cask holdtype
 brew uninstall --cask holdtype
 ```
 

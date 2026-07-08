@@ -1228,7 +1228,7 @@ printf '<rss />\\n' > "$out"
 
         self.assertIn("[pass] homebrew-tap:expected-prefix: holdtype/tap", result.stdout)
         self.assertIn(
-            "[pass] homebrew-tap:install-command: brew install --cask holdtype/tap/holdtype",
+            "[pass] homebrew-tap:install-command: brew tap holdtype/tap && brew install --cask holdtype",
             result.stdout,
         )
         self.assertIn("[pass] github-tap-repository:visibility", result.stdout)

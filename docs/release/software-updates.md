@@ -332,7 +332,8 @@ The first cask should live in a separate branded tap repository such as
 `holdtype/homebrew-tap`:
 
 ```sh
-brew install --cask holdtype/tap/holdtype
+brew tap holdtype/tap
+brew install --cask holdtype
 ```
 
 After the tap pull request is merged, verify the published tap cask before

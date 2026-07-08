@@ -56,7 +56,8 @@ scripts/release/verify_homebrew_tap_release.py \
 Install command for users:
 
 ```sh
-brew install --cask holdtype/tap/holdtype
+brew tap holdtype/tap
+brew install --cask holdtype
 ```
 
 The unqualified command:
