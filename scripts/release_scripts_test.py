@@ -982,7 +982,7 @@ printf '<rss />\\n' > "$out"
                 "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
                 rendered,
             )
-            self.assertIn('depends_on macos: ">= :tahoe"', rendered)
+            self.assertIn("depends_on macos: :tahoe", rendered)
             self.assertIn('app "HoldType.app"', rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Caches/HoldType"', rendered)
@@ -1228,7 +1228,7 @@ printf '<rss />\\n' > "$out"
 
         self.assertIn("[pass] homebrew-tap:expected-prefix: holdtype/tap", result.stdout)
         self.assertIn(
-            "[pass] homebrew-tap:install-command: brew tap holdtype/tap && brew install --cask holdtype",
+            "[pass] homebrew-tap:install-command: brew tap holdtype/tap && brew trust holdtype/tap && brew install --cask holdtype",
             result.stdout,
         )
         self.assertIn("[pass] github-tap-repository:visibility", result.stdout)
@@ -1390,7 +1390,7 @@ end
                 "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
                 rendered,
             )
-            self.assertIn('depends_on macos: ">= :tahoe"', rendered)
+            self.assertIn("depends_on macos: :tahoe", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Caches/HoldType"', rendered)
 
@@ -1465,7 +1465,7 @@ end
                 'sha256 "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"',
                 rendered,
             )
-            self.assertIn('depends_on macos: ">= :tahoe"', rendered)
+            self.assertIn("depends_on macos: :tahoe", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Preferences/app.holdtype.HoldType.plist"', rendered)
 
@@ -1572,7 +1572,7 @@ end
             self.assertIn("[pass] homebrew-cask-submission:bundle", result.stdout)
             self.assertIn('version "1.2.3"', rendered)
             self.assertIn(f'sha256 "{dmg_sha}"', rendered)
-            self.assertIn('depends_on macos: ">= :tahoe"', rendered)
+            self.assertIn("depends_on macos: :tahoe", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Saved Application State/app.holdtype.HoldType.savedState"', rendered)
             self.assertEqual(metadata["cask_path"], "Casks/h/holdtype.rb")
@@ -1876,7 +1876,7 @@ end
                 'sha256 "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"',
                 rendered,
             )
-            self.assertIn('depends_on macos: ">= :tahoe"', rendered)
+            self.assertIn("depends_on macos: :tahoe", rendered)
             self.assertIn("tap --force homebrew/cask", brew_log.read_text())
             self.assertIn("--repository homebrew/cask", brew_log.read_text())
 

@@ -57,6 +57,7 @@ Install command for users:
 
 ```sh
 brew tap holdtype/tap
+brew trust holdtype/tap
 brew install --cask holdtype
 ```
 
@@ -179,4 +180,6 @@ until `brew install --cask holdtype` already resolves from
 Before publishing the first cask, confirm the public minimum macOS version. The
 template leaves the `depends_on macos:` stanza commented for manual drafts until
 that product choice is final, but the release workflow requires
-`HOMEBREW_MINIMUM_MACOS` before it opens a tap pull request.
+`HOMEBREW_MINIMUM_MACOS` before it opens a tap pull request. The release input
+uses a comparison value such as `>= :tahoe`; the cask renderer normalizes that
+to Homebrew's current `depends_on macos: :tahoe` DSL.

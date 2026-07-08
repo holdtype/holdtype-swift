@@ -183,6 +183,7 @@ The first public Homebrew install command will be:
 
 ```sh
 brew tap holdtype/tap
+brew trust holdtype/tap
 brew install --cask holdtype
 ```
 
@@ -454,6 +455,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --minimum-macos ">= :tahoe"
 brew tap holdtype/tap
+brew trust holdtype/tap
 brew install --cask holdtype
 brew uninstall --cask holdtype
 ```

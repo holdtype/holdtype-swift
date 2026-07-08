@@ -234,7 +234,7 @@ official Homebrew Cask submission is pending. Once that tap is published for a
 release, the cask path is:
 
 ```sh
-brew tap holdtype/tap && brew install --cask holdtype && open -a HoldType
+brew tap holdtype/tap && brew trust holdtype/tap && brew install --cask holdtype && open -a HoldType
 ```
 
 After HoldType is accepted into the official Homebrew Cask repository, fresh

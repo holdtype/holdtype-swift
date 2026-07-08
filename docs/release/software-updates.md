@@ -50,7 +50,8 @@ Optional official Homebrew Cask bump automation variables:
   `brew bump-cask-pr --fork-org`
 
 `HOMEBREW_MINIMUM_MACOS` must be a Homebrew macOS comparison expression such as
-`>= :tahoe`, because the value is rendered into `depends_on macos:`.
+`>= :tahoe`. The cask renderer normalizes that release input into Homebrew's
+current `depends_on macos: :tahoe` DSL.
 
 The app bundle reads these build settings from
 `Config/HoldTypeSigning.xcconfig` or an untracked
@@ -333,6 +334,7 @@ The first cask should live in a separate branded tap repository such as
 
 ```sh
 brew tap holdtype/tap
+brew trust holdtype/tap
 brew install --cask holdtype
 ```
 

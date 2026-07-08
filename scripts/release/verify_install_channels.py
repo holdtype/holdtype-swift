@@ -42,6 +42,14 @@ def fail_check(name: str, message: str) -> Check:
     return Check(name=name, status="fail", message=message)
 
 
+def homebrew_macos_requirement_fragment(minimum_macos: str) -> str:
+    minimum_macos = minimum_macos.strip()
+    named_minimum = re.fullmatch(r">=\s+(:[a-z][a-z0-9_]*)", minimum_macos)
+    if named_minimum:
+        return f"depends_on macos: {named_minimum.group(1)}"
+    return f'depends_on macos: "{minimum_macos}"'
+
+
 def print_checks(checks: list[Check]) -> None:
     for check in checks:
         print(f"[{check.status}] {check.name}: {check.message}")
@@ -437,7 +445,7 @@ def check_homebrew_cask(
             checks.append(fail_check(name, f"missing {fragment!r}"))
 
     if minimum_macos:
-        fragment = f'depends_on macos: "{minimum_macos}"'
+        fragment = homebrew_macos_requirement_fragment(minimum_macos)
         if fragment in text:
             checks.append(pass_check("homebrew-cask:minimum-macos", minimum_macos))
         else:

@@ -327,7 +327,7 @@ def collect_checks(args: argparse.Namespace) -> list[Check]:
     checks.append(
         pass_check(
             "homebrew-tap:install-command",
-            f"brew tap {expected_tap} && brew install --cask {CASK_TOKEN}",
+            f"brew tap {expected_tap} && brew trust {expected_tap} && brew install --cask {CASK_TOKEN}",
         )
     )
     if any(check.status == "fail" for check in checks):

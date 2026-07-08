@@ -15,7 +15,7 @@ Options:
   --sha256 SHA256
   --repository OWNER/REPO
   --homepage URL
-  --minimum-macos HOMEBREW_VALUE   Example: ">= :tahoe"
+  --minimum-macos HOMEBREW_VALUE   Example: ">= :tahoe"; rendered as `depends_on macos: :tahoe`
   --output PATH
   --help
 USAGE
@@ -86,9 +86,13 @@ HOMEPAGE="${HOMEPAGE:-https://github.com/$REPOSITORY}"
 
 if [ -n "$MINIMUM_MACOS" ]; then
   validate_homebrew_macos_requirement "$MINIMUM_MACOS"
-  DEPENDS_ON_MACOS="  depends_on macos: \"$MINIMUM_MACOS\""
+  if [[ "$MINIMUM_MACOS" =~ ^\>=[[:space:]]+:([a-z][a-z0-9_]*)$ ]]; then
+    DEPENDS_ON_MACOS="  depends_on macos: :${BASH_REMATCH[1]}"
+  else
+    DEPENDS_ON_MACOS="  depends_on macos: \"$MINIMUM_MACOS\""
+  fi
 else
-  DEPENDS_ON_MACOS="  # depends_on macos: \">= :tahoe\" # Set when the public minimum macOS version is finalized."
+  DEPENDS_ON_MACOS="  # depends_on macos: :tahoe # Set when the public minimum macOS version is finalized."
 fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"

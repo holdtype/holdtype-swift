@@ -58,6 +58,14 @@ def contains_line(text: str, line: str) -> bool:
     return any(candidate.strip() == line for candidate in text.splitlines())
 
 
+def homebrew_macos_requirement_line(minimum_macos: str) -> str:
+    minimum_macos = minimum_macos.strip()
+    named_minimum = re.fullmatch(r">=\s+(:[a-z][a-z0-9_]*)", minimum_macos)
+    if named_minimum:
+        return f"depends_on macos: {named_minimum.group(1)}"
+    return f'depends_on macos: "{minimum_macos}"'
+
+
 def validate_official_layout(path: Path) -> list[Check]:
     expected = ("Casks", CASK_TOKEN[0], f"{CASK_TOKEN}.rb")
     if len(path.parts) >= 3 and path.parts[-3:] == expected:
@@ -122,7 +130,7 @@ def validate_cask_text(
             checks.append(pass_check(name, "absent"))
 
     if minimum_macos:
-        line = f'depends_on macos: "{minimum_macos}"'
+        line = homebrew_macos_requirement_line(minimum_macos)
         if contains_line(text, line):
             checks.append(pass_check("homebrew-cask:minimum-macos", minimum_macos))
         else:
