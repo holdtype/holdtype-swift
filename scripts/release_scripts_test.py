@@ -2627,10 +2627,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{appcast_url}"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{dmg_path.stat().st_size}"
                  type="application/octet-stream" />
     </item>
@@ -2709,10 +2709,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>99</sparkle:version>
+      <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
       <enclosure url="{appcast_url}"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="99"
-                 sparkle:shortVersionString="1.2.2"
                  length="{dmg_path.stat().st_size}"
                  type="application/octet-stream" />
     </item>
@@ -2837,10 +2837,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{appcast_url}"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{dmg_path.stat().st_size}"
                  type="application/octet-stream" />
     </item>
@@ -2910,10 +2910,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{dmg_url}"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{len(dmg_bytes)}"
                  type="application/octet-stream" />
     </item>
@@ -3143,10 +3143,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{dmg_url}"
                  sparkle:edSignature="release-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{len(dmg_bytes)}"
                  type="application/octet-stream" />
     </item>
@@ -3520,10 +3520,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{dmg_url}"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{len(dmg_bytes)}"
                  type="application/octet-stream" />
     </item>
@@ -3712,10 +3712,10 @@ end
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
+      <sparkle:version>100</sparkle:version>
+      <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
       <enclosure url="{download_prefix}HoldType-{version}.dmg"
                  sparkle:edSignature="fake-signature"
-                 sparkle:version="100"
-                 sparkle:shortVersionString="1.2.3"
                  length="{len(dmg_bytes)}"
                  type="application/octet-stream" />
     </item>

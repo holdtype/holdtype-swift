@@ -295,13 +295,20 @@ def check_appcast(
 
     checks: list[Check] = [pass_check("appcast", str(path))]
     enclosure = None
-    for candidate in root.iter("enclosure"):
-        if candidate.attrib.get("url") == expected_url:
-            enclosure = candidate
+    item = None
+    urls: list[str] = []
+    for candidate_item in root.iter("item"):
+        for candidate in candidate_item.iter("enclosure"):
+            candidate_url = candidate.attrib.get("url", "")
+            urls.append(candidate_url)
+            if candidate_url == expected_url:
+                item = candidate_item
+                enclosure = candidate
+                break
+        if enclosure is not None:
             break
 
     if enclosure is None:
-        urls = [candidate.attrib.get("url", "") for candidate in root.iter("enclosure")]
         return checks + [fail_check("appcast:enclosure-url", f"expected {expected_url}, got {urls}")]
 
     checks.append(pass_check("appcast:enclosure-url", expected_url))
@@ -312,13 +319,13 @@ def check_appcast(
     else:
         checks.append(fail_check("appcast:edSignature", "missing"))
 
-    actual_build = enclosure.attrib.get(f"{{{SPARKLE_NS}}}version", "")
+    actual_build = sparkle_item_value(item, enclosure, "version")
     if actual_build == expected_build:
         checks.append(pass_check("appcast:version", expected_build))
     else:
         checks.append(fail_check("appcast:version", f"expected {expected_build}, got {actual_build!r}"))
 
-    actual_short_version = enclosure.attrib.get(f"{{{SPARKLE_NS}}}shortVersionString", "")
+    actual_short_version = sparkle_item_value(item, enclosure, "shortVersionString")
     if actual_short_version == expected_version:
         checks.append(pass_check("appcast:shortVersionString", expected_version))
     else:
@@ -337,6 +344,15 @@ def check_appcast(
         checks.append(fail_check("appcast:length", f"expected {expected_length}, got {actual_length!r}"))
 
     return checks
+
+
+def sparkle_item_value(item: ET.Element | None, enclosure: ET.Element, name: str) -> str:
+    namespaced_name = f"{{{SPARKLE_NS}}}{name}"
+    if item is not None:
+        child = item.find(namespaced_name)
+        if child is not None and child.text:
+            return child.text.strip()
+    return enclosure.attrib.get(namespaced_name, "")
 
 
 def render_homebrew_cask(
