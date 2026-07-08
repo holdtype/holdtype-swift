@@ -1,0 +1,35 @@
+//
+//  HoldTypeUITestsLaunchTests.swift
+//  HoldTypeUITests
+//
+//  Created by Eugene Potapenko on 6/20/26.
+//
+
+import XCTest
+
+final class HoldTypeUITestsLaunchTests: XCTestCase {
+
+    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+        false
+    }
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testLaunch() throws {
+        let app = XCUIApplication.vibeTypeAutomation()
+        app.launch()
+
+        // Insert steps here to perform after app launch but before taking a screenshot,
+        // such as logging into a test account or navigating somewhere in the app
+        // XCUIAutomation Documentation
+        // https://developer.apple.com/documentation/xcuiautomation
+
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Launch Screen"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

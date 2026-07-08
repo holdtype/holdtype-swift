@@ -1,0 +1,29 @@
+cask "holdtype" do
+  version "{{VERSION}}"
+  sha256 "{{SHA256}}"
+
+  url "https://github.com/{{REPOSITORY}}/releases/download/v#{version}/HoldType-#{version}.dmg",
+      verified: "github.com/{{REPOSITORY}}/"
+  name "HoldType"
+  desc "Native macOS menu bar dictation utility"
+  homepage "{{HOMEPAGE}}"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  auto_updates true
+
+{{DEPENDS_ON_MACOS}}
+
+  app "HoldType.app"
+
+  uninstall quit: "app.holdtype.HoldType"
+
+  zap trash: [
+    "~/Library/Caches/HoldType",
+    "~/Library/Preferences/app.holdtype.HoldType.plist",
+    "~/Library/Saved Application State/app.holdtype.HoldType.savedState",
+  ]
+end

@@ -1,0 +1,4 @@
+# Copy this file to Config/HoldTypeDebugAPIKey.local for an explicit live Debug
+# launch with script/build_and_run.sh --live-debug.
+# Put one OpenAI API key on the first non-empty, non-comment line.
+sk-your-debug-api-key

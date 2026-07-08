@@ -1,0 +1,128 @@
+---
+id: VT-041
+title: Recorder Protocol And Fake
+status: done
+priority: P1
+lane: recording
+parent: VT-040
+dependencies:
+  - VT-000
+allowed_paths:
+  - vibetype/**
+  - vibetypeTests/**
+  - docs/specs/features/microphone-text-input.md
+  - backlog/vt-041-recorder-protocol-and-fake.md
+---
+
+# VT-041 - Recorder Protocol And Fake
+
+Status: done
+
+## Goal
+
+Create the recorder service boundary before adding AVFoundation details.
+
+## Scope
+
+- Define the recorder protocol or interface.
+- Add a fake implementation suitable for tests and controller work.
+- Model start, stop, cancel, and current status.
+
+## Acceptance
+
+- App/controller code can depend on the protocol.
+- Fake recorder can simulate success and failure.
+- No real microphone capture is added.
+
+## Verification
+
+- `xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test`
+- `git diff --check`
+
+## Blocker Evidence
+
+- Implemented the recorder protocol, status model, reusable fake recorder, and
+  fake-backed unit coverage for success, failure, cancellation, and protocol
+  consumption.
+- `xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test`
+  failed after unit tests passed because `vibetypeUITests-Runner` cannot
+  initialize off-console: `User interaction required. Can't authenticate off
+  console`.
+- Narrow evidence passed:
+  `xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test -only-testing:vibetypeTests`
+  and `git diff --check`.
+- Resolver retry on 2026-06-21:
+  `/opt/homebrew/bin/timeout 300 xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test -only-testing:vibetypeTests`
+  timed out with `** BUILD INTERRUPTED **` before test execution.
+- `git diff --check` passed after the timeout.
+- Resolver status check on 2026-06-21 19:03 CEST found the local Xcode
+  build-service blocker still present: `SWBBuildService` had been running for
+  `16:05:34` with a child `clang -v -E -dM ... /dev/null` probe running for
+  `04:57:43`. No bounded `xcodebuild` retry was run under the obsolete
+  tooling policy.
+- Resolver status check on 2026-06-21 20:02 CEST found the same local Xcode
+  build-service blocker still present: `SWBBuildService` had been running for
+  `17:04:37` with a child `clang -v -E -dM ... /dev/null` probe running for
+  `05:56:46`. No bounded `xcodebuild` retry was run under the obsolete
+  tooling policy.
+- Resolver status check on 2026-06-21 21:03 CEST found the same local Xcode
+  build-service blocker still present: `SWBBuildService` had been running for
+  `18:04:59` with a child `clang -v -E -dM ... /dev/null` probe running for
+  `06:57:08`. No bounded `xcodebuild` retry was run under the obsolete
+  tooling policy.
+- Resolver recovery/retry on 2026-06-21 22:09 CEST ran
+  `python3 scripts/local_tooling_recover.py --apply --json` before blocked
+  selection; it returned `ok: true` with no matched or terminated processes
+  and no generated artifacts removed. The bounded retry
+  `/opt/homebrew/bin/timeout 300 xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test -only-testing:vibetypeTests`
+  timed out with `** BUILD INTERRUPTED **` after Xcode reached the
+  `clang -v -E -dM ... /dev/null` external-tool probe and before test
+  execution. Post-timeout recovery returned `ok: true`, removed only
+  `scripts/__pycache__`, and found no stale allowlisted Xcode processes.
+- VT-154 recovery/retry on 2026-06-21 23:08 CEST ran
+  `python3 scripts/local_tooling_recover.py --apply --json`; it returned
+  `ok: true`, removed project-scoped DerivedData at
+  `/Users/eugenepotapenko/Library/Developer/Xcode/DerivedData/vibetype-cgljxvuvdfxmqbeiqfwkdshvjovc`,
+  and found no stale allowlisted Xcode processes. The bounded retry
+  `/opt/homebrew/bin/timeout 300 xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test -only-testing:vibetypeTests`
+  reached Xcode's `clang -v -E -dM ... /dev/null` external-tool probe, did
+  not reach compiler diagnostics, test discovery, or test execution, and ended
+  with `** BUILD INTERRUPTED **` / exit code 143 after the timeout.
+
+## Resolution Path
+
+- Blocker category: local Xcode build-service timeout before unit-test
+  execution, after the earlier full scheme UI-test runner off-console blocker.
+- Existing follow-up evidence: `VT-148` records the same bounded Xcode
+  build-service timeout. Under the current workflow, this is an
+  automation-recoverable local tooling blocker, not a user/operator chore.
+- Required automation recovery:
+  `python3 scripts/local_tooling_recover.py --apply --json`.
+- Current recovery result: the 2026-06-21 23:08 CEST VT-154 closeout pass ran
+  local tooling recovery, retried the bounded narrow unit-test command, and
+  still timed out before compiler diagnostics or test execution. The remaining
+  blocker is still classified as local Xcode build/test tooling state because
+  the task implementation and fake-backed unit coverage are present but the
+  bounded unit target cannot reach execution in this environment.
+- Unblock condition: after local tooling recovery, rerun
+  `/opt/homebrew/bin/timeout 300 xcodebuild -project vibetype.xcodeproj -scheme vibetype -destination 'platform=macOS' test -only-testing:vibetypeTests`
+  and `git diff --check`. If both pass, apply the `verification-strategy.md`
+  policy that accepts narrow target evidence when only the full UI-test runner
+  needs off-console interaction, then mark this task done without additional
+  source edits. If the command still fails, record the recovery JSON summary,
+  the fresh bounded command result, and continue automatic tooling repair before
+  recording any non-tooling boundary.
+
+## Completion Evidence
+
+- 2026-06-22 11:23 CEST: local tooling recovery succeeded, terminated stale
+  `SWBBuildService` pid 3403, and removed run-generated `scripts/__pycache__`
+  plus project-scoped DerivedData.
+- `/opt/homebrew/bin/timeout 300 xcodebuild -project vibetype.xcodeproj
+  -scheme vibetype -destination 'platform=macOS' test
+  -only-testing:vibetypeTests` reached and passed the focused macOS unit-test
+  target, including `AudioRecorderServiceTests`.
+- `git diff --check` passed.
+- No source edits were needed; the previously implemented recorder protocol,
+  status model, fake recorder, and fake-backed tests now have current
+  verification evidence.

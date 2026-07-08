@@ -1,0 +1,9 @@
+// Copy this file to Config/HoldTypeSigning.local.xcconfig and keep the copy
+// untracked. Use your Apple Development team id to make macOS TCC permissions
+// persist across local rebuilds.
+
+HOLDTYPE_DEVELOPMENT_TEAM = YOURTEAMID
+HOLDTYPE_CODE_SIGN_IDENTITY = Apple Development
+HOLDTYPE_CODE_SIGN_STYLE = Automatic
+HOLDTYPE_UPDATE_FEED_URL = https://example.com/holdtype/appcast.xml
+HOLDTYPE_UPDATE_PUBLIC_ED_KEY = YOUR_SPARKLE_EDDSA_PUBLIC_KEY

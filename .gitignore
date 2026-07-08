@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+*.xcresult
+TestResults/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+__pycache__/
+
+# Build artifacts
+dist/
+*.app
+*.dSYM
+*.ipa
+*.xcarchive
+
+# Local secrets
+.env
+.env.*
+!.env.example
+Config/HoldTypeSigning.local.xcconfig
+Config/HoldTypeDebugAPIKey.local
+*.p8
+*.pem
+*.key
+
+# Local reference checkouts
+/references/

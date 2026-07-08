@@ -1,0 +1,47 @@
+# Spec Index
+
+Use this file to choose the smallest product spec slice for a task. Read the
+matching feature spec, then verify exact source ownership with `rg --files`.
+
+| Area | Spec | Read When |
+| --- | --- | --- |
+| Menu bar shell | `features/menu-bar-app-shell.md` | Menu bar lifecycle, primary controls, app shell state, status text |
+| Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |
+| OpenAI transcription | `features/openai-transcription.md` | Transcription request/response behavior, model settings, timeout/error policy |
+| Text handoff | `features/text-output-workflow.md` | Clipboard, paste, insertion, accepted transcript behavior |
+| Permissions/privacy | `features/privacy-and-permissions.md` | Consent, permission gates, setup blocking, privacy boundaries |
+| Settings/secrets | `features/settings-and-secret-storage.md` | Settings UI, persistence, Keychain, API key setup |
+| Global hotkey | `features/global-hotkey.md` | Shortcut registration, conflict handling, shortcut settings |
+| Floating indicator | `features/floating-indicator.md` | Recording/transcribing indicator presentation and lifecycle |
+| Post-processing actions | `features/post-transcription-actions.md` | Output intent, correction/translation dispatch after transcription |
+| Text correction | `features/text-correction.md` | Correction prompt, correction toggle, corrected transcript behavior |
+| Voice emoji commands | `features/voice-emoji-commands.md` | Built-in spoken emoji aliases, Dictionary placement, local emoji replacement |
+| Transcript history | `features/transcript-history.md` | History storage, display, recovery, retention |
+| Diagnostics | `features/diagnostics-and-crash-reports.md` | Logs, crash/diagnostic reports, operator-facing error evidence |
+| Software updates | `features/software-updates.md` | Native macOS app update checks, prompts, release artifacts, appcast behavior |
+| Usage estimates | `features/ui-functionality-coverage.md` | Current UI/task coverage inventory, visible-surface task mapping |
+| Platform testing | `features/platform-testing-strategy.md` | Choosing build/test/runtime QA, MCP, Computer Use, or manual evidence |
+| Verification | `features/verification-strategy.md` | Verification baseline, test scope, evidence quality |
+| Backlog grooming | `features/backlog-grooming-automation.md` | Backlog task creation/refinement behavior |
+| Blocked tasks | `features/blocked-task-resolution-automation.md` | Blocked-task resolver behavior and resolution contracts |
+| Automation recovery | `features/automation-prompt-recovery.md` | Installed automation/runbook recovery behavior |
+| iOS feasibility | `features/ios-keyboard-feasibility.md` | Future iOS/keyboard feasibility only; do not read for normal macOS MVP work |
+
+## Source Hints
+
+- App shell and menu bar: `HoldType/HoldTypeApp.swift`,
+  `HoldType/MenuBarView.swift`, `HoldType/MenuBarPresentation.swift`.
+- Settings: `HoldType/SettingsView.swift`, `HoldType/Settings/`,
+  `HoldType/Models/AppSettings.swift`.
+- Runtime and recording: `HoldType/Services/DictationRuntime.swift`,
+  `HoldType/Services/DictationSessionController*.swift`,
+  `HoldType/Services/AudioRecorderService.swift`.
+- OpenAI services: `HoldType/Services/OpenAI*Service.swift`,
+  `HoldType/Services/OpenAITranscriptionRequestBuilder.swift`.
+- Permissions and setup: `HoldType/Services/PermissionsService.swift`,
+  `HoldType/Services/AppSetupController.swift`,
+  `HoldType/Services/RecordingSetupPreflight.swift`.
+- Text insertion and history: `HoldType/Services/TextInsertionService.swift`,
+  `HoldType/Services/Transcript*Store.swift`, `HoldType/TranscriptHistoryView.swift`.
+- Tests: start with `HoldTypeTests/*<area>*Tests.swift`, then search by type or
+  service name.

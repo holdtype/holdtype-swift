@@ -1,0 +1,950 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		D4A174052FEF174000000005 /* Stabilize HoldType TCC Identity */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D4A174082FEF174000000008 /* Build configuration list for PBXAggregateTarget "Stabilize HoldType TCC Identity" */;
+			buildPhases = (
+				D4A174042FEF174000000004 /* Stabilize Ad-Hoc TCC Identity */,
+			);
+			dependencies = (
+				D4A174032FEF174000000003 /* PBXTargetDependency */,
+			);
+			name = "Stabilize HoldType TCC Identity";
+			productName = "Stabilize HoldType TCC Identity";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		D4A1740A2FEF17400000000A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D4A1740D2FEF17400000000D /* Sparkle */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9DB749772FE6D7320053C3F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9DB749612FE6D7300053C3F3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9DB749682FE6D7300053C3F3;
+			remoteInfo = HoldType;
+		};
+		9DB749812FE6D7320053C3F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9DB749612FE6D7300053C3F3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9DB749682FE6D7300053C3F3;
+			remoteInfo = HoldType;
+		};
+		D4A174022FEF174000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9DB749612FE6D7300053C3F3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9DB749682FE6D7300053C3F3;
+			remoteInfo = HoldType;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9DB749692FE6D7300053C3F3 /* HoldType.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HoldType.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9DB749762FE6D7320053C3F3 /* HoldTypeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoldTypeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9DB749802FE6D7320053C3F3 /* HoldTypeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoldTypeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9DB749A12FE7A0000053C3F3 /* HoldType-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HoldType-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9DB749B02FE800000053C3F3 /* HoldTypeIOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HoldTypeIOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D4A174012FEF174000000001 /* Config/HoldTypeSigning.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/HoldTypeSigning.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D4A174092FEF174000000009 /* Exceptions for "HoldType" folder in "HoldType" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9DB749682FE6D7300053C3F3 /* HoldType */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9DB7496B2FE6D7300053C3F3 /* HoldType */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D4A174092FEF174000000009 /* Exceptions for "HoldType" folder in "HoldType" target */,
+			);
+			path = HoldType;
+			sourceTree = "<group>";
+		};
+		9DB749792FE6D7320053C3F3 /* HoldTypeTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HoldTypeTests;
+			sourceTree = "<group>";
+		};
+		9DB749832FE6D7320053C3F3 /* HoldTypeUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HoldTypeUITests;
+			sourceTree = "<group>";
+		};
+		9DB749A22FE7A0000053C3F3 /* HoldTypeIOS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HoldTypeIOS;
+			sourceTree = "<group>";
+		};
+		9DB749AA2FE7B0000053C3F3 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = HoldTypeIOSTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9DB749662FE6D7300053C3F3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4A1740A2FEF17400000000A /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749732FE6D7320053C3F3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB7497D2FE6D7320053C3F3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749A32FE7A0000053C3F3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749B22FE800000053C3F3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9DB749602FE6D7300053C3F3 = {
+			isa = PBXGroup;
+			children = (
+				D4A174012FEF174000000001 /* Config/HoldTypeSigning.xcconfig */,
+				9DB7496B2FE6D7300053C3F3 /* HoldType */,
+				9DB749AA2FE7B0000053C3F3 /* Shared */,
+				9DB749A22FE7A0000053C3F3 /* HoldTypeIOS */,
+				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
+				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
+				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
+				9DB7496A2FE6D7300053C3F3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9DB7496A2FE6D7300053C3F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9DB749692FE6D7300053C3F3 /* HoldType.app */,
+				9DB749A12FE7A0000053C3F3 /* HoldType-iOS.app */,
+				9DB749B02FE800000053C3F3 /* HoldTypeIOSTests.xctest */,
+				9DB749762FE6D7320053C3F3 /* HoldTypeTests.xctest */,
+				9DB749802FE6D7320053C3F3 /* HoldTypeUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9DB749682FE6D7300053C3F3 /* HoldType */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DB7498A2FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldType" */;
+			buildPhases = (
+				9DB749652FE6D7300053C3F3 /* Sources */,
+				9DB749662FE6D7300053C3F3 /* Frameworks */,
+				9DB749672FE6D7300053C3F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9DB7496B2FE6D7300053C3F3 /* HoldType */,
+				9DB749AA2FE7B0000053C3F3 /* Shared */,
+			);
+			name = HoldType;
+			packageProductDependencies = (
+				D4A1740D2FEF17400000000D /* Sparkle */,
+			);
+			productName = HoldType;
+			productReference = 9DB749692FE6D7300053C3F3 /* HoldType.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9DB749752FE6D7320053C3F3 /* HoldTypeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DB7498D2FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeTests" */;
+			buildPhases = (
+				9DB749722FE6D7320053C3F3 /* Sources */,
+				9DB749732FE6D7320053C3F3 /* Frameworks */,
+				9DB749742FE6D7320053C3F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9DB749782FE6D7320053C3F3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
+			);
+			name = HoldTypeTests;
+			packageProductDependencies = (
+			);
+			productName = HoldTypeTests;
+			productReference = 9DB749762FE6D7320053C3F3 /* HoldTypeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9DB7497F2FE6D7320053C3F3 /* HoldTypeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DB749902FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeUITests" */;
+			buildPhases = (
+				9DB7497C2FE6D7320053C3F3 /* Sources */,
+				9DB7497D2FE6D7320053C3F3 /* Frameworks */,
+				9DB7497E2FE6D7320053C3F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9DB749822FE6D7320053C3F3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
+			);
+			name = HoldTypeUITests;
+			packageProductDependencies = (
+			);
+			productName = HoldTypeUITests;
+			productReference = 9DB749802FE6D7320053C3F3 /* HoldTypeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9DB749A62FE7A0000053C3F3 /* HoldType-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DB749A92FE7A0000053C3F3 /* Build configuration list for PBXNativeTarget "HoldType-iOS" */;
+			buildPhases = (
+				9DB749A52FE7A0000053C3F3 /* Sources */,
+				9DB749A32FE7A0000053C3F3 /* Frameworks */,
+				9DB749A42FE7A0000053C3F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9DB749A22FE7A0000053C3F3 /* HoldTypeIOS */,
+				9DB749AA2FE7B0000053C3F3 /* Shared */,
+			);
+			name = "HoldType-iOS";
+			packageProductDependencies = (
+			);
+			productName = "HoldType-iOS";
+			productReference = 9DB749A12FE7A0000053C3F3 /* HoldType-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9DB749B52FE800000053C3F3 /* HoldTypeIOSTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DB749B62FE800000053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeIOSTests" */;
+			buildPhases = (
+				9DB749B42FE800000053C3F3 /* Sources */,
+				9DB749B22FE800000053C3F3 /* Frameworks */,
+				9DB749B32FE800000053C3F3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9DB749AA2FE7B0000053C3F3 /* Shared */,
+				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
+			);
+			name = HoldTypeIOSTests;
+			packageProductDependencies = (
+			);
+			productName = HoldTypeIOSTests;
+			productReference = 9DB749B02FE800000053C3F3 /* HoldTypeIOSTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9DB749612FE6D7300053C3F3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					9DB749682FE6D7300053C3F3 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					9DB749752FE6D7320053C3F3 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 9DB749682FE6D7300053C3F3;
+					};
+					9DB7497F2FE6D7320053C3F3 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 9DB749682FE6D7300053C3F3;
+					};
+					9DB749A62FE7A0000053C3F3 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					9DB749B52FE800000053C3F3 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					D4A174052FEF174000000005 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = 9DB749642FE6D7300053C3F3 /* Build configuration list for PBXProject "HoldType" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9DB749602FE6D7300053C3F3;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9DB7496A2FE6D7300053C3F3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9DB749682FE6D7300053C3F3 /* HoldType */,
+				D4A174052FEF174000000005 /* Stabilize HoldType TCC Identity */,
+				9DB749A62FE7A0000053C3F3 /* HoldType-iOS */,
+				9DB749B52FE800000053C3F3 /* HoldTypeIOSTests */,
+				9DB749752FE6D7320053C3F3 /* HoldTypeTests */,
+				9DB7497F2FE6D7320053C3F3 /* HoldTypeUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9DB749672FE6D7300053C3F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749742FE6D7320053C3F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB7497E2FE6D7320053C3F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749A42FE7A0000053C3F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749B32FE800000053C3F3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D4A174042FEF174000000004 /* Stabilize Ad-Hoc TCC Identity */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${SRCROOT}/script/stabilize_adhoc_tcc_identity.sh",
+				"${SRCROOT}/Config/HoldTypeAdHocDesignatedRequirement.txt",
+				"${BUILT_PRODUCTS_DIR}/HoldType.app",
+			);
+			name = "Stabilize Ad-Hoc TCC Identity";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/script/stabilize_adhoc_tcc_identity.sh\" \"${BUILT_PRODUCTS_DIR}/HoldType.app\" \"app.holdtype.HoldType\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9DB749652FE6D7300053C3F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749722FE6D7320053C3F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB7497C2FE6D7320053C3F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749A52FE7A0000053C3F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9DB749B42FE800000053C3F3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9DB749782FE6D7320053C3F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9DB749682FE6D7300053C3F3 /* HoldType */;
+			targetProxy = 9DB749772FE6D7320053C3F3 /* PBXContainerItemProxy */;
+		};
+		9DB749822FE6D7320053C3F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9DB749682FE6D7300053C3F3 /* HoldType */;
+			targetProxy = 9DB749812FE6D7320053C3F3 /* PBXContainerItemProxy */;
+		};
+		D4A174032FEF174000000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9DB749682FE6D7300053C3F3 /* HoldType */;
+			targetProxy = D4A174022FEF174000000002 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D4A1740D2FEF17400000000D /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9DB749882FE6D7320053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9DB749892FE6D7320053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		9DB7498B2FE6D7320053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D4A174012FEF174000000001 /* Config/HoldTypeSigning.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";
+				CODE_SIGN_STYLE = "$(HOLDTYPE_CODE_SIGN_STYLE)";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(HOLDTYPE_DEVELOPMENT_TEAM)";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HoldType/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9DB7498C2FE6D7320053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = D4A174012FEF174000000001 /* Config/HoldTypeSigning.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";
+				CODE_SIGN_STYLE = "$(HOLDTYPE_CODE_SIGN_STYLE)";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(HOLDTYPE_DEVELOPMENT_TEAM)";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HoldType/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		9DB7498E2FE6D7320053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldTypeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HoldType.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HoldType";
+			};
+			name = Debug;
+		};
+		9DB7498F2FE6D7320053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldTypeTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HoldType.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HoldType";
+			};
+			name = Release;
+		};
+		9DB749912FE6D7320053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldTypeUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HoldType;
+			};
+			name = Debug;
+		};
+		9DB749922FE6D7320053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldTypeUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HoldType;
+			};
+			name = Release;
+		};
+		9DB749A72FE7A0000053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HoldType;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType.ios;
+				PRODUCT_MODULE_NAME = HoldTypeIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9DB749A82FE7A0000053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = HoldType;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType.ios;
+				PRODUCT_MODULE_NAME = HoldTypeIOS;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9DB749B72FE800000053C3F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9DB749B82FE800000053C3F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.holdtype.HoldType.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D4A174062FEF174000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Debug;
+		};
+		D4A174072FEF174000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9DB749642FE6D7300053C3F3 /* Build configuration list for PBXProject "HoldType" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB749882FE6D7320053C3F3 /* Debug */,
+				9DB749892FE6D7320053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9DB7498A2FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldType" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB7498B2FE6D7320053C3F3 /* Debug */,
+				9DB7498C2FE6D7320053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9DB7498D2FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB7498E2FE6D7320053C3F3 /* Debug */,
+				9DB7498F2FE6D7320053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9DB749902FE6D7320053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB749912FE6D7320053C3F3 /* Debug */,
+				9DB749922FE6D7320053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9DB749A92FE7A0000053C3F3 /* Build configuration list for PBXNativeTarget "HoldType-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB749A72FE7A0000053C3F3 /* Debug */,
+				9DB749A82FE7A0000053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9DB749B62FE800000053C3F3 /* Build configuration list for PBXNativeTarget "HoldTypeIOSTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9DB749B72FE800000053C3F3 /* Debug */,
+				9DB749B82FE800000053C3F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D4A174082FEF174000000008 /* Build configuration list for PBXAggregateTarget "Stabilize HoldType TCC Identity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4A174062FEF174000000006 /* Debug */,
+				D4A174072FEF174000000007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9DB749612FE6D7300053C3F3 /* Project object */;
+}

@@ -1,0 +1,24 @@
+// Shared signing defaults for the macOS HoldType target.
+//
+// The fallback keeps command-line builds working on machines without an Apple
+// Development certificate. The Debug scheme aggregate target and local run
+// script apply a stable designated requirement to ad-hoc app bundles used for
+// permissions QA.
+// Permission QA should launch the default Xcode Debug product path so System
+// Settings does not accumulate separate HoldType rows for alternate build dirs.
+// For production-like signing, copy Config/HoldTypeSigning.local.xcconfig.example
+// to the untracked
+// Config/HoldTypeSigning.local.xcconfig and fill in your Apple Development
+// team id.
+
+HOLDTYPE_DEVELOPMENT_TEAM =
+HOLDTYPE_CODE_SIGN_IDENTITY = -
+HOLDTYPE_CODE_SIGN_STYLE = Automatic
+HOLDTYPE_UPDATE_FEED_URL =
+HOLDTYPE_UPDATE_PUBLIC_ED_KEY =
+
+#include? "HoldTypeSigning.local.xcconfig"
+
+DEVELOPMENT_TEAM = $(HOLDTYPE_DEVELOPMENT_TEAM)
+CODE_SIGN_IDENTITY = $(HOLDTYPE_CODE_SIGN_IDENTITY)
+CODE_SIGN_STYLE = $(HOLDTYPE_CODE_SIGN_STYLE)
