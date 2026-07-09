@@ -6,10 +6,21 @@
 //
 
 import AppKit
+import HoldTypeDomain
 import Testing
 @testable import HoldType
 
 struct DictationStatusTests {
+
+    @Test func projectsOnlyRuntimeWorkWithoutTranscriptOrErrorPayloads() {
+        #expect(DictationStatus.idle.voiceWorkPhase == .inactive)
+        #expect(DictationStatus.recording.voiceWorkPhase == .listening)
+        #expect(DictationStatus.transcribing.voiceWorkPhase == .processing)
+        #expect(DictationStatus.success(transcript: "First result").voiceWorkPhase == .inactive)
+        #expect(DictationStatus.success(transcript: "Second result").voiceWorkPhase == .inactive)
+        #expect(DictationStatus.failure(message: "First failure").voiceWorkPhase == .inactive)
+        #expect(DictationStatus.failure(message: "Second failure").voiceWorkPhase == .inactive)
+    }
 
     @Test func exposesMenuTextForCoreStates() {
         #expect(DictationStatus.idle.menuStatusText == "Ready")

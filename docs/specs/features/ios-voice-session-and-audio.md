@@ -147,24 +147,47 @@ Full Access, none of these extension-to-app commands is available.
 
 ## Product states
 
-The containing app and bridge use understandable, mutually exclusive phases:
+Active voice work uses one payload-free runtime phase:
 
-- `needsSetup`
-- `needsActivation`
+- `inactive`
 - `arming`
 - `ready` (`Voice session on`)
 - `listening`
 - `finalizing`
 - `processing`
-- `resultReady`
-- `recoverableFailure`
-- `confirmedInserted`
-- `deliveryUnverified`
-- `interrupted`
-- `expired`
 
-The UI must not label an armed background microphone session as inactive, and
-must not label setup-dependent behavior as ready.
+`inactive` means no capture, finalization, or provider chain is currently
+running. It does not erase a setup requirement, latest result, recoverable
+failure, interruption/expiry reason, or delivery outcome. `arming` begins when
+an explicit start is accepted and covers preflight, any allowed permission
+request, and audio-session activation before retained capture or armed-ready
+operation. A blocked arming attempt returns to `inactive` with its separate
+setup or failure outcome. `ready` means a Quick Session is already active and
+armed; it is not a promise that setup or app activation can begin later. The
+configured recording tail remains `listening`. `finalizing` begins after
+capture stops and covers completed-artifact validation plus the stable relative
+identity and durable journal commit. `processing` begins only after that
+recoverable journal commit and covers transcription, correction, translation,
+and accepted-result preparation. It may continue after Quick Session Stop or
+expiry when the journaled provider attempt remains valid.
+
+The containing app and keyboard presentations derive their understandable
+user-facing state from separate sources instead of persisting or transporting
+the phase as a complete product state:
+
+- setup availability presents `needsSetup` or `needsActivation`;
+- active work presents `arming`, `ready`, `listening`, `finalizing`, or
+  `processing`;
+- the attempt outcome presents `resultReady`, `recoverableFailure`,
+  `interrupted`, or `expired` while active work may already be `inactive`;
+- output delivery presents `confirmedInserted` or `deliveryUnverified` under
+  `ios-output-actions.md`.
+
+Each observer presents one understandable projection at a time, but these
+underlying concerns are not one mutually exclusive enum. Interruption and
+expiry remain distinct terminal reasons even when a compact surface gives them
+the same recovery layout. The UI must not label an armed background microphone
+session as inactive, and must not label setup-dependent behavior as ready.
 
 ## Invariants
 
@@ -208,6 +231,8 @@ must not label setup-dependent behavior as ready.
 - The containing app is the sole audio-session and recording owner.
 - Quick Session state may publish only compact, expiring non-secret status to
   the App Group.
+- `VoiceWorkPhase` is a runtime domain value, not a Codable journal or App Group
+  schema. A production bridge maps it into its own versioned transport record.
 - Protected recording files and pending journals remain app-private and are
   excluded from backup.
 - Recording cache policy is separate from pending-attempt recovery.

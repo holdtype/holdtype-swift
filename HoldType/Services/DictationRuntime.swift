@@ -257,12 +257,7 @@ final class DictationRuntime: ObservableObject {
     #endif
 
     private var shouldValidateSetupBeforeRecording: Bool {
-        switch status {
-        case .idle, .success, .failure:
-            return true
-        case .recording, .transcribing:
-            return false
-        }
+        status.voiceWorkPhase == .inactive
     }
 
     private func syncFromController() {

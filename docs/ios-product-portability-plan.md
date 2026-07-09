@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty P1
+Status: active implementation roadmap, P0 contracts and the first twenty-one P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -604,7 +604,7 @@ physical-device claims. M0B/M0C remain operator-local physical gates.
 
 Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 
-Progress 2026-07-09: local package `HoldTypeDomain` now owns the public
+Progress 2026-07-10: local package `HoldTypeDomain` now owns the public
 Foundation-only `AcceptedTranscript`, `TranscriptionPromptContext`,
 `TranscriptionLanguage`, custom-language validation, and
 `TranscriptionConfiguration`, plus the normalized `CustomDictionary` value.
@@ -653,6 +653,12 @@ completed-artifact lifecycle operation it needs. The macOS adapter retains
 directory creation, summaries, retention controls, notifications, and Finder
 behavior, while exact-artifact/raw-policy tests and recovery-before-cache
 ordering prevent destructive cleanup from removing the only recoverable copy.
+
+`VoiceWorkPhase` now separates the six runtime work phases from setup,
+attempt outcomes, delivery, timers, and platform presentation. The macOS status
+model projects its five values into the supported subset, and phase-only
+controller, hotkey, runtime, explicit-action, and menu gates use that projection
+without moving transcript or error copy into Domain.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -861,28 +867,29 @@ slices plus remote text-correction and translation configurations are complete.
 Retention configuration, voice-session preferences, output-delivery
 preferences, output intent, observer-scoped delivery states, recovery
 destinations, and the transient completed-recording artifact are complete too.
-The narrow cache-lifecycle dependency is complete as well. The next P1 slice
-separates active voice work from setup, result, delivery, and macOS status
-presentation:
+The narrow cache-lifecycle dependency and runtime-only `VoiceWorkPhase` are
+complete as well. The next P1 slice extracts the transient provider credential
+value and resolver boundary without moving secret storage:
 
-1. clarify `ios-voice-session-and-audio.md` so its user-facing states are an
-   understandable presentation projection, not one persistence or transport
-   enum mixing setup, active work, outcomes, and delivery acknowledgement;
-2. define a payload-free, runtime-only `VoiceWorkPhase` with exactly
-   `inactive`, `arming`, `ready`, `listening`, `finalizing`, and `processing`;
-3. keep `ready` specific to an already armed Quick Session, keep the configured
-   recording tail inside `listening`, and let `processing` outlive Quick Session
-   Stop or expiry when a journaled provider attempt is still running;
-4. project current macOS `DictationStatus` values conservatively: idle,
-   success, and failure become `inactive`; recording becomes `listening`; and
-   transcribing becomes `processing`. Do not invent current macOS support for
-   arming, ready, or finalizing;
-5. exclude setup requirements, transcript/error strings, attempt outcomes,
-   recovery destinations, insertion acknowledgements, timers, UI copy, and
-   action availability. Do not add `Codable`, raw values, or bridge semantics;
-6. cover the six-case value in package and normal-import iOS tests, cover the
-   five-value macOS projection, and leave the obsolete M0A keyboard state and
-   bridge DTO unchanged until their gated replacement.
+1. move public `OpenAICredential`, `OpenAICredentialSource`, and
+   `OpenAICredentialResolving` into `HoldTypeDomain`; make the value and source
+   `Equatable` and `Sendable` while keeping the resolver synchronous and
+   throwing;
+2. preserve surrounding-whitespace trimming, inner content and case, and the
+   compatibility default source `.runtimeStorage`; reject empty normalized
+   input through `OpenAICredential.ValidationError.missingAPIKey`;
+3. keep the one-case source free of readiness, trust, storage-location, or
+   security meaning. Do not add raw values, `Codable`, logging/description,
+   persistence, App Group, or keyboard-extension semantics;
+4. keep `OpenAICredentialResolver`, `APIKeyStorage`, Keychain-specific error
+   detection, `OpenAICredentialResolutionError`, `APIKeyAvailability`, user
+   copy, and provider-error mapping in the containing app;
+5. preserve source-compatible macOS facades and explicitly map the Domain
+   missing-key validation error back to the existing resolution error so a
+   whitespace-only stored value is not misreported as unavailable storage;
+6. add package, macOS resolver-regression, and normal-import iOS tests. Keep the
+   keyboard target unlinked from Domain and never place the credential in a
+   bridge record.
 
 ## Research Basis
 

@@ -35,6 +35,26 @@ struct DictationSessionControllerRecordingActionTests {
         #expect(transcribingRecorder.startCount == 0)
     }
 
+    @Test func explicitStartTreatsCompletedPresentationAsInactiveWork() async {
+        let completedStatuses: [DictationStatus] = [
+            .success(transcript: "Previous result"),
+            .failure(message: "Previous failure"),
+        ]
+
+        for completedStatus in completedStatuses {
+            let recorder = RecordingActionRecorder()
+            let controller = makeController(
+                recorder: recorder,
+                initialStatus: completedStatus
+            )
+
+            await controller.startRecordingAction()
+
+            #expect(controller.status == .recording)
+            #expect(recorder.startCount == 1)
+        }
+    }
+
     @Test func explicitStopOnlyStopsActiveRecording() async {
         let idleRecorder = RecordingActionRecorder()
         let idleController = makeController(recorder: idleRecorder)

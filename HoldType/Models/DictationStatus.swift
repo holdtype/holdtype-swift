@@ -15,6 +15,17 @@ enum DictationStatus: Equatable {
     case success(transcript: String)
     case failure(message: String)
 
+    var voiceWorkPhase: VoiceWorkPhase {
+        switch self {
+        case .idle, .success, .failure:
+            return .inactive
+        case .recording:
+            return .listening
+        case .transcribing:
+            return .processing
+        }
+    }
+
     var menuStatusText: String {
         switch self {
         case .idle:

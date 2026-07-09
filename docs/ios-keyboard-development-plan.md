@@ -195,9 +195,9 @@ users switch back to Apple's keyboard.
 ## Milestone 4 — Voice UX And Hardening
 
 - dedicated mic in the compact action bar;
-- `needsActivation`, `ready`, `listening`, `processing`,
+- `needsActivation`, `arming`, `ready`, `listening`, `finalizing`, `processing`,
   `confirmedInserted`, `deliveryUnverified`, `recoverableFailure`, and
-  `interrupted` states;
+  distinct `interrupted` and `expired` states;
 - literal plus punctuation by default; AI polish is explicit;
 - Retry/Insert where eligible plus instructions to use containing-app Latest
   Result or History for Copy; keyboard-level Copy appears only after its
@@ -288,8 +288,10 @@ host app, state, expected result, actual result, and go/no-go decision.
   transient completed-recording artifact is also portable without making its
   runtime URL durable. The narrow recording-cache lifecycle contract is now
   portable too, and destructive cache handling is skipped when required
-  recovery ownership fails. The next P1 slice defines the runtime-only
-  `VoiceWorkPhase` separately from setup, outcomes, delivery, and transport;
-  App Group command/session records and actual keyboard insertion remain
-  unchanged until their owning milestone.
+  recovery ownership fails. The runtime-only `VoiceWorkPhase` is portable too,
+  separately from setup, outcomes, delivery, timers, and transport. The next P1
+  slice moves the transient provider credential value/resolver contract into
+  the containing-app Domain dependency only; Keychain, App Group
+  command/session records, keyboard linking, and actual keyboard insertion
+  remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

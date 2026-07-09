@@ -5,18 +5,19 @@
 //  Created by Codex on 6/22/26.
 //
 
+import HoldTypeDomain
+
 extension DictationSessionController {
     func startRecordingAction() async {
-        switch status {
-        case .idle, .success, .failure:
-            await performRecordingAction()
-        case .recording, .transcribing:
+        guard status.voiceWorkPhase == .inactive else {
             return
         }
+
+        await performRecordingAction()
     }
 
     func stopRecordingAction() async {
-        guard status == .recording else {
+        guard status.voiceWorkPhase == .listening else {
             return
         }
 

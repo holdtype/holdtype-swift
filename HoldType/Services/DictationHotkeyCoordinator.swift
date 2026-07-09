@@ -91,12 +91,12 @@ final class DictationHotkeyCoordinator {
             return
         }
 
-        let status = statusProvider()
-        guard status != .transcribing else {
+        let phase = statusProvider().voiceWorkPhase
+        guard phase == .inactive || phase == .listening else {
             return
         }
 
-        let isRecording = status == .recording
+        let isRecording = phase == .listening
         guard !isRecording || isHotkeyRecordingActive else {
             return
         }
@@ -123,7 +123,7 @@ final class DictationHotkeyCoordinator {
         let outputIntent = command == .stopRecording ? activeOutputIntent : event.outputIntent
         await runRecordingAction(intent: outputIntent)
 
-        if command == .startRecording, statusProvider() != .recording {
+        if command == .startRecording, statusProvider().voiceWorkPhase != .listening {
             isHotkeyRecordingActive = false
             shouldStopAfterCurrentAction = false
             activeOutputIntent = .standard
@@ -162,7 +162,7 @@ final class DictationHotkeyCoordinator {
     private func replayDeferredStop() async {
         shouldStopAfterCurrentAction = false
 
-        guard statusProvider() == .recording, isHotkeyRecordingActive else {
+        guard statusProvider().voiceWorkPhase == .listening, isHotkeyRecordingActive else {
             isHotkeyRecordingActive = false
             activeOutputIntent = .standard
             return

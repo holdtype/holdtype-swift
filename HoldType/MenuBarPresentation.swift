@@ -5,6 +5,8 @@
 //  Created by Codex on 6/22/26.
 //
 
+import HoldTypeDomain
+
 enum HoldTypeMenuBarIdentity {
     static let title = "HoldType"
     static let iconAssetName = "HoldTypeMenuBarIcon"
@@ -92,11 +94,6 @@ struct MenuBarPresentation: Equatable {
     }
 
     private static func canStartNewRecording(from dictationStatus: DictationStatus) -> Bool {
-        switch dictationStatus {
-        case .idle, .success, .failure:
-            return true
-        case .recording, .transcribing:
-            return false
-        }
+        dictationStatus.voiceWorkPhase == .inactive
     }
 }

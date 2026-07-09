@@ -54,8 +54,13 @@ The compact action bar presents one of these product states:
 
 - `needsSetup`: keyboard, privacy, API key, or microphone setup is incomplete;
 - `needsActivation`: the containing-app voice session is not active;
-- `ready`: a bounded voice session can start;
+- `arming`: HoldType is activating the explicit Quick Session; no utterance
+  action is available yet;
+- `ready`: an already-active bounded Quick Session is armed and an utterance
+  can start;
 - `listening`: waveform, elapsed time, Cancel, and Done are visible;
+- `finalizing`: HoldType is validating and durably saving the completed
+  recording; neither Cancel Utterance nor Cancel Processing is available;
 - `processing`: recording is safe locally while transcription completes;
 - `confirmedInserted`: the same document/context confirms the submitted suffix
   and a short safe Undo opportunity is available;
@@ -65,7 +70,14 @@ The compact action bar presents one of these product states:
 - `recoverableFailure`: available recovery is explained, with Retry or Insert
   only where its gate has passed and instructions to open Latest Result or
   History in HoldType;
-- `interrupted`: a call, Siri, route change, lock, or session expiry stopped work.
+- `interrupted`: a call, Siri, route change, or lock stopped work;
+- `expired`: the bounded Quick Session reached its independent deadline.
+
+`interrupted` and `expired` may share a compact recovery layout, but remain
+distinct reasons and must not be relabelled as each other.
+Reaching the separate five-minute utterance maximum is a visible recording
+failure, not Quick Session expiry, and its maximum-duration artifact is not
+uploaded.
 
 The UI must never label a state `ready` when tapping the microphone will first
 require an unexplained app switch.

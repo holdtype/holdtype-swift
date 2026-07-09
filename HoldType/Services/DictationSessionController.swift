@@ -143,19 +143,19 @@ final class DictationSessionController {
 
         defer { completeExclusiveAction() }
 
-        switch status {
-        case .idle, .success, .failure:
+        switch status.voiceWorkPhase {
+        case .inactive:
             await startRecording(intent: intent, credential: credential)
-        case .recording:
+        case .listening:
             await stopRecordingAndTranscribe(intent: intent, credential: credential)
-        case .transcribing:
+        case .arming, .ready, .finalizing, .processing:
             return
         }
     }
 
     func cancelRecording() {
-        switch status {
-        case .recording:
+        switch status.voiceWorkPhase {
+        case .listening:
             guard !isPerformingAction || activeRecordingStopTailTask != nil else {
                 return
             }
@@ -174,7 +174,7 @@ final class DictationSessionController {
             default:
                 status = .idle
             }
-        case .transcribing:
+        case .processing:
             transcriptionService.cancelActiveTranscription()
             textCorrectionService.cancelActiveCorrection()
             translationService.cancelActiveTranslation()
@@ -182,7 +182,7 @@ final class DictationSessionController {
             outputStatusText = nil
             failurePresentation = nil
             status = .idle
-        default:
+        case .inactive, .arming, .ready, .finalizing:
             return
         }
     }

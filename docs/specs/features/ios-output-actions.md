@@ -265,6 +265,9 @@ be matched conservatively.
   delivery.
 - Pending result, latest result, History entry, and insertion acknowledgement
   have independent lifetimes.
+- `OutputDeliveryState.expired` means accepted-result delivery eligibility or
+  snapshot expiry. It is not Quick Session expiry or the utterance duration
+  limit.
 - The production bridge must define bounded expiry before automatic insertion
   is enabled.
 
