@@ -8,38 +8,6 @@
 import Foundation
 import HoldTypeDomain
 
-enum TranslationSourceMode: String, CaseIterable, Codable, Equatable {
-    case sameAsTranscription
-    case override
-
-    var displayName: String {
-        switch self {
-        case .sameAsTranscription:
-            return "Same as Transcription"
-        case .override:
-            return "Override source language"
-        }
-    }
-}
-
-enum TranslationConfigurationIssue: Error, Equatable, LocalizedError {
-    case invalidSourceLanguage
-    case missingTargetLanguage
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidSourceLanguage:
-            return "Choose a valid source language override in Translation settings."
-        case .missingTargetLanguage:
-            return "Choose a target language in Translation settings."
-        }
-    }
-
-    var title: String {
-        "Translation settings need attention"
-    }
-}
-
 enum RecordingCachePolicy: Equatable {
     static let defaultRetainedRecordingLimit = 10
     static let maximumRetainedRecordingLimit = 999
@@ -116,7 +84,7 @@ enum RecordingStopTailDuration: String, CaseIterable, Codable, Equatable {
 struct AppSettings: Equatable {
     static let defaultTranscriptionModel = TranscriptionConfiguration.defaultModel
     static let defaultTextCorrectionModel = TextCorrectionConfiguration.defaultModel
-    static let defaultTranslationModel = "gpt-5.4-mini"
+    static let defaultTranslationModel = TranslationConfiguration.defaultModel
     static let customDictionaryPromptPrefix =
         "Custom Dictionary (use these exact spellings when they appear in the text): "
     static let emojiCommandsPromptPrefix =
@@ -124,14 +92,7 @@ struct AppSettings: Equatable {
     static let defaultEnabledEmojiCommandSetIDs =
         EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
     static let defaultTextCorrectionPrompt = TextCorrectionConfiguration.defaultPrompt
-    static let defaultTranslationPrompt =
-        """
-        Translate the user's dictation transcript into the target language.
-        Return only the translated text.
-
-        Preserve meaning, names, numbers, paragraph breaks, and list structure when practical.
-        Do not add explanations, markdown, alternatives, diagnostics, or source text.
-        """
+    static let defaultTranslationPrompt = TranslationConfiguration.defaultPrompt
 
     static let defaults = AppSettings(
         transcriptionModel: defaultTranscriptionModel,
@@ -235,18 +196,29 @@ struct AppSettings: Equatable {
         textCorrectionPrompt = Self.defaultTextCorrectionPrompt
     }
 
+    var translationConfiguration: TranslationConfiguration {
+        TranslationConfiguration(
+            actionPreferenceEnabled: translationShortcutEnabled,
+            sourceMode: translationSourceMode,
+            sourceLanguage: translationSourceLanguage,
+            customSourceLanguageCode: customTranslationSourceLanguageCode,
+            targetLanguage: translationTargetLanguage,
+            customTargetLanguageCode: customTranslationTargetLanguageCode,
+            model: translationModel,
+            prompt: translationPrompt
+        )
+    }
+
     var resolvedTranslationModel: String {
-        let trimmedModel = translationModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedModel.isEmpty ? Self.defaultTranslationModel : trimmedModel
+        translationConfiguration.resolvedModel
     }
 
     var resolvedTranslationPrompt: String {
-        let trimmedPrompt = translationPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedPrompt.isEmpty ? Self.defaultTranslationPrompt : trimmedPrompt
+        translationConfiguration.resolvedPrompt
     }
 
     var isTranslationPromptDefault: Bool {
-        translationPrompt == Self.defaultTranslationPrompt
+        translationConfiguration.isPromptDefault
     }
 
     mutating func resetTranslationPrompt() {
@@ -254,52 +226,25 @@ struct AppSettings: Equatable {
     }
 
     var resolvedTranslationSourceLanguageCode: String? {
-        switch translationSourceMode {
-        case .sameAsTranscription:
-            return resolvedLanguageCode
-        case .override:
-            return Self.resolvedLanguageCode(
-                for: translationSourceLanguage,
-                customCode: customTranslationSourceLanguageCode
-            )
-        }
-    }
-
-    var resolvedTranslationTargetLanguageCode: String? {
-        Self.resolvedLanguageCode(
-            for: translationTargetLanguage,
-            customCode: customTranslationTargetLanguageCode
+        translationConfiguration.resolvedSourceLanguageCode(
+            transcriptionConfiguration: transcriptionConfiguration
         )
     }
 
+    var resolvedTranslationTargetLanguageCode: String? {
+        translationConfiguration.resolvedTargetLanguageCode
+    }
+
     var canRunTranslation: Bool {
-        translationShortcutEnabled
-            && translationConfigurationIssue == nil
+        translationConfiguration.canRunAction
     }
 
     var translationConfigurationIssue: TranslationConfigurationIssue? {
-        guard translationShortcutEnabled else {
-            return nil
-        }
-
-        guard isTranslationSourceConfigurationValid else {
-            return .invalidSourceLanguage
-        }
-
-        guard resolvedTranslationTargetLanguageCode != nil else {
-            return .missingTargetLanguage
-        }
-
-        return nil
+        translationConfiguration.configurationIssue
     }
 
     var isTranslationSourceConfigurationValid: Bool {
-        switch translationSourceMode {
-        case .sameAsTranscription:
-            return true
-        case .override:
-            return resolvedTranslationSourceLanguageCode != nil
-        }
+        translationConfiguration.isSourceConfigurationValid
     }
 
     var enabledTextReplacementRules: [TextReplacementRule] {

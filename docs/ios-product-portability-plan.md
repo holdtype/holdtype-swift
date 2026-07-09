@@ -1,7 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first eleven P1
-Domain slices complete; updated 2026-07-09.
+Status: active implementation roadmap, P0 contracts and the first twelve P1
+Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -614,11 +614,14 @@ selection, normalization, enabled-state, and prompt-hint behavior, and the
 exact emoji alias matcher is portable. The deterministic cleanup → emoji →
 ordered replacement post-processing pipeline is also portable. Correction
 model presets and pure model/prompt resolution now live in Domain with their
-exact defaults and reset behavior. The macOS app keeps source-compatible
-typealias/presentation facades, projects the configuration from its existing
-scalar settings, and preserves the UserDefaults keys, scalar raw values, and
-custom-dictionary `[String]` storage. Direct package consumers are linked
-explicitly, the keyboard remains unlinked, and package/macOS/iOS tests pass.
+exact defaults and reset behavior. Translation source/target resolution,
+action preference versus route readiness, model/prompt fallback, and validation
+are portable as well. The macOS app keeps source-compatible
+typealias/presentation facades, projects the configurations from its existing
+scalar settings, and preserves the UserDefaults keys, scalar raw values, legacy
+translation migration, and custom-dictionary `[String]` storage. Direct package
+consumers are linked explicitly, the keyboard remains unlinked, and
+package/macOS/iOS tests pass.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -823,18 +826,18 @@ Do not begin by porting `SettingsView` or adding every macOS source file to the
 iOS target. P0 plus the accepted-text, prompt-context, language,
 transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
-slices plus remote text-correction configuration are complete. The next P1
-slice extracts translation configuration:
+slices plus remote text-correction and translation configurations are complete.
+The next P1 slice extracts retention configuration:
 
-1. move source-mode, validation issue, source/target resolution, model/prompt
-   fallback, and reset behavior into Domain while keeping English presentation
-   strings in the macOS facade;
-2. name the shared action preference independently of the macOS shortcut while
-   projecting all existing raw fields from `AppSettings`;
-3. preserve the exact defaults, language validation, legacy Russian-to-English
-   migration, and current UserDefaults raw values with package/macOS/iOS tests;
-4. keep provider requests, request DTOs, cancellation, and output processing
-   outside this configuration-only slice;
+1. move `RecordingCachePolicy` and a pure history/recording
+   `RetentionConfiguration` into Domain;
+2. preserve delete-immediately, normalized keep-last, unlimited, the default
+   retained count, maximum count, and enabled-history defaults;
+3. project `saveTranscriptHistory` and the recording policy from `AppSettings`
+   without changing its initializer, two-key cache schema, or one-time history
+   default migration;
+4. keep repository I/O, file deletion, pruning, playback, and export outside
+   this configuration-only slice;
 5. keep UI, App Group publication, audio, background modes, the obsolete M0A
    session prototype, and the production QWERTY engine outside this slice.
 
