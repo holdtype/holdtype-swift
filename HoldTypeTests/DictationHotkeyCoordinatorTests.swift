@@ -72,17 +72,21 @@ struct DictationHotkeyCoordinatorTests {
 
     @Test func outputIntentChangePromotesActiveHotkeyRecording() async throws {
         let hotkeyService = FakeGlobalHotkeyService()
+        let eventLogger = FakeDictationEventLogger()
         let recordingAction = FakeHotkeyRecordingAction(initialStatus: .idle)
         let coordinator = makeCoordinator(
             hotkeyService: hotkeyService,
-            recordingAction: recordingAction
+            recordingAction: recordingAction,
+            eventLogger: eventLogger
         )
 
         try coordinator.start()
         hotkeyService.trigger(.keyDown)
         await yieldUntil { recordingAction.status == .recording }
         hotkeyService.trigger(.outputIntentChanged(to: .translate))
-        await Task.yield()
+        await yieldUntil {
+            eventLogger.events.contains(.hotkeyEvent(action: .outputIntentChanged, intent: .translate))
+        }
         hotkeyService.trigger(.keyUp)
         await yieldUntil { recordingAction.performCount == 2 }
 
@@ -93,6 +97,7 @@ struct DictationHotkeyCoordinatorTests {
     @Test func outputIntentChangeDuringInFlightStartPromotesDeferredStop() async throws {
         let gate = AsyncHotkeyGate()
         let hotkeyService = FakeGlobalHotkeyService()
+        let eventLogger = FakeDictationEventLogger()
         let recordingAction = FakeHotkeyRecordingAction(
             initialStatus: .idle,
             beforeStatusChange: {
@@ -101,7 +106,8 @@ struct DictationHotkeyCoordinatorTests {
         )
         let coordinator = makeCoordinator(
             hotkeyService: hotkeyService,
-            recordingAction: recordingAction
+            recordingAction: recordingAction,
+            eventLogger: eventLogger
         )
 
         try coordinator.start()
@@ -109,8 +115,11 @@ struct DictationHotkeyCoordinatorTests {
         await yieldUntil { recordingAction.performCount == 1 }
 
         hotkeyService.trigger(.outputIntentChanged(to: .translate))
+        await yieldUntil {
+            eventLogger.events.contains(.hotkeyEvent(action: .outputIntentChanged, intent: .translate))
+        }
         hotkeyService.trigger(.keyUp)
-        await Task.yield()
+        await yieldUntil { eventLogger.events.contains(.hotkeyStopDeferred) }
 
         #expect(recordingAction.performCount == 1)
 
@@ -187,6 +196,7 @@ struct DictationHotkeyCoordinatorTests {
     @Test func keyUpDuringInFlightStartStopsRecordingAfterStartCompletes() async throws {
         let gate = AsyncHotkeyGate()
         let hotkeyService = FakeGlobalHotkeyService()
+        let eventLogger = FakeDictationEventLogger()
         let recordingAction = FakeHotkeyRecordingAction(
             initialStatus: .idle,
             beforeStatusChange: {
@@ -195,7 +205,8 @@ struct DictationHotkeyCoordinatorTests {
         )
         let coordinator = makeCoordinator(
             hotkeyService: hotkeyService,
-            recordingAction: recordingAction
+            recordingAction: recordingAction,
+            eventLogger: eventLogger
         )
 
         try coordinator.start()
@@ -203,7 +214,7 @@ struct DictationHotkeyCoordinatorTests {
         await yieldUntil { recordingAction.performCount == 1 }
 
         hotkeyService.trigger(.keyUp)
-        await Task.yield()
+        await yieldUntil { eventLogger.events.contains(.hotkeyStopDeferred) }
 
         #expect(recordingAction.performCount == 1)
 
@@ -217,7 +228,8 @@ struct DictationHotkeyCoordinatorTests {
 
     private func makeCoordinator(
         hotkeyService: FakeGlobalHotkeyService,
-        recordingAction: FakeHotkeyRecordingAction
+        recordingAction: FakeHotkeyRecordingAction,
+        eventLogger: any DictationEventLogging = FakeDictationEventLogger()
     ) -> DictationHotkeyCoordinator {
         DictationHotkeyCoordinator(
             hotkeyService: hotkeyService,
@@ -226,7 +238,8 @@ struct DictationHotkeyCoordinatorTests {
             },
             performRecordingAction: { intent in
                 await recordingAction.perform(intent: intent)
-            }
+            },
+            eventLogger: eventLogger
         )
     }
 
@@ -239,6 +252,14 @@ struct DictationHotkeyCoordinatorTests {
             await Task.yield()
             try? await Task.sleep(nanoseconds: 1_000_000)
         }
+    }
+}
+
+private final class FakeDictationEventLogger: DictationEventLogging {
+    private(set) var events: [DictationLogEvent] = []
+
+    func record(_ event: DictationLogEvent) {
+        events.append(event)
     }
 }
 
