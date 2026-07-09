@@ -10,7 +10,7 @@ Usage:
   scripts/release/create_official_homebrew_cask_pr.sh \
     --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
     --version 1.0.0 --sha256 SHA --repository owner/repo \
-    --minimum-macos ">= :tahoe" \
+    --minimum-macos ">= :sonoma" \
     --fork-repository github-user/homebrew-cask --push --open-pr
 
 Options:
@@ -23,7 +23,7 @@ Options:
   --base-branch BRANCH           Defaults to main.
   --branch BRANCH                Defaults to holdtype-VERSION.
   --homepage URL
-  --minimum-macos HOMEBREW_VALUE Required. Example: ">= :tahoe"
+  --minimum-macos HOMEBREW_VALUE Required. Example: ">= :sonoma"
   --audit                        Run brew audit --new --cask holdtype.
   --style                        Run brew style --fix holdtype.
   --push                         Push HEAD to the fork branch.

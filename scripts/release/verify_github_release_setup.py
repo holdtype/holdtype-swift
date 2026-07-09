@@ -43,6 +43,7 @@ OFFICIAL_HOMEBREW_CASK_PATH = f"Casks/{CASK_TOKEN[0]}/{CASK_TOKEN}.rb"
 HOMEBREW_MACOS_COMPARISON_PATTERN = re.compile(r"^(>=|>|<=|<|==) :[a-z][a-z0-9_]*$")
 OFFICIAL_CASK_VERSION_PATTERN = re.compile(r'^\s*version\s+"[0-9]+(?:\.[0-9]+)*"\s*$')
 OFFICIAL_CASK_SHA256_PATTERN = re.compile(r'^\s*sha256\s+"[0-9a-f]{64}"\s*$')
+EXPECTED_HOMEBREW_MINIMUM_MACOS = ">= :sonoma"
 
 
 @dataclass(frozen=True)
@@ -178,11 +179,16 @@ def extract_variables(payload: Any) -> dict[str, str]:
 
 
 def validate_homebrew_minimum_macos(value: str) -> Check | None:
-    if HOMEBREW_MACOS_COMPARISON_PATTERN.fullmatch(value):
+    if value == EXPECTED_HOMEBREW_MINIMUM_MACOS:
         return None
+    if HOMEBREW_MACOS_COMPARISON_PATTERN.fullmatch(value):
+        return fail_check(
+            "variable:HOMEBREW_MINIMUM_MACOS",
+            f"expected {EXPECTED_HOMEBREW_MINIMUM_MACOS}, got {value}",
+        )
     return fail_check(
         "variable:HOMEBREW_MINIMUM_MACOS",
-        'expected a Homebrew macOS comparison expression such as ">= :tahoe"',
+        'expected a Homebrew macOS comparison expression such as ">= :sonoma"',
     )
 
 

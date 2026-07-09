@@ -50,7 +50,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
-  --minimum-macos ">= :tahoe"
+  --minimum-macos ">= :sonoma"
 ```
 
 Install command for users:
@@ -98,7 +98,7 @@ scripts/release/prepare_official_homebrew_cask.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit
 ```
 
@@ -119,7 +119,7 @@ scripts/release/verify_homebrew_cask.py \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --official-layout
 ```
 
@@ -145,7 +145,7 @@ scripts/release/create_official_homebrew_cask_pr.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit \
   --style \
   --fork-repository <github-user>/homebrew-cask \
@@ -177,9 +177,8 @@ official cask is merged. Configure `HOMEBREW_GITHUB_API_TOKEN`, then set
 until `brew install --cask holdtype` already resolves from
 `Homebrew/homebrew-cask`.
 
-Before publishing the first cask, confirm the public minimum macOS version. The
-template leaves the `depends_on macos:` stanza commented for manual drafts until
-that product choice is final, but the release workflow requires
-`HOMEBREW_MINIMUM_MACOS` before it opens a tap pull request. The release input
-uses a comparison value such as `>= :tahoe`; the cask renderer normalizes that
-to Homebrew's current `depends_on macos: :tahoe` DSL.
+Before publishing the first cask, keep the public minimum macOS version aligned
+with the app bundle. HoldType's current release boundary is macOS 14 Sonoma and
+newer, expressed as `HOMEBREW_MINIMUM_MACOS=">= :sonoma"` for the release
+workflow. The cask renderer normalizes that input to Homebrew's current
+`depends_on macos: :sonoma` DSL.

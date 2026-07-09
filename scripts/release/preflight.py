@@ -46,6 +46,8 @@ HOMEBREW_OFFICIAL_CASK_BUMP_ENABLED_NAME = "HOMEBREW_OFFICIAL_CASK_BUMP_ENABLED"
 HOMEBREW_OFFICIAL_CASK_FORK_ORG_NAME = "HOMEBREW_OFFICIAL_CASK_FORK_ORG"
 HOMEBREW_GITHUB_API_TOKEN_NAME = "HOMEBREW_GITHUB_API_TOKEN"
 HOMEBREW_MACOS_COMPARISON_PATTERN = re.compile(r"^(>=|>|<=|<|==) :[a-z][a-z0-9_]*$")
+EXPECTED_MACOS_DEPLOYMENT_TARGET = "14.0"
+EXPECTED_HOMEBREW_MINIMUM_MACOS = ">= :sonoma"
 
 REQUIRED_PATHS = (
     "Config/ExportOptions.DeveloperID.plist",
@@ -239,11 +241,13 @@ def check_xcode_release_settings(root: Path, timeout_seconds: int) -> list[Check
         )
 
     deployment_target = settings.get("MACOSX_DEPLOYMENT_TARGET")
-    if deployment_target:
+    if deployment_target == EXPECTED_MACOS_DEPLOYMENT_TARGET:
+        checks.append(pass_check("xcode-settings:MACOSX_DEPLOYMENT_TARGET", deployment_target))
+    elif deployment_target:
         checks.append(
-            warn_check(
+            fail_check(
                 "xcode-settings:MACOSX_DEPLOYMENT_TARGET",
-                f"current minimum macOS is {deployment_target}; confirm before public release",
+                f"expected {EXPECTED_MACOS_DEPLOYMENT_TARGET}, got {deployment_target}",
             )
         )
     else:
@@ -440,13 +444,20 @@ def check_homebrew_tap_environment(
         )
 
     minimum_macos = environment.get("HOMEBREW_MINIMUM_MACOS", "")
-    if minimum_macos and HOMEBREW_MACOS_COMPARISON_PATTERN.fullmatch(minimum_macos):
+    if minimum_macos == EXPECTED_HOMEBREW_MINIMUM_MACOS:
         checks.append(pass_check("homebrew:minimum-macos", minimum_macos))
+    elif minimum_macos and HOMEBREW_MACOS_COMPARISON_PATTERN.fullmatch(minimum_macos):
+        checks.append(
+            fail_check(
+                "homebrew:minimum-macos",
+                f"expected {EXPECTED_HOMEBREW_MINIMUM_MACOS}, got {minimum_macos}",
+            )
+        )
     elif minimum_macos:
         checks.append(
             fail_check(
                 "homebrew:minimum-macos",
-                'expected Homebrew comparison expression such as ">= :tahoe"',
+                'expected Homebrew comparison expression such as ">= :sonoma"',
             )
         )
     else:

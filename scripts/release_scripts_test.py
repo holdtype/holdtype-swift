@@ -173,12 +173,12 @@ class ReleaseScriptsTests(unittest.TestCase):
         settings = module.parse_xcode_build_settings(
             """
                 ENABLE_HARDENED_RUNTIME = YES
-                MACOSX_DEPLOYMENT_TARGET = 26.5
+                MACOSX_DEPLOYMENT_TARGET = 14.0
             """
         )
 
         self.assertEqual(settings["ENABLE_HARDENED_RUNTIME"], "YES")
-        self.assertEqual(settings["MACOSX_DEPLOYMENT_TARGET"], "26.5")
+        self.assertEqual(settings["MACOSX_DEPLOYMENT_TARGET"], "14.0")
 
     def test_secret_preflight_fails_only_when_required(self) -> None:
         module = load_preflight_module()
@@ -211,7 +211,7 @@ class ReleaseScriptsTests(unittest.TestCase):
                 "HOMEBREW_TAP_REPOSITORY": "potapenko/homebrew-tap",
                 "HOMEBREW_EXPECTED_TAP": "holdtype/tap",
                 "HOMEBREW_TAP_TOKEN": "token",
-                "HOMEBREW_MINIMUM_MACOS": ">= :tahoe",
+                "HOMEBREW_MINIMUM_MACOS": ">= :sonoma",
             }
         )
         invalid_minimum_checks = module.check_homebrew_tap_environment(
@@ -219,7 +219,15 @@ class ReleaseScriptsTests(unittest.TestCase):
                 "HOMEBREW_TAP_REPOSITORY": "holdtype/homebrew-tap",
                 "HOMEBREW_EXPECTED_TAP": "holdtype/tap",
                 "HOMEBREW_TAP_TOKEN": "token",
-                "HOMEBREW_MINIMUM_MACOS": "tahoe",
+                "HOMEBREW_MINIMUM_MACOS": "sonoma",
+            }
+        )
+        wrong_minimum_checks = module.check_homebrew_tap_environment(
+            {
+                "HOMEBREW_TAP_REPOSITORY": "holdtype/homebrew-tap",
+                "HOMEBREW_EXPECTED_TAP": "holdtype/tap",
+                "HOMEBREW_TAP_TOKEN": "token",
+                "HOMEBREW_MINIMUM_MACOS": ">= :ventura",
             }
         )
         invalid_repository_name_checks = module.check_homebrew_tap_environment(
@@ -227,7 +235,7 @@ class ReleaseScriptsTests(unittest.TestCase):
                 "HOMEBREW_TAP_REPOSITORY": "holdtype/tap",
                 "HOMEBREW_EXPECTED_TAP": "holdtype/tap",
                 "HOMEBREW_TAP_TOKEN": "token",
-                "HOMEBREW_MINIMUM_MACOS": ">= :tahoe",
+                "HOMEBREW_MINIMUM_MACOS": ">= :sonoma",
             }
         )
         configured_checks = module.check_homebrew_tap_environment(
@@ -235,7 +243,7 @@ class ReleaseScriptsTests(unittest.TestCase):
                 "HOMEBREW_TAP_REPOSITORY": "holdtype/homebrew-tap",
                 "HOMEBREW_EXPECTED_TAP": "holdtype/tap",
                 "HOMEBREW_TAP_TOKEN": "token",
-                "HOMEBREW_MINIMUM_MACOS": ">= :tahoe",
+                "HOMEBREW_MINIMUM_MACOS": ">= :sonoma",
             }
         )
 
@@ -289,6 +297,14 @@ class ReleaseScriptsTests(unittest.TestCase):
             any(
                 check.name == "homebrew:minimum-macos" and check.status == "fail"
                 for check in invalid_minimum_checks
+            )
+        )
+        self.assertTrue(
+            any(
+                check.name == "homebrew:minimum-macos"
+                and check.status == "fail"
+                and "expected >= :sonoma" in check.message
+                for check in wrong_minimum_checks
             )
         )
         self.assertTrue(
@@ -960,7 +976,7 @@ printf '<rss />\\n' > "$out"
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output",
                     str(output_path),
                 ],
@@ -982,7 +998,7 @@ printf '<rss />\\n' > "$out"
                 "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
                 rendered,
             )
-            self.assertIn("depends_on macos: :tahoe", rendered)
+            self.assertIn("depends_on macos: :sonoma", rendered)
             self.assertIn('app "HoldType.app"', rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Caches/HoldType"', rendered)
@@ -1002,7 +1018,7 @@ printf '<rss />\\n' > "$out"
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    "tahoe",
+                    "sonoma",
                     "--output",
                     str(output_path),
                 ],
@@ -1082,7 +1098,7 @@ printf '<rss />\\n' > "$out"
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output",
                     str(output_path),
                 ],
@@ -1105,7 +1121,7 @@ printf '<rss />\\n' > "$out"
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--official-layout",
                 ],
                 cwd=ROOT,
@@ -1155,7 +1171,7 @@ printf '<rss />\\n' > "$out"
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output",
                     str(output_path),
                 ],
@@ -1209,7 +1225,7 @@ printf '<rss />\\n' > "$out"
                     "--sha256",
                     sha256,
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--github-api-url",
                     base_url,
                     "--timeout",
@@ -1252,7 +1268,7 @@ printf '<rss />\\n' > "$out"
                 "--sha256",
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 "--minimum-macos",
-                ">= :tahoe",
+                ">= :sonoma",
                 "--github-api-url",
                 "http://127.0.0.1:9",
                 "--timeout",
@@ -1369,7 +1385,7 @@ end
                     "--tap-repository",
                     "holdtype/homebrew-tap",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -1390,7 +1406,7 @@ end
                 "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
                 rendered,
             )
-            self.assertIn("depends_on macos: :tahoe", rendered)
+            self.assertIn("depends_on macos: :sonoma", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Caches/HoldType"', rendered)
 
@@ -1416,7 +1432,7 @@ end
                     "--tap-repository",
                     "holdtype/homebrew-tap",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--audit",
                     "--brew",
                     str(fake_brew),
@@ -1447,7 +1463,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -1465,7 +1481,7 @@ end
                 'sha256 "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"',
                 rendered,
             )
-            self.assertIn("depends_on macos: :tahoe", rendered)
+            self.assertIn("depends_on macos: :sonoma", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Preferences/app.holdtype.HoldType.plist"', rendered)
 
@@ -1504,7 +1520,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    "tahoe",
+                    "sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -1553,7 +1569,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output-dir",
                     str(output_dir),
                 ],
@@ -1572,7 +1588,7 @@ end
             self.assertIn("[pass] homebrew-cask-submission:bundle", result.stdout)
             self.assertIn('version "1.2.3"', rendered)
             self.assertIn(f'sha256 "{dmg_sha}"', rendered)
-            self.assertIn("depends_on macos: :tahoe", rendered)
+            self.assertIn("depends_on macos: :sonoma", rendered)
             self.assertIn('uninstall quit: "app.holdtype.HoldType"', rendered)
             self.assertIn('"~/Library/Saved Application State/app.holdtype.HoldType.savedState"', rendered)
             self.assertEqual(metadata["cask_path"], "Casks/h/holdtype.rb")
@@ -1585,7 +1601,7 @@ end
             self.assertIn("brew audit --new --cask holdtype", submission)
             self.assertIn("export HOMEBREW_NO_INSTALL_FROM_API=1", submission)
             self.assertNotIn("brew lgtm --online", submission)
-            self.assertIn("--minimum-macos \">= :tahoe\"", submission)
+            self.assertIn("--minimum-macos \">= :sonoma\"", submission)
 
     def test_write_homebrew_cask_submission_rejects_malformed_repository(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1597,7 +1613,7 @@ end
                     "--repository",
                     "potapenko/holdtype/swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output-dir",
                     str(Path(temp_dir) / "homebrew-official-cask"),
                 ],
@@ -1646,7 +1662,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output-dir",
                     str(output_dir),
                 ],
@@ -1709,7 +1725,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output-dir",
                     str(output_dir),
                 ],
@@ -1727,7 +1743,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    "tahoe",
+                    "sonoma",
                     "--output-dir",
                     str(output_dir),
                 ],
@@ -1762,7 +1778,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output",
                     str(bundle_cask),
                 ],
@@ -1780,7 +1796,7 @@ end
                         "cask_token": "holdtype",
                         "dmg_sha256": dmg_sha,
                         "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg",
-                        "minimum_macos": ">= :tahoe",
+                        "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
                         "version": "1.2.3",
@@ -1876,7 +1892,7 @@ end
                 'sha256 "abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"',
                 rendered,
             )
-            self.assertIn("depends_on macos: :tahoe", rendered)
+            self.assertIn("depends_on macos: :sonoma", rendered)
             self.assertIn("tap --force homebrew/cask", brew_log.read_text())
             self.assertIn("--repository homebrew/cask", brew_log.read_text())
 
@@ -1896,7 +1912,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--output",
                     str(bundle_cask),
                 ],
@@ -1914,7 +1930,7 @@ end
                         "cask_token": "holdtype",
                         "dmg_sha256": "ABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD",
                         "dmg_url": "https://github.com/example/wrong/releases/download/v1.2.3/HoldType-1.2.3.dmg",
-                        "minimum_macos": ">= :tahoe",
+                        "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
                         "version": "1.2.3",
@@ -1961,7 +1977,7 @@ end
                         "cask_token": "holdtype",
                         "dmg_sha256": "ABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD",
                         "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg",
-                        "minimum_macos": ">= :tahoe",
+                        "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
                         "version": "1.2.3",
@@ -2036,7 +2052,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--branch",
                     "holdtype-4.0.0-test",
                 ],
@@ -2156,7 +2172,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--branch",
                     "holdtype-4.0.0-test",
                 ],
@@ -2236,7 +2252,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                     "--branch",
                     "holdtype-4.0.0-test",
                     "--style",
@@ -2649,7 +2665,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -2731,7 +2747,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -2788,7 +2804,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -2859,7 +2875,7 @@ end
                     "--repository",
                     "holdtype/holdtype-swift",
                     "--minimum-macos",
-                    ">= :tahoe",
+                    ">= :sonoma",
                 ],
                 cwd=ROOT,
                 text=True,
@@ -3823,7 +3839,7 @@ end
                         "variables": [
                             {"name": "HOMEBREW_TAP_REPOSITORY", "value": "holdtype/homebrew-tap"},
                             {"name": "HOMEBREW_EXPECTED_TAP", "value": "holdtype/tap"},
-                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :tahoe"},
+                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :sonoma"},
                             {"name": "HOMEBREW_OFFICIAL_CASK_BUMP_ENABLED", "value": "true"},
                             {"name": "HOMEBREW_OFFICIAL_CASK_FORK_ORG", "value": "holdtype"},
                         ]
@@ -4213,7 +4229,7 @@ end
                     {
                         "variables": [
                             {"name": "HOMEBREW_TAP_REPOSITORY", "value": "holdtype/tap"},
-                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :tahoe"},
+                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :sonoma"},
                         ]
                     }
                 ).encode("utf-8"),
@@ -4312,7 +4328,7 @@ end
                         "variables": [
                             {"name": "HOMEBREW_TAP_REPOSITORY", "value": "potapenko/homebrew-tap"},
                             {"name": "HOMEBREW_EXPECTED_TAP", "value": "holdtype/tap"},
-                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :tahoe"},
+                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :sonoma"},
                         ]
                     }
                 ).encode("utf-8"),
@@ -4576,7 +4592,7 @@ end
                         "variables": [
                             {"name": "HOMEBREW_TAP_REPOSITORY", "value": "holdtype/homebrew-tap"},
                             {"name": "HOMEBREW_EXPECTED_TAP", "value": "holdtype/tap"},
-                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :tahoe"},
+                            {"name": "HOMEBREW_MINIMUM_MACOS", "value": ">= :sonoma"},
                         ]
                     }
                 ).encode("utf-8"),
@@ -4656,7 +4672,7 @@ end
             )
             routes["/repos/holdtype/holdtype-swift/actions/variables?per_page=100"] = (
                 json.dumps(
-                    {"variables": [{"name": "HOMEBREW_MINIMUM_MACOS", "value": "tahoe"}]}
+                    {"variables": [{"name": "HOMEBREW_MINIMUM_MACOS", "value": "sonoma"}]}
                 ).encode("utf-8"),
                 "application/json",
             )
@@ -4690,6 +4706,17 @@ end
         self.assertEqual(result.returncode, 1)
         self.assertIn("[fail] variable:HOMEBREW_MINIMUM_MACOS", result.stdout)
         self.assertIn("expected a Homebrew macOS comparison expression", result.stdout)
+
+    def test_verify_github_release_setup_rejects_unexpected_homebrew_minimum_macos_variable(self) -> None:
+        module = load_github_setup_module()
+
+        check = module.validate_homebrew_minimum_macos(">= :ventura")
+
+        self.assertIsNotNone(check)
+        assert check is not None
+        self.assertEqual(check.name, "variable:HOMEBREW_MINIMUM_MACOS")
+        self.assertEqual(check.status, "fail")
+        self.assertIn("expected >= :sonoma", check.message)
 
     def test_verify_github_release_setup_requires_homebrew_minimum_macos_variable(self) -> None:
         routes: dict[str, tuple[bytes, str]] = {}

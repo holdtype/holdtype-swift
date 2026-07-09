@@ -54,7 +54,7 @@ scope.
 
 - Final app name: `OpenWhisprSwift`, `DictationBar`, `HoldType`, or another
   name.
-- Deployment target: macOS 14+ or macOS 13+ if it stays simple.
+- Deployment target: macOS 14 Sonoma and newer.
 - Default hotkey: Control + Space or Option + Space.
 - Primary recording mode: hold-to-record first, or toggle first if hold mode is
   unstable.

@@ -77,7 +77,7 @@ validate_repository_slug() {
 validate_homebrew_macos_requirement() {
   local value="$1"
   if [[ ! "$value" =~ ^(\>=|>|<=|<|==)[[:space:]]:[a-z][a-z0-9_]*$ ]]; then
-    die "minimum macOS must be a Homebrew comparison expression such as: >= :tahoe"
+    die "minimum macOS must be a Homebrew comparison expression such as: >= :sonoma"
   fi
 }
 

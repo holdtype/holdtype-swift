@@ -40,7 +40,7 @@ Required Homebrew tap automation variables for public release:
 
 - `HOMEBREW_TAP_REPOSITORY`, for example `holdtype/homebrew-tap`
 - `HOMEBREW_EXPECTED_TAP`, for example `holdtype/tap`
-- `HOMEBREW_MINIMUM_MACOS`, for example `>= :tahoe`
+- `HOMEBREW_MINIMUM_MACOS`, exactly `>= :sonoma`
 
 Optional official Homebrew Cask bump automation variables:
 
@@ -49,9 +49,9 @@ Optional official Homebrew Cask bump automation variables:
 - `HOMEBREW_OFFICIAL_CASK_FORK_ORG`, optional GitHub owner or organization for
   `brew bump-cask-pr --fork-org`
 
-`HOMEBREW_MINIMUM_MACOS` must be a Homebrew macOS comparison expression such as
-`>= :tahoe`. The cask renderer normalizes that release input into Homebrew's
-current `depends_on macos: :tahoe` DSL.
+`HOMEBREW_MINIMUM_MACOS` must match HoldType's public support boundary,
+`>= :sonoma`. The cask renderer normalizes that release input into Homebrew's
+current `depends_on macos: :sonoma` DSL.
 
 The app bundle reads these build settings from
 `Config/HoldTypeSigning.xcconfig` or an untracked
@@ -348,7 +348,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
-  --minimum-macos ">= :tahoe"
+  --minimum-macos ">= :sonoma"
 ```
 
 Use the GitHub repository name for automation variables:
@@ -404,7 +404,7 @@ scripts/release/prepare_official_homebrew_cask.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository holdtype/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit
 ```
 
@@ -430,7 +430,7 @@ scripts/release/verify_homebrew_cask.py \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository holdtype/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --official-layout
 ```
 
@@ -463,7 +463,7 @@ scripts/release/create_official_homebrew_cask_pr.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository holdtype/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit \
   --style \
   --fork-repository <github-user>/homebrew-cask \
@@ -503,9 +503,10 @@ the cask token, GitHub Release DMG URL, app artifact, Sparkle-compatible
 livecheck, uninstall/zap metadata, pinned numeric version, pinned SHA-256, and
 absence of `version :latest`, `verified:`, or `sha256 :no_check`.
 
-Before publishing the first cask, confirm the minimum macOS version. The
-current Xcode project uses `MACOSX_DEPLOYMENT_TARGET = 26.5`; if that is not
-the intended public minimum, update the project setting before release.
+Before publishing the first cask, verify the minimum macOS version. The current
+Xcode project must use `MACOSX_DEPLOYMENT_TARGET = 14.0`; if the public minimum
+changes later, update the project setting, release guardrails, and Homebrew
+minimum together before release.
 
 Submit to the official Homebrew Cask repository only after the public release
 artifacts are live and stable. The submission should:

@@ -167,7 +167,7 @@ default logs.
 
 ## Unknowns requiring confirmation
 
-- Deployment target: macOS 14+ or macOS 13+ if it stays simple.
+- Deployment target: macOS 14 Sonoma and newer.
 - Exact OpenAI transcription model and timeout target.
 - Supported languages for the first version.
 - Whether hold-to-record is mandatory for MVP or toggle mode is acceptable

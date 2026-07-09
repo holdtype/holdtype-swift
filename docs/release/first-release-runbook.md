@@ -13,14 +13,14 @@ Before creating the first public tag, decide:
 - the final GitHub owner/repository URL;
 - the appcast URL used by `HOLDTYPE_UPDATE_FEED_URL`;
 - whether GitHub Pages is the appcast host;
-- the first public minimum macOS version;
+- the first public minimum macOS version, currently macOS 14 Sonoma;
 - whether the first artifact is Apple Silicon only or a universal build;
 - the project-owned Homebrew tap repository, for example
   `holdtype/homebrew-tap`.
 
-The current Xcode project reports `MACOSX_DEPLOYMENT_TARGET = 26.5`. If that
-is not the intended public minimum, change the project setting before the first
-release and update the Homebrew cask `depends_on macos:` value.
+The Xcode project must report `MACOSX_DEPLOYMENT_TARGET = 14.0`. If the public
+minimum changes later, update the project setting, release preflight guardrail,
+and Homebrew cask `depends_on macos:` value together.
 
 ## 2. Prepare Apple Signing And Notarization
 
@@ -139,13 +139,12 @@ request. Add this secret to the app repository before the first public release:
 HOMEBREW_TAP_TOKEN
 ```
 
-Add this repository variable after the public minimum macOS version is
-confirmed and before the first public release. The value must be a Homebrew
-macOS comparison expression, for example `>= :tahoe`:
+Add this repository variable before the first public release. The value must
+match the public support boundary:
 
 ```text
 name: HOMEBREW_MINIMUM_MACOS
-value: >= :tahoe
+value: >= :sonoma
 ```
 
 Leave official Homebrew Cask bump automation disabled for the first release.
@@ -236,7 +235,7 @@ scripts/release/prepare_official_homebrew_cask.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit
 ```
 
@@ -251,7 +250,7 @@ scripts/release/verify_homebrew_cask.py \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --official-layout
 ```
 
@@ -280,7 +279,7 @@ scripts/release/create_official_homebrew_cask_pr.sh \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
   --repository <app-owner>/holdtype-swift \
-  --minimum-macos ">= :tahoe" \
+  --minimum-macos ">= :sonoma" \
   --audit \
   --style \
   --fork-repository <github-user>/homebrew-cask \
@@ -330,8 +329,7 @@ Expected local warnings:
   them;
 - Homebrew tap configuration and token are absent unless you intentionally exported
   `HOMEBREW_TAP_REPOSITORY`, `HOMEBREW_EXPECTED_TAP`, and
-  `HOMEBREW_TAP_TOKEN`;
-- `MACOSX_DEPLOYMENT_TARGET = 26.5` needs confirmation before public release.
+  `HOMEBREW_TAP_TOKEN`.
 
 No `fail` checks should remain.
 
@@ -453,7 +451,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
   --sha256 <sha256-of-HoldType-1.0.0.dmg> \
-  --minimum-macos ">= :tahoe"
+  --minimum-macos ">= :sonoma"
 brew tap holdtype/tap
 brew trust holdtype/tap
 brew install --cask holdtype

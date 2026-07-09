@@ -40,6 +40,7 @@ installed version without requiring accounts, telemetry, or a custom backend.
   not a dependency on acceptance into the central Homebrew Cask repository.
 - Homebrew installation should install the same notarized GitHub Release disk
   image as the direct-download path.
+- Public release builds should support macOS 14 Sonoma and newer.
 - Homebrew uninstallation may quit the running menu bar app before removal.
 - `brew uninstall --zap` may remove HoldType-managed preferences, caches, and
   saved app state; ordinary Homebrew uninstall should not perform zap cleanup.
@@ -109,6 +110,8 @@ installed version without requiring accounts, telemetry, or a custom backend.
   stable HTTPS host, but the URL must match the app bundle's `SUFeedURL`.
 - The Homebrew tap lives outside the app bundle and should be updated from the
   release artifact SHA-256 after the GitHub Release is published.
+- The app bundle minimum macOS version and Homebrew `depends_on macos:` value
+  must describe the same public support boundary: macOS 14 Sonoma and newer.
 - Version comparison uses the app bundle version and build number.
 - Opening the GitHub project page from Settings is a user-triggered external
   browser action and must not change update preferences or start an update
@@ -130,5 +133,3 @@ installed version without requiring accounts, telemetry, or a custom backend.
 - The final public owner/repository and appcast hosting URL.
 - Whether the first production channel should ship universal builds or separate
   arm64/x64 artifacts.
-- Whether the current `MACOSX_DEPLOYMENT_TARGET = 26.5` is the intentional
-  first public minimum macOS version.

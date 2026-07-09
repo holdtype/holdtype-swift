@@ -18,7 +18,7 @@ Options:
   --tap-repository OWNER/HOMEBREW_REPO  Accepted for workflow compatibility.
   --tap-name OWNER/TAP                 Accepted for workflow compatibility.
   --homepage URL
-  --minimum-macos HOMEBREW_VALUE       Example: ">= :tahoe"
+  --minimum-macos HOMEBREW_VALUE       Example: ">= :sonoma"
   --audit                              Unsupported; audit after committing the tap.
   --brew PATH                          Defaults to BREW_BIN or brew.
   --tap-timeout SECONDS                Accepted for compatibility.

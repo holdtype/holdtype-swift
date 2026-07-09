@@ -246,7 +246,7 @@ def main() -> int:
     if not args.minimum_macos:
         return fail("missing --minimum-macos or HOMEBREW_MINIMUM_MACOS")
     if not validate_homebrew_minimum_macos(args.minimum_macos):
-        return fail('minimum macOS must be a Homebrew comparison expression such as ">= :tahoe"')
+        return fail('minimum macOS must be a Homebrew comparison expression such as ">= :sonoma"')
 
     release_dir = Path(args.release_dir).resolve()
     output_dir = Path(args.output_dir).resolve()

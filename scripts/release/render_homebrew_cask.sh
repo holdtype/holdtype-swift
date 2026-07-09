@@ -15,7 +15,7 @@ Options:
   --sha256 SHA256
   --repository OWNER/REPO
   --homepage URL
-  --minimum-macos HOMEBREW_VALUE   Example: ">= :tahoe"; rendered as `depends_on macos: :tahoe`
+  --minimum-macos HOMEBREW_VALUE   Example: ">= :sonoma"; rendered as `depends_on macos: :sonoma`
   --output PATH
   --help
 USAGE
@@ -92,7 +92,7 @@ if [ -n "$MINIMUM_MACOS" ]; then
     DEPENDS_ON_MACOS="  depends_on macos: \"$MINIMUM_MACOS\""
   fi
 else
-  DEPENDS_ON_MACOS="  # depends_on macos: :tahoe # Set when the public minimum macOS version is finalized."
+  DEPENDS_ON_MACOS="  # depends_on macos: :sonoma # Set when the public minimum macOS version is finalized."
 fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"

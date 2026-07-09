@@ -10,7 +10,7 @@ Usage:
   scripts/release/prepare_official_homebrew_cask.sh \
     --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
     --version 1.0.0 --sha256 SHA --repository owner/repo \
-    --minimum-macos ">= :tahoe"
+    --minimum-macos ">= :sonoma"
 
 Options:
   --homebrew-cask-dir PATH       Local Homebrew/homebrew-cask checkout or fork.
@@ -18,7 +18,7 @@ Options:
   --sha256 SHA256
   --repository OWNER/REPO
   --homepage URL
-  --minimum-macos HOMEBREW_VALUE Required. Example: ">= :tahoe"
+  --minimum-macos HOMEBREW_VALUE Required. Example: ">= :sonoma"
   --audit                        Run brew audit --new --cask holdtype.
   --brew PATH                    Defaults to BREW_BIN or brew.
   --audit-timeout SECONDS        Defaults to 600.

@@ -247,7 +247,7 @@ brew install --cask holdtype && open -a HoldType
 ## Platforms
 
 This repository is the macOS version of HoldType. It currently supports macOS
-only.
+14 Sonoma and newer.
 
 Windows and Linux are planned as separate repositories later, built with the
 same voice-first approach and OpenAI-key workflow, but implemented natively for
