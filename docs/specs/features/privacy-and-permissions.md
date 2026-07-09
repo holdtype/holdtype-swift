@@ -183,6 +183,10 @@ This spec covers:
   purpose string that explains global shortcut monitoring. Missing this key can
   make macOS return failed Input Monitoring requests without creating a System
   Settings row.
+- The macOS app bundle must include the Hardened Runtime Audio Input
+  entitlement, `com.apple.security.device.audio-input`, so signed and notarized
+  direct-download builds may request microphone access and appear in Privacy &
+  Security > Microphone.
 - Local debug launches used for permissions QA must keep the running app's TCC
   identity stable across rebuilds. They should use Apple Development signing
   when configured; the ad-hoc fallback must not launch a cdhash-only designated

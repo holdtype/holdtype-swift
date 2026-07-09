@@ -110,7 +110,8 @@ utility, not a second-best workaround.
 ## Verification Mapping
 
 - Release verification should validate Developer ID signing, notarization,
-  stapling, Gatekeeper assessment, DMG layout, and Sparkle appcast metadata.
+  stapling, Gatekeeper assessment, DMG layout, Sparkle appcast metadata, and
+  the Hardened Runtime Audio Input entitlement required for microphone access.
 - Website/download QA should verify that install and trust copy matches this
   spec.
 - Before any future App Store work, run a new sandbox feasibility spike and
@@ -122,4 +123,3 @@ utility, not a second-best workaround.
 - Final support and privacy policy URLs.
 - Whether the first public release includes Homebrew in addition to DMG.
 - Whether the product ever wants a deliberately reduced Store edition.
-
