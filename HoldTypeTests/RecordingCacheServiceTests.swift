@@ -99,6 +99,22 @@ struct RecordingCacheServiceTests {
         #expect(FileManager.default.fileExists(atPath: fileURL.path) == false)
     }
 
+    @Test func lifecycleAdapterForwardsArtifactURLAndRawPolicy() throws {
+        let manager = RecordingCacheManagingSpy()
+        let lifecycle: any RecordingCacheLifecycleHandling = manager
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-cache-adapter.m4a"),
+            duration: 8.5,
+            byteCount: 32_768
+        )
+
+        try lifecycle.handleCompletedRecording(artifact, policy: .keepLast(0))
+
+        #expect(manager.completedRecordingCalls == [
+            .init(fileURL: artifact.fileURL, policy: .keepLast(0))
+        ])
+    }
+
     @Test func rejectsDeletingUnmanagedRecordingPath() throws {
         let rootURL = try makeTemporaryDirectory()
         let outsideURL = try makeTemporaryDirectory()
@@ -154,4 +170,34 @@ struct RecordingCacheServiceTests {
             ofItemAtPath: fileURL.path
         )
     }
+}
+
+private final class RecordingCacheManagingSpy: RecordingCacheManaging {
+    struct CompletedRecordingCall: Equatable {
+        let fileURL: URL
+        let policy: RecordingCachePolicy
+    }
+
+    let directoryURL = URL(fileURLWithPath: "/tmp/holdtype-cache-manager-spy", isDirectory: true)
+    private(set) var completedRecordingCalls: [CompletedRecordingCall] = []
+
+    func makeRecordingFileURL() throws -> URL {
+        directoryURL.appendingPathComponent("recording.m4a")
+    }
+
+    func summary() throws -> RecordingCacheSummary {
+        RecordingCacheSummary(directoryURL: directoryURL, items: [])
+    }
+
+    func handleCompletedRecording(at fileURL: URL, policy: RecordingCachePolicy) throws {
+        completedRecordingCalls.append(.init(fileURL: fileURL, policy: policy))
+    }
+
+    func applyRetentionPolicy(_ policy: RecordingCachePolicy) throws {}
+
+    func deleteRecording(at fileURL: URL) throws {}
+
+    func clearCache() throws {}
+
+    func revealInFinder(_ fileURL: URL) {}
 }

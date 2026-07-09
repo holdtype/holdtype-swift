@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first nineteen P1
+Status: active implementation roadmap, P0 contracts and the first twenty P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -648,6 +648,12 @@ with its exact runtime URL, duration, and byte count, while remaining
 non-Codable and distinct from the relative identity required by durable iOS
 journals and history.
 
+`RecordingCacheLifecycleHandling` now gives session orchestration only the
+completed-artifact lifecycle operation it needs. The macOS adapter retains
+directory creation, summaries, retention controls, notifications, and Finder
+behavior, while exact-artifact/raw-policy tests and recovery-before-cache
+ordering prevent destructive cleanup from removing the only recoverable copy.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -855,27 +861,28 @@ slices plus remote text-correction and translation configurations are complete.
 Retention configuration, voice-session preferences, output-delivery
 preferences, output intent, observer-scoped delivery states, recovery
 destinations, and the transient completed-recording artifact are complete too.
-The next P1 slice narrows the cache-lifecycle dependency before session-state
-extraction:
+The narrow cache-lifecycle dependency is complete as well. The next P1 slice
+separates active voice work from setup, result, delivery, and macOS status
+presentation:
 
-1. define a platform-neutral `RecordingCacheLifecycleHandling` protocol with
-   only synchronous throwing
-   `handleCompletedRecording(_:policy:)`, receiving `AudioRecordingArtifact`
-   and `RecordingCachePolicy`;
-2. make the session controller depend on that narrow protocol while the macOS
-   `RecordingCacheManaging` surface keeps directory creation, summaries,
-   delete/clear controls, notifications, and Finder reveal behavior;
-3. adapt the macOS service through `artifact.fileURL` without changing its
-   supported-file, pruning, notification, or error behavior;
-4. keep recovery and journal sequencing with the caller: invoke the handler
-   only after any required recovery owner has secured the artifact, and never
-   let cache cleanup remove the only recoverable copy;
-5. keep the handler free of UI, actor/Sendable requirements, persisted result
-   schemas, and typed cross-platform error cases; package, macOS, and normal-
-   import iOS tests should prove only the dependency boundary and exact handoff;
-6. leave protected file transfer, pending-journal ownership, Data Protection,
-   playback/export, bridge records, session phases, the obsolete M0A prototype,
-   and the production QWERTY engine to their owning slices.
+1. clarify `ios-voice-session-and-audio.md` so its user-facing states are an
+   understandable presentation projection, not one persistence or transport
+   enum mixing setup, active work, outcomes, and delivery acknowledgement;
+2. define a payload-free, runtime-only `VoiceWorkPhase` with exactly
+   `inactive`, `arming`, `ready`, `listening`, `finalizing`, and `processing`;
+3. keep `ready` specific to an already armed Quick Session, keep the configured
+   recording tail inside `listening`, and let `processing` outlive Quick Session
+   Stop or expiry when a journaled provider attempt is still running;
+4. project current macOS `DictationStatus` values conservatively: idle,
+   success, and failure become `inactive`; recording becomes `listening`; and
+   transcribing becomes `processing`. Do not invent current macOS support for
+   arming, ready, or finalizing;
+5. exclude setup requirements, transcript/error strings, attempt outcomes,
+   recovery destinations, insertion acknowledgements, timers, UI copy, and
+   action availability. Do not add `Codable`, raw values, or bridge semantics;
+6. cover the six-case value in package and normal-import iOS tests, cover the
+   five-value macOS projection, and leave the obsolete M0A keyboard state and
+   bridge DTO unchanged until their gated replacement.
 
 ## Research Basis
 

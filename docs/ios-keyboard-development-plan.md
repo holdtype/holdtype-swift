@@ -286,7 +286,10 @@ host app, state, expected result, actual result, and go/no-go decision.
   or acknowledged state. The six semantic setup recovery destinations are
   portable too, while navigation remains in each containing-app shell. The
   transient completed-recording artifact is also portable without making its
-  runtime URL durable. The next P1 slice narrows the containing app's recording-
-  cache lifecycle dependency; App Group command/session records and actual
-  keyboard insertion remain unchanged until their owning milestone.
+  runtime URL durable. The narrow recording-cache lifecycle contract is now
+  portable too, and destructive cache handling is skipped when required
+  recovery ownership fails. The next P1 slice defines the runtime-only
+  `VoiceWorkPhase` separately from setup, outcomes, delivery, and transport;
+  App Group command/session records and actual keyboard insertion remain
+  unchanged until their owning milestone.
 - Full QWERTY and background Quick Session: gated and not started.

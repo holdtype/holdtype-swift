@@ -65,7 +65,7 @@ enum RecordingCacheServiceError: Error, Equatable, LocalizedError {
     }
 }
 
-protocol RecordingCacheManaging {
+protocol RecordingCacheManaging: RecordingCacheLifecycleHandling {
     var directoryURL: URL { get }
 
     func makeRecordingFileURL() throws -> URL
@@ -75,6 +75,15 @@ protocol RecordingCacheManaging {
     func deleteRecording(at fileURL: URL) throws
     func clearCache() throws
     func revealInFinder(_ fileURL: URL)
+}
+
+extension RecordingCacheManaging {
+    func handleCompletedRecording(
+        _ artifact: AudioRecordingArtifact,
+        policy: RecordingCachePolicy
+    ) throws {
+        try handleCompletedRecording(at: artifact.fileURL, policy: policy)
+    }
 }
 
 struct RecordingCacheService: RecordingCacheManaging {

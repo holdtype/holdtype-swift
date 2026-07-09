@@ -49,7 +49,7 @@ final class DictationSessionController {
     private let transcriptionFailureRecovery: any TranscriptionFailureRecoveryRecording
     private let activeTextContextReader: any ActiveTextContextReading
     private let openAIUsageRecorder: any OpenAIUsageRecording
-    private let recordingCache: any RecordingCacheManaging
+    private let recordingCache: any RecordingCacheLifecycleHandling
     private let recordingStopTailSleeper: any RecordingStopTailSleeping
     private let eventLogger: any DictationEventLogging
     private let credentialResolverForUngatedActions: (any OpenAICredentialResolving)?
@@ -100,7 +100,7 @@ final class DictationSessionController {
         transcriptionFailureRecovery: (any TranscriptionFailureRecoveryRecording)? = nil,
         activeTextContextReader: (any ActiveTextContextReading)? = nil,
         openAIUsageRecorder: (any OpenAIUsageRecording)? = nil,
-        recordingCache: any RecordingCacheManaging = RecordingCacheService.shared,
+        recordingCache: any RecordingCacheLifecycleHandling = RecordingCacheService.shared,
         recordingStopTailSleeper: any RecordingStopTailSleeping = TaskRecordingStopTailSleeper(),
         eventLogger: any DictationEventLogging = OSLogDictationEventLogger(),
         credentialResolverForUngatedActions: (any OpenAICredentialResolving)? = nil,
@@ -447,11 +447,14 @@ final class DictationSessionController {
         var stage: DictationSessionStage = .recordingStop
         var completedArtifact: AudioRecordingArtifact?
         var completedRecordingSettings: AppSettings?
+        var allowsRecordingCacheHandling = true
         defer {
-            updateCompletedRecordingCacheIfNeeded(
-                artifact: completedArtifact,
-                settings: completedRecordingSettings
-            )
+            if allowsRecordingCacheHandling {
+                updateCompletedRecordingCacheIfNeeded(
+                    artifact: completedArtifact,
+                    settings: completedRecordingSettings
+                )
+            }
         }
 
         do {
@@ -562,12 +565,13 @@ final class DictationSessionController {
                 return
             }
 
-            let failedAttempt = recordFailedTranscriptionAttempt(
+            let recoveryResult = recordFailedTranscriptionAttempt(
                 error,
                 at: stage,
                 artifact: completedArtifact,
                 settings: completedRecordingSettings
             )
+            allowsRecordingCacheHandling = recoveryResult.allowsRecordingCacheHandling
             finishSession(sessionID)
             recordFailure(error, at: stage)
             let message = Self.userFacingMessage(for: error)
@@ -575,7 +579,7 @@ final class DictationSessionController {
             failurePresentation = failurePresentation(
                 message: message,
                 error: error,
-                failedAttempt: failedAttempt,
+                failedAttempt: recoveryResult.attempt,
                 showsRecoveryPrompt: stage == .transcription
             )
         }
@@ -631,28 +635,31 @@ final class DictationSessionController {
         at stage: DictationSessionStage,
         artifact: AudioRecordingArtifact?,
         settings: AppSettings?
-    ) -> FailedTranscriptionAttempt? {
+    ) -> (attempt: FailedTranscriptionAttempt?, allowsRecordingCacheHandling: Bool) {
         guard stage == .transcription,
               let artifact,
               let settings else {
-            return nil
+            return (nil, true)
         }
 
         let reason = FailedTranscriptionReason(error: error)
         guard reason.shouldRecordFailedAttempt else {
-            return nil
+            return (nil, true)
         }
 
         do {
-            return try transcriptionFailureRecovery.recordFailedAttempt(
-                audioFileURL: artifact.fileURL,
-                settings: settings,
-                audioDuration: artifact.duration,
-                reason: reason
+            return (
+                try transcriptionFailureRecovery.recordFailedAttempt(
+                    audioFileURL: artifact.fileURL,
+                    settings: settings,
+                    audioDuration: artifact.duration,
+                    reason: reason
+                ),
+                true
             )
         } catch {
             outputStatusText = Self.userFacingMessage(for: error)
-            return nil
+            return (nil, false)
         }
     }
 
@@ -677,7 +684,7 @@ final class DictationSessionController {
     private func updateRecordingCache(for artifact: AudioRecordingArtifact, settings: AppSettings) {
         do {
             try recordingCache.handleCompletedRecording(
-                at: artifact.fileURL,
+                artifact,
                 policy: settings.recordingCachePolicy
             )
             eventLogger.record(.recordingCacheHandled(policy: settings.recordingCachePolicy))

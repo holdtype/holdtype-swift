@@ -196,6 +196,8 @@ entries, transcript text, or debug payloads.
   attempt entries because no completed audio exists.
 - If a failed attempt's temporary audio cannot be saved, the app should still
   show the immediate transcription error but must not show a fake Retry action.
+  It must skip destructive recording-cache cleanup for that attempt so the
+  completed artifact remains recoverable where possible.
 - If a history append fails, the app should keep the current Last Transcript
   visible and continue output delivery where practical.
 - If a cached recording is missing or cannot be played, the history row should

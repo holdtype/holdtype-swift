@@ -344,7 +344,7 @@ struct DictationSessionControllerTests {
 
         #expect(
             recordingCache.completedRecordingCalls == [
-                RecordingCachePolicyCall(fileURL: artifact.fileURL, policy: .keepLast(10))
+                RecordingCachePolicyCall(artifact: artifact, policy: .keepLast(10))
             ]
         )
     }
@@ -391,11 +391,18 @@ struct DictationSessionControllerTests {
             stopResult: .success(artifact)
         )
         let transcriptionService = FakeControllerTranscriptionService(result: .failure(.networkUnavailable))
-        let recordingCache = FakeRecordingCache()
+        var lifecycleEvents: [String] = []
+        let failureRecovery = FakeTranscriptionFailureRecovery(
+            onRecordFailedAttempt: { lifecycleEvents.append("recovery") }
+        )
+        let recordingCache = FakeRecordingCache(
+            onHandleCompletedRecording: { lifecycleEvents.append("cache") }
+        )
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: failureRecovery,
             recordingCache: recordingCache,
             initialStatus: .recording
         )
@@ -405,9 +412,48 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .failure(message: "The network is unavailable. Try again when you are connected."))
         #expect(
             recordingCache.completedRecordingCalls == [
-                RecordingCachePolicyCall(fileURL: artifact.fileURL, policy: .deleteImmediately)
+                RecordingCachePolicyCall(artifact: artifact, policy: .deleteImmediately)
             ]
         )
+        #expect(lifecycleEvents == ["recovery", "cache"])
+    }
+
+    @Test func failedRecoveryHandoffPreservesTheOnlyCompletedArtifact() async {
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-controller-recovery-save-failure.m4a"),
+            duration: 2,
+            byteCount: 1024
+        )
+        let recorder = FakeAudioRecorderService(
+            currentStatus: .recording,
+            stopResult: .success(artifact)
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .failure(.networkUnavailable)
+        )
+        let failureRecovery = FakeTranscriptionFailureRecovery(
+            recordFailedAttemptError: TranscriptionFailureRecoveryError.saveFailed
+        )
+        let recordingCache = FakeRecordingCache()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: failureRecovery,
+            recordingCache: recordingCache,
+            initialStatus: .recording
+        )
+
+        await controller.performRecordingAction()
+
+        #expect(
+            controller.status == .failure(
+                message: "The network is unavailable. Try again when you are connected."
+            )
+        )
+        #expect(controller.outputStatusText == "The failed recording could not be saved for retry.")
+        #expect(controller.failurePresentation?.failedAttemptID == nil)
+        #expect(recordingCache.completedRecordingCalls.isEmpty)
     }
 
     @Test func textCorrectionRunsBeforeOutputAndHistory() async {
@@ -1365,43 +1411,27 @@ private struct OpenAIUsageRecordCall: Equatable {
 }
 
 private struct RecordingCachePolicyCall: Equatable {
-    let fileURL: URL
+    let artifact: AudioRecordingArtifact
     let policy: RecordingCachePolicy
 }
 
-private final class FakeRecordingCache: RecordingCacheManaging {
-    let directoryURL = URL(fileURLWithPath: "/tmp/holdtype-fake-recording-cache", isDirectory: true)
-
+private final class FakeRecordingCache: RecordingCacheLifecycleHandling {
     private(set) var completedRecordingCalls: [RecordingCachePolicyCall] = []
-    private(set) var appliedRetentionPolicies: [RecordingCachePolicy] = []
-    private(set) var deletedRecordingURLs: [URL] = []
-    private(set) var clearCount = 0
+    private let onHandleCompletedRecording: () -> Void
 
-    func makeRecordingFileURL() throws -> URL {
-        directoryURL.appendingPathComponent("fake.m4a")
+    init(onHandleCompletedRecording: @escaping () -> Void = {}) {
+        self.onHandleCompletedRecording = onHandleCompletedRecording
     }
 
-    func summary() throws -> RecordingCacheSummary {
-        RecordingCacheSummary(directoryURL: directoryURL, items: [])
+    func handleCompletedRecording(
+        _ artifact: AudioRecordingArtifact,
+        policy: RecordingCachePolicy
+    ) throws {
+        onHandleCompletedRecording()
+        completedRecordingCalls.append(
+            RecordingCachePolicyCall(artifact: artifact, policy: policy)
+        )
     }
-
-    func handleCompletedRecording(at fileURL: URL, policy: RecordingCachePolicy) throws {
-        completedRecordingCalls.append(RecordingCachePolicyCall(fileURL: fileURL, policy: policy))
-    }
-
-    func applyRetentionPolicy(_ policy: RecordingCachePolicy) throws {
-        appliedRetentionPolicies.append(policy)
-    }
-
-    func deleteRecording(at fileURL: URL) throws {
-        deletedRecordingURLs.append(fileURL)
-    }
-
-    func clearCache() throws {
-        clearCount += 1
-    }
-
-    func revealInFinder(_ fileURL: URL) {}
 }
 
 private final class FakeDictationEventLogger: DictationEventLogging {
@@ -1624,9 +1654,17 @@ private final class FakeTranscriptRecoveryHistory: TranscriptRecoveryHistoryReco
 @MainActor
 private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecoveryRecording {
     private(set) var failedAttempts: [FailedTranscriptionAttempt]
+    private let recordFailedAttemptError: (any Error)?
+    private let onRecordFailedAttempt: () -> Void
 
-    init(initialAttempts: [FailedTranscriptionAttempt] = []) {
+    init(
+        initialAttempts: [FailedTranscriptionAttempt] = [],
+        recordFailedAttemptError: (any Error)? = nil,
+        onRecordFailedAttempt: @escaping () -> Void = {}
+    ) {
         failedAttempts = initialAttempts
+        self.recordFailedAttemptError = recordFailedAttemptError
+        self.onRecordFailedAttempt = onRecordFailedAttempt
     }
 
     func recordFailedAttempt(
@@ -1637,6 +1675,11 @@ private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecove
     ) throws -> FailedTranscriptionAttempt? {
         guard settings.saveTranscriptHistory, reason.shouldRecordFailedAttempt else {
             return nil
+        }
+
+        onRecordFailedAttempt()
+        if let recordFailedAttemptError {
+            throw recordFailedAttemptError
         }
 
         let attempt = FailedTranscriptionAttempt(
