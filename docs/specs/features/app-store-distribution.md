@@ -112,6 +112,16 @@ utility, not a second-best workaround.
 - Release verification should validate Developer ID signing, notarization,
   stapling, Gatekeeper assessment, DMG layout, Sparkle appcast metadata, and
   the Hardened Runtime Audio Input entitlement required for microphone access.
+  The Audio Input entitlement check must run against the final exported app
+  inside the release DMG or installed copy. A build setting or archive log is
+  not enough evidence, because a re-sign/export step can still publish an app
+  that has hardened runtime enabled but no microphone entitlement.
+- A public direct-download release must be blocked if the final app's
+  `codesign -dvvv --entitlements :-` output does not contain
+  `com.apple.security.device.audio-input`. The known user-visible failure mode
+  is: Request Microphone Access immediately becomes Not Allowed, the native
+  Allow prompt never appears, and System Settings > Privacy & Security >
+  Microphone does not list HoldType.
 - Website/download QA should verify that install and trust copy matches this
   spec.
 - Before any future App Store work, run a new sandbox feasibility spike and

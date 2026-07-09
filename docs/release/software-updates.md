@@ -87,7 +87,8 @@ unconfigured.
 - Public `release-manifest.json` and `SHA256SUMS.txt` entries must use release
   artifact filenames, not absolute CI runner paths.
 - Production release builds must use Developer ID Application signing, hardened
-  runtime, notarization, and stapled notarization tickets.
+  runtime, notarization, stapled notarization tickets, and the Audio Input
+  entitlement required by microphone permission prompts.
 - The project-owned Homebrew tap is the first supported Homebrew channel.
   Acceptance into the central Homebrew Cask repository is a later distribution
   milestone, not a blocker for the first public release.
@@ -98,7 +99,8 @@ unconfigured.
 2. Build and archive the macOS app with Developer ID signing and hardened
    runtime enabled.
 3. Export the archive as a Developer ID app.
-4. Validate the app bundle with `codesign` and `spctl`.
+4. Validate the app bundle with `codesign`, `spctl`, and an entitlement dump of
+   the exported app.
 5. Notarize the app archive and staple the app.
 6. Create the DMG with `HoldType.app` and an Applications shortcut.
 7. Notarize and staple the DMG.
@@ -121,6 +123,8 @@ The CI release job should make the manual flow reproducible:
 - verify that the exported app bundle embeds the expected Sparkle feed URL and
   public EdDSA key;
 - validate code signing before upload;
+- fail the release if the final exported app entitlement dump lacks
+  `com.apple.security.device.audio-input`;
 - verify that the DMG contains `HoldType.app` plus an Applications shortcut;
 - verify that the DMG copy/install path preserves a usable signed app bundle;
 - run notarization with bounded waits;
@@ -526,6 +530,7 @@ minimum release evidence remains:
 scripts/release/verify_dmg_layout.sh --dmg HoldType-<version>.dmg
 scripts/release/verify_dmg_install.sh --dmg HoldType-<version>.dmg
 codesign --verify --deep --strict --verbose=2 HoldType.app
+codesign -dvvv --entitlements :- HoldType.app
 spctl --assess --type execute --verbose=4 HoldType.app
 xcrun stapler validate HoldType.app
 xcrun stapler validate HoldType-<version>.dmg

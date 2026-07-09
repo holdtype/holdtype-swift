@@ -183,10 +183,17 @@ This spec covers:
   purpose string that explains global shortcut monitoring. Missing this key can
   make macOS return failed Input Monitoring requests without creating a System
   Settings row.
-- The macOS app bundle must include the Hardened Runtime Audio Input
-  entitlement, `com.apple.security.device.audio-input`, so signed and notarized
-  direct-download builds may request microphone access and appear in Privacy &
-  Security > Microphone.
+- The final macOS app bundle shipped to users must include the Hardened Runtime
+  Audio Input entitlement, `com.apple.security.device.audio-input`, so signed
+  and notarized direct-download builds may request microphone access and appear
+  in Privacy & Security > Microphone. The entitlement must be verified on the
+  exported/notarized artifact itself, not only in Xcode project settings or a
+  local Debug build.
+- If `AVCaptureDevice.requestAccess` returns denial without showing the native
+  microphone prompt, and Privacy & Security > Microphone does not list
+  HoldType, treat the state as a release artifact entitlement/signing defect
+  until the final installed app is proven to contain
+  `com.apple.security.device.audio-input`.
 - Local debug launches used for permissions QA must keep the running app's TCC
   identity stable across rebuilds. They should use Apple Development signing
   when configured; the ad-hoc fallback must not launch a cdhash-only designated
@@ -372,6 +379,11 @@ This spec covers:
 
 - If permission is denied or restricted by device policy, the app should show a
   recoverable blocked state instead of repeatedly prompting.
+- If a first-run microphone request fails without a system prompt and HoldType
+  is absent from the macOS Microphone app list, support and release triage must
+  first inspect the installed app's code signing entitlements. Opening
+  Microphone Settings is not sufficient recovery when the app has no row because
+  the release artifact lacks Audio Input entitlement.
 - If Accessibility permission is not trusted, the app should explain that
   automatic insertion and Paste Last Result are blocked and provide a
   way to open the relevant System Settings pane when possible.
