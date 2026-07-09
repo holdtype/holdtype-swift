@@ -603,10 +603,11 @@ physical-device claims. M0B/M0C remain operator-local physical gates.
 Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 
 Progress 2026-07-09: local package `HoldTypeDomain` now owns the public
-Foundation-only `AcceptedTranscript` and `TranscriptionPromptContext`; the
-macOS app keeps source-compatible typealias facades, direct package consumers
-are linked explicitly, the keyboard remains unlinked, and package/macOS/iOS
-tests pass.
+Foundation-only `AcceptedTranscript`, `TranscriptionPromptContext`,
+`TranscriptionLanguage`, and custom-language validation. The macOS app keeps
+source-compatible typealias/presentation facades and unchanged UserDefaults raw
+values, direct package consumers are linked explicitly, the keyboard remains
+unlinked, and package/macOS/iOS tests pass.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -808,18 +809,19 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. P0 plus the accepted-text and prompt-context slices are complete.
-The next P1 slice is the first behavior-neutral configuration boundary:
+iOS target. P0 plus the accepted-text, prompt-context, and language slices are
+complete. The next P1 slice is `TranscriptionConfiguration`:
 
-1. extract `TranscriptionLanguage`, custom-language validation, raw-value
-   persistence compatibility, and their pure tests into `HoldTypeDomain`;
-2. keep UI storage keys and the current `AppSettings` persistence facade stable;
-3. introduce `TranscriptionConfiguration` only after those language/default
-   contracts pass on package, macOS, and iOS destinations;
-4. keep Nearby Text Context off on iOS and keep the preserved macOS AX source
-   outside the portable configuration;
-5. keep audio, background modes, the obsolete M0A session prototype, and the
-   production QWERTY engine for their named gates.
+1. add the pure model/language/custom-code/freeform-prompt value with the
+   approved default model and current trim/fallback validation;
+2. expose it as a computed projection of the existing `AppSettings` scalar
+   fields rather than replacing the memberwise initializer or persisted layout;
+3. keep full request-prompt composition with context, emoji hints, and
+   dictionary in the compatibility facade until their own portable slices;
+4. keep UserDefaults keys/raw values stable and prove package, macOS store,
+   request-builder, and iOS smoke behavior;
+5. keep Nearby Text Context, audio, background modes, the obsolete M0A session
+   prototype, and the production QWERTY engine outside this slice.
 
 ## Research Basis
 

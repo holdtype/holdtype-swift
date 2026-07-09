@@ -8,194 +8,6 @@
 import Foundation
 import HoldTypeDomain
 
-enum TranscriptionLanguage: String, CaseIterable, Codable, Equatable {
-    case automatic = "auto"
-    case english
-    case spanish
-    case french
-    case german
-    case italian
-    case portuguese
-    case dutch
-    case polish
-    case russian
-    case ukrainian
-    case turkish
-    case arabic
-    case hebrew
-    case hindi
-    case chinese
-    case japanese
-    case korean
-    case vietnamese
-    case indonesian
-    case thai
-    case swedish
-    case danish
-    case finnish
-    case czech
-    case greek
-    case romanian
-    case hungarian
-    case custom
-
-    static let translationCases = allCases.filter { $0 != .automatic }
-
-    var displayName: String {
-        guard let languageCode else {
-            switch self {
-            case .automatic:
-                return "Auto"
-            case .custom:
-                return "Custom"
-            default:
-                return languageName
-            }
-        }
-
-        return "\(languageName) (\(languageCode))"
-    }
-
-    var languageName: String {
-        switch self {
-        case .automatic:
-            return "Auto"
-        case .english:
-            return "English"
-        case .spanish:
-            return "Spanish"
-        case .french:
-            return "French"
-        case .german:
-            return "German"
-        case .italian:
-            return "Italian"
-        case .portuguese:
-            return "Portuguese"
-        case .dutch:
-            return "Dutch"
-        case .polish:
-            return "Polish"
-        case .russian:
-            return "Russian"
-        case .ukrainian:
-            return "Ukrainian"
-        case .turkish:
-            return "Turkish"
-        case .arabic:
-            return "Arabic"
-        case .hebrew:
-            return "Hebrew"
-        case .hindi:
-            return "Hindi"
-        case .chinese:
-            return "Chinese"
-        case .japanese:
-            return "Japanese"
-        case .korean:
-            return "Korean"
-        case .vietnamese:
-            return "Vietnamese"
-        case .indonesian:
-            return "Indonesian"
-        case .thai:
-            return "Thai"
-        case .swedish:
-            return "Swedish"
-        case .danish:
-            return "Danish"
-        case .finnish:
-            return "Finnish"
-        case .czech:
-            return "Czech"
-        case .greek:
-            return "Greek"
-        case .romanian:
-            return "Romanian"
-        case .hungarian:
-            return "Hungarian"
-        case .custom:
-            return "Custom"
-        }
-    }
-
-    var languageCode: String? {
-        switch self {
-        case .automatic, .custom:
-            return nil
-        case .english:
-            return "en"
-        case .spanish:
-            return "es"
-        case .french:
-            return "fr"
-        case .german:
-            return "de"
-        case .italian:
-            return "it"
-        case .portuguese:
-            return "pt"
-        case .dutch:
-            return "nl"
-        case .polish:
-            return "pl"
-        case .russian:
-            return "ru"
-        case .ukrainian:
-            return "uk"
-        case .turkish:
-            return "tr"
-        case .arabic:
-            return "ar"
-        case .hebrew:
-            return "he"
-        case .hindi:
-            return "hi"
-        case .chinese:
-            return "zh"
-        case .japanese:
-            return "ja"
-        case .korean:
-            return "ko"
-        case .vietnamese:
-            return "vi"
-        case .indonesian:
-            return "id"
-        case .thai:
-            return "th"
-        case .swedish:
-            return "sv"
-        case .danish:
-            return "da"
-        case .finnish:
-            return "fi"
-        case .czech:
-            return "cs"
-        case .greek:
-            return "el"
-        case .romanian:
-            return "ro"
-        case .hungarian:
-            return "hu"
-        }
-    }
-
-    func apiLanguageCode(customCode: String) -> String? {
-        switch self {
-        case .automatic:
-            return nil
-        case .custom:
-            let trimmedCode = customCode.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard AppSettings.isSupportedCustomLanguageCode(trimmedCode) else {
-                return nil
-            }
-            return trimmedCode.lowercased()
-        default:
-            return languageCode
-        }
-    }
-}
-
 enum TranslationSourceMode: String, CaseIterable, Codable, Equatable {
     case sameAsTranscription
     case override
@@ -225,26 +37,6 @@ enum TranslationConfigurationIssue: Error, Equatable, LocalizedError {
 
     var title: String {
         "Translation settings need attention"
-    }
-}
-
-enum CustomLanguageCodeValidation: Equatable {
-    case notRequired
-    case emptyFallsBackToAutomatic
-    case valid(normalizedCode: String)
-    case invalid
-
-    var isInvalid: Bool {
-        self == .invalid
-    }
-
-    var resolvedLanguageCode: String? {
-        switch self {
-        case .valid(let normalizedCode):
-            return normalizedCode
-        case .notRequired, .emptyFallsBackToAutomatic, .invalid:
-            return nil
-        }
     }
 }
 
@@ -651,31 +443,11 @@ struct AppSettings: Equatable {
     }
 
     var customLanguageCodeValidation: CustomLanguageCodeValidation {
-        guard language == .custom else {
-            return .notRequired
-        }
-
-        let trimmedCode = customLanguageCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedCode.isEmpty else {
-            return .emptyFallsBackToAutomatic
-        }
-
-        guard Self.isSupportedCustomLanguageCode(trimmedCode) else {
-            return .invalid
-        }
-
-        return .valid(normalizedCode: trimmedCode.lowercased())
+        language.customLanguageCodeValidation(customCode: customLanguageCode)
     }
 
     static func isSupportedCustomLanguageCode(_ code: String) -> Bool {
-        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedCode.count == 2 || trimmedCode.count == 3 else {
-            return false
-        }
-
-        return trimmedCode.unicodeScalars.allSatisfy { scalar in
-            (65...90).contains(scalar.value) || (97...122).contains(scalar.value)
-        }
+        TranscriptionLanguage.isWellFormedCustomLanguageCode(code)
     }
 
     static func resolvedLanguageCode(for language: TranscriptionLanguage, customCode: String) -> String? {

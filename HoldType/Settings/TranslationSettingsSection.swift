@@ -5,6 +5,7 @@
 //  Created by Codex on 7/6/26.
 //
 
+import HoldTypeDomain
 import SwiftUI
 
 struct TranslationSettingsSection: View {

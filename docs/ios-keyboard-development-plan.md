@@ -269,6 +269,6 @@ host app, state, expected result, actual result, and go/no-go decision.
   Apple Developer Team/App Group provisioning.
 - M0B/M0C physical-device evidence: pending.
 - P1 portable-domain extraction: active; `AcceptedTranscript` and
-  `TranscriptionPromptContext` package slices are complete, and the next slice
-  isolates transcription language/configuration.
+  `TranscriptionPromptContext` plus transcription language/validation package
+  slices are complete, and the next slice adds `TranscriptionConfiguration`.
 - Full QWERTY and background Quick Session: gated and not started.

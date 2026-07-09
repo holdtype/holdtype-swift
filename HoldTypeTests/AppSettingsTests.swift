@@ -511,6 +511,25 @@ struct AppSettingsTests {
         #expect(settings.language == .automatic)
     }
 
+    @Test func languagePersistenceKeepsRawABIAndUnnormalizedCustomInput() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AppSettingsStore(userDefaults: defaults)
+        var settings = AppSettings.defaults
+        settings.language = .automatic
+        settings.customLanguageCode = " RU "
+
+        store.save(settings)
+
+        #expect(defaults.string(forKey: AppSettingsStore.keyPrefix + "language") == "auto")
+        #expect(
+            defaults.string(forKey: AppSettingsStore.keyPrefix + "customLanguageCode") ==
+                " RU "
+        )
+        #expect(store.load().customLanguageCode == " RU ")
+    }
+
     @Test func blankPersistedTextCorrectionPromptLoadsDefaultPrompt() {
         let (defaults, suiteName) = makeIsolatedUserDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }

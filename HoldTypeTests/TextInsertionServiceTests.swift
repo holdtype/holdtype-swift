@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreGraphics
+import HoldTypeDomain
 import Testing
 @testable import HoldType
 
