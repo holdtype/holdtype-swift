@@ -270,6 +270,6 @@ host app, state, expected result, actual result, and go/no-go decision.
 - M0B/M0C physical-device evidence: pending.
 - P1 portable-domain extraction: active; `AcceptedTranscript` and
   `TranscriptionPromptContext` plus transcription language/validation and
-  `TranscriptionConfiguration` package slices are complete; the next slice
-  extracts the smallest coherent personalization primitives.
+  `TranscriptionConfiguration` plus custom-dictionary normalization package
+  slices are complete; the next slice extracts `TextReplacementRule`.
 - Full QWERTY and background Quick Session: gated and not started.

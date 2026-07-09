@@ -405,16 +405,15 @@ struct AppSettings: Equatable {
     }
 
     var resolvedCustomDictionaryEntries: [String] {
-        Self.normalizedCustomDictionary(customDictionary)
+        resolvedCustomDictionary.entries
+    }
+
+    var resolvedCustomDictionary: CustomDictionary {
+        CustomDictionary(entries: customDictionary)
     }
 
     var resolvedCustomDictionaryPrompt: String? {
-        let entries = resolvedCustomDictionaryEntries
-        guard !entries.isEmpty else {
-            return nil
-        }
-
-        return entries.joined(separator: ", ")
+        resolvedCustomDictionary.promptText
     }
 
     var enabledEmojiCommandSets: [EmojiCommandSet] {
@@ -462,31 +461,11 @@ struct AppSettings: Equatable {
     }
 
     static func parseCustomDictionaryEntries(from text: String) -> [String] {
-        text.components(separatedBy: CharacterSet(charactersIn: ",\n"))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        CustomDictionary.parseEntries(from: text)
     }
 
     static func normalizedCustomDictionary(_ entries: [String]) -> [String] {
-        var normalizedEntries: [String] = []
-        var seenEntryKeys = Set<String>()
-
-        for entry in entries {
-            let trimmedEntry = entry.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedEntry.isEmpty else {
-                continue
-            }
-
-            let entryKey = trimmedEntry.lowercased()
-            guard !seenEntryKeys.contains(entryKey) else {
-                continue
-            }
-
-            seenEntryKeys.insert(entryKey)
-            normalizedEntries.append(trimmedEntry)
-        }
-
-        return normalizedEntries
+        CustomDictionary(entries: entries).entries
     }
 
     static func normalizedEmojiCommandSetIDs(_ ids: [String]) -> [String] {
@@ -517,7 +496,7 @@ struct AppSettings: Equatable {
     }
 
     static func appendingCustomDictionaryEntries(from text: String, to entries: [String]) -> [String] {
-        normalizedCustomDictionary(entries + parseCustomDictionaryEntries(from: text))
+        CustomDictionary(entries: entries).appendingEntries(from: text).entries
     }
 }
 

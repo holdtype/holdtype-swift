@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first four P1
+Status: active implementation roadmap, P0 contracts and the first five P1
 Domain slices complete; updated 2026-07-09.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -606,11 +606,12 @@ Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 Progress 2026-07-09: local package `HoldTypeDomain` now owns the public
 Foundation-only `AcceptedTranscript`, `TranscriptionPromptContext`,
 `TranscriptionLanguage`, custom-language validation, and
-`TranscriptionConfiguration`. The macOS app keeps source-compatible
+`TranscriptionConfiguration`, plus the normalized `CustomDictionary` value.
+The macOS app keeps source-compatible
 typealias/presentation facades, projects the configuration from its existing
-scalar settings, and preserves the UserDefaults keys and raw values. Direct
-package consumers are linked explicitly, the keyboard remains unlinked, and
-package/macOS/iOS tests pass.
+scalar settings, and preserves the UserDefaults keys, scalar raw values, and
+custom-dictionary `[String]` storage. Direct package consumers are linked
+explicitly, the keyboard remains unlinked, and package/macOS/iOS tests pass.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -812,20 +813,21 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. P0 plus the accepted-text, prompt-context, language, and
-transcription-configuration slices are complete. The next P1 slice moves the
-smallest coherent personalization primitives:
+iOS target. P0 plus the accepted-text, prompt-context, language,
+transcription-configuration, and custom-dictionary slices are complete. The
+next P1 slice moves `TextReplacementRule`:
 
-1. extract custom-dictionary normalization, emoji-command values, and text
-   replacement rules only where the types and algorithms are platform-neutral;
-2. keep `AppSettings` scalar/array fields, UserDefaults keys, and current prompt
-   ordering behind compatibility projections;
-3. preserve raw persisted payloads and prove old fixtures still decode before
-   introducing any future iOS repository schema;
-4. add package tests plus macOS behavior parity and iOS import smoke tests;
-5. keep UI labels, nearby context, provider requests, audio, background modes,
-   the obsolete M0A session prototype, and the production QWERTY engine outside
-   this slice.
+1. extract the exact Codable/Identifiable value into `HoldTypeDomain` and keep
+   an internal macOS typealias facade;
+2. preserve UUIDs, raw search/replacement strings, array order, default enabled
+   state, Codable field names, and the existing UserDefaults key;
+3. prove a frozen legacy JSON payload decodes through both package and app-store
+   paths and still round-trips on iOS;
+4. keep filtering and case-insensitive replacement execution in the macOS
+   compatibility pipeline until their own portable slices;
+5. keep UI, dictionary/emoji payloads, App Group publication, provider work,
+   audio, background modes, the obsolete M0A session prototype, and the
+   production QWERTY engine outside this slice.
 
 ## Research Basis
 

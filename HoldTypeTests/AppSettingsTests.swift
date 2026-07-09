@@ -22,6 +22,7 @@ struct AppSettingsTests {
         #expect(settings.resolvedLanguageCode == nil)
         #expect(settings.customLanguageCode.isEmpty)
         #expect(settings.customDictionary.isEmpty)
+        #expect(settings.resolvedCustomDictionary == .empty)
         #expect(settings.resolvedCustomDictionaryEntries.isEmpty)
         #expect(settings.resolvedCustomDictionaryPrompt == nil)
         #expect(settings.emojiCommandsEnabled)
@@ -303,6 +304,10 @@ struct AppSettingsTests {
 
         #expect(parsedEntries == ["OpenWhispr", "Synty", "The word is HoldType"])
         #expect(
+            AppSettings.normalizedCustomDictionary([" OpenWhispr ", "openwhispr", "Synty"]) ==
+                CustomDictionary(entries: [" OpenWhispr ", "openwhispr", "Synty"]).entries
+        )
+        #expect(
             AppSettings.appendingCustomDictionaryEntries(
                 from: "openwhispr, Sinead",
                 to: ["OpenWhispr"]
@@ -366,6 +371,27 @@ struct AppSettingsTests {
         let settings = AppSettingsStore(userDefaults: defaults).load()
 
         #expect(settings.translationShortcutEnabled == false)
+    }
+
+    @Test func customDictionaryPersistenceNormalizesArraysWithoutReparsingEntries() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let key = AppSettingsStore.keyPrefix + "customDictionary"
+        defaults.set(
+            [" ACME, Inc. ", "Line\nBreak", "acme, inc.", "   "],
+            forKey: key
+        )
+        let store = AppSettingsStore(userDefaults: defaults)
+
+        let settings = store.load()
+
+        #expect(settings.customDictionary == ["ACME, Inc.", "Line\nBreak"])
+        #expect(settings.resolvedCustomDictionaryPrompt == "ACME, Inc., Line\nBreak")
+
+        store.save(settings)
+
+        #expect(defaults.stringArray(forKey: key) == ["ACME, Inc.", "Line\nBreak"])
     }
 
     @Test func migratesLegacyDisabledTranscriptHistoryToEnabledDefaultOnce() {
