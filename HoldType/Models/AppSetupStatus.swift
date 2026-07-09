@@ -185,4 +185,17 @@ struct AppSetupStatusProvider {
             settings: settings
         )
     }
+
+    func requestMicrophonePermissionIfNeeded(
+        completion: @escaping (MicrophonePermissionStatus?) -> Void
+    ) {
+        guard microphonePermissionService.currentStatus() == .notDetermined else {
+            completion(nil)
+            return
+        }
+
+        microphonePermissionService.requestPermission { status in
+            completion(status)
+        }
+    }
 }

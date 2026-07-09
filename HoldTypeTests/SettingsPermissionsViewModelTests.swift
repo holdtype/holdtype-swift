@@ -119,6 +119,25 @@ struct SettingsPermissionsViewModelTests {
         #expect(model.inputMonitoringPermissionStatus == .allowed)
     }
 
+    @Test func microphoneActionRequestsPermissionWhenNotDetermined() async {
+        let microphoneClient = FakeSettingsMicrophonePermissionClient(
+            status: .notDetermined,
+            requestResults: [true]
+        )
+        let model = makeModel(microphoneClient: microphoneClient)
+        var afterPromptCount = 0
+
+        model.handleMicrophonePermissionAction {
+            afterPromptCount += 1
+        }
+
+        await waitUntil {
+            model.microphonePermissionStatus == .allowed && afterPromptCount == 1
+        }
+
+        #expect(microphoneClient.requestCount == 1)
+    }
+
     @Test func inputMonitoringActionRequestsAccessBeforeOpeningSettingsWhenDenied() {
         let inputMonitoringClient = FakeSettingsInputMonitoringPermissionClient(status: .denied)
         var recoveryLaunchCount = 0
@@ -224,10 +243,13 @@ struct SettingsPermissionsViewModelTests {
 
 private final class FakeSettingsMicrophonePermissionClient: MicrophonePermissionClient {
     var hasAvailableAudioInput = true
+    private(set) var requestCount = 0
+    private var requestResults: [Bool]
     var status: MicrophoneAuthorizationStatus
 
-    init(status: MicrophoneAuthorizationStatus) {
+    init(status: MicrophoneAuthorizationStatus, requestResults: [Bool] = []) {
         self.status = status
+        self.requestResults = requestResults
     }
 
     func authorizationStatus() -> MicrophoneAuthorizationStatus {
@@ -235,8 +257,10 @@ private final class FakeSettingsMicrophonePermissionClient: MicrophonePermission
     }
 
     func requestAccess(completion: @escaping (Bool) -> Void) {
-        status = .allowed
-        completion(true)
+        requestCount += 1
+        let result = requestResults.isEmpty ? status == .allowed : requestResults.removeFirst()
+        status = result ? .allowed : .denied
+        completion(result)
     }
 }
 

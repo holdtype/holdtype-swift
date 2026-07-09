@@ -157,6 +157,14 @@ final class DictationRuntime: ObservableObject {
                 return
             }
 
+            if let microphoneStatus = await recordingSetupPreflight.requestMicrophonePermissionIfNeeded(),
+               microphoneStatus != .allowed {
+                failurePresentation = nil
+                status = .failure(message: microphoneStatus.settingsDescription)
+                settingsPresenter.showAfterSystemPermissionPrompt(focusing: .permissions)
+                return
+            }
+
             let preflight = recordingSetupPreflight.evaluate(settings: settings)
 
             switch preflight.requirement {

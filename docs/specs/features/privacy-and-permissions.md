@@ -122,8 +122,12 @@ This spec covers:
   until required permission setup is complete.
 - The app may show the full Settings window focused on Permissions again after
   an explicit user action that depends on required setup, such as starting
-  recording. The microphone system permission prompt must still appear only
-  after the user chooses the microphone request action.
+  recording.
+- If the user starts recording while microphone permission is not determined,
+  HoldType should use the platform microphone permission prompt before opening
+  the full Settings window. If the user allows microphone access, recording may
+  continue through the normal setup checks. If the user denies access, HoldType
+  must keep recording inactive and then show Permissions setup.
 - On launch, OpenAI API key setup must not read Keychain or open OpenAI Settings
   automatically. If any required permission still needs attention, the app must
   show Settings focused on Permissions and defer API key setup.
@@ -142,17 +146,18 @@ This spec covers:
   for the current app run only. It must not create, remove, validate, or assume
   an API key.
 - A recording start attempt must re-check required setup. If recording is
-  blocked by missing microphone permission or missing Accessibility permission
-  for enabled output/context behavior, the app must open Settings focused on
-  Permissions and remain out of the recording state.
+  blocked by denied or unavailable microphone permission, or by missing
+  Accessibility permission for enabled output/context behavior, the app must
+  open Settings focused on Permissions and remain out of the recording state.
 - A recording start attempt must check saved OpenAI API key availability only
   after permission blockers are resolved. Missing, unavailable, or
   not-yet-authorized API key setup must block recording before microphone
   capture starts and open Settings focused on OpenAI, not Permissions.
 - The menu bar must not render a separate permission status or recovery block.
   If recording cannot start because required permission setup is incomplete, the
-  recording action must keep recording inactive and open Settings focused on
-  Permissions.
+  recording action must keep recording inactive. For first-time microphone
+  permission it may show the platform prompt; otherwise it must open Settings
+  focused on Permissions.
 - Permissions settings should show microphone, Accessibility, and Input
   Monitoring status using product language and provide a bounded next action
   such as requesting permission or opening the relevant System Settings pane.

@@ -52,13 +52,17 @@ struct DictationRuntimeTests {
         #expect(runtime.hotkeyRegistrationStatus == .notRegistered)
     }
 
-    @Test func permissionPreflightOpensSettingsPermissionsAfterMenuDismissal() async {
+    @Test func firstTimeMicrophoneDenialOpensSettingsAfterSystemPrompt() async {
         let settingsPresenter = SpyRuntimeSettingsPresenter()
+        let microphoneClient = FakeRuntimeMicrophonePermissionClient(
+            status: .notDetermined,
+            requestResults: [false]
+        )
         let runtime = DictationRuntime(
             appSettingsStore: AppSettingsStore(userDefaults: makeTestUserDefaults()),
             recordingSetupPreflight: RecordingSetupPreflight(
                 setupStatusProvider: makeSetupStatusProvider(
-                    microphoneAuthorizationStatus: .notDetermined,
+                    microphoneClient: microphoneClient,
                     accessibilityTrusted: false,
                     inputMonitoringAuthorizationStatus: .allowed
                 ),
@@ -70,7 +74,63 @@ struct DictationRuntimeTests {
 
         await runtime.performRecordingAction()
 
+        #expect(microphoneClient.requestCount == 1)
+        #expect(settingsPresenter.systemPromptFocusedItems == [.permissions])
+        #expect(settingsPresenter.menuDismissalFocusedItems.isEmpty)
+    }
+
+    @Test func firstTimeMicrophoneGrantContinuesToOpenAIKeyPreflight() async {
+        let settingsPresenter = SpyRuntimeSettingsPresenter()
+        let microphoneClient = FakeRuntimeMicrophonePermissionClient(
+            status: .notDetermined,
+            requestResults: [true]
+        )
+        let runtime = DictationRuntime(
+            appSettingsStore: AppSettingsStore(userDefaults: makeTestUserDefaults()),
+            recordingSetupPreflight: RecordingSetupPreflight(
+                setupStatusProvider: makeSetupStatusProvider(
+                    microphoneClient: microphoneClient,
+                    accessibilityTrusted: true,
+                    inputMonitoringAuthorizationStatus: .allowed
+                ),
+                apiKeyStorage: FakeRuntimeAPIKeyStorage(availability: .missing)
+            ),
+            settingsPresenter: settingsPresenter,
+            hotkeyService: FakeGlobalHotkeyService()
+        )
+
+        await runtime.performRecordingAction()
+
+        #expect(microphoneClient.requestCount == 1)
+        #expect(settingsPresenter.menuDismissalFocusedItems == [.openAI])
+        #expect(settingsPresenter.systemPromptFocusedItems.isEmpty)
+    }
+
+    @Test func deniedMicrophonePreflightOpensSettingsWithoutPromptRequest() async {
+        let settingsPresenter = SpyRuntimeSettingsPresenter()
+        let microphoneClient = FakeRuntimeMicrophonePermissionClient(
+            status: .denied,
+            requestResults: [true]
+        )
+        let runtime = DictationRuntime(
+            appSettingsStore: AppSettingsStore(userDefaults: makeTestUserDefaults()),
+            recordingSetupPreflight: RecordingSetupPreflight(
+                setupStatusProvider: makeSetupStatusProvider(
+                    microphoneClient: microphoneClient,
+                    accessibilityTrusted: true,
+                    inputMonitoringAuthorizationStatus: .allowed
+                ),
+                apiKeyStorage: FakeRuntimeAPIKeyStorage(availability: .saved)
+            ),
+            settingsPresenter: settingsPresenter,
+            hotkeyService: FakeGlobalHotkeyService()
+        )
+
+        await runtime.performRecordingAction()
+
+        #expect(microphoneClient.requestCount == 0)
         #expect(settingsPresenter.menuDismissalFocusedItems == [.permissions])
+        #expect(settingsPresenter.systemPromptFocusedItems.isEmpty)
     }
 
     @Test func openAIKeyPreflightOpensSettingsOpenAIAfterMenuDismissal() async {
@@ -231,11 +291,23 @@ struct DictationRuntimeTests {
         accessibilityTrusted: Bool,
         inputMonitoringAuthorizationStatus: InputMonitoringAuthorizationStatus
     ) -> AppSetupStatusProvider {
+        makeSetupStatusProvider(
+            microphoneClient: FakeRuntimeMicrophonePermissionClient(
+                status: microphoneAuthorizationStatus
+            ),
+            accessibilityTrusted: accessibilityTrusted,
+            inputMonitoringAuthorizationStatus: inputMonitoringAuthorizationStatus
+        )
+    }
+
+    private func makeSetupStatusProvider(
+        microphoneClient: any MicrophonePermissionClient,
+        accessibilityTrusted: Bool,
+        inputMonitoringAuthorizationStatus: InputMonitoringAuthorizationStatus
+    ) -> AppSetupStatusProvider {
         AppSetupStatusProvider(
             microphonePermissionService: MicrophonePermissionService(
-                client: FakeRuntimeMicrophonePermissionClient(
-                    status: microphoneAuthorizationStatus
-                )
+                client: microphoneClient
             ),
             accessibilityPermissionService: AccessibilityPermissionService(
                 client: FakeRuntimeAccessibilityPermissionClient(
@@ -298,16 +370,26 @@ private struct FakeRuntimeCredentialResolver: OpenAICredentialResolving {
     }
 }
 
-private struct FakeRuntimeMicrophonePermissionClient: MicrophonePermissionClient {
+private final class FakeRuntimeMicrophonePermissionClient: MicrophonePermissionClient {
     var hasAvailableAudioInput = true
-    let status: MicrophoneAuthorizationStatus
+    private(set) var requestCount = 0
+    private var requestResults: [Bool]
+    var status: MicrophoneAuthorizationStatus
+
+    init(status: MicrophoneAuthorizationStatus, requestResults: [Bool] = []) {
+        self.status = status
+        self.requestResults = requestResults
+    }
 
     func authorizationStatus() -> MicrophoneAuthorizationStatus {
         status
     }
 
     func requestAccess(completion: @escaping (Bool) -> Void) {
-        completion(status == .allowed)
+        requestCount += 1
+        let result = requestResults.isEmpty ? status == .allowed : requestResults.removeFirst()
+        status = result ? .allowed : .denied
+        completion(result)
     }
 }
 

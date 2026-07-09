@@ -57,6 +57,14 @@ struct RecordingSetupPreflight {
             )
         }
     }
+
+    func requestMicrophonePermissionIfNeeded() async -> MicrophonePermissionStatus? {
+        await withCheckedContinuation { continuation in
+            setupStatusProvider.requestMicrophonePermissionIfNeeded { status in
+                continuation.resume(returning: status)
+            }
+        }
+    }
 }
 
 struct RecordingSetupPreflightResult: Equatable {
