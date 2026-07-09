@@ -297,8 +297,11 @@ host app, state, expected result, actual result, and go/no-go decision.
   types, provider-only contracts must be split behind an app-only product
   boundary. Successful transcription usage now has a portable, idempotent
   containing-app handoff and remains absent from keyboard/App Group state; its
-  durable replay ID and versioned repository remain P2 work. The next P1 slice
-  makes runtime attempt-stage attribution portable. App Group command/session
-  records, keyboard linking, and actual keyboard insertion remain unchanged
-  until their owning milestones.
+  durable replay ID and versioned repository remain P2 work. The runtime-only
+  four-case `VoiceAttemptStage` is portable too, while preflight, outcomes,
+  recovery eligibility, and durable resume checkpoints remain separate. The
+  next P1 slice narrows containing-app output handoff to accepted text plus the
+  two portable delivery preferences; it is not an App Group record or keyboard
+  insertion command. App Group command/session records, keyboard linking, and
+  actual keyboard insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

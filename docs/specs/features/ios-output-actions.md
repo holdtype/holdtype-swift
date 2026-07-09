@@ -268,6 +268,12 @@ be matched conservatively.
 - `OutputDeliveryState.expired` means accepted-result delivery eligibility or
   snapshot expiry. It is not Quick Session expiry or the utterance duration
   limit.
+- `VoiceAttemptStage.outputDelivery` identifies only the controller operation
+  that called a platform output adapter. Eligibility, pre-insert claim,
+  acknowledgement, `confirmedInserted`, `submittedUnverified`, recovery, and
+  expiry remain owned by `OutputDeliveryState` and the bridge contract. A
+  delivery-stage failure never recreates provider work or becomes a failed-
+  transcription History row.
 - The production bridge must define bounded expiry before automatic insertion
   is enabled.
 

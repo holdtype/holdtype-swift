@@ -289,7 +289,7 @@ final class DictationSessionController {
                     return
                 }
 
-                eventLogger.record(.outputDeliveryFailed(category: Self.operatorLogCategory(for: error)))
+                recordFailure(error, at: .outputDelivery)
                 outputStatusText = Self.userFacingMessage(for: error)
             }
 
@@ -450,7 +450,7 @@ final class DictationSessionController {
         failurePresentation = nil
         let sessionID = currentOrNewSessionID(intent: intent)
         let outputIntent = currentOutputIntent(fallback: intent)
-        var stage: DictationSessionStage = .recordingStop
+        var stage: VoiceAttemptStage = .recordingFinalization
         var completedArtifact: AudioRecordingArtifact?
         var completedRecordingSettings: AppSettings?
         var allowsRecordingCacheHandling = true
@@ -555,7 +555,7 @@ final class DictationSessionController {
                     return
                 }
 
-                eventLogger.record(.outputDeliveryFailed(category: Self.operatorLogCategory(for: error)))
+                recordFailure(error, at: stage)
                 outputStatusText = Self.userFacingMessage(for: error)
             }
 
@@ -643,7 +643,7 @@ final class DictationSessionController {
 
     private func recordFailedTranscriptionAttempt(
         _ error: Error,
-        at stage: DictationSessionStage,
+        at stage: VoiceAttemptStage,
         artifact: AudioRecordingArtifact?,
         settings: AppSettings?
     ) -> (attempt: FailedTranscriptionAttempt?, allowsRecordingCacheHandling: Bool) {
@@ -848,11 +848,11 @@ final class DictationSessionController {
         )
     }
 
-    private func recordFailure(_ error: Error, at stage: DictationSessionStage) {
+    private func recordFailure(_ error: Error, at stage: VoiceAttemptStage) {
         let category = Self.operatorLogCategory(for: error)
 
         switch stage {
-        case .recordingStop:
+        case .recordingFinalization:
             eventLogger.record(.recordingStopFailed(category: category))
         case .transcription:
             eventLogger.record(.transcriptionFailed(category: category))
@@ -894,13 +894,6 @@ final class DictationSessionController {
 
         return "unknown"
     }
-}
-
-private enum DictationSessionStage {
-    case recordingStop
-    case transcription
-    case postProcessing
-    case outputDelivery
 }
 
 private extension AudioRecorderServiceError {

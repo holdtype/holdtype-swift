@@ -43,6 +43,10 @@ can browse system-owned iOS crash files.
   revision, expiry category, retry count, and success/failure category. It does
   not accept arbitrary string dictionaries and does not treat punctuation
   replacement as redaction.
+- Diagnostics may project `VoiceAttemptStage` to one closed content-free stage
+  category. That projection is not serialization of the runtime enum and
+  carries no error message, transcript, model, prompt, file path, provider
+  payload, or host context.
 - Copy Recent Events is an explicit user action and copies only the redacted,
   bounded visible event window.
 - Export Diagnostic Bundle is an explicit action followed by a system share or

@@ -135,6 +135,16 @@ dispatch and reused only when replaying that same request/handoff; every
 genuinely new provider request, including Retry, replaces it with a new UUID.
 Provider retry resolves fresh settings and credentials.
 
+The runtime-only `VoiceAttemptStage` is not the journal `processing phase` or
+the failed row's durable `pipeline stage`. P2 defines versioned persistence
+values and explicit mappings for those records; persistence never encodes a
+debug description, enum ordinal, or inferred case order. Runtime stage alone
+never makes a failure recoverable. Recovery also requires matching attempt
+identity, a valid protected artifact, an eligible failure category, output
+intent, and the applicable History or pending-owner policy. The P1 macOS
+compatibility projection continues to create failed recovery only for
+transcription attribution; it does not pre-decide iOS Translation recovery.
+
 History and journal records never store API keys, authorization headers,
 provider responses, prompts, dictionary contents, surrounding text, analytics,
 or ordinary keystrokes.

@@ -178,6 +178,42 @@ the terminal voice outcome, or repeats a provider request when local usage
 persistence fails. Persistence moves off the latency-critical path before this
 contract is described as non-blocking.
 
+### Runtime Attempt-Stage Attribution
+
+`VoiceAttemptStage` is a coarse, payload-free runtime classifier for the
+operation being attempted when HoldType attributes a failure, recovery
+decision, or compact diagnostic event:
+
+- `recordingFinalization` covers the configured recording tail, recorder stop,
+  completed-artifact validation, and the recoverable pre-provider handoff after
+  retained capture. Recording start, initial preflight, and ordinary retained
+  capture are not attempt stages.
+- `transcription` begins when the controller commits to provider-specific audio
+  transcription and covers request preparation/dispatch, response validation,
+  echo rejection, and non-empty transcription acceptance. It does not prove
+  that network dispatch was reached.
+- `postProcessing` covers output-intent validation plus optional correction,
+  local final-text processing, translation, and final accepted-text validation.
+  It does not by itself prove that transcription completed.
+- `outputDelivery` begins only after accepted text is available and the
+  platform output adapter is being invoked. It does not mean insertion was
+  eligible, attempted, submitted, or confirmed.
+
+The stage is runtime attribution, not a state machine or ordered progress
+record. It carries no error, text, identifier, timestamp, output intent,
+recovery destination, retry eligibility, or user-facing copy. It is independent
+of `VoiceWorkPhase`: a recording tail may remain `listening`, transcription and
+post-processing normally occur during `processing`, and delivery can outlive
+active voice work after accepted text is safe. A stage is not an outcome;
+cancellation, interruption, expiry, recoverable failure, and success remain
+separate. Observing or changing it never starts work or authorizes Retry,
+Discard, delivery, microphone access, or provider access.
+
+For the iOS product flow, a blocked microphone, consent, credential,
+configuration, or storage preflight before capture creates no attempt stage.
+Legacy platform adapters may retain narrower compatibility mappings while P1
+extracts the value, but those mappings do not redefine iOS preflight behavior.
+
 The containing app and keyboard presentations derive their understandable
 user-facing state from separate sources instead of persisting or transporting
 the phase as a complete product state:
@@ -209,6 +245,8 @@ session as inactive, and must not label setup-dependent behavior as ready.
 - No raw audio enters the App Group or keyboard extension.
 - Every external wait is bounded and cancellation-aware.
 - A failed or interrupted attempt never overwrites previously accepted text.
+- Runtime attempt-stage case order has no meaning and is never used as a
+  persisted resume position.
 
 ## Edge cases and failure policy
 

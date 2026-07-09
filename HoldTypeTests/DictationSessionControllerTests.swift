@@ -40,11 +40,13 @@ struct DictationSessionControllerTests {
         let recorder = FakeAudioRecorderService()
         let transcriptionService = FakeControllerTranscriptionService()
         let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: FakeTranscriptOutput(),
             transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
             credentialResolverForUngatedActions: FakeControllerCredentialResolver(
                 result: .failure(.apiKeyUnavailable(KeychainService.inaccessibleAPIKeyMessage))
             )
@@ -64,17 +66,20 @@ struct DictationSessionControllerTests {
         #expect(recorder.stopCount == 0)
         #expect(transcriptionService.calls.isEmpty)
         #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(attemptStageFailureEvents(in: eventLogger.events).isEmpty)
     }
 
     @Test func unavailableCredentialDuringStopDoesNotUploadOrReportInvalidAPIKey() async {
         let recorder = FakeAudioRecorderService(currentStatus: .recording)
         let transcriptionService = FakeControllerTranscriptionService(result: .failure(.invalidAPIKey))
         let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: FakeTranscriptOutput(),
             transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
             credentialResolverForUngatedActions: FakeControllerCredentialResolver(
                 result: .failure(.apiKeyUnavailable(KeychainService.inaccessibleAPIKeyMessage))
             ),
@@ -96,6 +101,11 @@ struct DictationSessionControllerTests {
         #expect(recorder.stopCount == 1)
         #expect(transcriptionService.calls.isEmpty)
         #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .recordingStopFailed(category: "api_key_unavailable")
+            ]
+        )
     }
 
     @Test func recordingActionStopsTranscribesAndDeliversAcceptedTranscript() async {
@@ -697,6 +707,8 @@ struct DictationSessionControllerTests {
         let translationService = FakeTranslationService(result: .success("Unexpected translation"))
         let transcriptOutput = FakeTranscriptOutput()
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         var settings = AppSettings.defaults
         settings.language = .automatic
         settings.translationShortcutEnabled = true
@@ -706,7 +718,9 @@ struct DictationSessionControllerTests {
             translationService: translationService,
             settings: settings,
             transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
+            eventLogger: eventLogger,
             initialStatus: .recording
         )
 
@@ -721,6 +735,12 @@ struct DictationSessionControllerTests {
         #expect(translationService.calls.isEmpty)
         #expect(transcriptOutput.calls.isEmpty)
         #expect(usageRecorder.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .postProcessingFailed(category: "missing_translation_target_language")
+            ]
+        )
     }
 
     @Test func translationIntentFallsBackToNormalOutputWhenShortcutSettingIsDisabled() async {
@@ -761,6 +781,8 @@ struct DictationSessionControllerTests {
         let transcriptOutput = FakeTranscriptOutput()
         let transcriptHistory = FakeTranscriptRecoveryHistory()
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         var settings = AppSettings.defaults
         settings.language = .russian
         settings.translationShortcutEnabled = true
@@ -772,8 +794,10 @@ struct DictationSessionControllerTests {
             settings: settings,
             transcriptOutput: transcriptOutput,
             transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
             transcriptionIDGenerator: { transcriptionID },
+            eventLogger: eventLogger,
             initialStatus: .recording,
             lastTranscriptText: "previous transcript",
             outputStatusText: "Previous output status"
@@ -798,6 +822,12 @@ struct DictationSessionControllerTests {
                     model: "gpt-4o-transcribe",
                     audioDuration: 1.2
                 )
+            ]
+        )
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .postProcessingFailed(category: "timeout")
             ]
         )
     }
@@ -826,10 +856,14 @@ struct DictationSessionControllerTests {
         let recorder = FakeAudioRecorderService(currentStatus: .recording)
         let transcriptionService = FakeControllerTranscriptionService()
         let transcriptOutput = FakeTranscriptOutput()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
             initialStatus: .recording,
             lastTranscriptText: "previous transcript",
             outputStatusText: "Previous output status"
@@ -844,6 +878,8 @@ struct DictationSessionControllerTests {
         #expect(recorder.stopCount == 0)
         #expect(transcriptionService.calls.isEmpty)
         #expect(transcriptOutput.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(attemptStageFailureEvents(in: eventLogger.events).isEmpty)
     }
 
     @Test func cancelRecordingSurfacesRecorderCleanupFailure() {
@@ -898,11 +934,15 @@ struct DictationSessionControllerTests {
         )
         let transcriptOutput = FakeTranscriptOutput()
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
+            eventLogger: eventLogger,
             initialStatus: .recording,
             lastTranscriptText: "previous accepted transcript",
             outputStatusText: "Previous output status"
@@ -930,6 +970,8 @@ struct DictationSessionControllerTests {
         #expect(controller.outputStatusText == nil)
         #expect(transcriptOutput.calls.isEmpty)
         #expect(usageRecorder.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(attemptStageFailureEvents(in: eventLogger.events).isEmpty)
     }
 
     @Test func cancelDuringCorrectionKeepsAlreadyAcceptedTranscriptionUsage() async {
@@ -1055,10 +1097,14 @@ struct DictationSessionControllerTests {
         )
         let transcriptionService = FakeControllerTranscriptionService()
         let transcriptOutput = FakeTranscriptOutput()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
             initialStatus: .recording,
             lastTranscriptText: "previous transcript",
             outputStatusText: "Previous output status"
@@ -1072,6 +1118,12 @@ struct DictationSessionControllerTests {
         #expect(recorder.stopCount == 1)
         #expect(transcriptionService.calls.isEmpty)
         #expect(transcriptOutput.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .recordingStopFailed(category: "stop_failed")
+            ]
+        )
     }
 
     @Test func transcriptionFailureDoesNotDeliverOutputOrOverwriteSuccess() async {
@@ -1080,12 +1132,14 @@ struct DictationSessionControllerTests {
         let transcriptOutput = FakeTranscriptOutput()
         let usageRecorder = FakeTranscriptionUsageRecorder()
         let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: transcriptOutput,
             transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
+            eventLogger: eventLogger,
             initialStatus: .recording,
             lastTranscriptText: "previous transcript",
             outputStatusText: "Previous output status"
@@ -1103,6 +1157,11 @@ struct DictationSessionControllerTests {
         #expect(controller.failurePresentation?.settingsTarget == nil)
         #expect(controller.failurePresentation?.failedAttemptID == failureRecovery.failedAttempts.first?.id)
         #expect(controller.failurePresentation?.canRetry == true)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .transcriptionFailed(category: "network_unavailable")
+            ]
+        )
     }
 
     @Test func dismissFailurePresentationKeepsRecoverableAttempt() async {
@@ -1149,6 +1208,53 @@ struct DictationSessionControllerTests {
         #expect(controller.failurePresentation?.settingsTarget == .openAI)
         #expect(controller.failurePresentation?.failedAttemptID == failureRecovery.failedAttempts.first?.id)
         #expect(controller.failurePresentation?.canRetry == true)
+    }
+
+    @Test func retryCredentialFailureKeepsAttemptAndUsesTranscriptionAttribution() async throws {
+        let attemptID = try #require(
+            UUID(uuidString: "FE38D9D4-00FA-41F8-BE6E-EF490875C815")
+        )
+        let attempt = FailedTranscriptionAttempt(
+            id: attemptID,
+            audioFileURL: URL(fileURLWithPath: "/tmp/holdtype-failed-retry-credential.m4a"),
+            audioDuration: 12,
+            transcriptionModel: "gpt-4o-transcribe",
+            languageCode: "en",
+            reason: .networkUnavailable
+        )
+        let failureRecovery = FakeTranscriptionFailureRecovery(initialAttempts: [attempt])
+        let transcriptionService = FakeControllerTranscriptionService(result: .success("unexpected transcript"))
+        let transcriptOutput = FakeTranscriptOutput()
+        let usageRecorder = FakeTranscriptionUsageRecorder()
+        let eventLogger = FakeDictationEventLogger()
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .idle),
+            transcriptionService: transcriptionService,
+            transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery,
+            transcriptionUsageRecorder: usageRecorder,
+            eventLogger: eventLogger,
+            credentialResolverForUngatedActions: FakeControllerCredentialResolver(
+                result: .failure(.apiKeyUnavailable(KeychainService.inaccessibleAPIKeyMessage))
+            )
+        )
+
+        await controller.retryFailedTranscription(id: attemptID)
+
+        #expect(controller.status == .failure(message: "The OpenAI API key could not be read."))
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
+        #expect(usageRecorder.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.map(\.id) == [attemptID])
+        #expect(failureRecovery.failedAttempts.map(\.reason) == [.apiKeyUnavailable])
+        #expect(controller.failurePresentation?.settingsTarget == .openAI)
+        #expect(controller.failurePresentation?.failedAttemptID == attemptID)
+        #expect(controller.failurePresentation?.canRetry == true)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .transcriptionFailed(category: "api_key_unavailable")
+            ]
+        )
     }
 
     @Test func retryFailedTranscriptionDefaultsToSavingRecoveredTranscriptWithoutAutomaticInsertion() async throws {
@@ -1450,12 +1556,16 @@ struct DictationSessionControllerTests {
         )
         let transcriptHistory = FakeTranscriptRecoveryHistory()
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
             recorder: recorder,
             transcriptionService: transcriptionService,
             transcriptOutput: transcriptOutput,
             transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
+            eventLogger: eventLogger,
             initialStatus: .recording
         )
 
@@ -1469,6 +1579,12 @@ struct DictationSessionControllerTests {
         #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
         #expect(transcriptHistory.calls.first?.audioDuration == 1.2)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .outputDeliveryFailed(category: "text_insertion_timed_out")
+            ]
+        )
     }
 
     @Test func disabledRecoveryHistoryDoesNotWriteAcceptedTranscript() async {
@@ -1544,6 +1660,22 @@ struct DictationSessionControllerTests {
         var settings = AppSettings.defaults
         settings.saveTranscriptsToAppClipboard = saveTranscriptsToAppClipboard
         return settings
+    }
+
+    private func attemptStageFailureEvents(
+        in events: [DictationLogEvent]
+    ) -> [DictationLogEvent] {
+        events.filter { event in
+            switch event {
+            case .recordingStopFailed,
+                 .transcriptionFailed,
+                 .postProcessingFailed,
+                 .outputDeliveryFailed:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private func yieldUntil(_ condition: @MainActor () -> Bool) async {

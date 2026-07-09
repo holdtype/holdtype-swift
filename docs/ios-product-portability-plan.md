@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-three P1
+Status: active implementation roadmap, P0 contracts and the first twenty-four P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -689,6 +689,23 @@ that UUID before provider dispatch and reuse it on lifecycle replay, quarantine
 invalid legacy event durations, and move persistence off the latency-critical
 main-actor path.
 
+`VoiceAttemptStage` now gives runtime orchestration exactly four payload-free
+failure-attribution values: recording finalization, transcription,
+post-processing, and output delivery. It is `Equatable` and `Sendable` but not
+raw-valued, localized, or Codable, and it remains separate from work phase,
+outcome, delivery state, recovery eligibility, and every durable journal DTO.
+The macOS compatibility facade preserves the existing assignments and
+transcription-only failed-attempt recovery. Regression coverage freezes the
+legacy distinctions: blocked initial preflight creates no attempt-stage event,
+credential failure after macOS recorder stop remains recording finalization,
+missing Translation configuration after stop remains post-processing, and
+credential failure while replaying a failed attempt remains transcription.
+Output-adapter failures now use the same stage-to-event projection without
+changing their category or accepted-result behavior. These compatibility
+mappings do not redefine the iOS rule that blocked preflight happens before
+capture and creates no attempt stage. P2 still owns versioned durable-stage
+mapping and finer resume checkpoints.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -889,28 +906,30 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-three value/configuration/dependency slices are
-complete, including the redacted credential and idempotent successful-
-transcription usage handoff. The next P1 slice makes attempt-stage attribution
-portable without turning it into persisted session state:
+iOS target. The first twenty-four value/configuration/dependency slices are
+complete, including runtime attempt-stage attribution. The next P1 slice
+narrows the platform output-adapter input without creating a durable delivery
+record:
 
-1. specify and add a public runtime-only `VoiceAttemptStage` with exactly
-   `recordingFinalization`, `transcription`, `postProcessing`, and
-   `outputDelivery`;
-2. make it `Equatable` and `Sendable`, but not `Codable`, raw-valued, localized,
-   or payload-bearing. It attributes the current operation for recovery and
-   compact logging; it is not `VoiceWorkPhase`, an outcome, delivery state, or
-   a complete journal contract;
-3. replace the private macOS `DictationSessionStage` through a compatibility
-   facade and preserve existing stage assignment, recovery eligibility,
-   failure presentation, and event categories exactly;
-4. keep detailed correction/translation and mandatory accepted-result
-   persistence checkpoints out of this four-case compatibility value. P2 owns
-   a separately versioned durable journal DTO and any finer resume stages;
-5. add exhaustive package and normal-import iOS tests plus macOS regressions for
-   each failure-log/recovery branch;
-6. keep the value out of App Group and keyboard transport; no stage alone
-   authorizes retry, delivery, or secret/audio access.
+1. specify and add a public runtime-only `OutputDeliveryRequest` containing
+   exactly one `AcceptedTranscript` and one `OutputDeliveryPreferences`;
+2. make it `Equatable` and `Sendable`, but not `Codable`, identified,
+   timestamped, target-bearing, or acknowledgement-bearing. Preference intent
+   is not insertion eligibility, authorization, delivery state, or proof of
+   durable retention;
+3. change the macOS-local `TranscriptOutputDelivering` boundary to receive the
+   request instead of raw text plus all of `AppSettings`, while keeping
+   `TextInsertionResult`, AppKit/accessibility work, and presentation copy
+   platform-owned;
+4. construct the request only after final text is accepted. Normal delivery
+   uses the exact projected preferences; Retry Save Only forces automatic
+   insertion off while preserving the Latest Result preference, and Follow
+   Automatic Insertion uses the current preferences unchanged;
+5. add exhaustive package and normal-import iOS tests plus controller and
+   `TextInsertionService` regressions for all four preference combinations,
+   corrected/translated final text, failure/no-request paths, and retry modes;
+6. keep the request out of persistence, App Group, and keyboard transport. P2
+   owns the identified accepted-result delivery record and bridge claims.
 
 ## Research Basis
 
