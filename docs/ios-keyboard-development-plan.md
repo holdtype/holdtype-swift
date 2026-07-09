@@ -281,7 +281,9 @@ host app, state, expected result, actual result, and go/no-go decision.
   keyboard. `OutputDeliveryPreferences` now carries insertion and Latest Result
   intent without publishing text, target identity, or insertion eligibility to
   the extension. `DictationOutputIntent` is portable too, while its hotkey merge
-  remains macOS-only. The next result-only slice defines neutral delivery
-  outcomes; App Group command/session records and actual keyboard insertion
+  remains macOS-only. The two local insertion outcomes and seven observer-scoped
+  delivery states are portable without turning derived eligibility into stored
+  or acknowledged state. The next P1 slice defines neutral recovery
+  destinations; App Group command/session records and actual keyboard insertion
   remain unchanged until their owning milestone.
 - Full QWERTY and background Quick Session: gated and not started.

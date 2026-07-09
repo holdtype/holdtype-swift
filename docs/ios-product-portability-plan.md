@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first sixteen P1
+Status: active implementation roadmap, P0 contracts and the first seventeen P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -635,7 +635,11 @@ default-on automatic-insertion intent from default-on app-owned Latest Result
 retention without claiming route eligibility or changing the two legacy macOS
 Bool keys. The `DictationOutputIntent` value is portable with stable
 `standard`/`translate` raw and Codable forms; only the macOS facade retains the
-held-hotkey promotion merge.
+held-hotkey promotion merge. Output delivery now has a portable, observer-
+scoped state taxonomy: two stable Codable local insertion outcomes remain
+distinct from the seven presentation states. Derived eligibility and
+containing-app reconciliation are deliberately not persisted or treated as
+acknowledgement by this value-only slice.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -842,25 +846,22 @@ transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
 slices plus remote text-correction and translation configurations are complete.
 Retention configuration, voice-session preferences, output-delivery
-preferences, and output intent are complete too. The next P1 slice defines the
-portable delivery-outcome boundary before moving any session controller:
+preferences, output intent, and observer-scoped delivery states are complete
+too. The next P1 slice defines portable recovery destinations before moving any
+session controller:
 
-1. derive a neutral value taxonomy from the approved pending, automatically
-   eligible, explicit-action-required, confirmed-inserted,
-   submitted-unverified, recoverable-pre-attempt-failure, and expired states;
-2. keep the current macOS `TextInsertionResult` and its Accessibility,
-   active-app, Last Result, and presentation strings unchanged behind an
-   adapter rather than copying those cases into Domain;
-3. keep accepted text, document/session identities, TTLs, acknowledgements,
-   duplicate claims, and repository I/O in their separately owned value and
-   persistence contracts;
-4. add package and normal-import iOS truth-table tests that keep the extension's
-   local `confirmedInserted`/`submittedUnverified` outcomes distinct from
-   containing-app acknowledgement and reconciliation; a missing acknowledgement
-   must not rewrite the local outcome;
-5. keep UI, bridge/App Group records, cache lifecycle, recovery routing,
-   session orchestration, the obsolete M0A prototype, and the production QWERTY
-   engine outside this result-only slice.
+1. define a pure `RecoveryDestination` value for the approved owning product
+   areas: OpenAI, transcription, translation, keyboard, Full Access, and
+   microphone/privacy;
+2. keep macOS `SettingsNavigationItem`, SwiftUI navigation, window activation,
+   public system-settings URLs, and localized labels outside Domain;
+3. adapt only exact existing macOS routes; leave iOS-only destinations unmapped
+   until the containing-app shell owns their navigation;
+4. add package and normal-import iOS tests, using stable raw/Codable values only
+   if a real persistence or bridge contract requires them;
+5. keep failure reasons, UI, cache lifecycle, bridge/session records, session
+   orchestration, the obsolete M0A prototype, and the production QWERTY engine
+   outside this destination-only slice.
 
 ## Research Basis
 
