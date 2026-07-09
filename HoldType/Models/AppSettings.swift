@@ -178,7 +178,7 @@ enum RecordingStopTailDuration: String, CaseIterable, Codable, Equatable {
 }
 
 struct AppSettings: Equatable {
-    static let defaultTranscriptionModel = "gpt-4o-transcribe"
+    static let defaultTranscriptionModel = TranscriptionConfiguration.defaultModel
     static let defaultTextCorrectionModel = "gpt-5.5"
     static let defaultTranslationModel = "gpt-5.4-mini"
     static let customDictionaryPromptPrefix =
@@ -271,9 +271,17 @@ struct AppSettings: Equatable {
     var saveTranscriptHistory: Bool
     var recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
 
+    var transcriptionConfiguration: TranscriptionConfiguration {
+        TranscriptionConfiguration(
+            model: transcriptionModel,
+            language: language,
+            customLanguageCode: customLanguageCode,
+            freeformPrompt: prompt
+        )
+    }
+
     var resolvedTranscriptionModel: String {
-        let trimmedModel = transcriptionModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedModel.isEmpty ? Self.defaultTranscriptionModel : trimmedModel
+        transcriptionConfiguration.resolvedModel
     }
 
     var resolvedTextCorrectionModel: String {
@@ -374,11 +382,10 @@ struct AppSettings: Equatable {
     }
 
     func resolvedPrompt(context: TranscriptionPromptContext?) -> String? {
-        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         var promptParts: [String] = []
 
-        if !trimmedPrompt.isEmpty {
-            promptParts.append(trimmedPrompt)
+        if let freeformPrompt = transcriptionConfiguration.resolvedFreeformPrompt {
+            promptParts.append(freeformPrompt)
         }
 
         if useActiveTextContext, let activeTextPrompt = context?.promptText {
@@ -439,11 +446,11 @@ struct AppSettings: Equatable {
     }
 
     var resolvedLanguageCode: String? {
-        Self.resolvedLanguageCode(for: language, customCode: customLanguageCode)
+        transcriptionConfiguration.resolvedLanguageCode
     }
 
     var customLanguageCodeValidation: CustomLanguageCodeValidation {
-        language.customLanguageCodeValidation(customCode: customLanguageCode)
+        transcriptionConfiguration.customLanguageCodeValidation
     }
 
     static func isSupportedCustomLanguageCode(_ code: String) -> Bool {

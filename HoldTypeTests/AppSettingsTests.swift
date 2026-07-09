@@ -16,6 +16,7 @@ struct AppSettingsTests {
         let settings = AppSettings.defaults
 
         #expect(settings.transcriptionModel == "gpt-4o-transcribe")
+        #expect(settings.transcriptionConfiguration == .defaults)
         #expect(settings.resolvedTranscriptionModel == "gpt-4o-transcribe")
         #expect(settings.language == .automatic)
         #expect(settings.resolvedLanguageCode == nil)
@@ -87,6 +88,34 @@ struct AppSettingsTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): OpenWhispr, Synty
                 """
         )
+    }
+
+    @Test func projectsRawTranscriptionConfigurationWithoutOwningPersistence() {
+        var settings = AppSettings.defaults
+        settings.transcriptionModel = "  custom-transcribe  "
+        settings.language = .custom
+        settings.customLanguageCode = " RU "
+        settings.prompt = "  Prefer HoldType.  "
+
+        let configuration = settings.transcriptionConfiguration
+
+        #expect(configuration.model == "  custom-transcribe  ")
+        #expect(configuration.language == .custom)
+        #expect(configuration.customLanguageCode == " RU ")
+        #expect(configuration.freeformPrompt == "  Prefer HoldType.  ")
+        #expect(settings.resolvedTranscriptionModel == configuration.resolvedModel)
+        #expect(settings.resolvedLanguageCode == configuration.resolvedLanguageCode)
+        #expect(
+            settings.customLanguageCodeValidation ==
+                configuration.customLanguageCodeValidation
+        )
+        #expect(settings.resolvedPrompt == configuration.resolvedFreeformPrompt.map { prompt in
+            """
+            \(prompt)
+
+            \(AppSettings.emojiCommandsPromptPrefix)\(settings.resolvedEmojiCommandsPrompt ?? "")
+            """
+        })
     }
 
     @Test func includesActiveTextContextOnlyWhenEnabled() throws {

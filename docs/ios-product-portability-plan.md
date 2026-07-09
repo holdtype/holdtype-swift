@@ -1,7 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first P1 Domain
-slice complete; updated 2026-07-09.
+Status: active implementation roadmap, P0 contracts and the first four P1
+Domain slices complete; updated 2026-07-09.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -377,8 +377,9 @@ The existing `Shared/KeyboardSessionState.swift` and its open-containing-app
 actions are an M0A spike prototype, not the production session contract. They
 conflict with the approved no-launch, already-active Quick Session bridge and
 must not enter `HoldTypeDomain`. Replace them only inside the P6 bridge slice
-after M0B/M0C gates. The first P1 extraction is deliberately limited to
-`AcceptedTranscript` and its tests.
+after M0B/M0C gates. P1 began with the deliberately isolated
+`AcceptedTranscript` move; subsequent completed slices keep the same
+behavior-neutral, test-first boundary.
 
 ### Extract a platform-neutral context type
 
@@ -604,10 +605,12 @@ Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 
 Progress 2026-07-09: local package `HoldTypeDomain` now owns the public
 Foundation-only `AcceptedTranscript`, `TranscriptionPromptContext`,
-`TranscriptionLanguage`, and custom-language validation. The macOS app keeps
-source-compatible typealias/presentation facades and unchanged UserDefaults raw
-values, direct package consumers are linked explicitly, the keyboard remains
-unlinked, and package/macOS/iOS tests pass.
+`TranscriptionLanguage`, custom-language validation, and
+`TranscriptionConfiguration`. The macOS app keeps source-compatible
+typealias/presentation facades, projects the configuration from its existing
+scalar settings, and preserves the UserDefaults keys and raw values. Direct
+package consumers are linked explicitly, the keyboard remains unlinked, and
+package/macOS/iOS tests pass.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -809,19 +812,20 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. P0 plus the accepted-text, prompt-context, and language slices are
-complete. The next P1 slice is `TranscriptionConfiguration`:
+iOS target. P0 plus the accepted-text, prompt-context, language, and
+transcription-configuration slices are complete. The next P1 slice moves the
+smallest coherent personalization primitives:
 
-1. add the pure model/language/custom-code/freeform-prompt value with the
-   approved default model and current trim/fallback validation;
-2. expose it as a computed projection of the existing `AppSettings` scalar
-   fields rather than replacing the memberwise initializer or persisted layout;
-3. keep full request-prompt composition with context, emoji hints, and
-   dictionary in the compatibility facade until their own portable slices;
-4. keep UserDefaults keys/raw values stable and prove package, macOS store,
-   request-builder, and iOS smoke behavior;
-5. keep Nearby Text Context, audio, background modes, the obsolete M0A session
-   prototype, and the production QWERTY engine outside this slice.
+1. extract custom-dictionary normalization, emoji-command values, and text
+   replacement rules only where the types and algorithms are platform-neutral;
+2. keep `AppSettings` scalar/array fields, UserDefaults keys, and current prompt
+   ordering behind compatibility projections;
+3. preserve raw persisted payloads and prove old fixtures still decode before
+   introducing any future iOS repository schema;
+4. add package tests plus macOS behavior parity and iOS import smoke tests;
+5. keep UI labels, nearby context, provider requests, audio, background modes,
+   the obsolete M0A session prototype, and the production QWERTY engine outside
+   this slice.
 
 ## Research Basis
 
