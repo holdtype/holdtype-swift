@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 struct OpenAITranscriptionRequestBuilder {
     static let defaultEndpointURL = URL(string: "https://api.openai.com/v1/audio/transcriptions")!

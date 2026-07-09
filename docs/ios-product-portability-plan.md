@@ -382,10 +382,19 @@ after M0B/M0C gates. The first P1 extraction is deliberately limited to
 
 ### Extract a platform-neutral context type
 
-`TranscriptionPromptContext` is Foundation-only but currently lives in
-`ActiveTextContextService.swift`, which imports ApplicationServices. Move the
-value type into the domain. macOS may keep its AX adapter. iOS context remains
-disabled until a later keyboard privacy spec defines a bounded source.
+Completed 2026-07-09: `TranscriptionPromptContext` and its exact prompt
+composition now live in `HoldTypeDomain`; the macOS typealias facade keeps AX
+acquisition in `ActiveTextContextService.swift`, and shared/iOS tests cover the
+public value.
+
+This behavior-neutral move deliberately preserves the current macOS
+`max(1, requestedCharacterCount)` suffix semantics and does not turn 1,000
+Swift Characters into a hard privacy or byte boundary. The legacy AX adapter
+may still receive a full field value before taking its suffix. Neither behavior
+is approved for iOS reuse. Nearby Text Context remains unavailable on iOS until
+a separate privacy contract defines a bounded source-range API, hard character
+and UTF-8 byte caps, Unicode-safe truncation, and fail-closed behavior when the
+host cannot provide a bounded range.
 
 The current session controller is not portable merely because its recorder and
 output are protocols. Its output result is shaped by macOS insertion, its cache
@@ -594,9 +603,10 @@ physical-device claims. M0B/M0C remain operator-local physical gates.
 Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 
 Progress 2026-07-09: local package `HoldTypeDomain` now owns the public
-Foundation-only `AcceptedTranscript`; the macOS app keeps its source-compatible
-typealias facade, the package is linked to the macOS app, iOS app, and iOS test
-target but not the keyboard, and package/macOS/iOS tests pass.
+Foundation-only `AcceptedTranscript` and `TranscriptionPromptContext`; the
+macOS app keeps source-compatible typealias facades, direct package consumers
+are linked explicitly, the keyboard remains unlinked, and package/macOS/iOS
+tests pass.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -798,17 +808,16 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. P0 and the `AcceptedTranscript` slice are complete. The next P1
-slice is another behavior-neutral domain move:
+iOS target. P0 plus the accepted-text and prompt-context slices are complete.
+The next P1 slice is the first behavior-neutral configuration boundary:
 
-1. remove `TranscriptionPromptContext` from the Accessibility-owning source by
-   giving the value a Foundation-only prompt-composition contract;
-2. keep AX text acquisition and the first-release iOS Nearby Text Context
-   exclusion platform-specific;
-3. move focused normalization/prompt tests into `HoldTypeDomain` while keeping
-   current macOS request-builder and settings tests green;
-4. only then split `TranscriptionConfiguration` and language validation behind
-   the existing `AppSettings` facade;
+1. extract `TranscriptionLanguage`, custom-language validation, raw-value
+   persistence compatibility, and their pure tests into `HoldTypeDomain`;
+2. keep UI storage keys and the current `AppSettings` persistence facade stable;
+3. introduce `TranscriptionConfiguration` only after those language/default
+   contracts pass on package, macOS, and iOS destinations;
+4. keep Nearby Text Context off on iOS and keep the preserved macOS AX source
+   outside the portable configuration;
 5. keep audio, background modes, the obsolete M0A session prototype, and the
    production QWERTY engine for their named gates.
 

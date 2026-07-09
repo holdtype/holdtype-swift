@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 enum TranscriptionLanguage: String, CaseIterable, Codable, Equatable {
     case automatic = "auto"
@@ -393,8 +394,6 @@ struct AppSettings: Equatable {
     static let emojiCommandsPromptPrefix =
         "Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): "
     static let defaultEnabledEmojiCommandSetIDs = ["en"]
-    static let activeTextContextPromptPrefix =
-        "Current writing context near the cursor. Use this only for continuity; transcribe only the new speech:"
     static let defaultTextCorrectionPrompt =
         """
         You are correcting a speech transcript.

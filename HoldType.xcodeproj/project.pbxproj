@@ -27,6 +27,7 @@
 		D4A176042FF1000000000004 /* HoldTypeDomain in Frameworks */ = {isa = PBXBuildFile; productRef = D4A176012FF1000000000001 /* HoldTypeDomain */; };
 		D4A176052FF1000000000005 /* HoldTypeDomain in Frameworks */ = {isa = PBXBuildFile; productRef = D4A176022FF1000000000002 /* HoldTypeDomain */; };
 		D4A176062FF1000000000006 /* HoldTypeDomain in Frameworks */ = {isa = PBXBuildFile; productRef = D4A176032FF1000000000003 /* HoldTypeDomain */; };
+		D4A176072FF1000000000007 /* HoldTypeDomain in Frameworks */ = {isa = PBXBuildFile; productRef = D4A176082FF1000000000008 /* HoldTypeDomain */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -175,6 +176,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D4A176072FF1000000000007 /* HoldTypeDomain in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -286,6 +288,7 @@
 			);
 			name = HoldTypeTests;
 			packageProductDependencies = (
+				D4A176082FF1000000000008 /* HoldTypeDomain */,
 			);
 			productName = HoldTypeTests;
 			productReference = 9DB749762FE6D7320053C3F3 /* HoldTypeTests.xctest */;
@@ -627,6 +630,11 @@
 			productName = HoldTypeDomain;
 		};
 		D4A176032FF1000000000003 /* HoldTypeDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
+			productName = HoldTypeDomain;
+		};
+		D4A176082FF1000000000008 /* HoldTypeDomain */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
 			productName = HoldTypeDomain;

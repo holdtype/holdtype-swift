@@ -7,28 +7,7 @@
 
 import ApplicationServices
 import Foundation
-
-struct TranscriptionPromptContext: Equatable {
-    static let defaultMaximumCharacterCount = 1_000
-
-    let text: String
-
-    init?(_ text: String, maximumCharacterCount: Int = Self.defaultMaximumCharacterCount) {
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else {
-            return nil
-        }
-
-        self.text = String(trimmedText.suffix(max(1, maximumCharacterCount)))
-    }
-
-    var promptText: String {
-        """
-        \(AppSettings.activeTextContextPromptPrefix)
-        \(text)
-        """
-    }
-}
+import HoldTypeDomain
 
 @MainActor
 protocol ActiveTextContextReading {
