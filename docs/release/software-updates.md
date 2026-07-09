@@ -139,9 +139,10 @@ The CI release job should make the manual flow reproducible:
 - upload release assets and appcast through GitHub APIs.
 - when updating an existing GitHub Release, force it out of draft/prerelease
   state before the published-release verification gate;
-- deploy the appcast and verify the published GitHub Release is not a draft or
-  prerelease, has the expected uploaded non-empty assets, and matches the Pages
-  appcast before treating the release workflow as successful.
+- deploy the appcast and Sparkle release notes Markdown to Pages, then verify
+  the published GitHub Release is not a draft or prerelease, has the expected
+  uploaded non-empty assets, matches the Pages appcast, and exposes a reachable
+  release notes link before treating the release workflow as successful.
 - prepare an official Homebrew Cask submission bundle after the public release
   is verified, using the configured `HOMEBREW_MINIMUM_MACOS` value.
 - update the Homebrew tap through a pull request after the release asset is

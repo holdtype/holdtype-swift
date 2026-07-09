@@ -443,6 +443,51 @@ def check_appcast(
     return checks
 
 
+def appcast_release_notes_links(xml_text: str, *, expected_dmg_url: str) -> list[str]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+
+    for candidate_item in root.iter("item"):
+        for candidate in candidate_item.iter("enclosure"):
+            if candidate.attrib.get("url", "") == expected_dmg_url:
+                links: list[str] = []
+                for child in candidate_item.findall(f"{{{SPARKLE_NS}}}releaseNotesLink"):
+                    if child.text and child.text.strip():
+                        links.append(child.text.strip())
+                return links
+    return []
+
+
+def check_appcast_release_notes_link(
+    xml_text: str,
+    *,
+    expected_dmg_url: str,
+    expected_notes_text: str,
+    timeout: int,
+    name: str,
+) -> list[Check]:
+    links = appcast_release_notes_links(xml_text, expected_dmg_url=expected_dmg_url)
+    if not links:
+        return [warn_check(f"{name}:releaseNotesLink", "missing")]
+
+    checks: list[Check] = []
+    for index, link in enumerate(links, start=1):
+        check_name = f"{name}:releaseNotesLink:{index}"
+        try:
+            actual_notes = fetch_bytes(link, timeout=timeout).decode("utf-8")
+        except (OSError, UnicodeDecodeError, urllib.error.URLError) as error:
+            checks.append(fail_check(check_name, f"{link}: {error}"))
+            continue
+
+        if normalize_release_notes(actual_notes) == expected_notes_text:
+            checks.append(pass_check(check_name, link))
+        else:
+            checks.append(fail_check(check_name, f"{link}: content does not match release notes file"))
+    return checks
+
+
 def sparkle_item_value(item: ET.Element | None, enclosure: ET.Element, name: str) -> str:
     namespaced_name = f"{{{SPARKLE_NS}}}{name}"
     if item is not None:
@@ -597,8 +642,12 @@ def main() -> int:
     )
     checks.extend(release_checks)
 
+    expected_notes_text = ""
     if args.release_notes_file:
-        checks.extend(check_release_notes(release, Path(args.release_notes_file), version))
+        release_notes_path = Path(args.release_notes_file)
+        checks.extend(check_release_notes(release, release_notes_path, version))
+        if release_notes_path.exists():
+            expected_notes_text = normalize_release_notes(release_notes_path.read_text())
 
     manifest_text, manifest_checks = fetch_text_asset(
         assets,
@@ -683,6 +732,16 @@ def main() -> int:
                     name="published-appcast",
                 )
             )
+            if expected_notes_text:
+                checks.extend(
+                    check_appcast_release_notes_link(
+                        published_appcast,
+                        expected_dmg_url=expected_dmg_url,
+                        expected_notes_text=expected_notes_text,
+                        timeout=args.timeout,
+                        name="published-appcast",
+                    )
+                )
     else:
         checks.append(warn_check("published-appcast", "missing --appcast-url or HOLDTYPE_UPDATE_FEED_URL"))
 

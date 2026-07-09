@@ -2960,6 +2960,7 @@ end
     <item>
       <sparkle:version>100</sparkle:version>
       <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>{base_url}/pages/HoldType-{version}.md</sparkle:releaseNotesLink>
       <enclosure url="{dmg_url}"
                  sparkle:edSignature="fake-signature"
                  length="{len(dmg_bytes)}"
@@ -3042,6 +3043,10 @@ end
             )
             routes[f"/download/{tag}/appcast.xml"] = (appcast_xml.encode("utf-8"), "application/xml")
             routes["/pages/appcast.xml"] = (appcast_xml.encode("utf-8"), "application/xml")
+            routes[f"/pages/HoldType-{version}.md"] = (
+                notes_text.encode("utf-8"),
+                "text/markdown",
+            )
 
             with tempfile.TemporaryDirectory() as notes_temp_dir:
                 notes_path = Path(notes_temp_dir) / "release-notes.md"
@@ -3095,6 +3100,50 @@ end
         self.assertIn("[pass] published-appcast:release-asset-match", result.stdout)
         self.assertIn("[pass] published-appcast:version", result.stdout)
         self.assertIn("[pass] published-appcast:shortVersionString", result.stdout)
+        self.assertIn("[pass] published-appcast:releaseNotesLink:1", result.stdout)
+
+    def test_check_appcast_release_notes_link_rejects_missing_url(self) -> None:
+        module = load_published_release_module()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - stdlib callback
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            dmg_url = "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg"
+            appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <item>
+      <sparkle:releaseNotesLink>{base_url}/missing.md</sparkle:releaseNotesLink>
+      <enclosure url="{dmg_url}" />
+    </item>
+  </channel>
+</rss>
+"""
+            checks = module.check_appcast_release_notes_link(
+                appcast_xml,
+                expected_dmg_url=dmg_url,
+                expected_notes_text="# HoldType 1.2.3\n\nPublished release notes.",
+                timeout=5,
+                name="published-appcast",
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+        self.assertEqual(len(checks), 1)
+        self.assertEqual(checks[0].status, "fail")
+        self.assertEqual(checks[0].name, "published-appcast:releaseNotesLink:1")
 
     def test_verify_published_release_can_verify_downloaded_dmg_install_path(self) -> None:
         module = load_published_release_module()

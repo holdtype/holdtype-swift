@@ -79,7 +79,8 @@ In the GitHub repository settings:
 2. Set the source to GitHub Actions.
 3. Confirm Actions can create deployments.
 
-The release workflow uploads only `appcast.xml` to Pages.
+The release workflow uploads `appcast.xml` and the versioned Sparkle release
+notes Markdown file to Pages.
 
 After secrets and Pages are configured, run the read-only setup verifier before
 creating the first tag:
