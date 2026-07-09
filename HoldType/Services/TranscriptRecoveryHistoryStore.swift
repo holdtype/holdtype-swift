@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import HoldTypeDomain
 
 @MainActor
 protocol TranscriptRecoveryHistoryRecording: AnyObject {
@@ -38,7 +39,8 @@ enum TranscriptRecoveryHistoryError: Error, Equatable, LocalizedError {
 @MainActor
 final class TranscriptRecoveryHistoryStore: ObservableObject, TranscriptRecoveryHistoryRecording {
     static let shared = TranscriptRecoveryHistoryStore()
-    nonisolated static let defaultRetentionLimit = 20
+    nonisolated static let defaultRetentionLimit =
+        RetentionConfiguration.acceptedHistoryEntryLimit
 
     @Published private(set) var entries: [TranscriptHistoryEntry] = []
 

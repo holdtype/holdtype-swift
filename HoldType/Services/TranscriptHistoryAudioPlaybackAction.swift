@@ -7,6 +7,7 @@
 
 import AVFoundation
 import Foundation
+import HoldTypeDomain
 
 protocol TranscriptHistoryAudioPlaying: AnyObject {
     func playCachedAudio(at fileURL: URL) throws

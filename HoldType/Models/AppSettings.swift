@@ -8,41 +8,6 @@
 import Foundation
 import HoldTypeDomain
 
-enum RecordingCachePolicy: Equatable {
-    static let defaultRetainedRecordingLimit = 10
-    static let maximumRetainedRecordingLimit = 999
-
-    case deleteImmediately
-    case keepLast(Int)
-    case unlimited
-
-    var keepsRecordings: Bool {
-        self != .deleteImmediately
-    }
-
-    var retainedRecordingLimit: Int {
-        switch normalized {
-        case .keepLast(let count):
-            return count
-        case .deleteImmediately, .unlimited:
-            return Self.defaultRetainedRecordingLimit
-        }
-    }
-
-    var normalized: RecordingCachePolicy {
-        switch self {
-        case .keepLast(let count):
-            return .keepLast(Self.normalizedRetainedRecordingLimit(count))
-        case .deleteImmediately, .unlimited:
-            return self
-        }
-    }
-
-    static func normalizedRetainedRecordingLimit(_ count: Int) -> Int {
-        min(max(1, count), maximumRetainedRecordingLimit)
-    }
-}
-
 enum RecordingStopTailDuration: String, CaseIterable, Codable, Equatable {
     case off
     case milliseconds500
@@ -123,8 +88,8 @@ struct AppSettings: Equatable {
         soundEnabled: true,
         showFloatingIndicator: true,
         recordingStopTailDuration: .off,
-        saveTranscriptHistory: true,
-        recordingCachePolicy: .deleteImmediately
+        saveTranscriptHistory: RetentionConfiguration.defaults.historyEnabled,
+        recordingCachePolicy: RetentionConfiguration.defaults.recordingCachePolicy
     )
 
     var transcriptionModel: String
@@ -245,6 +210,13 @@ struct AppSettings: Equatable {
 
     var isTranslationSourceConfigurationValid: Bool {
         translationConfiguration.isSourceConfigurationValid
+    }
+
+    var retentionConfiguration: RetentionConfiguration {
+        RetentionConfiguration(
+            historyEnabled: saveTranscriptHistory,
+            recordingCachePolicy: recordingCachePolicy
+        )
     }
 
     var enabledTextReplacementRules: [TextReplacementRule] {

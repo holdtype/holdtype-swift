@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import HoldTypeDomain
 
 enum FailedTranscriptionReason: Equatable {
     case missingAPIKey
@@ -277,7 +278,8 @@ enum TranscriptionFailureRecoveryError: Error, Equatable, LocalizedError {
 @MainActor
 final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFailureRecoveryRecording {
     static let shared = TranscriptionFailureRecoveryStore()
-    nonisolated static let defaultRetentionLimit = 5
+    nonisolated static let defaultRetentionLimit =
+        RetentionConfiguration.failedHistoryEntryLimit
 
     @Published private(set) var failedAttempts: [FailedTranscriptionAttempt] = []
 

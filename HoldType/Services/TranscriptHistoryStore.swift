@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 protocol TranscriptHistoryPersistence {
     func loadData(forKey key: String) throws -> Data?
@@ -29,7 +30,7 @@ extension UserDefaults: TranscriptHistoryPersistence {
 
 struct TranscriptHistoryStore {
     static let defaultStorageKey = "holdtype.transcriptHistory.entries"
-    static let defaultRetentionLimit = 20
+    static let defaultRetentionLimit = RetentionConfiguration.acceptedHistoryEntryLimit
 
     private let persistence: any TranscriptHistoryPersistence
     private let storageKey: String

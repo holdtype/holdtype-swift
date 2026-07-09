@@ -7,6 +7,7 @@
 
 import AppKit
 import Foundation
+import HoldTypeDomain
 
 struct RecordingCacheItem: Equatable, Identifiable {
     var id: String {

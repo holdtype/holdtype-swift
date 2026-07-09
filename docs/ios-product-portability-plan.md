@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twelve P1
+Status: active implementation roadmap, P0 contracts and the first thirteen P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -616,10 +616,14 @@ ordered replacement post-processing pipeline is also portable. Correction
 model presets and pure model/prompt resolution now live in Domain with their
 exact defaults and reset behavior. Translation source/target resolution,
 action preference versus route readiness, model/prompt fallback, and validation
-are portable as well. The macOS app keeps source-compatible
+are portable as well. `RecordingCachePolicy` and `RetentionConfiguration` now
+preserve default-on history, the 20 accepted/five failed caps, and the exact
+delete-immediately, normalized keep-last-N, and unlimited recording-retention
+semantics. The macOS app keeps source-compatible
 typealias/presentation facades, projects the configurations from its existing
 scalar settings, and preserves the UserDefaults keys, scalar raw values, legacy
-translation migration, and custom-dictionary `[String]` storage. Direct package
+translation and history migrations, the cache policy's legacy two-key schema,
+and custom-dictionary `[String]` storage. Direct package
 consumers are linked explicitly, the keyboard remains unlinked, and
 package/macOS/iOS tests pass.
 
@@ -827,18 +831,19 @@ iOS target. P0 plus the accepted-text, prompt-context, language,
 transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
 slices plus remote text-correction and translation configurations are complete.
-The next P1 slice extracts retention configuration:
+Retention configuration is complete too. The next P1 slice extracts portable
+voice-session preferences:
 
-1. move `RecordingCachePolicy` and a pure history/recording
-   `RetentionConfiguration` into Domain;
-2. preserve delete-immediately, normalized keep-last, unlimited, the default
-   retained count, maximum count, and enabled-history defaults;
-3. project `saveTranscriptHistory` and the recording policy from `AppSettings`
-   without changing its initializer, two-key cache schema, or one-time history
-   default migration;
-4. keep repository I/O, file deletion, pruning, playback, and export outside
-   this configuration-only slice;
-5. keep UI, App Group publication, audio, background modes, the obsolete M0A
+1. move `RecordingStopTailDuration` and a pure `VoiceSessionPreferences` into
+   Domain;
+2. preserve the current stop-tail raw values, Off default, and sound-enabled
+   default without treating macOS indicator or hotkey preferences as portable;
+3. represent the approved five-minute per-utterance cap and the separately
+   fixed five-minute Quick Session duration as distinct product constants;
+4. project the portable values from `AppSettings` without changing its
+   initializer, UserDefaults keys, raw persistence, or fallback behavior;
+5. keep audio capture, timers, cues, interruptions, session orchestration, UI,
+   App Group publication, background modes, the obsolete M0A
    session prototype, and the production QWERTY engine outside this slice.
 
 ## Research Basis

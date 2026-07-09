@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 import OSLog
 
 enum DictationLogEvent: Equatable {

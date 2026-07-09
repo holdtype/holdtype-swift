@@ -1,0 +1,4 @@
+import HoldTypeDomain
+
+typealias RecordingCachePolicy = HoldTypeDomain.RecordingCachePolicy
+typealias RetentionConfiguration = HoldTypeDomain.RetentionConfiguration
