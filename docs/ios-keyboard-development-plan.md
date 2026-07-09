@@ -5,6 +5,8 @@ Status: active feasibility work, started 2026-07-09.
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
 keeps ownership of the keyboard-specific feasibility and typing milestones.
+The P0-P8 order in that roadmap is canonical; milestone numbers here describe
+keyboard dependency lanes, not a competing chronological implementation order.
 
 ## Decision
 
@@ -63,6 +65,8 @@ Test on current iPhone and iPad hardware:
   provisioning profiles; no team identifier is committed to the repository;
 - keyboard enable/disable and next-keyboard behavior;
 - App Group read with Full Access off;
+- explicit `UITextDocumentProxy` Insert from that read-only path with Full
+  Access off; keyboard-level Copy is not part of this promise;
 - a separately justified debug matrix with Full Access on/off before enabling
   extension writes;
 - secure, phone, email, multiline, and host-opt-out fields;
@@ -79,17 +83,26 @@ Validate one selected public-API product hypothesis:
 3. The containing app keeps the microphone/audio engine visibly active for the
    bounded session. While armed but not `listening`, it discards incoming samples
    immediately and never persists or uploads them.
-4. With disclosed Full Access, the keyboard sends start/stop and insertion-
-   acknowledgement commands only while that session is active.
+4. With disclosed Full Access, the keyboard sends only the phase-valid named
+   voice-action and insertion-acknowledgement commands while that session is
+   active, plus the content-free readiness heartbeat defined by the shared-state
+   spec.
 5. Expiry, Stop, interruption, app termination, and force quit close the session
    and microphone deterministically.
 6. With Full Access off, the extension remains a working keyboard and read-only
    transcript insertion surface; manual app recording remains available.
 7. When HoldType voice is inactive, use a system Dictation control if iOS shows
    one, otherwise Globe to Apple's keyboard and start Dictation there.
+8. If keyboard-level Copy is proposed, validate explicit `UIPasteboard` use
+   separately with Full Access; otherwise keep Copy in the containing app.
 
 The keyboard never launches the containing app or relies on an automatic return
 API. One-shot app recording is the safe fallback, not a competing default flow.
+
+`UIBackgroundModes=audio` may be added only to the isolated M0C build after the
+foreground app-only slice is complete. It supports only a foreground-started
+Quick Session, never network/extension lifetime. If M0C fails, remove it from
+the release target.
 
 Every completed recording is stored locally before provider work. Automatic
 insertion is disabled if the current `documentIdentifier` does not match the
@@ -113,6 +126,9 @@ Shortcut/App Intent workflow.
 
 ## Milestone 1 — Portable Core Extraction
 
+- begin with only `AcceptedTranscript` in `HoldTypeDomain`, keeping the old
+  macOS path as a compatibility facade and excluding the obsolete M0A
+  open-containing-app session prototype;
 - extract platform-neutral accepted-text, transcription configuration,
   post-processing, and error contracts;
 - extract the Foundation-only OpenAI request pipeline without changing macOS
@@ -124,12 +140,15 @@ Shortcut/App Intent workflow.
 
 ## Milestone 2 — iOS Containing App Vertical Slice
 
+This lane maps to P3-P5 of the canonical portability roadmap and remains
+foreground-only until P6/M0C passes.
+
 - explain the platform/manual-return limit;
 - add and enable HoldType Keyboard;
-- explain the no-Full-Access mode before requesting Full Access for active-
-  session commands;
+- explain ordinary typing and the M0B-proven read-only insertion mode without
+  requesting Full Access yet;
 - configure the user's BYOK API key and request microphone permission;
-- choose typing layout, dictation language, and Quick Session behavior;
+- choose the implemented typing layout and dictation language;
 - run a guided real dictation and recovery example;
 - teach Globe re-selection, system emoji, Space cursor movement, and conditional
   Apple Dictation fallback;
@@ -137,9 +156,11 @@ Shortcut/App Intent workflow.
 - record, stop, transcribe, normalize, and retain recoverable audio;
 - publish accepted text to the bridge;
 - bounded timeouts, cancellation, interruptions, route changes, and offline
-  recovery;
-- an explicit five-minute Quick Session by default, visible remaining time, and
-  immediate Stop; no indefinite or automatic activation.
+  recovery.
+
+This milestone must not expose Quick Session, request Full Access for commands,
+or declare an audio background mode. The fixed five-minute Quick Session is the
+later P6/M0C hypothesis.
 
 ## Milestone 3 — iPhone Typing Foundation
 
@@ -152,6 +173,9 @@ Only after M0 passes:
 - Space cursor trackpad and system emoji switching;
 - VoiceOver and Reduce Motion;
 - a compact action bar reserved for mic and voice status.
+- set `hasDictationKey = true` only when that production voice key ships, then
+  verify on physical iPhone/iPad that iOS does not add a duplicate Dictation
+  key; the Phase 0 spike remains false.
 
 M3 entry gate: approve the first-release typing layouts and dictionaries,
 dictation languages, auto-detect policy, and the relationship between keyboard
@@ -171,10 +195,15 @@ users switch back to Apple's keyboard.
 ## Milestone 4 — Voice UX And Hardening
 
 - dedicated mic in the compact action bar;
-- `needsActivation`, `ready`, `listening`, `processing`, `inserted`,
-  `recoverableFailure`, and `interrupted` states;
+- `needsActivation`, `ready`, `listening`, `processing`,
+  `confirmedInserted`, `deliveryUnverified`, `recoverableFailure`, and
+  `interrupted` states;
 - literal plus punctuation by default; AI polish is explicit;
-- Retry, Copy, History, and idempotent insertion acknowledgement;
+- Retry/Insert where eligible plus instructions to use containing-app Latest
+  Result or History for Copy; keyboard-level Copy appears only after its
+  separate Full Access/`UIPasteboard` physical-device gate;
+- durable extension-local pre-insert claims so missing acknowledgements or
+  process restart cannot replay an insertion;
 - repeated start/stop/process cycles, network changes, device lock, calls, Siri,
   AirPods changes, Low Power Mode, and app switching;
 - TestFlight dogfood, privacy manifests, App Privacy disclosure, and App Review
@@ -230,12 +259,14 @@ host app, state, expected result, actual result, and go/no-go decision.
 
 - Research and architecture decision: complete.
 - Product specs: complete for the feasibility, experience, and shared-state
-  boundaries required by M0; later milestone language/layout details remain
-  explicit entry gates.
+  boundaries plus containing app, settings, voice/audio, history/storage,
+  privacy, diagnostics, keyboard settings, output, and usage. Later
+  language/layout details remain explicit entry gates.
 - M0A source, target embedding, bridge tests, bundle inspection, and containing-
   app simulator smoke: complete.
 - M0A real keyboard enablement, `UITextDocumentProxy` insertion, and Globe
   interaction: pending the first physical-device/manual pass and operator-local
   Apple Developer Team/App Group provisioning.
 - M0B/M0C physical-device evidence: pending.
-- Full QWERTY, voice UI, microphone, and OpenAI iOS work: gated and not started.
+- P1 portable-domain extraction: active, beginning with `AcceptedTranscript`.
+- Full QWERTY and background Quick Session: gated and not started.

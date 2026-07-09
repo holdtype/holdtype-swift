@@ -1,0 +1,111 @@
+# iOS Transcription Usage Estimate
+
+## Goal
+
+Show a transparent device-local estimate of successful OpenAI audio
+transcription usage without presenting it as an invoice, account balance, or
+complete provider-usage dashboard.
+
+## Scope
+
+- one local event for each successful audio transcription
+- today, recent daily average, last-30-day total, and projected 30-day cost
+- daily cost/minutes chart
+- known, unknown, and mixed local pricing behavior
+- bounded versioned persistence, empty/error states, and Reset
+
+## Non-goals
+
+- OpenAI billing, usage, balance, or account API calls
+- correction or translation token/cost estimates
+- failed, cancelled, rejected, empty, or locally invalid attempts
+- raw audio, transcript text, prompts, dictionary content, credentials, or
+  provider payloads in usage records
+- analytics, telemetry, cloud sync, or cross-device aggregation
+
+## Recording Contract
+
+- A successful provider transcription records exactly one event after a
+  non-empty transcript is accepted from the transcription stage. Later local
+  cleanup, correction, translation, output delivery, or History failure does
+  not create a second audio-usage event.
+- A successful explicit retry records one event for that new provider
+  transcription. A failed or cancelled retry records none.
+- Each event contains only a local ID, timestamp, normalized transcription
+  model, positive audio duration, optional known USD-per-minute price, optional
+  calculated cost, and optional local pricing-source/version label.
+- The event freezes the known rate used at recording time. Later price-table
+  updates do not silently rewrite historical estimates.
+
+## User-Visible Behavior
+
+- Settings labels the destination `Transcription Usage Estimate` and explains
+  that values come only from successful transcriptions made by this device.
+- The summary shows `Today`, `Average per day`, `Last 30 days`, and `Estimated
+  30-day cost`. Duration is always available in minutes when valid events
+  exist.
+- The recent average uses the elapsed calendar days from the first event in the
+  30-day window through today, with at least one day. Projection is that recent
+  known-cost daily average multiplied by 30; it is not a promise about future
+  use.
+- A segmented daily chart switches between estimated cost and audio minutes
+  over the same 30-day calendar window.
+- If every event uses an unknown model price, cost is `Unavailable` while
+  minutes remain visible. If known and unknown prices are mixed, known cost may
+  be shown only with a clear `partial` warning; unknown minutes are never priced
+  by guessing.
+- With no events, the surface says that an estimate appears after successful
+  transcriptions. A storage/decode failure shows a local error rather than an
+  empty-success state.
+- `Reset Usage Estimate` requires destructive confirmation, removes only local
+  usage events, and immediately returns this surface to its empty state. It does
+  not change the API key, settings, History, latest result, recordings, cache,
+  consent, or any external OpenAI data.
+
+## Persistence And Privacy
+
+- The containing app is the only writer. Events use versioned app-private
+  persistence with Data Protection and retain at most the most recent 365
+  calendar days.
+- Usage data is excluded from device backup and never enters App Group,
+  Keychain, the keyboard extension, logs, diagnostics, or exports by default.
+- Normal app use and automated tests never call a live provider billing or
+  usage endpoint.
+
+## Invariants
+
+- Audio duration cannot be negative and cost is never invented for an unknown
+  model.
+- One successful audio request produces at most one event even after callback
+  duplication, lifecycle replay, or output retry.
+- Correction and translation requests do not affect this estimate until a
+  separate token-estimate contract is approved.
+- Reset isolation is exact and a failed reset does not pretend the events were
+  removed.
+
+## Edge Cases And Failure Policy
+
+- Unsupported schema or corrupt storage produces a recoverable local error and
+  preserves the source for bounded recovery; it is not silently overwritten.
+- A failed append leaves the successful dictation/output available and shows a
+  non-blocking estimate-storage error.
+- Calendar/time-zone changes regroup the 30-day presentation by the current
+  local calendar without changing event timestamps or duplicating events.
+- A future pricing-table update applies only to new events unless a separate
+  migration contract explicitly says otherwise.
+
+## Verification Mapping
+
+- Test exactly-once success/retry recording and exclusion of every failed,
+  cancelled, duplicate, correction, and translation path.
+- Test today, elapsed-day average, 30-day window, projection, daily buckets,
+  time zones, known/unknown/mixed pricing, and frozen historical rates.
+- Test 365-day pruning, migrations, corrupt storage, append/reset failures,
+  confirmation, and reset isolation.
+- Inspect fixtures and stores for all forbidden content and prove normal tests
+  make no live billing/usage request.
+
+## Unknowns Requiring Confirmation
+
+- Correction and translation token estimates require a separate product and
+  pricing contract.

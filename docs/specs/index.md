@@ -20,7 +20,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | Diagnostics | `features/diagnostics-and-crash-reports.md` | Logs, crash/diagnostic reports, operator-facing error evidence |
 | Software updates | `features/software-updates.md` | Native macOS app update checks, prompts, release artifacts, appcast behavior |
 | App Store distribution | `features/app-store-distribution.md` | macOS distribution channel decision, App Store viability, direct-download trust |
-| Usage estimates | `features/ui-functionality-coverage.md` | Current UI/task coverage inventory, visible-surface task mapping |
+| UI functionality coverage | `features/ui-functionality-coverage.md` | Current UI/task coverage inventory, visible-surface task mapping |
 | Platform testing | `features/platform-testing-strategy.md` | Choosing build/test/runtime QA, MCP, Computer Use, or manual evidence |
 | Verification | `features/verification-strategy.md` | Verification baseline, test scope, evidence quality |
 | Backlog grooming | `features/backlog-grooming-automation.md` | Backlog task creation/refinement behavior |
@@ -29,6 +29,15 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS feasibility | `features/ios-keyboard-feasibility.md` | Platform boundary, device spike, go/no-go gate, containing-app/extension split |
 | iOS keyboard UX | `features/ios-keyboard-experience.md` | Typing parity, voice states, insertion safety, iPhone/iPad behavior |
 | iOS shared state | `features/ios-keyboard-shared-state.md` | App Group record, expiry, privacy boundary, insertion eligibility |
+| iOS containing app | `features/ios-containing-app-experience.md` | iPhone/iPad navigation, setup, Voice, Library, History, Settings, practice flow |
+| iOS settings/secrets | `features/ios-settings-and-secret-storage.md` | iOS defaults, persistence, migrations, Keychain, truthful setup status |
+| iOS voice/audio | `features/ios-voice-session-and-audio.md` | Foreground recording, Quick Session, audio lifecycle, journaling, M0C |
+| iOS history/storage | `features/ios-history-and-storage.md` | Durable local history, failed retry, pending journal, recording cache |
+| iOS privacy | `features/ios-privacy-and-permissions.md` | Microphone, provider and Quick Session consent, Full Access, privacy manifests |
+| iOS diagnostics | `features/ios-diagnostics.md` | Redacted runtime events, app-owned diagnostics, explicit local export |
+| iOS keyboard settings | `features/ios-keyboard-settings-snapshot.md` | One-way non-secret preference snapshot, fallback, M0B read gate |
+| iOS output actions | `features/ios-output-actions.md` | Latest result, Copy/Share, insertion eligibility, acknowledgement, recovery |
+| iOS usage estimate | `features/ios-usage-estimate.md` | Local successful-transcription estimate, 30-day summary/chart, pricing gaps, Reset |
 
 ## Source Hints
 

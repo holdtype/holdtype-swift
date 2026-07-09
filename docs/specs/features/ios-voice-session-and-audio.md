@@ -1,0 +1,250 @@
+# iOS Voice Session And Audio
+
+## Goal
+
+Provide reliable foreground dictation in the iOS app and validate a bounded,
+visible Quick Session for keyboard-triggered voice input without hiding
+microphone activity or losing completed recordings.
+
+## Scope
+
+- foreground one-shot recording in the containing app
+- microphone and audio-session lifecycle
+- five-minute per-utterance maximum
+- fixed five-minute Quick Session hypothesis
+- recording tail, cues, interruptions, routes, lock, and background behavior
+- completed recording journaling and provider handoff
+- cancellation, expiry, and recovery
+
+## Non-goals
+
+- microphone capture inside the keyboard extension
+- realtime or streaming OpenAI transcription
+- indefinite background recording
+- silence detection or automatic endpointing
+- keeping the microphone active to finish network work
+- bypassing M0B/M0C physical-device gates
+
+## Foreground one-shot behavior
+
+- An explicit Voice action in the containing app starts the foreground flow.
+- HoldType checks microphone authorization, provider consent, API-key
+  availability, configuration validity, and local storage before capture.
+- If authorization is not determined, the explicit action may request it.
+- A blocked preflight does not activate `AVAudioSession`, create an audio file,
+  or contact OpenAI.
+- Active capture shows `listening`, elapsed time, Cancel, and Done.
+- The start cue completes before retained audio begins; the stop cue plays only
+  after retained audio is finalized so cues are not recorded into the
+  utterance.
+- Done applies the configured fixed recording tail and then finalizes one local
+  recording artifact. The default tail is Off; choices are Off, 0.5, 1.0, 1.5,
+  and 2.0 seconds.
+- While a tail is pending the state remains `listening`; repeated Done actions
+  do not create duplicate finalization or provider work.
+- Cancel during capture or tail stops the recorder, removes the current
+  incomplete artifact, deactivates the audio session, and makes no provider
+  request.
+- A single retained utterance has a five-minute maximum. Reaching it fails the
+  utterance visibly and does not upload the maximum-duration artifact as a
+  successful recording.
+- A valid completed artifact carries relative local identity, duration, and
+  byte count and is written to the minimal `PendingRecording` journal before
+  any provider request.
+
+## Audio-session behavior
+
+- The containing app owns `AVAudioSession` configuration, activation, and
+  deactivation for recording, cues, and local playback.
+- Recording start/stop cues are short and non-verbal. Haptics/text state remain
+  available when audio cues are muted by system behavior.
+- Calls, Siri, alarms, route loss, Bluetooth/AirPods changes, built-in mic mute,
+  lock, scene changes, and media-services reset produce explicit interruption
+  or recoverable failure state.
+- HoldType never continues capture invisibly after an interruption.
+- A route change never silently switches into a new recording attempt or
+  duplicates the current one.
+- Deactivation occurs when capture ends, is cancelled, expires, fails, or is no
+  longer needed for local playback/cues.
+
+## Quick Session hypothesis
+
+- Quick Session is fixed at five minutes for the first implementation and is
+  separate from the five-minute maximum for one utterance.
+- It starts only after an explicit foreground action and separate Quick Session
+  consent.
+- The Voice screen shows `Voice session on`, remaining time, current phase, and
+  immediate Stop. The system microphone indicator remains visible.
+- In the armed `ready` phase, input samples are discarded immediately in memory
+  and are never written, journaled, logged, or uploaded.
+- An explicit keyboard mic command during an active session changes to
+  `listening` and begins retaining only that utterance.
+- Cancel during a Quick Session removes only the unfinished current utterance
+  and returns to armed `ready` when the session deadline still permits it.
+- Only a justified Full Access bridge may send the explicitly named voice
+  actions in this spec and insertion acknowledgements. The extension still
+  never receives microphone access.
+- The user manually returns to the host app and may need Globe re-selection.
+  HoldType never attempts a private automatic return.
+- Stop, five-minute expiry, interruption, app termination, and force quit end
+  the armed session and microphone deterministically.
+- With Full Access off, Quick Session commands are unavailable; foreground
+  one-shot recording and read-only/explicit insertion fallback remain.
+
+## Action Semantics
+
+HoldType uses four distinct actions and never labels them all `Stop`:
+
+- `Finish Utterance` (`Done`) is available while `listening`. It applies the
+  selected tail, finalizes and journals the current utterance, then starts the
+  provider chain. In Quick Session, the armed session may return to `ready`
+  after that attempt reaches a terminal result and time remains.
+- `Cancel Utterance` is available during `listening` and the still-cancellable
+  recording tail. It removes only the unfinished current artifact. In one-shot
+  mode it returns to idle; in Quick Session it returns to `ready` while time
+  remains. Once a completed artifact is journaled, this action is unavailable.
+- `Stop Voice Session` exists only for Quick Session. In `ready` it disarms
+  immediately. During `listening` it stops capture and ends the session; a
+  valid partial is finalized only into Recover-or-Discard state and is not
+  uploaded automatically, while an invalid partial is removed. If an utterance
+  was already finalizing because of `Finish Utterance`, Stop disarms the
+  session but lets that finalization/provider handoff continue. During
+  `processing`, Stop ends the armed microphone/audio state but does not cancel
+  the journaled provider attempt.
+- `Cancel Processing` is available only for a journaled active provider chain.
+  It cancels that task, rejects its late result by attempt ID, and preserves one
+  Retry-or-Discard recovery attempt. It does not imply Stop Voice Session; the
+  user may stop the session separately.
+
+The containing app presents every action that applies to its current phase.
+After M0C, the keyboard may send the same explicitly named action only while a
+matching Quick Session/attempt is published and Full Access is live. Without
+Full Access, none of these extension-to-app commands is available.
+
+## Provider handoff
+
+- A valid completed recording is recoverable before provider work starts.
+- Provider work begins only after capture ends and the recording is journaled.
+- While provider work is processing, the Quick Session may remain visibly
+  armed until its own deadline, but another utterance cannot begin until the
+  current attempt reaches a terminal state. Stop or expiry deactivates audio
+  without deleting the journaled attempt.
+- The microphone and audio session are not kept active merely to extend network
+  execution.
+- Background completion must use a bounded supported execution path. If it
+  cannot finish, HoldType preserves the journaled attempt and resumes only when
+  allowed, normally after the app returns to foreground.
+- `Cancel Processing` follows the action contract above. A new utterance does
+  not begin until that pending recovery is resolved.
+- OpenAI transcription, optional correction, translation, accepted output, and
+  history behavior remain governed by their dedicated specs.
+- Quick Session expiry ends the armed microphone/audio state but does not
+  cancel an already journaled provider attempt. Late provider results are
+  discarded only after explicit processing cancellation, attempt replacement,
+  terminal failure, or a mismatched session/attempt identity.
+
+## Product states
+
+The containing app and bridge use understandable, mutually exclusive phases:
+
+- `needsSetup`
+- `needsActivation`
+- `arming`
+- `ready` (`Voice session on`)
+- `listening`
+- `finalizing`
+- `processing`
+- `resultReady`
+- `recoverableFailure`
+- `confirmedInserted`
+- `deliveryUnverified`
+- `interrupted`
+- `expired`
+
+The UI must not label an armed background microphone session as inactive, and
+must not label setup-dependent behavior as ready.
+
+## Invariants
+
+- No hidden or automatic recording.
+- One active capture and one finalization/provider chain per attempt.
+- History playback and retry cannot compete with an active voice phase; their
+  ownership and handoff follow `ios-history-and-storage.md`.
+- A completed artifact is journaled before provider dispatch.
+- Quick Session and per-utterance timers remain independent.
+- Armed samples are discarded and never persisted or uploaded.
+- Provider execution never justifies keeping the microphone active.
+- No raw audio enters the App Group or keyboard extension.
+- Every external wait is bounded and cancellation-aware.
+- A failed or interrupted attempt never overwrites previously accepted text.
+
+## Edge cases and failure policy
+
+- Missing permission, key, consent, configuration, or storage fails before
+  capture and routes to the owning setup surface.
+- Too-short, empty, missing, corrupt, or unsupported audio is not uploaded.
+- If journaling fails, HoldType preserves the protected artifact where possible,
+  reports local recovery failure, and does not start provider work.
+- If the app is suspended after recording, the pending journal remains the
+  source of truth; relaunch offers explicit recovery rather than auto-upload.
+- An interruption or Quick Session expiry during `listening` stops capture. A
+  valid minimum-duration partial artifact is finalized and journaled for an
+  explicit Recover or Discard choice, but is not uploaded automatically. An
+  invalid/too-short partial is removed with a visible interruption outcome.
+- Quick Session expiry in `ready` simply disarms the session. Expiry in
+  `processing` stops audio and preserves the active provider/pending state;
+  its matching result may still complete normally.
+- If Quick Session background behavior uses unacceptable battery, fails to stop
+  deterministically, or is rejected by App Review, M0C fails and the product
+  retains foreground one-shot dictation.
+- If the current host field identity is absent or changes, audio processing may
+  still finish, but automatic insertion is disabled under the output spec.
+
+## Route / state / data implications
+
+- Voice is a top-level containing-app destination.
+- The containing app is the sole audio-session and recording owner.
+- Quick Session state may publish only compact, expiring non-secret status to
+  the App Group.
+- Protected recording files and pending journals remain app-private and are
+  excluded from backup.
+- Recording cache policy is separate from pending-attempt recovery.
+
+## Background Audio Release Gate
+
+- The foreground one-shot P4 build must not declare `UIBackgroundModes=audio`
+  or an equivalent background-audio capability.
+- That capability may be added only in the isolated P6/M0C physical-device
+  spike for a Quick Session that the user explicitly started while HoldType was
+  foreground-active. It must never be used merely to extend extension or
+  network execution.
+- M0C inspection must verify the final processed app `Info.plist`, entitlement
+  set, system microphone indicator, and deterministic Stop/expiry behavior.
+- If M0C fails for reliability, battery, review, or policy reasons, the
+  capability is removed from the release target before shipment and Quick
+  Session remains unavailable. Foreground one-shot dictation stays complete.
+
+## Verification mapping
+
+- Unit-test preflight ordering, state transitions, duplicate actions, tail
+  cancellation, timer separation, journaling-before-provider, late-result
+  rejection, and bounded cancellation with fakes and clocks.
+- Test every action in every phase, including Stop Voice Session during ready,
+  listening, Finish-triggered finalizing, and processing, with valid/invalid
+  partial artifacts and no accidental provider cancellation.
+- Simulator-test foreground state and route presentation without live provider
+  or microphone dependence.
+- Physical-device M0C must cover background/foreground transitions, Stop,
+  expiry, force quit, lock, calls, Siri, alarms, Bluetooth/AirPods routes,
+  media-services reset, Low Power Mode, and battery behavior.
+- Physical evidence must prove provider completion/resume without retaining the
+  microphone solely for network work.
+- Build inspection must prove P4 has no background-audio declaration and that
+  only an M0C-approved release configuration contains it.
+- Record every physical pass in `docs/qa/runs/` with device, OS, state,
+  expectation, result, and gate decision.
+
+## Unknowns requiring confirmation
+
+- Whether Live Activity is included after the basic M0C path passes. It is a
+  visibility/control surface, not a background-execution mechanism.

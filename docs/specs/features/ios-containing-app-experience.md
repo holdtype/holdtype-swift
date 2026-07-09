@@ -39,8 +39,8 @@ setup is complete.
   state, Start and Stop, the latest result, and a practice field.
 - Library owns custom dictionary entries, built-in and custom voice emoji
   commands, and ordered literal replacement rules.
-- History owns accepted results and recoverable failed attempts only to the
-  extent permitted by the approved iOS history contract.
+- History owns the bounded durable accepted results and recoverable failed
+  attempts approved by `ios-history-and-storage.md`.
 - Settings owns keyboard, transcription, correction, translation, voice,
   provider, storage, usage, privacy, diagnostics, and About configuration.
 - First-run setup may temporarily lead the experience, but completing or
@@ -79,7 +79,9 @@ The app guides setup in this order:
 - Keyboard readiness is evidence-based. A successful practice-field check may
   show that HoldType was recently used; absence of fresh evidence is `Not
   currently verified`, not a definitive disabled state.
-- A fresh extension report may show that Full Access was recently verified.
+- A fresh extension-owned `KeyboardReadinessHeartbeat` under
+  `ios-keyboard-shared-state.md` may show that Full Access was recently
+  verified.
   Once that evidence becomes stale, the app must not claim that Full Access is
   still enabled or that it is definitely disabled.
 - Denial or later revocation must leave a clear recovery path without requiring
@@ -95,7 +97,8 @@ The app guides setup in this order:
 - One-shot dictation records one bounded utterance, processes it, and presents
   the final accepted result in HoldType.
 - The containing app may place accepted text in its own practice/editor field
-  and offer explicit Copy and Share. It cannot insert into a previously active
+  and offer explicit Copy, Share, and the phase-appropriate Clear Latest action
+  from `ios-output-actions.md`. It cannot insert into a previously active
   external app.
 - When bridge publication is available, the accepted result may wait for an
   explicit or eligible keyboard insertion under `ios-output-actions.md`.
@@ -103,8 +106,9 @@ The app guides setup in this order:
   corrected text when correction succeeds, or translated text for a successful
   translation-mode session.
 - Normal literal dictation with punctuation is the default output intent.
-  Translation remains a visible but unavailable action with a setup route
-  until its target configuration is valid.
+  Translation remains a visible but unavailable action with an in-app setup
+  route until its target configuration is valid. The keyboard itself can only
+  instruct the user to configure Translation in HoldType.
 - A completed recording becomes recoverable before provider work starts. The
   app must not discard it merely because the network, provider, app lifecycle,
   or output delivery fails.
@@ -200,11 +204,11 @@ The app guides setup in this order:
   background Quick Session, manual return, Globe re-selection, interruption,
   expiry, force quit, and host-app limitations.
 
-## Gates And Open Decisions
+## Gates And Deferred Decisions
 
 - Production Quick Session and extension writes require M0C approval.
 - Production QWERTY and iPad keyboard work remain under their existing gates.
-- Durable accepted and failed history remains unavailable until
-  `ios-history-and-storage.md` approves it.
+- Durable accepted and failed history follows `ios-history-and-storage.md` and
+  remains app-only.
 - A configurable Quick Session duration, Live Activity, first production typing
   layouts, and the iPad hardware-keyboard trigger require later decisions.

@@ -60,8 +60,11 @@ clone.
 - Long press on Space remains reserved for cursor movement.
 - Literal transcription with punctuation is the default; semantic rewriting
   is an explicit option.
-- Finished audio is recoverable until transcription and insertion have
-  succeeded.
+- Finished audio is recoverable until provider processing either produces
+  app-private durable accepted text or the user explicitly discards the
+  attempt. After durable acceptance, insertion recovery depends on accepted
+  text rather than raw audio; later audio retention follows the separate cache
+  setting.
 - The initial product milestone is iPhone. iPad is a separate product milestone
   because floating layouts, Stage Manager, and hardware keyboards change the
   interaction model.

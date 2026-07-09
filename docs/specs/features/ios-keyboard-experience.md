@@ -15,7 +15,10 @@ voice-input action, while presenting iOS platform limits honestly.
   one compact prediction/action bar.
 - Use literal transcription with punctuation by default. AI polishing requires
   an explicit user choice.
-- Never discard a completed recording because transcription or insertion failed.
+- Never discard a completed recording before provider success or an explicit
+  attempt discard. Once final accepted text is durable, insertion failure must
+  preserve that text; raw-audio retention then follows the independent cache
+  setting.
 
 ## Required Keyboard Behavior
 
@@ -34,6 +37,10 @@ A production iPhone keyboard must provide:
 System emoji remains available through keyboard switching in the first product
 version. A custom emoji surface is not an initial requirement.
 
+User-editable typing preferences reach the extension only through
+`ios-keyboard-settings-snapshot.md`. Missing or invalid preferences fall back to
+bundled ordinary typing and never block Globe or Unicode entry.
+
 The Phase 0 extension declares `en-US` only as feasibility metadata. Before the
 typing-engine milestone starts, the product must approve the first-release
 typing layouts, their autocorrection dictionaries, supported dictation
@@ -50,8 +57,14 @@ The compact action bar presents one of these product states:
 - `ready`: a bounded voice session can start;
 - `listening`: waveform, elapsed time, Cancel, and Done are visible;
 - `processing`: recording is safe locally while transcription completes;
-- `inserted`: insertion succeeded and a short Undo opportunity is available;
-- `recoverableFailure`: Retry and Copy/History recovery are available;
+- `confirmedInserted`: the same document/context confirms the submitted suffix
+  and a short safe Undo opportunity is available;
+- `deliveryUnverified`: `insertText` was submitted or durably claimed but its
+  void result cannot be confirmed; inspect the field or recover in HoldType,
+  with no automatic replay;
+- `recoverableFailure`: available recovery is explained, with Retry or Insert
+  only where its gate has passed and instructions to open Latest Result or
+  History in HoldType;
 - `interrupted`: a call, Siri, route change, lock, or session expiry stopped work.
 
 The UI must never label a state `ready` when tapping the microphone will first
@@ -77,13 +90,29 @@ does not attempt a private automatic return.
 
 With Full Access off, ordinary typing, read-only insertion of a transcript
 published by the app, and conditional Apple Dictation fallback remain
-available. The keyboard cannot send start/stop or insertion acknowledgement to
-the containing app.
+available. The keyboard cannot send voice-action commands or insertion
+acknowledgement to the containing app.
 
 After an explicit Full Access disclosure, an active Quick Session may support
-one-tap start/stop and acknowledgement through the shared bridge. When the
-session is inactive, the keyboard shows `needsActivation`; it does not pretend
-the microphone is ready and does not launch the containing app.
+the phase-valid named voice actions and acknowledgement through the shared
+bridge. When the session is inactive, the keyboard shows `needsActivation`; it
+does not pretend the microphone is ready and does not launch the containing app.
+
+The compact bar keeps Normal dictation as the primary voice action. Translate
+remains visible but unavailable with instructions to configure Translation in
+HoldType until its target is valid. The extension never claims it can launch or
+deep-link into the containing app. Retry, explicit Insert, Copy, and History
+recovery follow
+`ios-output-actions.md`; they do not overload Space or another standard key.
+
+The action bar uses the same distinct `Finish Utterance`, `Cancel Utterance`,
+`Stop Voice Session`, and `Cancel Processing` semantics as
+`ios-voice-session-and-audio.md`. It shows only actions valid for the published
+phase and never makes session Stop look like utterance Done or provider Cancel.
+
+While a visible voice attempt is listening or processing, the extension uses
+the bounded observation cadence in `ios-output-actions.md`; App Group
+publication does not wake an evicted keyboard.
 
 ## Insertion Safety
 
@@ -96,6 +125,11 @@ Copy action instead of guessing.
 
 Repeated refreshes or late provider results must not insert the same transcript
 twice.
+
+The first production accepted-result snapshot expires 10 minutes after it
+becomes ready. Expiry removes keyboard delivery eligibility but does not delete
+app-owned latest result or durable History. The app physically clears the
+expired transient snapshot at the first bounded maintenance opportunity.
 
 ## Failure And Fallback
 
@@ -110,22 +144,22 @@ twice.
 - Apple Dictation may appear as a system-provided control in some configurations.
   Otherwise the fallback is Globe, Apple keyboard, then Dictation.
 
-## Onboarding Contract
+## Keyboard Education Contract
 
-The containing app presents setup in this order:
+`ios-containing-app-experience.md` is the single source of truth for setup
+order, microphone requests, provider setup, and Quick Session availability.
+Keyboard-specific education must additionally demonstrate:
 
-1. Explain the custom-keyboard and manual-return limits.
-2. Add and enable HoldType Keyboard.
-3. Explain what works without Full Access, then request it only for the active-
-   session command path.
-4. Configure the user's OpenAI key and request microphone permission.
-5. Choose typing layout, dictation language, and Quick Session behavior.
-6. Run a guided real dictation and recovery example.
-7. Teach Globe re-selection, system emoji, Space cursor movement, and Apple
-   Dictation fallback.
+- Globe re-selection and the required next-keyboard control;
+- system emoji through keyboard switching;
+- long-press Space cursor movement;
+- ordinary typing plus M0B-proven explicit Insert without Full Access;
+- secure-field, selected phone-field, and host opt-out fallback to the system
+  keyboard;
+- conditional Apple Dictation fallback when HoldType voice is unavailable.
 
-Permission denial or revocation must leave a clear recovery path without
-reinstalling the app.
+The keyboard never requests microphone permission, asks the user to choose an
+unapproved Quick Session behavior, or promises Copy without its own gate.
 
 ## iPhone And iPad
 
@@ -155,3 +189,8 @@ disable HoldType to repair routine typing.
 
 Voice QA must show that completed speech is recoverable, Stop always stops the
 microphone, and no late result is silently inserted into the wrong field.
+
+When the production keyboard ships its own dedicated voice key, its controller
+sets `hasDictationKey = true` so iOS does not add a duplicate system Dictation
+key. Phase 0 keeps the value false. The transition must be verified on physical
+iPhone and iPad hardware with supported OS versions before release.

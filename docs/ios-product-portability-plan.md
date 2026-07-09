@@ -1,6 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: approved product direction, planning only, reviewed 2026-07-09.
+Status: active implementation roadmap, P0 contracts complete and P1 active;
+updated 2026-07-09.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -159,14 +160,14 @@ Disposition meanings:
 | Recording stop tail | Voice & Recording | Adapt | Preserve options after tap-to-stop semantics and interruption behavior are specified |
 | Start/stop sounds | Voice & Recording | Adapt | Coordinate cues and haptics with silent mode and `AVAudioSession` |
 | Global dictation hotkey | Keyboard voice action | Replace | Dedicated mic; App Intent/Shortcut may be secondary on iPad |
-| Automatic active-app insertion | Keyboard extension | Replace | Conservative `UITextDocumentProxy` insertion only while the extension is active and a non-nil document/session/transcript identity still matches; otherwise explicit Insert/Copy |
+| Automatic active-app insertion | Keyboard extension | Replace | Conservative `UITextDocumentProxy` insertion only while the extension is active and a non-nil document/session/transcript identity still matches; otherwise explicit keyboard Insert or containing-app Copy; keyboard Copy remains separately gated |
 | Keep Last Result | Voice and History | Adapt | Versioned latest/pending result with expiry; not process memory or hidden clipboard |
-| Control+Command+V | Explicit Insert/Copy | Drop | No global paste shortcut on iOS |
+| Control+Command+V | Explicit keyboard Insert / containing-app Copy | Drop | No global paste shortcut on iOS |
 | Explicit History row Copy | History | Adapt | Clipboard only after a clear user action; never as bridge transport |
 | Floating indicator panel | Keyboard bar and Voice screen | Replace | Textual state, system mic indicator, optional Live Activity during active session |
 | Launch at login | None | Drop | Voice Session begins only after explicit user action |
-| Accepted transcript history | History | Adapt | Recommend bounded durable local history because iOS process eviction is normal |
-| Failed-attempt recovery | Voice and History | Adapt | Minimal pending-attempt journal prevents loss; durable failed-history rows and general retry after restart require history contract approval |
+| Accepted transcript history | History | Adapt | Approved bounded durable local history because iOS process eviction is normal |
+| Failed-attempt recovery | Voice and History | Adapt | Minimal pending-attempt journal plus approved durable failed rows and explicit retry after restart |
 | History audio playback | History | Adapt | App-owned local playback while retained file exists |
 | Recording cache | Storage & Recovery | Adapt | Private protected storage, backup exclusion, keep-last-N or explicit unlimited policy, playback/share/export |
 | Reveal in Finder | Share/Save to Files | Replace | Use iOS share sheet, file exporter, and Quick Look where useful |
@@ -233,7 +234,7 @@ audited macOS baseline, then document every intentional iOS difference:
 | Custom language code and prompt | Empty | Preserve |
 | Dictionary | Empty | Preserve |
 | Voice emoji | On, English set enabled | Preserve until localization entry gate |
-| Nearby text context | Off | Keep unavailable until privacy spec |
+| Nearby text context | Off | Keep unavailable in the first iOS release |
 | AI correction | Off | Preserve |
 | Correction model | Quality, currently `gpt-5.5` | Preserve with advanced custom option |
 | Correction prompt | Standard conservative prompt | Preserve with Reset |
@@ -248,7 +249,7 @@ audited macOS baseline, then document every intentional iOS difference:
 | Keep latest result | On | Adapt; no automatic system clipboard write |
 | Sound cues | On | Adapt to iOS audio/haptic policy |
 | Recording tail | Off | Preserve pending iOS interaction spec |
-| Recovery history | On, session-only, up to 20 accepted entries | Recommend durable bounded iOS history, pending approval |
+| Recovery history | On, session-only, up to 20 accepted entries | Use durable local iOS history: 20 accepted plus five failed entries |
 | Recording cache | Off; supports keep last N or explicit unlimited, with 10 as the default N | Preserve intent with protected app storage and visible size/clear responsibility |
 | Floating indicator | On | Remove setting; replace surface |
 | Launch at login | Off | Remove on iOS |
@@ -259,15 +260,18 @@ audited macOS baseline, then document every intentional iOS difference:
 | Data | Canonical owner | Storage | Keyboard access |
 | --- | --- | --- | --- |
 | API key | Containing app | App-only Keychain with iOS accessibility policy | Never |
+| Credential-presence marker | Containing app | Non-secret app-private status, excluded from backup | Never |
 | Small preferences and models | Containing app settings repository | App defaults behind versioned migrations | Published subset only |
 | Dictionary, emoji commands, replacements | Containing app library repository | Versioned app-private structured file, atomic writes, file protection | Optional compact read-only snapshot after spec |
 | Usage events | Containing app | Bounded app-private persistence | Never |
 | Pending provider attempt | Containing app | Minimal atomic app-private journal plus protected audio | Never |
-| Accepted and failed history | Containing app | Bounded durable app-private persistence only after history contract approval | Never |
+| Latest/pending accepted output | Containing app | Protected versioned delivery record, 24-hour cap, excluded from backup | Bounded result snapshot only |
+| Accepted and failed history | Containing app | Approved bounded durable app-private persistence | Never |
 | Recoverable audio | Containing app | Protected app-private files, excluded from backup | Never |
 | Keyboard preferences | Containing app | App Group immutable snapshot with schema/revision | Expected read-only path without Full Access, contingent on M0B; bundled minimal fallback required |
 | Voice session status and accepted result | Containing app | Short-lived App Group snapshot with TTL | Read and insert |
-| Voice commands and insertion acknowledgements | Keyboard extension | Separate extension-owned envelopes | App reads after justified Full Access |
+| Voice commands, insertion acknowledgements, readiness heartbeat | Keyboard extension | Separate short-lived extension-owned envelopes | App reads after justified Full Access |
+| Pre-insert claim ledger | Keyboard extension | Bounded content-free extension sandbox, 64 IDs/24 hours | Never; acknowledgement only reconciles app recovery |
 | Runtime logs | Each executable | Bounded redacted local log | No cross-process content logging |
 
 Do not use one read-modify-write App Group file for both processes. Before the
@@ -276,19 +280,24 @@ extension writes, split the bridge into directionally owned records:
 - app-owned `VoiceSessionSnapshot`;
 - app-owned `KeyboardPreferencesSnapshot`;
 - extension-owned voice command envelopes;
-- extension-owned insertion acknowledgements.
+- extension-owned insertion acknowledgements;
+- extension-owned content-free readiness heartbeat.
 
-Each record needs a schema version, monotonic revision in its writer domain,
-session/transcript identity where relevant, atomic replacement, validation,
-and a bounded expiry. Raw audio, API keys, prompts, ordinary keystrokes,
-surrounding text, provider payloads, and analytics remain forbidden.
+Each runtime record needs a schema version, monotonic revision in its writer
+domain, session/transcript identity where relevant, atomic replacement,
+validation, bounded expiry, and owner-only cleanup at the writer's next
+lifecycle opportunity. Static keyboard preferences are versioned but do not
+expire. Raw audio, API keys, prompts, ordinary keystrokes, surrounding text,
+provider payloads, and analytics remain forbidden.
 
 A `UITextDocumentProxy` document identifier is an opportunistic safety guard,
 not a reliable host-app or field identity. Automatic insertion is allowed only
 while HoldType is the active extension and the same non-nil identifier is
 observed for the session and result, together with matching session and
 transcript IDs. Missing or changed identity always falls back to an explicit
-Insert or Copy action; HoldType never attempts a private automatic return.
+keyboard Insert or containing-app Copy action; keyboard-level Copy remains
+separately Full-Access/device gated. HoldType never attempts a private
+automatic return.
 
 User dictionary terms can be sensitive. If a future typing lexicon snapshot
 needs them, the spec must name the exact fields, retention, logging rules, and
@@ -300,13 +309,13 @@ is not reliable across supported systems, the extension falls back to bundled
 minimal typing preferences and asks the user to open HoldType for features that
 need a refreshed snapshot.
 
-### Durable history recommendation
+### Durable history decision
 
 The macOS product currently presents session-only recovery history even though
 a separate persistent store exists. Session-only state is not robust on iOS,
 where process eviction is routine.
 
-The recommended iOS contract is a local, bounded history that survives app
+The approved iOS contract is a local, bounded history that survives app
 restart, capped initially at 20 accepted entries plus a small failed-attempt
 queue. It must provide:
 
@@ -320,14 +329,9 @@ queue. It must provide:
 - retry after relaunch without exposing content to the keyboard;
 - no cloud sync in the first release.
 
-This is a recommendation, not settled behavior, until the iOS history and
-storage spec is approved.
-
-Persistent repository capability may be built before that decision, but the
-app must not enable durable accepted history or expose controls that assume it
-until the behavior contract is approved. A minimal pending-recording journal
-needed to prevent loss during an active provider attempt is a separate recovery
-invariant, not accepted transcript history.
+The detailed behavior is governed by `ios-history-and-storage.md`. A minimal
+pending-recording journal needed to prevent loss during an active provider
+attempt remains a separate recovery invariant, not accepted transcript history.
 
 ## Source Portability Audit
 
@@ -344,8 +348,8 @@ invariant, not accepted transcript history.
 | OpenAI correction and translation | `OpenAITextCorrectionService.swift`, `OpenAITextTranslationService.swift` | Move with real cancellation |
 | Credential value | `Services/OpenAICredential.swift` | Move value/resolver contract; keep storage adapter platform-specific |
 | Usage models/store | `Models/OpenAIUsageEstimate.swift`, `Services/OpenAIUsageStore.swift` | Move model; inject persistence and clock |
-| History models | `Models/TranscriptHistoryEntry.swift`, `Services/TranscriptHistoryStore.swift` | Move and define iOS durable repository |
-| Runtime diagnostic formatting | `Services/RuntimeDiagnosticsLogStore.swift` | Move redaction/format contracts |
+| History models | `Models/TranscriptHistoryEntry.swift`, `Services/TranscriptHistoryStore.swift` | Redesign before moving: current Codable drops audio URL and failed recovery is session-only/absolute-path/transcription-only |
+| Runtime diagnostic formatting | `Services/RuntimeDiagnosticsLogStore.swift` | Do not move generic string metadata; replace with typed event/field allowlists and forbidden-value tests |
 | Session orchestration | `Services/DictationSessionController.swift` | Extract only after output results, cache lifecycle, recovery destinations, and status presentation are platform-neutral |
 
 The repository's test targets contain hundreds of tests, with a large relevant
@@ -368,6 +372,13 @@ The current services have two important hidden gaps:
 Keep the existing explicit external timeouts. Add mobile-safe cancellation,
 retry classification, offline behavior, and reuse of a completed local audio
 artifact rather than re-recording.
+
+The existing `Shared/KeyboardSessionState.swift` and its open-containing-app
+actions are an M0A spike prototype, not the production session contract. They
+conflict with the approved no-launch, already-active Quick Session bridge and
+must not enter `HoldTypeDomain`. Replace them only inside the P6 bridge slice
+after M0B/M0C gates. The first P1 extraction is deliberately limited to
+`AcceptedTranscript` and its tests.
 
 ### Extract a platform-neutral context type
 
@@ -540,9 +551,9 @@ Control, Full Keyboard Access, Dark Mode, Increase Contrast, and Reduce Motion.
 
 Every nonstandard keyboard key needs a keyboard-key accessibility trait and a
 state-specific label/value/hint. Ready, needs activation, listening,
-processing, inserted, recoverable failure, and interrupted states must be
-communicated by text and accessibility announcements, not color or waveform
-alone.
+processing, confirmed-inserted, delivery-unverified, recoverable failure, and
+interrupted states must be communicated by text and accessibility announcements,
+not color or waveform alone.
 
 The typing fallback must remain usable for people who cannot or do not want to
 speak. Dictation language and typing layout are separate settings. All first-
@@ -555,15 +566,22 @@ criteria for the production keyboard milestone.
 
 - run M0B as soon as operator-local provisioning and physical devices are
   available; keep the existing M0C go/no-go criteria unchanged;
-- create the missing iOS behavior specs listed below;
-- approve the iOS information architecture, durable-history policy, first
-  typing layouts, and privacy copy;
+- maintain the approved iOS behavior specs listed below;
+- preserve the approved iOS information architecture, durable-history policy,
+  fixed Quick Session duration, privacy boundaries, and named typing gates;
 - record baseline macOS tests and defaults before extraction.
 
-Exit: no user-visible iOS behavior depends only on this planning document.
+Exit: complete. No user-visible iOS behavior depends only on this planning
+document; baseline macOS and iOS tests passed before extraction.
+
+P0 baseline recorded 2026-07-09: the macOS scheme test suite and the
+`HoldType-iOS` iPhone simulator test suite both passed without live-provider or
+physical-device claims. M0B/M0C remain operator-local physical gates.
 
 ### P1 — Portable domain extraction
 
+- begin with the isolated `AcceptedTranscript` package move and compatibility
+  facade before extracting broader configuration;
 - create the local package/module boundaries;
 - move accepted text, configurations, validation, emoji, dictionary
   normalization, local cleanup, replacement rules, and pure models;
@@ -579,10 +597,10 @@ Exit: macOS builds/tests pass and shared tests run on macOS and iOS.
 
 - extract OpenAI transcription, correction, and translation;
 - implement real request cancellation and bounded file-backed upload;
-- add iOS settings migrations and app-only Keychain adapter;
-- add versioned library/usage repositories, protected recording storage, and
-  history repository capability without enabling unsettled durable-history
-  behavior;
+- add iOS settings migrations, app-only Keychain adapter, and the non-secret
+  last-known credential-presence marker with partial-failure reconciliation;
+- add versioned library/usage/history repositories and protected recording
+  storage;
 - split the App Group bridge by writer direction.
 
 Exit: fake-backed iOS tests prove save/load/migrate/cancel/expiry/recovery;
@@ -619,20 +637,20 @@ are absent rather than inert, and no voice provider flow is required yet.
   actions inside HoldType's practice/editor field plus explicit copy/share;
   this milestone cannot insert into a previously active external app;
 - add clear provider consent before the first request.
+- keep this milestone foreground-only: the processed app must not contain an
+  audio background mode or expose Quick Session.
 
 Exit: a recoverable app-only dictation works without Full Access or keyboard
 commands.
 
 ### P5 — Recovery, storage, usage, and diagnostics
 
-- after the iOS history contract is approved, add durable accepted and failed
-  history; otherwise retain session-only accepted history while preserving the
+- add the approved durable accepted and failed history while preserving the
   independent pending-recording journal;
 - reconcile the independent pending-recording journal after relaunch and allow
-  retry of that interrupted active attempt; general failed-history retry remains
-  conditional on the approved history contract;
+  retry of that interrupted active attempt and any approved durable failed row;
 - add playback, Share/Save to Files, retention and clear flows;
-- add transcription usage estimate and redacted diagnostic export;
+- add transcription usage estimate and typed-allowlist diagnostic export;
 - verify privacy manifests and default-log redaction.
 
 Exit: force quit, process eviction, network loss, and provider errors do not
@@ -648,8 +666,13 @@ background session.
 
 - extend the foreground audio coordinator with the smallest bounded background
   lifecycle needed by the existing M0C hypothesis;
+- add `UIBackgroundModes=audio` only in the isolated M0C configuration and
+  remove it from the release target if the gate fails;
 - add one minimal extension-owned voice command and one insertion
-  acknowledgement record;
+  acknowledgement record, carrying the source document identifier from the
+  explicit start command into the matching app-owned result;
+- add the content-free five-minute readiness heartbeat for truthful Full Access
+  status;
 - show explicit armed/listening/processing/expired state and immediate Stop;
 - prove a supported post-recording provider path without keeping the microphone
   active merely for network work;
@@ -663,10 +686,14 @@ production hardening or full QWERTY.
 
 - complete the bounded background lifecycle and optional Live Activity;
 - harden extension command envelopes and insertion acknowledgements;
+- add the bounded extension-local pre-insert claim ledger before any
+  `insertText` call so missing acknowledgements and process restart cannot
+  replay a transcript;
 - add Normal/Translate action intent before provider work starts;
 - enforce conservative active-extension, non-nil document, session, and
   transcript matching plus idempotent insertion;
-- keep explicit Insert/Copy and manual one-shot recording as safe fallbacks.
+- keep explicit Insert plus containing-app Copy and manual one-shot recording
+  as safe fallbacks; keyboard-level Copy remains separately gated.
 
 Exit: repeated real-device sessions show deterministic Stop/expiry,
 interruption safety, supported network completion/resume, no wrong-field
@@ -681,6 +708,9 @@ Entry: the existing keyboard M0 gate and typing-layout entry criteria pass.
 - implement local autocapitalization, autocorrection, predictions, Undo, and
   Space cursor trackpad;
 - add the compact voice action bar without weakening ordinary typing;
+- switch `hasDictationKey` from the Phase 0 false value to true when the
+  production dedicated voice key ships, then verify no duplicate system
+  Dictation key on physical iPhone/iPad hardware;
 - complete accessibility, rotation, small/standard/Max phone, light/dark, low
   memory, secure-field, and host-opt-out testing.
 
@@ -698,10 +728,10 @@ Exit: HoldType is usable as the primary keyboard for a normal working day.
 Exit: iPad is marketed only when both onscreen and hardware-keyboard paths are
 honest and usable.
 
-## Required Specs Before Implementation
+## P0 Behavior Specs
 
-Create or approve these behavior contracts incrementally, before their owning
-milestone begins:
+These approved contracts govern their owning milestones and must be updated
+before observable behavior changes:
 
 1. `ios-containing-app-experience.md` — navigation, setup, Voice surface, and
    practice flow.
@@ -709,7 +739,7 @@ milestone begins:
    migrations, Keychain, and app/system Settings boundary.
 3. `ios-voice-session-and-audio.md` — one-shot and Quick Session lifecycle,
    background audio, interruptions, routes, expiry, and visibility.
-4. `ios-history-and-storage.md` — durable history recommendation, recording
+4. `ios-history-and-storage.md` — approved durable history, recording
    protection, retention, deletion, retry, share, and reconciliation.
 5. `ios-privacy-and-permissions.md` — microphone, Full Access, provider consent,
    manifests, disclosures, and logs.
@@ -719,6 +749,8 @@ milestone begins:
    optional lexicon fields visible to the extension.
 8. `ios-output-actions.md` — latest result, Copy, Share, insertion identity,
    acknowledgements, and failure recovery.
+9. `ios-usage-estimate.md` — successful-transcription usage events, 30-day
+   summary/chart, pricing gaps, retention, and Reset isolation.
 
 Update `ios-keyboard-shared-state.md` before the extension becomes a writer.
 Update `ios-keyboard-experience.md` before Normal/Translate actions, recovery
@@ -743,38 +775,36 @@ Every physical pass belongs in `docs/qa/runs/` with device, OS, host app,
 permission state, Full Access state, expected result, actual result, and gate
 decision.
 
-## Decisions Still Requiring Approval
+## Decisions Deferred To Named Gates
 
-These questions are explicit gates, not reasons to block the planning work:
+These decisions do not block earlier independent work:
 
-- approve bounded durable iOS history versus preserving macOS session-only
-  behavior;
 - choose first-release typing layouts and dictionaries;
-- approve the initial iPhone Quick Session duration and whether it is fixed or
-  user-selectable;
-- approve whether optional dictionary data may enter a keyboard lexicon
-  snapshot;
-- decide whether a Live Activity is required for the first background-session
-  release or evaluated after the basic audio gate;
+- evaluate Live Activity only after the basic M0C audio path passes;
 - decide whether correction/translation usage estimates are worth a separate
   token-cost feature;
 - decide the secondary hardware-keyboard trigger for iPad;
-- decide whether future profiles/modes are a real product need rather than a
-  parity requirement.
+- keep profiles/modes outside parity unless a later product contract adds them.
+
+Durable local history, a fixed five-minute Quick Session, and exclusion of
+dictionary/emoji/replacement content from the v1 keyboard settings snapshot are
+already decided by their P0 specs.
 
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The next implementation-ready slice is documentation plus a
+iOS target. P0 is complete. The active P1 slice is the smallest
 behavior-neutral extraction:
 
-1. write `ios-containing-app-experience.md` and
-   `ios-settings-and-secret-storage.md`;
-2. approve the settings IA, storage table, and durable-history direction;
-3. extract the Foundation-only configurations and tests behind the existing
-   macOS `AppSettings` facade;
-4. keep audio, background modes, and the production QWERTY engine for their
-   named gates.
+1. create local package `HoldTypeDomain`;
+2. move only `AcceptedTranscript` and its pure tests into it;
+3. keep the current macOS source path as a compatibility typealias facade;
+4. link the package to the macOS app, iOS containing app, and iOS tests, but not
+   the keyboard extension;
+5. run package, macOS, and iOS tests before broadening extraction to
+   configurations;
+6. keep audio, background modes, the obsolete M0A session prototype, and the
+   production QWERTY engine for their named gates.
 
 ## Research Basis
 

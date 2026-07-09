@@ -51,8 +51,9 @@ be matched conservatively.
 - `Keep latest result` is on by default and does not write to the system
   clipboard automatically.
 - Normal literal dictation with punctuation is the default output intent.
-- The Translate action remains visible but unavailable with a route to
-  Translation setup until its target configuration is valid.
+- The Translate action remains visible but unavailable until its target
+  configuration is valid. The containing app can route to Translation setup;
+  the keyboard only tells the user to configure Translation in HoldType.
 - Copy and Share always require explicit user action.
 
 ## Containing-App Actions
@@ -64,6 +65,14 @@ be matched conservatively.
   start provider work.
 - Share exposes only the selected accepted text or an explicitly selected
   app-owned recording. Cancelling Share does not delete or consume the result.
+- The Latest Result card on Voice provides `Clear Latest Result` for a terminal
+  result. It immediately removes only the app-private latest record after
+  confirmation and leaves any durable History row, recording cache, usage, and
+  API key unchanged.
+- While keyboard delivery is still pending, that action is labelled `Cancel
+  Delivery and Clear Latest`. Confirmation first makes the app-owned bridge
+  result ineligible and schedules its physical cleanup, then clears the latest
+  record. It still does not delete History or independently retained audio.
 - The containing app may publish an accepted result for keyboard delivery, but
   it cannot insert into the previously active external app or return the user
   there automatically.
@@ -74,6 +83,35 @@ be matched conservatively.
   not silently rewrite the current latest result, and Copy does not create a
   History entry by itself.
 
+## Latest And Pending Result Lifetime
+
+- Before any keyboard publication or other output handoff, the containing app
+  persists the accepted result in an app-private, versioned delivery record
+  with Data Protection. It contains the session/transcript identity, final
+  accepted text, output intent, creation/expiry dates, and delivery state; it
+  contains no audio, key, prompt, host text, or provider payload.
+- This record survives process relaunch so output failure cannot lose newly
+  accepted text. It is excluded from device backup and physically removed when
+  its retention ends at the containing app's next lifecycle opportunity.
+- With `Keep latest result` on, the newest final result remains available for
+  24 hours, until a newer result replaces it, or until the user explicitly
+  clears it. Expiry is enforced at read time and followed by physical deletion
+  at the first app maintenance opportunity.
+- Turning `Keep latest result` off immediately clears any already-terminal
+  latest result and prevents future post-session retention. A result whose
+  delivery decision is still pending remains only until insertion is
+  reconciled, the user explicitly dismisses/discards it, or the 24-hour safety
+  cap expires.
+- The protected pending/latest delivery record is the mandatory pre-handoff
+  recovery and commits before any short-lived keyboard snapshot. When History
+  is enabled, the app also attempts its accepted row before publication. A
+  History append failure does not suppress an otherwise durable result: output
+  may continue with a visible non-blocking History error and a bounded pending
+  History-write marker on the delivery record. The app retries only local
+  metadata persistence, never provider work. If the mandatory delivery record
+  fails, no accepted text is published and the journaled attempt remains
+  recoverable.
+
 ## Keyboard Insertion
 
 - The keyboard inserts text only while HoldType is the active keyboard
@@ -81,48 +119,94 @@ be matched conservatively.
 - Automatic insertion requires all of the following:
   - the production acknowledgement contract and its Full Access disclosure
     have passed M0C;
+  - the current result explicitly carries
+    `automaticInsertionAuthorized: true` from the containing app;
   - the shared record is supported, unexpired, and contains accepted text;
   - session and transcript identities match the active delivery;
   - a non-empty source document identifier was captured for the session;
   - the current non-empty document identifier still matches it;
-  - the transcript has not already been acknowledged as inserted.
+  - the transcript has not already received a durable pre-insert claim.
 - A document identifier is only a conservative guard. It is not proof of the
   host app, field, cursor position, or user intent.
 - If any automatic-insertion condition is missing, HoldType keeps the result
-  recoverable and offers an explicit Insert or Copy action where the platform
-  and approved bridge allow it.
+  recoverable and offers explicit keyboard Insert or containing-app Copy where
+  the platform and approved bridge allow it.
 - Explicit Insert is a user confirmation to place the displayed accepted text
   into the field that is active at tap time. It may proceed after a missing or
   changed document identifier, but only while HoldType is visibly active and
   the user can see which result is being inserted.
-- One successful Insert consumes the primary Insert action for that transcript
-  in that keyboard presentation. Refresh, reappearance, or a late result must
-  not repeat it automatically.
+- One Insert attempt consumes the primary Insert action for that transcript
+  across keyboard presentations. Before calling `insertText`, the extension
+  atomically records a pre-insert claim in its own sandbox. The bounded ledger
+  contains only transcript ID, claim time, and `claimed`, `confirmedInserted`,
+  or `submittedUnverified` status; it stores no text or host identity, retains
+  at most 64 IDs, prunes entries after 24 hours, uses Data Protection, and is
+  excluded from device backup.
+- `UITextDocumentProxy.insertText` has no success return. After the call returns,
+  the extension may mark `confirmedInserted` only when the same non-empty
+  document identifier is still present and the immediately available local
+  `documentContextBeforeInput` ends with the exact submitted text. That context
+  is compared in memory only and is never persisted, logged, published, or sent
+  to a provider.
+- If post-insert identity/context is absent, truncated, changed, or does not
+  match, the outcome is `submittedUnverified`, not inserted or failed. The UI
+  says delivery could not be verified, keeps app-owned recovery, and never
+  automatically replays the transcript.
+- A claimed transcript is never inserted automatically again after refresh,
+  reappearance, eviction, or restart. If the extension is interrupted after
+  claiming but before it durably records a terminal outcome, the surviving
+  `claimed` state is treated as delivery uncertain and directs the user to
+  inspect the field or recover the result in HoldType; it does not guess and
+  repeat the insertion.
+- If the consumed ledger cannot be durably updated, keyboard insertion is
+  disabled for that attempt. The containing app's Copy and Share recovery
+  remain available.
 - Without Full Access, the keyboard remains usable for ordinary typing and may
   explicitly insert a valid read-only result after the M0B read path is proven.
   It cannot send start, stop, or insertion acknowledgement commands to the app,
   so automatic insertion remains unavailable.
-- After successful insertion, the keyboard presents a short Undo opportunity.
-  Undo is available only while the same target still safely contains the just-
-  inserted text; otherwise it disappears without editing another field.
+- After `confirmedInserted`, the keyboard presents a short Undo opportunity.
+  Undo is unavailable for `submittedUnverified` and is available only while the
+  same target context still ends with the exact just-inserted text; otherwise it
+  disappears without editing another field.
+- Copy is always available in the containing app. A keyboard-level Copy action
+  is unavailable without Full Access and must not ship until physical-device
+  QA proves explicit `UIPasteboard` use under the M0C disclosure; otherwise the
+  keyboard directs the user to open History or Latest Result in HoldType.
 
 ## Acknowledgement And Recovery
 
 - Automatic insertion must not ship until the shared-state contract includes
   idempotent insertion acknowledgement.
 - An acknowledgement identifies the session, transcript, source document, and
-  terminal insertion outcome without copying transcript text into logs.
+  one honest outcome: `confirmedInserted` or `submittedUnverified`. It never
+  turns a void API call into a success claim and never copies transcript text
+  into logs. The
+  extension-local pre-insert claim is the at-most-once guard; the App Group
+  acknowledgement reconciles app recovery state but is not the first or only
+  duplicate barrier.
 - A missing or delayed acknowledgement must never trigger a second insertion.
   The keyboard suppresses duplicates locally while visible, and the app keeps
   the result recoverable until delivery is reconciled.
-- If insertion fails or the host rejects text, show a compact recoverable
-  failure and retain the result for explicit Insert, Copy, or app recovery.
+- If eligibility fails before the pre-insert claim/call, no insertion was
+  attempted and the user may retry explicitly after fixing the target. If the
+  call was made but the result cannot be confirmed, use the non-replayable
+  `submittedUnverified` recovery above; HoldType does not claim to detect host
+  rejection from a void API.
 - If the result arrives while HoldType Keyboard is not active, it remains
   pending. HoldType does not open another app, select a keyboard, or guess a
   target.
+- While a visible voice action is `listening` or `processing`, the extension
+  checks the app-owned snapshot on a bounded local cadence and on normal text-
+  context callbacks until a result, failure, cancellation, or expiry appears.
+  It stops the cadence when hidden or idle. App Group writes never claim to wake
+  an evicted or suspended extension.
 - If the shared result expires before insertion, the keyboard stops offering it
   from that snapshot. Any longer-lived latest result or history remains owned
   by the containing app under its own retention contract.
+- The app physically clears acknowledged, cancelled, replaced, and expired
+  accepted-result snapshots plus temporary atomic-write files under
+  `ios-keyboard-shared-state.md`; logical ineligibility alone is not retention.
 - Copy or Share does not acknowledge insertion or consume a pending insert.
 - Dismissing a failure hides the message but must not delete recoverable text or
   audio as a side effect.
@@ -132,7 +216,7 @@ be matched conservatively.
 - No output path uses a private automatic-return API or claims to know the
   previous host app.
 - No automatic insertion occurs with a missing or changed document identifier,
-  an expired result, an inactive HoldType keyboard, or an already inserted
+  an expired result, an inactive HoldType keyboard, or an already claimed
   transcript.
 - No accepted result is inserted twice because of refresh, retry, process
   restart, or a late provider response.
@@ -164,14 +248,16 @@ be matched conservatively.
 - If the bridge record is missing, corrupt, incompatible, or expired, do not
   insert and do not expose raw decoding data in the error.
 - If the containing app or extension is evicted, reconcile the latest session,
-  transcript, and acknowledgement identities before offering another action.
+  transcript, local pre-insert claim, and acknowledgement identities before
+  offering another action.
 - If Undo can no longer prove that it would remove only the last HoldType
   insertion, it safely becomes unavailable.
 
 ## Route, State, And Data Implications
 
 - Output presentation distinguishes pending, automatically eligible, explicit
-  action required, inserted, recoverable failure, and expired.
+  action required, confirmed inserted, submitted unverified, recoverable
+  pre-attempt failure, and expired.
 - Setup errors route to their owning section: OpenAI, Transcription,
   Translation, Keyboard, Full Access, or microphone/privacy.
 - The containing app owns complete accepted text and longer-lived recovery. The
@@ -185,25 +271,26 @@ be matched conservatively.
 ## Verification Mapping
 
 - Pure coverage should verify normalization, default settings, eligibility,
-  missing or changed identity, expiry, duplicate suppression, and terminal
-  acknowledgement.
+  missing or changed identity, expiry, duplicate suppression, local suffix
+  confirmation, unverified submission, and truthful acknowledgement.
 - Bridge coverage should verify late results, delayed or missing
-  acknowledgements, corrupt records, process restart, and Full Access
-  revocation without duplicate insertion.
+  acknowledgements, corrupt records, process restart, durable pre-insert claims,
+  uncertain delivery, and Full Access revocation without duplicate insertion.
 - Containing-app coverage should verify practice-field output, explicit Copy
-  and Share, latest-result independence from History, and absence of external-
-  app insertion.
+  and Share, both Clear Latest states, latest-result independence from History,
+  and absence of external-app insertion.
 - Physical-device QA must cover representative hosts, secure and phone fields,
   host rejection, keyboard switching, process eviction, explicit Insert,
   automatic insertion, and Undo.
 
-## Gates And Open Decisions
+## Gates And Deferred Decisions
 
 - M0B must prove the read-only accepted-result path before manual keyboard
   delivery is treated as supported.
 - M0C and an updated `ios-keyboard-shared-state.md` must pass before extension
   writes, automatic insertion, or cross-process acknowledgement are enabled.
-- Exact production expiry and Undo durations require approval with the bridge
-  and keyboard interaction specs.
-- Durable latest/history retention remains governed by the future iOS history
-  and storage spec.
+- Accepted-result expiry is 10 minutes under the shared-state contract. The
+  app-private latest-result safety cap is 24 hours. The exact Undo duration is
+  chosen with production keyboard interaction QA.
+- Durable history retention follows `ios-history-and-storage.md`; the latest
+  result remains a separate delivery state.
