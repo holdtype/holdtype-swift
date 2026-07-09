@@ -14,7 +14,22 @@ Then open <http://localhost:4173/>.
 
 The critical page content, navigation anchors, screenshots, FAQ content, and
 download links remain available when JavaScript is disabled. JavaScript is used
-only for the mobile navigation and the labelled illustrative hero sequence.
+only for the mobile navigation, the labelled illustrative hero sequence, and
+the progressive-enhancement Copy button for the Homebrew command.
+
+## Hosting
+
+GitHub Pages publishes the page at
+<https://holdtype.github.io/holdtype-swift/>. The Pages workflow deploys a
+single complete artifact containing the public landing files, the current
+Sparkle appcast, and all release-notes pages referenced by that appcast. The
+release workflow builds the same artifact so a later app release cannot erase
+the landing page.
+
+`README.md` and `design-qa.md` are repository documentation and are deliberately
+excluded from the public artifact. No `CNAME` is published yet. Configure the
+GitHub Pages custom domain and the `holdtype.app` DNS records together during a
+separate domain cutover.
 
 ## Files
 
@@ -141,8 +156,13 @@ Checked on 2026-07-09:
 - `https://github.com/holdtype/holdtype-swift/releases/latest` resolves to the
   public, non-prerelease `v1.0.3` release and includes
   `HoldType-1.0.3.dmg`.
+- Primary Download CTAs deliberately use GitHub's stable `releases/latest`
+  pointer, which advances automatically; a secondary `All releases` link opens
+  the full release history.
 - `holdtype/homebrew-tap` contains `Casks/holdtype.rb` at version `1.0.3`,
   pointing to the same GitHub Release disk image and requiring macOS Sonoma.
+- The Homebrew block keeps the explicit project-tap flow (`tap`, `trust`,
+  `install`, then `open`) and its Copy button copies all four lines together.
 - The page links to the current OpenAI API pricing documentation rather than
   embedding a rate that can become stale.
 

@@ -35,6 +35,7 @@ GENERATE_APPCAST_SCRIPT = ROOT / "scripts" / "release" / "generate_appcast.sh"
 OPEN_OFFICIAL_CASK_FROM_BUNDLE_SCRIPT = (
     ROOT / "scripts" / "release" / "open_official_homebrew_cask_pr_from_bundle.sh"
 )
+PREPARE_PAGES_ARTIFACT_SCRIPT = ROOT / "scripts" / "release" / "prepare_pages_artifact.py"
 PREPARE_OFFICIAL_CASK_SCRIPT = ROOT / "scripts" / "release" / "prepare_official_homebrew_cask.sh"
 PRUNE_GITHUB_RELEASE_ASSETS_SCRIPT = ROOT / "scripts" / "release" / "prune_github_release_assets.py"
 UPDATE_TAP_SCRIPT = ROOT / "scripts" / "release" / "update_homebrew_tap.sh"
@@ -58,6 +59,7 @@ WRITE_HOMEBREW_CASK_SUBMISSION_SCRIPT = (
 )
 WRITE_RELEASE_NOTES_SCRIPT = ROOT / "scripts" / "release" / "write_release_notes.sh"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+PAGES_WORKFLOW = ROOT / ".github" / "workflows" / "pages.yml"
 
 
 def load_preflight_module():
@@ -419,6 +421,134 @@ end
                 for check in configured_checks
             )
         )
+
+    def test_prepare_pages_artifact_restores_all_appcast_release_notes(self) -> None:
+        release_body = "# HoldType 1.0.2\n\nPrevious stable release.\n"
+
+        class ReleaseHandler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                if self.path != "/repos/holdtype/holdtype-swift/releases/tags/v1.0.2":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                payload = json.dumps(
+                    {
+                        "tag_name": "v1.0.2",
+                        "draft": False,
+                        "prerelease": False,
+                        "body": release_body,
+                    }
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), ReleaseHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                website = temp_path / "website"
+                assets = website / "assets"
+                assets.mkdir(parents=True)
+                (website / "index.html").write_text("<title>HoldType</title>\n")
+                (website / "styles.css").write_text("body { color: black; }\n")
+                (website / "script.js").write_text("document.body.dataset.ready = 'true';\n")
+                (website / "README.md").write_text("not public\n")
+                (website / "design-qa.md").write_text("not public\n")
+                (assets / "app-icon.png").write_bytes(b"png")
+
+                appcast = temp_path / "appcast.xml"
+                appcast.write_text(
+                    """<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <item>
+      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://holdtype.github.io/holdtype-swift/HoldType-1.0.3.md</sparkle:releaseNotesLink>
+    </item>
+    <item>
+      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://holdtype.github.io/holdtype-swift/HoldType-1.0.2.md</sparkle:releaseNotesLink>
+    </item>
+  </channel>
+</rss>
+"""
+                )
+                current_notes = temp_path / "current.md"
+                current_notes.write_text("# HoldType 1.0.3\n\nCurrent stable release.\n")
+                output = temp_path / "public"
+
+                result = subprocess.run(
+                    [
+                        str(PREPARE_PAGES_ARTIFACT_SCRIPT),
+                        "--website-dir",
+                        str(website),
+                        "--appcast",
+                        str(appcast),
+                        "--output-dir",
+                        str(output),
+                        "--repository",
+                        "holdtype/holdtype-swift",
+                        "--pages-base-url",
+                        "https://holdtype.github.io/holdtype-swift/",
+                        "--github-api-url",
+                        f"http://127.0.0.1:{server.server_port}",
+                        "--current-version",
+                        "1.0.3",
+                        "--current-release-notes",
+                        str(current_notes),
+                        "--timeout",
+                        "5",
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                )
+
+                self.assertIn("Pages artifact ready", result.stdout)
+                self.assertEqual((output / "appcast.xml").read_text(), appcast.read_text())
+                self.assertEqual((output / "HoldType-1.0.2.md").read_text(), release_body)
+                self.assertEqual(
+                    (output / "HoldType-1.0.3.md").read_text(),
+                    "# HoldType 1.0.3\n\nCurrent stable release.\n",
+                )
+                self.assertTrue((output / ".nojekyll").is_file())
+                self.assertTrue((output / "assets" / "app-icon.png").is_file())
+                self.assertFalse((output / "README.md").exists())
+                self.assertFalse((output / "design-qa.md").exists())
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_pages_workflows_publish_one_complete_serialized_artifact(self) -> None:
+        release_workflow = RELEASE_WORKFLOW.read_text()
+        pages_workflow = PAGES_WORKFLOW.read_text()
+
+        for workflow in (release_workflow, pages_workflow):
+            self.assertIn("group: holdtype-publication", workflow)
+            self.assertIn("queue: max", workflow)
+            self.assertIn("scripts/release/prepare_pages_artifact.py", workflow)
+            self.assertIn("--website-dir website", workflow)
+            self.assertIn("actions/configure-pages@v5", workflow)
+            self.assertIn("actions/upload-pages-artifact@v4", workflow)
+            self.assertIn("actions/deploy-pages@v4", workflow)
+
+        self.assertIn("Download latest stable appcast", pages_workflow)
+        self.assertIn("gh release download", pages_workflow)
+        self.assertIn("--pattern appcast.xml", pages_workflow)
+        self.assertIn("Verify published site and update feed", pages_workflow)
+        self.assertIn("--current-release-notes", release_workflow)
+        self.assertIn("Speak the whole thought.", release_workflow)
 
     def test_release_workflow_reuses_existing_homebrew_tap_pr(self) -> None:
         workflow = RELEASE_WORKFLOW.read_text()

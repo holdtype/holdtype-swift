@@ -19,8 +19,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
-  cancel-in-progress: false
+  group: holdtype-publication
+  queue: max
 
 jobs:
   release:
@@ -303,12 +303,20 @@ jobs:
           fi
 
       - name: Prepare Pages artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p public
-          cp "${{ steps.release-inputs.outputs.release_dir }}/appcast.xml" public/appcast.xml
-          cp "${{ steps.release-notes.outputs.path }}" \
-            "public/HoldType-${{ steps.release-inputs.outputs.version }}.md"
+          pages_base_url="${HOLDTYPE_UPDATE_FEED_URL%/appcast.xml}/"
+          scripts/release/prepare_pages_artifact.py \
+            --website-dir website \
+            --appcast "${{ steps.release-inputs.outputs.release_dir }}/appcast.xml" \
+            --output-dir public \
+            --repository "$GITHUB_REPOSITORY" \
+            --pages-base-url "$pages_base_url" \
+            --current-version "${{ steps.release-inputs.outputs.version }}" \
+            --current-release-notes "${{ steps.release-notes.outputs.path }}" \
+            --timeout 60
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -318,7 +326,7 @@ jobs:
         with:
           path: public
 
-      - name: Deploy appcast to Pages
+      - name: Deploy site and appcast to Pages
         id: deploy-pages
         uses: actions/deploy-pages@v4
 
@@ -326,6 +334,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          page_url="${{ steps.deploy-pages.outputs.page_url }}"
+          published_index="$RUNNER_TEMP/published-index.html"
+          curl \
+            --fail \
+            --location \
+            --silent \
+            --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 8 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --retry-max-time 180 \
+            "${page_url%/}/?deployment=${GITHUB_SHA}" \
+            --output "$published_index"
+          grep -F "Speak the whole thought." "$published_index"
           scripts/release/verify_published_release.py \
             --repository "$GITHUB_REPOSITORY" \
             --version "${{ steps.release-inputs.outputs.version }}" \

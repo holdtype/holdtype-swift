@@ -79,8 +79,12 @@ In the GitHub repository settings:
 2. Set the source to GitHub Actions.
 3. Confirm Actions can create deployments.
 
-The release workflow uploads `appcast.xml` and the versioned Sparkle release
-notes Markdown file to Pages.
+The release workflow publishes one complete Pages artifact containing the
+static product landing, `appcast.xml`, and every versioned release-notes file
+referenced by that appcast. The standalone Pages workflow rebuilds the same
+complete artifact from the latest stable GitHub Release when landing files
+change. Both workflows share one queued publication lock so neither deployment
+can replace the site with only part of the required files.
 
 After secrets and Pages are configured, run the read-only setup verifier before
 creating the first tag:
@@ -407,7 +411,8 @@ The GitHub Actions release workflow should:
     preview/notary/debug artifacts cannot remain public;
 13. publish GitHub Release assets, forcing any existing release out of
     draft/prerelease state;
-14. deploy `appcast.xml` to GitHub Pages;
+14. deploy the landing page, `appcast.xml`, and all referenced release notes to
+    GitHub Pages;
 15. verify the GitHub Release is not a draft or prerelease, has the expected
     uploaded non-empty assets, and matches the Pages appcast;
 16. prepare and upload the official Homebrew Cask submission bundle using the
