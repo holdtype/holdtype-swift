@@ -2,95 +2,91 @@
 
 - Source visual truth: `/Users/eugenepotapenko/.codex/generated_images/019f487c-99ed-7e60-b4d7-78f7d25bcb88/exec-68e9964a-0176-439d-92e0-0253be066833.png`
 - Implementation URL: `http://localhost:4173/`
-- Planned viewports: `1440×900`, `1280×800`, `768×1024`, `390×844`, `320×568`
+- Tested viewports: `1440×900`, `1280×800`, `768×1024`, `390×844`, `320×568`
 - State: default light appearance; inserted hero state for the primary comparison
 
 ## Full-view comparison evidence
 
-The source concept has been opened and inspected at original resolution. A
-browser-rendered implementation screenshot is still required before a valid
-full-view comparison can be made. The in-app Browser was attempted first. After
-its local tab became available and the static server was restarted, Browser
-policy still prevented opening or reloading the `localhost` target.
+The selected concept and the final browser implementation were opened together
+and inspected at desktop, tablet, and phone widths. Final full-page browser
+captures were produced outside the repository under
+`/tmp/holdtype-landing-qa/`:
+
+- `holdtype-1440x900-loaded.png`
+- `holdtype-1280x800-loaded.png`
+- `holdtype-768x1024-loaded.png`
+- `holdtype-390x844-loaded.png`
+- `holdtype-320x568-loaded.png`
+
+The implementation preserves the concept's true-white native-macOS character,
+system typography, restrained blue-violet accent, open section model, thin
+rules, editor illustration, workflow rail, alternating product proof, and quiet
+final CTA. The production page intentionally expands the concept with real
+product screenshots, exact privacy/cost boundaries, an authentic founder
+story, installation instructions, and a fuller FAQ.
 
 ## Focused-region comparison evidence
 
-Pending browser capture. The focused passes will cover:
+1. Header and hero retain the sparse hierarchy, dominant headline, single
+   primary CTA, editor window, and real HoldType indicator artwork.
+2. Workflow and decision surfaces preserve the concept's linear rhythm without
+   turning the page into a repeated card grid.
+3. Translation and menu-bar sections use real product captures and preserve
+   their proportions; narrow screens use truthful source-image focus crops.
+4. Cost/data boundaries remain visually open and use the real Billing screen
+   instead of unsupported absolute privacy claims.
+5. Tablet and phone layouts collapse into a single reading column with a
+   keyboard-operable menu, full-width CTAs, local screenshot scrollers, and no
+   page-level horizontal overflow.
 
-1. Header, hero copy, editor illustration, and real floating indicator.
-2. Workflow rail and three-decision strip.
-3. Translation and menu-bar product screenshots.
-4. Cost/data-boundary block.
-5. Mobile header, hero, workflow, and CTA collapse.
+## Findings and patches
 
-## Current findings
+- [P1, fixed] The first `320×568` pass measured a `534px` document width.
+  Fixed the single-column grid tracks to use `minmax(0, 1fr)`, containing the
+  intentional `520px` screenshot scrollers inside the viewport. The repeated
+  pass measured exactly `320px`.
+- [P2, fixed] The Homebrew panel originally required manual selection. Added a
+  progressive-enhancement Copy button with success/error states and an ARIA
+  live status. It copies the complete four-line `tap`, `trust`, `install`, and
+  `open` block.
+- No remaining actionable P0, P1, or P2 visual, interaction, responsive, or
+  accessibility finding was found in the final pass.
 
-- [P1] Browser visual evidence is missing.
-  - Location: all rendered surfaces.
-  - Evidence: the selected concept is available, but the in-app Browser policy
-    rejected the local target before an implementation capture could be made.
-  - Impact: composition, typography, spacing, responsive behavior, image
-    framing, and interaction states cannot yet receive a defensible visual pass.
-  - Fix: provide user-captured desktop and mobile screenshots plus the requested
-    manual interaction evidence, or retry after the in-app Browser policy allows
-    this local target. Policy-prohibited alternate browser workarounds are not
-    acceptable.
+## Intentional deviations from the concept
 
-## Patches made before the visual pass
-
-- Implemented the selected true-white macOS-native palette and open container
-  model.
 - Replaced the concept's invented founder portrait and identity with the real
-  first-person product story and existing microphone photo.
-- Replaced absolute privacy wording with the actual OpenAI, Retry, and local
+  first-person product story and repository microphone photo.
+- Replaced absolute privacy language with the actual OpenAI, Retry, and local
   recording-cache boundaries.
 - Used real HoldType indicator, menu, Translation, and Billing assets.
 - Labelled the hero workflow as an illustration rather than a recorded demo.
-- Raised small muted text from 3.90:1 to 4.75:1 contrast on white.
-- Kept critical content and Download CTAs available without JavaScript.
-- Replaced the looping hero sequence with a finite sub-five-second sequence and
-  a static final state.
-- Preserved keyboard focus when a mobile navigation anchor closes the menu.
-- Added truthful mobile focus crops of the real Translation and Billing
-  screenshots so the important controls remain legible on narrow screens.
-- Added a mobile Download CTA inside the navigation and preserved the same CTA
-  in raw no-JavaScript markup.
-- Reserved a common hero-state height and a separate lower indicator dock on
-  phones to avoid state-change layout shift and text overlap.
-- Restored explicit list semantics for Safari/VoiceOver and made the no-JS
-  multirow mobile header non-sticky.
+- Added the complete setup, FAQ, release-history, and source-license context
+  needed by a public product page.
 
-## Completed non-visual checks
+## Completed browser checks
 
-- Local server root, stylesheet, script, and every used asset return HTTP 200.
-- The document contains one `h1`, one `main`, valid internal fragment targets,
-  no empty links, no missing local sources, and explicit dimensions/alt text for
-  every raster image.
-- JavaScript syntax and `git diff --check -- website` pass.
-- All text-token pairs used for small copy meet WCAG AA on white; the lowest is
-  4.75:1.
-- No framework, package manager, runtime CDN, external font, form, cookie,
-  analytics, tracker, backend call, or autoplay media is present.
-- The GitHub latest-release URL currently resolves to public `v1.0.3` with a
-  DMG, the Homebrew cask points to the same DMG, and every external landing link
-  returns HTTP 200.
-
-## Implementation checklist
-
-- [ ] Capture the implementation at all five required viewports.
-- [ ] Exercise mobile Menu → Escape → focus return.
-- [ ] Verify all anchors and at least one native FAQ disclosure interaction.
-- [ ] Inspect console warnings/errors and failed network resources.
-- [ ] Verify the static inserted state under reduced motion.
-- [ ] Verify the page with JavaScript disabled.
-- [ ] Compare source and implementation together across the five required
-  fidelity surfaces.
-- [ ] Patch every actionable P0/P1/P2 finding and repeat the comparison.
+- All five required viewports were captured after lazy images had loaded; every
+  image completed with a non-zero natural width.
+- `document.documentElement.scrollWidth` equals the viewport width at all five
+  required sizes.
+- Mobile Menu opens, Escape closes it, `aria-expanded` returns to `false`, and
+  focus returns to the Menu button.
+- Homebrew Copy changes to `Copied`, announces success, and the in-app Browser
+  clipboard contains the exact four-line command block.
+- A native FAQ disclosure opens and exposes its answer.
+- Internal navigation targets exist; primary downloads use
+  `releases/latest`, while `All releases` points to the release history.
+- The default finite hero sequence reaches the inserted state. With reduced
+  motion it starts and remains inserted, and animation durations collapse to
+  `0.01ms`.
+- With JavaScript disabled, the full navigation and four visible Download CTAs
+  remain available, the inserted hero state remains visible, and the optional
+  Copy control is hidden.
+- Browser console: zero warnings and zero errors. All requested local HTML,
+  CSS, JavaScript, and image resources returned `200` or cache-valid `304`.
+- JavaScript syntax, release/Pages tests, YAML parsing, and
+  `git diff --check` pass.
 
 ## Final result
 
-final result: blocked
-
-Blocker: the in-app Browser security policy currently rejects the local
-`http://localhost:4173/` target. Browser instructions explicitly prohibit using
-Playwright, raw CDP, or another browser as a workaround for that rejection.
+final result: passed

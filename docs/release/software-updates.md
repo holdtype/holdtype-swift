@@ -143,7 +143,8 @@ The CI release job should make the manual flow reproducible:
 - upload release assets and appcast through GitHub APIs.
 - when updating an existing GitHub Release, force it out of draft/prerelease
   state before the published-release verification gate;
-- deploy the appcast and Sparkle release notes Markdown to Pages, then verify
+- deploy one complete Pages artifact containing the product landing, appcast,
+  and every Sparkle release-notes file referenced by that appcast; then verify
   the published GitHub Release is not a draft or prerelease, has the expected
   uploaded non-empty assets, matches the Pages appcast, and exposes a reachable
   release notes link before treating the release workflow as successful.
@@ -158,9 +159,12 @@ The CI release job should make the manual flow reproducible:
   in explicit timeouts so external services cannot hang the release job
   indefinitely.
 
-The tracked workflow is `.github/workflows/release.yml`. It runs on `v*` tags
-and uses `macos-26` runners so the project can build with the current Xcode 26
-toolchain.
+The tracked release workflow is `.github/workflows/release.yml`. It runs on
+`v*` tags and uses `macos-26` runners so the project can build with the current
+Xcode 26 toolchain. `.github/workflows/pages.yml` republishes the same complete
+Pages artifact after landing changes or an explicit manual dispatch. The two
+workflows share the `holdtype-publication` concurrency queue so releases and
+website publishes cannot race each other.
 
 The tracked scripts are:
 

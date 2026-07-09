@@ -1,0 +1,116 @@
+name: Pages
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "website/**"
+      - "scripts/release/prepare_pages_artifact.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: holdtype-publication
+  queue: max
+
+jobs:
+  deploy:
+    name: Publish landing page and update feed
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download latest stable appcast
+        id: latest-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_tag="$(
+            scripts/release/with_timeout.py 60 \
+              gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName
+          )"
+          if [ -z "$latest_tag" ] || [ "$latest_tag" = "${latest_tag#v}" ]; then
+            echo "Could not resolve the latest stable release tag" >&2
+            exit 1
+          fi
+          release_dir="$RUNNER_TEMP/latest-release"
+          mkdir -p "$release_dir"
+          scripts/release/with_timeout.py 300 \
+            gh release download "$latest_tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern appcast.xml \
+              --dir "$release_dir"
+          test -s "$release_dir/appcast.xml"
+          {
+            echo "tag=$latest_tag"
+            echo "version=${latest_tag#v}"
+            echo "appcast=$release_dir/appcast.xml"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare complete Pages artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          scripts/release/prepare_pages_artifact.py \
+            --website-dir website \
+            --appcast "${{ steps.latest-release.outputs.appcast }}" \
+            --output-dir public \
+            --repository "$GITHUB_REPOSITORY" \
+            --pages-base-url "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/" \
+            --timeout 60
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+      - name: Deploy site and appcast to Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
+
+      - name: Verify published site and update feed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PAGE_URL: ${{ steps.deploy-pages.outputs.page_url }}
+          VERSION: ${{ steps.latest-release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          page_url="${PAGE_URL%/}/"
+          published_index="$RUNNER_TEMP/published-index.html"
+          curl \
+            --fail \
+            --location \
+            --silent \
+            --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 8 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --retry-max-time 180 \
+            "${page_url}?deployment=${GITHUB_SHA}" \
+            --output "$published_index"
+          grep -F "Speak the whole thought." "$published_index"
+          scripts/release/verify_published_release.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --version "$VERSION" \
+            --appcast-url "${page_url}appcast.xml" \
+            --release-notes-file "public/HoldType-${VERSION}.md" \
+            --timeout 300

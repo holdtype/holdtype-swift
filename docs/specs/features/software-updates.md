@@ -76,6 +76,8 @@ installed version without requiring accounts, telemetry, or a custom backend.
   download and Homebrew Cask installation.
 - Sparkle appcasts must point at final, published GitHub Release artifacts, not
   temporary CI upload URLs.
+- Every release-notes URL retained in the published appcast must remain
+  reachable after later website and release deployments.
 - Homebrew Cask metadata must include a concrete SHA-256 for each released DMG.
 - Homebrew Cask zap cleanup must stay limited to HoldType-managed local
   preference/cache/state paths and must not remove user-created files by

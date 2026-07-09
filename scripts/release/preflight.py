@@ -54,6 +54,7 @@ REQUIRED_PATHS = (
     "Config/HoldTypeSigning.xcconfig",
     "HoldType/Info.plist",
     "HoldType.xcodeproj/project.pbxproj",
+    ".github/workflows/pages.yml",
     ".github/workflows/release.yml",
     "homebrew/Casks/holdtype.rb.template",
     "scripts/release/bump_official_homebrew_cask_pr.sh",
@@ -63,6 +64,7 @@ REQUIRED_PATHS = (
     "scripts/release/fetch_existing_appcast.py",
     "scripts/release/generate_appcast.sh",
     "scripts/release/open_official_homebrew_cask_pr_from_bundle.sh",
+    "scripts/release/prepare_pages_artifact.py",
     "scripts/release/prepare_official_homebrew_cask.sh",
     "scripts/release/preflight.py",
     "scripts/release/prune_github_release_assets.py",
@@ -84,6 +86,10 @@ REQUIRED_PATHS = (
     "scripts/release/with_timeout.py",
     "scripts/release/write_homebrew_cask_submission.py",
     "scripts/release/write_release_notes.sh",
+    "website/assets/app-icon.png",
+    "website/index.html",
+    "website/script.js",
+    "website/styles.css",
 )
 
 

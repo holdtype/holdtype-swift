@@ -488,6 +488,58 @@ def check_appcast_release_notes_link(
     return checks
 
 
+def check_all_appcast_release_notes_links(
+    xml_text: str,
+    *,
+    timeout: int,
+    name: str,
+) -> list[Check]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as error:
+        return [fail_check(f"{name}:all-releaseNotesLinks", f"invalid XML: {error}")]
+
+    checks: list[Check] = []
+    items = list(root.iter("item"))
+    for index, item in enumerate(items, start=1):
+        version_element = item.find(f"{{{SPARKLE_NS}}}shortVersionString")
+        notes_element = item.find(f"{{{SPARKLE_NS}}}releaseNotesLink")
+        version = (version_element.text or "").strip() if version_element is not None else ""
+        link = (notes_element.text or "").strip() if notes_element is not None else ""
+        check_name = f"{name}:all-releaseNotesLinks:{version or index}"
+        expected_filename = f"{APP_NAME}-{version}.md" if version else ""
+        if not version or not link:
+            checks.append(fail_check(check_name, "missing version or releaseNotesLink"))
+            continue
+        if Path(urllib.parse.urlparse(link).path).name != expected_filename:
+            checks.append(
+                fail_check(check_name, f"expected URL ending in {expected_filename}, got {link}")
+            )
+            continue
+        try:
+            actual_notes = fetch_bytes(link, timeout=timeout).decode("utf-8")
+        except (OSError, UnicodeDecodeError, urllib.error.URLError) as error:
+            checks.append(fail_check(check_name, f"{link}: {error}"))
+            continue
+
+        normalized = normalize_release_notes(actual_notes)
+        lines = [line.strip() for line in normalized.splitlines() if line.strip()]
+        expected_heading = f"# {APP_NAME} {version}"
+        if len(lines) >= 2 and lines[0] == expected_heading:
+            checks.append(pass_check(check_name, link))
+        else:
+            checks.append(
+                fail_check(
+                    check_name,
+                    f"{link}: expected non-empty notes beginning with {expected_heading!r}",
+                )
+            )
+
+    if not items:
+        checks.append(fail_check(f"{name}:all-releaseNotesLinks", "appcast has no items"))
+    return checks
+
+
 def sparkle_item_value(item: ET.Element | None, enclosure: ET.Element, name: str) -> str:
     namespaced_name = f"{{{SPARKLE_NS}}}{name}"
     if item is not None:
@@ -729,6 +781,13 @@ def main() -> int:
                     expected_dmg_size=dmg_size,
                     expected_version=version,
                     expected_build=manifest_build,
+                    name="published-appcast",
+                )
+            )
+            checks.extend(
+                check_all_appcast_release_notes_links(
+                    published_appcast,
+                    timeout=args.timeout,
                     name="published-appcast",
                 )
             )

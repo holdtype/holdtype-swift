@@ -150,3 +150,50 @@ if (demo) {
     }
   });
 }
+
+const copyButtons = document.querySelectorAll("[data-copy-target]");
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const temporaryInput = document.createElement("textarea");
+  temporaryInput.value = text;
+  temporaryInput.setAttribute("readonly", "");
+  temporaryInput.style.position = "fixed";
+  temporaryInput.style.opacity = "0";
+  document.body.append(temporaryInput);
+  temporaryInput.select();
+
+  const copied = document.execCommand("copy");
+  temporaryInput.remove();
+
+  if (!copied) throw new Error("Copy command was not available");
+}
+
+copyButtons.forEach((button) => {
+  button.addEventListener("click", async () => {
+    const targetId = button.dataset.copyTarget;
+    const target = targetId ? document.getElementById(targetId) : null;
+    const status = button.parentElement?.querySelector("[data-copy-status]");
+
+    if (!target) return;
+
+    try {
+      await copyToClipboard(target.textContent.trim());
+      button.textContent = "Copied";
+      button.dataset.state = "copied";
+      if (status) status.textContent = "Homebrew command copied.";
+
+      window.setTimeout(() => {
+        button.textContent = "Copy";
+        delete button.dataset.state;
+      }, 1800);
+    } catch {
+      button.textContent = "Try again";
+      if (status) status.textContent = "Copy failed. Select the command manually.";
+    }
+  });
+});

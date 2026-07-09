@@ -441,20 +441,39 @@
               <li>Grant microphone, global-shortcut, and insertion permissions.</li>
               <li>Add your OpenAI Platform API key in Settings.</li>
             </ol>
-            <a
-              class="button"
-              href="https://github.com/holdtype/holdtype-swift/releases/latest"
-            >
-              Download for macOS
-            </a>
+            <div class="install-actions">
+              <a
+                class="button"
+                href="https://github.com/holdtype/holdtype-swift/releases/latest"
+              >
+                Download for macOS
+              </a>
+              <a
+                class="text-link"
+                href="https://github.com/holdtype/holdtype-swift/releases"
+              >
+                All releases
+              </a>
+            </div>
           </div>
           <div class="homebrew-panel">
             <h3>Prefer Homebrew?</h3>
             <p>The project tap installs the same disk image published on GitHub Releases.</p>
-            <pre><code>brew tap holdtype/tap
+            <div class="command-block">
+              <pre><code id="homebrew-command">brew tap holdtype/tap
 brew trust holdtype/tap
 brew install --cask holdtype
 open -a HoldType</code></pre>
+              <button
+                class="copy-button"
+                type="button"
+                data-copy-target="homebrew-command"
+                aria-label="Copy Homebrew install commands"
+              >
+                Copy
+              </button>
+              <span class="visually-hidden" role="status" data-copy-status></span>
+            </div>
             <a class="text-link homebrew-link" href="https://github.com/holdtype/homebrew-tap">
               View the project tap
             </a>

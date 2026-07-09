@@ -925,6 +925,13 @@ h3 {
   font-weight: 720;
 }
 
+.install-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
 .homebrew-panel {
   padding: 34px;
   border: 1px solid var(--line-strong);
@@ -938,16 +945,57 @@ h3 {
   font-size: 0.94rem;
 }
 
-.homebrew-panel pre {
+.command-block {
+  position: relative;
+  margin-top: 24px;
+}
+
+.command-block pre {
   max-width: 100%;
   overflow-x: auto;
-  padding: 18px;
-  margin: 24px 0 0;
+  padding: 18px 82px 18px 18px;
+  margin: 0;
   border-radius: var(--radius-small);
   background: #18191e;
   color: #f5f6f8;
   font-size: 0.77rem;
   line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.copy-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 58px;
+  min-height: 38px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border: 1px solid #4b4e58;
+  border-radius: 8px;
+  background: #2b2d34;
+  color: #f5f6f8;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 680;
+  line-height: 1;
+}
+
+.js .copy-button {
+  display: inline-flex;
+}
+
+.copy-button:hover {
+  border-color: #666b78;
+  background: #383b44;
+}
+
+.copy-button[data-state="copied"] {
+  border-color: #528f69;
+  background: #254b33;
 }
 
 .homebrew-link {
@@ -1268,7 +1316,7 @@ h3 {
   .data-grid,
   .founder-layout,
   .install-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .feature-row-reverse .menu-shot {
@@ -1483,7 +1531,7 @@ h3 {
   }
 
   .billing-proof {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .founder {
