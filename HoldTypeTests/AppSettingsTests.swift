@@ -27,6 +27,7 @@ struct AppSettingsTests {
         #expect(settings.resolvedCustomDictionaryPrompt == nil)
         #expect(settings.emojiCommandsEnabled)
         #expect(settings.enabledEmojiCommandSetIDs == ["en"])
+        #expect(settings.emojiCommandsConfiguration == .defaults)
         #expect(settings.enabledEmojiCommandSets.map(\.id) == ["en"])
         #expect(EmojiCommandSet.builtIn.map(\.id) == ["en", "ru", "es", "de", "fr", "pt"])
         #expect(EmojiCommandSet.builtIn.allSatisfy { $0.commands.count == 21 })
@@ -212,6 +213,58 @@ struct AppSettingsTests {
         #expect(settings.enabledEmojiCommandSets.isEmpty)
         #expect(settings.enabledCustomEmojiCommands.isEmpty)
         #expect(settings.resolvedEmojiCommandsPrompt == nil)
+    }
+
+    @Test func projectsRawEmojiConfigurationAndDelegatesResolvedValues() {
+        var settings = AppSettings.defaults
+        settings.emojiCommandsEnabled = true
+        settings.enabledEmojiCommandSetIDs = ["missing", " ru ", "en"]
+        settings.customEmojiCommands = [
+            CustomEmojiCommand(emoji: " 🚀 ", command: " Emoji   Rocket ")
+        ]
+
+        let configuration = settings.emojiCommandsConfiguration
+
+        #expect(configuration.isEnabled)
+        #expect(configuration.enabledBuiltInSetIDs == ["missing", " ru ", "en"])
+        #expect(configuration.customCommands == settings.customEmojiCommands)
+        #expect(settings.enabledEmojiCommandSets == configuration.enabledBuiltInSets)
+        #expect(settings.enabledCustomEmojiCommands == configuration.enabledCustomCommands)
+        #expect(settings.resolvedEmojiCommandsPrompt == configuration.promptText)
+        #expect(
+            AppSettings.normalizedEmojiCommandSetIDs(settings.enabledEmojiCommandSetIDs) ==
+                configuration.normalizedEnabledBuiltInSetIDs
+        )
+        #expect(
+            AppSettings.normalizedCustomEmojiCommands(settings.customEmojiCommands) ==
+                configuration.normalizedCustomCommands
+        )
+    }
+
+    @Test func keepsExactFourPartTranscriptionPromptOrder() throws {
+        var settings = AppSettings.defaults
+        settings.prompt = "Prefer product vocabulary."
+        settings.useActiveTextContext = true
+        settings.enabledEmojiCommandSetIDs = []
+        settings.customEmojiCommands = [
+            CustomEmojiCommand(emoji: "🚀", command: "emoji rocket")
+        ]
+        settings.customDictionary = ["HoldType"]
+        let context = try #require(TranscriptionPromptContext("Existing sentence."))
+
+        #expect(
+            settings.resolvedPrompt(context: context) ==
+                """
+                Prefer product vocabulary.
+
+                Current writing context near the cursor. Use this only for continuity; transcribe only the new speech:
+                Existing sentence.
+
+                Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): emoji rocket
+
+                Custom Dictionary (use these exact spellings when they appear in the text): HoldType
+                """
+        )
     }
 
     @Test func normalizesEmojiCommandSetIDsToSingleActiveSet() {

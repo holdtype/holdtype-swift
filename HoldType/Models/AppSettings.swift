@@ -167,7 +167,8 @@ struct AppSettings: Equatable {
         "Custom Dictionary (use these exact spellings when they appear in the text): "
     static let emojiCommandsPromptPrefix =
         "Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): "
-    static let defaultEnabledEmojiCommandSetIDs = ["en"]
+    static let defaultEnabledEmojiCommandSetIDs =
+        EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
     static let defaultTextCorrectionPrompt =
         """
         You are correcting a speech transcript.
@@ -398,32 +399,24 @@ struct AppSettings: Equatable {
         resolvedCustomDictionary.promptText
     }
 
-    var enabledEmojiCommandSets: [EmojiCommandSet] {
-        guard emojiCommandsEnabled else {
-            return []
-        }
+    var emojiCommandsConfiguration: EmojiCommandsConfiguration {
+        EmojiCommandsConfiguration(
+            isEnabled: emojiCommandsEnabled,
+            enabledBuiltInSetIDs: enabledEmojiCommandSetIDs,
+            customCommands: customEmojiCommands
+        )
+    }
 
-        let enabledIDs = Set(Self.normalizedEmojiCommandSetIDs(enabledEmojiCommandSetIDs))
-        return EmojiCommandSet.builtIn.filter { enabledIDs.contains($0.id) }
+    var enabledEmojiCommandSets: [EmojiCommandSet] {
+        emojiCommandsConfiguration.enabledBuiltInSets
     }
 
     var enabledCustomEmojiCommands: [CustomEmojiCommand] {
-        guard emojiCommandsEnabled else {
-            return []
-        }
-
-        return Self.normalizedCustomEmojiCommands(customEmojiCommands)
-            .filter { $0.isEnabled && $0.hasUsableCommand }
+        emojiCommandsConfiguration.enabledCustomCommands
     }
 
     var resolvedEmojiCommandsPrompt: String? {
-        let hints = enabledEmojiCommandSets.flatMap(\.promptHints)
-            + enabledCustomEmojiCommands.flatMap(\.promptHints)
-        guard !hints.isEmpty else {
-            return nil
-        }
-
-        return hints.joined(separator: ", ")
+        emojiCommandsConfiguration.promptText
     }
 
     var resolvedLanguageCode: String? {
@@ -451,30 +444,12 @@ struct AppSettings: Equatable {
     }
 
     static func normalizedEmojiCommandSetIDs(_ ids: [String]) -> [String] {
-        EmojiCommandSet.normalizedBuiltInIDs(ids)
+        EmojiCommandsConfiguration(enabledBuiltInSetIDs: ids)
+            .normalizedEnabledBuiltInSetIDs
     }
 
     static func normalizedCustomEmojiCommands(_ commands: [CustomEmojiCommand]) -> [CustomEmojiCommand] {
-        var normalizedCommands: [CustomEmojiCommand] = []
-        var seenKeys = Set<String>()
-
-        for command in commands {
-            let normalizedCommand = command.normalizedForStorage
-            guard normalizedCommand.hasUsableCommand else {
-                continue
-            }
-
-            let commandKey = "\(normalizedCommand.normalizedEmoji)|\(normalizedCommand.displayCommand)"
-                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-            guard !seenKeys.contains(commandKey) else {
-                continue
-            }
-
-            seenKeys.insert(commandKey)
-            normalizedCommands.append(normalizedCommand)
-        }
-
-        return normalizedCommands
+        EmojiCommandsConfiguration.normalizedCustomCommands(commands)
     }
 
     static func appendingCustomDictionaryEntries(from text: String, to entries: [String]) -> [String] {
