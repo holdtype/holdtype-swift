@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 struct RecordingSetupPreflight {
     private let setupStatusProvider: AppSetupStatusProvider

@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-one P1
+Status: active implementation roadmap, P0 contracts and the first twenty-two P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -468,6 +468,11 @@ Dependency invariants:
 - platform persistence adapters implement shared repositories.
 - the keyboard target links domain types needed for typing and the bridge, but
   not OpenAI, Keychain, raw-audio, history, or diagnostic bundle code.
+- The current monolithic extraction package is transitional. Before the
+  keyboard first imports portable typing types, provider-only contracts such as
+  credentials must move behind the `HoldTypeOpenAI` product boundary (or an
+  app-only provider-contract target); the keyboard must never gain that product
+  dependency merely because both areas began in one package.
 - the containing app is the only provider client and canonical settings writer.
 - the macOS app keeps compatibility adapters until extraction is complete.
 
@@ -659,6 +664,15 @@ attempt outcomes, delivery, timers, and platform presentation. The macOS status
 model projects its five values into the supported subset, and phase-only
 controller, hotkey, runtime, explicit-action, and menu gates use that projection
 without moving transcript or error copy into Domain.
+
+`OpenAICredential` and its synchronous resolver boundary are now portable for
+containing-app consumers. The transient value preserves outer-whitespace
+normalization, case and inner content, uses a typed empty-key validation error,
+is `Sendable` but non-Codable, and redacts its key and compatibility source from
+standard Swift string, debug, reflection, and dump output. The macOS adapter
+still owns Keychain access, availability and presentation errors, and maps the
+Domain validation failure back to the existing missing-key behavior. The
+keyboard remains unlinked from the transitional Domain product.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -860,36 +874,29 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. P0 plus the accepted-text, prompt-context, language,
-transcription-configuration, custom-dictionary, text-replacement, emoji
-model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
-slices plus remote text-correction and translation configurations are complete.
-Retention configuration, voice-session preferences, output-delivery
-preferences, output intent, observer-scoped delivery states, recovery
-destinations, and the transient completed-recording artifact are complete too.
-The narrow cache-lifecycle dependency and runtime-only `VoiceWorkPhase` are
-complete as well. The next P1 slice extracts the transient provider credential
-value and resolver boundary without moving secret storage:
+iOS target. The first twenty-two value/configuration/dependency slices are
+complete, including the redacted transient provider credential boundary. The
+next P1 slice narrows successful transcription-usage handoff before moving the
+legacy priced event or store:
 
-1. move public `OpenAICredential`, `OpenAICredentialSource`, and
-   `OpenAICredentialResolving` into `HoldTypeDomain`; make the value and source
-   `Equatable` and `Sendable` while keeping the resolver synchronous and
-   throwing;
-2. preserve surrounding-whitespace trimming, inner content and case, and the
-   compatibility default source `.runtimeStorage`; reject empty normalized
-   input through `OpenAICredential.ValidationError.missingAPIKey`;
-3. keep the one-case source free of readiness, trust, storage-location, or
-   security meaning. Do not add raw values, `Codable`, logging/description,
-   persistence, App Group, or keyboard-extension semantics;
-4. keep `OpenAICredentialResolver`, `APIKeyStorage`, Keychain-specific error
-   detection, `OpenAICredentialResolutionError`, `APIKeyAvailability`, user
-   copy, and provider-error mapping in the containing app;
-5. preserve source-compatible macOS facades and explicitly map the Domain
-   missing-key validation error back to the existing resolution error so a
-   whitespace-only stored value is not misreported as unavailable storage;
-6. add package, macOS resolver-regression, and normal-import iOS tests. Keep the
-   keyboard target unlinked from Domain and never place the credential in a
-   bridge record.
+1. specify and add a public `SuccessfulTranscriptionUsage` value containing
+   only a normalized non-empty model and strictly positive audio duration;
+   keep it `Equatable`, `Sendable`, and non-Codable, with no timestamp, price,
+   transcript, provider payload, credential, or persistence semantics;
+2. add the narrow `TranscriptionUsageRecording` dependency that receives that
+   exact value only after a non-empty provider transcription is accepted;
+3. change the macOS controller/store adapter to pass the resolved model and
+   completed artifact duration instead of giving the usage store all of
+   `AppSettings`; preserve exactly-once behavior and make invalid handoff data a
+   non-blocking no-record path rather than inventing a zero-duration event;
+4. keep `OpenAIUsageEvent`, pricing snapshots, summaries, Combine,
+   `UserDefaults`, retention, clocks, and user-facing storage errors in the
+   containing app until the versioned P2 persistence slice;
+5. add package, macOS orchestration/store-regression, and normal-import iOS
+   tests covering normalization, validation, success, failure, cancellation,
+   retry, and the absence of forbidden content;
+6. keep all usage data out of App Group, keyboard, diagnostics, and normal live
+   provider tests.
 
 ## Research Basis
 

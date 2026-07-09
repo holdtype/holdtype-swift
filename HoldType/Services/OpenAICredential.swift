@@ -6,29 +6,11 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
-struct OpenAICredential: Equatable {
-    let apiKey: String
-    let source: OpenAICredentialSource
-
-    init(apiKey: String, source: OpenAICredentialSource = .runtimeStorage) throws {
-        let normalizedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedAPIKey.isEmpty else {
-            throw OpenAICredentialResolutionError.missingAPIKey
-        }
-
-        self.apiKey = normalizedAPIKey
-        self.source = source
-    }
-}
-
-enum OpenAICredentialSource: Equatable {
-    case runtimeStorage
-}
-
-protocol OpenAICredentialResolving {
-    func resolveOpenAICredential() throws -> OpenAICredential
-}
+typealias OpenAICredential = HoldTypeDomain.OpenAICredential
+typealias OpenAICredentialSource = HoldTypeDomain.OpenAICredentialSource
+typealias OpenAICredentialResolving = HoldTypeDomain.OpenAICredentialResolving
 
 struct OpenAICredentialResolver: OpenAICredentialResolving {
     private let apiKeyStorage: any APIKeyStorage
@@ -46,6 +28,8 @@ struct OpenAICredentialResolver: OpenAICredentialResolving {
             return try OpenAICredential(apiKey: apiKey)
         } catch let error as OpenAICredentialResolutionError {
             throw error
+        } catch OpenAICredential.ValidationError.missingAPIKey {
+            throw OpenAICredentialResolutionError.missingAPIKey
         } catch {
             throw OpenAICredentialResolutionError.apiKeyUnavailable(Self.unavailableMessage(for: error))
         }

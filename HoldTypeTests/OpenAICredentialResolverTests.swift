@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 import Security
 import Testing
 @testable import HoldType
@@ -18,11 +19,23 @@ struct OpenAICredentialResolverTests {
         let credential = try resolver.resolveOpenAICredential()
 
         #expect(credential.apiKey == "sk-resolved-key")
+        #expect(credential.source == .runtimeStorage)
         #expect(storage.loadCount == 1)
     }
 
     @Test func missingAPIKeyThrowsMissingWithoutAvailabilityProbe() {
         let storage = FakeOpenAICredentialAPIKeyStorage(apiKey: nil)
+        let resolver = OpenAICredentialResolver(apiKeyStorage: storage)
+
+        #expect(throws: OpenAICredentialResolutionError.missingAPIKey) {
+            _ = try resolver.resolveOpenAICredential()
+        }
+        #expect(storage.loadCount == 1)
+        #expect(storage.availabilityCount == 0)
+    }
+
+    @Test func whitespaceOnlyStoredAPIKeyStillThrowsMissing() {
+        let storage = FakeOpenAICredentialAPIKeyStorage(apiKey: " \n\t ")
         let resolver = OpenAICredentialResolver(apiKeyStorage: storage)
 
         #expect(throws: OpenAICredentialResolutionError.missingAPIKey) {

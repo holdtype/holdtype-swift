@@ -289,9 +289,13 @@ host app, state, expected result, actual result, and go/no-go decision.
   runtime URL durable. The narrow recording-cache lifecycle contract is now
   portable too, and destructive cache handling is skipped when required
   recovery ownership fails. The runtime-only `VoiceWorkPhase` is portable too,
-  separately from setup, outcomes, delivery, timers, and transport. The next P1
-  slice moves the transient provider credential value/resolver contract into
-  the containing-app Domain dependency only; Keychain, App Group
-  command/session records, keyboard linking, and actual keyboard insertion
-  remain unchanged until their owning milestones.
+  separately from setup, outcomes, delivery, timers, and transport. The
+  transient provider credential value/resolver boundary is portable for
+  containing-app consumers and redacts standard diagnostics, while Keychain
+  access and availability errors remain platform-owned. The keyboard is still
+  unlinked from the transitional Domain product; before it imports typing
+  types, provider-only contracts must be split behind an app-only product
+  boundary. The next P1 slice narrows successful transcription-usage handoff;
+  App Group command/session records, keyboard linking, and actual keyboard
+  insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.
