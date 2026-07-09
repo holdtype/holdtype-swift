@@ -39,6 +39,7 @@ struct AppSettingsTests {
         #expect(settings.textCorrectionEnabled == false)
         #expect(settings.textCorrectionModelPreset == .quality)
         #expect(settings.customTextCorrectionModel.isEmpty)
+        #expect(settings.textCorrectionConfiguration == .defaults)
         #expect(settings.resolvedTextCorrectionModel == "gpt-5.5")
         #expect(settings.textCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
         #expect(settings.resolvedTextCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
@@ -183,6 +184,24 @@ struct AppSettingsTests {
 
         #expect(settings.resolvedTextCorrectionModel == AppSettings.defaultTextCorrectionModel)
         #expect(settings.resolvedTextCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
+    }
+
+    @Test func projectsRawTextCorrectionConfigurationWithoutOwningPersistence() {
+        var settings = AppSettings.defaults
+        settings.textCorrectionEnabled = true
+        settings.textCorrectionModelPreset = .custom
+        settings.customTextCorrectionModel = "  custom-correction-model  "
+        settings.textCorrectionPrompt = "  Correct names only.  "
+
+        let configuration = settings.textCorrectionConfiguration
+
+        #expect(configuration.isEnabled)
+        #expect(configuration.modelPreset == .custom)
+        #expect(configuration.customModel == "  custom-correction-model  ")
+        #expect(configuration.prompt == "  Correct names only.  ")
+        #expect(settings.resolvedTextCorrectionModel == configuration.resolvedModel)
+        #expect(settings.resolvedTextCorrectionPrompt == configuration.resolvedPrompt)
+        #expect(settings.isTextCorrectionPromptDefault == configuration.isPromptDefault)
     }
 
     @Test func resolvesEmojiCommandPromptFromActiveSet() {
@@ -740,6 +759,40 @@ struct AppSettingsTests {
 
         #expect(settings.textCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
         #expect(settings.isTextCorrectionPromptDefault)
+    }
+
+    @Test func textCorrectionPersistenceKeepsLegacyRawValuesAndLoadFallbacks() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let enabledKey = AppSettingsStore.keyPrefix + "textCorrectionEnabled"
+        let presetKey = AppSettingsStore.keyPrefix + "textCorrectionModelPreset"
+        let customModelKey = AppSettingsStore.keyPrefix + "customTextCorrectionModel"
+        let promptKey = AppSettingsStore.keyPrefix + "textCorrectionPrompt"
+        defaults.set("legacy-unknown-preset", forKey: presetKey)
+        defaults.set("  raw-custom-model  ", forKey: customModelKey)
+        defaults.set("   ", forKey: promptKey)
+        let store = AppSettingsStore(userDefaults: defaults)
+
+        var settings = store.load()
+
+        #expect(settings.textCorrectionModelPreset == .quality)
+        #expect(settings.customTextCorrectionModel == "  raw-custom-model  ")
+        #expect(settings.textCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
+        #expect(defaults.string(forKey: presetKey) == "legacy-unknown-preset")
+        #expect(defaults.string(forKey: promptKey) == "   ")
+
+        settings.textCorrectionEnabled = true
+        settings.textCorrectionModelPreset = .fast
+        settings.customTextCorrectionModel = "  saved-custom-model  "
+        settings.textCorrectionPrompt = "  Keep raw prompt spacing.  "
+        store.save(settings)
+
+        #expect(defaults.bool(forKey: enabledKey))
+        #expect(defaults.string(forKey: presetKey) == "fast")
+        #expect(defaults.string(forKey: customModelKey) == "  saved-custom-model  ")
+        #expect(defaults.string(forKey: promptKey) == "  Keep raw prompt spacing.  ")
+        #expect(store.load().textCorrectionConfiguration == settings.textCorrectionConfiguration)
     }
 
     @Test func blankPersistedTranslationPromptLoadsDefaultPrompt() {

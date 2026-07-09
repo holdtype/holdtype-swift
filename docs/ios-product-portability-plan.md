@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first ten P1
+Status: active implementation roadmap, P0 contracts and the first eleven P1
 Domain slices complete; updated 2026-07-09.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -612,8 +612,9 @@ its legacy JSON fields, and the four emoji-command values plus the exact
 six-language built-in catalog. `EmojiCommandsConfiguration` now owns the pure
 selection, normalization, enabled-state, and prompt-hint behavior, and the
 exact emoji alias matcher is portable. The deterministic cleanup → emoji →
-ordered replacement post-processing pipeline is also portable. The macOS app
-keeps source-compatible
+ordered replacement post-processing pipeline is also portable. Correction
+model presets and pure model/prompt resolution now live in Domain with their
+exact defaults and reset behavior. The macOS app keeps source-compatible
 typealias/presentation facades, projects the configuration from its existing
 scalar settings, and preserves the UserDefaults keys, scalar raw values, and
 custom-dictionary `[String]` storage. Direct package consumers are linked
@@ -822,17 +823,18 @@ Do not begin by porting `SettingsView` or adding every macOS source file to the
 iOS target. P0 plus the accepted-text, prompt-context, language,
 transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
-slices are complete. The next P1 slice extracts the remote text-correction
-configuration:
+slices plus remote text-correction configuration are complete. The next P1
+slice extracts translation configuration:
 
-1. move correction model presets and pure model/prompt fallback behavior into
-   Domain while keeping English presentation labels in the macOS facade;
-2. project the existing enabled flag, preset, custom model, and raw prompt from
-   `AppSettings` without changing its initializer or UserDefaults schema;
-3. preserve the exact default prompt, default model, custom-model fallback, and
-   raw persisted values with package/macOS/iOS tests;
-4. keep provider requests, safety heuristics, cancellation, and the portable
-   local postprocessor outside this configuration-only slice;
+1. move source-mode, validation issue, source/target resolution, model/prompt
+   fallback, and reset behavior into Domain while keeping English presentation
+   strings in the macOS facade;
+2. name the shared action preference independently of the macOS shortcut while
+   projecting all existing raw fields from `AppSettings`;
+3. preserve the exact defaults, language validation, legacy Russian-to-English
+   migration, and current UserDefaults raw values with package/macOS/iOS tests;
+4. keep provider requests, request DTOs, cancellation, and output processing
+   outside this configuration-only slice;
 5. keep UI, App Group publication, audio, background modes, the obsolete M0A
    session prototype, and the production QWERTY engine outside this slice.
 

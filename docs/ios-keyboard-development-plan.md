@@ -273,6 +273,6 @@ host app, state, expected result, actual result, and go/no-go decision.
   `TranscriptionConfiguration` plus custom-dictionary normalization package
   slices, `TextReplacementRule`, and emoji command models/catalog are complete;
   `EmojiCommandsConfiguration`, the matcher, and the full local post-processing
-  pipeline are also complete. The next slice extracts remote text-correction
-  configuration.
+  pipeline are also complete. Remote text-correction configuration is portable;
+  the next slice extracts translation configuration.
 - Full QWERTY and background Quick Session: gated and not started.

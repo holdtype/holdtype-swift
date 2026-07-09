@@ -40,52 +40,6 @@ enum TranslationConfigurationIssue: Error, Equatable, LocalizedError {
     }
 }
 
-enum TextCorrectionModelPreset: String, CaseIterable, Codable, Equatable {
-    case quality
-    case balanced
-    case fast
-    case custom
-
-    var displayName: String {
-        switch self {
-        case .quality:
-            return "Quality"
-        case .balanced:
-            return "Balanced"
-        case .fast:
-            return "Fast"
-        case .custom:
-            return "Custom"
-        }
-    }
-
-    var modelName: String? {
-        switch self {
-        case .quality:
-            return "gpt-5.5"
-        case .balanced:
-            return "gpt-5.4"
-        case .fast:
-            return "gpt-5.4-mini"
-        case .custom:
-            return nil
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .quality:
-            return "Highest quality correction"
-        case .balanced:
-            return "Lower cost than Quality"
-        case .fast:
-            return "Lower latency and cost"
-        case .custom:
-            return "Use a model ID you enter"
-        }
-    }
-}
-
 enum RecordingCachePolicy: Equatable {
     static let defaultRetainedRecordingLimit = 10
     static let maximumRetainedRecordingLimit = 999
@@ -161,7 +115,7 @@ enum RecordingStopTailDuration: String, CaseIterable, Codable, Equatable {
 
 struct AppSettings: Equatable {
     static let defaultTranscriptionModel = TranscriptionConfiguration.defaultModel
-    static let defaultTextCorrectionModel = "gpt-5.5"
+    static let defaultTextCorrectionModel = TextCorrectionConfiguration.defaultModel
     static let defaultTranslationModel = "gpt-5.4-mini"
     static let customDictionaryPromptPrefix =
         "Custom Dictionary (use these exact spellings when they appear in the text): "
@@ -169,18 +123,7 @@ struct AppSettings: Equatable {
         "Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): "
     static let defaultEnabledEmojiCommandSetIDs =
         EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
-    static let defaultTextCorrectionPrompt =
-        """
-        You are correcting a speech transcript.
-        Return only the corrected text.
-
-        Make the smallest possible edits.
-        Fix only obvious transcription errors, spacing, capitalization, and punctuation.
-        Preserve the original language, wording, order, tone, meaning, and line breaks when possible.
-        Do not rewrite for style.
-        Do not summarize, expand, translate, add facts, remove facts, or make the text more formal.
-        If a change is uncertain, leave the text unchanged.
-        """
+    static let defaultTextCorrectionPrompt = TextCorrectionConfiguration.defaultPrompt
     static let defaultTranslationPrompt =
         """
         Translate the user's dictation transcript into the target language.
@@ -267,22 +210,25 @@ struct AppSettings: Equatable {
         transcriptionConfiguration.resolvedModel
     }
 
-    var resolvedTextCorrectionModel: String {
-        if let modelName = textCorrectionModelPreset.modelName {
-            return modelName
-        }
+    var textCorrectionConfiguration: TextCorrectionConfiguration {
+        TextCorrectionConfiguration(
+            isEnabled: textCorrectionEnabled,
+            modelPreset: textCorrectionModelPreset,
+            customModel: customTextCorrectionModel,
+            prompt: textCorrectionPrompt
+        )
+    }
 
-        let trimmedModel = customTextCorrectionModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedModel.isEmpty ? Self.defaultTextCorrectionModel : trimmedModel
+    var resolvedTextCorrectionModel: String {
+        textCorrectionConfiguration.resolvedModel
     }
 
     var resolvedTextCorrectionPrompt: String {
-        let trimmedPrompt = textCorrectionPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedPrompt.isEmpty ? Self.defaultTextCorrectionPrompt : trimmedPrompt
+        textCorrectionConfiguration.resolvedPrompt
     }
 
     var isTextCorrectionPromptDefault: Bool {
-        textCorrectionPrompt == Self.defaultTextCorrectionPrompt
+        textCorrectionConfiguration.isPromptDefault
     }
 
     mutating func resetTextCorrectionPrompt() {
