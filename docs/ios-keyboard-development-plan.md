@@ -2,6 +2,10 @@
 
 Status: active feasibility work, started 2026-07-09.
 
+The complete containing-app, settings, data, privacy, and macOS feature
+portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
+keeps ownership of the keyboard-specific feasibility and typing milestones.
+
 ## Decision
 
 Build toward a familiar, full custom iPhone keyboard with a compact voice
