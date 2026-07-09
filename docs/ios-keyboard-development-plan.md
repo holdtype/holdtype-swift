@@ -284,8 +284,9 @@ host app, state, expected result, actual result, and go/no-go decision.
   remains macOS-only. The two local insertion outcomes and seven observer-scoped
   delivery states are portable without turning derived eligibility into stored
   or acknowledged state. The six semantic setup recovery destinations are
-  portable too, while navigation remains in each containing-app shell. The next
-  P1 slice extracts only the ephemeral completed-recording artifact; App Group
-  command/session records and actual keyboard insertion remain unchanged until
-  their owning milestone.
+  portable too, while navigation remains in each containing-app shell. The
+  transient completed-recording artifact is also portable without making its
+  runtime URL durable. The next P1 slice narrows the containing app's recording-
+  cache lifecycle dependency; App Group command/session records and actual
+  keyboard insertion remain unchanged until their owning milestone.
 - Full QWERTY and background Quick Session: gated and not started.

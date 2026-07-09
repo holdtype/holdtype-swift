@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first eighteen P1
+Status: active implementation roadmap, P0 contracts and the first nineteen P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -643,7 +643,10 @@ acknowledgement by this value-only slice. `RecoveryDestination` now defines the
 six approved setup owners without UI, URL, or persistence semantics. The
 macOS presentation adapter maps only OpenAI, Transcription, and Translation;
 the three iOS-specific owners remain unmapped rather than silently falling back
-to broader macOS settings.
+to broader macOS settings. The transient `AudioRecordingArtifact` is portable
+with its exact runtime URL, duration, and byte count, while remaining
+non-Codable and distinct from the relative identity required by durable iOS
+journals and history.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -850,24 +853,29 @@ transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
 slices plus remote text-correction and translation configurations are complete.
 Retention configuration, voice-session preferences, output-delivery
-preferences, output intent, observer-scoped delivery states, and recovery
-destinations are complete too. The next P1 slice extracts the ephemeral
-completed-recording artifact boundary before cache lifecycle or session
-orchestration moves:
+preferences, output intent, observer-scoped delivery states, recovery
+destinations, and the transient completed-recording artifact are complete too.
+The next P1 slice narrows the cache-lifecycle dependency before session-state
+extraction:
 
-1. move the current `AudioRecordingArtifact` value to Domain with only its
-   runtime file URL, duration, and byte count, preserving the macOS contract;
-2. keep the value transient and non-Codable: durable iOS journals and history
-   must continue to store relative identifiers rather than absolute sandbox
-   URLs;
-3. keep AVFoundation capture, recorder status/errors, validation, filesystem
-   ownership, Data Protection, cache retention, playback, and deletion outside
-   this artifact-only slice;
-4. retain a source-compatible macOS facade and add package plus normal-import
-   iOS tests without linking Domain into the keyboard target;
-5. leave pending-journal transitions, cache ownership handoff, provider work,
-   bridge records, session state, the obsolete M0A prototype, and the
-   production QWERTY engine to their owning slices.
+1. define a platform-neutral `RecordingCacheLifecycleHandling` protocol with
+   only synchronous throwing
+   `handleCompletedRecording(_:policy:)`, receiving `AudioRecordingArtifact`
+   and `RecordingCachePolicy`;
+2. make the session controller depend on that narrow protocol while the macOS
+   `RecordingCacheManaging` surface keeps directory creation, summaries,
+   delete/clear controls, notifications, and Finder reveal behavior;
+3. adapt the macOS service through `artifact.fileURL` without changing its
+   supported-file, pruning, notification, or error behavior;
+4. keep recovery and journal sequencing with the caller: invoke the handler
+   only after any required recovery owner has secured the artifact, and never
+   let cache cleanup remove the only recoverable copy;
+5. keep the handler free of UI, actor/Sendable requirements, persisted result
+   schemas, and typed cross-platform error cases; package, macOS, and normal-
+   import iOS tests should prove only the dependency boundary and exact handoff;
+6. leave protected file transfer, pending-journal ownership, Data Protection,
+   playback/export, bridge records, session phases, the obsolete M0A prototype,
+   and the production QWERTY engine to their owning slices.
 
 ## Research Basis
 

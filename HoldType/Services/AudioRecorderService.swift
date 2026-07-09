@@ -9,12 +9,6 @@ import AVFoundation
 import Foundation
 import HoldTypeDomain
 
-struct AudioRecordingArtifact: Equatable {
-    let fileURL: URL
-    let duration: TimeInterval
-    let byteCount: Int64
-}
-
 enum AudioRecorderStatus: Equatable {
     case idle
     case recording

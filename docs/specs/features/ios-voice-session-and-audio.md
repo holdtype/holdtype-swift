@@ -48,9 +48,11 @@ microphone activity or losing completed recordings.
 - A single retained utterance has a five-minute maximum. Reaching it fails the
   utterance visibly and does not upload the maximum-duration artifact as a
   successful recording.
-- A valid completed artifact carries relative local identity, duration, and
-  byte count and is written to the minimal `PendingRecording` journal before
-  any provider request.
+- A valid completed runtime artifact carries its current app-local file URL,
+  duration, and byte count. Before any provider request, the app maps that file
+  to a stable attempt-owned relative identifier and writes the identifier to
+  the minimal `PendingRecording` journal; the runtime URL is never the durable
+  identity.
 
 ## Audio-session behavior
 
