@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first seventeen P1
+Status: active implementation roadmap, P0 contracts and the first eighteen P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -639,7 +639,11 @@ held-hotkey promotion merge. Output delivery now has a portable, observer-
 scoped state taxonomy: two stable Codable local insertion outcomes remain
 distinct from the seven presentation states. Derived eligibility and
 containing-app reconciliation are deliberately not persisted or treated as
-acknowledgement by this value-only slice.
+acknowledgement by this value-only slice. `RecoveryDestination` now defines the
+six approved setup owners without UI, URL, or persistence semantics. The
+macOS presentation adapter maps only OpenAI, Transcription, and Translation;
+the three iOS-specific owners remain unmapped rather than silently falling back
+to broader macOS settings.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -846,22 +850,24 @@ transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
 slices plus remote text-correction and translation configurations are complete.
 Retention configuration, voice-session preferences, output-delivery
-preferences, output intent, and observer-scoped delivery states are complete
-too. The next P1 slice defines portable recovery destinations before moving any
-session controller:
+preferences, output intent, observer-scoped delivery states, and recovery
+destinations are complete too. The next P1 slice extracts the ephemeral
+completed-recording artifact boundary before cache lifecycle or session
+orchestration moves:
 
-1. define a pure `RecoveryDestination` value for the approved owning product
-   areas: OpenAI, transcription, translation, keyboard, Full Access, and
-   microphone/privacy;
-2. keep macOS `SettingsNavigationItem`, SwiftUI navigation, window activation,
-   public system-settings URLs, and localized labels outside Domain;
-3. adapt only exact existing macOS routes; leave iOS-only destinations unmapped
-   until the containing-app shell owns their navigation;
-4. add package and normal-import iOS tests, using stable raw/Codable values only
-   if a real persistence or bridge contract requires them;
-5. keep failure reasons, UI, cache lifecycle, bridge/session records, session
-   orchestration, the obsolete M0A prototype, and the production QWERTY engine
-   outside this destination-only slice.
+1. move the current `AudioRecordingArtifact` value to Domain with only its
+   runtime file URL, duration, and byte count, preserving the macOS contract;
+2. keep the value transient and non-Codable: durable iOS journals and history
+   must continue to store relative identifiers rather than absolute sandbox
+   URLs;
+3. keep AVFoundation capture, recorder status/errors, validation, filesystem
+   ownership, Data Protection, cache retention, playback, and deletion outside
+   this artifact-only slice;
+4. retain a source-compatible macOS facade and add package plus normal-import
+   iOS tests without linking Domain into the keyboard target;
+5. leave pending-journal transitions, cache ownership handoff, provider work,
+   bridge records, session state, the obsolete M0A prototype, and the
+   production QWERTY engine to their owning slices.
 
 ## Research Basis
 

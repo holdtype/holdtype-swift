@@ -283,7 +283,9 @@ host app, state, expected result, actual result, and go/no-go decision.
   the extension. `DictationOutputIntent` is portable too, while its hotkey merge
   remains macOS-only. The two local insertion outcomes and seven observer-scoped
   delivery states are portable without turning derived eligibility into stored
-  or acknowledged state. The next P1 slice defines neutral recovery
-  destinations; App Group command/session records and actual keyboard insertion
-  remain unchanged until their owning milestone.
+  or acknowledged state. The six semantic setup recovery destinations are
+  portable too, while navigation remains in each containing-app shell. The next
+  P1 slice extracts only the ephemeral completed-recording artifact; App Group
+  command/session records and actual keyboard insertion remain unchanged until
+  their owning milestone.
 - Full QWERTY and background Quick Session: gated and not started.

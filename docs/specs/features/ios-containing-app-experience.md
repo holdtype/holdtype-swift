@@ -178,8 +178,15 @@ The app guides setup in this order:
 
 ## Route, State, And Data Implications
 
-- Setup recovery routes target the specific owning destination: keyboard setup,
-  microphone/privacy, OpenAI, transcription, or translation.
+- Setup recovery uses a closed set of semantic owning destinations: OpenAI,
+  transcription, translation, keyboard setup, Full Access, and
+  microphone/privacy. Keyboard setup and Full Access remain distinct.
+- A recovery destination identifies the owning product area; it does not prove
+  that navigation is currently available and does not open app or system
+  settings automatically. A failure with no setup owner has no destination.
+- Voice, Library, History, Settings, Latest Result, Storage & Recovery, and
+  Diagnostics remain valid app surfaces but are not setup recovery
+  destinations under this contract.
 - Voice presentation distinguishes idle, setup blocked, recording, processing,
   accepted result, recoverable failure, and gated or active Quick Session.
 - The containing app owns one canonical voice-session identity across all of

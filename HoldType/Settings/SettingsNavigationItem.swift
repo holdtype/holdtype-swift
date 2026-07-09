@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 enum SettingsNavigationItem: String, CaseIterable, Identifiable, Hashable {
     case permissions
@@ -109,6 +110,21 @@ enum SettingsNavigationItem: String, CaseIterable, Identifiable, Hashable {
             return "arrow.down.circle"
         case .diagnostics:
             return "wrench.and.screwdriver"
+        }
+    }
+}
+
+extension SettingsNavigationItem {
+    init?(recoveryDestination: RecoveryDestination) {
+        switch recoveryDestination {
+        case .openAI:
+            self = .openAI
+        case .transcription:
+            self = .transcription
+        case .translation:
+            self = .translation
+        case .keyboard, .fullAccess, .microphoneAndPrivacy:
+            return nil
         }
     }
 }
