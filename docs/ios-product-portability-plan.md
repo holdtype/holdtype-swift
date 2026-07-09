@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first fourteen P1
+Status: active implementation roadmap, P0 contracts and the first fifteen P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -630,7 +630,10 @@ per-utterance maximum and the separately gated five-minute Quick Session remain
 independent constants. The existing recorder delegates its default maximum to
 that contract without moving capture or session behavior into Domain. Direct
 package consumers are linked explicitly, the keyboard remains unlinked, and
-package/macOS/iOS tests pass.
+package/macOS/iOS tests pass. `OutputDeliveryPreferences` also separates the
+default-on automatic-insertion intent from default-on app-owned Latest Result
+retention without claiming route eligibility or changing the two legacy macOS
+Bool keys.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -836,23 +839,23 @@ iOS target. P0 plus the accepted-text, prompt-context, language,
 transcription-configuration, custom-dictionary, text-replacement, emoji
 model/catalog, emoji-configuration, emoji-matcher, and full local-postprocessing
 slices plus remote text-correction and translation configurations are complete.
-Retention configuration and voice-session preferences are complete too. The
-next P1 slice extracts portable output-delivery preferences:
+Retention configuration, voice-session preferences, and output-delivery
+preferences are complete too. The next P1 slice extracts the portable output
+intent value:
 
-1. add a pure `OutputDeliveryPreferences` with independent default-on
-   `automaticInsertionPreferenceEnabled` and `keepLatestResult` values;
-2. project `automaticallyInsertTranscripts` and the app-owned
-   `saveTranscriptsToAppClipboard` from `AppSettings` without changing its
-   initializer, two existing Bool keys, missing/wrong-type fallback, or current
-   macOS effects;
-3. treat automatic insertion as user intent only: target identity, expiry,
-   acknowledgement, duplicate prevention, and route eligibility remain outside
-   the preference;
-4. keep actual text, clipboard operations, Accessibility, Full Access, bridge
-   publication, latest-result expiry/storage, delivery results, and recovery
-   destinations outside this configuration-only slice;
-5. keep UI, the obsolete M0A session prototype, and the production QWERTY
-   engine outside this slice.
+1. move `DictationOutputIntent` into Domain as a public String-backed,
+   `Codable`, `Equatable`, and `Sendable` enum with exact `standard` and
+   `translate` values;
+2. keep its existing source name and cases so current macOS callers remain
+   source-compatible;
+3. keep `merged(with:)` in the macOS facade because Option-key promotion during
+   a held global hotkey is platform behavior, not a universal mobile rule;
+4. add package and normal-import iOS tests for raw values, Codable shape,
+   unknown-value rejection, and Sendable conformance, plus preserve the macOS
+   merge truth table;
+5. keep delivery eligibility/results, UI strings, session state, bridge/App
+   Group records, the obsolete M0A prototype, and the production QWERTY engine
+   outside this value-only slice.
 
 ## Research Basis
 

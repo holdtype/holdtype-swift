@@ -65,6 +65,7 @@ struct AppSettingsTests {
         #expect(settings.canRunTranslation == false)
         #expect(settings.automaticallyInsertTranscripts)
         #expect(settings.saveTranscriptsToAppClipboard)
+        #expect(settings.outputDeliveryPreferences == .defaults)
         #expect(settings.soundEnabled)
         #expect(settings.voiceSessionPreferences == .defaults)
         #expect(settings.showFloatingIndicator)
@@ -836,6 +837,68 @@ struct AppSettingsTests {
             "1.5 seconds",
             "2.0 seconds",
         ])
+    }
+
+    @Test func projectsOutputDeliveryPreferencesWithoutClaimingRuntimeEligibility() {
+        var settings = AppSettings.defaults
+        settings.automaticallyInsertTranscripts = false
+        settings.saveTranscriptsToAppClipboard = true
+
+        #expect(settings.outputDeliveryPreferences == OutputDeliveryPreferences(
+            automaticInsertionPreferenceEnabled: false,
+            keepLatestResult: true
+        ))
+    }
+
+    @Test func outputDeliveryPreferencePersistenceKeepsTheLegacyBoolKeys() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AppSettingsStore(userDefaults: defaults)
+        let insertionKey = AppSettingsStore.keyPrefix + "automaticallyInsertTranscripts"
+        let latestResultKey = AppSettingsStore.keyPrefix + "saveTranscriptsToAppClipboard"
+        let combinations = [
+            OutputDeliveryPreferences(
+                automaticInsertionPreferenceEnabled: false,
+                keepLatestResult: false
+            ),
+            OutputDeliveryPreferences(
+                automaticInsertionPreferenceEnabled: false,
+                keepLatestResult: true
+            ),
+            OutputDeliveryPreferences(
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: false
+            ),
+            .defaults,
+        ]
+
+        for preferences in combinations {
+            var settings = AppSettings.defaults
+            settings.automaticallyInsertTranscripts =
+                preferences.automaticInsertionPreferenceEnabled
+            settings.saveTranscriptsToAppClipboard = preferences.keepLatestResult
+            store.save(settings)
+
+            #expect(
+                defaults.bool(forKey: insertionKey) ==
+                    preferences.automaticInsertionPreferenceEnabled
+            )
+            #expect(defaults.bool(forKey: latestResultKey) == preferences.keepLatestResult)
+            #expect(store.load().outputDeliveryPreferences == preferences)
+        }
+
+        defaults.set("not-a-bool", forKey: insertionKey)
+        defaults.set(Data([0x01]), forKey: latestResultKey)
+        #expect(store.load().outputDeliveryPreferences == .defaults)
+        #expect(defaults.string(forKey: insertionKey) == "not-a-bool")
+        #expect(defaults.data(forKey: latestResultKey) == Data([0x01]))
+
+        defaults.removeObject(forKey: insertionKey)
+        defaults.removeObject(forKey: latestResultKey)
+        #expect(store.load().outputDeliveryPreferences == .defaults)
+        #expect(defaults.object(forKey: insertionKey) == nil)
+        #expect(defaults.object(forKey: latestResultKey) == nil)
     }
 
     @Test func voiceSessionPreferencePersistenceKeepsLegacyKeysAndRawValues() {

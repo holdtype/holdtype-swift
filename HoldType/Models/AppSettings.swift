@@ -45,8 +45,10 @@ struct AppSettings: Equatable {
         customTranslationTargetLanguageCode: "",
         translationModel: defaultTranslationModel,
         translationPrompt: defaultTranslationPrompt,
-        automaticallyInsertTranscripts: true,
-        saveTranscriptsToAppClipboard: true,
+        automaticallyInsertTranscripts:
+            OutputDeliveryPreferences.defaults.automaticInsertionPreferenceEnabled,
+        saveTranscriptsToAppClipboard:
+            OutputDeliveryPreferences.defaults.keepLatestResult,
         soundEnabled: VoiceSessionPreferences.defaults.audioCuesEnabled,
         showFloatingIndicator: true,
         recordingStopTailDuration:
@@ -186,6 +188,13 @@ struct AppSettings: Equatable {
         VoiceSessionPreferences(
             audioCuesEnabled: soundEnabled,
             recordingStopTailDuration: recordingStopTailDuration
+        )
+    }
+
+    var outputDeliveryPreferences: OutputDeliveryPreferences {
+        OutputDeliveryPreferences(
+            automaticInsertionPreferenceEnabled: automaticallyInsertTranscripts,
+            keepLatestResult: saveTranscriptsToAppClipboard
         )
     }
 

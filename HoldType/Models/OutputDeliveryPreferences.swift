@@ -1,0 +1,3 @@
+import HoldTypeDomain
+
+typealias OutputDeliveryPreferences = HoldTypeDomain.OutputDeliveryPreferences

@@ -278,7 +278,9 @@ host app, state, expected result, actual result, and go/no-go decision.
   exact history caps and recording-cache policy semantics. Portable
   `VoiceSessionPreferences` now preserves cue/tail intent and the two distinct
   five-minute contracts without publishing voice-session state to the
-  keyboard. The next configuration-only slice extracts
-  `OutputDeliveryPreferences`; it will not publish text, target identity, or
-  insertion eligibility to the extension.
+  keyboard. `OutputDeliveryPreferences` now carries insertion and Latest Result
+  intent without publishing text, target identity, or insertion eligibility to
+  the extension. The next value-only slice extracts `DictationOutputIntent`;
+  App Group command/session records remain unchanged until their owning
+  milestone.
 - Full QWERTY and background Quick Session: gated and not started.
