@@ -5,192 +5,126 @@
 <h1 align="center">HoldType</h1>
 
 <p align="center">
-  <strong>Native macOS voice input for AI work and everyday writing.</strong>
+  <strong>Speak the whole thought. HoldType puts it where you're working.</strong>
 </p>
 
-HoldType is a small menu bar app for people who would rather speak than type.
-Hold <kbd>Right Command</kbd>, talk naturally, release, and HoldType transcribes
-through your own OpenAI API key before inserting the finished text into the app
-you were already using.
-
-No HoldType account. No HoldType subscription. No Electron shell. No telemetry.
-
-The source code is available for transparency, so you can inspect how HoldType
-records audio, sends OpenAI requests, and handles local data. You can also
-build HoldType yourself if you prefer running your own build.
+<p align="center">
+  Native macOS voice input for long AI prompts, messages, docs, and notes.<br>
+  By default, hold <kbd>Right Command</kbd>, speak, and release. HoldType
+  transcribes through your own OpenAI API key and inserts the accepted text at
+  the cursor in most Mac apps.
+</p>
 
 <p align="center">
-  <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download latest release</strong></a>
+  <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download for macOS</strong></a>
   |
-  <a href="#how-it-works">How it works</a>
+  <a href="#how-it-works">See how it works</a>
   |
   <a href="#privacy">Privacy</a>
   |
-  <a href="#development">Development</a>
+  <a href="#development">Build from source</a>
+</p>
+
+<p align="center">
+  <sub>macOS 14 Sonoma or newer · Bring your own OpenAI API key · No HoldType account, subscription, or telemetry</sub>
 </p>
 
 <p align="center">
   <img alt="HoldType recording and transcribing indicator states" src="docs/readme-assets/indicator-states.png" width="920">
-</p>
-
-<p align="center">
-  <strong>Built from a developer's daily dictation workflow.</strong><br>
-  I tried Wispr Flow, OpenWhispr, Codex voice input, and a long list of smaller
-  tools. Voice worked for long prompts, reviews, mail, and notes. The missing
-  part was a global Mac app with a native Swift recording path, not another web
-  product.
-</p>
-
-<p align="center">
-  HoldType keeps that path short: hold a key in any app, speak, release. OpenAI
-  handles transcription through my own key; HoldType adds the workflow pieces I
-  kept wanting, including translation and spoken emoji commands.
-</p>
-
-<p align="center">
-  <img alt="Personal microphone setup used for daily HoldType dictation" src="docs/readme-assets/workflow-microphone.jpg" width="760">
   <br>
-  <sub>My actual microphone setup. HoldType is built around voice as a primary input device, not an occasional dictation feature.</sub>
+  <sub>The optional floating indicator shows when HoldType is listening or transcribing without taking focus from the active app.</sub>
 </p>
-
-<p align="center">
-  <img alt="HoldType transcription settings using gpt-4o-transcribe" src="docs/readme-assets/settings-transcription.png" width="900">
-</p>
-
-## Why HoldType Exists
-
-Those constraints shaped the product. I wanted a dictation tool that stayed out
-of the way and matched how I work across code, AI chats, mail, docs, and notes:
-
-- OpenAI transcription quality by default, starting with `gpt-4o-transcribe`
-- direct OpenAI API billing through my own key, not another app subscription
-- native Swift instead of a TypeScript web shell
-- fast hold-to-record input for Codex, Claude, ChatGPT, mail, docs, and chats
-- translation when you want to speak in your native language and get text in
-  another language, such as English
-- spoken emoji commands for common symbols without another API request
-- minimal correction without turning dictation into a rewriting product
-
-The name comes from the interaction itself: hold a key, speak, release, and get
-typed text in the app you were already using. HoldType is still built for coding
-with AI, but it is broader than code. I still type fast, but a microphone has
-become my primary input device because it lets me say the full thought I would
-otherwise shorten or skip. That matters for AI prompts, but it also matters for
-mail, documentation, notes, and everyday text.
-
-The codebase is part of that experiment too. HoldType has been built through
-Codex, directed and tested through the same voice-first workflow it is meant to
-support.
 
 ## How It Works
 
-1. Add your OpenAI API key. HoldType stores it locally in macOS Keychain.
-2. Hold <kbd>Right Command</kbd> to record from any app.
-3. Release the key. HoldType transcribes the audio through OpenAI.
-4. The accepted text is inserted at the cursor in the active app.
+1. Add an OpenAI API key once. HoldType stores it locally in macOS Keychain.
+2. Place the cursor in the Mac app where the text should go.
+3. With the default shortcut, hold <kbd>Right Command</kbd> and speak. Release
+   the key when the thought is complete.
+4. HoldType transcribes the recording and inserts the accepted text at the
+   cursor.
 
-When the floating indicator is enabled, a compact activity indicator appears
-near the lower-right corner of the active display during recording and
-transcription without stealing focus from the app you are using.
-
-For translation, choose a target language in Settings and hold
-<kbd>Right Command</kbd> + <kbd>Right Option / Alt</kbd>. That records the same
-way, then translates the accepted transcript before inserting it.
+Translation has its own shortcut. With its default shortcut, choose a target
+language in Settings, then hold <kbd>Right Command</kbd> +
+<kbd>Right Option / Alt</kbd> to speak in one language and insert the result in
+another.
 
 <p align="center">
   <img alt="HoldType menu bar popover with transcribe, translate, paste, history, settings, and quit actions" src="docs/readme-assets/menu-popover.png" width="520">
 </p>
 
+## Where It Fits
+
+- **AI work:** give Codex, Claude, or ChatGPT the context that is easy to skip
+  when a prompt has to be typed line by line.
+- **Everyday writing:** dictate mail, reviews, documentation, chats, and notes
+  without moving the text through a separate editor.
+- **Bilingual work:** speak in the language where the thought comes naturally
+  and insert the result in the configured target language.
+
 ## What Makes It Different
 
-### Bring Your Own OpenAI Key
+### A Focused Native Mac App
 
-HoldType does not meter you through a HoldType account. It sends requests
-through your OpenAI Platform account, so you pay OpenAI directly for the API
-usage you choose to make.
+HoldType is written in Swift, lives in the menu bar, and keeps the recording
+path close to macOS. The shortcut and compact indicator work around the active
+app instead of asking you to move the draft into a separate workspace.
 
-<p align="center">
-  <img alt="HoldType OpenAI API key settings with a masked saved key" src="docs/readme-assets/settings-api-key.png" width="820">
-</p>
+The source is available for inspection, including the paths that record audio,
+send OpenAI requests, store local settings, and hand text back to the active
+app.
 
-### Built Around OpenAI Transcription
+### Your OpenAI Key, Not Another Product Account
 
-The default transcription model is `gpt-4o-transcribe`. You can keep language
-on Auto, choose a fixed language, add prompt guidance, and optionally include a
-short nearby text excerpt so continued dictation matches the current context.
+HoldType sends requests through your OpenAI Platform account. OpenAI bills the
+API usage directly; HoldType does not meter dictation through its own account
+or subscription.
 
-### Teach It Your Project Vocabulary
+The default transcription model is `gpt-4o-transcribe`. Settings can keep the
+language on Auto, choose a fixed language, add prompt guidance, and optionally
+include a short nearby text excerpt for continuity.
 
-The Dictionary keeps local words and phrases that should be spelled exactly
-when they appear in dictation. I use it for project names, file names, product
-terms, and personal names that general transcription tools often get wrong.
+### Vocabulary And Translation For Real Work
+
+Dictionary entries are stored locally and added to the transcription prompt as
+spelling context. They help with project names, file names, product terms, and
+people's names that a general transcription model may miss.
 
 <p align="center">
   <img alt="HoldType custom dictionary words and phrases" src="docs/readme-assets/settings-dictionary.png" width="820">
 </p>
 
-### Speak In Your Native Language, Send English
-
-Hold <kbd>Right Command</kbd> + <kbd>Right Option / Alt</kbd> for a translation
-session. HoldType records the same way, then translates the accepted transcript
-into the configured target language before inserting it. I use this when the
-thought is clearer in Russian but the reply, prompt, or comment needs to land in
-English.
+Translation runs only when requested from its shortcut or the menu action. It
+takes the accepted transcript, translates it into the configured target
+language, and inserts that result into the active app. The translation is a
+separate OpenAI request.
 
 <p align="center">
   <img alt="HoldType translation settings with Right Command plus Right Option or Alt and English target language" src="docs/readme-assets/settings-translation.png" width="820">
 </p>
 
-### Say Emoji Commands Out Loud
+## Workflow Details That Matter
 
-For chats, social posts, and comments, HoldType can replace explicit spoken
-commands such as `emoji heart`, `emoji laugh`, or `emoji thumbs up` with the
-matching emoji after transcription. The replacement is local, so it does not
-make another OpenAI request or require an emoji picker.
+- **Optional minimal correction.** OpenAI correction is off by default. When
+  enabled, it makes a second model request with a prompt that asks for small
+  fixes to transcription, spacing, capitalization, and punctuation. Local
+  typography cleanup can run without another API call.
+- **Spoken emoji commands.** Explicit phrases such as `emoji heart`,
+  `emoji laugh`, or `emoji thumbs up` can be replaced locally after
+  transcription. Ordinary words are left alone.
+- **A way back when insertion fails.** HoldType can keep the last accepted text
+  as Last Result and insert it with <kbd>Control</kbd> + <kbd>Command</kbd> +
+  <kbd>V</kbd>, without replacing the macOS system clipboard.
 
-<p align="center">
-  <img alt="HoldType English spoken emoji commands in Dictionary settings" src="docs/readme-assets/settings-emoji-commands.png" width="820">
-</p>
+## What It Costs
 
-### Correction Without Rewriting You
+HoldType itself is free to use. OpenAI API usage is billed separately by
+OpenAI through the key configured in HoldType.
 
-Correction has two separate layers. OpenAI correction is optional, off by
-default, and sends the transcript through a second model request. I usually
-leave it off because it slows down the path from speaking to inserted text. It
-is there for users who want one more minimal cleanup pass for obvious
-transcription errors, spacing, capitalization, and punctuation.
-
-The local cleanup layer is different. It runs without another API call and can
-normalize quotes, long dashes, ellipses, spacing, and literal replacement rules.
-That is the part I keep on: it removes small typographic tells that make
-dictated text look more AI-generated than it needs to.
-
-<p align="center">
-  <img alt="HoldType text correction settings with minimal correction prompt" src="docs/readme-assets/settings-text-correction.png" width="820">
-</p>
-
-### Recovery When Insertion Fails
-
-Automatic insertion targets the active Mac app at the cursor. HoldType can also
-keep the last accepted transcript as Last Result, available through
-<kbd>Control</kbd> + <kbd>Command</kbd> + <kbd>V</kbd>, without overwriting the
-macOS system clipboard.
-
-<p align="center">
-  <img alt="HoldType behavior settings for automatic insertion, Last Result, sounds, indicator, and recovery history" src="docs/readme-assets/settings-behavior.png" width="820">
-</p>
-
-## Cost Model
-
-HoldType itself is free to use. OpenAI API usage is billed by OpenAI, through
-your own OpenAI Platform account. In my own heavy voice-input workflow, the
-local HoldType estimate is usually in single-digit dollars per month rather
-than a fixed app subscription.
-
-The Billing screen is intentionally an estimate from this Mac's successful
-transcriptions. It is not your OpenAI invoice, balance, or account dashboard.
-Always use [OpenAI pricing](https://developers.openai.com/api/docs/pricing) as
-the source of truth for current model prices.
+The Billing screen estimates successful audio transcriptions made on this Mac.
+It does not include correction or translation requests, and it is not an
+OpenAI invoice, balance, or account dashboard. Current model rates live on the
+[OpenAI pricing page](https://developers.openai.com/api/docs/pricing).
 
 <p align="center">
   <img alt="HoldType local OpenAI usage estimate with projected 30-day cost" src="docs/readme-assets/settings-billing.png" width="820">
@@ -198,20 +132,41 @@ the source of truth for current model prices.
 
 ## Privacy
 
-HoldType is designed to keep the product boundary simple:
+HoldType keeps the product boundary explicit:
 
-- Your OpenAI API key is stored in macOS Keychain.
+- The OpenAI API key is stored in macOS Keychain.
 - Audio is sent to OpenAI when a recording is transcribed.
-- If OpenAI correction is enabled, transcript text is sent in a second OpenAI
-  request.
-- If translation mode is enabled, transcript text is sent in a translation
-  request before output delivery.
-- Nearby text context is optional and bounded to a short excerpt near the
+- Optional OpenAI correction sends transcript text in a second request.
+- Translation sends transcript text in a separate request when translation is
+  requested.
+- Nearby text context is optional and limited to a short excerpt near the
   active cursor.
+- Completed audio is not retained by default. A recoverable failed attempt may
+  keep bounded session-only audio for Retry when recovery history is enabled.
+  Optional recording-cache retention is local and user-controlled.
+- Transcript recovery is local and session-only. Last Result does not use the
+  macOS system clipboard.
 - HoldType has no account system, server-side app state, analytics, telemetry,
   or cloud sync.
-- Transcript recovery is local. The app clipboard is not the macOS system
-  clipboard.
+
+## Why I Built HoldType
+
+Typing speed was not the problem for me. The problem was how often a long
+prompt, review, or explanation became shorter before I finished typing it.
+Speaking made it easier to include the full thought.
+
+After trying Wispr Flow, OpenWhispr, Codex voice input, and smaller tools, I
+wanted a narrower setup: a native Swift menu bar app, direct OpenAI billing
+through my own key, and no extra product account or subscription.
+
+HoldType has also been built through Codex, directed and tested with the same
+voice-first workflow it is meant to support.
+
+<p align="center">
+  <img alt="Personal microphone setup used for daily HoldType dictation" src="docs/readme-assets/workflow-microphone.jpg" width="760">
+  <br>
+  <sub>The microphone on my desk. HoldType uses the Mac's available audio input and does not require special recording hardware.</sub>
+</p>
 
 ## Install
 
@@ -219,39 +174,30 @@ HoldType is designed to keep the product boundary simple:
 
 1. Download `HoldType-<version>.dmg` from the
    [latest GitHub Release](https://github.com/holdtype/holdtype-swift/releases/latest).
-2. Open the disk image.
-3. Drag `HoldType.app` into Applications.
-4. Launch HoldType.
-5. Grant the macOS permissions needed for microphone recording, global
-   shortcuts, and active-app insertion.
-6. Paste an OpenAI API key in Settings.
+2. Open the disk image and drag `HoldType.app` into Applications.
+3. Launch HoldType and grant the macOS permissions needed for microphone
+   recording, the global shortcut, and active-app insertion.
+4. Add an OpenAI API key in Settings.
 
-### Homebrew
+### Homebrew Tap
 
-The first Homebrew channel is a project-owned tap. A branded tap such as
-`holdtype/homebrew-tap` gives users a non-personal fallback channel while the
-official Homebrew Cask submission is pending. Once that tap is published for a
-release, the cask path is:
+The project-owned Homebrew tap installs the same disk image published on GitHub
+Releases:
 
 ```sh
 brew tap holdtype/tap && brew trust holdtype/tap && brew install --cask holdtype && open -a HoldType
 ```
 
-After HoldType is accepted into the official Homebrew Cask repository, fresh
-Homebrew installs can use the short command:
+## Platform
 
-```sh
-brew install --cask holdtype && open -a HoldType
-```
+HoldType currently supports macOS 14 Sonoma and newer. This repository contains
+the native macOS version.
 
-## Platforms
-
-This repository is the macOS version of HoldType. It currently supports macOS
-14 Sonoma and newer.
-
-Windows and Linux are planned as separate repositories later, built with the
-same voice-first approach and OpenAI-key workflow, but implemented natively for
-those platforms instead of being shipped from this Swift codebase.
+<p align="center">
+  <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download HoldType for macOS</strong></a>
+  <br>
+  <sub>Free app · OpenAI API usage billed separately · macOS 14+</sub>
+</p>
 
 ## License
 
@@ -279,15 +225,16 @@ licensed for use in forks or derivative products.
 Forks and derivative builds must use a clearly different name and must not
 imply that they are official HoldType releases.
 
-The official project lives at:
-
-- Website: https://holdtype.app
-- GitHub: https://github.com/holdtype/holdtype-swift
+The official source and release page is
+[github.com/holdtype/holdtype-swift](https://github.com/holdtype/holdtype-swift).
 
 ## Development
 
-This repository is still spec-first. Product behavior lives under
-`docs/specs/`, while agent workflow rules live in `AGENTS.md`.
+This repository is spec-first. Product behavior lives under `docs/specs/`,
+while agent workflow rules live in `AGENTS.md`.
+
+The working product-site brief lives in
+[docs/marketing/landing-page-plan.md](docs/marketing/landing-page-plan.md).
 
 For code work:
 
