@@ -357,7 +357,15 @@ struct AppSettings: Equatable {
     }
 
     var enabledTextReplacementRules: [TextReplacementRule] {
-        textReplacementRules.filter { $0.isEnabled && $0.hasSearchText }
+        transcriptPostProcessingConfiguration.enabledTextReplacementRules
+    }
+
+    var transcriptPostProcessingConfiguration: TranscriptPostProcessingConfiguration {
+        TranscriptPostProcessingConfiguration(
+            localTextCleanupEnabled: localTextCleanupEnabled,
+            emojiCommands: emojiCommandsConfiguration,
+            textReplacementRules: textReplacementRules
+        )
     }
 
     var resolvedPrompt: String? {

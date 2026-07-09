@@ -46,6 +46,7 @@ struct AppSettingsTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.textReplacementRules.isEmpty)
         #expect(settings.enabledTextReplacementRules.isEmpty)
+        #expect(settings.transcriptPostProcessingConfiguration == .defaults)
         #expect(settings.translationShortcutEnabled)
         #expect(settings.translationSourceMode == .sameAsTranscription)
         #expect(settings.translationSourceLanguage == .automatic)
@@ -172,6 +173,10 @@ struct AppSettingsTests {
         #expect(settings.resolvedTextCorrectionPrompt == "Fix only punctuation.")
         #expect(settings.enabledTextReplacementRules.count == 1)
         #expect(settings.enabledTextReplacementRules.first?.replacement == "plain")
+        #expect(
+            settings.transcriptPostProcessingConfiguration.textReplacementRules ==
+                settings.textReplacementRules
+        )
 
         settings.customTextCorrectionModel = "  "
         settings.textCorrectionPrompt = "  "
