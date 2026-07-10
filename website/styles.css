@@ -362,8 +362,8 @@ h3 {
 .hero-price-sticker {
   position: absolute;
   z-index: 4;
-  top: -30px;
-  right: -8px;
+  top: -38px;
+  right: max(-51px, calc((var(--container) - 100vw) / 2 + 4px));
   pointer-events: none;
 }
 
@@ -1780,7 +1780,7 @@ body.has-image-lightbox {
   }
 
   .hero-price-sticker {
-    top: -20px;
+    top: -26px;
     right: -4px;
     width: 112px;
     padding: 13px;
@@ -2034,7 +2034,7 @@ body.has-image-lightbox {
   }
 
   .hero-price-sticker {
-    top: -18px;
+    top: -22px;
     right: -2px;
     width: 104px;
     padding: 12px;

@@ -171,6 +171,29 @@ story, installation instructions, and a fuller FAQ.
   `/tmp/holdtype-hero-badge-mobile-top-390x844.png`, and
   `/tmp/holdtype-hero-badge-after-mobile-390x844.png`.
 
+## Hero price-sticker edge alignment follow-up — 2026-07-10
+
+- Used the current demo-window crop as an ImageGen component reference. The
+  useful composition decision was to align the sticker's center with the
+  window's right edge and raise it slightly; no generated pixels or invented UI
+  were added to the site.
+- Replaced the ambiguous `Even 100 a day` with
+  `Even 100 dictations a day`. The price and intensive-use qualifier remain
+  unchanged.
+- At `1440×900`, measured sticker center and window right edge are both exactly
+  `1284px`. The sticker remains fully inside the viewport and document width
+  remains `1440px`.
+- At `390×844`, the narrower safe offset keeps the sticker and all of its text
+  inside the viewport; document width remains exactly `390px` with no browser
+  warnings or errors.
+- Evidence was saved outside the repository at
+  `/tmp/holdtype-hero-sticker-component-before.png`,
+  `/tmp/holdtype-hero-sticker-component-after.png`,
+  `/tmp/holdtype-hero-badge-edge-desktop-1440x900.png`,
+  `/tmp/holdtype-hero-badge-edge-mobile-top-390x844.png`, and
+  `/tmp/holdtype-hero-badge-edge-mobile-visual-390x844.png`. The ImageGen design
+  reference remains under the local Codex generated-images directory.
+
 ## Final result
 
 final result: passed

@@ -19,7 +19,7 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
   root without an application build step.
 - Download links continue to use the stable GitHub latest-release URL.
 - The Homebrew Copy button copies the complete project-tap installation block.
-- The hero may present 100 voice messages as about `$0.10` at the current
+- The hero may present 100 dictations as about `$0.10` at the current
   estimated `gpt-4o-transcribe` rate. It frames that volume as intensive use;
   the detailed cost section explains that it is roughly 17 minutes of audio.
 - API-key setup is explained in short written steps with direct links to the
@@ -50,10 +50,11 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
   publish and leave a partial artifact live.
 - No custom `CNAME` is published until the domain DNS and GitHub Pages custom
   domain are intentionally configured together.
-- A 100-message day is an illustrative intensive-use scenario, not a usage cap,
-  guaranteed maximum, or claim about typical behavior. The hero example stays
-  visibly approximate; the detailed cost section names the OpenAI-controlled
-  rate and excludes optional correction and translation requests.
+- A 100-dictation day is an illustrative intensive-use scenario, not a usage
+  cap, guaranteed maximum, or claim about typical behavior. The hero example
+  stays visibly approximate; the detailed cost section names the
+  OpenAI-controlled rate and excludes optional correction and translation
+  requests.
 - The API-key guide must not ask the user to paste a key into the website. It
   directs the user to paste the secret only into HoldType, where the app stores
   it locally in macOS Keychain.
