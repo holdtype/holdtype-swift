@@ -891,6 +891,19 @@ provider calls. Both containing apps link the product, the macOS app uses
 narrow compatibility aliases, normal-import iOS smoke constructs all three
 services, and the keyboard remains unlinked. Keychain access and UI remain
 outside the provider package.
+The containing app now also has a canonical general-settings repository in
+`HoldTypePersistence`. Its public runtime value contains only the configuration
+already consumed by the P4 voice flow; secrets, Library content, History,
+retention, delivery, keyboard, and App Group state remain separate. The actor
+uses a private strict v1 wire schema, defaults only absent known fields, rejects
+wrong types and unknown fields without echoing attacker-controlled values, and
+preserves corrupt or unsupported bytes. Atomic saves create the temporary file
+with Complete protection from its first write and keep the final settings file
+eligible for device backup. The Persistence package passes 42 normal and
+strict-concurrency tests, and normal-import iOS simulator tests cover the stable
+Application Support path, round-trip, corruption preservation, and backup
+policy. Effective Data Protection and signed Keychain accessibility remain
+physical-device gates rather than simulator claims.
 
 ### P3 — Native containing-app shell
 
@@ -1081,13 +1094,15 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The provider foundation is now complete: the credential contract, real
-cancellation, bounded file-backed multipart upload, and all three provider
-services live behind `HoldTypeOpenAI`. Continue P2 with the next small
-independent checkpoint:
+The provider foundation and general iOS settings v1 are now implemented without
+moving Keychain, UI, or App Group state into the provider package. Continue P2
+through two small persistence checkpoints:
 
-1. add the versioned iOS settings repository and migrations without moving
-   Keychain, UI, or App Group state into the provider package.
+1. consolidate the credential marker and general settings on one bounded,
+   protected atomic-file substrate without changing either frozen wire
+   contract;
+2. use that substrate for the versioned app-private Library repository before
+   adding usage, History, pending-attempt, or recording-storage state.
 
 Keep startup scavenging for abandoned private multipart scratch files as an
 explicit later P2 provider gate. It must stay bounded, must never touch source

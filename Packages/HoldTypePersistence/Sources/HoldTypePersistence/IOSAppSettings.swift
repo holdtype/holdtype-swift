@@ -1,0 +1,29 @@
+import HoldTypeDomain
+
+/// The app-only, non-secret settings owned by the iOS containing app.
+public struct IOSAppSettings: Equatable, Sendable {
+    public static let defaults = IOSAppSettings()
+
+    public var transcriptionConfiguration: TranscriptionConfiguration
+    public var textCorrectionConfiguration: TextCorrectionConfiguration
+    public var localTextCleanupEnabled: Bool
+    public var translationConfiguration: TranslationConfiguration
+    public var keepLatestResult: Bool
+    public var voiceSessionPreferences: VoiceSessionPreferences
+
+    public init(
+        transcriptionConfiguration: TranscriptionConfiguration = .defaults,
+        textCorrectionConfiguration: TextCorrectionConfiguration = .defaults,
+        localTextCleanupEnabled: Bool = true,
+        translationConfiguration: TranslationConfiguration = .defaults,
+        keepLatestResult: Bool = true,
+        voiceSessionPreferences: VoiceSessionPreferences = .defaults
+    ) {
+        self.transcriptionConfiguration = transcriptionConfiguration
+        self.textCorrectionConfiguration = textCorrectionConfiguration
+        self.localTextCleanupEnabled = localTextCleanupEnabled
+        self.translationConfiguration = translationConfiguration
+        self.keepLatestResult = keepLatestResult
+        self.voiceSessionPreferences = voiceSessionPreferences
+    }
+}

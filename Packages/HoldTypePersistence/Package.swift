@@ -14,11 +14,22 @@ let package = Package(
             targets: ["HoldTypePersistence"]
         ),
     ],
+    dependencies: [
+        .package(path: "../HoldTypeDomain"),
+    ],
     targets: [
-        .target(name: "HoldTypePersistence"),
+        .target(
+            name: "HoldTypePersistence",
+            dependencies: [
+                .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
+            ]
+        ),
         .testTarget(
             name: "HoldTypePersistenceTests",
-            dependencies: ["HoldTypePersistence"]
+            dependencies: [
+                "HoldTypePersistence",
+                .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
+            ]
         ),
     ]
 )

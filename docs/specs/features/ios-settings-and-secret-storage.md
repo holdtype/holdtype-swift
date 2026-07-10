@@ -237,6 +237,43 @@ without discarding a successfully resolved runtime credential or absence.
   recoverable audio, recording cache, runtime logs, and the API key follow
   their own explicit backup policies and are not inferred from this rule.
 
+### General app settings v1
+
+- The app-private general settings record lives at the stable relative path
+  `HoldType/ios-app-settings.json` inside the containing app's Application
+  Support directory. It is never stored in `UserDefaults`, an App Group,
+  CloudKit, or iCloud Drive.
+- Version 1 contains only transcription configuration, correction
+  configuration, the local plain-typography cleanup preference, translation
+  configuration, Keep Latest Result, and voice audio-cue/recording-tail
+  preferences. The API key and presence marker, Library content, History,
+  usage, diagnostics, pending/recovery state, audio, retention, automatic
+  insertion, typing preferences, Nearby Text, macOS-only preferences, consent,
+  and Full Access evidence are not part of this record.
+- The runtime settings value is an `Equatable` and `Sendable` value, not a wire
+  DTO and not `Codable`. Persistence uses a private versioned representation.
+- `schemaVersion` is required and must be exactly integer `1`. A canonical save
+  writes every v1 group and field, even when it equals the default. A load may
+  default a missing known group or known field so additive fields can be
+  introduced without losing established values.
+- Malformed JSON, a non-object root, a missing or wrongly typed schema version,
+  null or wrongly typed known values, unexpected fields at any level, and
+  unknown enum values are distinct typed local failures. Public errors identify
+  only the known object or field path and never echo an attacker-controlled
+  enum value or unexpected field name. Version `0` and future versions are
+  unsupported. No legacy v0 shape or migration is inferred; a migration
+  fixture is added only when a real earlier persisted schema exists.
+- A missing file returns the complete documented defaults without creating or
+  rewriting a file. Corrupt or unsupported source bytes are preserved
+  byte-for-byte and are never replaced by defaults during load.
+- Loads and saves through the process-owned repository are serialized. Every
+  save atomically replaces from the same directory, requests complete file
+  protection, and remains eligible for system-managed device backup. A failed
+  replacement preserves the previously durable bytes.
+- Simulator tests prove that Complete protection is requested but may not
+  report an effective protection class on the resulting file. Effective Data
+  Protection remains a signed physical-device verification gate.
+
 ### Credential-presence marker v1
 
 - The runtime marker is a non-transport value with an update date and exactly
