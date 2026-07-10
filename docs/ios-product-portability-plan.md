@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-nine P1
+Status: active implementation roadmap, P0 contracts and the first thirty P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -777,6 +777,19 @@ cancellation surface, recovery ordering, and stale-result rejection remain
 covered. File-backed upload, real cancellation, provider-module movement,
 durable request identity, and persistence remain P2 work.
 
+`VoiceAttemptOutcome` now separates the four payload-free terminal result
+classes from active work, attempt-stage attribution, setup, and output delivery:
+`resultReady`, `recoverableFailure`, `interrupted`, and `expired`. The value is
+`Equatable`, `Sendable`, non-raw-valued, and non-Codable, with no text, error,
+identity, retry authority, localization, logging, persistence, App Group, or
+keyboard semantics. The macOS compatibility projection is deliberately narrow:
+only a non-empty accepted result becomes `resultReady`, and only the current
+retryable failure whose matching attempt is still retained becomes
+`recoverableFailure`. Output-delivery failure does not revoke a ready result;
+ordinary cancel and provider timeout do not invent interruption or expiry, and
+macOS produces neither case. iOS lifecycle/expiry adapters and durable outcome
+reconciliation remain later milestone work.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -977,27 +990,32 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-nine value/configuration/dependency slices are
-complete, including the narrow audio-transcription request boundary. The next
-P1 slice separates terminal attempt outcome from active work, stage
-attribution, delivery, setup, and presentation:
+iOS target. The first thirty value/configuration/dependency slices are complete,
+including the portable terminal attempt outcome. The next P1 slice removes raw
+text and full `AppSettings` from the accepted-history handoff without defining
+the P2 durable history schema:
 
-1. specify and add a public payload-free `VoiceAttemptOutcome` with exactly
-   `resultReady`, `recoverableFailure`, `interrupted`, and `expired`;
-2. make it `Equatable` and `Sendable`, but not raw-valued, localized, Codable,
-   identified, persisted, logged, or transported through App Group;
-3. keep accepted text, error details, interruption/expiry reasons, retry
-   eligibility, setup recovery, and output delivery outside the value;
-4. add only honest macOS compatibility projection: an accepted final result may
-   project `resultReady`, and a genuinely retained eligible failed attempt may
-   project `recoverableFailure`. Ordinary cancel must not invent
-   `interrupted`, and macOS has no synthetic `expired` mapping;
-5. prove the value remains independent from `VoiceWorkPhase`,
-   `VoiceAttemptStage`, and `OutputDeliveryState`, without changing existing
-   macOS UI copy, recovery ownership, or cancellation behavior;
-6. add package and normal-import iOS tests plus narrow macOS projection tests.
-   Durable outcome journals, detailed portable failure categories, and iOS
-   interruption/expiry adapters remain later slices.
+1. specify and add a public runtime-only `AcceptedTranscriptHistoryRequest`
+   containing one `AcceptedTranscript`, one resolved transcription model, one
+   optional resolved language code, optional audio duration, optional transient
+   cached-audio URL, and the captured History-enabled preference;
+2. construct it from one `TranscriptionConfiguration` and one
+   `RetentionConfiguration`, preserving model/language fallback and retaining
+   the cache URL only when the captured cache policy keeps recordings;
+3. make it `Equatable` and `Sendable`, but not Codable, identified, timestamped,
+   persisted, logged, or transported through App Group or the keyboard. Keep
+   output intent, stage, failure/retry data, credentials, and provider state out;
+4. change the macOS `TranscriptRecoveryHistoryRecording` boundary to receive
+   only the request. The controller passes its already accepted final text and
+   captured settings projection; the store no longer receives raw text or full
+   `AppSettings`;
+5. preserve disabled-History no-op behavior, resolved attribution, cache-link
+   gating, newest-first 20-entry retention, delete/clear behavior, non-fatal
+   history-write failure, and existing output/recovery ordering;
+6. add package and normal-import iOS tests plus AppSettings, controller, fake,
+   and store regressions. Keep `TranscriptHistoryEntry`, absolute-path legacy
+   storage, versioned durable repositories, stable relative audio identity,
+   migration, and pipeline-wide portable failure categories outside this slice.
 
 ## Research Basis
 

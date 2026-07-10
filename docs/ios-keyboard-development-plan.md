@@ -315,8 +315,11 @@ host app, state, expected result, actual result, and go/no-go decision.
   narrowed to a transient audio URL, resolved model/language, and one frozen
   prompt composition; the service and multipart builder no longer receive full
   `AppSettings` or loose context, and no provider request enters App Group or
-  the keyboard. The next P1 slice separates terminal `VoiceAttemptOutcome`
-  from active work, stage attribution, delivery, setup, and presentation.
+  the keyboard. Terminal `VoiceAttemptOutcome` is now portable too, with ready
+  result, genuinely retained recoverable failure, lifecycle interruption, and
+  Quick Session expiry kept separate from work phase, stage attribution,
+  delivery, setup, and presentation. macOS maps only its honest ready/recovery
+  subset and does not synthesize interruption or expiry.
   App Group command/session records, keyboard linking, and actual keyboard
   insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

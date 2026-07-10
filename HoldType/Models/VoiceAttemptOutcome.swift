@@ -1,0 +1,3 @@
+import HoldTypeDomain
+
+typealias VoiceAttemptOutcome = HoldTypeDomain.VoiceAttemptOutcome

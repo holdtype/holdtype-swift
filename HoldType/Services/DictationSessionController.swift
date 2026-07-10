@@ -89,6 +89,25 @@ final class DictationSessionController {
         }
     }
 
+    var voiceAttemptOutcome: VoiceAttemptOutcome? {
+        if let statusOutcome = status.voiceAttemptOutcome {
+            return statusOutcome
+        }
+
+        guard case .failure = status,
+              let presentation = failurePresentation,
+              presentation.canRetry,
+              let failedAttemptID = presentation.failedAttemptID,
+              let retainedAttempt = transcriptionFailureRecovery.failedAttempts.first(
+                  where: { $0.id == failedAttemptID }
+              ),
+              retainedAttempt.reason.canRetry else {
+            return nil
+        }
+
+        return .recoverableFailure
+    }
+
     init(
         recorder: any AudioRecorderService = AVFoundationAudioRecorderService(),
         transcriptionService: any OpenAITranscriptionServing = OpenAITranscriptionService(),

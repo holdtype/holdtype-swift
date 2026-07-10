@@ -215,6 +215,44 @@ configuration, or storage preflight before capture creates no attempt stage.
 Legacy platform adapters may retain narrower compatibility mappings while P1
 extracts the value, but those mappings do not redefine iOS preflight behavior.
 
+### Runtime Attempt Outcome
+
+`VoiceAttemptOutcome` is the payload-free terminal result presented for one
+voice attempt. It has exactly four cases: `resultReady`, `recoverableFailure`,
+`interrupted`, and `expired`.
+
+`resultReady` means non-empty accepted text is safe in the containing app; it
+does not claim insertion or acknowledgement. `recoverableFailure` means the
+completed capture is retained under an eligible failed-attempt owner; the exact
+Retry, Discard, setup, and repair actions remain separate. A transient error
+without that retained ownership is not recoverable.
+`interrupted` is reserved for a real audio/platform lifecycle interruption, not
+ordinary user cancellation or blocked preflight. `expired` is reserved for a
+listening attempt ended by the independent five-minute Quick Session deadline,
+not a provider timeout or the separate per-utterance maximum.
+
+Quick Session expiry while merely `ready` creates no attempt outcome. Expiry
+while `processing` does not overwrite the still-valid attempt; its eventual
+terminal result remains authoritative. Reaching the per-utterance maximum keeps
+its distinct visible recording failure and projects `recoverableFailure` only
+if a later adapter has actually retained an eligible recovery artifact;
+otherwise it produces no `VoiceAttemptOutcome`.
+
+The outcome carries no text, error, reason, identifier, timestamp, retry flag,
+setup destination, output-delivery state, user-facing copy, or stable
+logging/telemetry category. It is `Equatable`, `Sendable`, non-raw-valued, and
+non-Codable. It is runtime
+presentation state, not a durable journal, App Group record, keyboard command,
+or authority to retry, discard, insert, record, or call a provider.
+
+The value is independent of `VoiceWorkPhase`, `VoiceAttemptStage`, setup, and
+`OutputDeliveryState`. P1 macOS compatibility may project only a non-empty
+accepted final result as `resultReady`, or the current failed presentation as
+`recoverableFailure` when its eligible attempt is still retained. Ordinary
+cancel projects no outcome, and macOS does not synthesize `interrupted` or
+`expired`. iOS interruption/expiry adapters, detailed portable failure
+categories, and durable outcome reconciliation remain later milestone work.
+
 The containing app and keyboard presentations derive their understandable
 user-facing state from separate sources instead of persisting or transporting
 the phase as a complete product state:
@@ -261,7 +299,9 @@ session as inactive, and must not label setup-dependent behavior as ready.
 - An interruption or Quick Session expiry during `listening` stops capture. A
   valid minimum-duration partial artifact is finalized and journaled for an
   explicit Recover or Discard choice, but is not uploaded automatically. An
-  invalid/too-short partial is removed with a visible interruption outcome.
+  invalid/too-short partial is removed. The terminal outcome is `interrupted`
+  for the actual lifecycle interruption and `expired` for the Quick Session
+  deadline; recovery actions remain separate from that reason.
 - Quick Session expiry in `ready` simply disarms the session. Expiry in
   `processing` stops audio and preserves the active provider/pending state;
   its matching result may still complete normally.
