@@ -85,8 +85,14 @@ that already uses GitHub Pages.
 - Every release-notes URL referenced by the published appcast remains reachable
   after later website or app releases.
 - A push to the configured production branch automatically deploys landing-page
-  changes. An explicit publish command can request a bounded rebuild and verify
-  the resulting page without storing a DigitalOcean token in the repository.
+  changes through DigitalOcean. Routine website pushes do not start a GitHub
+  Pages workflow. An explicit publish command can request a bounded rebuild and
+  verify the resulting page without storing a DigitalOcean token in the
+  repository.
+- GitHub Pages is published automatically only by the release workflow so the
+  Sparkle appcast and versioned release notes stay current. A separate manual
+  Pages maintenance workflow can restore the complete Pages artifact without
+  cutting a new app release.
 - The explicit publish command synchronizes the committed `.do/app.yaml` with
   the existing DigitalOcean app before deploying the latest source. A stale
   server-side build command must not publish the source template in place of
@@ -99,8 +105,8 @@ that already uses GitHub Pages.
 - A Pages deployment remains a complete artifact: landing files, appcast, and
   all release notes referenced by that appcast are deployed together so the
   existing update channel remains self-contained.
-- A website-only deployment must source the appcast from the latest stable
-  GitHub Release rather than regenerate update metadata.
+- A manual Pages maintenance deployment must source the appcast from the latest
+  stable GitHub Release rather than regenerate update metadata.
 - A release deployment must use the newly generated signed appcast and the
   same release-notes content published in the GitHub Release.
 - Website documentation and local QA files are not part of the public artifact.
@@ -163,8 +169,9 @@ that already uses GitHub Pages.
 
 ## Verification mapping
 
-- Workflow checks verify that both website and release publishes construct the
-  same complete Pages artifact.
+- Workflow checks verify that manual Pages maintenance and release publication
+  both construct the same complete Pages artifact, while routine landing pushes
+  remain DigitalOcean-only.
 - App Platform configuration checks verify a static-site component sourced from
   `website/`, the production branch, and automatic deployments.
 - Publish-script checks verify bounded App Spec synchronization, all generated

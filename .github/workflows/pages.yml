@@ -1,13 +1,6 @@
-name: Pages
+name: Pages maintenance
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "website/**"
-      - "scripts/release/prepare_pages_artifact.py"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -21,7 +14,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Publish landing page and update feed
+    name: Republish landing snapshot and update feed
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -107,7 +100,7 @@ jobs:
             --retry-max-time 180 \
             "${page_url}?deployment=${GITHUB_SHA}" \
             --output "$published_index"
-          grep -F "Speak the whole thought." "$published_index"
+          grep -F 'data-site-locale="en"' "$published_index"
           scripts/release/verify_published_release.py \
             --repository "$GITHUB_REPOSITORY" \
             --version "$VERSION" \

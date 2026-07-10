@@ -349,7 +349,7 @@ jobs:
             --retry-max-time 180 \
             "${page_url%/}/?deployment=${GITHUB_SHA}" \
             --output "$published_index"
-          grep -F "Speak the whole thought." "$published_index"
+          grep -F 'data-site-locale="en"' "$published_index"
           scripts/release/verify_published_release.py \
             --repository "$GITHUB_REPOSITORY" \
             --version "${{ steps.release-inputs.outputs.version }}" \

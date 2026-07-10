@@ -775,8 +775,13 @@ end
         self.assertIn("gh release download", pages_workflow)
         self.assertIn("--pattern appcast.xml", pages_workflow)
         self.assertIn("Verify published site and update feed", pages_workflow)
+        self.assertIn("workflow_dispatch:", pages_workflow)
+        self.assertNotIn("\n  push:", pages_workflow)
         self.assertIn("--current-release-notes", release_workflow)
-        self.assertIn("Speak the whole thought.", release_workflow)
+        self.assertIn('data-site-locale="en"', pages_workflow)
+        self.assertIn('data-site-locale="en"', release_workflow)
+        self.assertNotIn("Speak the whole thought.", pages_workflow)
+        self.assertNotIn("Speak the whole thought.", release_workflow)
 
     def test_digitalocean_publish_discovers_unique_app_and_default_ingress(self) -> None:
         module = load_digitalocean_publish_module()
@@ -837,7 +842,7 @@ end
         targets = module.verification_targets(
             "https://example.ondigitalocean.app/",
             deployment_id="deployment-id",
-            root_marker="Speak the whole thought.",
+            root_marker='data-site-locale="en"',
         )
 
         self.assertEqual(len(targets), 11)
@@ -901,7 +906,7 @@ end
             deadline: float,
             request_timeout: float,
         ) -> None:
-            self.assertEqual(root_marker, "Speak the whole thought.")
+            self.assertEqual(root_marker, 'data-site-locale="en"')
             self.assertGreater(deadline, 0)
             self.assertEqual(request_timeout, 20.0)
             verified_urls.append((base_url, deployment_id))

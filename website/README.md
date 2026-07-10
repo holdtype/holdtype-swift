@@ -51,9 +51,11 @@ enabled. The canonical App Platform configuration is `.do/app.yaml`.
 
 GitHub Pages remains the canonical host for the Sparkle appcast and versioned
 release notes at <https://holdtype.github.io/holdtype-swift/>. The Pages and
-release workflows still build one complete Pages artifact so a website change
-or app release cannot erase update metadata. Do not point the shipped update
-feed at `holdtype.app` as part of a landing-only deployment.
+release workflows still build one complete Pages artifact so publication cannot
+erase update metadata. The release workflow updates Pages when a new app version
+ships; the standalone Pages workflow is manual recovery only. Routine website
+pushes deploy through DigitalOcean without starting GitHub Pages. Do not point
+the shipped update feed at `holdtype.app` as part of a landing-only deployment.
 
 `README.md`, `design-qa.md`, the generator, and the source catalogs are
 repository inputs or documentation and are deliberately excluded from public
