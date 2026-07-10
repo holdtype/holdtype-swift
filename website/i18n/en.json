@@ -302,7 +302,7 @@
     }
   },
   "finalCta": {
-    "title": "The Wispr Flow “clone” with nothing to hide.",
+    "title": "Your dictation. Fully under your control.",
     "body": "Free app · Your {brand.openAI} API key · No {brand.holdType} subscription · {fact.minimumOS}"
   },
   "footer": {
