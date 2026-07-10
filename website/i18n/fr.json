@@ -1,0 +1,355 @@
+{
+  "locale": "fr",
+  "meta": {
+    "title": "{brand.holdType} — Exprimez toute votre pensée",
+    "description": "{brand.holdType} est la saisie vocale pour {brand.macOS} conçue pour les longs prompts, les messages, les documents et les notes. Utilisez votre propre clé API {brand.openAI}, sans compte ni abonnement {brand.holdType}.",
+    "socialImageAlt": "Icône de l’application {brand.holdType}"
+  },
+  "common": {
+    "skipToContent": "Aller au contenu",
+    "brandHomeAria": "Accueil de {brand.holdType}",
+    "primaryNavigationAria": "Navigation principale",
+    "downloadForMacOS": "Télécharger pour {brand.macOS}"
+  },
+  "localeUi": {
+    "switcherLabel": "Langue",
+    "switcherAria": "Choisir la langue",
+    "suggestionAria": "Suggestion de langue",
+    "suggestionMessage": "Cette page est disponible en {languageName}.",
+    "suggestionAction": "Voir la page",
+    "suggestionDismiss": "Pas maintenant",
+    "suggestionDismissAria": "Ignorer la suggestion de langue"
+  },
+  "header": {
+    "menuClosed": "Menu",
+    "menuOpen": "Fermer",
+    "howItWorks": "Fonctionnement",
+    "features": "Fonctionnalités",
+    "privacy": "Confidentialité",
+    "faq": "FAQ"
+  },
+  "hero": {
+    "title": "Exprimez toute votre pensée.",
+    "lede": "{brand.holdType} l’insère là où vous travaillez.",
+    "support": "Longs prompts, messages, documents et notes : dictez-les directement dans l’application {brand.mac} où vous travaillez. {brand.holdType} utilise votre clé API {brand.openAI} et replace le texte validé au niveau du curseur dans la plupart des applications {brand.mac}.",
+    "seeHowItWorks": "Voir comment ça marche",
+    "qualification": "Application gratuite · Utilisation de l’API {brand.openAI} facturée séparément · {fact.minimumOS}",
+    "price": {
+      "aria": "Même {pricing.dailyDictations} dictées par jour coûtent environ {pricing.dailyPrice} dans cet exemple d’utilisation intensive.",
+      "kicker": "Même {pricing.dailyDictations} dictées par jour",
+      "value": "≈ {pricing.dailyPrice}",
+      "suffix": "en utilisation intensive"
+    },
+    "demo": {
+      "editorIllustration": "Illustration de {brand.holdType}",
+      "documentTitle": "Avancement du projet",
+      "toolbarSample": "Aa  ···",
+      "intro": "Voici un résumé de l’avancement et des prochaines étapes.",
+      "sectionTitle": "Résumé",
+      "listeningBody": "Maintenez {keyboard.rightCommand} et parlez naturellement.",
+      "transcribingBody": "Préparation du texte validé…",
+      "insertedBody": "Nous avons publié la dernière version la semaine dernière. Les retours sont positifs. La prochaine étape consiste à améliorer la prise en main et à conserver un flux d’écriture simple.",
+      "status": {
+        "listening": "Écoute",
+        "transcribing": "Transcription",
+        "inserted": "Inséré"
+      },
+      "caption": "Flux illustré : {brand.holdType} écoute, transcrit, puis insère le texte dans un éditeur générique. Il ne s’agit pas d’une démonstration enregistrée."
+    }
+  },
+  "workflow": {
+    "title": "Transformez votre voix en texte, exactement là où vous êtes.",
+    "steps": {
+      "hold": {
+        "title": "Maintenez",
+        "body": "Maintenez {keyboard.rightCommand}"
+      },
+      "speak": {
+        "title": "Parlez",
+        "body": "Exprimez toute votre pensée"
+      },
+      "release": {
+        "title": "Relâchez",
+        "body": "Relâchez {keyboard.command}"
+      },
+      "inserted": {
+        "artLabel": "Texte",
+        "title": "Inséré",
+        "body": "Le texte apparaît au niveau du curseur"
+      }
+    }
+  },
+  "reasons": {
+    "a11yTitle": "Pourquoi {brand.holdType}",
+    "stays": {
+      "title": "Reste là où vous travaillez",
+      "body": "Maintenez un raccourci, parlez et le résultat revient au niveau du curseur. Aucun éditeur séparé ni onglet de navigateur à gérer."
+    },
+    "subscription": {
+      "title": "Aucun abonnement à gérer",
+      "body": "{brand.holdType} ne facture aucuns frais mensuels. {brand.openAI} déduit l’utilisation de l’API de votre compte {brand.openAIPlatform} lorsque des requêtes sont effectuées."
+    },
+    "openAI": {
+      "title": "Conçu autour de {brand.openAI}",
+      "body": "Commencez avec un seul réglage par défaut privilégiant la qualité. Vous n’avez pas à comparer les fournisseurs ni à télécharger de modèle local avant la première dictée."
+    }
+  },
+  "useCases": {
+    "title": "Pour les textes que vous finissez par raccourcir en les tapant.",
+    "intro": "{brand.holdType} est conçu pour les pensées complètes, qu’elles soient destinées à un agent de programmation, un message ou un document.",
+    "aiPrompts": {
+      "title": "Longs prompts pour l’IA",
+      "body": "Donnez à {brand.codex}, {brand.claude} ou {brand.chatGPT} le contexte qu’il est facile d’omettre lorsqu’un prompt doit être tapé ligne par ligne."
+    },
+    "everyday": {
+      "title": "Écrits du quotidien",
+      "body": "Dictez e-mails, avis, documentation, discussions et notes sans transférer le brouillon dans un autre éditeur."
+    },
+    "bilingual": {
+      "title": "Travail bilingue",
+      "body": "Parlez dans la langue qui vous vient naturellement, puis insérez le texte dans la langue cible configurée lorsque vous demandez une traduction."
+    }
+  },
+  "features": {
+    "a11yTitle": "Fonctionnalités du produit",
+    "appUiLanguageNote": "L’application {brand.holdType} actuelle et les captures du produit utilisent une interface en anglais.",
+    "translation": {
+      "label": "Langue et vocabulaire",
+      "title": "Parlez naturellement. Insérez le texte dans votre travail en cours.",
+      "body1": "La traduction s’exécute uniquement sur demande. Choisissez une langue cible, puis utilisez {keyboard.translationShortcut} pour transcrire et traduire dans un même flux.",
+      "body2": "Les entrées de {appUi.localDictionary} ajoutent à la requête de transcription du contexte orthographique pour les noms, les termes propres à vos projets et les noms de fichiers.",
+      "imageAlt": "Réglages {appUi.translation} de {brand.holdType} avec le raccourci de traduction et les commandes de langue cible",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "Réglages {appUi.translation} réels de {brand.holdType}. Sur téléphone, faites glisser horizontalement la zone agrandie pour l’examiner. "
+          },
+          {
+            "type": "link",
+            "ref": "translationScreenshot",
+            "text": "Ouvrir l’image en taille réelle"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "lightboxCaption": "Réglages {appUi.translation} de {brand.holdType}"
+    },
+    "menu": {
+      "imageAlt": "Fenêtre de barre des menus de {brand.holdType} avec les actions de transcription, traduction, {appUi.pasteLastResult}, historique, réglages et fermeture",
+      "imageCaption": "Commandes réelles de la barre des menus, y compris la récupération via {appUi.lastResult}.",
+      "label": "Toujours à portée de main",
+      "title": "Lancez, traduisez, récupérez et ajustez depuis la barre des menus.",
+      "body1": "Si l’insertion échoue, la transcription validée reste disponible dans {appUi.lastResult}. Collez-la avec {keyboard.pasteShortcut} sans remplacer le presse-papiers système de {brand.macOS}.",
+      "body2": "La correction facultative par {brand.openAI} est désactivée par défaut. Le nettoyage typographique local peut toujours s’exécuter sans nouvelle requête au modèle."
+    }
+  },
+  "privacy": {
+    "label": "Coût et traitement des données",
+    "title": "Une distinction claire entre ce qui reste en local et ce qui est envoyé à {brand.openAI}.",
+    "intro": "{brand.holdType} n’a ni système de comptes, ni backend produit, ni télémétrie, ni outils d’analyse, ni synchronisation dans le cloud. La transcription elle-même est une requête à l’API {brand.openAI}, effectuée avec la clé que vous configurez.",
+    "flow": {
+      "aria": "Flux de données de {brand.holdType}",
+      "microphone": "Microphone",
+      "holdType": "{brand.holdType}",
+      "openAI": "Transcription par {brand.openAI}",
+      "activeApp": "Application active"
+    },
+    "dataPath": {
+      "title": "Le parcours de vos données",
+      "items": {
+        "apiKey": "La clé API est stockée localement dans {brand.macOSKeychain}.",
+        "audio": "L’audio est envoyé à {brand.openAI} pour transcription.",
+        "optionalTextRequests": "La correction et la traduction facultatives font l’objet de requêtes de texte séparées.",
+        "failedAudio": "L’audio traité n’est pas conservé par défaut. En cas d’échec récupérable, une quantité limitée de données audio peut être conservée uniquement pendant la session pour {appUi.retry}.",
+        "recordingCache": "La conservation facultative du cache des enregistrements est locale et contrôlée par l’utilisateur."
+      }
+    },
+    "billing": {
+      "title": "Payez l’utilisation, pas l’accès",
+      "body": "{brand.holdType} n’a pas d’abonnement. {brand.openAI} déduit l’utilisation réelle de l’API du compte {brand.openAIPlatform} relié par votre clé ; {brand.holdType} ne facture aucuns frais mensuels.",
+      "exampleTitle": "{pricing.dailyDictations} messages courts. Environ {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} messages courts représentent environ {pricing.recordedMinutes} minutes de parole enregistrée. Répétez ce même total quotidien pendant {pricing.daysInMonth} jours et le coût de transcription estimé sera d’environ {pricing.monthlyPrice}.",
+      "note": "L’écran {appUi.billing} affiche une estimation locale des transcriptions audio réussies. Ce n’est pas une facture {brand.openAI} et il n’inclut pas les requêtes de correction ou de traduction.",
+      "pricingLink": "Tarifs de l’API {brand.openAI}",
+      "imageAlt": "Réglages {appUi.billing} de {brand.holdType} affichant une estimation locale de l’utilisation de la transcription",
+      "imageCaption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "Sur téléphone, faites glisser horizontalement la zone agrandie de cette même capture réelle de {appUi.billing}. "
+          },
+          {
+            "type": "link",
+            "ref": "billingScreenshot",
+            "text": "Ouvrir l’image en taille réelle"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "lightboxCaption": "Réglages {appUi.billing} de {brand.holdType} et estimation locale de l’utilisation"
+    }
+  },
+  "founder": {
+    "imageAlt": "Un microphone de bureau utilisé pendant le développement et les tests de {brand.holdType}",
+    "imageCaption": "Aucun équipement d’enregistrement spécialisé n’est nécessaire.",
+    "label": "Pourquoi j’ai créé {brand.holdType}",
+    "title": "La vitesse de frappe n’était pas le problème.",
+    "body1": "Le problème, c’était la fréquence à laquelle un long prompt, un avis ou une explication se retrouvait raccourci avant même que j’aie fini de le taper. En parlant, il était plus facile d’exprimer toute la pensée.",
+    "body2": "J’ai essayé des outils par abonnement et des applications fondées sur le choix entre modèles locaux et modèles cloud. Ils répondent à des besoins différents. Dans mon travail quotidien, la transcription de {brand.openAI} produisait le plus souvent une première version à laquelle je pouvais me fier.",
+    "body3": "Je voulais une configuration plus simple : un seul fournisseur, un réglage par défaut pertinent, une facturation directe de l’API et aucun abonnement au produit à gérer. {brand.holdType} est développé et testé avec le même flux de travail centré sur la voix qu’il est destiné à faciliter."
+  },
+  "install": {
+    "label": "Bien démarrer",
+    "title": "Du téléchargement à la première dictée.",
+    "steps": {
+      "download": "Téléchargez la dernière image disque depuis {brand.githubReleases}.",
+      "applications": "Faites glisser {brand.holdType} dans {appUi.applications}, puis lancez-le.",
+      "permissions": "Accordez les autorisations pour le microphone, le raccourci global et l’insertion.",
+      "apiKey": "Ajoutez votre clé API {brand.openAIPlatform} dans les réglages."
+    },
+    "allReleases": "Toutes les versions",
+    "homebrew": {
+      "title": "Vous préférez {brand.homebrew} ?",
+      "body": "Le tap du projet installe la même image disque que celle publiée sur {brand.githubReleases}.",
+      "copyAria": "Copier les commandes d’installation de {brand.homebrew}",
+      "copyIdle": "Copier",
+      "copyCopied": "Copié",
+      "copyRetry": "Réessayer",
+      "copySuccessStatus": "Commande {brand.homebrew} copiée.",
+      "copyFailureStatus": "Échec de la copie. Sélectionnez la commande manuellement.",
+      "tapLink": "Voir le tap du projet"
+    }
+  },
+  "apiKeyGuide": {
+    "label": "Vous découvrez les clés API ?",
+    "title": "Créez-en une en quelques minutes.",
+    "intro": "Une clé API est un identifiant privé qui permet à {brand.holdType} d’envoyer l’audio pour transcription via votre compte {brand.openAIPlatform}. Elle est distincte de votre identifiant et de votre abonnement {brand.chatGPT}.",
+    "steps": {
+      "openPage": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "Connectez-vous à {brand.openAIPlatform} et ouvrez la "
+          },
+          {
+            "type": "link",
+            "ref": "openAIKeys",
+            "text": "page des clés API"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "create": "Créez une clé secrète et copiez-la lorsque {brand.openAI} l’affiche.",
+      "save": "Dans {brand.holdType}, ouvrez {appUi.settingsOpenAI}, collez la clé et enregistrez-la."
+    },
+    "createAction": "Créer une clé {brand.openAI}",
+    "instructionsAction": "Instructions officielles",
+    "note": "{brand.openAI} n’affiche la clé complète qu’au moment de sa création. Gardez-la confidentielle et collez-la uniquement dans {brand.holdType}, qui la stocke localement dans {brand.macOSKeychain}. La facturation de l’API est distincte de {brand.chatGPT}, et un nouveau compte {brand.openAIPlatform} peut nécessiter un crédit prépayé.",
+    "video": {
+      "iframeTitle": "Comment créer une clé API {brand.chatGPT} (tutoriel {video.year})",
+      "playAria": "Lire le tutoriel de {video.roundedMinutes} minutes sur les clés API",
+      "kicker": "Guide de {video.roundedMinutes} minutes",
+      "title": "Découvrez comment créer une clé API {brand.openAI}",
+      "playAction": "Lire le tutoriel",
+      "noScriptAction": "Regarder le tutoriel sur les clés API sur {brand.youtube}",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "Tutoriel tiers réalisé par "
+          },
+          {
+            "type": "link",
+            "ref": "videoCreator",
+            "text": "{brand.geekrar}"
+          },
+          {
+            "type": "text",
+            "value": ", {video.duration}, publié en juin {video.year}. {brand.youtube} se charge uniquement après avoir lancé la lecture."
+          }
+        ]
+      },
+      "fallbackIframeTitle": "Tutoriel {brand.youtube}"
+    }
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "intro": "Des réponses courtes aux questions importantes avant l’installation.",
+    "apiKeyRequired": {
+      "question": "Pourquoi une clé API {brand.openAI} est-elle nécessaire ?",
+      "answer": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "{brand.holdType} envoie les requêtes de transcription via votre propre compte {brand.openAIPlatform}. La clé est stockée localement dans {brand.macOSKeychain}. Si vous découvrez les clés API, suivez le "
+          },
+          {
+            "type": "link",
+            "ref": "apiKeyGuide",
+            "text": "guide en trois étapes"
+          },
+          {
+            "type": "text",
+            "value": " ci-dessus."
+          }
+        ]
+      }
+    },
+    "chatGPTPlus": {
+      "question": "{brand.chatGPTPlus} suffit-il ?",
+      "answer": "Non. Les abonnements {brand.chatGPT} et la facturation de l’API {brand.openAIPlatform} sont distincts. {brand.holdType} a besoin d’une clé API avec la facturation {brand.openAIPlatform} configurée."
+    },
+    "cost": {
+      "question": "Combien coûte la dictée ?",
+      "answer": "{brand.holdType} ne facture aucuns frais fixes. {brand.openAI} déduit l’utilisation de l’API de votre solde {brand.openAIPlatform}, et les nouveaux comptes API peuvent nécessiter un crédit prépayé. L’écran {appUi.billing} de {brand.holdType} estime les transcriptions réussies sur ce {brand.mac} ; la correction et la traduction facultatives font l’objet de requêtes séparées."
+    },
+    "dataSent": {
+      "question": "Quelles données sont envoyées à {brand.openAI} ?",
+      "answer": "L’audio est envoyé pour transcription. La correction et la traduction facultatives envoient le texte transcrit dans des requêtes séparées, et le contexte proche facultatif envoie un court extrait avec la requête de transcription."
+    },
+    "audioStorage": {
+      "question": "L’audio est-il stocké ?",
+      "answer": "L’audio traité n’est pas conservé par défaut. En cas d’échec récupérable, une quantité limitée de données audio peut être conservée uniquement pendant la session pour {appUi.retry} ; la conservation facultative du cache des enregistrements est locale et contrôlée par l’utilisateur."
+    },
+    "compatibleApps": {
+      "question": "Quelles applications {brand.mac} sont compatibles ?",
+      "answer": "{brand.holdType} insère le texte validé dans la plupart des applications {brand.mac} grâce à la fonctionnalité Accessibilité de {brand.macOS}. Si le transfert échoue, {appUi.lastResult} reste disponible pour récupérer le texte."
+    },
+    "languages": {
+      "question": "Quelles langues sont prises en charge ?",
+      "answer": "La transcription peut utiliser une détection automatique ou une langue source fixe. La traduction utilise la langue cible que vous configurez dans {brand.holdType}."
+    },
+    "permissions": {
+      "question": "Pourquoi {brand.holdType} a-t-il besoin d’autorisations {brand.macOS} ?",
+      "answer": "L’accès au microphone permet d’enregistrer la voix, la surveillance de l’entrée prend en charge le raccourci global et l’accessibilité permet d’insérer le texte dans l’application active."
+    },
+    "sourceAvailable": {
+      "question": "{brand.holdType} est-il open source ?",
+      "answer": "Le code source de {brand.holdType} est disponible sous {license.fsl11}, avec un passage futur à la licence {license.mit}. Chaque version publiée passe sous licence {license.mit} deux ans après sa publication."
+    }
+  },
+  "finalCta": {
+    "title": "Exprimez la pensée. Gardez le contexte.",
+    "body": "Application gratuite · Aucun abonnement {brand.holdType} · Utilisation de {brand.openAI} facturée directement · {fact.minimumOS}"
+  },
+  "footer": {
+    "description": "Saisie vocale native pour {brand.macOS}. Code source disponible sous {license.fsl11}, avec un passage futur à la licence {license.mit}.",
+    "sourceLink": "Voir le code source sur {brand.github}"
+  },
+  "lightbox": {
+    "dialogAria": "Capture de {brand.holdType} en taille réelle",
+    "closeAria": "Fermer l’image en taille réelle",
+    "closeLabel": "Fermer",
+    "fallbackImageAlt": "Capture de {brand.holdType} en taille réelle"
+  }
+}
