@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "为什么选择 {brand.holdType}",
-    "stays": {
-      "title": "始终留在当前工作界面",
-      "body": "按住快捷键，说出内容，结果就会回到光标位置。无需管理单独的编辑器或浏览器标签页。"
-    },
     "subscription": {
       "title": "无需惦记订阅",
       "body": "{brand.holdType} 不收取月费。发起请求时，{brand.openAI} 会从你的 {brand.openAIPlatform} 账户中扣除 API 使用费。"

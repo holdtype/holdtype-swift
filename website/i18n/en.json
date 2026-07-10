@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "What “honest” means for {brand.holdType}",
-    "stays": {
-      "title": "Text at your cursor",
-      "body": "Hold a shortcut, speak, and the result returns to the cursor. No separate editor or browser tab to manage."
-    },
     "subscription": {
       "title": "Your OpenAI key. Direct billing.",
       "body": "{brand.openAI} charges the {brand.openAIPlatform} account connected through your key. {brand.holdType} adds no monthly fee."

@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "Warum {brand.holdType}",
-    "stays": {
-      "title": "Bleibt dort, wo du arbeitest",
-      "body": "Halte einen Kurzbefehl gedrückt, sprich, und das Ergebnis kehrt zum Cursor zurück. Kein separater Editor und kein zusätzlicher Browser-Tab."
-    },
     "subscription": {
       "title": "Kein Abo, an das du denken musst",
       "body": "{brand.holdType} verlangt keine monatliche Gebühr. {brand.openAI} zieht die API-Nutzung von deinem {brand.openAIPlatform}-Konto ab, sobald Anfragen gestellt werden."

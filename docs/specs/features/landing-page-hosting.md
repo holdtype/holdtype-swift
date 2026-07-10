@@ -28,9 +28,8 @@ that already uses GitHub Pages.
   remains available in the footer, and the hero does not repeat product claims
   as a separate row of proof chips.
 - The landing page must turn `honest` into a visible product contract rather
-  than leaving it as praise. The contract covers the cursor-level workflow,
-  billing source, optional rewrite pass, explicit Mac-to-OpenAI data path, and
-  the Mac-only product boundary.
+  than leaving it as praise. The contract covers the billing source, optional
+  rewrite pass, explicit Mac-to-OpenAI data path, and Mac-only product boundary.
 - The exact transcription-model name may appear at most once in public copy,
   in subdued secondary text such as the muted transcribing message inside the
   hero illustration. It must not appear in metadata, the hero headline, lead,

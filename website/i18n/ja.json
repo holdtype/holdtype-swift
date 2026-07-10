@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "{brand.holdType} を選ぶ理由",
-    "stays": {
-      "title": "作業中の場所から離れない",
-      "body": "ショートカットを押したまま話すと、結果がカーソル位置へ戻ります。別のエディタやブラウザタブを管理する必要はありません。"
-    },
     "subscription": {
       "title": "サブスクリプション不要",
       "body": "{brand.holdType} に月額料金はありません。リクエストを行うと、{brand.openAI} が API 利用料を {brand.openAIPlatform} アカウントから差し引きます。"

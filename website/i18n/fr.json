@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "Pourquoi {brand.holdType}",
-    "stays": {
-      "title": "Reste là où vous travaillez",
-      "body": "Maintenez un raccourci, parlez et le résultat revient au niveau du curseur. Aucun éditeur séparé ni onglet de navigateur à gérer."
-    },
     "subscription": {
       "title": "Aucun abonnement à gérer",
       "body": "{brand.holdType} ne facture aucuns frais mensuels. {brand.openAI} déduit l’utilisation de l’API de votre compte {brand.openAIPlatform} lorsque des requêtes sont effectuées."

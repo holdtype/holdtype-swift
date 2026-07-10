@@ -101,13 +101,11 @@ GIF can be the fallback for GitHub.
 
 Present this section under `What "honest" means here`:
 
-1. **Text stays where the user works:** the result returns to the active cursor
-   without a separate editor or browser tab.
-2. **The bill has a source:** OpenAI deducts API usage from the Platform account
+1. **The bill has a source:** OpenAI deducts API usage from the Platform account
    connected through the user's key; HoldType adds no monthly fee.
-3. **The rewrite pass is optional:** model-based correction is off by default.
-4. **The data path is explicit:** Mac to OpenAI to the active cursor.
-5. **The limits are visible:** HoldType is Mac-only and is not presented as a
+2. **The rewrite pass is optional:** model-based correction is off by default.
+3. **The data path is explicit:** Mac to OpenAI to the active cursor.
+4. **The limits are visible:** HoldType is Mac-only and is not presented as a
    team cloud platform.
 
 ### 4. Work It Fits

@@ -80,10 +80,6 @@
   },
   "reasons": {
     "a11yTitle": "Por qué {brand.holdType}",
-    "stays": {
-      "title": "Se queda donde trabajas",
-      "body": "Mantén pulsado un atajo, habla y el resultado volverá al cursor. Sin otro editor ni pestaña del navegador que gestionar."
-    },
     "subscription": {
       "title": "Sin suscripciones que recordar",
       "body": "{brand.holdType} no añade ninguna cuota mensual. {brand.openAI} descuenta el uso de la API de tu cuenta de {brand.openAIPlatform} cuando se realizan solicitudes."
