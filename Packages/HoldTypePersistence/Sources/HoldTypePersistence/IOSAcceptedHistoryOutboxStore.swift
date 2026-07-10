@@ -69,31 +69,57 @@ extension IOSAcceptedHistoryOutboxCandidate: CustomStringConvertible,
     var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
+fileprivate enum IOSAcceptedHistoryOutboxReceiptOrigin: Equatable, Sendable {
+    case delivery(IOSAcceptedOutputDeliveryAuthorization)
+    case observation(IOSAcceptedHistoryOutboxObservation)
+}
+
 struct IOSAcceptedHistoryOutboxReceipt: Equatable, Sendable {
+    fileprivate let origin: IOSAcceptedHistoryOutboxReceiptOrigin
     fileprivate let entry: IOSAcceptedHistoryOutboxEntry
     fileprivate let snapshot: IOSAcceptedHistoryOutboxJournalSnapshot
 
-    func provesMembership(
+    func provesMembershipForDeliveryRemoval(
         for delivery: IOSAcceptedOutputDeliveryAuthorization
     ) -> Bool {
-        guard let expected = try? IOSAcceptedHistoryOutboxCandidate.entry(
-            from: delivery
-        ),
-            entry.hasSameImmutableBytes(as: expected) else {
+        guard case .delivery(let originatingDelivery) = origin,
+              originatingDelivery == delivery else {
             return false
         }
-        return snapshot.envelope.entries.contains {
-            $0.hasSameImmutableBytes(as: entry)
-        }
+        return confirmedEntryForAcceptedDecision() != nil
     }
 
     func provesMembership(
         for observation: IOSAcceptedHistoryOutboxObservation
     ) -> Bool {
-        entry.hasSameImmutableBytes(as: observation.entry)
-            && snapshot.envelope.entries.contains {
-                $0.hasSameImmutableBytes(as: entry)
+        guard case .observation(let originatingObservation) = origin,
+              originatingObservation == observation else {
+            return false
+        }
+        return confirmedEntryForAcceptedDecision() != nil
+    }
+
+    func confirmedEntryForAcceptedDecision()
+        -> IOSAcceptedHistoryOutboxEntry? {
+        let originatingEntry: IOSAcceptedHistoryOutboxEntry
+        switch origin {
+        case .delivery(let delivery):
+            guard let expected = try? IOSAcceptedHistoryOutboxCandidate.entry(
+                from: delivery
+            ) else {
+                return nil
             }
+            originatingEntry = expected
+        case .observation(let observation):
+            originatingEntry = observation.entry
+        }
+        guard entry.hasSameImmutableBytes(as: originatingEntry),
+              snapshot.envelope.entries.contains(where: {
+                  $0.hasSameImmutableBytes(as: entry)
+              }) else {
+            return nil
+        }
+        return entry
     }
 }
 
@@ -142,15 +168,25 @@ actor IOSAcceptedHistoryOutboxStore {
 
     private enum Operation: Equatable, Sendable {
         case transfer(IOSAcceptedHistoryOutboxCandidate)
-        case deliveryConfirmation(IOSAcceptedHistoryOutboxEntry)
+        case deliveryConfirmation(IOSAcceptedHistoryOutboxCandidate)
         case observationConfirmation(IOSAcceptedHistoryOutboxObservation)
 
         var entry: IOSAcceptedHistoryOutboxEntry {
             switch self {
             case .transfer(let candidate): candidate.entry
-            case .deliveryConfirmation(let entry): entry
+            case .deliveryConfirmation(let candidate): candidate.entry
             case .observationConfirmation(let observation):
                 observation.entry
+            }
+        }
+
+        var receiptOrigin: IOSAcceptedHistoryOutboxReceiptOrigin {
+            switch self {
+            case .transfer(let candidate),
+                 .deliveryConfirmation(let candidate):
+                .delivery(candidate.delivery)
+            case .observationConfirmation(let observation):
+                .observation(observation)
             }
         }
     }
@@ -283,7 +319,7 @@ actor IOSAcceptedHistoryOutboxStore {
         return try publish(
             Outcome(envelope: current.envelope),
             source: .existing(current),
-            operation: .deliveryConfirmation(candidate.entry)
+            operation: .deliveryConfirmation(candidate)
         )
     }
 
@@ -499,6 +535,7 @@ private extension IOSAcceptedHistoryOutboxStore {
                 }
             uncertainIntent = nil
             return IOSAcceptedHistoryOutboxReceipt(
+                origin: operation.receiptOrigin,
                 entry: operation.entry,
                 snapshot: snapshot
             )

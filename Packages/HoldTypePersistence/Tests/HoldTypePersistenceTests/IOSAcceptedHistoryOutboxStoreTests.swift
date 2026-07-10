@@ -15,7 +15,19 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
-        #expect(receipt.provesMembership(for: capabilities.delivery))
+        #expect(
+            receipt.provesMembershipForDeliveryRemoval(
+                for: capabilities.delivery
+            )
+        )
+        let confirmedEntry = try #require(
+            receipt.confirmedEntryForAcceptedDecision()
+        )
+        #expect(
+            confirmedEntry.hasSameImmutableBytes(
+                as: try outboxEntry(from: capabilities.delivery)
+            )
+        )
         #expect(
             String(describing: receipt)
                 == "IOSAcceptedHistoryOutboxReceipt(redacted)"
@@ -26,7 +38,16 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         #expect(fixture.journal.events == ["load", "create:1"])
 
         let wrong = try outboxDeliveryAuthorization(index: 2)
-        #expect(!receipt.provesMembership(for: wrong))
+        #expect(!receipt.provesMembershipForDeliveryRemoval(for: wrong))
+        let wrongFileRevision = try outboxDeliveryAuthorization(
+            index: 1,
+            fileRevisionToken: 10_001
+        )
+        #expect(
+            !receipt.provesMembershipForDeliveryRemoval(
+                for: wrongFileRevision
+            )
+        )
     }
 
     @Test func transferUsesOneTemporalSnapshotAndExactBoundaries() async throws {
@@ -157,7 +178,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
-        #expect(receipt.provesMembership(for: capabilities.delivery))
+        #expect(
+            receipt.provesMembershipForDeliveryRemoval(
+                for: capabilities.delivery
+            )
+        )
         #expect(fixture.journal.currentEnvelope?.revision == 7)
         #expect(fixture.journal.currentEnvelope?.entries == [expired, duplicate])
         #expect(fixture.journal.events.suffix(2) == ["load", "replace:7"])
@@ -437,7 +462,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             let receipt = try await fixture.store.confirmMembership(
                 delivery: capabilities.delivery
             )
-            #expect(receipt.provesMembership(for: capabilities.delivery))
+            #expect(
+                receipt.provesMembershipForDeliveryRemoval(
+                    for: capabilities.delivery
+                )
+            )
             #expect(fixture.journal.currentEnvelope?.revision == 4)
         }
     }
@@ -499,7 +528,9 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: first.delivery,
             policy: first.policy
         )
-        #expect(receipt.provesMembership(for: first.delivery))
+        #expect(
+            receipt.provesMembershipForDeliveryRemoval(for: first.delivery)
+        )
         #expect(fixture.journal.events.suffix(2) == ["load", "replace:1"])
     }
 
@@ -538,7 +569,9 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: first.delivery,
             policy: first.policy
         )
-        #expect(receipt.provesMembership(for: first.delivery))
+        #expect(
+            receipt.provesMembershipForDeliveryRemoval(for: first.delivery)
+        )
         #expect(fixture.journal.currentEnvelope?.revision == 2)
     }
 
@@ -605,7 +638,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: nextCapabilities.delivery,
             policy: nextCapabilities.policy
         )
-        #expect(nextReceipt.provesMembership(for: nextCapabilities.delivery))
+        #expect(
+            nextReceipt.provesMembershipForDeliveryRemoval(
+                for: nextCapabilities.delivery
+            )
+        )
 
         let replaceFixture = OutboxStoreFixture(now: now)
         replaceFixture.journal.install(
@@ -646,7 +683,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             delivery: replaceCapabilities.delivery,
             policy: replaceCapabilities.policy
         )
-        #expect(recovered.provesMembership(for: replaceCapabilities.delivery))
+        #expect(
+            recovered.provesMembershipForDeliveryRemoval(
+                for: replaceCapabilities.delivery
+            )
+        )
         #expect(replaceFixture.journal.currentEnvelope?.revision == 2)
     }
 
@@ -676,7 +717,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             let receipt = try await fixture.store.confirmMembership(
                 delivery: capabilities.delivery
             )
-            #expect(receipt.provesMembership(for: capabilities.delivery))
+            #expect(
+                receipt.provesMembershipForDeliveryRemoval(
+                    for: capabilities.delivery
+                )
+            )
             #expect(fixture.journal.currentEnvelope?.revision == 1)
             #expect(fixture.clock.readCount == 1)
         }
@@ -707,6 +752,23 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             observation: observation
         )
         #expect(receipt.provesMembership(for: observation))
+        #expect(
+            !receipt.provesMembershipForDeliveryRemoval(
+                for: capabilities.delivery
+            )
+        )
+        #expect(receipt.confirmedEntryForAcceptedDecision() != nil)
+        #expect(
+            String(reflecting: receipt)
+                == "IOSAcceptedHistoryOutboxReceipt(redacted)"
+        )
+        #expect(receipt.customMirror.children.isEmpty)
+
+        let differentObservations = try #require(
+            try await fixture.makeStore().observe()
+        )
+        let differentObservation = try #require(differentObservations.first)
+        #expect(!receipt.provesMembership(for: differentObservation))
 
         let staleObservations = try #require(
             try await fixture.makeStore().observe()
@@ -763,7 +825,11 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         let receipt = try await fixture.store.confirmMembership(
             delivery: capabilities.delivery
         )
-        #expect(receipt.provesMembership(for: capabilities.delivery))
+        #expect(
+            receipt.provesMembershipForDeliveryRemoval(
+                for: capabilities.delivery
+            )
+        )
     }
 
     @Test func twoStoresUsePhysicalCASWithoutLostMembership() async throws {
@@ -933,7 +999,8 @@ private func outboxDeliveryAuthorization(
     generation: Int64 = 1,
     acceptedText: String = "Accepted text",
     createdAt: Date = outboxStoreDate(),
-    historyState: IOSAcceptedOutputHistoryWriteState = .pending
+    historyState: IOSAcceptedOutputHistoryWriteState = .pending,
+    fileRevisionToken: UInt64? = nil
 ) throws -> IOSAcceptedOutputDeliveryAuthorization {
     let marker = try IOSAcceptedOutputHistoryWrite(
         state: historyState,
@@ -963,7 +1030,7 @@ private func outboxDeliveryAuthorization(
         snapshot: IOSAcceptedOutputDeliveryJournalSnapshot(
             record: record,
             fileRevision: IOSStrictProtectedRecordFileRevision(
-                testingToken: UInt64(index + 1)
+                testingToken: fileRevisionToken ?? UInt64(index + 1)
             )
         )
     )
