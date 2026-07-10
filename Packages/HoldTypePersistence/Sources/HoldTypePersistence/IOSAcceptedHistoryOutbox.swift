@@ -18,6 +18,7 @@ public enum IOSAcceptedHistoryOutboxError: Error, Equatable, Sendable {
     case commitUncertain
     case capacityExceeded
     case expired
+    case invalidTransition
     case clockRollbackAmbiguous
     case maintenanceFailed
 }

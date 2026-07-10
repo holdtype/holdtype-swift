@@ -170,6 +170,15 @@ actor IOSAcceptedHistoryOutboxStore {
         case transfer(IOSAcceptedHistoryOutboxCandidate)
         case deliveryConfirmation(IOSAcceptedHistoryOutboxCandidate)
         case observationConfirmation(IOSAcceptedHistoryOutboxObservation)
+        case processedRetirement(
+            IOSAcceptedHistoryOutboxReceipt,
+            IOSAcceptedHistoryRowReceipt
+        )
+        case invalidatedRetirement(
+            IOSAcceptedHistoryOutboxReceipt,
+            IOSHistoryPolicyReceipt
+        )
+        case expiredRetirement(IOSAcceptedHistoryOutboxReceipt)
 
         var entry: IOSAcceptedHistoryOutboxEntry {
             switch self {
@@ -177,6 +186,10 @@ actor IOSAcceptedHistoryOutboxStore {
             case .deliveryConfirmation(let candidate): candidate.entry
             case .observationConfirmation(let observation):
                 observation.entry
+            case .processedRetirement(let membership, _),
+                 .invalidatedRetirement(let membership, _),
+                 .expiredRetirement(let membership):
+                membership.entry
             }
         }
 
@@ -187,6 +200,36 @@ actor IOSAcceptedHistoryOutboxStore {
                 .delivery(candidate.delivery)
             case .observationConfirmation(let observation):
                 .observation(observation)
+            case .processedRetirement, .invalidatedRetirement,
+                 .expiredRetirement:
+                preconditionFailure(
+                    "Retirement operations never issue membership receipts"
+                )
+            }
+        }
+
+        var isRetirement: Bool {
+            switch self {
+            case .transfer, .deliveryConfirmation,
+                 .observationConfirmation:
+                false
+            case .processedRetirement, .invalidatedRetirement,
+                 .expiredRetirement:
+                true
+            }
+        }
+
+        var retirementMembership: IOSAcceptedHistoryOutboxReceipt {
+            switch self {
+            case .processedRetirement(let membership, _),
+                 .invalidatedRetirement(let membership, _),
+                 .expiredRetirement(let membership):
+                membership
+            case .transfer, .deliveryConfirmation,
+                 .observationConfirmation:
+                preconditionFailure(
+                    "Membership operations never retire outbox entries"
+                )
             }
         }
     }
@@ -217,7 +260,10 @@ actor IOSAcceptedHistoryOutboxStore {
     }
 
     func load() throws -> IOSAcceptedHistoryOutboxEnvelope? {
-        try journal.load()?.envelope
+        guard uncertainIntent?.operation.isRetirement != true else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
+        return try journal.load()?.envelope
     }
 
     func observe() throws -> [IOSAcceptedHistoryOutboxObservation]? {
@@ -237,6 +283,9 @@ actor IOSAcceptedHistoryOutboxStore {
         delivery: IOSAcceptedOutputDeliveryAuthorization,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard uncertainIntent?.operation.isRetirement != true else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
         let candidate = try IOSAcceptedHistoryOutboxCandidate(
             delivery: delivery
         )
@@ -299,12 +348,18 @@ actor IOSAcceptedHistoryOutboxStore {
     func confirmMembership(
         delivery: IOSAcceptedOutputDeliveryAuthorization
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard uncertainIntent?.operation.isRetirement != true else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
         let candidate = try IOSAcceptedHistoryOutboxCandidate(
             delivery: delivery
         )
         let current = try journal.load()
 
         if let uncertainIntent {
+            guard !uncertainIntent.operation.isRetirement else {
+                throw IOSAcceptedHistoryOutboxError.commitUncertain
+            }
             return try reconcileConfirmation(
                 uncertainIntent,
                 entry: candidate.entry,
@@ -326,6 +381,9 @@ actor IOSAcceptedHistoryOutboxStore {
     func confirmMembership(
         observation: IOSAcceptedHistoryOutboxObservation
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard uncertainIntent?.operation.isRetirement != true else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
         let current = try journal.load()
 
         if let uncertainIntent {
@@ -338,6 +396,9 @@ actor IOSAcceptedHistoryOutboxStore {
                 guard current == observation.snapshot else {
                     throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
                 }
+            case .processedRetirement, .invalidatedRetirement,
+                 .expiredRetirement:
+                throw IOSAcceptedHistoryOutboxError.commitUncertain
             }
             return try reconcileConfirmation(
                 uncertainIntent,
@@ -362,16 +423,203 @@ actor IOSAcceptedHistoryOutboxStore {
         )
     }
 
+    func retireProcessed(
+        membership: IOSAcceptedHistoryOutboxReceipt,
+        decision: IOSAcceptedHistoryRowReceipt
+    ) throws {
+        try retire(
+            operation: .processedRetirement(membership, decision)
+        )
+    }
+
+    func retireInvalidated(
+        membership: IOSAcceptedHistoryOutboxReceipt,
+        policy: IOSHistoryPolicyReceipt
+    ) throws {
+        try retire(
+            operation: .invalidatedRetirement(membership, policy)
+        )
+    }
+
+    func retireExpired(
+        membership: IOSAcceptedHistoryOutboxReceipt
+    ) throws {
+        try retire(operation: .expiredRetirement(membership))
+    }
+
     @discardableResult
     func performStagingMaintenance()
         throws -> IOSAcceptedHistoryOutboxMaintenanceReport {
-        IOSAcceptedHistoryOutboxMaintenanceReport(
+        guard uncertainIntent?.operation.isRetirement != true else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
+        return IOSAcceptedHistoryOutboxMaintenanceReport(
             try journal.performStagingMaintenance(now: now())
         )
     }
 }
 
 private extension IOSAcceptedHistoryOutboxStore {
+    private func retire(operation: Operation) throws {
+        precondition(operation.isRetirement)
+        if let uncertainIntent,
+           (uncertainIntent.operation != operation
+            || !uncertainIntent.operation.isRetirement) {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
+        let current = try journal.load()
+
+        if let uncertainIntent {
+            return try reconcileRetirement(
+                uncertainIntent,
+                operation: operation,
+                current: current
+            )
+        }
+
+        guard let current else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+        let entry = try requireRetirementMembership(
+            operation.retirementMembership,
+            current: current
+        )
+        try validateRetirementAuthority(operation, entry: entry)
+        let outcome = try retirementOutcome(
+            removing: entry,
+            from: current.envelope
+        )
+        try publishRetirement(
+            outcome,
+            source: current,
+            operation: operation
+        )
+    }
+
+    private func requireRetirementMembership(
+        _ membership: IOSAcceptedHistoryOutboxReceipt,
+        current: IOSAcceptedHistoryOutboxJournalSnapshot
+    ) throws -> IOSAcceptedHistoryOutboxEntry {
+        guard current == membership.snapshot,
+              let confirmed = membership
+                .confirmedEntryForAcceptedDecision() else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+        return confirmed
+    }
+
+    private func validateRetirementAuthority(
+        _ operation: Operation,
+        entry: IOSAcceptedHistoryOutboxEntry
+    ) throws {
+        switch operation {
+        case .processedRetirement(let membership, let decision):
+            guard decision.provesDecision(for: membership) else {
+                throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+            }
+        case .invalidatedRetirement(_, let policy):
+            guard policy.state.policyGeneration > entry.policyGeneration else {
+                throw IOSAcceptedHistoryOutboxError.stalePolicyGeneration
+            }
+        case .expiredRetirement:
+            switch entry.temporalState(at: try currentTime()) {
+            case .expired:
+                return
+            case .live:
+                throw IOSAcceptedHistoryOutboxError.invalidTransition
+            case .clockRollbackAmbiguous:
+                throw IOSAcceptedHistoryOutboxError.clockRollbackAmbiguous
+            }
+        case .transfer, .deliveryConfirmation,
+             .observationConfirmation:
+            preconditionFailure("Expected a retirement operation")
+        }
+    }
+
+    private func retirementOutcome(
+        removing entry: IOSAcceptedHistoryOutboxEntry,
+        from source: IOSAcceptedHistoryOutboxEnvelope
+    ) throws -> Outcome {
+        guard let index = source.entries.firstIndex(where: {
+            $0.hasSameImmutableBytes(as: entry)
+        }) else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+        let nextRevision = source.revision.addingReportingOverflow(1)
+        guard !nextRevision.overflow else {
+            throw IOSAcceptedHistoryOutboxError.revisionOverflow
+        }
+        var entries = source.entries
+        entries.remove(at: index)
+        return Outcome(
+            envelope: try IOSAcceptedHistoryOutboxEnvelope(
+                revision: nextRevision.partialValue,
+                entries: entries
+            )
+        )
+    }
+
+    private func publishRetirement(
+        _ outcome: Outcome,
+        source: IOSAcceptedHistoryOutboxJournalSnapshot,
+        operation: Operation
+    ) throws {
+        let intent = UncertainIntent(
+            source: .existing(source),
+            operation: operation,
+            outcome: outcome
+        )
+        do {
+            _ = try journal.replace(
+                outcome.envelope,
+                expected: source,
+                authorization:
+                    IOSAcceptedHistoryOutboxJournalMutationAuthorization()
+            )
+            uncertainIntent = nil
+        } catch IOSAcceptedHistoryOutboxError.commitUncertain {
+            uncertainIntent = intent
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
+    }
+
+    private func reconcileRetirement(
+        _ intent: UncertainIntent,
+        operation: Operation,
+        current: IOSAcceptedHistoryOutboxJournalSnapshot?
+    ) throws {
+        guard intent.operation == operation,
+              intent.operation.isRetirement else {
+            throw IOSAcceptedHistoryOutboxError.commitUncertain
+        }
+
+        if let current,
+           current.envelope == intent.outcome.envelope {
+            return try publishRetirement(
+                intent.outcome,
+                source: current,
+                operation: operation
+            )
+        }
+
+        guard case .existing(let source) = intent.source,
+              let current,
+              current == source else {
+            uncertainIntent = nil
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+        let entry = try requireRetirementMembership(
+            operation.retirementMembership,
+            current: current
+        )
+        try validateRetirementAuthority(operation, entry: entry)
+        return try publishRetirement(
+            intent.outcome,
+            source: current,
+            operation: operation
+        )
+    }
+
     private func initialOutcome(
         _ candidate: IOSAcceptedHistoryOutboxCandidate
     ) throws -> Outcome {

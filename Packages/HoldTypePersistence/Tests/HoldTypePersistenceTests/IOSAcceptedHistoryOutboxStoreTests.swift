@@ -868,6 +868,453 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         #expect(fixture.journal.currentEnvelope?.entries.count == 2)
     }
 
+    @Test func processedRetirementAcceptsBothOriginsAndRetentionDecisions() async throws {
+        let cases: [(Int, OutboxMembershipOrigin, Bool)] = [
+            (460, .delivery, true),
+            (461, .observation, true),
+            (462, .delivery, false),
+        ]
+        for (index, origin, retained) in cases {
+            let now = outboxStoreDate()
+            let fixture = OutboxStoreFixture(now: now)
+            let capabilities = try await outboxCapabilities(
+                index: index,
+                createdAt: now
+            )
+            let membership = try await outboxMembershipReceipt(
+                fixture: fixture,
+                capabilities: capabilities,
+                origin: origin
+            )
+            let decision = try await outboxRowReceipt(
+                membership: membership,
+                retained: retained
+            )
+            #expect(
+                decision.decision
+                    == (retained ? .retained : .notRetained)
+            )
+
+            try await fixture.store.retireProcessed(
+                membership: membership,
+                decision: decision
+            )
+            #expect(fixture.journal.currentEnvelope?.revision == 2)
+            #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
+        }
+    }
+
+    @Test func retirementRejectsWrongEvidenceAndRequiresNewerPolicy() async throws {
+        let now = outboxStoreDate()
+        let fixture = OutboxStoreFixture(now: now)
+        let capabilities = try await outboxCapabilities(
+            index: 463,
+            generation: 2,
+            createdAt: now
+        )
+        let membership = try await outboxMembershipReceipt(
+            fixture: fixture,
+            capabilities: capabilities
+        )
+
+        let foreignFixture = OutboxStoreFixture(now: now)
+        let foreignMembership = try await outboxMembershipReceipt(
+            fixture: foreignFixture,
+            capabilities: try await outboxCapabilities(
+                index: 464,
+                generation: 2,
+                createdAt: now
+            )
+        )
+        let foreignDecision = try await outboxRowReceipt(
+            membership: foreignMembership
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await fixture.store.retireProcessed(
+                membership: membership,
+                decision: foreignDecision
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await fixture.store.retireProcessed(
+                membership: foreignMembership,
+                decision: foreignDecision
+            )
+        }
+
+        for generation in [Int64(1), 2] {
+            await #expect(
+                throws: IOSAcceptedHistoryOutboxError.stalePolicyGeneration
+            ) {
+                try await fixture.store.retireInvalidated(
+                    membership: membership,
+                    policy: try await outboxPolicyReceipt(
+                        generation: generation,
+                        enabled: false
+                    )
+                )
+            }
+        }
+        #expect(fixture.journal.currentEnvelope?.entries.count == 1)
+
+        try await fixture.store.retireInvalidated(
+            membership: membership,
+            policy: try await outboxPolicyReceipt(
+                generation: 3,
+                enabled: false
+            )
+        )
+        #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
+        #expect(
+            String(describing: IOSAcceptedHistoryOutboxError.invalidTransition)
+                == "IOSAcceptedHistoryOutboxError(redacted)"
+        )
+    }
+
+    @Test func expiredRetirementUsesOneCanonicalMillisecondSnapshot() async throws {
+        let createdAt = outboxStoreDate()
+        let failureCases: [(Int, Date, IOSAcceptedHistoryOutboxError)] = [
+            (
+                465,
+                createdAt.addingTimeInterval(86_400 - 0.0006),
+                .invalidTransition
+            ),
+            (
+                466,
+                createdAt.addingTimeInterval(-0.001),
+                .clockRollbackAmbiguous
+            ),
+        ]
+        for (index, retirementTime, error) in failureCases {
+            let fixture = OutboxStoreFixture(now: createdAt)
+            let membership = try await outboxMembershipReceipt(
+                fixture: fixture,
+                capabilities: try await outboxCapabilities(
+                    index: index,
+                    createdAt: createdAt
+                )
+            )
+            fixture.clock.set(retirementTime)
+            let readsBefore = fixture.clock.readCount
+            await #expect(throws: error) {
+                try await fixture.store.retireExpired(
+                    membership: membership
+                )
+            }
+            #expect(fixture.clock.readCount == readsBefore + 1)
+            #expect(fixture.journal.currentEnvelope?.entries.count == 1)
+        }
+
+        for (index, retirementTime) in [
+            (467, createdAt.addingTimeInterval(86_400 - 0.0004)),
+            (468, createdAt.addingTimeInterval(86_400)),
+        ] {
+            let fixture = OutboxStoreFixture(now: createdAt)
+            let membership = try await outboxMembershipReceipt(
+                fixture: fixture,
+                capabilities: try await outboxCapabilities(
+                    index: index,
+                    createdAt: createdAt
+                )
+            )
+            fixture.clock.set(retirementTime)
+            let readsBefore = fixture.clock.readCount
+            try await fixture.store.retireExpired(membership: membership)
+            #expect(fixture.clock.readCount == readsBefore + 1)
+            #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
+        }
+    }
+
+    @Test func retirementPreservesUnrelatedRowsAndRejectsRevisionOverflow() async throws {
+        let now = outboxStoreDate()
+        let fixture = OutboxStoreFixture(now: now)
+        let target = try await outboxCapabilities(
+            index: 469,
+            createdAt: now.addingTimeInterval(-30)
+        )
+        let firstOther = try await outboxCapabilities(
+            index: 470,
+            createdAt: now.addingTimeInterval(-20)
+        )
+        let secondOther = try await outboxCapabilities(
+            index: 471,
+            createdAt: now.addingTimeInterval(-10)
+        )
+        _ = try await fixture.store.transfer(
+            delivery: target.delivery,
+            policy: target.policy
+        )
+        _ = try await fixture.store.transfer(
+            delivery: firstOther.delivery,
+            policy: firstOther.policy
+        )
+        _ = try await fixture.store.transfer(
+            delivery: secondOther.delivery,
+            policy: secondOther.policy
+        )
+        let observations = try #require(try await fixture.store.observe())
+        let targetObservation = try #require(observations.first(where: {
+            $0.entry.deliveryID == target.delivery.record.deliveryID
+        }))
+        let membership = try await fixture.store.confirmMembership(
+            observation: targetObservation
+        )
+        let decision = try await outboxRowReceipt(membership: membership)
+
+        try await fixture.store.retireProcessed(
+            membership: membership,
+            decision: decision
+        )
+        #expect(fixture.journal.currentEnvelope?.revision == 4)
+        #expect(fixture.journal.currentEnvelope?.entries.map(\.deliveryID) == [
+            firstOther.delivery.record.deliveryID,
+            secondOther.delivery.record.deliveryID,
+        ])
+
+        let overflowFixture = OutboxStoreFixture(now: now)
+        let overflowEntry = try outboxStoredEntry(
+            index: 472,
+            createdAt: now
+        )
+        let overflowSource = try IOSAcceptedHistoryOutboxEnvelope(
+            revision: Int64.max,
+            entries: [overflowEntry]
+        )
+        overflowFixture.journal.install(overflowSource)
+        let overflowObservations = try #require(
+            try await overflowFixture.store.observe()
+        )
+        let overflowObservation = try #require(overflowObservations.first)
+        let overflowMembership = try await overflowFixture.store
+            .confirmMembership(observation: overflowObservation)
+        let overflowDecision = try await outboxRowReceipt(
+            membership: overflowMembership
+        )
+        overflowFixture.journal.resetEvents()
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.revisionOverflow
+        ) {
+            try await overflowFixture.store.retireProcessed(
+                membership: overflowMembership,
+                decision: overflowDecision
+            )
+        }
+        #expect(overflowFixture.journal.currentEnvelope == overflowSource)
+        #expect(overflowFixture.journal.events == ["load"])
+    }
+
+    @Test func staleReceiptAndTwoActorsCannotRetirePastPhysicalCAS() async throws {
+        let now = outboxStoreDate()
+        let staleFixture = OutboxStoreFixture(now: now)
+        let staleMembership = try await outboxMembershipReceipt(
+            fixture: staleFixture,
+            capabilities: try await outboxCapabilities(
+                index: 473,
+                createdAt: now
+            )
+        )
+        let staleDecision = try await outboxRowReceipt(
+            membership: staleMembership
+        )
+        let other = try await outboxCapabilities(
+            index: 474,
+            createdAt: now
+        )
+        _ = try await staleFixture.store.transfer(
+            delivery: other.delivery,
+            policy: other.policy
+        )
+        let staleSource = staleFixture.journal.currentEnvelope
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await staleFixture.store.retireProcessed(
+                membership: staleMembership,
+                decision: staleDecision
+            )
+        }
+        #expect(staleFixture.journal.currentEnvelope == staleSource)
+
+        let raceFixture = OutboxStoreFixture(now: now)
+        let raceMembership = try await outboxMembershipReceipt(
+            fixture: raceFixture,
+            capabilities: try await outboxCapabilities(
+                index: 475,
+                createdAt: now
+            )
+        )
+        let raceDecision = try await outboxRowReceipt(
+            membership: raceMembership
+        )
+        raceFixture.journal.delayNextLoads(2)
+        let firstStore = raceFixture.store
+        let secondStore = raceFixture.makeStore()
+        let first = Task {
+            try await firstStore.retireProcessed(
+                membership: raceMembership,
+                decision: raceDecision
+            )
+        }
+        let second = Task {
+            try await secondStore.retireProcessed(
+                membership: raceMembership,
+                decision: raceDecision
+            )
+        }
+        let results = await [first.result, second.result]
+        #expect(results.filter {
+            if case .success = $0 { return true }
+            return false
+        }.count == 1)
+        #expect(raceFixture.journal.currentEnvelope?.revision == 2)
+        #expect(raceFixture.journal.currentEnvelope?.entries.isEmpty == true)
+    }
+
+    @Test func retirementUncertaintyIsExactPairAndStoreWide() async throws {
+        let now = outboxStoreDate()
+        for authorityIndex in 0..<3 {
+            for commitWasVisible in [true, false] {
+                let index = 476 + authorityIndex * 2
+                    + (commitWasVisible ? 0 : 1)
+                let fixture = OutboxStoreFixture(now: now)
+                let capabilities = try await outboxCapabilities(
+                    index: index,
+                    createdAt: now
+                )
+                let membership = try await outboxMembershipReceipt(
+                    fixture: fixture,
+                    capabilities: capabilities
+                )
+                let decision = try await outboxRowReceipt(
+                    membership: membership
+                )
+                let invalidation = try await outboxPolicyReceipt(
+                    generation: 2,
+                    enabled: false
+                )
+                let authority: OutboxRetirementAuthority = switch authorityIndex {
+                case 0: .processed(decision)
+                case 1: .invalidated(invalidation)
+                default: .expired
+                }
+                if authorityIndex == 2 {
+                    fixture.clock.set(now.addingTimeInterval(86_400))
+                }
+                fixture.journal.failNextReplace(
+                    with: .commitUncertain,
+                    commitBeforeThrowing: commitWasVisible
+                )
+
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    try await retireOutbox(
+                        store: fixture.store,
+                        membership: membership,
+                        authority: authority
+                    )
+                }
+                #expect(
+                    fixture.journal.currentEnvelope?.entries.isEmpty
+                        == commitWasVisible
+                )
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    _ = try await fixture.store.observe()
+                }
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    _ = try await fixture.store.load()
+                }
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    _ = try await fixture.store.performStagingMaintenance()
+                }
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    _ = try await fixture.store.confirmMembership(
+                        delivery: capabilities.delivery
+                    )
+                }
+                let other = try await outboxCapabilities(
+                    index: 490 + index,
+                    createdAt: now
+                )
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    _ = try await fixture.store.transfer(
+                        delivery: other.delivery,
+                        policy: other.policy
+                    )
+                }
+
+                let mismatch: OutboxRetirementAuthority = authorityIndex == 1
+                    ? .processed(decision)
+                    : .invalidated(invalidation)
+                await #expect(
+                    throws: IOSAcceptedHistoryOutboxError.commitUncertain
+                ) {
+                    try await retireOutbox(
+                        store: fixture.store,
+                        membership: membership,
+                        authority: mismatch
+                    )
+                }
+
+                if authorityIndex == 2 {
+                    fixture.clock.set(now.addingTimeInterval(10))
+                    let readsBefore = fixture.clock.readCount
+                    if commitWasVisible {
+                        try await retireOutbox(
+                            store: fixture.store,
+                            membership: membership,
+                            authority: authority
+                        )
+                        #expect(fixture.clock.readCount == readsBefore)
+                        #expect(
+                            fixture.journal.currentEnvelope?.revision == 2
+                        )
+                        #expect(
+                            fixture.journal.currentEnvelope?.entries.isEmpty
+                                == true
+                        )
+                        continue
+                    }
+                    await #expect(
+                        throws: IOSAcceptedHistoryOutboxError.invalidTransition
+                    ) {
+                        try await retireOutbox(
+                            store: fixture.store,
+                            membership: membership,
+                            authority: authority
+                        )
+                    }
+                    #expect(fixture.clock.readCount == readsBefore + 1)
+                    fixture.clock.set(now.addingTimeInterval(86_400))
+                }
+
+                try await retireOutbox(
+                    store: fixture.store,
+                    membership: membership,
+                    authority: authority
+                )
+                #expect(fixture.journal.currentEnvelope?.revision == 2)
+                #expect(
+                    fixture.journal.currentEnvelope?.entries.isEmpty == true
+                )
+            }
+        }
+    }
+
     @Test func liveRepositoryUsesExactProtectionBackupAndMarker() async throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(
             "accepted-history-outbox-\(UUID().uuidString)",
@@ -966,6 +1413,99 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             _ = try await store.load()
         }
         #expect(try Data(contentsOf: fileURL) == preserved)
+    }
+}
+
+private enum OutboxMembershipOrigin: Equatable {
+    case delivery
+    case observation
+}
+
+private enum OutboxRetirementAuthority {
+    case processed(IOSAcceptedHistoryRowReceipt)
+    case invalidated(IOSHistoryPolicyReceipt)
+    case expired
+}
+
+private func outboxMembershipReceipt(
+    fixture: OutboxStoreFixture,
+    capabilities: OutboxCapabilities,
+    origin: OutboxMembershipOrigin = .delivery
+) async throws -> IOSAcceptedHistoryOutboxReceipt {
+    let deliveryReceipt = try await fixture.store.transfer(
+        delivery: capabilities.delivery,
+        policy: capabilities.policy
+    )
+    guard origin == .observation else { return deliveryReceipt }
+    let observations = try #require(try await fixture.store.observe())
+    let observation = try #require(observations.first(where: {
+        $0.entry.deliveryID == capabilities.delivery.record.deliveryID
+    }))
+    return try await fixture.store.confirmMembership(observation: observation)
+}
+
+private func outboxRowReceipt(
+    membership: IOSAcceptedHistoryOutboxReceipt,
+    retained: Bool = true
+) async throws -> IOSAcceptedHistoryRowReceipt {
+    let entry = try #require(
+        membership.confirmedEntryForAcceptedDecision()
+    )
+    let envelope: IOSAcceptedHistoryEnvelope?
+    if retained {
+        envelope = nil
+    } else {
+        let newer = try (0..<20).map { offset in
+            try IOSAcceptedHistoryEntry(
+                deliveryID: UUID(),
+                transcriptID: UUID(),
+                acceptedText: "newer \(offset)",
+                outputIntent: .standard,
+                createdAt: entry.createdAt.addingTimeInterval(
+                    Double(20 - offset)
+                ),
+                policyGeneration: entry.policyGeneration,
+                transcriptionModel: entry.transcriptionModel,
+                transcriptionLanguageCode: entry.transcriptionLanguageCode,
+                durationMilliseconds: entry.durationMilliseconds,
+                cachedAudioRelativeIdentifier: nil
+            )
+        }
+        envelope = try IOSAcceptedHistoryEnvelope(
+            revision: 1,
+            entries: IOSAcceptedHistoryValidation.sorted(newer)
+        )
+    }
+    let policy = try await outboxPolicyReceipt(
+        generation: entry.policyGeneration,
+        enabled: true
+    )
+    return try await IOSAcceptedHistoryStore(
+        journal: OutboxAcceptedHistoryFakeJournal(
+            envelope: envelope
+        ),
+        now: { entry.createdAt.addingTimeInterval(100) }
+    ).decideUpsert(outbox: membership, policy: policy)
+}
+
+private func retireOutbox(
+    store: IOSAcceptedHistoryOutboxStore,
+    membership: IOSAcceptedHistoryOutboxReceipt,
+    authority: OutboxRetirementAuthority
+) async throws {
+    switch authority {
+    case .processed(let decision):
+        try await store.retireProcessed(
+            membership: membership,
+            decision: decision
+        )
+    case .invalidated(let policy):
+        try await store.retireInvalidated(
+            membership: membership,
+            policy: policy
+        )
+    case .expired:
+        try await store.retireExpired(membership: membership)
     }
 }
 
@@ -1165,6 +1705,75 @@ private final class OutboxPolicyFakeJournal:
     func performStagingMaintenance(
         now: Date
     ) throws -> IOSStrictProtectedRecordMaintenanceReport { .empty }
+}
+
+private final class OutboxAcceptedHistoryFakeJournal:
+    IOSAcceptedHistoryJournalStoring,
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var snapshot: IOSAcceptedHistoryJournalSnapshot?
+    private var nextToken: UInt64 = 1
+
+    init(envelope: IOSAcceptedHistoryEnvelope?) {
+        if let envelope {
+            snapshot = IOSAcceptedHistoryJournalSnapshot(
+                envelope: envelope,
+                fileRevision: IOSStrictProtectedRecordFileRevision(
+                    testingToken: nextToken
+                )
+            )
+            nextToken += 1
+        }
+    }
+
+    func load() throws -> IOSAcceptedHistoryJournalSnapshot? {
+        lock.withLock { snapshot }
+    }
+
+    func create(
+        _ envelope: IOSAcceptedHistoryEnvelope,
+        authorization: IOSAcceptedHistoryJournalMutationAuthorization
+    ) throws -> IOSAcceptedHistoryJournalSnapshot {
+        try lock.withLock {
+            guard snapshot == nil else {
+                throw IOSAcceptedHistoryError.slotOccupied
+            }
+            let created = makeSnapshot(envelope)
+            snapshot = created
+            return created
+        }
+    }
+
+    func replace(
+        _ envelope: IOSAcceptedHistoryEnvelope,
+        expected: IOSAcceptedHistoryJournalSnapshot,
+        authorization: IOSAcceptedHistoryJournalMutationAuthorization
+    ) throws -> IOSAcceptedHistoryJournalSnapshot {
+        try lock.withLock {
+            guard snapshot?.fileRevision == expected.fileRevision else {
+                throw IOSAcceptedHistoryError.compareAndSwapFailed
+            }
+            let replacement = makeSnapshot(envelope)
+            snapshot = replacement
+            return replacement
+        }
+    }
+
+    func performStagingMaintenance(
+        now: Date
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport { .empty }
+
+    private func makeSnapshot(
+        _ envelope: IOSAcceptedHistoryEnvelope
+    ) -> IOSAcceptedHistoryJournalSnapshot {
+        defer { nextToken += 1 }
+        return IOSAcceptedHistoryJournalSnapshot(
+            envelope: envelope,
+            fileRevision: IOSStrictProtectedRecordFileRevision(
+                testingToken: nextToken
+            )
+        )
+    }
 }
 
 private final class OutboxFakeJournal:
