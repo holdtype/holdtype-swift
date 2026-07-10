@@ -21,7 +21,7 @@ public struct IOSAcceptedOutputHistoryWrite: Sendable {
     public let transcriptionLanguageCode: String?
     public let durationMilliseconds: Int64?
 
-    public init(
+    init(
         state: IOSAcceptedOutputHistoryWriteState = .pending,
         policyGeneration: Int64,
         transcriptionModel: String,
@@ -92,7 +92,7 @@ public struct IOSAcceptedOutputDeliveryPreparation: Sendable {
     public let keepLatestResult: Bool
     public let historyWrite: IOSAcceptedOutputHistoryWrite?
 
-    public init(
+    init(
         deliveryID: UUID,
         sessionID: UUID,
         attemptID: UUID,
@@ -120,6 +120,31 @@ public struct IOSAcceptedOutputDeliveryPreparation: Sendable {
             automaticInsertionPreferenceEnabled
         self.keepLatestResult = keepLatestResult
         self.historyWrite = historyWrite
+    }
+
+    public init(
+        deliveryID: UUID,
+        sessionID: UUID,
+        attemptID: UUID,
+        transcriptID: UUID,
+        rawAcceptedText: String,
+        outputIntent: DictationOutputIntent,
+        automaticInsertionPreferenceEnabled: Bool,
+        keepLatestResult: Bool,
+        historyCapture: IOSAcceptedOutputHistoryCapture
+    ) throws {
+        try self.init(
+            deliveryID: deliveryID,
+            sessionID: sessionID,
+            attemptID: attemptID,
+            transcriptID: transcriptID,
+            rawAcceptedText: rawAcceptedText,
+            outputIntent: outputIntent,
+            automaticInsertionPreferenceEnabled:
+                automaticInsertionPreferenceEnabled,
+            keepLatestResult: keepLatestResult,
+            historyWrite: historyCapture.historyWrite
+        )
     }
 }
 
@@ -354,6 +379,34 @@ extension IOSAcceptedOutputDeliveryAuthorization: Equatable {
     }
 }
 
+struct IOSAcceptedOutputHistoryOwnershipProof: Equatable, Sendable {
+    private enum Evidence: Equatable, Sendable {
+        case retainedRow(IOSAcceptedHistoryRowReceipt)
+        case outbox(IOSAcceptedHistoryOutboxReceipt)
+    }
+
+    private let evidence: Evidence
+
+    init(retainedRowReceipt: IOSAcceptedHistoryRowReceipt) {
+        evidence = .retainedRow(retainedRowReceipt)
+    }
+
+    init(outboxReceipt: IOSAcceptedHistoryOutboxReceipt) {
+        evidence = .outbox(outboxReceipt)
+    }
+
+    func provesOwnership(
+        for delivery: IOSAcceptedOutputDeliveryAuthorization
+    ) -> Bool {
+        switch evidence {
+        case .retainedRow(let receipt):
+            receipt.provesMembership(for: delivery)
+        case .outbox(let receipt):
+            receipt.provesMembershipForDeliveryRemoval(for: delivery)
+        }
+    }
+}
+
 public enum IOSAcceptedOutputDeliveryRemovalResult: Equatable, Sendable {
     case removed
     case alreadyAbsent
@@ -451,6 +504,16 @@ extension IOSAcceptedOutputDeliveryAuthorization: CustomStringConvertible,
     public var customMirror: Mirror {
         IOSAcceptedOutputDeliveryRedaction.mirror(of: self)
     }
+}
+
+extension IOSAcceptedOutputHistoryOwnershipProof: CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputHistoryOwnershipProof(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 enum IOSAcceptedOutputDeliveryValidation {

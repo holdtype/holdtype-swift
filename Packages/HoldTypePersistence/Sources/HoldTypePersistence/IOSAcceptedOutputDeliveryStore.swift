@@ -29,6 +29,50 @@ public actor IOSAcceptedOutputDeliveryStore {
         let uptimeNanoseconds: UInt64
     }
 
+    private enum HistoryTransitionOperation: Equatable, Sendable {
+        case commit(
+            IOSAcceptedOutputDeliveryAuthorization,
+            IOSAcceptedHistoryRowReceipt
+        )
+        case cancel(
+            IOSAcceptedOutputDeliveryAuthorization,
+            IOSHistoryPolicyReceipt
+        )
+
+        var authorization: IOSAcceptedOutputDeliveryAuthorization {
+            switch self {
+            case .commit(let authorization, _),
+                 .cancel(let authorization, _):
+                authorization
+            }
+        }
+
+        var targetState: IOSAcceptedOutputHistoryWriteState {
+            switch self {
+            case .commit: .committed
+            case .cancel: .cancelled
+            }
+        }
+
+        var provesRequiredCapability: Bool {
+            switch self {
+            case .commit(let authorization, let receipt):
+                return receipt.provesDecision(for: authorization)
+            case .cancel(let authorization, let receipt):
+                guard let marker = authorization.record.historyWrite,
+                      marker.state == .pending else {
+                    return false
+                }
+                return receipt.state.policyGeneration > marker.policyGeneration
+            }
+        }
+    }
+
+    private struct UncertainHistoryTransition: Equatable, Sendable {
+        let operation: HistoryTransitionOperation
+        let intended: IOSAcceptedOutputDeliveryRecord
+    }
+
     private let journal: any IOSAcceptedOutputDeliveryJournalStoring
     private let now: @Sendable () -> Date
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
@@ -36,6 +80,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     private var monotonicDeadlines: [UUID: MonotonicDeadline] = [:]
     private var confirmedAuthorizationFileRevision:
         IOSStrictProtectedRecordFileRevision?
+    private var uncertainHistoryTransition: UncertainHistoryTransition?
 
     public init(applicationSupportDirectoryURL: URL) {
         journal = FoundationIOSAcceptedOutputDeliveryJournalRepository(
@@ -62,7 +107,20 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func accept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        try performAccept(preparation)
+        try requireNoUncertainHistoryTransition()
+        return try performAccept(preparation)
+    }
+
+    func replacePendingHistory(
+        with preparation: IOSAcceptedOutputDeliveryPreparation,
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try requireNoUncertainHistoryTransition()
+        return try performAccept(
+            preparation,
+            pendingHistoryOwnership: (authorization, ownershipProof)
+        )
     }
 
     public func load() throws -> IOSAcceptedOutputDeliveryObservation? {
@@ -75,6 +133,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func authorizePendingHistoryWrite(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryAuthorization {
+        try requireNoUncertainHistoryTransition()
         let snapshot = try requireSnapshot(expected: expected)
         try requireActive(snapshot.record)
         guard snapshot.record.historyWrite?.state == .pending,
@@ -95,50 +154,29 @@ public actor IOSAcceptedOutputDeliveryStore {
         return IOSAcceptedOutputDeliveryAuthorization(snapshot: confirmed)
     }
 
-    /// Records that the History upsert authorized by the supplied token is
-    /// durable. The token pins both logical identity and physical file revision.
-    public func commitHistoryWrite(
-        authorization: IOSAcceptedOutputDeliveryAuthorization
+    /// Records the exact durable History decision for this delivery.
+    func commitHistoryWrite(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        rowReceipt: IOSAcceptedHistoryRowReceipt
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        let current = try requireCurrentSnapshot()
-        try requireActive(current.record)
-
-        if current.fileRevision == authorization.snapshot.fileRevision {
-            guard current.record == authorization.record,
-                  current.record.historyWrite?.state == .pending else {
-                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
-            }
-            return try replaceHistoryState(
-                .committed,
-                in: current,
-                updatedAt: try mutationNow(for: current.record)
-            ).record
-        }
-
-        guard isImmediateRetry(
-            current.record,
-            after: IOSAcceptedOutputDeliveryExpectation(
-                record: authorization.record
-            )
-        ),
-              current.record.historyWrite?.state == .committed else {
-            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
-        }
-        return try confirmIdentical(current).record
+        return try transitionHistoryWrite(
+            .commit(authorization, rowReceipt)
+        )
     }
 
-    public func cancelHistoryWrite(
-        expected: IOSAcceptedOutputDeliveryExpectation
+    func cancelHistoryWrite(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        policyInvalidationReceipt: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        try transitionHistoryWrite(
-            to: .cancelled,
-            expected: expected
+        return try transitionHistoryWrite(
+            .cancel(authorization, policyInvalidationReceipt)
         )
     }
 
     public func disableKeepLatestResult(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try requireNoUncertainHistoryTransition()
         let snapshot = try requireCurrentSnapshot()
         try requireActive(snapshot.record)
 
@@ -170,6 +208,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func clear(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        try requireNoUncertainHistoryTransition()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
 
         if snapshot.record.deliveryState == .discarded {
@@ -229,11 +268,69 @@ public actor IOSAcceptedOutputDeliveryStore {
         return .removed
     }
 
+    func clearPendingHistory(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
+    ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        try requireNoUncertainHistoryTransition()
+        guard let snapshot = try journal.load() else { return .alreadyAbsent }
+        guard ownershipProof.provesOwnership(for: authorization) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+
+        if snapshot.record.deliveryState == .discarded {
+            guard isImmediateRetry(
+                snapshot.record,
+                after: IOSAcceptedOutputDeliveryExpectation(
+                    record: authorization.record
+                )
+            ) else {
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
+            try requireBridgeRevoked(snapshot.record)
+            let confirmed = try confirmIdentical(snapshot)
+            try journal.remove(expected: confirmed)
+            clearTransientState(for: snapshot.record.deliveryID)
+            return .removed
+        }
+
+        guard snapshot == authorization.snapshot,
+              snapshot.record.historyWrite?.state == .pending else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireBridgeRevoked(snapshot.record)
+
+        let mutationDate: Date
+        switch temporalState(for: snapshot.record) {
+        case .active:
+            mutationDate = try mutationNow(for: snapshot.record)
+        case .rollbackAmbiguous:
+            mutationDate = snapshot.record.updatedAt
+        case .expired:
+            throw IOSAcceptedOutputDeliveryError.expired
+        }
+
+        let tombstone = try record(
+            replacing: snapshot.record,
+            revision: try nextRevision(after: snapshot.record.revision),
+            updatedAt: mutationDate,
+            acceptedText: .some(nil),
+            deliveryState: .discarded,
+            automaticInsertionPreferenceEnabled: false,
+            historyWrite: .some(nil)
+        )
+        let committed = try commit(tombstone, replacing: snapshot)
+        try journal.remove(expected: committed)
+        clearTransientState(for: snapshot.record.deliveryID)
+        return .removed
+    }
+
     /// Removes an expired generation-zero record directly, without creating a
     /// logically impossible post-expiry tombstone.
     public func removeExpired(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        try requireNoUncertainHistoryTransition()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
         guard expected.matches(snapshot.record) else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
@@ -265,6 +362,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     /// no unexpired app-group projection remains.
     public func discardUnreadableLocalResult()
         throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        try requireNoUncertainHistoryTransition()
         guard try journal.loadOpaque() != nil else { return .alreadyAbsent }
         throw IOSAcceptedOutputDeliveryError.bridgeRevocationRequired
     }
@@ -272,7 +370,11 @@ public actor IOSAcceptedOutputDeliveryStore {
 
 private extension IOSAcceptedOutputDeliveryStore {
     func performAccept(
-        _ preparation: IOSAcceptedOutputDeliveryPreparation
+        _ preparation: IOSAcceptedOutputDeliveryPreparation,
+        pendingHistoryOwnership: (
+            IOSAcceptedOutputDeliveryAuthorization,
+            IOSAcceptedOutputHistoryOwnershipProof
+        )? = nil
     ) throws -> IOSAcceptedOutputDeliveryRecord {
         let timestamp = try IOSAcceptedOutputDeliveryTimestampCodec
             .canonicalDate(from: now())
@@ -318,7 +420,14 @@ private extension IOSAcceptedOutputDeliveryStore {
         try requireBridgeRevoked(current.record)
         if currentTemporalState == .active,
            current.record.historyWrite?.state == .pending {
-            throw IOSAcceptedOutputDeliveryError.historyTransferRequired
+            guard let pendingHistoryOwnership else {
+                throw IOSAcceptedOutputDeliveryError.historyTransferRequired
+            }
+            let (authorization, proof) = pendingHistoryOwnership
+            guard current == authorization.snapshot,
+                  proof.provesOwnership(for: authorization) else {
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
         }
 
         do {
@@ -456,54 +565,115 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
     }
 
-    func transitionHistoryWrite(
-        to state: IOSAcceptedOutputHistoryWriteState,
-        expected: IOSAcceptedOutputDeliveryExpectation
+    private func transitionHistoryWrite(
+        _ operation: HistoryTransitionOperation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        precondition(state != .pending)
-        let snapshot = try requireCurrentSnapshot()
-        try requireActive(snapshot.record)
+        let current = try requireCurrentSnapshot()
 
-        if expected.matches(snapshot.record) {
-            guard let historyWrite = snapshot.record.historyWrite else {
-                throw IOSAcceptedOutputDeliveryError.invalidTransition
-            }
-            if historyWrite.state == .pending {
-                return try replaceHistoryState(
-                    state,
-                    in: snapshot,
-                    updatedAt: try mutationNow(for: snapshot.record)
-                ).record
-            }
-            if historyWrite.state == state {
-                return snapshot.record
-            }
-            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        if let uncertainHistoryTransition {
+            return try reconcileHistoryTransition(
+                uncertainHistoryTransition,
+                operation: operation,
+                current: current
+            )
         }
 
-        guard isImmediateRetry(snapshot.record, after: expected),
-              snapshot.record.historyWrite?.state == state else {
+        guard operation.provesRequiredCapability else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
-        return try confirmIdentical(snapshot).record
+
+        let authorization = operation.authorization
+        if current == authorization.snapshot {
+            try requireActive(current.record)
+            guard let historyWrite = current.record.historyWrite,
+                  historyWrite.state == .pending else {
+                throw IOSAcceptedOutputDeliveryError.invalidTransition
+            }
+            let intended = try record(
+                replacing: current.record,
+                revision: try nextRevision(after: current.record.revision),
+                updatedAt: try mutationNow(for: current.record),
+                historyWrite: try historyWrite.replacingState(
+                    operation.targetState
+                )
+            )
+            return try publishHistoryTransition(
+                UncertainHistoryTransition(
+                    operation: operation,
+                    intended: intended
+                ),
+                replacing: current
+            ).record
+        }
+
+        guard isImmediateRetry(
+            current.record,
+            after: IOSAcceptedOutputDeliveryExpectation(
+                record: authorization.record
+            )
+        ),
+              current.record.historyWrite?.state == operation.targetState else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        return try confirmIdentical(current).record
     }
 
-    func replaceHistoryState(
-        _ state: IOSAcceptedOutputHistoryWriteState,
-        in snapshot: IOSAcceptedOutputDeliveryJournalSnapshot,
-        updatedAt: Date
-    ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
-        guard let historyWrite = snapshot.record.historyWrite,
-              historyWrite.state == .pending else {
-            throw IOSAcceptedOutputDeliveryError.invalidTransition
+    private func reconcileHistoryTransition(
+        _ intent: UncertainHistoryTransition,
+        operation: HistoryTransitionOperation,
+        current: IOSAcceptedOutputDeliveryJournalSnapshot
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        guard operation == intent.operation else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
-        let replacement = try record(
-            replacing: snapshot.record,
-            revision: try nextRevision(after: snapshot.record.revision),
-            updatedAt: updatedAt,
-            historyWrite: try historyWrite.replacingState(state)
-        )
-        return try commit(replacement, replacing: snapshot)
+
+        if current.record == intent.intended {
+            return try publishHistoryTransition(
+                intent,
+                replacing: current
+            ).record
+        }
+
+        guard current == operation.authorization.snapshot,
+              current.record.historyWrite?.state == .pending else {
+            uncertainHistoryTransition = nil
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+
+        do {
+            _ = try mutationNow(for: intent.intended)
+        } catch IOSAcceptedOutputDeliveryError.expired {
+            uncertainHistoryTransition = nil
+            throw IOSAcceptedOutputDeliveryError.expired
+        }
+        return try publishHistoryTransition(
+            intent,
+            replacing: current
+        ).record
+    }
+
+    private func publishHistoryTransition(
+        _ intent: UncertainHistoryTransition,
+        replacing snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
+        do {
+            let committed = try journal.replace(
+                intent.intended,
+                expected: snapshot
+            )
+            uncertainHistoryTransition = nil
+            confirmedAuthorizationFileRevision = nil
+            return committed
+        } catch IOSAcceptedOutputDeliveryError.commitUncertain {
+            uncertainHistoryTransition = intent
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+    }
+
+    func requireNoUncertainHistoryTransition() throws {
+        guard uncertainHistoryTransition == nil else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
     }
 
     func makeInitialRecord(

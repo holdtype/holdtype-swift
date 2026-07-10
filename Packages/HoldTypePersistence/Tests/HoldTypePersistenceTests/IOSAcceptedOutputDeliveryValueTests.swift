@@ -146,6 +146,64 @@ struct IOSAcceptedOutputDeliveryValueTests {
         #expect(!advanced.hasSameAcceptance(as: changedMetadata))
     }
 
+    @Test func publicPreparationConsumesOpaqueHistoryCaptureAndRedactsIt() async throws {
+        let state = try IOSHistoryPolicyState(
+            revision: 1,
+            historyEnabled: true,
+            policyGeneration: 1
+        )
+        let receipt = try await IOSHistoryPolicyStore(
+            journal: AcceptedDeliveryPolicyFakeJournal(state: state)
+        ).confirm(expected: IOSHistoryPolicyExpectation(state: state))
+        let marker = try IOSAcceptedOutputHistoryWrite(
+            policyGeneration: 1,
+            transcriptionModel: "CAPTURE-SECRET-MODEL",
+            transcriptionLanguageCode: "en",
+            durationMilliseconds: 123
+        )
+        let capture = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: receipt,
+            historyWrite: marker
+        )
+
+        let preparation = try IOSAcceptedOutputDeliveryPreparation(
+            deliveryID: UUID(),
+            sessionID: UUID(),
+            attemptID: UUID(),
+            transcriptID: UUID(),
+            rawAcceptedText: "CAPTURE-SECRET-TEXT",
+            outputIntent: .standard,
+            automaticInsertionPreferenceEnabled: true,
+            keepLatestResult: true,
+            historyCapture: capture
+        )
+        #expect(preparation.historyWrite == marker)
+
+        let disabledCapture = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: receipt,
+            historyWrite: nil
+        )
+        let disabledPreparation = try IOSAcceptedOutputDeliveryPreparation(
+            deliveryID: UUID(),
+            sessionID: UUID(),
+            attemptID: UUID(),
+            transcriptID: UUID(),
+            rawAcceptedText: "accepted",
+            outputIntent: .standard,
+            automaticInsertionPreferenceEnabled: true,
+            keepLatestResult: true,
+            historyCapture: disabledCapture
+        )
+        #expect(disabledPreparation.historyWrite == nil)
+
+        let rendered = String(describing: capture)
+            + String(reflecting: capture)
+            + String(describing: Mirror(reflecting: capture))
+        #expect(!rendered.contains("CAPTURE-SECRET-MODEL"))
+        #expect(!rendered.contains("CAPTURE-SECRET-TEXT"))
+        #expect(rendered.contains("redacted"))
+    }
+
     @Test func recordRejectsImpossibleStateGenerationAndTombstoneCombinations() throws {
         let preparation = try makePreparation()
 
