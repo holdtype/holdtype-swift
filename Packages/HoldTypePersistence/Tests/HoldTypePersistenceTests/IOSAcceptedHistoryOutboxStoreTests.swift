@@ -873,6 +873,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             (460, .delivery, true),
             (461, .observation, true),
             (462, .delivery, false),
+            (492, .observation, false),
         ]
         for (index, origin, retained) in cases {
             let now = outboxStoreDate()
