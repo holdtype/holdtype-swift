@@ -2,7 +2,13 @@ import Foundation
 import HoldTypeDomain
 
 struct IOSAcceptedHistoryGuardedBaselineEvidence: Sendable {
-    fileprivate init() {}
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+
+    fileprivate init(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) {
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
 }
 
 extension IOSAcceptedHistoryGuardedBaselineEvidence: CustomStringConvertible,
@@ -185,6 +191,7 @@ struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
     fileprivate let candidate: IOSAcceptedHistoryCandidate
     fileprivate let snapshot: IOSAcceptedHistoryJournalSnapshot
     fileprivate let outcome: IOSAcceptedHistoryReceiptOutcome
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
     var decision: IOSAcceptedHistoryRetentionDecision {
         switch outcome {
@@ -196,13 +203,17 @@ struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
     func provesDecision(
         for delivery: IOSAcceptedOutputDeliveryAuthorization
     ) -> Bool {
-        snapshotMatchesOutcome && candidate.matches(delivery: delivery)
+        capabilityOwnerIdentity == delivery.capabilityOwnerIdentity
+            && snapshotMatchesOutcome
+            && candidate.matches(delivery: delivery)
     }
 
     func provesDecision(
         for outbox: IOSAcceptedHistoryOutboxReceipt
     ) -> Bool {
-        snapshotMatchesOutcome && candidate.matches(outbox: outbox)
+        capabilityOwnerIdentity == outbox.capabilityOwnerIdentity
+            && snapshotMatchesOutcome
+            && candidate.matches(outbox: outbox)
     }
 
     func provesMembership(
@@ -250,6 +261,8 @@ extension IOSAcceptedHistoryRowReceipt: CustomStringConvertible,
 /// confirmed delivery and policy capabilities; raw generations are never an
 /// input to this boundary.
 actor IOSAcceptedHistoryStore {
+    nonisolated let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
     private enum Source: Equatable, Sendable {
         case missing
         case existing(IOSAcceptedHistoryJournalSnapshot)
@@ -278,19 +291,27 @@ actor IOSAcceptedHistoryStore {
     private var uncertainIntent: UncertainIntent?
     private var uncertainPruneIntent: UncertainPruneIntent?
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
         journal = FoundationIOSAcceptedHistoryJournalRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
         now = { Date() }
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     init(
         journal: any IOSAcceptedHistoryJournalStoring,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
         self.journal = journal
         self.now = now
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     /// Raw state is coordinator-only because stale generations remain on disk
@@ -311,13 +332,16 @@ actor IOSAcceptedHistoryStore {
         guard try journal.load()?.envelope.entries.isEmpty != false else {
             throw IOSAcceptedHistoryError.compareAndSwapFailed
         }
-        return IOSAcceptedHistoryGuardedBaselineEvidence()
+        return IOSAcceptedHistoryGuardedBaselineEvidence(
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
     }
 
     func decideUpsert(
         delivery: IOSAcceptedOutputDeliveryAuthorization,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryRowReceipt {
+        try requireOwners(delivery, policy)
         try requireNoPruneUncertainty()
         let candidate = try IOSAcceptedHistoryCandidate(
             delivery: delivery,
@@ -330,6 +354,7 @@ actor IOSAcceptedHistoryStore {
         outbox: IOSAcceptedHistoryOutboxReceipt,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryRowReceipt {
+        try requireOwners(outbox, policy)
         try requireNoPruneUncertainty()
         let candidate = try IOSAcceptedHistoryCandidate(
             outbox: outbox,
@@ -344,6 +369,7 @@ actor IOSAcceptedHistoryStore {
         delivery: IOSAcceptedOutputDeliveryAuthorization,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryRowReceipt {
+        try requireOwners(delivery, policy)
         try requireNoPruneUncertainty()
         let candidate = try IOSAcceptedHistoryCandidate(
             delivery: delivery,
@@ -356,6 +382,7 @@ actor IOSAcceptedHistoryStore {
         outbox: IOSAcceptedHistoryOutboxReceipt,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryRowReceipt {
+        try requireOwners(outbox, policy)
         try requireNoPruneUncertainty()
         let candidate = try IOSAcceptedHistoryCandidate(
             outbox: outbox,
@@ -367,6 +394,9 @@ actor IOSAcceptedHistoryStore {
     func pruneInvalidatedRows(
         using policy: IOSHistoryPolicyReceipt
     ) throws {
+        guard policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
         if let uncertainPruneIntent {
             guard policy == uncertainPruneIntent.policy else {
                 throw IOSAcceptedHistoryError.commitUncertain
@@ -406,6 +436,26 @@ private extension IOSAcceptedHistoryStore {
         case live
         case expired
         case clockRollbackAmbiguous
+    }
+
+    func requireOwners(
+        _ delivery: IOSAcceptedOutputDeliveryAuthorization,
+        _ policy: IOSHistoryPolicyReceipt
+    ) throws {
+        guard delivery.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+    }
+
+    func requireOwners(
+        _ outbox: IOSAcceptedHistoryOutboxReceipt,
+        _ policy: IOSHistoryPolicyReceipt
+    ) throws {
+        guard outbox.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
     }
 
     private func requireNoPruneUncertainty() throws {
@@ -797,7 +847,8 @@ private extension IOSAcceptedHistoryStore {
             let receipt = IOSAcceptedHistoryRowReceipt(
                 candidate: candidate,
                 snapshot: snapshot,
-                outcome: receiptOutcome
+                outcome: receiptOutcome,
+                capabilityOwnerIdentity: capabilityOwnerIdentity
             )
             guard receipt.snapshotMatchesOutcome else {
                 uncertainIntent = intent

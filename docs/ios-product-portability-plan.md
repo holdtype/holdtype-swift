@@ -1,7 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
 Status: active implementation roadmap; P0 and P1 complete, P2 in progress; updated
-2026-07-10.
+2026-07-11.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -987,6 +987,19 @@ History metadata, and the 24-hour recovery owner remain outside App Group and
 the keyboard. Publication generation cannot advance until the later production
 bridge checkpoint owns the matching projection and revocation protocol.
 
+The accepted-History foundation is now complete through normal acceptance and
+provider-free relaunch recovery. One root-scoped process capability owner binds
+the policy, accepted rows, outbox, delivery record, coordinator, and every
+opaque receipt before repository I/O. Normal acceptance crosses the provider
+replay boundary at durable delivery, then preserves exact policy, row, marker,
+and expiry phases through local uncertainty. Relaunch recovery never recreates
+an absent row from caller data, and expiry seals one bridge-revoked observation
+through bounded abandonment without resampling time or returning to History
+work. Policy cutover, pending-delivery transfer, the FIFO outbox worker, and
+stale-generation cleanup remain the next local durability checkpoint. No
+History record, receipt, text, App Group state, or keyboard dependency is
+introduced by this foundation.
+
 ### P3 — Native containing-app shell
 
 - implement Voice, Library, History, and Settings navigation;
@@ -1186,18 +1199,18 @@ delivery record are now implemented without moving secrets, canonical content,
 usage state, audio, History metadata, or scratch paths into App Group or the
 keyboard.
 
-The next P2 checkpoint is the containing-app-only History durability chain:
-the strict app-private `HoldType/ios-history-policy.json` record, the bounded
-accepted-History repository, and the strict
-`HoldType/ios-accepted-history-outbox.json`. Freeze the accepted repository's
-exact path, schema, limits, and migration; preserve policy-generation CAS,
-idempotent `deliveryID` upsert, delivery-marker/outbox transfer, clear/disable
-ordering, and every crash-reconciliation boundary. This checkpoint consumes
-the structured pending History state already owned by the delivery record and
-does not publish History rows or metadata to App Group or the keyboard.
+The next P2 checkpoint finishes the containing-app-only accepted-History
+durability chain: transfer an exact pending delivery into the strict outbox
+before replacement, drain one snapshot-bound entry at a time through the FIFO
+worker, and make Clear/Disable/Enable policy cutover the logical success
+boundary followed by conservative stale-generation cleanup. Preserve the
+existing root-scoped capability graph, exact retained phases, provider-free
+recovery, no-live-entry eviction rule, and every crash-reconciliation boundary.
+This work must not publish History rows or metadata to App Group or the
+keyboard.
 
-After that accepted-History chain is verified, implement the bounded failed-
-History repository and retry-audio ownership, then the independent recording-
+After that accepted-History chain is verified, implement the bounded failed
+History repository and retry-audio ownership, then the independent recording
 cache repository, file transfer, retention, and reconciliation flow. The
 directional App Group bridge split remains later P2/P6 work and does not enter
 the keyboard early.

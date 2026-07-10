@@ -1,7 +1,11 @@
 import Darwin
 import Foundation
+import HoldTypeDomain
 import Testing
 @testable import HoldTypePersistence
+
+private let outboxCapabilityOwnerIdentity =
+    IOSAcceptedHistoryCapabilityOwnerIdentity()
 
 struct IOSAcceptedHistoryOutboxStoreTests {
     @Test func guardedBaselineAcceptsOnlyMissingOrValidEmptyState() async throws {
@@ -88,6 +92,122 @@ struct IOSAcceptedHistoryOutboxStoreTests {
                 _ = try await fixture.store.proveGuardedBaseline()
             }
         }
+    }
+
+    @Test func foreignObservationsReceiptsAndAuthoritiesFailBeforeJournalIO()
+        async throws {
+        let now = outboxStoreDate()
+        let localFixture = OutboxStoreFixture(now: now)
+        let localCapabilities = try await outboxCapabilities(
+            index: 903,
+            createdAt: now
+        )
+        let localMembership = try await outboxMembershipReceipt(
+            fixture: localFixture,
+            capabilities: localCapabilities
+        )
+
+        let foreignOwner = IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let foreignFixture = OutboxStoreFixture(
+            now: now,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignCapabilities = try await outboxCapabilities(
+            index: 904,
+            createdAt: now,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignMembership = try await outboxMembershipReceipt(
+            fixture: foreignFixture,
+            capabilities: foreignCapabilities
+        )
+        let foreignObservation = try #require(
+            try await foreignFixture.store.observe()?.first
+        )
+        let foreignDecision = try await outboxRowReceipt(
+            membership: foreignMembership
+        )
+        let foreignPolicy = try await outboxPolicyReceipt(
+            generation: 2,
+            enabled: false,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        localFixture.journal.resetEvents()
+        let localClockReads = localFixture.clock.readCount
+
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            _ = try await localFixture.store.transfer(
+                delivery: foreignCapabilities.delivery,
+                policy: localCapabilities.policy
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            _ = try await localFixture.store.transfer(
+                delivery: localCapabilities.delivery,
+                policy: foreignPolicy
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            _ = try await localFixture.store.confirmMembership(
+                delivery: foreignCapabilities.delivery
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            _ = try await localFixture.store.confirmMembership(
+                observation: foreignObservation
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await localFixture.store.retireProcessed(
+                membership: foreignMembership,
+                decision: foreignDecision
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await localFixture.store.retireInvalidated(
+                membership: foreignMembership,
+                policy: foreignPolicy
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await localFixture.store.retireExpired(
+                membership: foreignMembership
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await localFixture.store.retireProcessed(
+                membership: localMembership,
+                decision: foreignDecision
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await localFixture.store.retireInvalidated(
+                membership: localMembership,
+                policy: foreignPolicy
+            )
+        }
+
+        #expect(localFixture.journal.events.isEmpty)
+        #expect(localFixture.clock.readCount == localClockReads)
+        #expect(localFixture.journal.currentEnvelope?.entries.count == 1)
     }
 
     @Test func missingReadAndFirstTransferAreStrictAndReceiptIsIdentityBound() async throws {
@@ -924,7 +1044,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         fixture.journal.install(
             try IOSAcceptedHistoryOutboxEnvelope(revision: 1, entries: [])
         )
-        fixture.journal.delayNextLoads(2)
+        fixture.journal.freezeNextLoads(2)
         let first = try await outboxCapabilities(index: 440, createdAt: now)
         let second = try await outboxCapabilities(index: 441, createdAt: now)
         let firstTask = Task {
@@ -1237,7 +1357,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         let raceDecision = try await outboxRowReceipt(
             membership: raceMembership
         )
-        raceFixture.journal.delayNextLoads(2)
+        raceFixture.journal.freezeNextLoads(2)
         let firstStore = raceFixture.store
         let secondStore = raceFixture.makeStore()
         let first = Task {
@@ -1413,13 +1533,20 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         )
         defer { try? FileManager.default.removeItem(at: base) }
         let now = outboxStoreDate()
+        let capabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
         let store = IOSAcceptedHistoryOutboxStore(
             journal: FoundationIOSAcceptedHistoryOutboxJournalRepository(
                 applicationSupportDirectoryURL: base
             ),
-            now: { now }
+            now: { now },
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
-        let capabilities = try await outboxCapabilities(index: 450, createdAt: now)
+        let capabilities = try await outboxCapabilities(
+            index: 450,
+            createdAt: now,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
         _ = try await store.transfer(
             delivery: capabilities.delivery,
             policy: capabilities.policy
@@ -1565,13 +1692,15 @@ private func outboxRowReceipt(
     }
     let policy = try await outboxPolicyReceipt(
         generation: entry.policyGeneration,
-        enabled: true
+        enabled: true,
+        capabilityOwnerIdentity: membership.capabilityOwnerIdentity
     )
     return try await IOSAcceptedHistoryStore(
         journal: OutboxAcceptedHistoryFakeJournal(
             envelope: envelope
         ),
-        now: { entry.createdAt.addingTimeInterval(100) }
+        now: { entry.createdAt.addingTimeInterval(100) },
+        capabilityOwnerIdentity: membership.capabilityOwnerIdentity
     ).decideUpsert(outbox: membership, policy: policy)
 }
 
@@ -1605,18 +1734,22 @@ private func outboxCapabilities(
     index: Int,
     generation: Int64 = 1,
     acceptedText: String = "Accepted text",
-    createdAt: Date = outboxStoreDate()
+    createdAt: Date = outboxStoreDate(),
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        outboxCapabilityOwnerIdentity
 ) async throws -> OutboxCapabilities {
     OutboxCapabilities(
         delivery: try outboxDeliveryAuthorization(
             index: index,
             generation: generation,
             acceptedText: acceptedText,
-            createdAt: createdAt
+            createdAt: createdAt,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         ),
         policy: try await outboxPolicyReceipt(
             generation: generation,
-            enabled: true
+            enabled: true,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     )
 }
@@ -1627,7 +1760,9 @@ private func outboxDeliveryAuthorization(
     acceptedText: String = "Accepted text",
     createdAt: Date = outboxStoreDate(),
     historyState: IOSAcceptedOutputHistoryWriteState = .pending,
-    fileRevisionToken: UInt64? = nil
+    fileRevisionToken: UInt64? = nil,
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        outboxCapabilityOwnerIdentity
 ) throws -> IOSAcceptedOutputDeliveryAuthorization {
     let marker = try IOSAcceptedOutputHistoryWrite(
         state: historyState,
@@ -1659,13 +1794,16 @@ private func outboxDeliveryAuthorization(
             fileRevision: IOSStrictProtectedRecordFileRevision(
                 testingToken: fileRevisionToken ?? UInt64(index + 1)
             )
-        )
+        ),
+        capabilityOwnerIdentity: capabilityOwnerIdentity
     )
 }
 
 private func outboxPolicyReceipt(
     generation: Int64,
-    enabled: Bool
+    enabled: Bool,
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        outboxCapabilityOwnerIdentity
 ) async throws -> IOSHistoryPolicyReceipt {
     let state = try IOSHistoryPolicyState(
         revision: generation,
@@ -1673,7 +1811,10 @@ private func outboxPolicyReceipt(
         policyGeneration: generation
     )
     let journal = OutboxPolicyFakeJournal(state: state)
-    return try await IOSHistoryPolicyStore(journal: journal).confirm(
+    return try await IOSHistoryPolicyStore(
+        journal: journal,
+        capabilityOwnerIdentity: capabilityOwnerIdentity
+    ).confirm(
         expected: IOSHistoryPolicyExpectation(state: state)
     )
 }
@@ -1877,7 +2018,8 @@ private final class OutboxFakeJournal:
     private var createFailure: Failure?
     private var replaceFailure: Failure?
     private var loadFailure: IOSAcceptedHistoryOutboxError?
-    private var delayedLoadCount = 0
+    private var frozenLoadRemainingCount = 0
+    private var frozenLoadSnapshot: IOSAcceptedHistoryOutboxJournalSnapshot?
     private var storedEvents: [String] = []
 
     var events: [String] { lock.withLock { storedEvents } }
@@ -1924,24 +2066,30 @@ private final class OutboxFakeJournal:
         lock.withLock { loadFailure = error }
     }
 
-    func delayNextLoads(_ count: Int) {
-        lock.withLock { delayedLoadCount = count }
+    func freezeNextLoads(_ count: Int) {
+        precondition(count > 0)
+        lock.withLock {
+            precondition(frozenLoadRemainingCount == 0)
+            frozenLoadRemainingCount = count
+            frozenLoadSnapshot = snapshot
+        }
     }
 
     func load() throws -> IOSAcceptedHistoryOutboxJournalSnapshot? {
-        let result: (IOSAcceptedHistoryOutboxJournalSnapshot?, Bool) =
-            try lock.withLock {
-                storedEvents.append("load")
-                if let loadFailure {
-                    self.loadFailure = nil
-                    throw loadFailure
-                }
-                let shouldDelay = delayedLoadCount > 0
-                if shouldDelay { delayedLoadCount -= 1 }
-                return (snapshot, shouldDelay)
+        try lock.withLock {
+            storedEvents.append("load")
+            if let loadFailure {
+                self.loadFailure = nil
+                throw loadFailure
             }
-        if result.1 { Thread.sleep(forTimeInterval: 0.02) }
-        return result.0
+            guard frozenLoadRemainingCount > 0 else { return snapshot }
+            frozenLoadRemainingCount -= 1
+            let result = frozenLoadSnapshot
+            if frozenLoadRemainingCount == 0 {
+                frozenLoadSnapshot = nil
+            }
+            return result
+        }
     }
 
     func create(
@@ -2015,14 +2163,23 @@ private final class OutboxFakeJournal:
 private final class OutboxStoreFixture: @unchecked Sendable {
     let journal = OutboxFakeJournal()
     let clock: OutboxClock
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     lazy var store = makeStore()
 
-    init(now: Date) { clock = OutboxClock(now) }
+    init(
+        now: Date,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            outboxCapabilityOwnerIdentity
+    ) {
+        clock = OutboxClock(now)
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
 
     func makeStore() -> IOSAcceptedHistoryOutboxStore {
         IOSAcceptedHistoryOutboxStore(
             journal: journal,
-            now: { [clock] in clock.read() }
+            now: { [clock] in clock.read() },
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     }
 }

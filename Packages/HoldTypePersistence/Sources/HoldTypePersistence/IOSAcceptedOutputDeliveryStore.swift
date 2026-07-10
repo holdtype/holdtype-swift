@@ -1,7 +1,132 @@
 import Foundation
 
 struct IOSAcceptedOutputDeliveryGuardedBaselineEvidence: Sendable {
-    fileprivate init() {}
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+
+    fileprivate init(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) {
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
+}
+
+enum IOSAcceptedOutputDeliveryAcceptanceProvenance: Equatable, Sendable {
+    case freshCurrentProcess
+    case preexisting
+}
+
+private struct IOSAcceptedOutputDeliveryStoreIdentity: Equatable, Sendable {
+    private let value = UUID()
+}
+
+extension IOSAcceptedOutputDeliveryStoreIdentity:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryStoreIdentity(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+struct IOSAcceptedOutputDeliveryAcceptance: Equatable, Sendable {
+    let record: IOSAcceptedOutputDeliveryRecord
+    let provenance: IOSAcceptedOutputDeliveryAcceptanceProvenance
+}
+
+struct IOSAcceptedOutputDeliveryExpiredRemovalAuthorization:
+    Equatable,
+    Sendable {
+    fileprivate let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+
+    var record: IOSAcceptedOutputDeliveryRecord { snapshot.record }
+}
+
+struct IOSAcceptedOutputDeliveryExpiredObservation: Equatable, Sendable {
+    fileprivate let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+
+    var record: IOSAcceptedOutputDeliveryRecord { snapshot.record }
+}
+
+enum IOSAcceptedOutputDeliveryExpiredObservationResult: Equatable, Sendable {
+    case alreadyAbsent
+    case observed(IOSAcceptedOutputDeliveryExpiredObservation)
+}
+
+enum IOSAcceptedOutputDeliveryExpiredRemovalPreparation:
+    Equatable,
+    Sendable {
+    case alreadyAbsent
+    case authorized(IOSAcceptedOutputDeliveryExpiredRemovalAuthorization)
+}
+
+extension IOSAcceptedOutputDeliveryAcceptanceProvenance:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryAcceptanceProvenance(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSAcceptedOutputDeliveryAcceptance:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryAcceptance(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSAcceptedOutputDeliveryExpiredRemovalAuthorization:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryExpiredRemovalAuthorization(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSAcceptedOutputDeliveryExpiredObservation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryExpiredObservation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSAcceptedOutputDeliveryExpiredObservationResult:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryExpiredObservationResult(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSAcceptedOutputDeliveryExpiredRemovalPreparation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputDeliveryExpiredRemovalPreparation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSAcceptedOutputDeliveryGuardedBaselineEvidence:
@@ -33,6 +158,8 @@ public struct IOSAcceptedOutputDeliveryMaintenanceReport: Equatable, Sendable {
 
 /// Owns the containing app's one crash-safe accepted-output delivery slot.
 public actor IOSAcceptedOutputDeliveryStore {
+    nonisolated let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
     private enum TemporalState: Equatable {
         case active
         case expired
@@ -124,6 +251,7 @@ public actor IOSAcceptedOutputDeliveryStore {
         let preparation: IOSAcceptedOutputDeliveryPreparation
         let source: AcceptanceSource
         let intended: IOSAcceptedOutputDeliveryRecord
+        let provenance: IOSAcceptedOutputDeliveryAcceptanceProvenance
 
         var intendedWasVisibleInSource: Bool {
             guard case .existing(let source) = source else { return false }
@@ -132,6 +260,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     }
 
     private let journal: any IOSAcceptedOutputDeliveryJournalStoring
+    private let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
     private let now: @Sendable () -> Date
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
 
@@ -144,12 +273,18 @@ public actor IOSAcceptedOutputDeliveryStore {
     private var uncertainPendingHistoryClear: UncertainPendingHistoryClear?
     private var uncertainAcceptanceIntent: UncertainAcceptanceIntent?
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
         journal = FoundationIOSAcceptedOutputDeliveryJournalRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
         now = { Date() }
         monotonicNowNanoseconds = { DispatchTime.now().uptimeNanoseconds }
+        storeIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     init(
@@ -157,18 +292,29 @@ public actor IOSAcceptedOutputDeliveryStore {
         now: @escaping @Sendable () -> Date = { Date() },
         monotonicNowNanoseconds: @escaping @Sendable () -> UInt64 = {
             DispatchTime.now().uptimeNanoseconds
-        }
+        },
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
         self.journal = journal
+        storeIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         self.now = now
         self.monotonicNowNanoseconds = monotonicNowNanoseconds
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     /// Commits a newly accepted transcript or atomically replaces the previous
     /// generation-zero delivery after all deferred-owner gates are satisfied.
-    public func accept(
+    func accept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try acceptForHistoryCoordinator(preparation).record
+    }
+
+    func acceptForHistoryCoordinator(
+        _ preparation: IOSAcceptedOutputDeliveryPreparation
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
+        try requirePreparationOwner(preparation)
         if let uncertainAcceptanceIntent {
             try requireNoUncertainHistoryMutationExceptAcceptance()
             guard preparation == uncertainAcceptanceIntent.preparation else {
@@ -185,6 +331,12 @@ public actor IOSAcceptedOutputDeliveryStore {
         authorization: IOSAcceptedOutputDeliveryAuthorization,
         ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try requirePreparationOwner(preparation)
+        guard authorization.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              ownershipProof.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
         let operation = PendingHistoryReplacementOperation(
             preparation: preparation,
             authorization: authorization,
@@ -200,7 +352,7 @@ public actor IOSAcceptedOutputDeliveryStore {
         return try performAccept(
             preparation,
             pendingHistoryReplacement: operation
-        )
+        ).record
     }
 
     public func load() throws -> IOSAcceptedOutputDeliveryObservation? {
@@ -215,24 +367,41 @@ public actor IOSAcceptedOutputDeliveryStore {
         guard try journal.load()?.record.historyWrite == nil else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
-        return IOSAcceptedOutputDeliveryGuardedBaselineEvidence()
+        return IOSAcceptedOutputDeliveryGuardedBaselineEvidence(
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
     }
 
     /// Performs the mandatory identical durability-confirmation rewrite before
     /// an idempotent History upsert may use the accepted payload.
-    public func authorizePendingHistoryWrite(
+    func authorizePendingHistoryWrite(
+        expected: IOSAcceptedOutputDeliveryExpectation
+    ) throws -> IOSAcceptedOutputDeliveryAuthorization {
+        let authorization = try confirmActiveHistoryRecovery(
+            expected: expected
+        )
+        guard authorization.record.historyWrite?.state == .pending else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        return authorization
+    }
+
+    /// Reconstructs physical delivery authority without interpreting the
+    /// History marker. Every active marker state uses the same strict rewrite.
+    func confirmActiveHistoryRecovery(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryAuthorization {
         try requireNoUncertainHistoryMutation()
         let snapshot = try requireSnapshot(expected: expected)
         try requireActive(snapshot.record)
-        guard snapshot.record.historyWrite?.state == .pending,
-              snapshot.record.deliveryState != .discarded else {
+        guard snapshot.record.deliveryState != .discarded else {
             throw IOSAcceptedOutputDeliveryError.invalidTransition
         }
-
         if confirmedAuthorizationFileRevision == snapshot.fileRevision {
-            return IOSAcceptedOutputDeliveryAuthorization(snapshot: snapshot)
+            return IOSAcceptedOutputDeliveryAuthorization(
+                snapshot: snapshot,
+                capabilityOwnerIdentity: capabilityOwnerIdentity
+            )
         }
 
         let confirmed = try journal.replace(
@@ -240,8 +409,14 @@ public actor IOSAcceptedOutputDeliveryStore {
             expected: snapshot
         )
         try requireActive(confirmed.record)
+        guard confirmed.record.deliveryState != .discarded else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
         confirmedAuthorizationFileRevision = confirmed.fileRevision
-        return IOSAcceptedOutputDeliveryAuthorization(snapshot: confirmed)
+        return IOSAcceptedOutputDeliveryAuthorization(
+            snapshot: confirmed,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
     }
 
     /// Records the exact durable History decision for this delivery.
@@ -362,6 +537,11 @@ public actor IOSAcceptedOutputDeliveryStore {
         authorization: IOSAcceptedOutputDeliveryAuthorization,
         ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        guard authorization.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              ownershipProof.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
         let operation = PendingHistoryClearOperation(
             authorization: authorization,
             ownershipProof: ownershipProof
@@ -445,6 +625,28 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func removeExpired(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        let observation: IOSAcceptedOutputDeliveryExpiredObservation
+        switch try observeExpiredHistoryAbandonment(expected: expected) {
+        case .alreadyAbsent:
+            return .alreadyAbsent
+        case .observed(let observed):
+            observation = observed
+        }
+        switch try confirmExpiredHistoryAbandonment(
+            observation: observation
+        ) {
+        case .alreadyAbsent:
+            return .alreadyAbsent
+        case .authorized(let authorization):
+            return try continueExpiredHistoryAbandonment(
+                authorization: authorization
+            )
+        }
+    }
+
+    func observeExpiredHistoryAbandonment(
+        expected: IOSAcceptedOutputDeliveryExpectation
+    ) throws -> IOSAcceptedOutputDeliveryExpiredObservationResult {
         try requireNoUncertainHistoryMutation()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
         guard expected.matches(snapshot.record) else {
@@ -459,9 +661,53 @@ public actor IOSAcceptedOutputDeliveryStore {
             throw IOSAcceptedOutputDeliveryError.clockRollbackAmbiguous
         }
         try requireBridgeRevoked(snapshot.record)
-        let confirmed = try confirmIdentical(snapshot)
+        return .observed(
+            IOSAcceptedOutputDeliveryExpiredObservation(
+                snapshot: snapshot,
+                storeIdentity: storeIdentity
+            )
+        )
+    }
+
+    func confirmExpiredHistoryAbandonment(
+        observation: IOSAcceptedOutputDeliveryExpiredObservation
+    ) throws -> IOSAcceptedOutputDeliveryExpiredRemovalPreparation {
+        guard observation.storeIdentity == storeIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireNoUncertainHistoryMutation()
+        guard let current = try journal.load() else { return .alreadyAbsent }
+        guard current.record == observation.record else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        let confirmed = try confirmIdentical(current)
+        return .authorized(
+            IOSAcceptedOutputDeliveryExpiredRemovalAuthorization(
+                snapshot: confirmed,
+                storeIdentity: storeIdentity
+            )
+        )
+    }
+
+    func continueExpiredHistoryAbandonment(
+        authorization: IOSAcceptedOutputDeliveryExpiredRemovalAuthorization
+    ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        guard authorization.storeIdentity == storeIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireNoUncertainHistoryMutation()
+        guard let current = try journal.load() else {
+            clearTransientState(for: authorization.record.deliveryID)
+            return .alreadyAbsent
+        }
+        guard current.record == authorization.record else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        let confirmed = current == authorization.snapshot
+            ? current
+            : try confirmIdentical(current)
         try journal.remove(expected: confirmed)
-        clearTransientState(for: snapshot.record.deliveryID)
+        clearTransientState(for: authorization.record.deliveryID)
         return .removed
     }
 
@@ -485,10 +731,21 @@ public actor IOSAcceptedOutputDeliveryStore {
 }
 
 private extension IOSAcceptedOutputDeliveryStore {
+    func requirePreparationOwner(
+        _ preparation: IOSAcceptedOutputDeliveryPreparation
+    ) throws {
+        guard let capture = preparation.historyCapture else { return }
+        guard capture.ownerIdentity == capabilityOwnerIdentity,
+              capture.policyReceipt.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedOutputDeliveryError.invalidPreparation
+        }
+    }
+
     private func performAccept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
         pendingHistoryReplacement: PendingHistoryReplacementOperation? = nil
-    ) throws -> IOSAcceptedOutputDeliveryRecord {
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
         let timestamp = try IOSAcceptedOutputDeliveryTimestampCodec
             .canonicalDate(from: now())
         let newRecord = try makeInitialRecord(
@@ -504,10 +761,14 @@ private extension IOSAcceptedOutputDeliveryStore {
                 let created = try publishAcceptance(
                     newRecord,
                     source: .missing,
-                    preparation: preparation
+                    preparation: preparation,
+                    provenance: .freshCurrentProcess
                 )
                 clearTransientState(for: nil)
-                return created.record
+                return IOSAcceptedOutputDeliveryAcceptance(
+                    record: created.record,
+                    provenance: .freshCurrentProcess
+                )
             } catch IOSAcceptedOutputDeliveryError.slotOccupied {
                 return try reconcileAcceptanceConflict(
                     preparation,
@@ -546,7 +807,8 @@ private extension IOSAcceptedOutputDeliveryStore {
                 snapshot: current,
                 temporalState: currentTemporalState,
                 recordsOrdinaryAcceptanceUncertainty:
-                    pendingHistoryReplacement == nil
+                    pendingHistoryReplacement == nil,
+                provenance: .preexisting
             )
         }
         if current.record.collides(with: preparation) {
@@ -572,10 +834,16 @@ private extension IOSAcceptedOutputDeliveryStore {
                     replacing: current
                 )
                 clearTransientState(for: current.record.deliveryID)
-                return replaced.record
+                return IOSAcceptedOutputDeliveryAcceptance(
+                    record: replaced.record,
+                    provenance: .freshCurrentProcess
+                )
             } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
-                return try reconcilePendingHistoryReplacementConflict(
-                    intent
+                return IOSAcceptedOutputDeliveryAcceptance(
+                    record: try reconcilePendingHistoryReplacementConflict(
+                        intent
+                    ),
+                    provenance: .freshCurrentProcess
                 )
             }
         }
@@ -584,10 +852,14 @@ private extension IOSAcceptedOutputDeliveryStore {
             let replaced = try publishAcceptance(
                 newRecord,
                 source: .existing(current),
-                preparation: preparation
+                preparation: preparation,
+                provenance: .freshCurrentProcess
             )
             clearTransientState(for: current.record.deliveryID)
-            return replaced.record
+            return IOSAcceptedOutputDeliveryAcceptance(
+                record: replaced.record,
+                provenance: .freshCurrentProcess
+            )
         } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
             return try reconcileAcceptanceConflict(
                 preparation,
@@ -598,7 +870,7 @@ private extension IOSAcceptedOutputDeliveryStore {
 
     private func reconcileAcceptance(
         _ intent: UncertainAcceptanceIntent
-    ) throws -> IOSAcceptedOutputDeliveryRecord {
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
         let current = try journal.load()
         let sourceStillCurrent: Bool = switch (intent.source, current) {
         case (.missing, .none): true
@@ -627,12 +899,16 @@ private extension IOSAcceptedOutputDeliveryStore {
             let confirmed = try publishAcceptance(
                 intent.intended,
                 source: publicationSource,
-                preparation: intent.preparation
+                preparation: intent.preparation,
+                provenance: intent.provenance
             )
             pruneMonotonicDeadlines(
                 keeping: confirmed.record.deliveryID
             )
-            return confirmed.record
+            return IOSAcceptedOutputDeliveryAcceptance(
+                record: confirmed.record,
+                provenance: intent.provenance
+            )
         } catch IOSAcceptedOutputDeliveryError.slotOccupied {
             return try reconcileAcceptancePublicationConflict(intent)
         } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
@@ -642,7 +918,7 @@ private extension IOSAcceptedOutputDeliveryStore {
 
     private func reconcileAcceptancePublicationConflict(
         _ intent: UncertainAcceptanceIntent
-    ) throws -> IOSAcceptedOutputDeliveryRecord {
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
         let current = try journal.load()
         guard let current,
               current.record == intent.intended else {
@@ -653,12 +929,16 @@ private extension IOSAcceptedOutputDeliveryStore {
             let confirmed = try publishAcceptance(
                 intent.intended,
                 source: .existing(current),
-                preparation: intent.preparation
+                preparation: intent.preparation,
+                provenance: intent.provenance
             )
             pruneMonotonicDeadlines(
                 keeping: confirmed.record.deliveryID
             )
-            return confirmed.record
+            return IOSAcceptedOutputDeliveryAcceptance(
+                record: confirmed.record,
+                provenance: intent.provenance
+            )
         } catch IOSAcceptedOutputDeliveryError.slotOccupied {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
@@ -694,12 +974,14 @@ private extension IOSAcceptedOutputDeliveryStore {
     private func publishAcceptance(
         _ intended: IOSAcceptedOutputDeliveryRecord,
         source: AcceptanceSource,
-        preparation: IOSAcceptedOutputDeliveryPreparation
+        preparation: IOSAcceptedOutputDeliveryPreparation,
+        provenance: IOSAcceptedOutputDeliveryAcceptanceProvenance
     ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
         let intent = UncertainAcceptanceIntent(
             preparation: preparation,
             source: source,
-            intended: intended
+            intended: intended,
+            provenance: provenance
         )
         do {
             let committed: IOSAcceptedOutputDeliveryJournalSnapshot =
@@ -721,7 +1003,7 @@ private extension IOSAcceptedOutputDeliveryStore {
     func reconcileAcceptanceConflict(
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
         otherwise error: IOSAcceptedOutputDeliveryError
-    ) throws -> IOSAcceptedOutputDeliveryRecord {
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
         guard let current = try journal.load() else { throw error }
         let currentTemporalState = temporalState(for: current.record)
         if current.record.hasSameAcceptance(as: preparation) {
@@ -729,7 +1011,8 @@ private extension IOSAcceptedOutputDeliveryStore {
                 preparation,
                 snapshot: current,
                 temporalState: currentTemporalState,
-                recordsOrdinaryAcceptanceUncertainty: true
+                recordsOrdinaryAcceptanceUncertainty: true,
+                provenance: .preexisting
             )
         }
         if current.record.collides(with: preparation) {
@@ -825,8 +1108,9 @@ private extension IOSAcceptedOutputDeliveryStore {
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
         snapshot: IOSAcceptedOutputDeliveryJournalSnapshot,
         temporalState: TemporalState,
-        recordsOrdinaryAcceptanceUncertainty: Bool
-    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        recordsOrdinaryAcceptanceUncertainty: Bool,
+        provenance: IOSAcceptedOutputDeliveryAcceptanceProvenance
+    ) throws -> IOSAcceptedOutputDeliveryAcceptance {
         switch temporalState {
         case .active:
             break
@@ -849,13 +1133,17 @@ private extension IOSAcceptedOutputDeliveryStore {
                 committed = try publishAcceptance(
                     replacement,
                     source: .existing(snapshot),
-                    preparation: preparation
+                    preparation: preparation,
+                    provenance: provenance
                 )
             } else {
                 committed = try commit(replacement, replacing: snapshot)
             }
             pruneMonotonicDeadlines(keeping: committed.record.deliveryID)
-            return committed.record
+            return IOSAcceptedOutputDeliveryAcceptance(
+                record: committed.record,
+                provenance: provenance
+            )
         }
 
         let confirmed: IOSAcceptedOutputDeliveryJournalSnapshot
@@ -863,14 +1151,18 @@ private extension IOSAcceptedOutputDeliveryStore {
             confirmed = try publishAcceptance(
                 snapshot.record,
                 source: .existing(snapshot),
-                preparation: preparation
+                preparation: preparation,
+                provenance: provenance
             )
         } else {
             confirmed = try confirmIdentical(snapshot)
         }
         pruneMonotonicDeadlines(keeping: confirmed.record.deliveryID)
         try requireActive(confirmed.record)
-        return confirmed.record
+        return IOSAcceptedOutputDeliveryAcceptance(
+            record: confirmed.record,
+            provenance: provenance
+        )
     }
 
     func observation(
@@ -1050,6 +1342,17 @@ private extension IOSAcceptedOutputDeliveryStore {
     private func transitionHistoryWrite(
         _ operation: HistoryTransitionOperation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        let ownersMatch: Bool = switch operation {
+        case .commit(let authorization, let receipt):
+            authorization.capabilityOwnerIdentity == capabilityOwnerIdentity
+                && receipt.capabilityOwnerIdentity == capabilityOwnerIdentity
+        case .cancel(let authorization, let receipt):
+            authorization.capabilityOwnerIdentity == capabilityOwnerIdentity
+                && receipt.capabilityOwnerIdentity == capabilityOwnerIdentity
+        }
+        guard ownersMatch else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
         try requireNoUncertainAcceptance()
         guard uncertainPendingHistoryReplacement == nil,
               uncertainPendingHistoryClear == nil else {

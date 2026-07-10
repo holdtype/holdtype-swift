@@ -2,9 +2,14 @@ import Foundation
 
 struct IOSHistoryPolicyReceipt: Equatable, Sendable {
     fileprivate let snapshot: IOSHistoryPolicyJournalSnapshot
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
-    fileprivate init(snapshot: IOSHistoryPolicyJournalSnapshot) {
+    fileprivate init(
+        snapshot: IOSHistoryPolicyJournalSnapshot,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) {
         self.snapshot = snapshot
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     var state: IOSHistoryPolicyState { snapshot.state }
@@ -43,21 +48,31 @@ actor IOSHistoryPolicyStore {
     }
 
     private let journal: any IOSHistoryPolicyJournalStoring
+    nonisolated let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
     private let now: @Sendable () -> Date
     private var uncertainIntent: UncertainIntent?
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
         journal = FoundationIOSHistoryPolicyJournalRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
         now = { Date() }
     }
 
     init(
         journal: any IOSHistoryPolicyJournalStoring,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.journal = journal
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
         self.now = now
     }
 
@@ -71,7 +86,9 @@ actor IOSHistoryPolicyStore {
     func establishAndConfirmBaseline(
         authorization: IOSHistoryPolicyBaselineAuthorization
     ) throws -> IOSHistoryPolicyReceipt {
-        _ = authorization
+        guard authorization.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSHistoryPolicyError.compareAndSwapFailed
+        }
         let current = try journal.load()
 
         if let uncertainIntent {
@@ -162,7 +179,7 @@ actor IOSHistoryPolicyStore {
             expected: current
         )
         uncertainIntent = nil
-        return IOSHistoryPolicyReceipt(snapshot: replacement)
+        return receipt(for: replacement)
     }
 
     func clear(
@@ -192,6 +209,9 @@ private extension IOSHistoryPolicyStore {
         _ mutation: Mutation,
         using receipt: IOSHistoryPolicyReceipt
     ) throws -> IOSHistoryPolicyReceipt {
+        guard receipt.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSHistoryPolicyError.compareAndSwapFailed
+        }
         let current = try journal.load()
 
         if let uncertainIntent {
@@ -329,7 +349,7 @@ private extension IOSHistoryPolicyStore {
                 authorization: authorization
             )
             uncertainIntent = nil
-            return IOSHistoryPolicyReceipt(snapshot: created)
+            return receipt(for: created)
         } catch IOSHistoryPolicyError.commitUncertain {
             uncertainIntent = intent
             throw IOSHistoryPolicyError.commitUncertain
@@ -347,7 +367,7 @@ private extension IOSHistoryPolicyStore {
                 expected: expected
             )
             uncertainIntent = nil
-            return IOSHistoryPolicyReceipt(snapshot: replacement)
+            return receipt(for: replacement)
         } catch IOSHistoryPolicyError.commitUncertain {
             uncertainIntent = intent
             throw IOSHistoryPolicyError.commitUncertain
@@ -375,6 +395,15 @@ private extension IOSHistoryPolicyStore {
             revision: nextRevision.partialValue,
             historyEnabled: enabled,
             policyGeneration: nextGeneration.partialValue
+        )
+    }
+
+    private func receipt(
+        for snapshot: IOSHistoryPolicyJournalSnapshot
+    ) -> IOSHistoryPolicyReceipt {
+        IOSHistoryPolicyReceipt(
+            snapshot: snapshot,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     }
 }

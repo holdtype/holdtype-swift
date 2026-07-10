@@ -4,6 +4,9 @@ import HoldTypeDomain
 import Testing
 @testable import HoldTypePersistence
 
+private let acceptedHistoryCapabilityOwnerIdentity =
+    IOSAcceptedHistoryCapabilityOwnerIdentity()
+
 struct IOSAcceptedHistoryStoreTests {
     @Test func guardedBaselineAcceptsOnlyMissingOrValidEmptyState() async throws {
         let missing = AcceptedHistoryStoreFixture()
@@ -172,6 +175,70 @@ struct IOSAcceptedHistoryStoreTests {
                 policy: enabled.policy
             )
         }
+        #expect(fixture.journal.currentEnvelope == nil)
+    }
+
+    @Test func foreignDeliveryPolicyAndOutboxCapabilitiesFailBeforeJournalIO()
+        async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let foreignOwner = IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let local = try await historyCapabilities(index: 6)
+        let foreign = try await historyCapabilities(
+            index: 6,
+            capabilityOwnerIdentity: foreignOwner
+        )
+
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.decideUpsert(
+                delivery: foreign.delivery,
+                policy: local.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.confirmMembership(
+                delivery: foreign.delivery,
+                policy: local.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.decideUpsert(
+                delivery: local.delivery,
+                policy: foreign.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.confirmMembership(
+                delivery: local.delivery,
+                policy: foreign.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            try await fixture.store.pruneInvalidatedRows(
+                using: foreign.policy
+            )
+        }
+
+        let foreignOutboxFixture = AcceptedHistoryOutboxStoreFixture(
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignOutbox = try await foreignOutboxFixture.store.transfer(
+            delivery: foreign.delivery,
+            policy: foreign.policy
+        )
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.decideUpsert(
+                outbox: foreignOutbox,
+                policy: local.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store.confirmMembership(
+                outbox: foreignOutbox,
+                policy: local.policy
+            )
+        }
+
+        #expect(fixture.journal.events.isEmpty)
         #expect(fixture.journal.currentEnvelope == nil)
     }
 
@@ -1175,7 +1242,7 @@ struct IOSAcceptedHistoryStoreTests {
         fixture.journal.install(
             try IOSAcceptedHistoryEnvelope(revision: 1, entries: [])
         )
-        fixture.journal.delayNextLoads(2)
+        fixture.journal.freezeNextLoads(2)
         let first = try await historyCapabilities(index: 539)
         let second = try await historyCapabilities(
             index: 540,
@@ -1372,7 +1439,7 @@ struct IOSAcceptedHistoryStoreTests {
                 entries: [current, stale]
             )
         )
-        fixture.journal.delayNextLoads(2)
+        fixture.journal.freezeNextLoads(2)
         let first = Task {
             try await fixture.store.pruneInvalidatedRows(using: policy)
         }
@@ -1545,15 +1612,21 @@ struct IOSAcceptedHistoryStoreTests {
             withIntermediateDirectories: false
         )
         defer { try? FileManager.default.removeItem(at: base) }
+        let capabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
         let store = IOSAcceptedHistoryStore(
             journal: FoundationIOSAcceptedHistoryJournalRepository(
                 applicationSupportDirectoryURL: base
             ),
             now: {
                 acceptedHistoryStoreDate().addingTimeInterval(60)
-            }
+            },
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
-        let capabilities = try await historyCapabilities(index: 540)
+        let capabilities = try await historyCapabilities(
+            index: 540,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
         _ = try await store.decideUpsert(
             delivery: capabilities.delivery,
             policy: capabilities.policy
@@ -1647,18 +1720,22 @@ private func historyCapabilities(
     index: Int,
     generation: Int64 = 1,
     acceptedText: String = "Accepted text",
-    createdAt: Date = acceptedHistoryStoreDate()
+    createdAt: Date = acceptedHistoryStoreDate(),
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        acceptedHistoryCapabilityOwnerIdentity
 ) async throws -> AcceptedHistoryCapabilities {
     AcceptedHistoryCapabilities(
         delivery: try acceptedHistoryDeliveryAuthorization(
             index: index,
             generation: generation,
             acceptedText: acceptedText,
-            createdAt: createdAt
+            createdAt: createdAt,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         ),
         policy: try await historyPolicyReceipt(
             generation: generation,
-            enabled: true
+            enabled: true,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     )
 }
@@ -1668,7 +1745,9 @@ private func acceptedHistoryDeliveryAuthorization(
     generation: Int64,
     acceptedText: String = "Accepted text",
     createdAt: Date = acceptedHistoryStoreDate(),
-    historyState: IOSAcceptedOutputHistoryWriteState = .pending
+    historyState: IOSAcceptedOutputHistoryWriteState = .pending,
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        acceptedHistoryCapabilityOwnerIdentity
 ) throws -> IOSAcceptedOutputDeliveryAuthorization {
     let marker = try IOSAcceptedOutputHistoryWrite(
         state: historyState,
@@ -1700,7 +1779,8 @@ private func acceptedHistoryDeliveryAuthorization(
             fileRevision: IOSStrictProtectedRecordFileRevision(
                 testingToken: UInt64(index + 1)
             )
-        )
+        ),
+        capabilityOwnerIdentity: capabilityOwnerIdentity
     )
 }
 
@@ -1714,13 +1794,16 @@ private func acceptedHistoryReauthorizedDelivery(
             fileRevision: IOSStrictProtectedRecordFileRevision(
                 testingToken: fileRevisionToken
             )
-        )
+        ),
+        capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
     )
 }
 
 private func historyPolicyReceipt(
     generation: Int64,
-    enabled: Bool
+    enabled: Bool,
+    capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+        acceptedHistoryCapabilityOwnerIdentity
 ) async throws -> IOSHistoryPolicyReceipt {
     let state = try IOSHistoryPolicyState(
         revision: generation,
@@ -1728,7 +1811,10 @@ private func historyPolicyReceipt(
         policyGeneration: generation
     )
     let journal = AcceptedHistoryPolicyFakeJournal(state: state)
-    return try await IOSHistoryPolicyStore(journal: journal).confirm(
+    return try await IOSHistoryPolicyStore(
+        journal: journal,
+        capabilityOwnerIdentity: capabilityOwnerIdentity
+    ).confirm(
         expected: IOSHistoryPolicyExpectation(state: state)
     )
 }
@@ -1907,7 +1993,8 @@ private final class AcceptedHistoryFakeJournal:
     private var createFailure: Failure?
     private var replaceFailure: Failure?
     private var loadFailure: IOSAcceptedHistoryError?
-    private var delayedLoadCount = 0
+    private var frozenLoadRemainingCount = 0
+    private var frozenLoadSnapshot: IOSAcceptedHistoryJournalSnapshot?
     private var storedEvents: [String] = []
     var maintenanceReport = IOSStrictProtectedRecordMaintenanceReport.empty
 
@@ -1957,23 +2044,30 @@ private final class AcceptedHistoryFakeJournal:
         lock.withLock { loadFailure = error }
     }
 
-    func delayNextLoads(_ count: Int) {
-        lock.withLock { delayedLoadCount = count }
+    func freezeNextLoads(_ count: Int) {
+        precondition(count > 0)
+        lock.withLock {
+            precondition(frozenLoadRemainingCount == 0)
+            frozenLoadRemainingCount = count
+            frozenLoadSnapshot = snapshot
+        }
     }
 
     func load() throws -> IOSAcceptedHistoryJournalSnapshot? {
-        let result: (IOSAcceptedHistoryJournalSnapshot?, Bool) = try lock.withLock {
+        try lock.withLock {
             storedEvents.append("load")
             if let loadFailure {
                 self.loadFailure = nil
                 throw loadFailure
             }
-            let shouldDelay = delayedLoadCount > 0
-            if shouldDelay { delayedLoadCount -= 1 }
-            return (snapshot, shouldDelay)
+            guard frozenLoadRemainingCount > 0 else { return snapshot }
+            frozenLoadRemainingCount -= 1
+            let result = frozenLoadSnapshot
+            if frozenLoadRemainingCount == 0 {
+                frozenLoadSnapshot = nil
+            }
+            return result
         }
-        if result.1 { Thread.sleep(forTimeInterval: 0.02) }
-        return result.0
     }
 
     func create(
@@ -2124,29 +2218,45 @@ private final class AcceptedHistoryTestClock: @unchecked Sendable {
 
 private final class AcceptedHistoryOutboxStoreFixture: @unchecked Sendable {
     let journal = AcceptedHistoryOutboxFakeJournal()
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+
+    init(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            acceptedHistoryCapabilityOwnerIdentity
+    ) {
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
+
     lazy var store = IOSAcceptedHistoryOutboxStore(
         journal: journal,
         now: {
             acceptedHistoryStoreDate().addingTimeInterval(60)
-        }
+        },
+        capabilityOwnerIdentity: capabilityOwnerIdentity
     )
 }
 
 private final class AcceptedHistoryStoreFixture: @unchecked Sendable {
     let journal = AcceptedHistoryFakeJournal()
     private let clock: AcceptedHistoryTestClock
+    private let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
     lazy var store = makeStore()
 
     init(
-        now: Date = acceptedHistoryStoreDate().addingTimeInterval(60)
+        now: Date = acceptedHistoryStoreDate().addingTimeInterval(60),
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            acceptedHistoryCapabilityOwnerIdentity
     ) {
         clock = AcceptedHistoryTestClock(now: now)
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     func makeStore() -> IOSAcceptedHistoryStore {
         IOSAcceptedHistoryStore(
             journal: journal,
-            now: { [clock] in clock.read() }
+            now: { [clock] in clock.read() },
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     }
 

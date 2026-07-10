@@ -20,6 +20,24 @@ struct IOSHistoryPolicyStoreTests {
         #expect(fixture.journal.events == ["load", "create:1"])
     }
 
+    @Test func foreignBaselineAuthorizationIsRejectedBeforeJournalIO() async {
+        let fixture = HistoryPolicyStoreFixture()
+        let foreignAuthorization = IOSHistoryPolicyBaselineAuthorization(
+            testingToken: (),
+            capabilityOwnerIdentity:
+                IOSAcceptedHistoryCapabilityOwnerIdentity()
+        )
+
+        await #expect(throws: IOSHistoryPolicyError.compareAndSwapFailed) {
+            try await fixture.store.establishAndConfirmBaseline(
+                authorization: foreignAuthorization
+            )
+        }
+
+        #expect(fixture.journal.events.isEmpty)
+        #expect(fixture.journal.currentState == nil)
+    }
+
     @Test func exactBaselineSlotRaceConvergesThroughIdenticalRewrite() async throws {
         let fixture = HistoryPolicyStoreFixture()
         fixture.journal.failNextCreate(
@@ -311,6 +329,36 @@ struct IOSHistoryPolicyStoreTests {
         #expect(fixture.journal.currentState?.revision == 2)
     }
 
+    @Test func storesSharingCapabilityOwnerCanUseTheSameReceipt() async throws {
+        let fixture = HistoryPolicyStoreFixture()
+        let baseline = try await fixture.establishBaseline()
+
+        let cleared = try await fixture.makeStore().clear(using: baseline)
+
+        #expect(cleared.state.revision == 2)
+        #expect(fixture.journal.currentState == cleared.state)
+    }
+
+    @Test func foreignReceiptIsRejectedBeforeJournalIO() async throws {
+        let fixture = HistoryPolicyStoreFixture()
+        let baseline = try await fixture.establishBaseline()
+        let foreignStore = fixture.makeStore(
+            capabilityOwnerIdentity:
+                IOSAcceptedHistoryCapabilityOwnerIdentity()
+        )
+        fixture.journal.resetEvents()
+
+        await #expect(throws: IOSHistoryPolicyError.compareAndSwapFailed) {
+            try await foreignStore.clear(using: baseline)
+        }
+        await #expect(throws: IOSHistoryPolicyError.compareAndSwapFailed) {
+            try await foreignStore.setHistoryEnabled(false, using: baseline)
+        }
+
+        #expect(fixture.journal.events.isEmpty)
+        #expect(fixture.journal.currentState == .baseline)
+    }
+
     @Test func competingIdenticalClearsHaveExactlyOneWinner() async throws {
         let fixture = HistoryPolicyStoreFixture()
         let baseline = try await fixture.establishBaseline()
@@ -538,11 +586,19 @@ private final class HistoryPolicyFakeJournal:
 
 private final class HistoryPolicyStoreFixture: @unchecked Sendable {
     let journal = HistoryPolicyFakeJournal()
+    let capabilityOwnerIdentity = IOSAcceptedHistoryCapabilityOwnerIdentity()
     lazy var store = makeStore()
 
     func makeStore() -> IOSHistoryPolicyStore {
+        makeStore(capabilityOwnerIdentity: capabilityOwnerIdentity)
+    }
+
+    func makeStore(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) -> IOSHistoryPolicyStore {
         IOSHistoryPolicyStore(
             journal: journal,
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
             now: { Date(timeIntervalSince1970: 1_800_000_000) }
         )
     }
@@ -550,7 +606,8 @@ private final class HistoryPolicyStoreFixture: @unchecked Sendable {
     func establishBaseline() async throws -> IOSHistoryPolicyReceipt {
         try await store.establishAndConfirmBaseline(
             authorization: IOSHistoryPolicyBaselineAuthorization(
-                testingToken: ()
+                testingToken: (),
+                capabilityOwnerIdentity: capabilityOwnerIdentity
             )
         )
     }

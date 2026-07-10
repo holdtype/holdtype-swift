@@ -1,7 +1,13 @@
 import Foundation
 
 struct IOSAcceptedHistoryOutboxGuardedBaselineEvidence: Sendable {
-    fileprivate init() {}
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+
+    fileprivate init(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) {
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
 }
 
 extension IOSAcceptedHistoryOutboxGuardedBaselineEvidence:
@@ -93,12 +99,15 @@ struct IOSAcceptedHistoryOutboxReceipt: Equatable, Sendable {
     fileprivate let origin: IOSAcceptedHistoryOutboxReceiptOrigin
     fileprivate let entry: IOSAcceptedHistoryOutboxEntry
     fileprivate let snapshot: IOSAcceptedHistoryOutboxJournalSnapshot
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
     func provesMembershipForDeliveryRemoval(
         for delivery: IOSAcceptedOutputDeliveryAuthorization
     ) -> Bool {
         guard case .delivery(let originatingDelivery) = origin,
-              originatingDelivery == delivery else {
+              originatingDelivery == delivery,
+              capabilityOwnerIdentity
+                == delivery.capabilityOwnerIdentity else {
             return false
         }
         return confirmedEntryForAcceptedDecision() != nil
@@ -108,7 +117,9 @@ struct IOSAcceptedHistoryOutboxReceipt: Equatable, Sendable {
         for observation: IOSAcceptedHistoryOutboxObservation
     ) -> Bool {
         guard case .observation(let originatingObservation) = origin,
-              originatingObservation == observation else {
+              originatingObservation == observation,
+              capabilityOwnerIdentity
+                == observation.capabilityOwnerIdentity else {
             return false
         }
         return confirmedEntryForAcceptedDecision() != nil
@@ -149,13 +160,16 @@ extension IOSAcceptedHistoryOutboxReceipt: CustomStringConvertible,
 struct IOSAcceptedHistoryOutboxObservation: Equatable, Sendable {
     let entry: IOSAcceptedHistoryOutboxEntry
     fileprivate let snapshot: IOSAcceptedHistoryOutboxJournalSnapshot
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
     fileprivate init(
         entry: IOSAcceptedHistoryOutboxEntry,
-        snapshot: IOSAcceptedHistoryOutboxJournalSnapshot
+        snapshot: IOSAcceptedHistoryOutboxJournalSnapshot,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     ) {
         self.entry = entry
         self.snapshot = snapshot
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 }
 
@@ -172,6 +186,8 @@ extension IOSAcceptedHistoryOutboxObservation: CustomStringConvertible,
 /// Internal ownership primitive. The coordinator supplies confirmed delivery
 /// and policy capabilities and later consumes the exact membership receipt.
 actor IOSAcceptedHistoryOutboxStore {
+    nonisolated let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
     private enum Source: Equatable, Sendable {
         case missing
         case existing(IOSAcceptedHistoryOutboxJournalSnapshot)
@@ -259,19 +275,27 @@ actor IOSAcceptedHistoryOutboxStore {
     private let now: @Sendable () -> Date
     private var uncertainIntent: UncertainIntent?
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
         journal = FoundationIOSAcceptedHistoryOutboxJournalRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
         now = { Date() }
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     init(
         journal: any IOSAcceptedHistoryOutboxJournalStoring,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
         self.journal = journal
         self.now = now
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     func load() throws -> IOSAcceptedHistoryOutboxEnvelope? {
@@ -289,7 +313,9 @@ actor IOSAcceptedHistoryOutboxStore {
         guard try journal.load()?.envelope.entries.isEmpty != false else {
             throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         }
-        return IOSAcceptedHistoryOutboxGuardedBaselineEvidence()
+        return IOSAcceptedHistoryOutboxGuardedBaselineEvidence(
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+        )
     }
 
     func observe() throws -> [IOSAcceptedHistoryOutboxObservation]? {
@@ -300,7 +326,8 @@ actor IOSAcceptedHistoryOutboxStore {
         return snapshot.envelope.entries.map {
             IOSAcceptedHistoryOutboxObservation(
                 entry: $0,
-                snapshot: snapshot
+                snapshot: snapshot,
+                capabilityOwnerIdentity: capabilityOwnerIdentity
             )
         }
     }
@@ -309,6 +336,10 @@ actor IOSAcceptedHistoryOutboxStore {
         delivery: IOSAcceptedOutputDeliveryAuthorization,
         policy: IOSHistoryPolicyReceipt
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard delivery.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         guard uncertainIntent?.operation.isRetirement != true else {
             throw IOSAcceptedHistoryOutboxError.commitUncertain
         }
@@ -374,6 +405,9 @@ actor IOSAcceptedHistoryOutboxStore {
     func confirmMembership(
         delivery: IOSAcceptedOutputDeliveryAuthorization
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard delivery.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         guard uncertainIntent?.operation.isRetirement != true else {
             throw IOSAcceptedHistoryOutboxError.commitUncertain
         }
@@ -407,6 +441,10 @@ actor IOSAcceptedHistoryOutboxStore {
     func confirmMembership(
         observation: IOSAcceptedHistoryOutboxObservation
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
+        guard observation.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         guard uncertainIntent?.operation.isRetirement != true else {
             throw IOSAcceptedHistoryOutboxError.commitUncertain
         }
@@ -453,6 +491,11 @@ actor IOSAcceptedHistoryOutboxStore {
         membership: IOSAcceptedHistoryOutboxReceipt,
         decision: IOSAcceptedHistoryRowReceipt
     ) throws {
+        guard membership.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              decision.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         try retire(
             operation: .processedRetirement(membership, decision)
         )
@@ -462,6 +505,10 @@ actor IOSAcceptedHistoryOutboxStore {
         membership: IOSAcceptedHistoryOutboxReceipt,
         policy: IOSHistoryPolicyReceipt
     ) throws {
+        guard membership.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         try retire(
             operation: .invalidatedRetirement(membership, policy)
         )
@@ -470,6 +517,10 @@ actor IOSAcceptedHistoryOutboxStore {
     func retireExpired(
         membership: IOSAcceptedHistoryOutboxReceipt
     ) throws {
+        guard membership.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
         try retire(operation: .expiredRetirement(membership))
     }
 
@@ -811,7 +862,8 @@ private extension IOSAcceptedHistoryOutboxStore {
             return IOSAcceptedHistoryOutboxReceipt(
                 origin: operation.receiptOrigin,
                 entry: operation.entry,
-                snapshot: snapshot
+                snapshot: snapshot,
+                capabilityOwnerIdentity: capabilityOwnerIdentity
             )
         } catch IOSAcceptedHistoryOutboxError.commitUncertain {
             uncertainIntent = intent

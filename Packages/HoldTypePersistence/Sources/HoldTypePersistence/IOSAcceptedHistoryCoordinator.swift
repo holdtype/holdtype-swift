@@ -4,17 +4,30 @@ import Foundation
 /// Sealed proof that the containing-app coordinator observed every legacy
 /// History owner as absent or empty before creating the physical 1/1 policy.
 struct IOSHistoryPolicyBaselineAuthorization: Sendable {
-    fileprivate init(
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+
+    init(
         acceptedHistory: IOSAcceptedHistoryGuardedBaselineEvidence,
         outbox: IOSAcceptedHistoryOutboxGuardedBaselineEvidence,
         delivery: IOSAcceptedOutputDeliveryGuardedBaselineEvidence
-    ) {
-        _ = acceptedHistory
-        _ = outbox
-        _ = delivery
+    ) throws {
+        guard acceptedHistory.capabilityOwnerIdentity
+                == outbox.capabilityOwnerIdentity,
+              acceptedHistory.capabilityOwnerIdentity
+                == delivery.capabilityOwnerIdentity else {
+            throw IOSHistoryPolicyError.compareAndSwapFailed
+        }
+        capabilityOwnerIdentity = acceptedHistory.capabilityOwnerIdentity
     }
 
-    init(testingToken: Void) {}
+    init(
+        testingToken: Void,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
+        _ = testingToken
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
 }
 
 extension IOSHistoryPolicyBaselineAuthorization: CustomStringConvertible,
@@ -66,24 +79,34 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let outboxStore: IOSAcceptedHistoryOutboxStore
     let deliveryStore: IOSAcceptedOutputDeliveryStore
     let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
+    let acceptanceState: IOSAcceptedHistoryAcceptanceOperationState
+    let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
 
     init(applicationSupportDirectoryURL: URL) {
+        let capabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
         self.applicationSupportDirectoryURL = applicationSupportDirectoryURL
+        ownerIdentity = capabilityOwnerIdentity
         policyStore = IOSHistoryPolicyStore(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         acceptedHistoryStore = IOSAcceptedHistoryStore(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         outboxStore = IOSAcceptedHistoryOutboxStore(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         deliveryStore = IOSAcceptedOutputDeliveryStore(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         baselineRecoveryState = IOSAcceptedHistoryBaselineRecoveryState()
+        acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
         repositoryIdentityState =
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
     }
@@ -494,23 +517,29 @@ extension IOSAcceptedHistoryCoordinatorError: CustomStringConvertible,
 /// value into delivery preparation but cannot choose a policy generation or
 /// construct a pending marker themselves.
 public struct IOSAcceptedOutputHistoryCapture: Equatable, Sendable {
-    fileprivate let policyReceipt: IOSHistoryPolicyReceipt
+    let policyReceipt: IOSHistoryPolicyReceipt
+    let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let historyWrite: IOSAcceptedOutputHistoryWrite?
 
     fileprivate init(
         policyReceipt: IOSHistoryPolicyReceipt,
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity,
         historyWrite: IOSAcceptedOutputHistoryWrite?
     ) {
         self.policyReceipt = policyReceipt
+        self.ownerIdentity = ownerIdentity
         self.historyWrite = historyWrite
     }
 
     init(
         testingPolicyReceipt policyReceipt: IOSHistoryPolicyReceipt,
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         historyWrite: IOSAcceptedOutputHistoryWrite?
     ) {
         self.init(
             policyReceipt: policyReceipt,
+            ownerIdentity: ownerIdentity
+                ?? policyReceipt.capabilityOwnerIdentity,
             historyWrite: historyWrite
         )
     }
@@ -536,15 +565,17 @@ public actor IOSAcceptedHistoryCoordinator {
     private static let processContextRegistry =
         IOSAcceptedHistoryCoordinatorProcessContextRegistry()
 
-    private let policyStore: IOSHistoryPolicyStore
-    private let acceptedHistoryStore: IOSAcceptedHistoryStore
+    let policyStore: IOSHistoryPolicyStore
+    let acceptedHistoryStore: IOSAcceptedHistoryStore
     private let outboxStore: IOSAcceptedHistoryOutboxStore
-    private let deliveryStore: IOSAcceptedOutputDeliveryStore
-    private let operationGate: IOSPersistenceOperationGate
+    let deliveryStore: IOSAcceptedOutputDeliveryStore
+    let operationGate: IOSPersistenceOperationGate
     private let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
-    private let repositoryIdentityState:
+    let acceptanceState: IOSAcceptedHistoryAcceptanceOperationState
+    let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
+    let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
-    private let repositoryRegistration:
+    let repositoryRegistration:
         IOSAcceptedHistoryCoordinatorRepositoryRegistration?
 
     public init(applicationSupportDirectoryURL: URL) {
@@ -557,6 +588,8 @@ public actor IOSAcceptedHistoryCoordinator {
         deliveryStore = context.deliveryStore
         operationGate = Self.processOperationGate
         baselineRecoveryState = context.baselineRecoveryState
+        acceptanceState = context.acceptanceState
+        ownerIdentity = context.ownerIdentity
         repositoryIdentityState = context.repositoryIdentityState
         repositoryRegistration =
             IOSAcceptedHistoryCoordinatorRepositoryRegistration(
@@ -573,15 +606,26 @@ public actor IOSAcceptedHistoryCoordinator {
         outboxStore: IOSAcceptedHistoryOutboxStore,
         deliveryStore: IOSAcceptedOutputDeliveryStore
     ) {
+        let capabilityOwnerIdentity = policyStore.capabilityOwnerIdentity
+        let identityState =
+            IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
         self.policyStore = policyStore
         self.acceptedHistoryStore = acceptedHistoryStore
         self.outboxStore = outboxStore
         self.deliveryStore = deliveryStore
         operationGate = Self.processOperationGate
         baselineRecoveryState = IOSAcceptedHistoryBaselineRecoveryState()
-        repositoryIdentityState =
-            IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
+        acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
+        ownerIdentity = capabilityOwnerIdentity
+        repositoryIdentityState = identityState
         repositoryRegistration = nil
+        if acceptedHistoryStore.capabilityOwnerIdentity
+                != capabilityOwnerIdentity
+            || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
+            || deliveryStore.capabilityOwnerIdentity
+                != capabilityOwnerIdentity {
+            identityState.markConflicted()
+        }
     }
 
     init(
@@ -592,20 +636,35 @@ public actor IOSAcceptedHistoryCoordinator {
         operationGate: IOSPersistenceOperationGate,
         baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState =
             IOSAcceptedHistoryBaselineRecoveryState(),
+        acceptanceState: IOSAcceptedHistoryAcceptanceOperationState =
+            IOSAcceptedHistoryAcceptanceOperationState(),
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         repositoryIdentityState:
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState =
                 IOSAcceptedHistoryCoordinatorRepositoryIdentityState(),
         repositoryRegistration:
             IOSAcceptedHistoryCoordinatorRepositoryRegistration? = nil
     ) {
+        let capabilityOwnerIdentity = ownerIdentity
+            ?? policyStore.capabilityOwnerIdentity
         self.policyStore = policyStore
         self.acceptedHistoryStore = acceptedHistoryStore
         self.outboxStore = outboxStore
         self.deliveryStore = deliveryStore
         self.operationGate = operationGate
         self.baselineRecoveryState = baselineRecoveryState
+        self.acceptanceState = acceptanceState
+        self.ownerIdentity = capabilityOwnerIdentity
         self.repositoryIdentityState = repositoryIdentityState
         self.repositoryRegistration = repositoryRegistration
+        if policyStore.capabilityOwnerIdentity != capabilityOwnerIdentity
+            || acceptedHistoryStore.capabilityOwnerIdentity
+                != capabilityOwnerIdentity
+            || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
+            || deliveryStore.capabilityOwnerIdentity
+                != capabilityOwnerIdentity {
+            repositoryIdentityState.markConflicted()
+        }
     }
 
     public func capture(
@@ -626,6 +685,7 @@ public actor IOSAcceptedHistoryCoordinator {
         let baselineRecoveryState = baselineRecoveryState
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
+        let ownerIdentity = ownerIdentity
 
         do {
             let capture = try await operationGate.perform {
@@ -673,6 +733,7 @@ public actor IOSAcceptedHistoryCoordinator {
                         )
                         let capture = IOSAcceptedOutputHistoryCapture(
                             policyReceipt: receipt,
+                            ownerIdentity: ownerIdentity,
                             historyWrite: receipt.state.historyEnabled
                                 ? pendingMarker
                                 : nil
@@ -729,7 +790,7 @@ private extension IOSAcceptedHistoryCoordinator {
             .proveGuardedBaseline()
         let outbox = try await outboxStore.proveGuardedBaseline()
         let delivery = try await deliveryStore.proveGuardedBaseline()
-        let authorization = IOSHistoryPolicyBaselineAuthorization(
+        let authorization = try IOSHistoryPolicyBaselineAuthorization(
             acceptedHistory: acceptedHistory,
             outbox: outbox,
             delivery: delivery

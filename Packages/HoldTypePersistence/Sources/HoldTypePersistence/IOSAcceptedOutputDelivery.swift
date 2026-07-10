@@ -372,10 +372,15 @@ public enum IOSAcceptedOutputDeliveryObservation: Equatable, Sendable {
 public struct IOSAcceptedOutputDeliveryAuthorization: Sendable {
     public let record: IOSAcceptedOutputDeliveryRecord
     let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
-    init(snapshot: IOSAcceptedOutputDeliveryJournalSnapshot) {
+    init(
+        snapshot: IOSAcceptedOutputDeliveryJournalSnapshot,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) {
         record = snapshot.record
         self.snapshot = snapshot
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 }
 
@@ -385,6 +390,7 @@ extension IOSAcceptedOutputDeliveryAuthorization: Equatable {
         rhs: IOSAcceptedOutputDeliveryAuthorization
     ) -> Bool {
         lhs.snapshot == rhs.snapshot
+            && lhs.capabilityOwnerIdentity == rhs.capabilityOwnerIdentity
     }
 }
 
@@ -395,6 +401,13 @@ struct IOSAcceptedOutputHistoryOwnershipProof: Equatable, Sendable {
     }
 
     private let evidence: Evidence
+
+    var capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity {
+        switch evidence {
+        case .retainedRow(let receipt): receipt.capabilityOwnerIdentity
+        case .outbox(let receipt): receipt.capabilityOwnerIdentity
+        }
+    }
 
     init(retainedRowReceipt: IOSAcceptedHistoryRowReceipt) {
         evidence = .retainedRow(retainedRowReceipt)

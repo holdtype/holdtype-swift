@@ -226,12 +226,20 @@ struct IOSAcceptedOutputDeliveryValueTests {
             transcriptionLanguageCode: "en",
             durationMilliseconds: 10
         )
+        let ownerIdentity = IOSAcceptedHistoryCoordinatorOwnerIdentity()
         let firstCapture = IOSAcceptedOutputHistoryCapture(
             testingPolicyReceipt: firstReceipt,
+            ownerIdentity: ownerIdentity,
             historyWrite: marker
         )
         let secondCapture = IOSAcceptedOutputHistoryCapture(
             testingPolicyReceipt: secondReceipt,
+            ownerIdentity: ownerIdentity,
+            historyWrite: marker
+        )
+        let otherOwnerCapture = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: firstReceipt,
+            ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity(),
             historyWrite: marker
         )
         let deliveryID = UUID()
@@ -258,6 +266,7 @@ struct IOSAcceptedOutputDeliveryValueTests {
         let first = try preparation(capture: firstCapture)
         let identical = try preparation(capture: firstCapture)
         let physicallyDifferent = try preparation(capture: secondCapture)
+        let differentOwner = try preparation(capture: otherOwnerCapture)
         let raw = try IOSAcceptedOutputDeliveryPreparation(
             deliveryID: deliveryID,
             sessionID: sessionID,
@@ -272,6 +281,7 @@ struct IOSAcceptedOutputDeliveryValueTests {
 
         #expect(first == identical)
         #expect(first != physicallyDifferent)
+        #expect(first != differentOwner)
         #expect(first != raw)
         #expect(first.historyWrite == physicallyDifferent.historyWrite)
     }
@@ -377,6 +387,40 @@ struct IOSAcceptedOutputDeliveryValueTests {
             #expect(!rendered.contains(canary))
             #expect(!rendered.contains("SECRET-MODEL"))
         }
+    }
+
+    @Test func authorizationEqualityIncludesCapabilityOwner() throws {
+        let preparation = try makePreparation(
+            rawAcceptedText: "AUTHORIZATION-OWNER-SECRET"
+        )
+        let record = try makeRecord(from: preparation)
+        let snapshot = IOSAcceptedOutputDeliveryJournalSnapshot(
+            record: record,
+            fileRevision: IOSStrictProtectedRecordFileRevision(
+                testingToken: 42
+            )
+        )
+        let owner = IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let first = IOSAcceptedOutputDeliveryAuthorization(
+            snapshot: snapshot,
+            capabilityOwnerIdentity: owner
+        )
+        let identical = IOSAcceptedOutputDeliveryAuthorization(
+            snapshot: snapshot,
+            capabilityOwnerIdentity: owner
+        )
+        let foreign = IOSAcceptedOutputDeliveryAuthorization(
+            snapshot: snapshot,
+            capabilityOwnerIdentity:
+                IOSAcceptedHistoryCapabilityOwnerIdentity()
+        )
+
+        #expect(first == identical)
+        #expect(first != foreign)
+        let rendered = String(describing: first)
+            + String(reflecting: foreign)
+        #expect(rendered.contains("redacted"))
+        #expect(!rendered.contains("AUTHORIZATION-OWNER-SECRET"))
     }
 }
 

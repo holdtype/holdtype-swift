@@ -325,10 +325,12 @@ host app, state, expected result, actual result, and go/no-go decision.
   dependency. The app-private accepted-output delivery foundation is now a
   completed P2 checkpoint: its strict 24-hour recovery record, identity/state
   contract, History-write marker, CAS, and uncertainty handling remain outside
-  the keyboard. The next P2 storage checkpoint is the app-private History policy
-  plus accepted-History repository/outbox; bounded failed History and the
-  independent recording cache follow. All remain outside the keyboard until the
-  directional bridge contract is implemented behind the physical M0 gates. The
+  the keyboard. The accepted-History policy/repository/outbox foundation is
+  also complete through normal acceptance and provider-free relaunch recovery;
+  pending-delivery transfer, the FIFO outbox worker, and cutover cleanup finish
+  that P2 chain next. Bounded failed History and the independent recording cache
+  follow. All remain outside the keyboard until the directional bridge contract
+  is implemented behind the physical M0 gates. The
   runtime-only four-case `VoiceAttemptStage` is portable too, while preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain
   separate. The containing-app output handoff is now narrowed to accepted text

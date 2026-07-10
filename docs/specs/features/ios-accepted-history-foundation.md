@@ -233,6 +233,19 @@ The coordinator issues opaque, process-local, non-Codable, redacted receipts
 bound to exact identity, policy generation, logical revision, and file
 revision:
 
+One opaque capability-owner identity belongs to the process context for an
+Application Support root and is injected into its policy, accepted-row, outbox,
+delivery, and coordinator owners. Policy, delivery, row, outbox-observation,
+outbox-membership, guarded-baseline, and combined-baseline capabilities carry
+that identity. Every consumer validates its own owner and every input owner
+before uncertainty, time, or journal I/O. Byte-identical capabilities from a
+different root are therefore rejected with zero storage work. Standalone test
+or injection stores default to distinct owners; an injected coordinator with a
+mixed owner graph is permanently repository-conflicted before capture or
+acceptance. Same-root aliases share one process context and owner. Records,
+expectations, and journal mutation tokens are not capabilities and carry no
+owner identity.
+
 Within one app process, coordinator transactions use a FIFO, non-reentrant gate
 across suspension points. Cancellation before acquisition performs no
 transaction work; after acquisition, success, failure, or caller cancellation
@@ -254,6 +267,45 @@ generation; callers cannot choose a generation or construct a pending marker
 from a Boolean. The coordinator revalidates that generation after the delivery
 commit. A cutover during acceptance cancels the stale marker and never upserts a
 row.
+
+Normal acceptance accepts only a preparation carrying the exact opaque capture
+that created its marker. A raw or capture-less preparation is not a production
+input. Each capture is also bound to the opaque process context for its
+Application Support root; another root rejects it before delivery I/O. Its
+public redacted result carries the durable accepted-delivery record and exactly
+one of four History resolutions:
+`notRequested`, `committed`, `cancelled`, and `pendingLocalRecovery`.
+Owner validation runs inside the FIFO transaction after repository-binding
+prevalidation and before delivery I/O.
+
+Durable delivery acceptance is the provider-replay boundary. A delivery failure
+before that boundary remains a typed thrown error. Once delivery acceptance is
+durably confirmed, policy, row, marker, protection, CAS, expiry, or local-read
+failure returns `pendingLocalRecovery`; provider work is never repeated. The
+one process context for an Application Support root retains the exact delivery
+authorization, confirmed policy receipt, row receipt, or invalidation receipt
+for the current phase. A commit-uncertain retry uses those byte- and
+physical-revision-identical capabilities and cannot reauthorize or reconstruct
+them from caller data.
+The shared phase is consulted before another delivery load or acceptance. An
+exact same-preparation retry resumes it; different work cannot replace it.
+After the second policy confirmation succeeds, a distinct pre-marker phase
+retains the exact delivery authorization and row receipt, so an uncertain
+marker commit retries that operation without another policy branch.
+
+Delivery acceptance also seals whether the record was freshly committed by
+the current process or was already present. That provenance survives visible
+and invisible commit uncertainty. A preexisting pending record always follows
+relaunch recovery even if a new current-owner capture reconstructs the same
+IDs and bytes; it may confirm exact row membership but never upserts an absent
+row. A freshly committed record alone may run the normal row decision.
+
+Repository-binding finalization runs on success and every error. A conflict
+before delivery acceptance remains thrown. A conflict discovered after the
+durable delivery boundary returns `pendingLocalRecovery` with the accepted
+record and preserves any exact retained phase; it never signals provider
+replay. Once a recovery transaction has observed a durable delivery, later
+supersession reload or read failure cannot erase that post-boundary fact.
 
 After process loss, a receipt is recovered only by strict reload, identity
 validation, and identical durability confirmation. A Boolean, stale revision,
@@ -278,6 +330,47 @@ Normal accepted-History order is:
 If policy changes before step 5, the row is hidden and later removed; the
 pending marker is cancelled with the invalidation receipt. A marker already
 committed before later cutover stays terminal while its stale row is hidden.
+
+`recoverAcceptedHistory()` is a provider-free coordinator entrypoint returning
+an optional History resolution; callers cannot select its internal phase or
+supply receipts. Missing delivery means no work and returns nil.
+An active record is strictly loaded and identically rewritten before any local
+decision. A null marker returns `notRequested`; cancelled is terminal. A
+committed marker is terminal proof of a durable retained-or-not-retained row
+decision after the generic delivery rewrite. The coordinator may identically
+confirm an exact row when present, never inserts an absent row, and exact
+absence remains committed. A pending marker under the still-enabled matching
+generation confirms membership only: present membership may finish the marker,
+while an absent row remains `pendingLocalRecovery` for later outbox/worker
+handling.
+A strictly newer confirmed policy cancels a pending marker with that exact
+invalidation receipt. Expired delivery is identically confirmed and removed as
+bounded abandonment without row or marker work; successful removal returns nil
+because no delivery remains, while removal failure returns
+`pendingLocalRecovery`. Clock rollback performs no mutation and returns
+`pendingLocalRecovery`. Process-retained fresh acceptance phase may
+resume its exact `decideUpsert`; relaunched recovery never does.
+Retained row or marker uncertainty is replayed with its exact capability before
+expiry or rollback branching. A visible intended row or terminal marker may be
+identically confirmed after expiry; an invisible row or marker intent is first
+definitively cleared, then bounded delivery abandonment may run.
+Before abandonment confirmation, the coordinator stores a sealed observation
+that the exact delivery was expired and bridge-revoked. Its confirmation and
+the resulting exact physical removal authorization never resample time or
+return to row, policy, or marker work. Absent is success; the same logical
+record at another physical revision is identically reconfirmed before removal;
+a genuinely different current delivery supersedes the old authorization and is
+reloaded without deletion. Read, protection, confirmation, and removal
+uncertainty retain only this removal phase, including across later rollback.
+Both expiry-sealed values additionally carry the opaque identity of their
+issuing delivery-store instance;
+another Application Support root rejects even byte-identical copied delivery
+state before journal I/O. Same-root aliases share the one process store owner.
+
+If expiry is reached after normal delivery acceptance crossed the replay
+boundary, that call returns `pendingLocalRecovery` with its accepted delivery
+record even when bounded abandonment succeeds; a later recovery observes no
+remaining delivery and returns nil. Expiry never reports a cancelled marker.
 
 Before clear/replacement can remove a pending marker, transfer commits the exact
 outbox entry first. Delivery removal requires opaque proof of exact outbox

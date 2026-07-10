@@ -627,6 +627,133 @@ struct IOSAcceptedOutputDeliveryStoreTests {
         }
     }
 
+    @Test func crossOwnerHistoryCapabilitiesFailBeforeDeliveryJournalIO()
+        async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let (_, authorization) = try await fixture.acceptAndAuthorize()
+        let localRow = try await fixture.retainedRowReceipt(
+            for: authorization
+        )
+        let localOwnership = IOSAcceptedOutputHistoryOwnershipProof(
+            retainedRowReceipt: localRow
+        )
+        let foreignOwner = IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let foreignAuthorization = IOSAcceptedOutputDeliveryAuthorization(
+            snapshot: authorization.snapshot,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        #expect(foreignAuthorization != authorization)
+        let foreignRow = try await fixture.retainedRowReceipt(
+            for: foreignAuthorization,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignOwnership = IOSAcceptedOutputHistoryOwnershipProof(
+            retainedRowReceipt: foreignRow
+        )
+        let foreignInvalidation = try await fixture.policyReceipt(
+            generation: 2,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        fixture.journal.resetEvents()
+        fixture.clock.resetWallReadCount()
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            _ = try await fixture.store.commitHistoryWrite(
+                authorization: authorization,
+                rowReceipt: foreignRow
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            _ = try await fixture.store.clearPendingHistory(
+                authorization: authorization,
+                ownershipProof: foreignOwnership
+            )
+        }
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            _ = try await fixture.store.cancelHistoryWrite(
+                authorization: authorization,
+                policyInvalidationReceipt: foreignInvalidation
+            )
+        }
+
+        let marker = try #require(authorization.record.historyWrite)
+        let localPolicy = try await fixture.policyReceipt(generation: 1)
+        let foreignCapturePolicy = try await fixture.policyReceipt(
+            generation: 1,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignDisabledPolicy = try await fixture.policyReceipt(
+            generation: 2,
+            enabled: false,
+            capabilityOwnerIdentity: foreignOwner
+        )
+        let foreignCaptureOwner = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: localPolicy,
+            ownerIdentity: foreignOwner,
+            historyWrite: marker
+        )
+        let foreignCapturePolicyOwner = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: foreignCapturePolicy,
+            ownerIdentity: fixture.capabilityOwnerIdentity,
+            historyWrite: marker
+        )
+        let foreignDisabledPolicyOwner = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: foreignDisabledPolicy,
+            ownerIdentity: fixture.capabilityOwnerIdentity,
+            historyWrite: nil
+        )
+
+        func preparation(
+            capture: IOSAcceptedOutputHistoryCapture
+        ) throws -> IOSAcceptedOutputDeliveryPreparation {
+            try IOSAcceptedOutputDeliveryPreparation(
+                deliveryID: UUID(),
+                sessionID: UUID(),
+                attemptID: UUID(),
+                transcriptID: UUID(),
+                rawAcceptedText: "replacement",
+                outputIntent: .standard,
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: true,
+                historyCapture: capture
+            )
+        }
+
+        for capture in [
+            foreignCaptureOwner,
+            foreignCapturePolicyOwner,
+            foreignDisabledPolicyOwner,
+        ] {
+            let replacement = try preparation(capture: capture)
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidPreparation
+            ) {
+                _ = try await fixture.store.acceptForHistoryCoordinator(
+                    replacement
+                )
+            }
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidPreparation
+            ) {
+                _ = try await fixture.store.replacePendingHistory(
+                    with: replacement,
+                    authorization: authorization,
+                    ownershipProof: localOwnership
+                )
+            }
+        }
+
+        #expect(fixture.journal.events.isEmpty)
+        #expect(fixture.clock.wallReadCount == 0)
+        #expect(fixture.journal.currentRecord == authorization.record)
+    }
+
     @Test func historyCancelIsOneWayIdempotentAndConflictsWithCommit() async throws {
         let fixture = AcceptedDeliveryStoreFixture()
         let (_, authorization) = try await fixture.acceptAndAuthorize()
@@ -2653,7 +2780,15 @@ private final class AcceptedDeliveryFakeJournal:
 private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
     let journal = AcceptedDeliveryFakeJournal()
     let clock = AcceptedDeliveryTestClock()
+    let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     lazy var store = makeStore()
+
+    init(
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
+            IOSAcceptedHistoryCapabilityOwnerIdentity()
+    ) {
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+    }
 
     func makeStore() -> IOSAcceptedOutputDeliveryStore {
         IOSAcceptedOutputDeliveryStore(
@@ -2661,7 +2796,8 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
             now: { [clock] in clock.wall },
             monotonicNowNanoseconds: {
                 [clock] in clock.monotonicNanoseconds
-            }
+            },
+            capabilityOwnerIdentity: capabilityOwnerIdentity
         )
     }
 
@@ -2682,7 +2818,9 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
     func policyReceipt(
         generation: Int64 = 1,
         enabled: Bool = true,
-        fileRevisionToken: UInt64 = 1
+        fileRevisionToken: UInt64 = 1,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity?
+            = nil
     ) async throws -> IOSHistoryPolicyReceipt {
         let state = try IOSHistoryPolicyState(
             revision: generation,
@@ -2693,25 +2831,35 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
             state: state,
             fileRevisionToken: fileRevisionToken
         )
-        return try await IOSHistoryPolicyStore(journal: journal).confirm(
+        return try await IOSHistoryPolicyStore(
+            journal: journal,
+            capabilityOwnerIdentity: capabilityOwnerIdentity
+                ?? self.capabilityOwnerIdentity
+        ).confirm(
             expected: IOSHistoryPolicyExpectation(state: state)
         )
     }
 
     func retainedRowReceipt(
         for authorization: IOSAcceptedOutputDeliveryAuthorization,
-        fileRevisionToken: UInt64 = 1
+        fileRevisionToken: UInt64 = 1,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity?
+            = nil
     ) async throws -> IOSAcceptedHistoryRowReceipt {
+        let receiptOwner = capabilityOwnerIdentity
+            ?? authorization.capabilityOwnerIdentity
         let policy = try await policyReceipt(
             generation: try #require(
                 authorization.record.historyWrite
-            ).policyGeneration
+            ).policyGeneration,
+            capabilityOwnerIdentity: receiptOwner
         )
         return try await IOSAcceptedHistoryStore(
             journal: AcceptedDeliveryHistoryFakeJournal(
                 initialFileRevisionToken: fileRevisionToken
             ),
-            now: { [clock] in clock.wall }
+            now: { [clock] in clock.wall },
+            capabilityOwnerIdentity: receiptOwner
         ).decideUpsert(
             delivery: authorization,
             policy: policy
@@ -2744,13 +2892,15 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
         )
         let journal = AcceptedDeliveryHistoryFakeJournal(envelope: envelope)
         let policy = try await policyReceipt(
-            generation: marker.policyGeneration
+            generation: marker.policyGeneration,
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         )
         return try await IOSAcceptedHistoryStore(
             journal: journal,
             now: {
                 authorization.record.createdAt.addingTimeInterval(100)
-            }
+            },
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         ).decideUpsert(
             delivery: authorization,
             policy: policy
@@ -2762,11 +2912,13 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
     ) async throws -> IOSAcceptedHistoryOutboxReceipt {
         let marker = try #require(authorization.record.historyWrite)
         let policy = try await policyReceipt(
-            generation: marker.policyGeneration
+            generation: marker.policyGeneration,
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         )
         return try await IOSAcceptedHistoryOutboxStore(
             journal: AcceptedDeliveryOutboxFakeJournal(),
-            now: { [clock] in clock.wall }
+            now: { [clock] in clock.wall },
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         ).transfer(
             delivery: authorization,
             policy: policy
@@ -2778,19 +2930,22 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
     ) async throws -> IOSAcceptedHistoryOutboxReceipt {
         let marker = try #require(authorization.record.historyWrite)
         let policy = try await policyReceipt(
-            generation: marker.policyGeneration
+            generation: marker.policyGeneration,
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         )
         let journal = AcceptedDeliveryOutboxFakeJournal()
         _ = try await IOSAcceptedHistoryOutboxStore(
             journal: journal,
-            now: { [clock] in clock.wall }
+            now: { [clock] in clock.wall },
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         ).transfer(
             delivery: authorization,
             policy: policy
         )
         let relaunched = IOSAcceptedHistoryOutboxStore(
             journal: journal,
-            now: { [clock] in clock.wall }
+            now: { [clock] in clock.wall },
+            capabilityOwnerIdentity: authorization.capabilityOwnerIdentity
         )
         let observations = try #require(try await relaunched.observe())
         return try await relaunched.confirmMembership(
@@ -2802,10 +2957,14 @@ private final class AcceptedDeliveryStoreFixture: @unchecked Sendable {
         for outbox: IOSAcceptedHistoryOutboxReceipt,
         policyGeneration: Int64 = 1
     ) async throws -> IOSAcceptedHistoryRowReceipt {
-        let policy = try await policyReceipt(generation: policyGeneration)
+        let policy = try await policyReceipt(
+            generation: policyGeneration,
+            capabilityOwnerIdentity: outbox.capabilityOwnerIdentity
+        )
         return try await IOSAcceptedHistoryStore(
             journal: AcceptedDeliveryHistoryFakeJournal(),
-            now: { [clock] in clock.wall }
+            now: { [clock] in clock.wall },
+            capabilityOwnerIdentity: outbox.capabilityOwnerIdentity
         ).decideUpsert(outbox: outbox, policy: policy)
     }
 
