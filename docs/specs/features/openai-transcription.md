@@ -26,7 +26,7 @@ This spec covers:
 
 ## Non-goals
 
-- implementing URLSession upload code
+- background `URLSession` transfer or a P6 background-continuation claim
 - calling the live OpenAI API during normal automation or tests
 - adding provider abstractions beyond the OpenAI MVP
 - using the translations endpoint, realtime transcription, diarization, speaker
@@ -38,10 +38,12 @@ This spec covers:
 
 ## Evidence
 
-- OpenAI Speech to Text guide, reviewed 2026-06-20:
+- OpenAI Speech to Text guide, reviewed 2026-07-10:
   `https://developers.openai.com/api/docs/guides/speech-to-text`
-- OpenAI Create transcription API reference, reviewed 2026-06-20:
+- OpenAI Create transcription API reference, reviewed 2026-07-10:
   `https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create`
+- Apple `URLSession.upload(for:fromFile:)`, reviewed 2026-07-10:
+  `https://developer.apple.com/documentation/foundation/urlsession/upload(for:fromfile:)`
 
 ## User-visible behavior
 
@@ -55,9 +57,21 @@ This spec covers:
   fails with a settings-focused error instead of silently changing providers.
 - The app should produce an OpenAI-supported upload format for MVP recordings,
   preferably `m4a` or `wav`.
-- If the audio file is missing, empty, too short to be useful, unsupported, or
-  too large for the OpenAI file upload limit, the app must fail before or
-  during transcription with a clear recording error.
+- The current adapter accepts only an existing regular `m4a` or `wav` file. It
+  rejects an empty file and any file whose size is greater than or equal to
+  25,000,000 bytes before provider contact.
+- Multipart preparation must not load the complete audio file into memory. It
+  copies audio into one app-owned scratch request body with reads no larger
+  than 64 KiB. Form fields remain ordered as `model`, `response_format`,
+  optional `language`, optional `prompt`, then `file`. The provider filename is
+  controlled as `recording.m4a` or `recording.wav` from the validated format;
+  the original local filename is never included.
+- Non-audio multipart bytes are capped at 1 MiB, and the complete body size is
+  calculated with overflow checking before upload. Oversized metadata is a
+  request-settings failure rather than an audio-file failure.
+- The foreground transport accepts at most 1 MiB of provider response data.
+  A larger declared or streamed response is cancelled and treated as an
+  unreadable provider response.
 - Language `Auto` sends no language parameter.
 - Language `English` sends `en`; language `Russian` sends `ru`.
 - A custom language must be a two- or three-letter ISO-639-style language code
@@ -221,8 +235,9 @@ request value.
 session/attempt/history identity, timestamp, recovery or output policy,
 authorization, response, persistence, App Group, keyboard, or logging
 semantics. File validation, MIME selection, multipart construction, in-memory
-audio reading, transport, timeout, and real cancellation remain platform-
-adapter concerns; bounded file-backed upload remains required in P2.
+response reading, transport, timeout, and real cancellation remain platform-
+adapter concerns. Multipart audio preparation is file-backed and bounded; the
+runtime request value still does not own its scratch-file lifecycle.
 
 ## Invariants
 
@@ -239,6 +254,27 @@ adapter concerns; bounded file-backed upload remains required in P2.
   from the dictation flow. It must not read Keychain, check key availability, or
   fall back to a developer key source while preparing or sending the request.
 - Missing or inaccessible API key blocks before upload.
+- The complete multipart body is uploaded from a file. The provider request
+  carries neither `httpBody` nor `httpBodyStream`, and the API key remains only
+  in the authorization header rather than the scratch file.
+- Multipart scratch storage is private to the containing app, protected and
+  excluded from backup where the platform supports those attributes. It uses
+  random path components that contain no source filename, attempt identity, or
+  user content.
+- Scratch cleanup is idempotent on success, validation failure, provider
+  failure, timeout, explicit cancellation, and parent-task cancellation. It
+  must not wait for a non-cooperative transport completion and must never
+  mutate or remove the source recording.
+- The adapter uses a normal foreground URL session. File-backed transport does
+  not by itself approve a background session or satisfy the separate P6 gate.
+- The foreground session is ephemeral, stores no cookies, cache, or URL
+  credentials, and follows redirects only within the exact original
+  scheme/host/effective-port origin. A rejected redirect never forwards the
+  authorization header or multipart body to another origin.
+- A process crash can leave an unreachable protected scratch file. Bounded
+  startup scavenging of only the exact HoldType multipart namespace belongs to
+  the later P2 containing-app storage reconciliation slice; this checkpoint
+  does not claim crash-orphan cleanup.
 - Post-capture transcription failure handling must not save, delete, clear,
   rewrite, or validate Keychain API key storage. It may only explain the error
   and offer navigation to Settings as an explicit user action.
@@ -290,7 +326,7 @@ adapter concerns; bounded file-backed upload remains required in P2.
 ## Timeout and retry policy
 
 - The MVP transcription request has a default 60 second maximum wait covering
-  upload and response.
+  multipart preparation, upload, and response.
 - Cancelling an in-flight transcription must synchronously cancel the actual
   transport task. Repeated cancellation and cancellation with no active request
   are safe no-ops, and the cancelled call completes with the existing
@@ -313,6 +349,9 @@ adapter concerns; bounded file-backed upload remains required in P2.
 - The user may retry a recoverable failed attempt from Transcript History.
 - Retrying a failed attempt is an explicit user action and counts as a new
   bounded OpenAI transcription request.
+- Retry reuses the retained source recording but builds a fresh scratch body
+  from current safe settings and a fresh multipart boundary. A prior scratch
+  body is never retained or reused.
 - A future implementation may add one bounded retry for clearly transient
   network or server failures, but it must not retry invalid credentials,
   invalid settings, unsupported audio, empty transcripts, or rate-limit
@@ -337,7 +376,11 @@ adapter concerns; bounded file-backed upload remains required in P2.
   the user to retry later.
 - Bad model, language, prompt, or file request: show that transcription
   settings or recording format need attention.
-- Unsupported file or file too large: show that the recording cannot be sent.
+- Unsupported, changed-during-preparation, or too-large file: show that the
+  recording cannot be sent.
+- Multipart scratch creation, protection, or write failure: preserve the
+  source recording and show that the request could not be prepared. Do not
+  misreport local storage failure as a provider rejection.
 - Empty transcript: show a no-speech or no-text-detected error and keep the
   previous transcript intact.
 - User cancellation: stop the current session without uploading new audio if

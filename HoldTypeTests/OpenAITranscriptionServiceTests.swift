@@ -11,6 +11,7 @@ import HoldTypeOpenAI
 import Testing
 @testable import HoldType
 
+@MainActor
 struct OpenAITranscriptionServiceTests {
 
     @Test func successfulResponseReturnsTrimmedTranscriptAndAuthorizedRequest() async throws {
@@ -41,7 +42,11 @@ struct OpenAITranscriptionServiceTests {
         let request = try #require(loader.requests.first)
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer sk-test-secret")
         #expect(request.timeoutInterval == 7)
-        #expect(request.httpBody?.contains(Data("sk-test-secret".utf8)) == false)
+        let body = try #require(loader.uploadedBodies.first)
+        #expect(request.httpBody == nil)
+        #expect(request.httpBodyStream == nil)
+        #expect(body.contains(Data("sk-test-secret".utf8)) == false)
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         #expect(sleeper.sleepCalls == [7])
     }
 
@@ -49,13 +54,8 @@ struct OpenAITranscriptionServiceTests {
         let audioFileURL = try makeTemporaryAudioFile()
         defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
 
-        let loader = FakeURLLoader(
-            result: .delayedSuccess(
-                Data(#"{"text":"late"}"#.utf8),
-                makeHTTPResponse(statusCode: 200)
-            )
-        )
-        let sleeper = FakeTimeoutSleeper(mode: .timeoutImmediately)
+        let loader = ControlledURLLoader(cancellationBehaviors: [.failImmediately])
+        let sleeper = RequestStartedProviderTimeoutSleeper(loader: loader)
         let service = makeService(loader: loader, sleeper: sleeper, requestTimeout: 3)
 
         await expectTranscriptionError(.timedOut) {
@@ -67,7 +67,8 @@ struct OpenAITranscriptionServiceTests {
 
         #expect(loader.requests.count == 1)
         #expect(loader.requests.first?.timeoutInterval == 3)
-        #expect(sleeper.sleepCalls == [3])
+        #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
     }
 
     @Test func explicitCancellationCancelsTransportAndIsIdempotent() async throws {
@@ -93,6 +94,7 @@ struct OpenAITranscriptionServiceTests {
         }
         try await loader.waitForCancellation(ofRequestAt: 0)
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
 
         service.cancelActiveTranscription()
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
@@ -139,6 +141,7 @@ struct OpenAITranscriptionServiceTests {
         case let .failure(error):
             Issue.record("Expected OpenAITranscriptionServiceError.cancelled, got \(error)")
         }
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         await transcription.value
     }
 
@@ -188,6 +191,7 @@ struct OpenAITranscriptionServiceTests {
         }
         try await loader.waitForCancellation(ofRequestAt: 0)
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
     }
 
     @Test func timeoutCancelsTransportWithoutChangingTimeoutError() async throws {
@@ -197,7 +201,7 @@ struct OpenAITranscriptionServiceTests {
         let loader = ControlledURLLoader(cancellationBehaviors: [.failImmediately])
         let service = makeService(
             loader: loader,
-            sleeper: FakeTimeoutSleeper(mode: .timeoutImmediately),
+            sleeper: RequestStartedProviderTimeoutSleeper(loader: loader),
             requestTimeout: 3
         )
 
@@ -211,6 +215,7 @@ struct OpenAITranscriptionServiceTests {
         try await loader.waitForRequestCount(1)
         try await loader.waitForCancellation(ofRequestAt: 0)
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
     }
 
     @Test func timeoutCompletesBeforeNonCooperativeLoaderReturns() async throws {
@@ -257,6 +262,7 @@ struct OpenAITranscriptionServiceTests {
         case let .failure(error):
             Issue.record("Expected OpenAITranscriptionServiceError.timedOut, got \(error)")
         }
+        #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         await transcription.value
     }
 
@@ -349,6 +355,34 @@ struct OpenAITranscriptionServiceTests {
                     credential: testCredential()
                 )
             }
+        }
+    }
+
+    @Test func boundedFileUploadTransportFailuresMapToProductErrors() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let cases: [(OpenAIFileUploadTransportError, OpenAITranscriptionServiceError)] = [
+            (.invalidRequest, .invalidRequest),
+            (.invalidResponse, .invalidResponse),
+            (.responseTooLarge, .invalidResponse),
+            (.redirectRejected, .invalidResponse),
+            (.cancelled, .cancelled),
+            (.transportFailure, .networkFailure),
+        ]
+
+        for (transportError, expectedError) in cases {
+            let loader = FakeURLLoader(result: .failure(transportError))
+            let service = makeService(loader: loader)
+
+            await expectTranscriptionError(expectedError) {
+                try await service.transcribe(
+                    try makeTranscriptionRequest(audioFileURL: audioFileURL),
+                    credential: testCredential()
+                )
+            }
+
+            #expect(loader.bodyFileURLs.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
         }
     }
 
@@ -513,8 +547,7 @@ struct OpenAITranscriptionServiceTests {
         )
 
         #expect(transcript == "already writing about contextual dictation")
-        let request = try #require(loader.requests.first)
-        let body = try #require(request.httpBody)
+        let body = try #require(loader.uploadedBodies.first)
         let bodyText = try #require(String(data: body, encoding: .utf8))
         #expect(bodyText.contains(context.text) == false)
     }
@@ -596,6 +629,30 @@ struct OpenAITranscriptionServiceTests {
         #expect(loader.requests.isEmpty)
     }
 
+    @Test func oversizedMultipartMetadataIsMappedBeforeScratchUpload() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+        var settings = AppSettings.defaults
+        settings.prompt = String(
+            repeating: "x",
+            count: Int(OpenAITranscriptionRequestBuilder.maximumMetadataByteCount)
+        )
+        let loader = FakeURLLoader(
+            result: .success(Data(#"{"text":"unused"}"#.utf8), makeHTTPResponse(statusCode: 200))
+        )
+        let service = makeService(loader: loader)
+
+        await expectTranscriptionError(.multipartMetadataTooLarge) {
+            try await service.transcribe(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings),
+                credential: testCredential()
+            )
+        }
+
+        #expect(loader.requests.isEmpty)
+        #expect(loader.bodyFileURLs.isEmpty)
+    }
+
     @Test func invalidCustomLanguageFailsDuringRequestConstructionBeforeServiceFileIO() {
         let missingFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-invalid-language-\(UUID().uuidString).m4a")
@@ -652,6 +709,11 @@ struct OpenAITranscriptionServiceTests {
                 "provider_unavailable"
             ),
             (
+                .multipartMetadataTooLarge,
+                "The transcription request settings are too large.",
+                "multipart_metadata_too_large"
+            ),
+            (
                 .emptyTranscript,
                 "No speech text was detected.",
                 "empty_transcript"
@@ -673,27 +735,38 @@ struct OpenAITranscriptionServiceTests {
             #expect(error.errorDescription == expectedMessage)
             #expect(error.operatorLogCategory == expectedLogCategory)
         }
+
+        let secretURL = URL(fileURLWithPath: "/private/source-sentinel.m4a")
+        let secretError = OpenAITranscriptionServiceError.invalidRecording(
+            .unreadableAudioFile(secretURL)
+        )
+        var dumpText = ""
+        dump(secretError, to: &dumpText)
+        for value in [String(reflecting: secretError), dumpText] {
+            #expect(!value.contains("source-sentinel"))
+        }
     }
 
     private func makeTranscriptionRequest(
         audioFileURL: URL,
-        settings: AppSettings = .defaults,
+        settings: AppSettings? = nil,
         context: TranscriptionPromptContext? = nil
     ) throws -> AudioTranscriptionRequest {
-        try settings.audioTranscriptionRequest(
+        let settings = settings ?? .defaults
+        return try settings.audioTranscriptionRequest(
             audioFileURL: audioFileURL,
             context: context
         )
     }
 
     private func makeService(
-        loader: any URLLoading,
+        loader: any URLFileUploading,
         sleeper: any TranscriptionTimeoutSleeping = FakeTimeoutSleeper(),
         requestTimeout: TimeInterval = 7
     ) -> OpenAITranscriptionService {
         OpenAITranscriptionService(
             requestBuilder: OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test"),
-            urlLoader: loader,
+            urlUploader: loader,
             timeoutSleeper: sleeper,
             requestTimeout: requestTimeout
         )
@@ -740,35 +813,47 @@ private func makeHTTPResponse(statusCode: Int) -> HTTPURLResponse {
     )!
 }
 
-private final class FakeURLLoader: URLLoading, @unchecked Sendable {
+private final class FakeURLLoader: URLFileUploading, @unchecked Sendable {
     enum Result {
         case success(Data, URLResponse)
-        case delayedSuccess(Data, URLResponse)
         case failure(Error)
     }
 
     private let result: Result
     private let lock = NSLock()
     private var storedRequests: [URLRequest] = []
+    private var storedUploadedBodies: [Data] = []
+    private var storedBodyFileURLs: [URL] = []
 
     var requests: [URLRequest] {
         lock.withLock { storedRequests }
+    }
+
+    var uploadedBodies: [Data] {
+        lock.withLock { storedUploadedBodies }
+    }
+
+    var bodyFileURLs: [URL] {
+        lock.withLock { storedBodyFileURLs }
     }
 
     init(result: Result) {
         self.result = result
     }
 
-    func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
+    func uploadData(
+        for request: URLRequest,
+        fromFile bodyFileURL: URL
+    ) async throws -> (Data, URLResponse) {
+        let body = try Data(contentsOf: bodyFileURL)
         lock.withLock {
             storedRequests.append(request)
+            storedUploadedBodies.append(body)
+            storedBodyFileURLs.append(bodyFileURL)
         }
 
         switch result {
         case let .success(data, response):
-            return (data, response)
-        case let .delayedSuccess(data, response):
-            try await Task.sleep(nanoseconds: 1_000_000_000)
             return (data, response)
         case let .failure(error):
             throw error
@@ -779,7 +864,6 @@ private final class FakeURLLoader: URLLoading, @unchecked Sendable {
 private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping, @unchecked Sendable {
     enum Mode {
         case waitForCancellation
-        case timeoutImmediately
     }
 
     private let mode: Mode
@@ -802,13 +886,11 @@ private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping, @unchecked
         switch mode {
         case .waitForCancellation:
             try await Task.sleep(nanoseconds: 1_000_000_000)
-        case .timeoutImmediately:
-            return
         }
     }
 }
 
-final class ControlledURLLoader: URLLoading, @unchecked Sendable {
+final class ControlledURLLoader: URLFileUploading, URLLoading, @unchecked Sendable {
     enum CancellationBehavior {
         case failImmediately
         case awaitResponse
@@ -832,13 +914,37 @@ final class ControlledURLLoader: URLLoading, @unchecked Sendable {
     private let cancellationBehaviors: [CancellationBehavior]
     private let lock = NSLock()
     private var requestStates: [RequestState] = []
+    private var storedRequests: [URLRequest] = []
+    private var storedBodyFileURLs: [URL] = []
+
+    var requests: [URLRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    var bodyFileURLs: [URL] {
+        lock.withLock { storedBodyFileURLs }
+    }
 
     init(cancellationBehaviors: [CancellationBehavior]) {
         self.cancellationBehaviors = cancellationBehaviors
     }
 
+    func uploadData(
+        for request: URLRequest,
+        fromFile bodyFileURL: URL
+    ) async throws -> (Data, URLResponse) {
+        try await performRequest(request: request, bodyFileURL: bodyFileURL)
+    }
+
     func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
-        let requestIndex = registerRequest()
+        try await performRequest(request: request, bodyFileURL: nil)
+    }
+
+    private func performRequest(
+        request: URLRequest,
+        bodyFileURL: URL?
+    ) async throws -> (Data, URLResponse) {
+        let requestIndex = registerRequest(request: request, bodyFileURL: bodyFileURL)
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -902,13 +1008,17 @@ final class ControlledURLLoader: URLLoading, @unchecked Sendable {
         continuation?.resume(returning: (data, response))
     }
 
-    private func registerRequest() -> Int {
+    private func registerRequest(request: URLRequest, bodyFileURL: URL?) -> Int {
         lock.withLock {
             let requestIndex = requestStates.count
             let behavior = cancellationBehaviors.indices.contains(requestIndex)
                 ? cancellationBehaviors[requestIndex]
                 : .failImmediately
             requestStates.append(RequestState(cancellationBehavior: behavior))
+            storedRequests.append(request)
+            if let bodyFileURL {
+                storedBodyFileURLs.append(bodyFileURL)
+            }
             return requestIndex
         }
     }

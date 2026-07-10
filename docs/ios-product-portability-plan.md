@@ -1077,14 +1077,28 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The first five P2 foundations are complete: the non-secret marker package,
-real transport cancellation, the app-only iOS Keychain adapter, and the
-credential-only `HoldTypeOpenAI` bootstrap, plus serialized app-only
-credential reconciliation. Continue with small independent checkpoints:
+The first six P2 foundations are complete: the non-secret marker package,
+real transport cancellation, the app-only iOS Keychain adapter, the
+credential-only `HoldTypeOpenAI` bootstrap, serialized app-only credential
+reconciliation, and bounded file-backed multipart upload. Continue with the
+next small independent checkpoint:
 
-1. implement and verify bounded file-backed multipart preparation and upload
-   without full-audio buffering, then move the current provider services into
-   `HoldTypeOpenAI` in a separate behavior-neutral checkpoint.
+1. move the current provider services into `HoldTypeOpenAI` in a
+   behavior-neutral checkpoint.
+
+The multipart checkpoint keeps the current provider service in the macOS app
+while hardening its transport seam: regular `m4a`/`wav` audio is strictly less
+than 25,000,000 bytes, non-audio multipart bytes are capped at 1 MiB, audio is
+copied with at most 64 KiB reads into protected app-private scratch storage,
+and an ephemeral foreground `URLSession` uploads that complete body from a
+file. Redirects remain within the exact original origin, and provider response
+data is capped at 1 MiB. The existing 60-second deadline covers preparation,
+upload, and response. Cancellation and timeout remove scratch state without
+waiting for a non-cooperative loader, retain the source recording for recovery,
+and never reuse a body on explicit Retry. The subsequent checkpoint moves the
+already-tested provider code into `HoldTypeOpenAI`; this hardening checkpoint
+does not expose a public scratch file contract or link provider code to the
+keyboard.
 
 These lanes require no live provider or real secret. Simulator and fake-backed
 evidence are sufficient for their checkpoint commits, while signed-device

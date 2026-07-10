@@ -12,6 +12,13 @@ import Testing
 
 @MainActor
 struct TranscriptionFailureRecoveryStoreTests {
+    @Test func oversizedMultipartMetadataUsesBadRequestRecoveryReason() {
+        #expect(
+            FailedTranscriptionReason(error: OpenAITranscriptionServiceError.multipartMetadataTooLarge)
+                == .badRequest
+        )
+    }
+
     @Test func recordsFailedAttemptByMovingAudioIntoSessionRecovery() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.rootURL) }

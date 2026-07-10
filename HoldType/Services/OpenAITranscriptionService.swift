@@ -33,7 +33,7 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
     static let defaultRequestTimeout: TimeInterval = 60
 
     private let requestBuilder: OpenAITranscriptionRequestBuilder
-    private let urlLoader: any URLLoading
+    private let urlUploader: any URLFileUploading
     private let timeoutSleeper: any TranscriptionTimeoutSleeping
     private let requestTimeout: TimeInterval
     private let decoder: JSONDecoder
@@ -41,14 +41,14 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
 
     init(
         requestBuilder: OpenAITranscriptionRequestBuilder = OpenAITranscriptionRequestBuilder(),
-        urlLoader: any URLLoading = URLSession.shared,
+        urlUploader: any URLFileUploading = OpenAIFileUploadTransport(),
         timeoutSleeper: any TranscriptionTimeoutSleeping = TaskTranscriptionTimeoutSleeper(),
         requestTimeout: TimeInterval = Self.defaultRequestTimeout,
         decoder: JSONDecoder = JSONDecoder(),
         requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
     ) {
         self.requestBuilder = requestBuilder
-        self.urlLoader = urlLoader
+        self.urlUploader = urlUploader
         self.timeoutSleeper = timeoutSleeper
         self.requestTimeout = requestTimeout > 0 ? requestTimeout : Self.defaultRequestTimeout
         self.decoder = decoder
@@ -59,14 +59,14 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
         _ request: AudioTranscriptionRequest,
         credential: OpenAICredential
     ) async throws -> String {
-        var urlRequest = try makeAuthorizedRequest(
+        let cleanupRegistration = requestBuilder.makeCleanupRegistration()
+        defer { cleanupRegistration.requestCleanup() }
+
+        let (data, response) = try await loadWithTimeout(
             request,
+            cleanupRegistration: cleanupRegistration,
             credential: credential
         )
-
-        urlRequest.timeoutInterval = requestTimeout
-
-        let (data, response) = try await loadWithTimeout(urlRequest)
         try validateHTTPResponse(response)
         return try parseTranscript(from: data, promptComposition: request.promptComposition)
     }
@@ -75,37 +75,78 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
         requestTaskCoordinator.cancelActiveRequest()
     }
 
-    private func makeAuthorizedRequest(
+    private func loadWithTimeout(
         _ transcriptionRequest: AudioTranscriptionRequest,
+        cleanupRegistration: OpenAITranscriptionMultipartCleanupRegistration,
         credential: OpenAICredential
-    ) throws -> URLRequest {
-        do {
-            var request = try requestBuilder.makeRequest(transcriptionRequest)
-            request.setValue("Bearer \(credential.apiKey)", forHTTPHeaderField: "Authorization")
-            return request
-        } catch let error as OpenAITranscriptionRequestBuilderError {
-            throw OpenAITranscriptionServiceError.invalidRecording(error)
-        } catch {
-            throw OpenAITranscriptionServiceError.invalidRequest
-        }
-    }
-
-    private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    ) async throws -> (Data, URLResponse) {
         do {
             return try await requestTaskCoordinator.perform {
-                try await urlLoader.loadData(for: request)
+                let preparation = try await requestBuilder.makePreparation(
+                    transcriptionRequest,
+                    cleanupRegistration: cleanupRegistration
+                )
+                defer { cleanupRegistration.requestCleanup() }
+                var request = try await preparation.prepareRequest()
+                request.timeoutInterval = requestTimeout
+                request.setValue(
+                    "Bearer \(credential.apiKey)",
+                    forHTTPHeaderField: "Authorization"
+                )
+                return try await urlUploader.uploadData(
+                    for: request,
+                    fromFile: preparation.bodyFileURL
+                )
             } deadline: {
                 try await timeoutSleeper.sleep(seconds: requestTimeout)
                 throw OpenAITranscriptionServiceError.timedOut
             }
         } catch let error as OpenAITranscriptionServiceError {
             throw error
+        } catch let error as OpenAITranscriptionRequestBuilderError {
+            throw Self.mapRequestBuilderError(error)
+        } catch let error as OpenAIFileUploadTransportError {
+            throw Self.mapUploadTransportError(error)
         } catch let error as URLError {
             throw Self.mapURLError(error)
         } catch is CancellationError {
             throw OpenAITranscriptionServiceError.cancelled
         } catch {
             throw OpenAITranscriptionServiceError.networkFailure
+        }
+    }
+
+    private static func mapRequestBuilderError(
+        _ error: OpenAITranscriptionRequestBuilderError
+    ) -> OpenAITranscriptionServiceError {
+        switch error {
+        case .multipartMetadataTooLarge:
+            return .multipartMetadataTooLarge
+        case .multipartBodyTooLarge, .multipartBodyUnavailable, .invalidMultipartBoundary:
+            return .invalidRequest
+        case .missingAudioFile,
+             .emptyAudioFile,
+             .unsupportedAudioFileType,
+             .unreadableAudioFile,
+             .audioFileChanged,
+             .audioFileTooLarge,
+             .invalidCustomLanguageCode:
+            return .invalidRecording(error)
+        }
+    }
+
+    private static func mapUploadTransportError(
+        _ error: OpenAIFileUploadTransportError
+    ) -> OpenAITranscriptionServiceError {
+        switch error {
+        case .invalidRequest:
+            return .invalidRequest
+        case .invalidResponse, .responseTooLarge, .redirectRejected:
+            return .invalidResponse
+        case .cancelled:
+            return .cancelled
+        case .transportFailure:
+            return .networkFailure
         }
     }
 
@@ -263,11 +304,12 @@ struct TaskTranscriptionTimeoutSleeper: TranscriptionTimeoutSleeping {
     }
 }
 
-enum OpenAITranscriptionServiceError: Error, Equatable, LocalizedError {
+nonisolated enum OpenAITranscriptionServiceError: Error, Equatable, LocalizedError, Sendable {
     case missingAPIKey
     case apiKeyUnavailable
     case invalidRecording(OpenAITranscriptionRequestBuilderError)
     case invalidRequest
+    case multipartMetadataTooLarge
     case timedOut
     case networkUnavailable
     case networkFailure
@@ -296,6 +338,8 @@ enum OpenAITranscriptionServiceError: Error, Equatable, LocalizedError {
             return error.userFacingMessage
         case .invalidRequest:
             return "The transcription request could not be prepared."
+        case .multipartMetadataTooLarge:
+            return "The transcription request settings are too large."
         case .timedOut:
             return "Transcription timed out."
         case .networkUnavailable:
@@ -335,6 +379,8 @@ enum OpenAITranscriptionServiceError: Error, Equatable, LocalizedError {
             return error.operatorLogCategory
         case .invalidRequest:
             return "invalid_request"
+        case .multipartMetadataTooLarge:
+            return "multipart_metadata_too_large"
         case .timedOut:
             return "timeout"
         case .networkUnavailable:
@@ -365,6 +411,27 @@ enum OpenAITranscriptionServiceError: Error, Equatable, LocalizedError {
     }
 }
 
+nonisolated extension OpenAITranscriptionServiceError:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "OpenAITranscriptionServiceError(<redacted>)"
+    }
+
+    var debugDescription: String {
+        description
+    }
+
+    var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [(label: String?, value: Any)](),
+            displayStyle: .enum
+        )
+    }
+}
+
 private extension OpenAITranscriptionRequestBuilderError {
     var userFacingMessage: String {
         switch self {
@@ -376,6 +443,16 @@ private extension OpenAITranscriptionRequestBuilderError {
             return "The recording format is not supported."
         case .unreadableAudioFile:
             return "The recording file could not be read."
+        case .audioFileChanged:
+            return "The recording changed while the request was being prepared."
+        case .audioFileTooLarge:
+            return "The recording is too large to send."
+        case .multipartMetadataTooLarge:
+            return "The transcription request settings are too large."
+        case .multipartBodyTooLarge, .multipartBodyUnavailable:
+            return "The transcription request could not be prepared."
+        case .invalidMultipartBoundary:
+            return "The transcription request could not be prepared."
         case .invalidCustomLanguageCode:
             return "Use a two- or three-letter custom language code."
         }
@@ -391,6 +468,18 @@ private extension OpenAITranscriptionRequestBuilderError {
             return "unsupported_audio"
         case .unreadableAudioFile:
             return "unreadable_audio"
+        case .audioFileChanged:
+            return "changed_audio"
+        case .audioFileTooLarge:
+            return "audio_too_large"
+        case .multipartMetadataTooLarge:
+            return "multipart_metadata_too_large"
+        case .multipartBodyTooLarge:
+            return "multipart_body_too_large"
+        case .multipartBodyUnavailable:
+            return "multipart_body_unavailable"
+        case .invalidMultipartBoundary:
+            return "invalid_multipart_boundary"
         case .invalidCustomLanguageCode:
             return "invalid_language_code"
         }

@@ -50,6 +50,8 @@ enum FailedTranscriptionReason: Equatable {
             self = .invalidRecording
         case .invalidRequest:
             self = .invalidRequest
+        case .multipartMetadataTooLarge:
+            self = .badRequest
         case .timedOut:
             self = .timedOut
         case .networkUnavailable:
