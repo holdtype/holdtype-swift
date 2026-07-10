@@ -28,6 +28,11 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
 - The embedded tutorial starts as a local facade. YouTube content loads only
   after the user explicitly chooses Play; without JavaScript, a normal YouTube
   link remains available.
+- Full-size product-image links open the original image in an in-page modal when
+  JavaScript is available. The image fits inside the viewport and keeps its
+  product-specific alternative text.
+- The image modal closes through its visible Close control, Escape, or a click
+  outside the image. Closing returns focus to the link that opened it.
 - `appcast.xml` remains available at the stable URL embedded in shipped apps.
 - Every release-notes URL referenced by the published appcast remains reachable
   after later website or app releases.
@@ -54,6 +59,9 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
   it locally in macOS Keychain.
 - The video facade must not create a YouTube iframe or request YouTube media
   before Play. The loaded player uses YouTube's privacy-enhanced embed domain.
+- While the image modal is open, the page behind it does not scroll. One shared
+  modal serves every enhanced full-size product-image link, and background
+  controls are removed from keyboard focus.
 
 ## Failure policy
 
@@ -62,6 +70,8 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
   previously published Pages site remains in place.
 - If the third-party tutorial is removed, blocked, or outdated, the official
   OpenAI links and written setup steps remain sufficient to finish setup.
+- Without JavaScript, every full-size image remains a normal link to the
+  original local asset.
 - A landing-page failure must not replace or remove the existing Sparkle feed.
 - A release must not report success if its Pages deployment removes the landing
   page or publishes update metadata that differs from the release asset.
@@ -87,3 +97,5 @@ without breaking the Sparkle update feed that already uses GitHub Pages.
 - Landing-page QA verifies that no YouTube iframe exists before Play, one
   privacy-enhanced iframe replaces the facade after Play, and the guide remains
   readable at desktop and phone widths.
+- Landing-page QA opens both product screenshots in the shared modal and checks
+  Close, Escape, outside-click dismissal, focus restoration, and phone sizing.

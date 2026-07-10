@@ -131,6 +131,26 @@ story, installation instructions, and a fuller FAQ.
   `/tmp/holdtype-api-key-guide-player-1440x900.jpg`, and
   `/tmp/holdtype-api-key-guide-mobile-390x844.jpg`.
 
+## Full-size image lightbox follow-up — 2026-07-10
+
+- Enhanced both existing full-size screenshot links with one shared in-page
+  modal; their original local-image `href` values remain the no-JavaScript
+  fallback.
+- Verified the Translation and Billing assets, product-specific alternative
+  text and captions, and confirmed that opening the modal does not change the
+  page URL.
+- Verified the visible Close control, Escape, and a click on the dimmed
+  background. Every close path removes the scroll lock, clears the deferred
+  image source, and returns focus to the link that opened the modal.
+- Verified keyboard focus starts on Close and stays inside the single-control
+  modal while the background is inert.
+- At `1440×900` and `390×844`, the original screenshot and Close control
+  remain inside the viewport with no page-level horizontal overflow.
+- Browser console remained at zero warnings and zero errors.
+- Final captures were saved outside the repository at
+  `/tmp/holdtype-lightbox-final-desktop.png` and
+  `/tmp/holdtype-lightbox-final-mobile.png`.
+
 ## Final result
 
 final result: passed

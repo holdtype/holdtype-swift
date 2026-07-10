@@ -14,8 +14,9 @@ Then open <http://localhost:4173/>.
 
 The critical page content, navigation anchors, screenshots, FAQ content, and
 download links remain available when JavaScript is disabled. JavaScript is used
-only for the mobile navigation, the labelled illustrative hero sequence, and
-the progressive-enhancement Copy button for the Homebrew command.
+only for progressive enhancements: mobile navigation, the labelled illustrative
+hero sequence, the Homebrew Copy button, the opt-in video player, and the
+full-size screenshot lightbox.
 
 ## Hosting
 
@@ -35,9 +36,18 @@ separate domain cutover.
 
 - `index.html` — semantic page content and product copy.
 - `styles.css` — responsive visual system and reduced-motion behavior.
-- `script.js` — mobile menu and listening → transcribing → inserted illustration.
+- `script.js` — mobile menu, hero illustration, Copy, opt-in video, and image
+  lightbox interactions.
 - `assets/` — local copies of real HoldType product assets.
 - `design-qa.md` — final concept-to-browser fidelity report, added after visual QA.
+
+## Full-size screenshot behavior
+
+The Translation and Billing full-size links use one shared in-page modal when
+JavaScript is available. It keeps the original image inside the viewport,
+provides a visible Close control, closes with Escape or an outside click, locks
+background scrolling, and returns focus to the opening link. Without
+JavaScript, each link continues to open the original local image.
 
 ## Design direction
 

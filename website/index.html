@@ -301,7 +301,11 @@
               <figcaption>
                 Real HoldType Translation settings. On phones, swipe the focused
                 crop horizontally to inspect it.
-                <a href="assets/settings-translation.png">Open the full-size image</a>.
+                <a
+                  href="assets/settings-translation.png"
+                  data-lightbox-link
+                  data-lightbox-caption="HoldType Translation settings"
+                >Open the full-size image</a>.
               </figcaption>
             </figure>
           </article>
@@ -416,7 +420,11 @@
                 <figcaption>
                   On phones, swipe the focused crop of the same real Billing
                   screenshot horizontally.
-                  <a href="assets/settings-billing.png">Open the full-size image</a>.
+                  <a
+                    href="assets/settings-billing.png"
+                    data-lightbox-link
+                    data-lightbox-caption="HoldType Billing settings and local usage estimate"
+                  >Open the full-size image</a>.
                 </figcaption>
               </figure>
             </div>
@@ -714,5 +722,35 @@ open -a HoldType</code></pre>
         <a href="https://github.com/holdtype/holdtype-swift">View source on GitHub</a>
       </div>
     </footer>
+
+    <div
+      class="image-lightbox"
+      data-image-lightbox
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full-size HoldType screenshot"
+      aria-describedby="image-lightbox-caption"
+      hidden
+    >
+      <div class="image-lightbox-panel">
+        <button
+          class="image-lightbox-close"
+          type="button"
+          data-lightbox-close
+          aria-label="Close full-size image"
+        >
+          <span aria-hidden="true">×</span>
+          <span>Close</span>
+        </button>
+        <div class="image-lightbox-stage" data-lightbox-stage>
+          <img class="image-lightbox-image" data-lightbox-image decoding="async" alt="">
+        </div>
+        <p
+          class="image-lightbox-caption"
+          id="image-lightbox-caption"
+          data-lightbox-caption
+        ></p>
+      </div>
+    </div>
   </body>
 </html>

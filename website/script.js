@@ -219,3 +219,85 @@ videoFacades.forEach((button) => {
     iframe.focus();
   });
 });
+
+const imageLightbox = document.querySelector("[data-image-lightbox]");
+const lightboxImage = imageLightbox?.querySelector("[data-lightbox-image]");
+const lightboxCaption = imageLightbox?.querySelector("[data-lightbox-caption]");
+const lightboxClose = imageLightbox?.querySelector("[data-lightbox-close]");
+const lightboxLinks = document.querySelectorAll("[data-lightbox-link]");
+
+let activeLightboxTrigger = null;
+
+const lightboxBackgroundElements = imageLightbox
+  ? [...document.body.children].filter(
+      (element) => element !== imageLightbox && element instanceof HTMLElement,
+    )
+  : [];
+
+function closeImageLightbox() {
+  if (!imageLightbox || !lightboxImage || !lightboxCaption || imageLightbox.hidden) {
+    return;
+  }
+
+  imageLightbox.hidden = true;
+  document.body.classList.remove("has-image-lightbox");
+  lightboxBackgroundElements.forEach((element) => {
+    element.inert = false;
+  });
+
+  lightboxImage.removeAttribute("src");
+  lightboxImage.alt = "";
+  lightboxCaption.textContent = "";
+
+  const trigger = activeLightboxTrigger;
+  activeLightboxTrigger = null;
+  if (trigger?.isConnected) trigger.focus();
+}
+
+if (imageLightbox && lightboxImage && lightboxCaption && lightboxClose) {
+  document.documentElement.classList.add("lightbox-ready");
+
+  lightboxLinks.forEach((link) => {
+    link.setAttribute("aria-haspopup", "dialog");
+
+    link.addEventListener("click", (event) => {
+      const sourceImage = link.closest("figure")?.querySelector("img");
+      const imageAlt = sourceImage?.alt || "Full-size HoldType screenshot";
+
+      event.preventDefault();
+      activeLightboxTrigger = link;
+      lightboxImage.src = link.href;
+      lightboxImage.alt = imageAlt;
+      lightboxCaption.textContent = link.dataset.lightboxCaption || imageAlt;
+
+      lightboxBackgroundElements.forEach((element) => {
+        element.inert = true;
+      });
+      imageLightbox.hidden = false;
+      document.body.classList.add("has-image-lightbox");
+      lightboxClose.focus();
+    });
+  });
+
+  lightboxClose.addEventListener("click", closeImageLightbox);
+
+  imageLightbox.addEventListener("click", (event) => {
+    const protectedTarget = event.target.closest?.(
+      "[data-lightbox-image], [data-lightbox-close]",
+    );
+    if (!protectedTarget) closeImageLightbox();
+  });
+
+  imageLightbox.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeImageLightbox();
+      return;
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      lightboxClose.focus();
+    }
+  });
+}
