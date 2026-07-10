@@ -237,6 +237,45 @@ without discarding a successfully resolved runtime credential or absence.
   recoverable audio, recording cache, runtime logs, and the API key follow
   their own explicit backup policies and are not inferred from this rule.
 
+### Protected atomic metadata files
+
+- The general settings record and credential-presence marker share one
+  app-private metadata-file boundary. It accepts only regular files and rejects
+  symbolic links, directories, and special files without following them.
+- Reads are bounded before allocation and while bytes are loaded. The marker is
+  limited to 16 KiB and the settings record to 1 MiB; the exact limit is valid,
+  while one byte more is rejected without changing the source.
+- A read uses one pinned regular-file identity and accepts bytes only when its
+  size and modification/change timestamps remain stable through the complete
+  read. A save stops before publish if the durable destination changes, even
+  when a raced write keeps the same inode and byte count.
+- A settings load that exceeds its limit is reported separately from a settings
+  value whose canonical encoding is too large to save. The marker uses one
+  storage-limit failure for either direction. These failures do not expose file
+  locations, source content, system error numbers, or attacker-controlled
+  fields or values.
+- An oversized save fails before a temporary file is created and leaves the
+  durable destination unchanged. A valid save uses an exclusive, owner-only
+  temporary regular file in the destination directory, applies Complete
+  protection before its first content write, applies the record's backup
+  policy, writes and synchronizes all bytes, validates the temporary identity
+  and size, and only then atomically publishes it.
+- A failed publish preserves the previous destination and removes only the
+  temporary file created by that operation. Removing an already-missing marker
+  remains successful. Identity checks prevent a raced symbolic link or
+  replacement object observed before cleanup from being treated as the
+  operation-owned file; that observed object is not written, published, or
+  deleted by the operation.
+- These identity guarantees assume the app-private sandbox namespace and the
+  repositories' serialized production ownership, without a hostile same-UID
+  process interposing between the final path check and `rename` or `unlink`.
+  HoldType does not claim kernel-level conditional-unlink hardening against
+  that out-of-scope interposer.
+- No failing step follows a successful atomic rename or removal. A committed
+  mutation is reported as successful even if the best-effort directory sync
+  cannot be completed, so callers never receive a failure after the durable
+  destination has already changed.
+
 ### General app settings v1
 
 - The app-private general settings record lives at the stable relative path
@@ -260,9 +299,9 @@ without discarding a successfully resolved runtime credential or absence.
   null or wrongly typed known values, unexpected fields at any level, and
   unknown enum values are distinct typed local failures. Public errors identify
   only the known object or field path and never echo an attacker-controlled
-  enum value or unexpected field name. Version `0` and future versions are
-  unsupported. No legacy v0 shape or migration is inferred; a migration
-  fixture is added only when a real earlier persisted schema exists.
+  schema number, enum value, or unexpected field name. Version `0` and future
+  versions are unsupported. No legacy v0 shape or migration is inferred; a
+  migration fixture is added only when a real earlier persisted schema exists.
 - A missing file returns the complete documented defaults without creating or
   rewriting a file. Corrupt or unsupported source bytes are preserved
   byte-for-byte and are never replaced by defaults during load.
@@ -292,6 +331,9 @@ without discarding a successfully resolved runtime credential or absence.
 - Corrupt data, unsupported schema versions, unexpected fields, and invalid
   state/mutation combinations produce a typed local error. The source file is
   preserved for recovery and is never rewritten as part of a failed load.
+- Marker errors never echo an unsupported schema number, unknown state,
+  unknown mutation kind, unexpected field name, file location, or system error
+  number.
 - Version dispatch starts at v1. There is no inferred legacy schema or migration
   until an actual earlier persisted format exists.
 
@@ -365,6 +407,10 @@ without discarding a successfully resolved runtime credential or absence.
 
 - Test every default, validation rule, save/load, schema migration, corrupt
   data path, and failed-write rollback.
+- Test both exact byte limits and one byte over; non-regular path rejection;
+  prewrite protection, ownership, and backup metadata; partial/interrupted I/O;
+  same-inode mutation detection; failed publish cleanup; and the rule that a
+  post-commit directory-sync failure cannot reverse the reported outcome.
 - Test Keychain add/replace/delete, stable item identity, non-synchronizable and
   accessibility attributes, locked-device behavior, and no passive reads with
   fakes in normal automation.

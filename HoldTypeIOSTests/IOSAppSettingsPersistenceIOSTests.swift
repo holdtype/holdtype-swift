@@ -79,7 +79,7 @@ struct IOSAppSettingsPersistenceIOSTests {
             (Data("not-json".utf8), .malformedData),
             (
                 Data(#"{"schemaVersion":2}"#.utf8),
-                .unsupportedSchemaVersion(2)
+                .unsupportedSchemaVersion
             ),
             (
                 Data(#"{"schemaVersion":1,"voice":{"audioCuesEnabled":null}}"#.utf8),
@@ -99,6 +99,50 @@ struct IOSAppSettingsPersistenceIOSTests {
             }
             #expect(try Data(contentsOf: fileURL) == sourceData)
         }
+    }
+
+    @Test func sourceAndEncodingLimitsHaveDistinctPublicFailures() async throws {
+        let containerURL = makeTemporaryDirectoryURL()
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+        let applicationSupportURL = containerURL.appendingPathComponent(
+            "Library/Application Support",
+            isDirectory: true
+        )
+        let fileURL = IOSAppSettingsStorageLocation.fileURL(in: applicationSupportURL)
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let repository = IOSAppSettingsRepository(
+            applicationSupportDirectoryURL: applicationSupportURL
+        )
+        let oversizedSource = Data(repeating: 0x61, count: 1_024 * 1_024 + 1)
+        try oversizedSource.write(to: fileURL)
+
+        do {
+            _ = try await repository.load()
+            Issue.record("Expected sourceTooLarge")
+        } catch let error as IOSAppSettingsRepositoryError {
+            #expect(error == .sourceTooLarge)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(try Data(contentsOf: fileURL) == oversizedSource)
+
+        var settings = IOSAppSettings.defaults
+        settings.transcriptionConfiguration.freeformPrompt = String(
+            repeating: "x",
+            count: 1_024 * 1_024
+        )
+        do {
+            try await repository.save(settings)
+            Issue.record("Expected encodedDataTooLarge")
+        } catch let error as IOSAppSettingsRepositoryError {
+            #expect(error == .encodedDataTooLarge)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(try Data(contentsOf: fileURL) == oversizedSource)
     }
 
     private func fixtureSettings() -> IOSAppSettings {

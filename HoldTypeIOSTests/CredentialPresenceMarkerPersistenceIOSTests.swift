@@ -89,7 +89,7 @@ struct CredentialPresenceMarkerPersistenceIOSTests {
             (Data("not-json".utf8), .corruptData),
             (
                 Data(#"{"schemaVersion":2,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#.utf8),
-                .unsupportedSchemaVersion(2)
+                .unsupportedSchemaVersion
             ),
             (
                 Data(#"{"schemaVersion":1,"state":"mutationInProgress","updatedAt":"2026-07-10T12:34:56.000Z"}"#.utf8),
@@ -128,6 +128,40 @@ struct CredentialPresenceMarkerPersistenceIOSTests {
             try repository.save(marker)
         }
         #expect(try Data(contentsOf: blockingURL) == blockingBytes)
+    }
+
+    @Test func oversizedAndNonRegularSourcesAreRejectedWithoutChangingThem() throws {
+        let directoryURL = makeTemporaryDirectoryURL()
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let fileURL = directoryURL.appendingPathComponent("credential-presence-v1.json")
+        let oversizedData = Data(repeating: 0x61, count: 16 * 1_024 + 1)
+        try oversizedData.write(to: fileURL)
+        let repository = CredentialPresenceMarkerRepository(fileURL: fileURL)
+
+        #expect(throws: CredentialPresenceMarkerRepositoryError.storageLimitExceeded) {
+            _ = try repository.load()
+        }
+        #expect(try Data(contentsOf: fileURL) == oversizedData)
+
+        try FileManager.default.removeItem(at: fileURL)
+        let sentinelURL = directoryURL.appendingPathComponent("sentinel")
+        try Data("sentinel".utf8).write(to: sentinelURL)
+        try FileManager.default.createSymbolicLink(
+            at: fileURL,
+            withDestinationURL: sentinelURL
+        )
+        #expect(throws: CredentialPresenceMarkerRepositoryError.readFailed) {
+            _ = try repository.load()
+        }
+        #expect(try Data(contentsOf: sentinelURL) == Data("sentinel".utf8))
+        #expect(
+            try FileManager.default.destinationOfSymbolicLink(atPath: fileURL.path) ==
+                sentinelURL.path
+        )
     }
 
     private func makeTemporaryDirectoryURL() -> URL {

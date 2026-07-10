@@ -2,11 +2,12 @@ import Foundation
 
 public enum CredentialPresenceMarkerRepositoryError: Error, Equatable, Sendable {
     case readFailed
+    case storageLimitExceeded
     case corruptData
-    case unsupportedSchemaVersion(Int)
-    case unexpectedFields([String])
-    case invalidState(String)
-    case invalidMutationKind(String)
+    case unsupportedSchemaVersion
+    case unexpectedFields
+    case invalidState
+    case invalidMutationKind
     case invalidMutationCombination
     case encodingFailed
     case writeFailed
@@ -15,24 +16,25 @@ public enum CredentialPresenceMarkerRepositoryError: Error, Equatable, Sendable 
 
 /// Persists the app-private credential-presence marker without touching Keychain.
 public struct CredentialPresenceMarkerRepository: Sendable {
-    private static let replacementOptions = CredentialPresenceMarkerReplacementOptions(
+    private static let filePolicy = ProtectedAtomicMetadataFilePolicy(
+        maximumByteCount: 16 * 1_024,
         fileProtection: .complete,
         excludesFromBackup: true
     )
 
     private let fileURL: URL
-    private let fileSystem: any CredentialPresenceMarkerFileSystem
+    private let fileSystem: any ProtectedAtomicMetadataFileSystem
 
     public init(fileURL: URL) {
         self.init(
             fileURL: fileURL,
-            fileSystem: FoundationCredentialPresenceMarkerFileSystem()
+            fileSystem: FoundationProtectedAtomicMetadataFileSystem()
         )
     }
 
     init(
         fileURL: URL,
-        fileSystem: any CredentialPresenceMarkerFileSystem
+        fileSystem: any ProtectedAtomicMetadataFileSystem
     ) {
         self.fileURL = fileURL
         self.fileSystem = fileSystem
@@ -42,7 +44,12 @@ public struct CredentialPresenceMarkerRepository: Sendable {
         let data: Data?
 
         do {
-            data = try fileSystem.readFileIfPresent(at: fileURL)
+            data = try fileSystem.readFileIfPresent(
+                at: fileURL,
+                policy: Self.filePolicy
+            )
+        } catch ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded {
+            throw CredentialPresenceMarkerRepositoryError.storageLimitExceeded
         } catch {
             throw CredentialPresenceMarkerRepositoryError.readFailed
         }
@@ -69,8 +76,10 @@ public struct CredentialPresenceMarkerRepository: Sendable {
             try fileSystem.replaceFileAtomically(
                 at: fileURL,
                 with: data,
-                options: Self.replacementOptions
+                policy: Self.filePolicy
             )
+        } catch ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded {
+            throw CredentialPresenceMarkerRepositoryError.storageLimitExceeded
         } catch {
             throw CredentialPresenceMarkerRepositoryError.writeFailed
         }
@@ -115,13 +124,12 @@ private enum CredentialPresenceMarkerWireCodec {
     static func decode(_ data: Data) throws -> CredentialPresenceMarker {
         let version = try decodeSchemaVersion(from: data)
         guard version == supportedSchemaVersion else {
-            throw CredentialPresenceMarkerRepositoryError.unsupportedSchemaVersion(version)
+            throw CredentialPresenceMarkerRepositoryError.unsupportedSchemaVersion
         }
 
         let keys = try topLevelKeys(in: data)
-        let unexpectedFields = keys.subtracting(allowedFields).sorted()
-        guard unexpectedFields.isEmpty else {
-            throw CredentialPresenceMarkerRepositoryError.unexpectedFields(unexpectedFields)
+        guard keys.isSubset(of: allowedFields) else {
+            throw CredentialPresenceMarkerRepositoryError.unexpectedFields
         }
         guard requiredFields.isSubset(of: keys) else {
             throw CredentialPresenceMarkerRepositoryError.corruptData
@@ -218,7 +226,7 @@ private extension CredentialPresenceMarker.State {
         case "mutationInProgress":
             self = .mutationInProgress
         default:
-            throw CredentialPresenceMarkerRepositoryError.invalidState(wireValue)
+            throw CredentialPresenceMarkerRepositoryError.invalidState
         }
     }
 
@@ -244,7 +252,7 @@ private extension CredentialPresenceMarker.MutationKind {
         case "remove":
             self = .remove
         default:
-            throw CredentialPresenceMarkerRepositoryError.invalidMutationKind(wireValue)
+            throw CredentialPresenceMarkerRepositoryError.invalidMutationKind
         }
     }
 

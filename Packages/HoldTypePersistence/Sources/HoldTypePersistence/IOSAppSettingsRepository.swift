@@ -4,42 +4,45 @@ import HoldTypeDomain
 
 public enum IOSAppSettingsRepositoryError: Error, Equatable, Sendable {
     case readFailed
+    case sourceTooLarge
     case malformedData
     case topLevelNotObject
     case missingSchemaVersion
     case invalidValueType(path: String)
-    case unsupportedSchemaVersion(Int)
+    case unsupportedSchemaVersion
     case unexpectedFields(path: String)
     case unknownEnumValue(path: String)
     case encodingFailed
+    case encodedDataTooLarge
     case writeFailed
 }
 
 /// Serializes access to the containing app's canonical, app-private settings file.
 public actor IOSAppSettingsRepository {
-    private static let replacementOptions = IOSAppSettingsReplacementOptions(
+    private static let filePolicy = ProtectedAtomicMetadataFilePolicy(
+        maximumByteCount: 1_024 * 1_024,
         fileProtection: .complete,
         excludesFromBackup: false
     )
 
     private let fileURL: URL
-    private let fileSystem: any IOSAppSettingsFileSystem
+    private let fileSystem: any ProtectedAtomicMetadataFileSystem
 
     public init(applicationSupportDirectoryURL: URL) {
         fileURL = IOSAppSettingsStorageLocation.fileURL(
             in: applicationSupportDirectoryURL
         )
-        fileSystem = FoundationIOSAppSettingsFileSystem()
+        fileSystem = FoundationProtectedAtomicMetadataFileSystem()
     }
 
     init(fileURL: URL) {
         self.fileURL = fileURL
-        fileSystem = FoundationIOSAppSettingsFileSystem()
+        fileSystem = FoundationProtectedAtomicMetadataFileSystem()
     }
 
     init(
         fileURL: URL,
-        fileSystem: any IOSAppSettingsFileSystem
+        fileSystem: any ProtectedAtomicMetadataFileSystem
     ) {
         self.fileURL = fileURL
         self.fileSystem = fileSystem
@@ -49,7 +52,12 @@ public actor IOSAppSettingsRepository {
         let data: Data?
 
         do {
-            data = try fileSystem.readFileIfPresent(at: fileURL)
+            data = try fileSystem.readFileIfPresent(
+                at: fileURL,
+                policy: Self.filePolicy
+            )
+        } catch ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded {
+            throw IOSAppSettingsRepositoryError.sourceTooLarge
         } catch {
             throw IOSAppSettingsRepositoryError.readFailed
         }
@@ -63,13 +71,18 @@ public actor IOSAppSettingsRepository {
 
     public func save(_ settings: IOSAppSettings) throws {
         let data = try IOSAppSettingsWireCodec.encode(settings)
+        guard data.count <= Self.filePolicy.maximumByteCount else {
+            throw IOSAppSettingsRepositoryError.encodedDataTooLarge
+        }
 
         do {
             try fileSystem.replaceFileAtomically(
                 at: fileURL,
                 with: data,
-                options: Self.replacementOptions
+                policy: Self.filePolicy
             )
+        } catch ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded {
+            throw IOSAppSettingsRepositoryError.encodedDataTooLarge
         } catch {
             throw IOSAppSettingsRepositoryError.writeFailed
         }
@@ -147,7 +160,7 @@ private enum IOSAppSettingsWireCodec {
         }
         let schemaVersion = try root.integer("schemaVersion")
         guard schemaVersion == supportedSchemaVersion else {
-            throw IOSAppSettingsRepositoryError.unsupportedSchemaVersion(schemaVersion)
+            throw IOSAppSettingsRepositoryError.unsupportedSchemaVersion
         }
 
         try root.rejectUnexpectedFields(allowing: rootFields)

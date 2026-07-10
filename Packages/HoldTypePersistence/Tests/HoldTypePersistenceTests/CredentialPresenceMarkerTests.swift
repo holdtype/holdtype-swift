@@ -109,6 +109,13 @@ struct CredentialPresenceMarkerTests {
 
         #expect(try repository.load() == nil)
         #expect(fileSystem.replacementCallCount == 0)
+        #expect(fileSystem.readPolicies == [
+            ProtectedAtomicMetadataFilePolicy(
+                maximumByteCount: 16 * 1_024,
+                fileProtection: .complete,
+                excludesFromBackup: true
+            ),
+        ])
     }
 
     @Test func removalIsIdempotentAndRestoresAnExactlyMissingMarker() throws {
@@ -142,15 +149,15 @@ struct CredentialPresenceMarkerTests {
             ("not-json", .corruptData),
             (
                 #"{"schemaVersion":2,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
-                .unsupportedSchemaVersion(2)
+                .unsupportedSchemaVersion
             ),
             (
                 #"{"schemaVersion":1,"state":"futureState","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
-                .invalidState("futureState")
+                .invalidState
             ),
             (
                 #"{"mutationKind":"futureMutation","schemaVersion":1,"state":"mutationInProgress","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
-                .invalidMutationKind("futureMutation")
+                .invalidMutationKind
             ),
             (
                 #"{"schemaVersion":1,"state":"mutationInProgress","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
@@ -170,11 +177,11 @@ struct CredentialPresenceMarkerTests {
             ),
             (
                 #"{"providerStatus":"accepted","schemaVersion":1,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
-                .unexpectedFields(["providerStatus"])
+                .unexpectedFields
             ),
             (
                 #"{"schemaVersion":0,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
-                .unsupportedSchemaVersion(0)
+                .unsupportedSchemaVersion
             ),
         ]
 
@@ -221,8 +228,9 @@ struct CredentialPresenceMarkerTests {
             CredentialPresenceMarker(state: .absent, updatedAt: fixtureDate())
         )
 
-        #expect(fileSystem.replacementOptions.count == 2)
-        #expect(fileSystem.replacementOptions.allSatisfy {
+        #expect(fileSystem.replacementPolicies.count == 2)
+        #expect(fileSystem.replacementPolicies.allSatisfy {
+            $0.maximumByteCount == 16 * 1_024 &&
             $0.fileProtection == .complete && $0.excludesFromBackup
         })
     }
@@ -277,6 +285,87 @@ struct CredentialPresenceMarkerTests {
         #expect(fileSystem.replacementCallCount == 0)
     }
 
+    @Test func storageLimitFailuresAreTypedRedactedAndPreserveDurableBytes() throws {
+        let sourceData = Data("oversized-marker-source".utf8)
+        let readFileSystem = CredentialMarkerFileSystemFake(
+            data: sourceData,
+            readError: ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded
+        )
+        let readRepository = makeRepository(fileSystem: readFileSystem)
+
+        #expect(throws: CredentialPresenceMarkerRepositoryError.storageLimitExceeded) {
+            _ = try readRepository.load()
+        }
+        #expect(readFileSystem.data == sourceData)
+        #expect(readFileSystem.replacementCallCount == 0)
+
+        let writeFileSystem = CredentialMarkerFileSystemFake(
+            data: sourceData,
+            replacementError: ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded
+        )
+        let writeRepository = makeRepository(fileSystem: writeFileSystem)
+        #expect(throws: CredentialPresenceMarkerRepositoryError.storageLimitExceeded) {
+            try writeRepository.save(
+                CredentialPresenceMarker(
+                    state: .present,
+                    updatedAt: fixtureDate()
+                )
+            )
+        }
+        #expect(writeFileSystem.data == sourceData)
+
+        let error = CredentialPresenceMarkerRepositoryError.storageLimitExceeded
+        assertPublicRenderings(of: error, exclude: [
+            "/private/app/credential-presence-v1.json",
+            "oversized-marker-source",
+            "EFBIG",
+        ])
+    }
+
+    @Test func untrustedWireValuesNeverAppearInPublicErrorRendering() throws {
+        let fixtures: [(String, CredentialPresenceMarkerRepositoryError, [String])] = [
+            (
+                #"{"schemaVersion":987654321,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .unsupportedSchemaVersion,
+                ["987654321"]
+            ),
+            (
+                #"{"schemaVersion":1,"state":"sk-sensitive-state","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .invalidState,
+                ["sk-sensitive-state"]
+            ),
+            (
+                #"{"mutationKind":"sk-sensitive-mutation","schemaVersion":1,"state":"mutationInProgress","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .invalidMutationKind,
+                ["sk-sensitive-mutation"]
+            ),
+            (
+                #"{"sk-sensitive-field":"sk-sensitive-content","schemaVersion":1,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .unexpectedFields,
+                ["sk-sensitive-field", "sk-sensitive-content"]
+            ),
+        ]
+
+        for (json, expectedError, sensitiveValues) in fixtures {
+            let sourceData = Data(json.utf8)
+            let fileSystem = CredentialMarkerFileSystemFake(data: sourceData)
+            let repository = makeRepository(fileSystem: fileSystem)
+
+            do {
+                _ = try repository.load()
+                Issue.record("Expected marker load to fail")
+            } catch let error as CredentialPresenceMarkerRepositoryError {
+                #expect(error == expectedError)
+                assertPublicRenderings(of: error, exclude: sensitiveValues)
+            } catch {
+                Issue.record("Unexpected error: \(error)")
+            }
+
+            #expect(fileSystem.data == sourceData)
+            #expect(fileSystem.replacementCallCount == 0)
+        }
+    }
+
     private func makeRepository(
         fileSystem: CredentialMarkerFileSystemFake
     ) -> CredentialPresenceMarkerRepository {
@@ -293,6 +382,25 @@ struct CredentialPresenceMarkerTests {
     }
 
     private func requireSendable<Value: Sendable>(_: Value.Type) {}
+
+    private func assertPublicRenderings(
+        of error: CredentialPresenceMarkerRepositoryError,
+        exclude sensitiveValues: [String]
+    ) {
+        var dumpedError = ""
+        dump(error, to: &dumpedError)
+        let renderings = [
+            String(describing: error),
+            String(reflecting: error),
+            error.localizedDescription,
+            dumpedError,
+        ]
+        for rendering in renderings {
+            for sensitiveValue in sensitiveValues {
+                #expect(!rendering.contains(sensitiveValue))
+            }
+        }
+    }
 }
 
 private struct Fixture {
@@ -312,14 +420,15 @@ private enum CredentialMarkerFileSystemFakeError: Error {
 }
 
 private final class CredentialMarkerFileSystemFake:
-    CredentialPresenceMarkerFileSystem,
+    ProtectedAtomicMetadataFileSystem,
     @unchecked Sendable
 {
     private let lock = NSLock()
     private var storedData: Data?
+    private var storedReadPolicies: [ProtectedAtomicMetadataFilePolicy] = []
     private var storedReplacementCallCount = 0
     private var storedRemovalCallCount = 0
-    private var storedReplacementOptions: [CredentialPresenceMarkerReplacementOptions] = []
+    private var storedReplacementPolicies: [ProtectedAtomicMetadataFilePolicy] = []
     private let readError: Error?
     private let replacementError: Error?
     private let removalError: Error?
@@ -333,12 +442,16 @@ private final class CredentialMarkerFileSystemFake:
         lock.withLock { storedReplacementCallCount }
     }
 
+    var readPolicies: [ProtectedAtomicMetadataFilePolicy] {
+        lock.withLock { storedReadPolicies }
+    }
+
     var removalCallCount: Int {
         lock.withLock { storedRemovalCallCount }
     }
 
-    var replacementOptions: [CredentialPresenceMarkerReplacementOptions] {
-        lock.withLock { storedReplacementOptions }
+    var replacementPolicies: [ProtectedAtomicMetadataFilePolicy] {
+        lock.withLock { storedReplacementPolicies }
     }
 
     init(
@@ -353,8 +466,12 @@ private final class CredentialMarkerFileSystemFake:
         self.removalError = removalError
     }
 
-    func readFileIfPresent(at fileURL: URL) throws -> Data? {
+    func readFileIfPresent(
+        at fileURL: URL,
+        policy: ProtectedAtomicMetadataFilePolicy
+    ) throws -> Data? {
         try lock.withLock {
+            storedReadPolicies.append(policy)
             if let readError {
                 throw readError
             }
@@ -365,11 +482,11 @@ private final class CredentialMarkerFileSystemFake:
     func replaceFileAtomically(
         at fileURL: URL,
         with data: Data,
-        options: CredentialPresenceMarkerReplacementOptions
+        policy: ProtectedAtomicMetadataFilePolicy
     ) throws {
         try lock.withLock {
             storedReplacementCallCount += 1
-            storedReplacementOptions.append(options)
+            storedReplacementPolicies.append(policy)
             if let replacementError {
                 throw replacementError
             }

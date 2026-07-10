@@ -882,11 +882,22 @@ are forbidden.
 macOS app remain unlinked. Signed-device Keychain behavior remains a physical
 gate. `HoldTypeOpenAI` now owns the unchanged credential contract plus
 transcription, correction, translation, real cancellation, and bounded
-file-backed multipart upload. Its public surface contains only the three
+file-backed multipart upload. Multipart preparation synchronizes one private
+body, pins a validated read descriptor, removes its validated random pathname
+inside the app-private scratch namespace, and streams bounded independent
+`pread` views without exposing the descriptor or scratch path publicly. This
+does not claim kernel-level conditional-unlink protection against a hostile
+same-UID interposer between the final check and removal. Cancellation and
+timeout completion never wait for blocked
+local I/O or cleanup. The foreground transport permits at most one exact-origin
+307/308 replay, binds every body grant to the exact URLSession task, rebuilds
+trusted headers, rejects authentication and nonzero-offset replay, and keeps
+the service's single deadline over the whole chain. Its public surface contains
+only the three
 service protocols, concrete services, service errors, the request-builder
 error required by the transcription error, and the credential contract;
 transport, request builders, file-system adapters, DTOs, and injection seams
-remain internal. Seventy-five package tests cover the boundary without live
+remain internal. Ninety-three package tests cover the boundary without live
 provider calls. Both containing apps link the product, the macOS app uses
 narrow compatibility aliases, normal-import iOS smoke constructs all three
 services, and the keyboard remains unlinked. Keychain access and UI remain
@@ -899,10 +910,20 @@ uses a private strict v1 wire schema, defaults only absent known fields, rejects
 wrong types and unknown fields without echoing attacker-controlled values, and
 preserves corrupt or unsupported bytes. Atomic saves create the temporary file
 with Complete protection from its first write and keep the final settings file
-eligible for device backup. The Persistence package passes 42 normal and
-strict-concurrency tests, and normal-import iOS simulator tests cover the stable
-Application Support path, round-trip, corruption preservation, and backup
-policy. Effective Data Protection and signed Keychain accessibility remain
+eligible for device backup. The settings record and credential-presence marker
+now share one bounded protected atomic-file substrate: descriptor-relative
+operations reject non-regular and raced identities, reads and encodings enforce
+their 1 MiB and 16 KiB limits, owner-only temporary files receive Complete
+protection before their first content write, and a committed rename or removal
+cannot be reported as a later directory-sync failure. Public errors remain
+redacted and the settings/marker wire contracts are unchanged. These guarantees
+use the app-private sandbox and serialized repository ownership as their
+boundary; Darwin does not provide conditional unlink against a hostile same-UID
+interposer between the final identity check and removal. The Persistence
+package passes 64 normal and strict-concurrency tests, and the full iOS
+simulator suite covers the stable Application Support path, round-trip,
+corruption preservation, limits, backup policy, and protected-file boundary.
+Effective Data Protection and signed Keychain accessibility remain
 physical-device gates rather than simulator claims.
 
 ### P3 — Native containing-app shell
@@ -1094,15 +1115,15 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The provider foundation and general iOS settings v1 are now implemented without
+The provider foundation, general iOS settings v1, credential reconciliation,
+and their shared protected atomic-file substrate are now implemented without
 moving Keychain, UI, or App Group state into the provider package. Continue P2
-through two small persistence checkpoints:
-
-1. consolidate the credential marker and general settings on one bounded,
-   protected atomic-file substrate without changing either frozen wire
-   contract;
-2. use that substrate for the versioned app-private Library repository before
-   adding usage, History, pending-attempt, or recording-storage state.
+with one bounded persistence checkpoint: add the versioned app-private Library
+v1 repository for dictionary entries, emoji-command configuration, and ordered
+replacement rules. It must use the shared 1 MiB protected boundary, preserve a
+private strict wire schema and array order, keep corrupt or unsupported bytes,
+and remain outside the keyboard/App Group snapshot. Usage, History,
+pending-attempt, and recording-storage state follow as separate checkpoints.
 
 Keep startup scavenging for abandoned private multipart scratch files as an
 explicit later P2 provider gate. It must stay bounded, must never touch source

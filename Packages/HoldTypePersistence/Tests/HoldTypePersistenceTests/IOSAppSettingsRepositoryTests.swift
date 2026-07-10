@@ -67,6 +67,13 @@ struct IOSAppSettingsRepositoryTests {
         #expect(try await repository.load() == .defaults)
         #expect(fileSystem.replacementCallCount == 0)
         #expect(fileSystem.data == nil)
+        #expect(fileSystem.readPolicies == [
+            ProtectedAtomicMetadataFilePolicy(
+                maximumByteCount: 1_024 * 1_024,
+                fileProtection: .complete,
+                excludesFromBackup: false
+            ),
+        ])
     }
 
     @Test func missingKnownGroupsAndFieldsDefaultIndividually() async throws {
@@ -138,15 +145,15 @@ struct IOSAppSettingsRepositoryTests {
             ),
             (
                 Data(#"{"schemaVersion":-1}"#.utf8),
-                .unsupportedSchemaVersion(-1)
+                .unsupportedSchemaVersion
             ),
             (
                 Data(#"{"schemaVersion":0}"#.utf8),
-                .unsupportedSchemaVersion(0)
+                .unsupportedSchemaVersion
             ),
             (
                 Data(#"{"schemaVersion":2}"#.utf8),
-                .unsupportedSchemaVersion(2)
+                .unsupportedSchemaVersion
             ),
         ]
 
@@ -318,6 +325,83 @@ struct IOSAppSettingsRepositoryTests {
         #expect(fileSystem.replacementCallCount == 0)
     }
 
+    @Test func oversizedSourceUsesItsRedactedTypedErrorAndPreservesBytes() async {
+        let sourceData = Data("oversized-settings-source".utf8)
+        let fileSystem = IOSAppSettingsFileSystemFake(
+            data: sourceData,
+            readError: ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded
+        )
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        do {
+            _ = try await repository.load()
+            Issue.record("Expected an oversized-source failure")
+        } catch let error as IOSAppSettingsRepositoryError {
+            #expect(error == .sourceTooLarge)
+            assertPublicRenderings(
+                of: error,
+                exclude: [
+                    "/private/app/HoldType/ios-app-settings.json",
+                    "oversized-settings-source",
+                    "EFBIG",
+                ]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(fileSystem.data == sourceData)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
+    @Test func oversizedCanonicalEncodingFailsBeforeTheFileSystemIsAskedToWrite() async {
+        let previousData = Data("durable-settings".utf8)
+        let sensitivePrompt = "sk-sensitive-prompt-" + String(
+            repeating: "x",
+            count: 1_024 * 1_024
+        )
+        var settings = IOSAppSettings.defaults
+        settings.transcriptionConfiguration.freeformPrompt = sensitivePrompt
+        let fileSystem = IOSAppSettingsFileSystemFake(data: previousData)
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        do {
+            try await repository.save(settings)
+            Issue.record("Expected an oversized-encoding failure")
+        } catch let error as IOSAppSettingsRepositoryError {
+            #expect(error == .encodedDataTooLarge)
+            assertPublicRenderings(
+                of: error,
+                exclude: ["sk-sensitive-prompt"]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(fileSystem.data == previousData)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
+    @Test func unsupportedSchemaNumberNeverAppearsInPublicErrorRendering() async {
+        let sensitiveVersion = "987654321"
+        let data = Data(#"{"schemaVersion":987654321}"#.utf8)
+        let fileSystem = IOSAppSettingsFileSystemFake(data: data)
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        do {
+            _ = try await repository.load()
+            Issue.record("Expected an unsupported-schema failure")
+        } catch let error as IOSAppSettingsRepositoryError {
+            #expect(error == .unsupportedSchemaVersion)
+            assertPublicRenderings(of: error, exclude: [sensitiveVersion])
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(fileSystem.data == data)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
     @Test func failedAtomicReplacementPreservesPreviousBytes() async {
         let previousData = Data("previous-settings-bytes".utf8)
         let fileSystem = IOSAppSettingsFileSystemFake(
@@ -346,8 +430,9 @@ struct IOSAppSettingsRepositoryTests {
         try await repository.save(.defaults)
         try await repository.save(fixtureSettings())
 
-        #expect(fileSystem.replacementOptions.count == 2)
-        #expect(fileSystem.replacementOptions.allSatisfy {
+        #expect(fileSystem.replacementPolicies.count == 2)
+        #expect(fileSystem.replacementPolicies.allSatisfy {
+            $0.maximumByteCount == 1_024 * 1_024 &&
             $0.fileProtection == .complete && !$0.excludesFromBackup
         })
     }
@@ -363,22 +448,29 @@ struct IOSAppSettingsRepositoryTests {
             withIntermediateDirectories: true
         )
         let fileURL = directoryURL.appendingPathComponent("ios-app-settings.json")
-        try Data("old-settings".utf8).write(to: fileURL)
+        #expect(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
         var excludedURL = fileURL
         var excludedValues = URLResourceValues()
         excludedValues.isExcludedFromBackup = true
         try excludedURL.setResourceValues(excludedValues)
+        try Data("old-settings".utf8).write(to: fileURL)
         #expect(
             try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
                 .isExcludedFromBackup == true
         )
+        // macOS may publish the backup-exclusion ctime a few milliseconds
+        // after the xattr setter returns. Let that setup-only metadata settle
+        // before the repository's deliberate concurrent-mutation guard starts.
+        try await Task.sleep(for: .milliseconds(20))
 
         let repository = IOSAppSettingsRepository(fileURL: fileURL)
         try await repository.save(.defaults)
 
         #expect(try await repository.load() == .defaults)
+        var refreshedFileURL = URL(fileURLWithPath: fileURL.path)
+        refreshedFileURL.removeAllCachedResourceValues()
         #expect(
-            try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+            try refreshedFileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
                 .isExcludedFromBackup == false
         )
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
@@ -520,6 +612,25 @@ struct IOSAppSettingsRepositoryTests {
     }
 
     private func requireSendable<Value: Sendable>(_: Value.Type) {}
+
+    private func assertPublicRenderings(
+        of error: IOSAppSettingsRepositoryError,
+        exclude sensitiveValues: [String]
+    ) {
+        var dumpedError = ""
+        dump(error, to: &dumpedError)
+        let renderings = [
+            String(describing: error),
+            String(reflecting: error),
+            error.localizedDescription,
+            dumpedError,
+        ]
+        for rendering in renderings {
+            for sensitiveValue in sensitiveValues {
+                #expect(!rendering.contains(sensitiveValue))
+            }
+        }
+    }
 }
 
 private enum IOSAppSettingsFileSystemFakeError: Error {
@@ -527,11 +638,15 @@ private enum IOSAppSettingsFileSystemFakeError: Error {
     case replacementFailed
 }
 
-private final class IOSAppSettingsFileSystemFake: IOSAppSettingsFileSystem, @unchecked Sendable {
+private final class IOSAppSettingsFileSystemFake:
+    ProtectedAtomicMetadataFileSystem,
+    @unchecked Sendable
+{
     private let lock = NSLock()
     private var storedData: Data?
+    private var storedReadPolicies: [ProtectedAtomicMetadataFilePolicy] = []
     private var storedReplacementCallCount = 0
-    private var storedReplacementOptions: [IOSAppSettingsReplacementOptions] = []
+    private var storedReplacementPolicies: [ProtectedAtomicMetadataFilePolicy] = []
     private var storedOperationCallCount = 0
     private var activeOperationCount = 0
     private var storedMaximumConcurrentOperationCount = 0
@@ -547,8 +662,12 @@ private final class IOSAppSettingsFileSystemFake: IOSAppSettingsFileSystem, @unc
         lock.withLock { storedReplacementCallCount }
     }
 
-    var replacementOptions: [IOSAppSettingsReplacementOptions] {
-        lock.withLock { storedReplacementOptions }
+    var readPolicies: [ProtectedAtomicMetadataFilePolicy] {
+        lock.withLock { storedReadPolicies }
+    }
+
+    var replacementPolicies: [ProtectedAtomicMetadataFilePolicy] {
+        lock.withLock { storedReplacementPolicies }
     }
 
     var operationCallCount: Int {
@@ -571,12 +690,16 @@ private final class IOSAppSettingsFileSystemFake: IOSAppSettingsFileSystem, @unc
         self.operationDelay = operationDelay
     }
 
-    func readFileIfPresent(at fileURL: URL) throws -> Data? {
+    func readFileIfPresent(
+        at fileURL: URL,
+        policy: ProtectedAtomicMetadataFilePolicy
+    ) throws -> Data? {
         beginOperation()
         defer { endOperation() }
         delayIfRequested()
 
         return try lock.withLock {
+            storedReadPolicies.append(policy)
             if let readError {
                 throw readError
             }
@@ -587,7 +710,7 @@ private final class IOSAppSettingsFileSystemFake: IOSAppSettingsFileSystem, @unc
     func replaceFileAtomically(
         at fileURL: URL,
         with data: Data,
-        options: IOSAppSettingsReplacementOptions
+        policy: ProtectedAtomicMetadataFilePolicy
     ) throws {
         beginOperation()
         defer { endOperation() }
@@ -595,11 +718,17 @@ private final class IOSAppSettingsFileSystemFake: IOSAppSettingsFileSystem, @unc
 
         try lock.withLock {
             storedReplacementCallCount += 1
-            storedReplacementOptions.append(options)
+            storedReplacementPolicies.append(policy)
             if let replacementError {
                 throw replacementError
             }
             storedData = data
+        }
+    }
+
+    func removeFileIfPresent(at fileURL: URL) throws {
+        lock.withLock {
+            storedData = nil
         }
     }
 
