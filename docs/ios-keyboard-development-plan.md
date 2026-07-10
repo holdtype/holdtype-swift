@@ -309,9 +309,11 @@ host app, state, expected result, actual result, and go/no-go decision.
   now has the same runtime-only request boundary: it retains the resolved source
   route but not full transcription settings, and strict failure never publishes
   the untranslated intermediate. Provider transport remains containing-app
-  work and no request enters App Group or the keyboard. The next P1 slice moves
-  pure transcription prompt composition out of `AppSettings` while keeping
-  context acquisition and provider transport platform-owned.
+  work and no request enters App Group or the keyboard. Prompt composition and
+  its matching echo guards are now portable, while context acquisition stays
+  platform-owned. The next P1 slice narrows the containing-app audio-
+  transcription adapter request without linking provider work into the
+  keyboard.
   App Group command/session records, keyboard linking, and actual keyboard
   insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

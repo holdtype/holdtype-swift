@@ -140,6 +140,72 @@ struct OpenAITranscriptionRequestBuilderTests {
         )
     }
 
+    @Test func keepsExactFourPartPromptInMultipartBody() throws {
+        let audioFileURL = try makeTemporaryAudioFile(
+            named: "recording.m4a",
+            contents: Data("fake audio bytes".utf8)
+        )
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        var settings = AppSettings.defaults
+        settings.prompt = "Prefer product vocabulary."
+        settings.useActiveTextContext = true
+        settings.enabledEmojiCommandSetIDs = []
+        settings.customEmojiCommands = [
+            CustomEmojiCommand(emoji: "🚀", command: "emoji rocket")
+        ]
+        settings.customDictionary = ["HoldType"]
+        let context = try #require(TranscriptionPromptContext("Existing sentence."))
+
+        let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
+            .makeRequest(audioFileURL: audioFileURL, settings: settings, context: context)
+        let bodyText = try #require(request.multipartBodyText)
+
+        #expect(
+            bodyText.contains(
+                """
+                Prefer product vocabulary.
+
+                Current writing context near the cursor. Use this only for continuity; transcribe only the new speech:
+                Existing sentence.
+
+                Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): emoji rocket
+
+                Custom Dictionary (use these exact spellings when they appear in the text): HoldType
+                """
+            )
+        )
+    }
+
+    @Test func explicitCompositionAloneOwnsMultipartPromptBytes() throws {
+        let audioFileURL = try makeTemporaryAudioFile(
+            named: "recording.m4a",
+            contents: Data("fake audio bytes".utf8)
+        )
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        var settings = AppSettings.defaults
+        settings.prompt = "settings prompt must not leak"
+        let composition = TranscriptionPromptComposition(
+            resolvedFreeformPrompt: "frozen composition prompt",
+            context: nil,
+            emojiCommandsConfiguration: EmojiCommandsConfiguration(isEnabled: false),
+            customDictionary: .empty
+        )
+
+        let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
+            .makeRequest(
+                audioFileURL: audioFileURL,
+                settings: settings,
+                promptComposition: composition
+            )
+        let bodyText = try #require(request.multipartBodyText)
+
+        #expect(bodyText.contains("frozen composition prompt"))
+        #expect(bodyText.contains("settings prompt must not leak") == false)
+        #expect(bodyText.contains("Emoji command vocabulary") == false)
+    }
+
     @Test func omitsActiveTextContextWhenDisabled() throws {
         let audioFileURL = try makeTemporaryAudioFile(
             named: "recording.m4a",

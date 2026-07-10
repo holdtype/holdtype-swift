@@ -13,9 +13,9 @@ struct AppSettings: Equatable {
     static let defaultTextCorrectionModel = TextCorrectionConfiguration.defaultModel
     static let defaultTranslationModel = TranslationConfiguration.defaultModel
     static let customDictionaryPromptPrefix =
-        "Custom Dictionary (use these exact spellings when they appear in the text): "
+        TranscriptionPromptComposition.customDictionaryPromptPrefix
     static let emojiCommandsPromptPrefix =
-        "Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): "
+        TranscriptionPromptComposition.emojiCommandsPromptPrefix
     static let defaultEnabledEmojiCommandSetIDs =
         EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
     static let defaultTextCorrectionPrompt = TextCorrectionConfiguration.defaultPrompt
@@ -215,26 +215,18 @@ struct AppSettings: Equatable {
     }
 
     func resolvedPrompt(context: TranscriptionPromptContext?) -> String? {
-        var promptParts: [String] = []
+        transcriptionPromptComposition(context: context).providerPrompt
+    }
 
-        if let freeformPrompt = transcriptionConfiguration.resolvedFreeformPrompt {
-            promptParts.append(freeformPrompt)
-        }
-
-        if useActiveTextContext, let activeTextPrompt = context?.promptText {
-            promptParts.append(activeTextPrompt)
-        }
-
-        if let emojiCommandsPrompt = resolvedEmojiCommandsPrompt {
-            promptParts.append(Self.emojiCommandsPromptPrefix + emojiCommandsPrompt)
-        }
-
-        if let customDictionaryPrompt = resolvedCustomDictionaryPrompt {
-            promptParts.append(Self.customDictionaryPromptPrefix + customDictionaryPrompt)
-        }
-
-        let resolvedPrompt = promptParts.joined(separator: "\n\n")
-        return resolvedPrompt.isEmpty ? nil : resolvedPrompt
+    func transcriptionPromptComposition(
+        context: TranscriptionPromptContext?
+    ) -> TranscriptionPromptComposition {
+        TranscriptionPromptComposition(
+            resolvedFreeformPrompt: transcriptionConfiguration.resolvedFreeformPrompt,
+            context: useActiveTextContext ? context : nil,
+            emojiCommandsConfiguration: emojiCommandsConfiguration,
+            customDictionary: resolvedCustomDictionary
+        )
     }
 
     var resolvedCustomDictionaryEntries: [String] {

@@ -72,10 +72,11 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
         context: TranscriptionPromptContext? = nil,
         credential: OpenAICredential
     ) async throws -> String {
+        let promptComposition = settings.transcriptionPromptComposition(context: context)
         var request = try makeAuthorizedRequest(
             audioFileURL: audioFileURL,
             settings: settings,
-            context: context,
+            promptComposition: promptComposition,
             credential: credential
         )
 
@@ -83,20 +84,20 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
 
         let (data, response) = try await loadWithTimeout(request)
         try validateHTTPResponse(response)
-        return try parseTranscript(from: data, settings: settings, context: context)
+        return try parseTranscript(from: data, promptComposition: promptComposition)
     }
 
     private func makeAuthorizedRequest(
         audioFileURL: URL,
         settings: AppSettings,
-        context: TranscriptionPromptContext?,
+        promptComposition: TranscriptionPromptComposition,
         credential: OpenAICredential
     ) throws -> URLRequest {
         do {
             var request = try requestBuilder.makeRequest(
                 audioFileURL: audioFileURL,
                 settings: settings,
-                context: context
+                promptComposition: promptComposition
             )
             request.setValue("Bearer \(credential.apiKey)", forHTTPHeaderField: "Authorization")
             return request
@@ -163,22 +164,21 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
 
     private func parseTranscript(
         from data: Data,
-        settings: AppSettings,
-        context: TranscriptionPromptContext?
+        promptComposition: TranscriptionPromptComposition
     ) throws -> String {
         do {
             let response = try decoder.decode(OpenAITranscriptionResponse.self, from: data)
             let transcript = try AcceptedTranscript(rawText: response.text).text
             guard !DictionaryEchoFilter.matches(
                 transcript: transcript,
-                dictionaryPrompt: settings.resolvedCustomDictionaryPrompt
+                dictionaryPrompt: promptComposition.dictionaryEchoGuardText
             ) else {
                 throw OpenAITranscriptionServiceError.dictionaryEcho
             }
 
             guard !ActiveTextContextEchoFilter.matches(
                 transcript: transcript,
-                contextText: context?.text
+                contextText: promptComposition.contextEchoGuardText
             ) else {
                 throw OpenAITranscriptionServiceError.contextEcho
             }

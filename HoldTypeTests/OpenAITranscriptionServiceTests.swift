@@ -243,6 +243,38 @@ struct OpenAITranscriptionServiceTests {
         }
     }
 
+    @Test func disabledNearbyContextIsAbsentFromPromptAndEchoGuard() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        var settings = AppSettings.defaults
+        settings.emojiCommandsEnabled = false
+        settings.useActiveTextContext = false
+        let context = try #require(
+            TranscriptionPromptContext("We are already writing about contextual dictation quality.")
+        )
+        let loader = FakeURLLoader(
+            result: .success(
+                Data(#"{"text":"already writing about contextual dictation"}"#.utf8),
+                makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let service = makeService(loader: loader)
+
+        let transcript = try await service.transcribe(
+            audioFileURL: audioFileURL,
+            settings: settings,
+            context: context,
+            credential: testCredential()
+        )
+
+        #expect(transcript == "already writing about contextual dictation")
+        let request = try #require(loader.requests.first)
+        let body = try #require(request.httpBody)
+        let bodyText = try #require(String(data: body, encoding: .utf8))
+        #expect(bodyText.contains(context.text) == false)
+    }
+
     @Test func activeTextContextEchoFilterDistinguishesEchoFromLegitimateSpeech() {
         #expect(
             ActiveTextContextEchoFilter.matches(

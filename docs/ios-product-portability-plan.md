@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-seven P1
+Status: active implementation roadmap, P0 contracts and the first twenty-eight P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -750,6 +750,19 @@ pre-cleanup fallback, and never reruns correction, emoji commands, or
 replacements. Provider-module movement, transport changes, real cancellation,
 persistence, and macOS Translation Retry remain outside this slice.
 
+`TranscriptionPromptComposition` now freezes the runtime provider prompt and
+matching dictionary/context echo guards from only the resolved freeform prompt,
+an already-gated optional `TranscriptionPromptContext`,
+`EmojiCommandsConfiguration`, and normalized `CustomDictionary`. It preserves
+the exact freeform → Nearby Text → emoji hints → dictionary order, prefixes,
+and separators. The macOS `AppSettings` facade applies the existing Nearby Text
+setting before construction, and the transcription service reuses one
+composition for multipart prompt generation and response echo rejection. The
+value is `Equatable`, `Sendable`, and non-Codable; it carries no model,
+language, credential, audio, persistence, App Group, keyboard, or permission
+semantics. Context acquisition remains platform-owned, and Nearby Text remains
+unavailable to the iOS product pending its separate privacy gate.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -950,33 +963,31 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-seven value/configuration/dependency slices are
-complete, including the transient translation-pipeline request. The next P1
-slice extracts pure transcription prompt composition without moving audio or
-provider transport:
+iOS target. The first twenty-eight value/configuration/dependency slices are
+complete, including pure prompt composition and echo guards. The next P1 slice
+removes full `AppSettings` and loose context from the transcription adapter
+boundary without changing provider transport:
 
-1. specify and add a public runtime-only `TranscriptionPromptComposition` built
-   from the resolved freeform prompt, optional already-gated
-   `TranscriptionPromptContext`, `EmojiCommandsConfiguration`, and
-   `CustomDictionary` only;
-2. preserve the exact section order and separators: freeform → nearby context →
-   prefixed emoji hints → prefixed dictionary entries, joined by `"\n\n"`, with
-   no provider prompt when every source is absent;
-3. expose only the composed provider prompt plus the local dictionary/context
-   echo-guard inputs. Make the value `Equatable` and `Sendable`, but not
-   `Codable`, identified, persisted, logged, or transported through App Group
-   or the keyboard;
-4. make `AppSettings.resolvedPrompt(context:)` a compatibility projection into
-   the pure composer. The caller must pass context only when the existing
-   Nearby Text setting and platform acquisition gate allow it;
-5. preserve exact macOS prompt bytes, trimming, emoji/dictionary prefixes, and
-   echo filtering. Do not move Accessibility acquisition, approve Nearby Text
-   for iOS, or change multipart upload, timeout, cancellation, or provider
-   parsing in this slice;
-6. add package and normal-import iOS tests plus macOS facade and existing
-   multipart request-body regressions for empty, individual, and all-source
-   compositions. Keep the full transcription request, file-backed upload, real
-   cancellation, persistence, and `VoiceAttemptOutcome` outside this slice.
+1. specify and add a public runtime-only `AudioTranscriptionRequest` containing
+   exactly one transient app-local audio URL, one resolved non-empty model, one
+   optional validated language code, and one `TranscriptionPromptComposition`;
+2. make request construction preserve the current blank-model fallback,
+   Auto/blank-custom omission, normalized fixed/custom code, and typed invalid
+   custom-language failure before reading or uploading audio;
+3. make the value `Equatable` and `Sendable`, but not `Codable`, identified,
+   persisted, logged, or transported through App Group or the keyboard. Keep
+   `OpenAICredential` as a separate transient dependency;
+4. change the macOS transcription service and multipart builder boundaries to
+   receive the request rather than audio URL + full `AppSettings` + loose
+   context. Normal attempts use their captured snapshot; failed-attempt Retry
+   resolves fresh current settings once and deliberately has no Nearby Text;
+5. preserve exact multipart bytes, audio-file validation/error mapping,
+   response parsing, echo rejection, timeout, cancellation surface, usage
+   handoff, recovery ordering, and controller stale-result rejection;
+6. add package and normal-import iOS tests plus controller normal/Retry and
+   existing request-builder/service regressions. Keep file-backed upload, real
+   cancellation, provider-module movement, durable request identity,
+   persistence, and `VoiceAttemptOutcome` outside this slice.
 
 ## Research Basis
 

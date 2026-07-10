@@ -136,6 +136,10 @@ struct AppSettingsTests {
         )
 
         #expect(disabledSettings.resolvedPrompt(context: context) == "Prefer project vocabulary.")
+        #expect(
+            disabledSettings.transcriptionPromptComposition(context: context)
+                .contextEchoGuardText == nil
+        )
 
         var enabledSettings = disabledSettings
         enabledSettings.useActiveTextContext = true
@@ -152,6 +156,13 @@ struct AppSettingsTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
+        let composition = enabledSettings.transcriptionPromptComposition(context: context)
+        #expect(composition.providerPrompt == enabledSettings.resolvedPrompt(context: context))
+        #expect(
+            composition.contextEchoGuardText ==
+                "The user is already writing about macOS Accessibility."
+        )
+        #expect(composition.dictionaryEchoGuardText == "HoldType")
     }
 
     @Test func resolvesTextCorrectionModelAndRules() {
@@ -293,6 +304,10 @@ struct AppSettingsTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
+        let composition = settings.transcriptionPromptComposition(context: context)
+        #expect(composition.providerPrompt == settings.resolvedPrompt(context: context))
+        #expect(composition.contextEchoGuardText == "Existing sentence.")
+        #expect(composition.dictionaryEchoGuardText == "HoldType")
     }
 
     @Test func normalizesEmojiCommandSetIDsToSingleActiveSet() {

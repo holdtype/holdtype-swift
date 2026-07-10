@@ -162,6 +162,36 @@ This spec covers:
   original dictation. When Keep last result is enabled, retry success should
   save the recovered transcript there and tell the user how to insert it.
 
+## Runtime Prompt Composition
+
+`TranscriptionPromptComposition` is the pure transient value that freezes the
+provider prompt and its matching local echo-guard inputs. It receives exactly a
+resolved optional freeform prompt, an optional already-acquired and already-
+authorized `TranscriptionPromptContext`, one `EmojiCommandsConfiguration`, and
+one normalized `CustomDictionary`. It receives no full `AppSettings`, model,
+language, credential, audio, provider response, output preference, history, or
+platform permission state.
+
+The provider prompt keeps the exact existing section order: freeform prompt,
+Nearby Text context, prefixed emoji-command hints, then prefixed dictionary
+spelling guidance. Non-empty sections are joined with exactly two newline
+characters. When all four sources are absent, the provider prompt is `nil`.
+The composition also exposes only the unprefixed dictionary prompt text and the
+context text used by the existing local dictionary/context echo filters, so the
+sent prompt and rejection guards derive from the same frozen inputs.
+
+The macOS compatibility projection may pass Nearby Text context into this value
+only when the existing setting and Accessibility acquisition path have already
+allowed it. The composition does not acquire focused text, inspect permission,
+approve Nearby Text reuse on iOS, or weaken the separate iOS bounded-context
+privacy gate.
+
+The value is runtime-only, `Equatable`, `Sendable`, and non-Codable. Prompt,
+dictionary, emoji, and Nearby Text content must not be persisted through this
+value, logged, placed in App Group, sent to the keyboard, or treated as a
+durable request journal. Multipart construction, audio reading/upload, provider
+transport, timeout, and real cancellation remain platform-adapter work.
+
 ## Invariants
 
 - The OpenAI API key is loaded from local secure storage into a process-local
@@ -220,6 +250,10 @@ This spec covers:
   terminal failure status, failed-attempt presentation, floating indicator
   hiding, and Try Again retry dispatch. Do not rely on live OpenAI, microphone
   input, or toggling real network connectivity to prove this ordering.
+- Prompt-composition tests must cover each individual source, the exact
+  four-source order and separators, disabled/empty emoji and dictionary inputs,
+  gated versus omitted Nearby Text, echo-guard values, `Sendable`, and the
+  absence of a Codable transport contract through normal iOS import.
 
 ## Timeout and retry policy
 
