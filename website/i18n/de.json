@@ -32,7 +32,6 @@
     "title": "Sprich den ganzen Gedanken aus.",
     "lede": "{brand.holdType} setzt ihn dort ein, wo du gerade arbeitest.",
     "support": "Lange Prompts, Nachrichten, Dokumente und Notizen – direkt in die {brand.mac}-App gesprochen, in der du gerade arbeitest. {brand.holdType} verwendet deinen API-Schlüssel von {brand.openAI} und setzt den übernommenen Text in den meisten {brand.mac}-Apps am Cursor ein.",
-    "seeHowItWorks": "So funktioniert es",
     "qualification": "Kostenlose App · API-Nutzung von {brand.openAI} wird separat berechnet · {fact.minimumOS}",
     "price": {
       "aria": "Selbst {pricing.dailyDictations} Diktate pro Tag kosten in diesem Beispiel für intensive Nutzung nur etwa {pricing.dailyPrice}.",

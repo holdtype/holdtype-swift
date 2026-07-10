@@ -32,7 +32,6 @@
     "title": "The most honest Wispr Flow “clone”.",
     "lede": "No account. No mandatory rewrite pass. You pay OpenAI, not {brand.holdType}.",
     "support": "{brand.holdType} sends audio directly from your {brand.mac} to {brand.openAI} using your API key, then returns the text to the cursor in most {brand.mac} apps. Translation runs only when you ask for it.",
-    "seeHowItWorks": "See the workflow",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
       "aria": "At the current estimated transcription rate, {pricing.dailyDictations} dictations cost about {pricing.dailyPrice}.",

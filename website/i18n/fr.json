@@ -32,7 +32,6 @@
     "title": "Exprimez toute votre pensée.",
     "lede": "{brand.holdType} l’insère là où vous travaillez.",
     "support": "Longs prompts, messages, documents et notes : dictez-les directement dans l’application {brand.mac} où vous travaillez. {brand.holdType} utilise votre clé API {brand.openAI} et replace le texte validé au niveau du curseur dans la plupart des applications {brand.mac}.",
-    "seeHowItWorks": "Voir comment ça marche",
     "qualification": "Application gratuite · Utilisation de l’API {brand.openAI} facturée séparément · {fact.minimumOS}",
     "price": {
       "aria": "Même {pricing.dailyDictations} dictées par jour coûtent environ {pricing.dailyPrice} dans cet exemple d’utilisation intensive.",

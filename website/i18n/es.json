@@ -32,7 +32,6 @@
     "title": "Expresa la idea completa.",
     "lede": "{brand.holdType} la coloca donde estás trabajando.",
     "support": "Prompts largos, mensajes, documentos y notas, dictados directamente en la aplicación de {brand.mac} donde estás trabajando. {brand.holdType} usa tu clave de API de {brand.openAI} y devuelve el texto aceptado al cursor en la mayoría de las aplicaciones de {brand.mac}.",
-    "seeHowItWorks": "Ver cómo funciona",
     "qualification": "Aplicación gratuita · El uso de la API de {brand.openAI} se factura por separado · {fact.minimumOS}",
     "price": {
       "aria": "Incluso {pricing.dailyDictations} dictados al día cuestan aproximadamente {pricing.dailyPrice} en este ejemplo de uso intensivo.",
