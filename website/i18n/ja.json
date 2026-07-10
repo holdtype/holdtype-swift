@@ -171,8 +171,8 @@
     "billing": {
       "title": "アクセス権ではなく、使った分だけ支払う",
       "body": "{brand.holdType} にサブスクリプションはありません。実際の API 利用料は、お手持ちのキーに接続された {brand.openAIPlatform} アカウントから {brand.openAI} が差し引きます。{brand.holdType} が月額料金を徴収することはありません。",
-      "exampleTitle": "短いメッセージを {pricing.dailyDictations} 回。約 {pricing.dailyPrice}。",
-      "exampleBody": "短いメッセージ {pricing.dailyDictations} 回で、録音時間は合計約 {pricing.recordedMinutes} 分です。同じ一日分を {pricing.daysInMonth} 日繰り返した場合、文字起こし費用の見積もりは約 {pricing.monthlyPrice} です。",
+      "exampleTitle": "メッセージを {pricing.dailyDictations} 回。約 {pricing.dailyPrice}。",
+      "exampleBody": "メッセージ {pricing.dailyDictations} 回で、録音時間は合計約 {pricing.recordedMinutes} 分です。同じ一日分を {pricing.daysInMonth} 日繰り返した場合、文字起こし費用の見積もりは約 {pricing.monthlyPrice} です。",
       "note": "{appUi.billing} 画面は、成功した音声文字起こしについてのローカル見積もりです。{brand.openAI} の請求書ではなく、修正や翻訳のリクエストは含まれません。",
       "pricingLink": "{brand.openAI} API の料金",
       "imageAlt": "ローカルの文字起こし利用量の見積もりを表示する {brand.holdType} の {appUi.billing} 設定",

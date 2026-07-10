@@ -171,8 +171,8 @@
     "billing": {
       "title": "Pay for usage, not access",
       "body": "{brand.holdType} has no subscription. {brand.openAI} deducts actual API usage from the {brand.openAIPlatform} account connected through your key; {brand.holdType} does not collect a monthly fee.",
-      "exampleTitle": "{pricing.dailyDictations} quick messages. About {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} quick messages add up to roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat the same daily total for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} messages. About {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} messages add up to roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat the same daily total for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
       "note": "The {appUi.billing} screen is a local estimate for successful audio transcriptions. It is not an {brand.openAI} invoice and does not include correction or translation requests.",
       "pricingLink": "{brand.openAI} API pricing",
       "imageAlt": "{brand.holdType} {appUi.billing} settings showing a local transcription usage estimate",

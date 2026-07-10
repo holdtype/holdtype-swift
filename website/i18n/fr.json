@@ -171,8 +171,8 @@
     "billing": {
       "title": "Payez l’utilisation, pas l’accès",
       "body": "{brand.holdType} n’a pas d’abonnement. {brand.openAI} déduit l’utilisation réelle de l’API du compte {brand.openAIPlatform} relié par votre clé ; {brand.holdType} ne facture aucuns frais mensuels.",
-      "exampleTitle": "{pricing.dailyDictations} messages courts. Environ {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} messages courts représentent environ {pricing.recordedMinutes} minutes de parole enregistrée. Répétez ce même total quotidien pendant {pricing.daysInMonth} jours et le coût de transcription estimé sera d’environ {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} messages. Environ {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} messages représentent environ {pricing.recordedMinutes} minutes de parole enregistrée. Répétez ce même total quotidien pendant {pricing.daysInMonth} jours et le coût de transcription estimé sera d’environ {pricing.monthlyPrice}.",
       "note": "L’écran {appUi.billing} affiche une estimation locale des transcriptions audio réussies. Ce n’est pas une facture {brand.openAI} et il n’inclut pas les requêtes de correction ou de traduction.",
       "pricingLink": "Tarifs de l’API {brand.openAI}",
       "imageAlt": "Réglages {appUi.billing} de {brand.holdType} affichant une estimation locale de l’utilisation de la transcription",

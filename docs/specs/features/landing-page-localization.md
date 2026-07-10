@@ -76,6 +76,8 @@ is no separate `/en/` page.
   enhancement is unavailable.
 - Translation does not change commands, URLs, product names, pricing meaning,
   privacy promises, or the boundary that users supply their own OpenAI API key.
+- Pricing examples describe the count as messages or dictations without
+  characterizing their length, speed, or typical size in any locale.
 - GitHub Pages publication remains a complete artifact containing the landing
   routes, the existing `appcast.xml`, and every release-notes page referenced
   by the appcast. A website-only publish must not regenerate, remove, or alter

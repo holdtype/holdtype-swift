@@ -171,8 +171,8 @@
     "billing": {
       "title": "이용 권한이 아닌 실제 사용량에 지불",
       "body": "{brand.holdType}에는 구독이 없습니다. {brand.openAI}는 사용자의 키에 연결된 {brand.openAIPlatform} 계정에서 실제 API 사용료를 차감하며, {brand.holdType}은 월 요금을 받지 않습니다.",
-      "exampleTitle": "짧은 메시지 {pricing.dailyDictations}개. 약 {pricing.dailyPrice}.",
-      "exampleBody": "짧은 메시지 {pricing.dailyDictations}개는 녹음된 음성 약 {pricing.recordedMinutes}분에 해당합니다. 같은 일일 사용량을 {pricing.daysInMonth}일 동안 반복하면 예상 받아쓰기 비용은 약 {pricing.monthlyPrice}입니다.",
+      "exampleTitle": "메시지 {pricing.dailyDictations}개. 약 {pricing.dailyPrice}.",
+      "exampleBody": "메시지 {pricing.dailyDictations}개는 녹음된 음성 약 {pricing.recordedMinutes}분에 해당합니다. 같은 일일 사용량을 {pricing.daysInMonth}일 동안 반복하면 예상 받아쓰기 비용은 약 {pricing.monthlyPrice}입니다.",
       "note": "{appUi.billing} 화면은 성공한 오디오 받아쓰기 사용량을 로컬에서 추정한 값입니다. {brand.openAI} 청구서가 아니며 교정 또는 번역 요청은 포함하지 않습니다.",
       "pricingLink": "{brand.openAI} API 요금",
       "imageAlt": "로컬 받아쓰기 사용량 추정치를 보여 주는 {brand.holdType} {appUi.billing} 설정",

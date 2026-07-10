@@ -89,11 +89,11 @@ story, installation instructions, and a fuller FAQ.
 
 ## Pricing-message follow-up — 2026-07-10
 
-- Added one restrained, magazine-style `Even 100 a day` badge to the hero with
-  the human supporting line `A hundred quick messages is already a very
-  talkative day.` The model rate and optional-request qualifications remain in
-  the detailed cost section rather than the first viewport.
-- Reframed the cost example as 100 quick voice messages: roughly 17 minutes of
+- Added one restrained, magazine-style `Even 100 dictations a day` badge to the
+  hero with the supporting line `for intensive use`. The model rate and
+  optional-request qualifications remain in the detailed cost section rather
+  than the first viewport.
+- Reframed the cost example as 100 messages: roughly 17 minutes of
   recorded speech, about `$0.10`, or about `$3` if the same total is repeated
   daily for 30 days. The page does not present 100 as a cap, guaranteed
   maximum, or typical day.
@@ -103,6 +103,13 @@ story, installation instructions, and a fuller FAQ.
 - Opened the new `What does dictation cost?` FAQ disclosure and verified its
   prepaid-credit and optional-request qualifications.
 - Browser console remained at zero warnings and zero errors.
+- Removed message-length and message-speed labels from the 100-message pricing
+  example in all ten locales; the example now names only messages or
+  dictations.
+- Rebuilt the static locale artifact and verified the revised Russian example
+  at the desktop viewport and the Arabic RTL example at `390×844`. The Arabic
+  page had no horizontal overflow, and both checks had zero console warnings or
+  errors.
 - Final captures were saved outside the repository at
   `/tmp/holdtype-ten-cent-human-desktop-1440x900.jpg`,
   `/tmp/holdtype-ten-cent-human-mobile-390x844.jpg`, and

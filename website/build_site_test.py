@@ -225,6 +225,30 @@ class BuildSiteTests(unittest.TestCase):
             with self.assertRaisesRegex(build_site.SiteBuildError, "key mismatch"):
                 build_site.build_site(source_dir=source, output_dir=root / "public")
 
+    def test_pricing_examples_do_not_label_message_length(self) -> None:
+        forbidden_phrases = {
+            "en": ("quick messages", "short messages", "average messages"),
+            "es": ("mensajes rápidos", "mensajes cortos", "mensajes promedio"),
+            "de": ("kurze Nachrichten", "schnelle Nachrichten", "durchschnittliche Nachrichten"),
+            "fr": ("messages courts", "messages rapides", "messages moyens"),
+            "pt-BR": ("mensagens rápidas", "mensagens curtas", "mensagens médias"),
+            "ja": ("短いメッセージ", "平均的なメッセージ"),
+            "zh-Hans": ("短消息", "平均消息"),
+            "ko": ("짧은 메시지", "평균 메시지"),
+            "ru": ("коротких сообщений", "длинных сообщений", "средних сообщений"),
+            "ar": ("رسالة سريعة", "رسالة قصيرة", "رسالة متوسطة"),
+        }
+
+        for locale, phrases in forbidden_phrases.items():
+            catalog = json.loads(
+                (WEBSITE_DIR / "i18n" / f"{locale}.json").read_text(encoding="utf-8")
+            )
+            billing = catalog["privacy"]["billing"]
+            pricing_copy = f'{billing["exampleTitle"]} {billing["exampleBody"]}'
+            for phrase in phrases:
+                with self.subTest(locale=locale, phrase=phrase):
+                    self.assertNotIn(phrase, pricing_copy)
+
     def test_rejects_raw_html_in_translation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

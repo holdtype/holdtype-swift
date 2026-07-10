@@ -171,8 +171,8 @@
     "billing": {
       "title": "Платите за использование, а не за доступ",
       "body": "У {brand.holdType} нет подписки. {brand.openAI} списывает фактическую стоимость использования API с учётной записи {brand.openAIPlatform}, связанной с вашим ключом; {brand.holdType} не взимает ежемесячную плату.",
-      "exampleTitle": "{pricing.dailyDictations} коротких сообщений. Около {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} коротких сообщений — это примерно {pricing.recordedMinutes} минут записанной речи. Если повторять этот объём каждый день в течение {pricing.daysInMonth} дней, ориентировочная стоимость расшифровки составит около {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} сообщений. Около {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} сообщений — это примерно {pricing.recordedMinutes} минут записанной речи. Если повторять этот объём каждый день в течение {pricing.daysInMonth} дней, ориентировочная стоимость расшифровки составит около {pricing.monthlyPrice}.",
       "note": "Экран {appUi.billing} показывает локальную оценку расходов по успешно расшифрованным аудиозаписям. Это не счёт от {brand.openAI}; коррекция и перевод в оценку не входят.",
       "pricingLink": "Тарифы API {brand.openAI}",
       "imageAlt": "Настройки {appUi.billing} в {brand.holdType} с локальной оценкой использования расшифровки",

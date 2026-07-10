@@ -166,9 +166,8 @@ the two approved actions, the macOS/cost qualification, one restrained
 usage-cost badge, one human supporting line, and the explicit illustration
 caption. No testimonial, unsupported metric, or unavailable demo action is
 permitted above the fold. The approved badge is
-`Even 100 a day · ≈ $0.10 · for quick voice messages`, supported by the human
-line `A hundred quick messages is already a very talkative day.` Technical
-duration and model-rate qualifications stay in the detailed cost section. The
+`Even 100 dictations a day · ≈ $0.10 · for intensive use`. Technical duration
+and model-rate qualifications stay in the detailed cost section. The
 badge must remain visually secondary to the product outcome and must not
 present 100 as a usage cap, guaranteed maximum, or typical day.
 
@@ -220,8 +219,8 @@ UI states were redrawn or retouched.
 - HoldType has no account or recurring fee. OpenAI may require prepaid API
   credit and deducts actual request usage from the user's Platform balance.
 - The approved cost examples use the current estimated
-  `gpt-4o-transcribe` rate of `$0.006/minute`: about `$0.10` for 100 quick voice
-  messages representing roughly 17 minutes of recorded speech, or about `$3`
+  `gpt-4o-transcribe` rate of `$0.006/minute`: about `$0.10` for 100 messages
+  representing roughly 17 minutes of recorded speech, or about `$3`
   if the same total is repeated daily for 30 days. These are illustrations, not
   a fixed price, usage cap, or typical-day claim, and optional correction and
   translation are separate requests.

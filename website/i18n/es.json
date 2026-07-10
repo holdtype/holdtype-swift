@@ -171,8 +171,8 @@
     "billing": {
       "title": "Paga por el uso, no por el acceso",
       "body": "{brand.holdType} no tiene suscripción. {brand.openAI} descuenta el uso real de la API de la cuenta de {brand.openAIPlatform} conectada mediante tu clave; {brand.holdType} no cobra ninguna cuota mensual.",
-      "exampleTitle": "{pricing.dailyDictations} mensajes rápidos. Aproximadamente {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} mensajes rápidos suman aproximadamente {pricing.recordedMinutes} minutos de voz grabada. Repite ese mismo total diario durante {pricing.daysInMonth} días y el coste estimado de la transcripción será de unos {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} mensajes. Aproximadamente {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} mensajes suman aproximadamente {pricing.recordedMinutes} minutos de voz grabada. Repite ese mismo total diario durante {pricing.daysInMonth} días y el coste estimado de la transcripción será de unos {pricing.monthlyPrice}.",
       "note": "La pantalla {appUi.billing} ofrece una estimación local de las transcripciones de audio realizadas con éxito. No es una factura de {brand.openAI} y no incluye solicitudes de corrección ni de traducción.",
       "pricingLink": "Precios de la API de {brand.openAI}",
       "imageAlt": "Ajustes de {appUi.billing} de {brand.holdType} con una estimación local del uso de transcripción",

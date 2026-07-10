@@ -171,8 +171,8 @@
     "billing": {
       "title": "ادفع مقابل الاستخدام، لا مقابل الوصول",
       "body": "لا يتطلب {brand.holdType} اشتراكًا. تخصم {brand.openAI} تكلفة استخدام API الفعلية من حساب {brand.openAIPlatform} المرتبط بمفتاحك؛ ولا يجمع {brand.holdType} أي رسوم شهرية.",
-      "exampleTitle": "{pricing.dailyDictations} رسالة سريعة. نحو {pricing.dailyPrice}.",
-      "exampleBody": "تعادل {pricing.dailyDictations} رسالة سريعة نحو {pricing.recordedMinutes} دقيقة من الكلام المسجل. كرر الإجمالي اليومي نفسه مدة {pricing.daysInMonth} يومًا، وستبلغ التكلفة التقديرية للنسخ نحو {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} رسالة. نحو {pricing.dailyPrice}.",
+      "exampleBody": "تعادل {pricing.dailyDictations} رسالة نحو {pricing.recordedMinutes} دقيقة من الكلام المسجل. كرر الإجمالي اليومي نفسه مدة {pricing.daysInMonth} يومًا، وستبلغ التكلفة التقديرية للنسخ نحو {pricing.monthlyPrice}.",
       "note": "تعرض شاشة {appUi.billing} تقديرًا محليًا لعمليات تحويل الصوت إلى نص الناجحة. وهي ليست فاتورة من {brand.openAI} ولا تشمل طلبات التصحيح أو الترجمة.",
       "pricingLink": "أسعار API من {brand.openAI}",
       "imageAlt": "إعدادات {appUi.billing} في {brand.holdType} تعرض تقديرًا محليًا لاستخدام النسخ",
