@@ -772,12 +772,28 @@ final class DictationSessionController {
             throw OpenAITextTranslationServiceError.invalidLanguageConfiguration
         }
 
+        let acceptedTranscript: AcceptedTranscript
+        do {
+            acceptedTranscript = try AcceptedTranscript(rawText: transcript)
+        } catch {
+            throw OpenAITextTranslationServiceError.emptyTranslation
+        }
+        let request = TextTranslationRequest(
+            acceptedTranscript: acceptedTranscript,
+            translationConfiguration: settings.translationConfiguration,
+            transcriptionConfiguration: settings.transcriptionConfiguration
+        )
         let translatedTranscript = try await translationService.translate(
-            transcript,
-            settings: settings,
+            request,
             credential: credential
         )
-        return finalTranslatedTranscriptText(translatedTranscript, settings: settings)
+        guard let acceptedTranslation = AcceptedTranscript.nonEmptyNormalizedText(
+            from: translatedTranscript
+        ) else {
+            throw OpenAITextTranslationServiceError.emptyTranslation
+        }
+
+        return finalTranslatedTranscriptText(acceptedTranslation, settings: settings)
     }
 
     private func finalTranslatedTranscriptText(_ transcript: String, settings: AppSettings) -> String {

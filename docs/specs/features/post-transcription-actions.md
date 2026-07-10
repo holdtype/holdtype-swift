@@ -81,6 +81,46 @@ started with a dedicated shortcut.
 - A blank or whitespace-only translation prompt should fall back to HoldType's
   default translation prompt.
 
+## Runtime Translation Request
+
+`TextTranslationRequest` is the transient containing-app input to translation.
+It contains exactly one validated `AcceptedTranscript`, one
+`TranslationConfiguration`, and the final optional source-language code
+resolved from the same captured settings snapshot. Same as Transcription + Auto
+stores no source code; Same as Transcription + fixed/custom stores the effective
+transcription code; Override stores its own validated override code. The value
+does not retain all of `TranscriptionConfiguration`, so the transcription model
+and freeform prompt cannot cross the translation boundary accidentally.
+
+The normal path constructs the request only for an effective Translation intent
+after transcription and the optional fail-open correction/local-processing
+pipeline have produced non-empty accepted text. The controller keeps its
+enabled/readiness preflight and uses one captured settings snapshot through
+transcription, correction, translation, final acceptance, and output. Invalid
+source override or missing target creates no translation request and no network
+call. The current macOS failed-attempt Retry remains transcription-only and must
+not invent Translation intent.
+
+`OpenAICredential` remains a separate transient argument. The provider adapter
+receives only the accepted source text, resolved source route, target/model/
+prompt values from `TranslationConfiguration`, and that credential. It does not
+receive full `AppSettings`, `TranscriptionConfiguration`, the transcription
+prompt, nearby context, dictionary entries, emoji-command definitions,
+replacement rules, History/retention settings, output preferences, audio, or
+keyboard/App Group state.
+
+The request is runtime-only, `Equatable`, `Sendable`, and non-Codable. It has no
+session, attempt, history, document, or target identity; output intent;
+timestamp; recovery policy; provider response; platform result; or user-facing
+copy. It is not persisted, logged, placed in App Group, sent to the keyboard,
+or used as a durable translation journal. Provider transport, timeout, and real
+cancellation remain platform-adapter concerns.
+
+Final plain-typography cleanup stays controller-owned and outside the request.
+It may run once after successful translation using the captured setting, but it
+must not rerun correction, emoji commands, or replacement rules. Translation
+remains strict rather than adopting correction's fail-open behavior.
+
 ## Invariants
 
 - Translation must never run after a failed or empty transcription.
@@ -154,6 +194,13 @@ usage-estimate spec before the Billing section may claim translation costs.
   transcript.
 - OpenAI translation service tests should cover request construction, output
   parsing, timeout mapping, provider error mapping, and no live API calls.
+- Runtime request tests should cover exact accepted text/configuration/source
+  preservation; Same as Transcription Auto, fixed/custom, and Override routes;
+  `Sendable`; and the absence of a Codable transport contract through normal
+  iOS import.
+- Translation boundary tests should prove that no full `AppSettings`,
+  transcription model/prompt, local replacement configuration, or output
+  preference reaches the provider adapter.
 
 ## Unknowns requiring confirmation
 

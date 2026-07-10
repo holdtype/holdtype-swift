@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-six P1
+Status: active implementation roadmap, P0 contracts and the first twenty-seven P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -734,6 +734,22 @@ macOS controller and adapters no longer expose all of `AppSettings` across this
 boundary. Provider-module movement, transport changes, and real cancellation
 remain P2 work.
 
+`TextTranslationRequest` now narrows both containing-app translation boundaries
+to one validated `AcceptedTranscript`, one `TranslationConfiguration`, and the
+optional source-language code resolved from the captured settings snapshot.
+The runtime value is `Equatable`, `Sendable`, and non-Codable; its initializer
+uses but does not retain `TranscriptionConfiguration`, and credentials remain a
+separate transient argument. Same as Transcription + Auto omits the source
+route, fixed/custom and Override preserve normalized codes, and invalid routes
+still fail before network dispatch. The provider sees only source text,
+translation route/model/prompt, and credential. Translation remains strict:
+provider failure or empty output cannot publish the untranslated intermediate,
+and cancellation rejects a late result without revoking accepted transcription
+usage. Final typography cleanup remains controller-owned, keeps a non-empty
+pre-cleanup fallback, and never reruns correction, emoji commands, or
+replacements. Provider-module movement, transport changes, real cancellation,
+persistence, and macOS Translation Retry remain outside this slice.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -934,34 +950,33 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-six value/configuration/dependency slices are
-complete, including the transient correction-pipeline request. The next P1
-slice narrows translation without moving provider transport:
+iOS target. The first twenty-seven value/configuration/dependency slices are
+complete, including the transient translation-pipeline request. The next P1
+slice extracts pure transcription prompt composition without moving audio or
+provider transport:
 
-1. specify and add a public runtime-only `TextTranslationRequest` containing
-   exactly one `AcceptedTranscript`, one `TranslationConfiguration`, and the
-   final optional source-language code resolved from the same captured settings
-   snapshot;
-2. make it `Equatable` and `Sendable`, but not `Codable`, identified,
-   persisted, logged, or transported through App Group. Keep
-   `OpenAICredential` as a separate transient dependency and do not carry all of
-   `TranscriptionConfiguration` merely to resolve one source code;
-3. change both macOS-local translation boundaries to receive the request plus
-   credential instead of raw text plus all of `AppSettings`. Keep the
-   controller's intent/preference/readiness guards and final typography-only
-   cleanup in their current owners;
-4. preserve source semantics exactly: Same as Transcription + Auto sends no
-   source instruction, Same as Transcription + fixed/custom uses its resolved
-   code, and Override uses its own valid code. Invalid override or missing
-   target still fails before network dispatch;
-5. preserve strict translation behavior, model/prompt resolution, provider
-   payload and error mapping, timeout, cancellation delegation, and the same
-   captured attempt snapshot. Translation must not adopt correction's fail-open
-   policy;
-6. add package and normal-import iOS tests plus focused outer-service,
-   controller, cancellation, language-route, final-typography, and existing
-   OpenAI request-body regressions. Keep output, provider module movement, real
-   cancellation hardening, and persistence outside this slice.
+1. specify and add a public runtime-only `TranscriptionPromptComposition` built
+   from the resolved freeform prompt, optional already-gated
+   `TranscriptionPromptContext`, `EmojiCommandsConfiguration`, and
+   `CustomDictionary` only;
+2. preserve the exact section order and separators: freeform → nearby context →
+   prefixed emoji hints → prefixed dictionary entries, joined by `"\n\n"`, with
+   no provider prompt when every source is absent;
+3. expose only the composed provider prompt plus the local dictionary/context
+   echo-guard inputs. Make the value `Equatable` and `Sendable`, but not
+   `Codable`, identified, persisted, logged, or transported through App Group
+   or the keyboard;
+4. make `AppSettings.resolvedPrompt(context:)` a compatibility projection into
+   the pure composer. The caller must pass context only when the existing
+   Nearby Text setting and platform acquisition gate allow it;
+5. preserve exact macOS prompt bytes, trimming, emoji/dictionary prefixes, and
+   echo filtering. Do not move Accessibility acquisition, approve Nearby Text
+   for iOS, or change multipart upload, timeout, cancellation, or provider
+   parsing in this slice;
+6. add package and normal-import iOS tests plus macOS facade and existing
+   multipart request-body regressions for empty, individual, and all-source
+   compositions. Keep the full transcription request, file-backed upload, real
+   cancellation, persistence, and `VoiceAttemptOutcome` outside this slice.
 
 ## Research Basis
 

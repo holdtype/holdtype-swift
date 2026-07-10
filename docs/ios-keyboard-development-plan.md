@@ -305,9 +305,13 @@ host app, state, expected result, actual result, and go/no-go decision.
   insertion command. Optional text correction now receives a runtime-only
   accepted-transcript/configuration request instead of full `AppSettings`; its
   prompt stays containing-app-owned, while emoji and replacement content remain
-  local and outside the provider, App Group, and keyboard transport. The next
-  P1 slice applies the same narrow request boundary to translation without
-  moving provider transport.
+  local and outside the provider, App Group, and keyboard transport. Translation
+  now has the same runtime-only request boundary: it retains the resolved source
+  route but not full transcription settings, and strict failure never publishes
+  the untranslated intermediate. Provider transport remains containing-app
+  work and no request enters App Group or the keyboard. The next P1 slice moves
+  pure transcription prompt composition out of `AppSettings` while keeping
+  context acquisition and provider transport platform-owned.
   App Group command/session records, keyboard linking, and actual keyboard
   insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

@@ -10,8 +10,7 @@ import HoldTypeDomain
 
 protocol TranscriptTranslationServing {
     func translate(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextTranslationRequest,
         credential: OpenAICredential
     ) async throws -> String
     func cancelActiveTranslation()
@@ -31,16 +30,18 @@ struct TranscriptTranslationService: TranscriptTranslationServing {
     }
 
     func translate(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextTranslationRequest,
         credential: OpenAICredential
     ) async throws -> String {
-        let normalizedTranscript = AcceptedTranscript.nonEmptyNormalizedText(from: transcript) ?? transcript
-        return try await openAITextTranslationService.translate(
-            normalizedTranscript,
-            settings: settings,
+        let translatedText = try await openAITextTranslationService.translate(
+            request,
             credential: credential
         )
+        guard let acceptedText = AcceptedTranscript.nonEmptyNormalizedText(from: translatedText) else {
+            throw OpenAITextTranslationServiceError.emptyTranslation
+        }
+
+        return acceptedText
     }
 
     func cancelActiveTranslation() {

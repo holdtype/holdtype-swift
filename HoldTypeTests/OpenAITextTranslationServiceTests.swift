@@ -25,14 +25,22 @@ struct OpenAITextTranslationServiceTests {
             sleeper: sleeper,
             requestTimeout: 4
         )
-        var settings = AppSettings.defaults
-        settings.language = .spanish
-        settings.translationTargetLanguage = .english
-        settings.translationPrompt = "Prefer concise product UI wording."
+        let translationRequest = TextTranslationRequest(
+            acceptedTranscript: try AcceptedTranscript(rawText: "  Hola, mundo. \n"),
+            translationConfiguration: TranslationConfiguration(
+                targetLanguage: .english,
+                model: "gpt-translation-test",
+                prompt: "Prefer concise product UI wording."
+            ),
+            transcriptionConfiguration: TranscriptionConfiguration(
+                model: "unrelated-transcription-model",
+                language: .spanish,
+                freeformPrompt: "private transcription instructions"
+            )
+        )
 
         let translation = try await service.translate(
-            "  Hola, mundo. \n",
-            settings: settings,
+            translationRequest,
             credential: testCredential("sk-test-secret")
         )
 
@@ -49,7 +57,7 @@ struct OpenAITextTranslationServiceTests {
         #expect(sleeper.sleepCalls == [4])
 
         let payload = try decodedRequestPayload(from: request)
-        #expect(payload["model"] as? String == "gpt-5.4-mini")
+        #expect(payload["model"] as? String == "gpt-translation-test")
         #expect(payload["tool_choice"] as? String == "none")
         #expect(payload["store"] as? Bool == false)
         #expect(payload["max_output_tokens"] as? Int == OpenAITextTranslationService.defaultMaxOutputTokens)
@@ -57,6 +65,8 @@ struct OpenAITextTranslationServiceTests {
         #expect(instructions.contains("language code es"))
         #expect(instructions.contains("language code en"))
         #expect(instructions.contains("Prefer concise product UI wording."))
+        #expect(instructions.contains("private transcription instructions") == false)
+        #expect(instructions.contains("unrelated-transcription-model") == false)
         #expect(instructions.contains("Russian") == false)
 
         let reasoning = try #require(payload["reasoning"] as? [String: Any])
@@ -81,12 +91,11 @@ struct OpenAITextTranslationServiceTests {
             )
         )
         let service = makeService(loader: loader)
-        var settings = configuredTranslationSettings()
-        settings.language = .automatic
-
         _ = try await service.translate(
-            "Hola.",
-            settings: settings,
+            try configuredTranslationRequest(
+                "Hola.",
+                transcriptionConfiguration: TranscriptionConfiguration(language: .automatic)
+            ),
             credential: testCredential()
         )
 
@@ -121,15 +130,14 @@ struct OpenAITextTranslationServiceTests {
         )
 
         let translation = try await service.translate(
-            "сырой текст",
-            settings: configuredTranslationSettings(),
+            try configuredTranslationRequest("сырой текст"),
             credential: testCredential()
         )
 
         #expect(translation == "Translated from array")
     }
 
-    @Test func timeoutMapsToTranslationTimeout() async {
+    @Test func timeoutMapsToTranslationTimeout() async throws {
         let loader = TranslationFakeURLLoader(
             result: .delayedSuccess(
                 Data(#"{"output_text":"late"}"#.utf8),
@@ -141,8 +149,7 @@ struct OpenAITextTranslationServiceTests {
 
         await expectTranslationError(.timedOut) {
             try await service.translate(
-                "transcript",
-                settings: configuredTranslationSettings(),
+                try configuredTranslationRequest("transcript"),
                 credential: testCredential()
             )
         }
@@ -151,7 +158,7 @@ struct OpenAITextTranslationServiceTests {
         #expect(sleeper.sleepCalls == [2])
     }
 
-    @Test func invalidProviderResponseIsRejected() async {
+    @Test func invalidProviderResponseIsRejected() async throws {
         let service = makeService(
             loader: TranslationFakeURLLoader(
                 result: .success(
@@ -163,14 +170,13 @@ struct OpenAITextTranslationServiceTests {
 
         await expectTranslationError(.emptyTranslation) {
             try await service.translate(
-                "transcript",
-                settings: configuredTranslationSettings(),
+                try configuredTranslationRequest("transcript"),
                 credential: testCredential()
             )
         }
     }
 
-    @Test func providerStatusCodesMapToProductErrors() async {
+    @Test func providerStatusCodesMapToProductErrors() async throws {
         let cases: [(Int, OpenAITextTranslationServiceError)] = [
             (401, .invalidAPIKey),
             (429, .rateLimited),
@@ -190,29 +196,32 @@ struct OpenAITextTranslationServiceTests {
 
             await expectTranslationError(expectedError) {
                 try await service.translate(
-                    "transcript",
-                    settings: configuredTranslationSettings(),
+                    try configuredTranslationRequest("transcript"),
                     credential: testCredential()
                 )
             }
         }
     }
 
-    @Test func invalidLanguageConfigurationStopsBeforeNetworkRequest() async {
+    @Test func invalidLanguageConfigurationStopsBeforeNetworkRequest() async throws {
         let loader = TranslationFakeURLLoader(
             result: .success(Data(#"{"output_text":"unused"}"#.utf8), makeTranslationHTTPResponse(statusCode: 200))
         )
         let service = makeService(loader: loader)
-        var settings = AppSettings.defaults
-        settings.translationTargetLanguage = .english
-        settings.translationSourceMode = .override
-        settings.translationSourceLanguage = .custom
-        settings.customTranslationSourceLanguageCode = ""
+        let request = TextTranslationRequest(
+            acceptedTranscript: try AcceptedTranscript(rawText: "transcript"),
+            translationConfiguration: TranslationConfiguration(
+                sourceMode: .override,
+                sourceLanguage: .custom,
+                customSourceLanguageCode: "",
+                targetLanguage: .english
+            ),
+            transcriptionConfiguration: .defaults
+        )
 
         await expectTranslationError(.invalidLanguageConfiguration) {
             try await service.translate(
-                "transcript",
-                settings: settings,
+                request,
                 credential: testCredential()
             )
         }
@@ -220,16 +229,21 @@ struct OpenAITextTranslationServiceTests {
         #expect(loader.requests.isEmpty)
     }
 
-    @Test func missingTargetLanguageStopsBeforeNetworkRequest() async {
+    @Test func missingTargetLanguageStopsBeforeNetworkRequest() async throws {
         let loader = TranslationFakeURLLoader(
             result: .success(Data(#"{"output_text":"unused"}"#.utf8), makeTranslationHTTPResponse(statusCode: 200))
         )
         let service = makeService(loader: loader)
 
+        let request = TextTranslationRequest(
+            acceptedTranscript: try AcceptedTranscript(rawText: "transcript"),
+            translationConfiguration: .defaults,
+            transcriptionConfiguration: .defaults
+        )
+
         await expectTranslationError(.invalidLanguageConfiguration) {
             try await service.translate(
-                "transcript",
-                settings: .defaults,
+                request,
                 credential: testCredential()
             )
         }
@@ -259,10 +273,15 @@ struct OpenAITextTranslationServiceTests {
     }
 }
 
-private func configuredTranslationSettings() -> AppSettings {
-    var settings = AppSettings.defaults
-    settings.translationTargetLanguage = .english
-    return settings
+private func configuredTranslationRequest(
+    _ transcript: String,
+    transcriptionConfiguration: TranscriptionConfiguration = .defaults
+) throws -> TextTranslationRequest {
+    TextTranslationRequest(
+        acceptedTranscript: try AcceptedTranscript(rawText: transcript),
+        translationConfiguration: TranslationConfiguration(targetLanguage: .english),
+        transcriptionConfiguration: transcriptionConfiguration
+    )
 }
 
 private func expectTranslationError(

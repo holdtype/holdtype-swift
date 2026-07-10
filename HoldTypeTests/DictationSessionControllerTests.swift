@@ -621,7 +621,11 @@ struct DictationSessionControllerTests {
         )
         #expect(
             translationService.calls == [
-                TranslationCall(transcript: "texto español corregido", settings: settings)
+                TranslationCall(
+                    transcript: "texto español corregido",
+                    translationConfiguration: settings.translationConfiguration,
+                    resolvedSourceLanguageCode: "es"
+                )
             ]
         )
         #expect(
@@ -667,7 +671,11 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "\"Corrected\" - English... emoji smile"))
         #expect(
             translationService.calls == [
-                TranslationCall(transcript: "texto español corregido", settings: settings)
+                TranslationCall(
+                    transcript: "texto español corregido",
+                    translationConfiguration: settings.translationConfiguration,
+                    resolvedSourceLanguageCode: "es"
+                )
             ]
         )
         #expect(
@@ -706,7 +714,15 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .success(transcript: "English text"))
         #expect(transcriptionService.calls.map(\.settings.language) == [.spanish])
-        #expect(translationService.calls == [TranslationCall(transcript: "texto español", settings: settings)])
+        #expect(
+            translationService.calls == [
+                TranslationCall(
+                    transcript: "texto español",
+                    translationConfiguration: settings.translationConfiguration,
+                    resolvedSourceLanguageCode: "es"
+                )
+            ]
+        )
         #expect(
             transcriptOutput.calls == [
                 TranscriptOutputCall(
@@ -742,7 +758,15 @@ struct DictationSessionControllerTests {
         #expect(recorder.startCount == 1)
         #expect(recorder.stopCount == 1)
         #expect(controller.status == .success(transcript: "English text"))
-        #expect(translationService.calls == [TranslationCall(transcript: "русский текст", settings: settings)])
+        #expect(
+            translationService.calls == [
+                TranslationCall(
+                    transcript: "русский текст",
+                    translationConfiguration: settings.translationConfiguration,
+                    resolvedSourceLanguageCode: "ru"
+                )
+            ]
+        )
         #expect(
             transcriptOutput.calls == [
                 TranscriptOutputCall(
@@ -871,7 +895,11 @@ struct DictationSessionControllerTests {
         #expect(controller.outputStatusText == nil)
         #expect(
             translationService.calls == [
-                TranslationCall(transcript: "русский текст", settings: settings)
+                TranslationCall(
+                    transcript: "русский текст",
+                    translationConfiguration: settings.translationConfiguration,
+                    resolvedSourceLanguageCode: "ru"
+                )
             ]
         )
         #expect(transcriptOutput.calls.isEmpty)
@@ -891,6 +919,38 @@ struct DictationSessionControllerTests {
                 .postProcessingFailed(category: "timeout")
             ]
         )
+    }
+
+    @Test func emptyTranslationFailsWithoutPublishingUntranslatedText() async {
+        let translationService = FakeTranslationService(result: .success(" \n "))
+        let transcriptOutput = FakeTranscriptOutput()
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let usageRecorder = FakeTranscriptionUsageRecorder()
+        var settings = AppSettings.defaults
+        settings.language = .russian
+        settings.translationTargetLanguage = .english
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .recording),
+            transcriptionService: FakeControllerTranscriptionService(
+                result: .success(" исходный текст ")
+            ),
+            translationService: translationService,
+            settings: settings,
+            transcriptOutput: transcriptOutput,
+            transcriptHistory: transcriptHistory,
+            transcriptionUsageRecorder: usageRecorder,
+            initialStatus: .recording,
+            lastTranscriptText: "previous accepted transcript"
+        )
+
+        await controller.performRecordingAction(intent: .translate)
+
+        #expect(controller.status == .failure(message: "Translation returned no usable text."))
+        #expect(controller.lastTranscriptText == "previous accepted transcript")
+        #expect(translationService.calls.count == 1)
+        #expect(usageRecorder.calls.count == 1)
+        #expect(transcriptOutput.calls.isEmpty)
+        #expect(transcriptHistory.entries.isEmpty)
     }
 
     @Test func transcribingStateIgnoresRecordingAction() async {
@@ -1075,6 +1135,60 @@ struct DictationSessionControllerTests {
         await stopTask.value
 
         #expect(controller.status == .idle)
+        #expect(usageRecorder.calls.count == 1)
+        #expect(transcriptOutput.calls.isEmpty)
+        #expect(transcriptHistory.entries.isEmpty)
+    }
+
+    @Test func cancelDuringTranslationKeepsUsageAndDiscardsLateResult() async {
+        let gate = ControllerAsyncGate()
+        let translationService = FakeTranslationService(
+            result: .success("late translation"),
+            beforeResult: {
+                await gate.wait()
+            }
+        )
+        let usageRecorder = FakeTranscriptionUsageRecorder()
+        let transcriptOutput = FakeTranscriptOutput()
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        var settings = AppSettings.defaults
+        settings.language = .russian
+        settings.translationTargetLanguage = .english
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .recording),
+            transcriptionService: FakeControllerTranscriptionService(
+                result: .success(" исходный текст ")
+            ),
+            translationService: translationService,
+            settings: settings,
+            transcriptOutput: transcriptOutput,
+            transcriptHistory: transcriptHistory,
+            transcriptionUsageRecorder: usageRecorder,
+            initialStatus: .recording,
+            lastTranscriptText: "previous accepted transcript"
+        )
+
+        let stopTask = Task { @MainActor in
+            await controller.performRecordingAction(intent: .translate)
+        }
+        await yieldUntil {
+            usageRecorder.calls.count == 1 && translationService.calls.count == 1
+        }
+
+        controller.cancelRecording()
+
+        #expect(controller.status == .idle)
+        #expect(controller.lastTranscriptText == "previous accepted transcript")
+        #expect(usageRecorder.calls.count == 1)
+        #expect(translationService.cancelCount == 1)
+        #expect(transcriptOutput.calls.isEmpty)
+        #expect(transcriptHistory.entries.isEmpty)
+
+        await gate.open()
+        await stopTask.value
+
+        #expect(controller.status == .idle)
+        #expect(controller.lastTranscriptText == "previous accepted transcript")
         #expect(usageRecorder.calls.count == 1)
         #expect(transcriptOutput.calls.isEmpty)
         #expect(transcriptHistory.entries.isEmpty)
@@ -1894,16 +2008,19 @@ private struct TextCorrectionCall: Equatable {
 
 private struct TranslationCall: Equatable {
     let transcript: String
-    let settings: AppSettings
+    let translationConfiguration: TranslationConfiguration
+    let resolvedSourceLanguageCode: String?
     let credentialAPIKey: String
 
     init(
         transcript: String,
-        settings: AppSettings,
+        translationConfiguration: TranslationConfiguration,
+        resolvedSourceLanguageCode: String?,
         credentialAPIKey: String = defaultControllerCredentialAPIKey
     ) {
         self.transcript = transcript
-        self.settings = settings
+        self.translationConfiguration = translationConfiguration
+        self.resolvedSourceLanguageCode = resolvedSourceLanguageCode
         self.credentialAPIKey = credentialAPIKey
     }
 }
@@ -2080,29 +2197,35 @@ private final class FakeTextCorrectionService: TextCorrectionServing {
 
 private final class FakeTranslationService: TranscriptTranslationServing {
     private let result: Result<String, OpenAITextTranslationServiceError>
+    private let beforeResult: (() async -> Void)?
     private(set) var calls: [TranslationCall] = []
     private(set) var cancelCount = 0
 
-    init(result: Result<String, OpenAITextTranslationServiceError>? = nil) {
+    init(
+        result: Result<String, OpenAITextTranslationServiceError>? = nil,
+        beforeResult: (() async -> Void)? = nil
+    ) {
         self.result = result ?? .success("")
+        self.beforeResult = beforeResult
     }
 
     func translate(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextTranslationRequest,
         credential: OpenAICredential
     ) async throws -> String {
         calls.append(
             TranslationCall(
-                transcript: transcript,
-                settings: settings,
+                transcript: request.acceptedTranscript.text,
+                translationConfiguration: request.translationConfiguration,
+                resolvedSourceLanguageCode: request.resolvedSourceLanguageCode,
                 credentialAPIKey: credential.apiKey
             )
         )
+        await beforeResult?()
 
         switch result {
         case .success(let translatedTranscript):
-            return translatedTranscript.isEmpty ? transcript : translatedTranscript
+            return translatedTranscript
         case .failure(let error):
             throw error
         }

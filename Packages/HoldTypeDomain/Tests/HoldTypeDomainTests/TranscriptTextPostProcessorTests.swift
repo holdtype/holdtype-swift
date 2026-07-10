@@ -173,4 +173,12 @@ struct TranscriptTextPostProcessorTests {
             ) == "emoji smile..."
         )
     }
+
+    @Test func typographyOnlyHelperRetainsNonEmptyInputWhenCleanupWouldEmptyIt() {
+        #expect(
+            TranscriptTextPostProcessor.normalizedInformalTypography(
+                from: "\u{2060}"
+            ) == "\u{2060}"
+        )
+    }
 }

@@ -10,8 +10,7 @@ import HoldTypeDomain
 
 protocol OpenAITextTranslationServing {
     func translate(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextTranslationRequest,
         credential: OpenAICredential
     ) async throws -> String
     func cancelActiveTranslation()
@@ -52,41 +51,30 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
     }
 
     func translate(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextTranslationRequest,
         credential: OpenAICredential
     ) async throws -> String {
-        let inputText = try normalizedInputText(from: transcript)
-        var request = try makeAuthorizedRequest(
-            inputText: inputText,
-            settings: settings,
+        var urlRequest = try makeAuthorizedRequest(
+            translationRequest: request,
             credential: credential
         )
-        request.timeoutInterval = requestTimeout
+        urlRequest.timeoutInterval = requestTimeout
 
-        let (data, response) = try await loadWithTimeout(request)
+        let (data, response) = try await loadWithTimeout(urlRequest)
         try validateHTTPResponse(response)
         return try parseTranslation(from: data)
     }
 
-    private func normalizedInputText(from transcript: String) throws -> String {
-        guard let inputText = AcceptedTranscript.nonEmptyNormalizedText(from: transcript) else {
-            throw OpenAITextTranslationServiceError.emptyTranslation
-        }
-
-        return inputText
-    }
-
     private func makeAuthorizedRequest(
-        inputText: String,
-        settings: AppSettings,
+        translationRequest: TextTranslationRequest,
         credential: OpenAICredential
     ) throws -> URLRequest {
-        let instructions = try makeInstructions(settings: settings)
+        let configuration = translationRequest.translationConfiguration
+        let instructions = try makeInstructions(request: translationRequest)
 
         do {
             let payload = OpenAITextTranslationRequest(
-                model: settings.resolvedTranslationModel,
+                model: configuration.resolvedModel,
                 instructions: instructions,
                 input: [
                     OpenAITextTranslationInputMessage(
@@ -94,7 +82,7 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
                         content: [
                             OpenAITextTranslationInputContent(
                                 type: "input_text",
-                                text: inputText
+                                text: translationRequest.acceptedTranscript.text
                             )
                         ]
                     )
@@ -123,14 +111,15 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
         }
     }
 
-    private func makeInstructions(settings: AppSettings) throws -> String {
-        guard settings.isTranslationSourceConfigurationValid,
-              let targetCode = settings.resolvedTranslationTargetLanguageCode else {
+    private func makeInstructions(request: TextTranslationRequest) throws -> String {
+        let configuration = request.translationConfiguration
+        guard configuration.isSourceConfigurationValid,
+              let targetCode = configuration.resolvedTargetLanguageCode else {
             throw OpenAITextTranslationServiceError.invalidLanguageConfiguration
         }
 
         let routeInstruction: String
-        if let sourceCode = settings.resolvedTranslationSourceLanguageCode {
+        if let sourceCode = request.resolvedSourceLanguageCode {
             routeInstruction = "Translate from language code \(sourceCode) to language code \(targetCode)."
         } else {
             routeInstruction = "Translate the user's transcript to language code \(targetCode)."
@@ -141,7 +130,7 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
         Return only the translated text.
 
         User translation instructions:
-        \(settings.resolvedTranslationPrompt)
+        \(configuration.resolvedPrompt)
         """
     }
 
