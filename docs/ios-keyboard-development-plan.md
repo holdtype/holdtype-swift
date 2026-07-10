@@ -302,10 +302,12 @@ host app, state, expected result, actual result, and go/no-go decision.
   recovery eligibility, and durable resume checkpoints remain separate. The
   containing-app output handoff is now narrowed to accepted text plus the two
   portable delivery preferences; it is not an App Group record or keyboard
-  insertion command. The next P1 slice removes full `AppSettings` from optional
-  correction while keeping its prompt containing-app-owned and outside App
-  Group/keyboard transport; emoji and replacement content also stay out of the
-  provider request.
+  insertion command. Optional text correction now receives a runtime-only
+  accepted-transcript/configuration request instead of full `AppSettings`; its
+  prompt stays containing-app-owned, while emoji and replacement content remain
+  local and outside the provider, App Group, and keyboard transport. The next
+  P1 slice applies the same narrow request boundary to translation without
+  moving provider transport.
   App Group command/session records, keyboard linking, and actual keyboard
   insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

@@ -25,10 +25,16 @@ struct OpenAITextCorrectionServiceTests {
             sleeper: sleeper,
             requestTimeout: 4
         )
+        let configuration = TextCorrectionConfiguration(
+            isEnabled: true,
+            modelPreset: .custom,
+            customModel: "gpt-correction-test",
+            prompt: "Fix only obvious errors."
+        )
 
         let correction = try await service.correct(
-            "  hello text \n",
-            settings: .defaults,
+            try AcceptedTranscript(rawText: "  hello text \n"),
+            configuration: configuration,
             credential: testCredential("sk-test-secret")
         )
 
@@ -45,8 +51,8 @@ struct OpenAITextCorrectionServiceTests {
         #expect(sleeper.sleepCalls == [4])
 
         let payload = try decodedRequestPayload(from: request)
-        #expect(payload["model"] as? String == "gpt-5.5")
-        #expect(payload["instructions"] as? String == AppSettings.defaultTextCorrectionPrompt)
+        #expect(payload["model"] as? String == "gpt-correction-test")
+        #expect(payload["instructions"] as? String == "Fix only obvious errors.")
         #expect(payload["tool_choice"] as? String == "none")
         #expect(payload["store"] as? Bool == false)
         #expect(payload["max_output_tokens"] as? Int == OpenAITextCorrectionService.defaultMaxOutputTokens)
@@ -89,15 +95,15 @@ struct OpenAITextCorrectionServiceTests {
         )
 
         let correction = try await service.correct(
-            "raw text",
-            settings: .defaults,
+            try AcceptedTranscript(rawText: "raw text"),
+            configuration: .defaults,
             credential: testCredential()
         )
 
         #expect(correction == "Corrected from array")
     }
 
-    @Test func timeoutMapsToTextCorrectionTimeout() async {
+    @Test func timeoutMapsToTextCorrectionTimeout() async throws {
         let loader = CorrectionFakeURLLoader(
             result: .delayedSuccess(
                 Data(#"{"output_text":"late"}"#.utf8),
@@ -106,11 +112,12 @@ struct OpenAITextCorrectionServiceTests {
         )
         let sleeper = CorrectionFakeTimeoutSleeper(mode: .timeoutImmediately)
         let service = makeService(loader: loader, sleeper: sleeper, requestTimeout: 2)
+        let transcript = try AcceptedTranscript(rawText: "transcript")
 
         await expectCorrectionError(.timedOut) {
             try await service.correct(
-                "transcript",
-                settings: .defaults,
+                transcript,
+                configuration: .defaults,
                 credential: testCredential()
             )
         }
@@ -119,7 +126,7 @@ struct OpenAITextCorrectionServiceTests {
         #expect(sleeper.sleepCalls == [2])
     }
 
-    @Test func invalidProviderResponseIsRejected() async {
+    @Test func invalidProviderResponseIsRejected() async throws {
         let service = makeService(
             loader: CorrectionFakeURLLoader(
                 result: .success(
@@ -128,23 +135,25 @@ struct OpenAITextCorrectionServiceTests {
                 )
             )
         )
+        let transcript = try AcceptedTranscript(rawText: "transcript")
 
         await expectCorrectionError(.emptyCorrection) {
             try await service.correct(
-                "transcript",
-                settings: .defaults,
+                transcript,
+                configuration: .defaults,
                 credential: testCredential()
             )
         }
     }
 
-    @Test func providerStatusCodesMapToProductErrors() async {
+    @Test func providerStatusCodesMapToProductErrors() async throws {
         let cases: [(Int, OpenAITextCorrectionServiceError)] = [
             (401, .invalidAPIKey),
             (429, .rateLimited),
             (500, .providerUnavailable),
             (418, .providerRejected(statusCode: 418)),
         ]
+        let transcript = try AcceptedTranscript(rawText: "transcript")
 
         for (statusCode, expectedError) in cases {
             let service = makeService(
@@ -155,8 +164,8 @@ struct OpenAITextCorrectionServiceTests {
 
             await expectCorrectionError(expectedError) {
                 try await service.correct(
-                    "transcript",
-                    settings: .defaults,
+                    transcript,
+                    configuration: .defaults,
                     credential: testCredential()
                 )
             }

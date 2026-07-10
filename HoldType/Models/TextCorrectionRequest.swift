@@ -1,0 +1,3 @@
+import HoldTypeDomain
+
+typealias TextCorrectionRequest = HoldTypeDomain.TextCorrectionRequest

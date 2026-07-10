@@ -10,8 +10,7 @@ import HoldTypeDomain
 
 protocol TextCorrectionServing {
     func correct(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextCorrectionRequest,
         credential: OpenAICredential
     ) async throws -> String
     func cancelActiveCorrection()
@@ -34,18 +33,18 @@ struct TranscriptTextCorrectionService: TextCorrectionServing {
     }
 
     func correct(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextCorrectionRequest,
         credential: OpenAICredential
     ) async throws -> String {
-        let normalizedTranscript = AcceptedTranscript.nonEmptyNormalizedText(from: transcript) ?? transcript
+        let acceptedTranscript = request.acceptedTranscript
+        let normalizedTranscript = acceptedTranscript.text
         var correctedText = normalizedTranscript
 
-        if settings.textCorrectionEnabled {
+        if request.correctionConfiguration.isEnabled {
             do {
                 let openAIText = try await openAITextCorrectionService.correct(
-                    normalizedTranscript,
-                    settings: settings,
+                    acceptedTranscript,
+                    configuration: request.correctionConfiguration,
                     credential: credential
                 )
 
@@ -57,7 +56,11 @@ struct TranscriptTextCorrectionService: TextCorrectionServing {
             }
         }
 
-        return localPostProcessor.process(correctedText, settings: settings, fallback: normalizedTranscript)
+        return localPostProcessor.process(
+            correctedText,
+            configuration: request.postProcessingConfiguration,
+            fallback: normalizedTranscript
+        )
     }
 
     func cancelActiveCorrection() {

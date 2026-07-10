@@ -254,7 +254,7 @@ final class DictationSessionController {
                 audioDuration: attempt.audioDuration
             )
             let correctedTranscriptText = await correctedTranscriptText(
-                from: transcribedTranscript.text,
+                from: transcribedTranscript,
                 settings: settings,
                 credential: credential
             )
@@ -515,7 +515,7 @@ final class DictationSessionController {
             )
             stage = .postProcessing
             let correctedTranscriptText = await correctedTranscriptText(
-                from: transcribedTranscript.text,
+                from: transcribedTranscript,
                 settings: settings,
                 credential: credential
             )
@@ -721,18 +721,22 @@ final class DictationSessionController {
     }
 
     private func correctedTranscriptText(
-        from transcript: String,
+        from transcript: AcceptedTranscript,
         settings: AppSettings,
         credential: OpenAICredential
     ) async -> String {
+        let request = TextCorrectionRequest(
+            acceptedTranscript: transcript,
+            correctionConfiguration: settings.textCorrectionConfiguration,
+            postProcessingConfiguration: settings.transcriptPostProcessingConfiguration
+        )
         do {
             return try await textCorrectionService.correct(
-                transcript,
-                settings: settings,
+                request,
                 credential: credential
             )
         } catch {
-            return transcript
+            return transcript.text
         }
     }
 

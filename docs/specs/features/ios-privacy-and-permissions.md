@@ -75,8 +75,10 @@ agreement that:
 - the selected model/language plus any configured transcription prompt,
   dictionary spelling guidance, and enabled emoji-command hints may be part of
   that request;
-- enabled correction or translation may send transcribed text in additional
-  requests before final acceptance;
+- enabled correction or translation may send transcribed text and the selected
+  correction or translation prompt in additional requests before final
+  acceptance; local emoji-command configuration and replacement rules are not
+  sent in the correction request;
 - the user's API key is stored only in the containing app's Keychain and is
   sent directly to OpenAI to authenticate each request;
 - HoldType does not copy the key into the extension, App Group, logs, or a

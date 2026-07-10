@@ -502,7 +502,15 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .success(transcript: "corrected transcript"))
         #expect(controller.lastTranscriptText == "corrected transcript")
-        #expect(textCorrectionService.calls == [TextCorrectionCall(transcript: "raw transcript", settings: .defaults)])
+        #expect(
+            textCorrectionService.calls == [
+                TextCorrectionCall(
+                    transcript: "raw transcript",
+                    correctionConfiguration: AppSettings.defaults.textCorrectionConfiguration,
+                    postProcessingConfiguration: AppSettings.defaults.transcriptPostProcessingConfiguration
+                )
+            ]
+        )
         #expect(
             transcriptOutput.calls == [
                 TranscriptOutputCall(
@@ -604,7 +612,11 @@ struct DictationSessionControllerTests {
         #expect(transcriptionService.calls.map(\.settings.language) == [.spanish])
         #expect(
             textCorrectionService.calls == [
-                TextCorrectionCall(transcript: "texto español sin corregir", settings: settings)
+                TextCorrectionCall(
+                    transcript: "texto español sin corregir",
+                    correctionConfiguration: settings.textCorrectionConfiguration,
+                    postProcessingConfiguration: settings.transcriptPostProcessingConfiguration
+                )
             ]
         )
         #expect(
@@ -1324,9 +1336,16 @@ struct DictationSessionControllerTests {
         let transcriptOutput = FakeTranscriptOutput(result: .success(.savedToAppClipboard))
         let transcriptHistory = FakeTranscriptRecoveryHistory()
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let textCorrectionService = FakeTextCorrectionService()
+        var settings = AppSettings.defaults
+        settings.textCorrectionEnabled = true
+        settings.textCorrectionModelPreset = .fast
+        settings.localTextCleanupEnabled = false
         let controller = makeController(
             recorder: FakeAudioRecorderService(currentStatus: .idle),
             transcriptionService: transcriptionService,
+            textCorrectionService: textCorrectionService,
+            settings: settings,
             transcriptOutput: transcriptOutput,
             transcriptHistory: transcriptHistory,
             transcriptionFailureRecovery: failureRecovery,
@@ -1341,6 +1360,15 @@ struct DictationSessionControllerTests {
         #expect(failureRecovery.failedAttempts.isEmpty)
         #expect(transcriptionService.calls.map(\.audioFileURL) == [attempt.audioFileURL])
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["recovered text"])
+        #expect(
+            textCorrectionService.calls == [
+                TextCorrectionCall(
+                    transcript: "recovered text",
+                    correctionConfiguration: settings.textCorrectionConfiguration,
+                    postProcessingConfiguration: settings.transcriptPostProcessingConfiguration
+                )
+            ]
+        )
         #expect(
             usageRecorder.calls == [
                 try SuccessfulTranscriptionUsage(
@@ -1847,16 +1875,19 @@ private struct TranscriptOutputCall: Equatable {
 
 private struct TextCorrectionCall: Equatable {
     let transcript: String
-    let settings: AppSettings
+    let correctionConfiguration: TextCorrectionConfiguration
+    let postProcessingConfiguration: TranscriptPostProcessingConfiguration
     let credentialAPIKey: String
 
     init(
         transcript: String,
-        settings: AppSettings,
+        correctionConfiguration: TextCorrectionConfiguration,
+        postProcessingConfiguration: TranscriptPostProcessingConfiguration,
         credentialAPIKey: String = defaultControllerCredentialAPIKey
     ) {
         self.transcript = transcript
-        self.settings = settings
+        self.correctionConfiguration = correctionConfiguration
+        self.postProcessingConfiguration = postProcessingConfiguration
         self.credentialAPIKey = credentialAPIKey
     }
 }
@@ -2019,14 +2050,14 @@ private final class FakeTextCorrectionService: TextCorrectionServing {
     }
 
     func correct(
-        _ transcript: String,
-        settings: AppSettings,
+        _ request: TextCorrectionRequest,
         credential: OpenAICredential
     ) async throws -> String {
         calls.append(
             TextCorrectionCall(
-                transcript: transcript,
-                settings: settings,
+                transcript: request.acceptedTranscript.text,
+                correctionConfiguration: request.correctionConfiguration,
+                postProcessingConfiguration: request.postProcessingConfiguration,
                 credentialAPIKey: credential.apiKey
             )
         )
@@ -2034,7 +2065,9 @@ private final class FakeTextCorrectionService: TextCorrectionServing {
 
         switch result {
         case .success(let correctedTranscript):
-            return correctedTranscript.isEmpty ? transcript : correctedTranscript
+            return correctedTranscript.isEmpty
+                ? request.acceptedTranscript.text
+                : correctedTranscript
         case .failure(let error):
             throw error
         }

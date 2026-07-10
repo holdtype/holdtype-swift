@@ -92,6 +92,29 @@ model-based correction on.
 - User replacement rules must be literal text replacements, not executable
   scripts.
 
+## Runtime Correction Request
+
+`TextCorrectionRequest` is the transient containing-app input to the optional
+correction and local post-processing pipeline. It contains exactly one
+validated `AcceptedTranscript`, one `TextCorrectionConfiguration`, and one
+`TranscriptPostProcessingConfiguration`. The normal path projects it from the
+attempt's captured settings snapshot; an explicit failed-attempt Retry projects
+fresh current settings once and keeps that snapshot for the retry.
+
+The OpenAI adapter receives only the accepted transcript and correction
+configuration. `OpenAICredential` remains a separate transient argument.
+Emoji-command configuration and user replacement rules are local pipeline
+inputs and never enter the correction provider request. When remote correction
+is disabled, the request still runs local cleanup, emoji commands, and ordered
+literal replacements without contacting the provider.
+
+The request is runtime-only, `Equatable`, `Sendable`, and non-Codable. It has no
+session, attempt, history, document, or target identity; output intent;
+timestamp; recovery policy; provider response; platform result; or user-facing
+copy. It is not persisted, logged, placed in App Group, sent to the keyboard,
+or used as a durable correction journal. Provider transport, timeout, and real
+cancellation remain platform-adapter concerns.
+
 ## Edge cases and failure policy
 
 - Missing API key blocks OpenAI correction but must not discard the successful
@@ -139,6 +162,9 @@ usage-estimate spec before the Billing section may claim correction costs.
   case-insensitive replacement rules, and empty-output fallback.
 - OpenAI correction service tests should cover request construction, output
   parsing, timeout mapping, provider error mapping, and no live API calls.
+- Runtime request tests should cover exact value preservation, all enabled and
+  disabled configuration paths, `Sendable`, and the absence of a Codable
+  transport contract through normal iOS import.
 - Controller tests should cover correction disabled, local cleanup enabled,
   OpenAI correction success, and OpenAI correction failure preserving the raw
   transcript.

@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-five P1
+Status: active implementation roadmap, P0 contracts and the first twenty-six P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -719,6 +719,21 @@ accessibility behavior, and explicit recovered-transcript path remain intact.
 The identified protected delivery record, App Group snapshot, keyboard
 command, and insertion claim remain separate P2/P6 contracts.
 
+`TextCorrectionRequest` now narrows optional remote correction plus local
+post-processing to exactly one `AcceptedTranscript`, one
+`TextCorrectionConfiguration`, and one
+`TranscriptPostProcessingConfiguration`. The runtime value is `Equatable`,
+`Sendable`, and non-Codable; credentials remain a separate transient argument.
+The normal path uses the attempt's captured settings snapshot, while explicit
+failed-attempt Retry captures current settings once. The provider adapter sees
+only accepted text and correction configuration: emoji commands and ordered
+replacement rules stay local. Disabled correction still skips the provider;
+provider failure, empty output, or unsafe-length output still falls back to
+accepted text before cleanup, emoji matching, and ordered replacements. The
+macOS controller and adapters no longer expose all of `AppSettings` across this
+boundary. Provider-module movement, transport changes, and real cancellation
+remain P2 work.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -919,30 +934,33 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-five value/configuration/dependency slices are
-complete, including the transient output-adapter request. The next P1 slice
-narrows optional correction and local post-processing without moving provider
-transport:
+iOS target. The first twenty-six value/configuration/dependency slices are
+complete, including the transient correction-pipeline request. The next P1
+slice narrows translation without moving provider transport:
 
-1. specify and add a public runtime-only `TextCorrectionRequest` containing
-   exactly one `AcceptedTranscript`, one `TextCorrectionConfiguration`, and one
-   `TranscriptPostProcessingConfiguration`;
+1. specify and add a public runtime-only `TextTranslationRequest` containing
+   exactly one `AcceptedTranscript`, one `TranslationConfiguration`, and the
+   final optional source-language code resolved from the same captured settings
+   snapshot;
 2. make it `Equatable` and `Sendable`, but not `Codable`, identified,
    persisted, logged, or transported through App Group. Keep
-   `OpenAICredential` as a separate transient dependency;
-3. change the macOS-local `TextCorrectionServing` boundary to receive the
-   request plus credential instead of raw text plus all of `AppSettings`;
-4. pass only accepted text and `TextCorrectionConfiguration` to the OpenAI
-   adapter. Local emoji/replacement configuration never enters the provider
-   request, while model, prompt, input, timeout, and cancellation behavior stay
-   unchanged;
-5. preserve optional fail-open behavior: disabled correction makes no provider
-   call; provider failure, empty output, or unsafe length falls back to the
-   accepted input; cleanup, emoji commands, and ordered replacements still run
-   after either corrected or fallback text;
+   `OpenAICredential` as a separate transient dependency and do not carry all of
+   `TranscriptionConfiguration` merely to resolve one source code;
+3. change both macOS-local translation boundaries to receive the request plus
+   credential instead of raw text plus all of `AppSettings`. Keep the
+   controller's intent/preference/readiness guards and final typography-only
+   cleanup in their current owners;
+4. preserve source semantics exactly: Same as Transcription + Auto sends no
+   source instruction, Same as Transcription + fixed/custom uses its resolved
+   code, and Override uses its own valid code. Invalid override or missing
+   target still fails before network dispatch;
+5. preserve strict translation behavior, model/prompt resolution, provider
+   payload and error mapping, timeout, cancellation delegation, and the same
+   captured attempt snapshot. Translation must not adopt correction's fail-open
+   policy;
 6. add package and normal-import iOS tests plus focused outer-service,
-   controller normal/Retry, cancellation, and existing OpenAI request-body
-   regressions. Keep translation, output, provider module movement, real
+   controller, cancellation, language-route, final-typography, and existing
+   OpenAI request-body regressions. Keep output, provider module movement, real
    cancellation hardening, and persistence outside this slice.
 
 ## Research Basis

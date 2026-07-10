@@ -10,8 +10,8 @@ import HoldTypeDomain
 
 protocol OpenAITextCorrectionServing {
     func correct(
-        _ transcript: String,
-        settings: AppSettings,
+        _ transcript: AcceptedTranscript,
+        configuration: TextCorrectionConfiguration,
         credential: OpenAICredential
     ) async throws -> String
     func cancelActiveCorrection()
@@ -53,14 +53,13 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
     }
 
     func correct(
-        _ transcript: String,
-        settings: AppSettings,
+        _ transcript: AcceptedTranscript,
+        configuration: TextCorrectionConfiguration,
         credential: OpenAICredential
     ) async throws -> String {
-        let inputText = try normalizedInputText(from: transcript)
         var request = try makeAuthorizedRequest(
-            inputText: inputText,
-            settings: settings,
+            inputText: transcript.text,
+            configuration: configuration,
             credential: credential
         )
         request.timeoutInterval = requestTimeout
@@ -70,23 +69,15 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
         return try parseCorrection(from: data)
     }
 
-    private func normalizedInputText(from transcript: String) throws -> String {
-        guard let inputText = AcceptedTranscript.nonEmptyNormalizedText(from: transcript) else {
-            throw OpenAITextCorrectionServiceError.emptyCorrection
-        }
-
-        return inputText
-    }
-
     private func makeAuthorizedRequest(
         inputText: String,
-        settings: AppSettings,
+        configuration: TextCorrectionConfiguration,
         credential: OpenAICredential
     ) throws -> URLRequest {
         do {
             let payload = OpenAITextCorrectionRequest(
-                model: settings.resolvedTextCorrectionModel,
-                instructions: settings.resolvedTextCorrectionPrompt,
+                model: configuration.resolvedModel,
+                instructions: configuration.resolvedPrompt,
                 input: [
                     OpenAITextCorrectionInputMessage(
                         role: "user",
