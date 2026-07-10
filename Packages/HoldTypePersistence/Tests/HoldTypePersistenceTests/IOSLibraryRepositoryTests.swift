@@ -88,6 +88,93 @@ struct IOSLibraryRepositoryTests {
         #expect(loaded.replacementRules.map(\.replacement) == [" keep ", " \nvalue \n"])
     }
 
+    @Test func rawLoadNormalizesLibraryWithoutRewritingSourceBytes() async throws {
+        let sourceData = try rootData(
+            dictionary: [
+                "entries": [
+                    " One ", "one", "Cafe", "café", "Café",
+                    "ACME, Inc.", "Line\nBreak",
+                ],
+            ],
+            emojiCommands: [
+                "isEnabled": false,
+                "enabledBuiltInSetIDs": [],
+                "customCommands": [
+                    [
+                        "id": Self.firstCommandID.uuidString,
+                        "emoji": " 🚀 ",
+                        "command": " ÉMOJI   ROCKET ",
+                        "aliases": [" Launch   Emoji ", "launch emoji"],
+                        "isEnabled": false,
+                    ],
+                    [
+                        "id": Self.semanticDuplicateCommandID.uuidString,
+                        "emoji": "🚀",
+                        "command": "emoji rocket",
+                        "aliases": [],
+                        "isEnabled": true,
+                    ],
+                    [
+                        "id": Self.aliasesOnlyCommandID.uuidString,
+                        "emoji": " ✅ ",
+                        "command": " ",
+                        "aliases": [" ship   it ", "Ship It"],
+                        "isEnabled": true,
+                    ],
+                ],
+            ],
+            replacementRules: [
+                [
+                    "id": Self.firstRuleID.uuidString,
+                    "search": "",
+                    "replacement": " keep ",
+                    "isEnabled": false,
+                ],
+                [
+                    "id": Self.secondRuleID.uuidString,
+                    "search": "  A\nB  ",
+                    "replacement": "",
+                    "isEnabled": true,
+                ],
+            ]
+        )
+        let fileSystem = IOSLibraryFileSystemFake(data: sourceData)
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        let loaded = try await repository.load()
+
+        #expect(
+            loaded.customDictionary.entries == [
+                "One", "Cafe", "café", "ACME, Inc.", "Line\nBreak",
+            ]
+        )
+        #expect(!loaded.emojiCommandsConfiguration.isEnabled)
+        #expect(loaded.emojiCommandsConfiguration.enabledBuiltInSetIDs.isEmpty)
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands.map(\.id) == [
+                Self.firstCommandID, Self.aliasesOnlyCommandID,
+            ]
+        )
+        #expect(loaded.emojiCommandsConfiguration.customCommands[0].emoji == "🚀")
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands[0].command ==
+                "ÉMOJI ROCKET"
+        )
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands[0].aliases ==
+                ["Launch Emoji"]
+        )
+        #expect(!loaded.emojiCommandsConfiguration.customCommands[0].isEnabled)
+        #expect(loaded.emojiCommandsConfiguration.customCommands[1].command == "ship it")
+        #expect(loaded.emojiCommandsConfiguration.customCommands[1].aliases.isEmpty)
+        #expect(loaded.replacementRules.map(\.id) == [Self.firstRuleID, Self.secondRuleID])
+        #expect(loaded.replacementRules.map(\.search) == ["", "  A\nB  "])
+        #expect(loaded.replacementRules.map(\.replacement) == [" keep ", ""])
+        #expect(loaded.replacementRules.map(\.isEnabled) == [false, true])
+        #expect(fileSystem.data == sourceData)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
     @Test func missingFileReturnsDefaultsWithoutWriting() async throws {
         let fileSystem = IOSLibraryFileSystemFake(data: nil)
         let repository = makeRepository(fileSystem: fileSystem)
@@ -158,8 +245,20 @@ struct IOSLibraryRepositoryTests {
                 .invalidValueType(path: "dictionary")
             ),
             (
+                #"{"dictionary":[],"schemaVersion":1}"#,
+                .invalidValueType(path: "dictionary")
+            ),
+            (
                 #"{"dictionary":{"entries":null},"schemaVersion":1}"#,
                 .invalidValueType(path: "dictionary.entries")
+            ),
+            (
+                #"{"dictionary":{"entries":{}},"schemaVersion":1}"#,
+                .invalidValueType(path: "dictionary.entries")
+            ),
+            (
+                #"{"emojiCommands":[],"schemaVersion":1}"#,
+                .invalidValueType(path: "emojiCommands")
             ),
             (
                 #"{"emojiCommands":{"isEnabled":"true"},"schemaVersion":1}"#,
@@ -170,11 +269,23 @@ struct IOSLibraryRepositoryTests {
                 .invalidValueType(path: "emojiCommands.enabledBuiltInSetIDs")
             ),
             (
+                #"{"emojiCommands":{"enabledBuiltInSetIDs":{}},"schemaVersion":1}"#,
+                .invalidValueType(path: "emojiCommands.enabledBuiltInSetIDs")
+            ),
+            (
                 #"{"emojiCommands":{"customCommands":[null]},"schemaVersion":1}"#,
                 .invalidValueType(path: "emojiCommands.customCommands")
             ),
             (
+                #"{"emojiCommands":{"customCommands":{}},"schemaVersion":1}"#,
+                .invalidValueType(path: "emojiCommands.customCommands")
+            ),
+            (
                 #"{"replacementRules":["row"],"schemaVersion":1}"#,
+                .invalidValueType(path: "replacementRules")
+            ),
+            (
+                #"{"replacementRules":{},"schemaVersion":1}"#,
                 .invalidValueType(path: "replacementRules")
             ),
         ]
@@ -314,24 +425,27 @@ struct IOSLibraryRepositoryTests {
             )
         )
 
-        let twoKnownData = try rootData(emojiCommands: [
-            "enabledBuiltInSetIDs": ["en", "ru"],
-        ])
-        await expectLoadFailure(
-            data: twoKnownData,
-            expectedError: .invalidBuiltInSetSelection(
-                path: "emojiCommands.enabledBuiltInSetIDs"
+        for twoKnownIdentifiers in [["en", "ru"], ["en", "en"]] {
+            let twoKnownData = try rootData(emojiCommands: [
+                "enabledBuiltInSetIDs": twoKnownIdentifiers,
+            ])
+            await expectLoadFailure(
+                data: twoKnownData,
+                expectedError: .invalidBuiltInSetSelection(
+                    path: "emojiCommands.enabledBuiltInSetIDs"
+                )
             )
-        )
 
-        var twoKnownContent = IOSLibraryContent.defaults
-        twoKnownContent.emojiCommandsConfiguration.enabledBuiltInSetIDs = ["en", "ru"]
-        await expectSaveFailure(
-            twoKnownContent,
-            expectedError: .invalidBuiltInSetSelection(
-                path: "emojiCommands.enabledBuiltInSetIDs"
+            var twoKnownContent = IOSLibraryContent.defaults
+            twoKnownContent.emojiCommandsConfiguration.enabledBuiltInSetIDs =
+                twoKnownIdentifiers
+            await expectSaveFailure(
+                twoKnownContent,
+                expectedError: .invalidBuiltInSetSelection(
+                    path: "emojiCommands.enabledBuiltInSetIDs"
+                )
             )
-        )
+        }
 
         for identifiers in [[], ["en"], ["ru"], ["es"], ["de"], ["fr"], ["pt"]] {
             let data = try rootData(emojiCommands: [
@@ -557,6 +671,8 @@ struct IOSLibraryRepositoryTests {
             ("id", 42),
             ("emoji", 42),
             ("command", false),
+            ("aliases", [String: Any]()),
+            ("aliases", "go"),
             ("aliases", ["go", 42]),
             ("isEnabled", "true"),
         ]
@@ -690,6 +806,76 @@ struct IOSLibraryRepositoryTests {
         #expect(encodingFileSystem.replacementCallCount == 0)
     }
 
+    @Test func exactOneMiBLimitsAreAcceptedAndTheNextByteIsRejected() async throws {
+        let byteLimit = 1_024 * 1_024
+        let sizingFileSystem = IOSLibraryFileSystemFake()
+        let sizingRepository = makeRepository(fileSystem: sizingFileSystem)
+        try await sizingRepository.save(
+            IOSLibraryContent(
+                customDictionary: CustomDictionary(entries: ["x"])
+            )
+        )
+        let sizingData = try #require(sizingFileSystem.data)
+        let exactEntryLength = byteLimit - sizingData.count + 1
+        #expect(exactEntryLength > 0)
+
+        let exactContent = IOSLibraryContent(
+            customDictionary: CustomDictionary(entries: [
+                String(repeating: "x", count: exactEntryLength),
+            ])
+        )
+        let exactFileSystem = IOSLibraryFileSystemFake()
+        let exactRepository = makeRepository(fileSystem: exactFileSystem)
+        try await exactRepository.save(exactContent)
+        #expect(exactFileSystem.data?.count == byteLimit)
+        #expect(try await exactRepository.load() == exactContent)
+
+        let oversizedContent = IOSLibraryContent(
+            customDictionary: CustomDictionary(entries: [
+                String(repeating: "x", count: exactEntryLength + 1),
+            ])
+        )
+        await expectSaveFailure(
+            oversizedContent,
+            expectedError: .encodedDataTooLarge
+        )
+
+        let directoryURL = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "holdtype-ios-library-limit-tests-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let fileURL = directoryURL.appendingPathComponent("ios-library.json")
+        let repository = IOSLibraryRepository(fileURL: fileURL)
+        let exactMalformedSource = Data(repeating: 0x20, count: byteLimit)
+        try exactMalformedSource.write(to: fileURL)
+        do {
+            _ = try await repository.load()
+            Issue.record("Expected exact-limit malformed source")
+        } catch let error as IOSLibraryRepositoryError {
+            #expect(error == .malformedData)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(try Data(contentsOf: fileURL) == exactMalformedSource)
+
+        let oversizedSource = Data(repeating: 0x20, count: byteLimit + 1)
+        try oversizedSource.write(to: fileURL)
+        do {
+            _ = try await repository.load()
+            Issue.record("Expected one-byte-over source failure")
+        } catch let error as IOSLibraryRepositoryError {
+            #expect(error == .sourceTooLarge)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(try Data(contentsOf: fileURL) == oversizedSource)
+    }
+
     @Test func failedAtomicReplacementPreservesPreviousBytes() async {
         let previousData = Data("previous-library-bytes".utf8)
         let fileSystem = IOSLibraryFileSystemFake(
@@ -752,12 +938,12 @@ struct IOSLibraryRepositoryTests {
                 .isExcludedFromBackup == false
         )
         let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
-        #if targetEnvironment(simulator)
+        #if os(iOS) && !targetEnvironment(simulator)
+        #expect(attributes[.protectionKey] as? FileProtectionType == .complete)
+        #else
         if let protection = attributes[.protectionKey] as? FileProtectionType {
             #expect(protection == .complete)
         }
-        #else
-        #expect(attributes[.protectionKey] as? FileProtectionType == .complete)
         #endif
     }
 

@@ -910,21 +910,30 @@ uses a private strict v1 wire schema, defaults only absent known fields, rejects
 wrong types and unknown fields without echoing attacker-controlled values, and
 preserves corrupt or unsupported bytes. Atomic saves create the temporary file
 with Complete protection from its first write and keep the final settings file
-eligible for device backup. The settings record and credential-presence marker
-now share one bounded protected atomic-file substrate: descriptor-relative
-operations reject non-regular and raced identities, reads and encodings enforce
-their 1 MiB and 16 KiB limits, owner-only temporary files receive Complete
-protection before their first content write, and a committed rename or removal
-cannot be reported as a later directory-sync failure. Public errors remain
-redacted and the settings/marker wire contracts are unchanged. These guarantees
-use the app-private sandbox and serialized repository ownership as their
-boundary; Darwin does not provide conditional unlink against a hostile same-UID
-interposer between the final identity check and removal. The Persistence
-package passes 64 normal and strict-concurrency tests, and the full iOS
-simulator suite covers the stable Application Support path, round-trip,
-corruption preservation, limits, backup policy, and protected-file boundary.
-Effective Data Protection and signed Keychain accessibility remain
-physical-device gates rather than simulator claims.
+eligible for device backup. The settings record, Library record, and
+credential-presence marker now share one bounded protected atomic-file
+substrate: descriptor-relative operations reject non-regular and raced
+identities, reads and encodings enforce the settings/Library 1 MiB limits and
+marker 16 KiB limit, owner-only temporary files receive Complete protection
+before their first content write, and a committed rename or removal cannot be
+reported as a later directory-sync failure. Public errors remain redacted and
+the settings/marker wire contracts are unchanged. These guarantees use the
+app-private sandbox and serialized repository ownership as their boundary;
+Darwin does not provide conditional unlink against a hostile same-UID
+interposer between the final identity check and removal.
+The app-private Library v1 repository now persists the normalized dictionary,
+one exact built-in emoji selection plus strict custom commands, and raw ordered
+replacement rules at `HoldType/ios-library.json`. Its runtime value is
+non-Codable, missing known groups default without rewriting, invalid or future
+source bytes are preserved, duplicate identifiers and unusable command rows
+fail with redacted errors, and Library data remains outside App Group and the
+keyboard snapshot. One process-wide Library state owner must serve every scene
+so read-modify-write work is not split across repository actors. The
+Persistence package passes 89 normal and strict-concurrency tests; macOS and
+the full iOS simulator suite cover stable paths, canonical round trips,
+normalization, strict shapes, exact limits, rollback, backup policy, and the
+protected-file boundary. Effective Data Protection and signed Keychain
+accessibility remain physical-device gates rather than simulator claims.
 
 ### P3 — Native containing-app shell
 
@@ -1116,14 +1125,20 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 The provider foundation, general iOS settings v1, credential reconciliation,
-and their shared protected atomic-file substrate are now implemented without
-moving Keychain, UI, or App Group state into the provider package. Continue P2
-with one bounded persistence checkpoint: add the versioned app-private Library
-v1 repository for dictionary entries, emoji-command configuration, and ordered
-replacement rules. It must use the shared 1 MiB protected boundary, preserve a
-private strict wire schema and array order, keep corrupt or unsupported bytes,
-and remain outside the keyboard/App Group snapshot. Usage, History,
-pending-attempt, and recording-storage state follow as separate checkpoints.
+shared protected atomic-file substrate, and app-private Library v1 are now
+implemented without moving Keychain, UI, or canonical Library state into the
+provider package or App Group. Continue P2 with the local transcription-usage
+repository: move the portable event/pricing value into the shared domain,
+persist a strict versioned newest-first event log at
+`HoldType/ios-transcription-usage.json`, retain 365 calendar days, freeze known
+price snapshots, keep duplicate request UUIDs idempotent, and use a 4 MiB
+Complete-protected backup-excluded file. History, pending-attempt, and
+recording-storage state remain separate checkpoints.
+
+Foundation object parsing does not itself reject duplicate JSON member names.
+A shared bounded duplicate-member rejection layer for app-private metadata
+remains an explicit P2 hardening gate before final persistence/security signoff;
+the current field whitelists do not claim that extra parser guarantee.
 
 Keep startup scavenging for abandoned private multipart scratch files as an
 explicit later P2 provider gate. It must stay bounded, must never touch source

@@ -332,8 +332,9 @@ without discarding a successfully resolved runtime credential or absence.
   survive normalization; normalization may reduce those arrays. Dictionary
   entries and custom emoji commands use the current shared-domain rules before
   they become durable. Replacement search, replacement, enabled state,
-  identifier, and row order remain raw; repeated search text is valid and is
-  not deduplicated.
+  semantic UUID identity, and row order are preserved; repeated search text is
+  valid and is not deduplicated. A noncanonical UUID string may be written in
+  canonical `UUID.uuidString` form by a later save without changing identity.
 - A load may default a missing known root group or a missing known group field.
   Every field of an existing custom-command or replacement-rule row is
   required. Nulls, wrong types, non-object rows, malformed identifiers, and
@@ -367,6 +368,11 @@ without discarding a successfully resolved runtime credential or absence.
   1 MiB, requests Complete protection before the first content write, and
   keeps the final Library record eligible for system-managed device backup. A
   failed replacement preserves the previous durable bytes.
+- The app composition root owns one Library repository and one Library state
+  owner for the process lifetime and shares them across every scene. Separate
+  scene-local repository instances and read-then-save mutations outside that
+  state owner are unsupported because one actor serializes only its own method
+  calls, not a transaction split across actors or calls.
 - Simulator verification may prove only that Complete protection was requested.
   Effective protection remains a signed physical-device gate.
 
