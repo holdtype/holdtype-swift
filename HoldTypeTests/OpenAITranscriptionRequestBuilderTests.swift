@@ -26,7 +26,9 @@ struct OpenAITranscriptionRequestBuilderTests {
         settings.emojiCommandsEnabled = false
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings)
+            .makeRequest(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings)
+            )
 
         #expect(request.url == OpenAITranscriptionRequestBuilder.defaultEndpointURL)
         #expect(request.httpMethod == "POST")
@@ -71,7 +73,9 @@ struct OpenAITranscriptionRequestBuilderTests {
         settings.emojiCommandsEnabled = false
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings)
+            .makeRequest(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings)
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains(AppSettings.defaultTranscriptionModel))
@@ -93,7 +97,9 @@ struct OpenAITranscriptionRequestBuilderTests {
         settings.emojiCommandsEnabled = false
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings)
+            .makeRequest(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings)
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("Content-Disposition: form-data; name=\"prompt\""))
@@ -124,7 +130,13 @@ struct OpenAITranscriptionRequestBuilderTests {
         )
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings, context: context)
+            .makeRequest(
+                try makeTranscriptionRequest(
+                    audioFileURL: audioFileURL,
+                    settings: settings,
+                    context: context
+                )
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("Content-Disposition: form-data; name=\"prompt\""))
@@ -158,7 +170,13 @@ struct OpenAITranscriptionRequestBuilderTests {
         let context = try #require(TranscriptionPromptContext("Existing sentence."))
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings, context: context)
+            .makeRequest(
+                try makeTranscriptionRequest(
+                    audioFileURL: audioFileURL,
+                    settings: settings,
+                    context: context
+                )
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(
@@ -193,12 +211,13 @@ struct OpenAITranscriptionRequestBuilderTests {
             customDictionary: .empty
         )
 
+        let transcriptionRequest = try AudioTranscriptionRequest(
+            audioFileURL: audioFileURL,
+            transcriptionConfiguration: settings.transcriptionConfiguration,
+            promptComposition: composition
+        )
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(
-                audioFileURL: audioFileURL,
-                settings: settings,
-                promptComposition: composition
-            )
+            .makeRequest(transcriptionRequest)
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("frozen composition prompt"))
@@ -222,7 +241,13 @@ struct OpenAITranscriptionRequestBuilderTests {
         )
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings, context: context)
+            .makeRequest(
+                try makeTranscriptionRequest(
+                    audioFileURL: audioFileURL,
+                    settings: settings,
+                    context: context
+                )
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("Prefer direct prose."))
@@ -240,7 +265,9 @@ struct OpenAITranscriptionRequestBuilderTests {
         settings.enabledEmojiCommandSetIDs = ["ru"]
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings)
+            .makeRequest(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings)
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("Content-Disposition: form-data; name=\"prompt\""))
@@ -266,36 +293,38 @@ struct OpenAITranscriptionRequestBuilderTests {
         settings.customLanguageCode = "   "
 
         let request = try OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-            .makeRequest(audioFileURL: audioFileURL, settings: settings)
+            .makeRequest(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL, settings: settings)
+            )
         let bodyText = try #require(request.multipartBodyText)
 
         #expect(bodyText.contains("name=\"language\"") == false)
     }
 
-    @Test func throwsControlledErrorForInvalidCustomLanguageCode() throws {
-        let audioFileURL = try makeTemporaryAudioFile(
-            named: "recording.wav",
-            contents: Data("wav bytes".utf8)
-        )
-        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
-
+    @Test func rejectsInvalidCustomLanguageDuringRequestConstructionBeforeBuilderFileIO() {
+        let missingFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-invalid-language-\(UUID().uuidString).wav")
         var settings = AppSettings.defaults
         settings.language = .custom
         settings.customLanguageCode = "en-US"
 
-        let builder = OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
-
-        #expect(throws: OpenAITranscriptionRequestBuilderError.invalidCustomLanguageCode("en-US")) {
-            _ = try builder.makeRequest(audioFileURL: audioFileURL, settings: settings)
+        #expect(
+            throws: AudioTranscriptionRequest.ValidationError.invalidCustomLanguageCode("en-US")
+        ) {
+            _ = try makeTranscriptionRequest(
+                audioFileURL: missingFileURL,
+                settings: settings
+            )
         }
     }
 
-    @Test func throwsControlledErrorForMissingAudioFile() {
+    @Test func throwsControlledErrorForMissingAudioFile() throws {
         let missingFileURL = URL(fileURLWithPath: "/tmp/holdtype-missing-recording.m4a")
         let builder = OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
+        let transcriptionRequest = try makeTranscriptionRequest(audioFileURL: missingFileURL)
 
         #expect(throws: OpenAITranscriptionRequestBuilderError.missingAudioFile(missingFileURL)) {
-            _ = try builder.makeRequest(audioFileURL: missingFileURL, settings: .defaults)
+            _ = try builder.makeRequest(transcriptionRequest)
         }
     }
 
@@ -304,9 +333,10 @@ struct OpenAITranscriptionRequestBuilderTests {
         defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
 
         let builder = OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
+        let transcriptionRequest = try makeTranscriptionRequest(audioFileURL: audioFileURL)
 
         #expect(throws: OpenAITranscriptionRequestBuilderError.emptyAudioFile(audioFileURL)) {
-            _ = try builder.makeRequest(audioFileURL: audioFileURL, settings: .defaults)
+            _ = try builder.makeRequest(transcriptionRequest)
         }
     }
 
@@ -318,10 +348,22 @@ struct OpenAITranscriptionRequestBuilderTests {
         defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
 
         let builder = OpenAITranscriptionRequestBuilder(boundary: "Boundary-Test")
+        let transcriptionRequest = try makeTranscriptionRequest(audioFileURL: audioFileURL)
 
         #expect(throws: OpenAITranscriptionRequestBuilderError.unsupportedAudioFileType("txt")) {
-            _ = try builder.makeRequest(audioFileURL: audioFileURL, settings: .defaults)
+            _ = try builder.makeRequest(transcriptionRequest)
         }
+    }
+
+    private func makeTranscriptionRequest(
+        audioFileURL: URL,
+        settings: AppSettings = .defaults,
+        context: TranscriptionPromptContext? = nil
+    ) throws -> AudioTranscriptionRequest {
+        try settings.audioTranscriptionRequest(
+            audioFileURL: audioFileURL,
+            context: context
+        )
     }
 
     private func makeTemporaryAudioFile(named fileName: String, contents: Data) throws -> URL {

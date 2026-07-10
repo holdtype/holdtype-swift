@@ -30,8 +30,7 @@ struct OpenAITranscriptionServiceTests {
         )
 
         let transcript = try await service.transcribe(
-            audioFileURL: audioFileURL,
-            settings: .defaults,
+            try makeTranscriptionRequest(audioFileURL: audioFileURL),
             credential: testCredential("sk-test-secret")
         )
 
@@ -60,8 +59,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.timedOut) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -79,8 +77,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.timedOut) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -104,8 +101,7 @@ struct OpenAITranscriptionServiceTests {
 
             await expectTranscriptionError(expectedError) {
                 try await service.transcribe(
-                    audioFileURL: audioFileURL,
-                    settings: .defaults,
+                    try makeTranscriptionRequest(audioFileURL: audioFileURL),
                     credential: testCredential()
                 )
             }
@@ -140,8 +136,7 @@ struct OpenAITranscriptionServiceTests {
 
             await expectTranscriptionError(expectedError) {
                 try await service.transcribe(
-                    audioFileURL: audioFileURL,
-                    settings: .defaults,
+                    try makeTranscriptionRequest(audioFileURL: audioFileURL),
                     credential: testCredential()
                 )
             }
@@ -160,8 +155,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.emptyTranscript) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -185,8 +179,10 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.dictionaryEcho) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: settings,
+                try makeTranscriptionRequest(
+                    audioFileURL: audioFileURL,
+                    settings: settings
+                ),
                 credential: testCredential()
             )
         }
@@ -235,9 +231,11 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.contextEcho) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: settings,
-                context: context,
+                try makeTranscriptionRequest(
+                    audioFileURL: audioFileURL,
+                    settings: settings,
+                    context: context
+                ),
                 credential: testCredential()
             )
         }
@@ -262,9 +260,11 @@ struct OpenAITranscriptionServiceTests {
         let service = makeService(loader: loader)
 
         let transcript = try await service.transcribe(
-            audioFileURL: audioFileURL,
-            settings: settings,
-            context: context,
+            try makeTranscriptionRequest(
+                audioFileURL: audioFileURL,
+                settings: settings,
+                context: context
+            ),
             credential: testCredential()
         )
 
@@ -308,8 +308,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.invalidResponse) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -326,8 +325,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.invalidRecording(.unsupportedAudioFileType("txt"))) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -346,8 +344,7 @@ struct OpenAITranscriptionServiceTests {
 
         await expectTranscriptionError(.invalidRecording(.emptyAudioFile(audioFileURL))) {
             try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: .defaults,
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
                 credential: testCredential()
             )
         }
@@ -355,28 +352,21 @@ struct OpenAITranscriptionServiceTests {
         #expect(loader.requests.isEmpty)
     }
 
-    @Test func invalidCustomLanguageErrorIsMappedBeforeNetworkRequest() async throws {
-        let audioFileURL = try makeTemporaryAudioFile()
-        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
-
+    @Test func invalidCustomLanguageFailsDuringRequestConstructionBeforeServiceFileIO() {
+        let missingFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-invalid-language-\(UUID().uuidString).m4a")
         var settings = AppSettings.defaults
         settings.language = .custom
         settings.customLanguageCode = "en-US"
 
-        let loader = FakeURLLoader(
-            result: .success(Data(#"{"text":"unused"}"#.utf8), makeHTTPResponse(statusCode: 200))
-        )
-        let service = makeService(loader: loader)
-
-        await expectTranscriptionError(.invalidRecording(.invalidCustomLanguageCode("en-US"))) {
-            try await service.transcribe(
-                audioFileURL: audioFileURL,
-                settings: settings,
-                credential: testCredential()
+        #expect(
+            throws: AudioTranscriptionRequest.ValidationError.invalidCustomLanguageCode("en-US")
+        ) {
+            _ = try makeTranscriptionRequest(
+                audioFileURL: missingFileURL,
+                settings: settings
             )
         }
-
-        #expect(loader.requests.isEmpty)
     }
 
     @Test func commonFailureMessagesAndLogCategoriesAreStable() {
@@ -439,6 +429,17 @@ struct OpenAITranscriptionServiceTests {
             #expect(error.errorDescription == expectedMessage)
             #expect(error.operatorLogCategory == expectedLogCategory)
         }
+    }
+
+    private func makeTranscriptionRequest(
+        audioFileURL: URL,
+        settings: AppSettings = .defaults,
+        context: TranscriptionPromptContext? = nil
+    ) throws -> AudioTranscriptionRequest {
+        try settings.audioTranscriptionRequest(
+            audioFileURL: audioFileURL,
+            context: context
+        )
     }
 
     private func makeService(
