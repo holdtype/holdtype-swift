@@ -1,0 +1,355 @@
+{
+  "locale": "ja",
+  "meta": {
+    "title": "{brand.holdType} — 考えていることを、最後まで話そう",
+    "description": "{brand.holdType} は、長いプロンプト、メッセージ、文書、メモのための {brand.macOS} 音声入力アプリです。{brand.holdType} のアカウントやサブスクリプションは不要で、お手持ちの {brand.openAI} API キーを使用します。",
+    "socialImageAlt": "{brand.holdType} のアプリアイコン"
+  },
+  "common": {
+    "skipToContent": "本文へ移動",
+    "brandHomeAria": "{brand.holdType} ホーム",
+    "primaryNavigationAria": "メインナビゲーション",
+    "downloadForMacOS": "{brand.macOS} 版をダウンロード"
+  },
+  "localeUi": {
+    "switcherLabel": "言語",
+    "switcherAria": "言語を選択",
+    "suggestionAria": "言語の提案",
+    "suggestionMessage": "このページは {languageName} でご覧いただけます。",
+    "suggestionAction": "ページを見る",
+    "suggestionDismiss": "今はしない",
+    "suggestionDismissAria": "言語の提案を閉じる"
+  },
+  "header": {
+    "menuClosed": "メニュー",
+    "menuOpen": "閉じる",
+    "howItWorks": "使い方",
+    "features": "機能",
+    "privacy": "プライバシー",
+    "faq": "よくある質問"
+  },
+  "hero": {
+    "title": "考えていることを、最後まで話そう。",
+    "lede": "{brand.holdType} が、作業中の場所へそのまま入力します。",
+    "support": "長いプロンプト、メッセージ、文書、メモを、作業中の {brand.mac} アプリへ直接話して入力できます。{brand.holdType} はお手持ちの {brand.openAI} API キーを使い、確定したテキストをほとんどの {brand.mac} アプリのカーソル位置へ戻します。",
+    "seeHowItWorks": "使い方を見る",
+    "qualification": "アプリは無料 · {brand.openAI} API の利用料は別途請求 · {fact.minimumOS}",
+    "price": {
+      "aria": "この高頻度利用の例では、1日 {pricing.dailyDictations} 回の音声入力でも費用は約 {pricing.dailyPrice} です。",
+      "kicker": "1日 {pricing.dailyDictations} 回の音声入力でも",
+      "value": "約 {pricing.dailyPrice}",
+      "suffix": "高頻度利用の目安"
+    },
+    "demo": {
+      "editorIllustration": "{brand.holdType} のイラスト",
+      "documentTitle": "プロジェクトの進捗",
+      "toolbarSample": "Aa  ···",
+      "intro": "進捗と次のステップをまとめます。",
+      "sectionTitle": "概要",
+      "listeningBody": "{keyboard.rightCommand} を押したまま、自然に話します。",
+      "transcribingBody": "確定するテキストを準備しています…",
+      "insertedBody": "先週、最新リリースを公開しました。反応は好評で、次はオンボーディングを磨き、書く流れをシンプルに保つことに取り組みます。",
+      "status": {
+        "listening": "聞き取り中",
+        "transcribing": "文字起こし中",
+        "inserted": "入力済み"
+      },
+      "caption": "図解したワークフロー：{brand.holdType} が音声を聞き取り、文字に起こし、一般的なエディタへ入力します。録画されたデモではありません。"
+    }
+  },
+  "workflow": {
+    "title": "声を、その場でテキストに。",
+    "steps": {
+      "hold": {
+        "title": "押す",
+        "body": "{keyboard.rightCommand} を押したまま"
+      },
+      "speak": {
+        "title": "話す",
+        "body": "考えていることを最後まで話す"
+      },
+      "release": {
+        "title": "離す",
+        "body": "{keyboard.command} を離す"
+      },
+      "inserted": {
+        "artLabel": "テキスト",
+        "title": "入力完了",
+        "body": "カーソル位置にテキストが表示されます"
+      }
+    }
+  },
+  "reasons": {
+    "a11yTitle": "{brand.holdType} を選ぶ理由",
+    "stays": {
+      "title": "作業中の場所から離れない",
+      "body": "ショートカットを押したまま話すと、結果がカーソル位置へ戻ります。別のエディタやブラウザタブを管理する必要はありません。"
+    },
+    "subscription": {
+      "title": "サブスクリプション不要",
+      "body": "{brand.holdType} に月額料金はありません。リクエストを行うと、{brand.openAI} が API 利用料を {brand.openAIPlatform} アカウントから差し引きます。"
+    },
+    "openAI": {
+      "title": "最初から {brand.openAI} に特化",
+      "body": "品質を優先した一つの標準設定ですぐに始められます。最初の音声入力の前に、プロバイダーを比較したりローカルモデルをダウンロードしたりする必要はありません。"
+    }
+  },
+  "useCases": {
+    "title": "入力しているうちに短くなってしまう文章に。",
+    "intro": "送り先がコーディングエージェントでも、メッセージでも、文書でも、{brand.holdType} は考えていることを余さず伝えるために作られています。",
+    "aiPrompts": {
+      "title": "長い AI プロンプト",
+      "body": "一行ずつ入力すると省きがちな背景情報まで、{brand.codex}、{brand.claude}、{brand.chatGPT} に伝えられます。"
+    },
+    "everyday": {
+      "title": "日々の文章作成",
+      "body": "メール、レビュー、ドキュメント、チャット、メモを、下書きを別のエディタへ移さずに音声入力できます。"
+    },
+    "bilingual": {
+      "title": "二言語での作業",
+      "body": "考えが自然に浮かぶ言語で話し、翻訳を指定したときは設定済みの対象言語で入力できます。"
+    }
+  },
+  "features": {
+    "a11yTitle": "製品の機能",
+    "appUiLanguageNote": "現在の {brand.holdType} アプリと製品スクリーンショットのインターフェースは英語です。",
+    "translation": {
+      "label": "言語と語彙",
+      "title": "自然に話して、目の前の作業に合う言語で入力。",
+      "body1": "翻訳は指定したときだけ実行されます。対象言語を選び、{keyboard.translationShortcut} を使うと、文字起こしと翻訳を一つの流れで行えます。",
+      "body2": "{appUi.localDictionary} に登録した名前、プロジェクト用語、ファイル名は、文字起こしリクエストの綴りの参考情報として追加されます。",
+      "imageAlt": "翻訳ショートカットと対象言語のコントロールが表示された {brand.holdType} の {appUi.translation} 設定",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "実際の {brand.holdType} の {appUi.translation} 設定です。スマートフォンでは、フォーカスされた切り抜きを横にスワイプして確認できます。"
+          },
+          {
+            "type": "link",
+            "ref": "translationScreenshot",
+            "text": "フルサイズ画像を開く"
+          },
+          {
+            "type": "text",
+            "value": "。"
+          }
+        ]
+      },
+      "lightboxCaption": "{brand.holdType} の {appUi.translation} 設定"
+    },
+    "menu": {
+      "imageAlt": "文字起こし、翻訳、{appUi.pasteLastResult}、履歴、設定、終了の操作が並ぶ {brand.holdType} のメニューバーポップオーバー",
+      "imageCaption": "{appUi.lastResult} による復元を含む、実際のメニューバー操作です。",
+      "label": "いつでも手の届く場所に",
+      "title": "開始、翻訳、復元、調整をメニューバーから。",
+      "body1": "入力に失敗しても、確定した文字起こしは {appUi.lastResult} として残ります。{brand.macOS} のシステムクリップボードを置き換えずに、{keyboard.pasteShortcut} で貼り付けられます。",
+      "body2": "任意の {brand.openAI} による修正は初期状態でオフです。ローカルのタイポグラフィ整形は、別のモデルリクエストを送らずに実行できます。"
+    }
+  },
+  "privacy": {
+    "label": "費用とデータの境界",
+    "title": "ローカルに残るものと、{brand.openAI} へ送られるものを明確に。",
+    "intro": "{brand.holdType} には、アカウント機能、製品バックエンド、テレメトリ、アクセス解析、クラウド同期はありません。文字起こし自体は、設定したキーを使って {brand.openAI} API へ送るリクエストです。",
+    "flow": {
+      "aria": "{brand.holdType} のデータフロー",
+      "microphone": "マイク",
+      "holdType": "{brand.holdType}",
+      "openAI": "{brand.openAI} 文字起こし",
+      "activeApp": "使用中のアプリ"
+    },
+    "dataPath": {
+      "title": "データの経路",
+      "items": {
+        "apiKey": "API キーは {brand.macOSKeychain} にローカル保存されます。",
+        "audio": "音声は文字起こしのために {brand.openAI} へ送信されます。",
+        "optionalTextRequests": "任意の修正と翻訳は、それぞれ別のテキストリクエストです。",
+        "failedAudio": "処理が完了した音声は、初期設定では保持されません。復元可能な失敗では、{appUi.retry} のために量を制限したセッション中のみの音声が残る場合があります。",
+        "recordingCache": "任意の録音キャッシュ保存はローカルで行われ、ユーザーが管理できます。"
+      }
+    },
+    "billing": {
+      "title": "アクセス権ではなく、使った分だけ支払う",
+      "body": "{brand.holdType} にサブスクリプションはありません。実際の API 利用料は、お手持ちのキーに接続された {brand.openAIPlatform} アカウントから {brand.openAI} が差し引きます。{brand.holdType} が月額料金を徴収することはありません。",
+      "exampleTitle": "短いメッセージを {pricing.dailyDictations} 回。約 {pricing.dailyPrice}。",
+      "exampleBody": "短いメッセージ {pricing.dailyDictations} 回で、録音時間は合計約 {pricing.recordedMinutes} 分です。同じ一日分を {pricing.daysInMonth} 日繰り返した場合、文字起こし費用の見積もりは約 {pricing.monthlyPrice} です。",
+      "note": "{appUi.billing} 画面は、成功した音声文字起こしについてのローカル見積もりです。{brand.openAI} の請求書ではなく、修正や翻訳のリクエストは含まれません。",
+      "pricingLink": "{brand.openAI} API の料金",
+      "imageAlt": "ローカルの文字起こし利用量の見積もりを表示する {brand.holdType} の {appUi.billing} 設定",
+      "imageCaption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "スマートフォンでは、同じ実際の {appUi.billing} スクリーンショットのフォーカスされた切り抜きを横にスワイプできます。"
+          },
+          {
+            "type": "link",
+            "ref": "billingScreenshot",
+            "text": "フルサイズ画像を開く"
+          },
+          {
+            "type": "text",
+            "value": "。"
+          }
+        ]
+      },
+      "lightboxCaption": "{brand.holdType} の {appUi.billing} 設定とローカルの利用量見積もり"
+    }
+  },
+  "founder": {
+    "imageAlt": "{brand.holdType} の開発とテストで使用したデスクマイク",
+    "imageCaption": "特別な録音機材は必要ありません。",
+    "label": "{brand.holdType} を作った理由",
+    "title": "問題は、タイピングの速さではありませんでした。",
+    "body1": "問題は、長いプロンプトやレビュー、説明が、入力し終える前に何度も短くなってしまうことでした。声で話すと、考えていることを余さず伝えやすくなりました。",
+    "body2": "サブスクリプション型のツールや、ローカルとクラウドのモデルを選べるアプリも試しました。それぞれ別の問題を解決しています。私の日々の作業では、{brand.openAI} の文字起こしが、最も信頼できる最初の結果を出してくれました。",
+    "body3": "私が求めていたのは、もっと絞り込んだ構成でした。一つのプロバイダー、無理のない標準設定、API からの直接請求、そして覚えておくべき製品サブスクリプションがないこと。{brand.holdType} は、それが支えるために作られたものと同じ、音声を起点とするワークフローで開発・テストされています。"
+  },
+  "install": {
+    "label": "使い始める",
+    "title": "ダウンロードから最初の音声入力まで。",
+    "steps": {
+      "download": "{brand.githubReleases} から最新のディスクイメージをダウンロードします。",
+      "applications": "{brand.holdType} を {appUi.applications} へドラッグし、起動します。",
+      "permissions": "マイク、グローバルショートカット、テキスト入力の権限を許可します。",
+      "apiKey": "設定に {brand.openAIPlatform} の API キーを追加します。"
+    },
+    "allReleases": "すべてのリリース",
+    "homebrew": {
+      "title": "{brand.homebrew} を使いますか？",
+      "body": "プロジェクトの Tap は、{brand.githubReleases} で公開されているものと同じディスクイメージをインストールします。",
+      "copyAria": "{brand.homebrew} のインストールコマンドをコピー",
+      "copyIdle": "コピー",
+      "copyCopied": "コピーしました",
+      "copyRetry": "もう一度試す",
+      "copySuccessStatus": "{brand.homebrew} のコマンドをコピーしました。",
+      "copyFailureStatus": "コピーできませんでした。コマンドを手動で選択してください。",
+      "tapLink": "プロジェクトの Tap を見る"
+    }
+  },
+  "apiKeyGuide": {
+    "label": "API キーは初めてですか？",
+    "title": "数分で作成できます。",
+    "intro": "API キーは、{brand.holdType} が {brand.openAIPlatform} アカウントを通じて文字起こし用の音声を送るための非公開の認証情報です。{brand.chatGPT} のログイン情報やサブスクリプションとは別のものです。",
+    "steps": {
+      "openPage": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "{brand.openAIPlatform} にサインインして、"
+          },
+          {
+            "type": "link",
+            "ref": "openAIKeys",
+            "text": "API キーのページ"
+          },
+          {
+            "type": "text",
+            "value": "を開きます。"
+          }
+        ]
+      },
+      "create": "シークレットキーを作成し、{brand.openAI} に表示された時点でコピーします。",
+      "save": "{brand.holdType} で {appUi.settingsOpenAI} を開き、キーを貼り付けて保存します。"
+    },
+    "createAction": "{brand.openAI} のキーを作成",
+    "instructionsAction": "公式の手順",
+    "note": "{brand.openAI} がキー全体を表示するのは作成時だけです。非公開のまま保管し、ローカルの {brand.macOSKeychain} に保存する {brand.holdType} だけに貼り付けてください。API の請求は {brand.chatGPT} とは別で、新しい {brand.openAIPlatform} アカウントではプリペイドクレジットが必要になる場合があります。",
+    "video": {
+      "iframeTitle": "{brand.chatGPT} API キーの作成方法（{video.year} 年版チュートリアル）",
+      "playAria": "API キー作成の {video.roundedMinutes} 分チュートリアルを再生",
+      "kicker": "{video.roundedMinutes} 分のガイド",
+      "title": "{brand.openAI} API キーの作成方法を見る",
+      "playAction": "チュートリアルを再生",
+      "noScriptAction": "{brand.youtube} で API キーのチュートリアルを見る",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "第三者によるチュートリアル："
+          },
+          {
+            "type": "link",
+            "ref": "videoCreator",
+            "text": "{brand.geekrar}"
+          },
+          {
+            "type": "text",
+            "value": "、長さ {video.duration}、{video.year} 年 6 月公開。{brand.youtube} は「再生」を押した後にのみ読み込まれます。"
+          }
+        ]
+      },
+      "fallbackIframeTitle": "{brand.youtube} チュートリアル"
+    }
+  },
+  "faq": {
+    "title": "よくある質問",
+    "intro": "インストール前に大切な判断を、短く説明します。",
+    "apiKeyRequired": {
+      "question": "なぜ {brand.openAI} API キーが必要ですか？",
+      "answer": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "{brand.holdType} は、お客様自身の {brand.openAIPlatform} アカウントを通じて文字起こしリクエストを送信します。キーは {brand.macOSKeychain} にローカル保存されます。API キーを初めて使う場合は、上の"
+          },
+          {
+            "type": "link",
+            "ref": "apiKeyGuide",
+            "text": "3 ステップガイド"
+          },
+          {
+            "type": "text",
+            "value": "をご覧ください。"
+          }
+        ]
+      }
+    },
+    "chatGPTPlus": {
+      "question": "{brand.chatGPTPlus} だけで使えますか？",
+      "answer": "いいえ。{brand.chatGPT} のサブスクリプションと {brand.openAIPlatform} の API 請求は別です。{brand.holdType} には、{brand.openAIPlatform} の請求設定が済んだ API キーが必要です。"
+    },
+    "cost": {
+      "question": "音声入力にはいくらかかりますか？",
+      "answer": "{brand.holdType} に固定料金はありません。API 利用料は {brand.openAIPlatform} の残高から {brand.openAI} が差し引き、新しい API アカウントではプリペイドクレジットが必要になる場合があります。{brand.holdType} の {appUi.billing} 画面は、この {brand.mac} で成功した文字起こしを見積もります。任意の修正と翻訳は別のリクエストです。"
+    },
+    "dataSent": {
+      "question": "{brand.openAI} にはどのデータが送信されますか？",
+      "answer": "文字起こしのために音声が送信されます。任意の修正と翻訳では文字起こしテキストが別のリクエストで送信され、任意の周辺コンテキストでは文字起こしリクエストに短い抜粋が添えられます。"
+    },
+    "audioStorage": {
+      "question": "音声は保存されますか？",
+      "answer": "処理が完了した音声は、初期設定では保持されません。復元可能な失敗では {appUi.retry} のために量を制限したセッション中のみの音声が残る場合があり、任意の録音キャッシュ保存はローカルで行われ、ユーザーが管理できます。"
+    },
+    "compatibleApps": {
+      "question": "どの {brand.mac} アプリで使えますか？",
+      "answer": "{brand.holdType} は、{brand.macOS} のアクセシビリティ機能を通じて、ほとんどの {brand.mac} アプリのカーソル位置に確定したテキストを入力します。受け渡しに失敗しても、復元用の {appUi.lastResult} は残ります。"
+    },
+    "languages": {
+      "question": "どの言語に対応していますか？",
+      "answer": "文字起こしでは、入力言語を自動または固定で設定できます。翻訳では、{brand.holdType} で設定した対象言語を使用します。"
+    },
+    "permissions": {
+      "question": "なぜ {brand.holdType} に {brand.macOS} の権限が必要ですか？",
+      "answer": "マイクへのアクセスは音声の録音に、入力監視はグローバルショートカットに、アクセシビリティは使用中のアプリへのテキスト入力に使われます。"
+    },
+    "sourceAvailable": {
+      "question": "{brand.holdType} はオープンソースですか？",
+      "answer": "{brand.holdType} は {license.fsl11} のもとでソースを公開し、将来は {license.mit} へ移行します。リリースされた各バージョンは、公開から 2 年後に {license.mit} へ移行します。"
+    }
+  },
+  "finalCta": {
+    "title": "考えを話して、文脈を保とう。",
+    "body": "アプリは無料 · {brand.holdType} のサブスクリプションなし · {brand.openAI} の利用料は直接請求 · {fact.minimumOS}"
+  },
+  "footer": {
+    "description": "ネイティブな {brand.macOS} 音声入力。{license.fsl11} のもとでソースを公開し、将来は {license.mit} へ移行します。",
+    "sourceLink": "{brand.github} でソースを見る"
+  },
+  "lightbox": {
+    "dialogAria": "{brand.holdType} のフルサイズスクリーンショット",
+    "closeAria": "フルサイズ画像を閉じる",
+    "closeLabel": "閉じる",
+    "fallbackImageAlt": "{brand.holdType} のフルサイズスクリーンショット"
+  }
+}
