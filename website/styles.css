@@ -309,11 +309,12 @@ h3 {
 
 .language-selector a {
   min-height: 42px;
-  display: flex;
+  display: grid;
   align-items: center;
   padding: 9px 10px;
   border-radius: 8px;
   color: var(--text-soft);
+  text-align: left;
   text-decoration: none;
 }
 
