@@ -151,6 +151,26 @@ story, installation instructions, and a fuller FAQ.
   `/tmp/holdtype-lightbox-final-desktop.png` and
   `/tmp/holdtype-lightbox-final-mobile.png`.
 
+## Hero price-sticker placement follow-up — 2026-07-10
+
+- Removed the price sticker and its supporting paragraph from the left hero
+  flow, restoring the original single qualification line beneath the actions.
+- Positioned the sticker as an independent layer over the demo window's upper
+  right corner. It no longer changes either hero column's intrinsic height.
+- Reframed the visible example as `Even 100 a day`, `≈ $0.10`, and
+  `for intensive use`; the detailed section retains the rate and duration
+  qualifications.
+- At `1440×900`, the sticker straddles the demo-window corner and the complete
+  hero remains inside the first viewport. At `390×844`, the qualification wraps
+  to two lines, the sticker stays inside the viewport, and document width
+  remains exactly `390px`.
+- Page identity, meaningful hero content, absence of a framework error overlay,
+  and zero browser warnings or errors were reconfirmed after the change.
+- Final captures were saved outside the repository at
+  `/tmp/holdtype-hero-badge-after-desktop-1440x900.png`,
+  `/tmp/holdtype-hero-badge-mobile-top-390x844.png`, and
+  `/tmp/holdtype-hero-badge-after-mobile-390x844.png`.
+
 ## Final result
 
 final result: passed
