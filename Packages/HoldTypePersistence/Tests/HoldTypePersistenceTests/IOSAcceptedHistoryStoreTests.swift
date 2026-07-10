@@ -18,7 +18,8 @@ struct IOSAcceptedHistoryStoreTests {
         )
 
         #expect(receipt.decision == .retained)
-        #expect(receipt.provesExactMembership)
+        #expect(receipt.provesDecision(for: capabilities.delivery))
+        #expect(receipt.provesMembership(for: capabilities.delivery))
         #expect(
             String(describing: receipt)
                 == "IOSAcceptedHistoryRowReceipt(redacted)"
@@ -54,6 +55,24 @@ struct IOSAcceptedHistoryStoreTests {
             )
         }
 
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transfer(
+            delivery: enabled.delivery,
+            policy: enabled.policy
+        )
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.decideUpsert(
+                outbox: outbox,
+                policy: disabledPolicy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.decideUpsert(
+                outbox: outbox,
+                policy: wrongGeneration
+            )
+        }
+
         let terminal = try acceptedHistoryDeliveryAuthorization(
             index: 2,
             generation: 2,
@@ -66,6 +85,110 @@ struct IOSAcceptedHistoryStoreTests {
             )
         }
         #expect(fixture.journal.currentEnvelope == nil)
+    }
+
+    @Test func deliveryOriginRequiresExactCapabilityAndAllowsOutboxCrossProof() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let capabilities = try await historyCapabilities(index: 2)
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let receipt = try await fixture.store.decideUpsert(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let reauthorized = acceptedHistoryReauthorizedDelivery(
+            capabilities.delivery,
+            fileRevisionToken: 9_002
+        )
+
+        #expect(receipt.provesDecision(for: capabilities.delivery))
+        #expect(receipt.provesMembership(for: capabilities.delivery))
+        #expect(!receipt.provesDecision(for: reauthorized))
+        #expect(!receipt.provesMembership(for: reauthorized))
+        #expect(receipt.provesDecision(for: outbox))
+        #expect(receipt.provesMembership(for: outbox))
+    }
+
+    @Test func outboxOriginRequiresExactReceiptAndAllowsDeliveryCrossProof() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let capabilities = try await historyCapabilities(index: 3)
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let original = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let receipt = try await fixture.store.decideUpsert(
+            outbox: original,
+            policy: capabilities.policy
+        )
+        let refreshed = try await outboxFixture.store.confirmMembership(
+            delivery: capabilities.delivery
+        )
+
+        #expect(receipt.provesDecision(for: original))
+        #expect(receipt.provesMembership(for: original))
+        #expect(!receipt.provesDecision(for: refreshed))
+        #expect(!receipt.provesMembership(for: refreshed))
+        #expect(receipt.provesDecision(for: capabilities.delivery))
+        #expect(receipt.provesMembership(for: capabilities.delivery))
+    }
+
+    @Test func observationOriginOutboxReceiptDrivesRelaunchWithoutDelivery() async throws {
+        let capabilities = try await historyCapabilities(index: 4)
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        _ = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let observation = try #require(
+            try await outboxFixture.store.observe()?.first
+        )
+        let recoveredOutbox = try await outboxFixture.store.confirmMembership(
+            observation: observation
+        )
+        let fixture = AcceptedHistoryStoreFixture()
+
+        _ = try await fixture.store.decideUpsert(
+            outbox: recoveredOutbox,
+            policy: capabilities.policy
+        )
+        fixture.setNow(capabilities.delivery.record.expiresAt)
+        let receipt = try await fixture.makeStore().confirmMembership(
+            outbox: recoveredOutbox,
+            policy: capabilities.policy
+        )
+
+        #expect(receipt.decision == .retained)
+        #expect(receipt.provesDecision(for: recoveredOutbox))
+        #expect(receipt.provesMembership(for: recoveredOutbox))
+        #expect(fixture.journal.currentEnvelope?.entries.count == 1)
+    }
+
+    @Test func crossOwnerReceiptMatchingPreservesExactUnicodeBytes() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let decomposed = try await historyCapabilities(
+            index: 5,
+            acceptedText: "e\u{301}"
+        )
+        let receipt = try await fixture.store.decideUpsert(
+            delivery: decomposed.delivery,
+            policy: decomposed.policy
+        )
+        let composed = try await historyCapabilities(
+            index: 5,
+            acceptedText: "é"
+        )
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let composedOutbox = try await outboxFixture.store.transfer(
+            delivery: composed.delivery,
+            policy: composed.policy
+        )
+
+        #expect(!receipt.provesDecision(for: composedOutbox))
+        #expect(!receipt.provesMembership(for: composedOutbox))
     }
 
     @Test func duplicatePreservesCacheStaleRowsAndLogicalRevision() async throws {
@@ -216,7 +339,15 @@ struct IOSAcceptedHistoryStoreTests {
             policy: oldCandidate.policy
         )
         #expect(oldDecision.decision == .notRetained)
-        #expect(!oldDecision.provesExactMembership)
+        #expect(oldDecision.provesDecision(for: oldCandidate.delivery))
+        #expect(!oldDecision.provesMembership(for: oldCandidate.delivery))
+        let oldOutboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let oldOutbox = try await oldOutboxFixture.store.transfer(
+            delivery: oldCandidate.delivery,
+            policy: oldCandidate.policy
+        )
+        #expect(oldDecision.provesDecision(for: oldOutbox))
+        #expect(!oldDecision.provesMembership(for: oldOutbox))
         #expect(fixture.journal.currentEnvelope?.revision == 9)
         #expect(fixture.journal.currentEnvelope?.entries == existing)
 
@@ -229,6 +360,8 @@ struct IOSAcceptedHistoryStoreTests {
             policy: newCandidate.policy
         )
         #expect(newDecision.decision == .retained)
+        #expect(newDecision.provesDecision(for: newCandidate.delivery))
+        #expect(newDecision.provesMembership(for: newCandidate.delivery))
         #expect(fixture.journal.currentEnvelope?.revision == 10)
         #expect(fixture.journal.currentEnvelope?.entries.count == 20)
         #expect(
@@ -434,12 +567,101 @@ struct IOSAcceptedHistoryStoreTests {
         }
         #expect(fixture.journal.currentEnvelope?.revision == 1)
 
-        let confirmed = try await fixture.store.decideUpsert(
+        fixture.setNow(capabilities.delivery.record.expiresAt)
+        let confirmed = try await fixture.store.confirmMembership(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
         #expect(confirmed.decision == .retained)
         #expect(fixture.journal.events.suffix(2) == ["load", "replace:1"])
+    }
+
+    @Test func invisibleUncertaintyExpiryClearsGateWithoutInserting() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let capabilities = try await historyCapabilities(index: 511)
+        fixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+
+        fixture.setNow(capabilities.delivery.record.expiresAt)
+        await #expect(throws: IOSAcceptedHistoryError.expired) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
+
+        let other = try await historyCapabilities(index: 512)
+        fixture.setNow(other.delivery.record.createdAt.addingTimeInterval(1))
+        _ = try await fixture.store.decideUpsert(
+            delivery: other.delivery,
+            policy: other.policy
+        )
+        #expect(
+            fixture.journal.currentEnvelope?.entries.first?.deliveryID
+                == other.delivery.record.deliveryID
+        )
+    }
+
+    @Test func invisibleUncertaintyRollbackKeepsGateAndNeverInserts() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let capabilities = try await historyCapabilities(index: 513)
+        fixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+
+        fixture.setNow(
+            capabilities.delivery.record.createdAt.addingTimeInterval(-1)
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryError.clockRollbackAmbiguous
+        ) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
+
+        let other = try await historyCapabilities(index: 514)
+        await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+            try await fixture.store.decideUpsert(
+                delivery: other.delivery,
+                policy: other.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
+    }
+
+    @Test func canonicalSubmillisecondExpiryNeverCreatesAnAbsentRow() async throws {
+        let capabilities = try await historyCapabilities(index: 515)
+        let fixture = AcceptedHistoryStoreFixture(
+            now: capabilities.delivery.record.expiresAt
+                .addingTimeInterval(-0.0004)
+        )
+
+        await #expect(throws: IOSAcceptedHistoryError.expired) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
     }
 
     @Test func supersededUncertaintyReleasesGateForWinnerRecovery() async throws {
@@ -493,6 +715,50 @@ struct IOSAcceptedHistoryStoreTests {
         #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
     }
 
+    @Test func outboxMembershipConfirmationNeverInsertsAnAbsentCandidate() async throws {
+        let capabilities = try await historyCapabilities(index: 531)
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let fixture = AcceptedHistoryStoreFixture()
+        fixture.journal.install(
+            try IOSAcceptedHistoryEnvelope(revision: 1, entries: [])
+        )
+
+        await #expect(throws: IOSAcceptedHistoryError.compareAndSwapFailed) {
+            try await fixture.store.confirmMembership(
+                outbox: outbox,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
+    }
+
+    @Test func confirmationDoesNotReplayAnInvisibleUncertainUpsert() async throws {
+        let fixture = AcceptedHistoryStoreFixture()
+        let capabilities = try await historyCapabilities(index: 532)
+        fixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+
+        await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+            try await fixture.store.confirmMembership(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
+    }
+
     @Test func relaunchedStoreConfirmsExactMembershipByIdenticalRewrite() async throws {
         let fixture = AcceptedHistoryStoreFixture()
         let capabilities = try await historyCapabilities(index: 535)
@@ -501,6 +767,7 @@ struct IOSAcceptedHistoryStoreTests {
             policy: capabilities.policy
         )
         fixture.journal.resetEvents()
+        fixture.setNow(capabilities.delivery.record.expiresAt)
 
         let confirmed = try await fixture.makeStore().confirmMembership(
             delivery: capabilities.delivery,
@@ -664,7 +931,12 @@ struct IOSAcceptedHistoryStoreTests {
         )
         defer { try? FileManager.default.removeItem(at: base) }
         let store = IOSAcceptedHistoryStore(
-            applicationSupportDirectoryURL: base
+            journal: FoundationIOSAcceptedHistoryJournalRepository(
+                applicationSupportDirectoryURL: base
+            ),
+            now: {
+                acceptedHistoryStoreDate().addingTimeInterval(60)
+            }
         )
         let capabilities = try await historyCapabilities(index: 540)
         _ = try await store.decideUpsert(
@@ -812,6 +1084,20 @@ private func acceptedHistoryDeliveryAuthorization(
             record: record,
             fileRevision: IOSStrictProtectedRecordFileRevision(
                 testingToken: UInt64(index + 1)
+            )
+        )
+    )
+}
+
+private func acceptedHistoryReauthorizedDelivery(
+    _ authorization: IOSAcceptedOutputDeliveryAuthorization,
+    fileRevisionToken: UInt64
+) -> IOSAcceptedOutputDeliveryAuthorization {
+    IOSAcceptedOutputDeliveryAuthorization(
+        snapshot: IOSAcceptedOutputDeliveryJournalSnapshot(
+            record: authorization.record,
+            fileRevision: IOSStrictProtectedRecordFileRevision(
+                testingToken: fileRevisionToken
             )
         )
     )
@@ -1136,14 +1422,111 @@ private final class AcceptedHistoryFakeJournal:
     }
 }
 
+private final class AcceptedHistoryOutboxFakeJournal:
+    IOSAcceptedHistoryOutboxJournalStoring,
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var snapshot: IOSAcceptedHistoryOutboxJournalSnapshot?
+    private var nextToken: UInt64 = 10_000
+
+    func load() throws -> IOSAcceptedHistoryOutboxJournalSnapshot? {
+        lock.withLock { snapshot }
+    }
+
+    func create(
+        _ envelope: IOSAcceptedHistoryOutboxEnvelope,
+        authorization: IOSAcceptedHistoryOutboxJournalMutationAuthorization
+    ) throws -> IOSAcceptedHistoryOutboxJournalSnapshot {
+        try lock.withLock {
+            guard snapshot == nil else {
+                throw IOSAcceptedHistoryOutboxError.slotOccupied
+            }
+            let created = IOSAcceptedHistoryOutboxJournalSnapshot(
+                envelope: envelope,
+                fileRevision: makeRevisionLocked()
+            )
+            snapshot = created
+            return created
+        }
+    }
+
+    func replace(
+        _ envelope: IOSAcceptedHistoryOutboxEnvelope,
+        expected: IOSAcceptedHistoryOutboxJournalSnapshot,
+        authorization: IOSAcceptedHistoryOutboxJournalMutationAuthorization
+    ) throws -> IOSAcceptedHistoryOutboxJournalSnapshot {
+        try lock.withLock {
+            guard snapshot == expected else {
+                throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+            }
+            let replacement = IOSAcceptedHistoryOutboxJournalSnapshot(
+                envelope: envelope,
+                fileRevision: makeRevisionLocked()
+            )
+            snapshot = replacement
+            return replacement
+        }
+    }
+
+    func performStagingMaintenance(
+        now: Date
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport {
+        .empty
+    }
+
+    private func makeRevisionLocked()
+        -> IOSStrictProtectedRecordFileRevision {
+        defer { nextToken += 1 }
+        return IOSStrictProtectedRecordFileRevision(testingToken: nextToken)
+    }
+}
+
+private final class AcceptedHistoryTestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedNow: Date
+
+    init(now: Date) {
+        storedNow = now
+    }
+
+    func read() -> Date {
+        lock.withLock { storedNow }
+    }
+
+    func set(_ now: Date) {
+        lock.withLock { storedNow = now }
+    }
+}
+
+private final class AcceptedHistoryOutboxStoreFixture: @unchecked Sendable {
+    let journal = AcceptedHistoryOutboxFakeJournal()
+    lazy var store = IOSAcceptedHistoryOutboxStore(
+        journal: journal,
+        now: {
+            acceptedHistoryStoreDate().addingTimeInterval(60)
+        }
+    )
+}
+
 private final class AcceptedHistoryStoreFixture: @unchecked Sendable {
     let journal = AcceptedHistoryFakeJournal()
+    private let clock: AcceptedHistoryTestClock
     lazy var store = makeStore()
+
+    init(
+        now: Date = acceptedHistoryStoreDate().addingTimeInterval(60)
+    ) {
+        clock = AcceptedHistoryTestClock(now: now)
+    }
 
     func makeStore() -> IOSAcceptedHistoryStore {
         IOSAcceptedHistoryStore(
             journal: journal,
-            now: { Date(timeIntervalSince1970: 1_900_000_000) }
+            now: { [clock] in clock.read() }
         )
+    }
+
+    func setNow(_ now: Date) {
+        clock.set(now)
     }
 }

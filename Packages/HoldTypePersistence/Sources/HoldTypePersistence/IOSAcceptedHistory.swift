@@ -16,6 +16,8 @@ public enum IOSAcceptedHistoryError: Error, Equatable, Sendable {
     case stalePolicyGeneration
     case revisionOverflow
     case commitUncertain
+    case expired
+    case clockRollbackAmbiguous
     case maintenanceFailed
 }
 

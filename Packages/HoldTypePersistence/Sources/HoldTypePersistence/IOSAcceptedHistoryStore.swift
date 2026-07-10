@@ -1,11 +1,19 @@
 import Foundation
+import HoldTypeDomain
 
 struct IOSAcceptedHistoryJournalMutationAuthorization: Sendable {
     fileprivate init() {}
 }
 
+fileprivate enum IOSAcceptedHistoryCandidateOrigin: Equatable, Sendable {
+    case delivery(IOSAcceptedOutputDeliveryAuthorization)
+    case outbox(IOSAcceptedHistoryOutboxReceipt)
+}
+
 fileprivate struct IOSAcceptedHistoryCandidate: Equatable, Sendable {
+    let origin: IOSAcceptedHistoryCandidateOrigin
     let entry: IOSAcceptedHistoryEntry
+    let expiresAt: Date
 
     init(
         delivery: IOSAcceptedOutputDeliveryAuthorization,
@@ -19,7 +27,8 @@ fileprivate struct IOSAcceptedHistoryCandidate: Equatable, Sendable {
               let acceptedText = record.acceptedText else {
             throw IOSAcceptedHistoryError.stalePolicyGeneration
         }
-        entry = try IOSAcceptedHistoryEntry(
+        origin = .delivery(delivery)
+        entry = try Self.entry(
             deliveryID: record.deliveryID,
             transcriptID: record.transcriptID,
             acceptedText: acceptedText,
@@ -28,7 +37,113 @@ fileprivate struct IOSAcceptedHistoryCandidate: Equatable, Sendable {
             policyGeneration: marker.policyGeneration,
             transcriptionModel: marker.transcriptionModel,
             transcriptionLanguageCode: marker.transcriptionLanguageCode,
-            durationMilliseconds: marker.durationMilliseconds,
+            durationMilliseconds: marker.durationMilliseconds
+        )
+        expiresAt = record.expiresAt
+    }
+
+    init(
+        outbox: IOSAcceptedHistoryOutboxReceipt,
+        policy: IOSHistoryPolicyReceipt
+    ) throws {
+        guard let confirmed = outbox.confirmedEntryForAcceptedDecision() else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+        guard policy.state.historyEnabled,
+              confirmed.policyGeneration == policy.state.policyGeneration else {
+            throw IOSAcceptedHistoryError.stalePolicyGeneration
+        }
+        origin = .outbox(outbox)
+        entry = try Self.entry(from: confirmed)
+        expiresAt = confirmed.expiresAt
+    }
+
+    func matches(
+        delivery: IOSAcceptedOutputDeliveryAuthorization
+    ) -> Bool {
+        switch origin {
+        case .delivery(let originatingDelivery):
+            return originatingDelivery == delivery
+        case .outbox:
+            guard let other = try? Self.entry(from: delivery) else {
+                return false
+            }
+            return entry.hasSameImmutableBytes(as: other)
+        }
+    }
+
+    func matches(outbox: IOSAcceptedHistoryOutboxReceipt) -> Bool {
+        switch origin {
+        case .delivery:
+            guard let confirmed = outbox.confirmedEntryForAcceptedDecision(),
+                  let other = try? Self.entry(from: confirmed) else {
+                return false
+            }
+            return entry.hasSameImmutableBytes(as: other)
+        case .outbox(let originatingOutbox):
+            return originatingOutbox == outbox
+        }
+    }
+
+    private static func entry(
+        from delivery: IOSAcceptedOutputDeliveryAuthorization
+    ) throws -> IOSAcceptedHistoryEntry {
+        let record = delivery.record
+        guard let marker = record.historyWrite,
+              marker.state == .pending,
+              let acceptedText = record.acceptedText else {
+            throw IOSAcceptedHistoryError.stalePolicyGeneration
+        }
+        return try entry(
+            deliveryID: record.deliveryID,
+            transcriptID: record.transcriptID,
+            acceptedText: acceptedText,
+            outputIntent: record.outputIntent,
+            createdAt: record.createdAt,
+            policyGeneration: marker.policyGeneration,
+            transcriptionModel: marker.transcriptionModel,
+            transcriptionLanguageCode: marker.transcriptionLanguageCode,
+            durationMilliseconds: marker.durationMilliseconds
+        )
+    }
+
+    private static func entry(
+        from outbox: IOSAcceptedHistoryOutboxEntry
+    ) throws -> IOSAcceptedHistoryEntry {
+        try entry(
+            deliveryID: outbox.deliveryID,
+            transcriptID: outbox.transcriptID,
+            acceptedText: outbox.acceptedText,
+            outputIntent: outbox.outputIntent,
+            createdAt: outbox.createdAt,
+            policyGeneration: outbox.policyGeneration,
+            transcriptionModel: outbox.transcriptionModel,
+            transcriptionLanguageCode: outbox.transcriptionLanguageCode,
+            durationMilliseconds: outbox.durationMilliseconds
+        )
+    }
+
+    private static func entry(
+        deliveryID: UUID,
+        transcriptID: UUID,
+        acceptedText: String,
+        outputIntent: HoldTypeDomain.DictationOutputIntent,
+        createdAt: Date,
+        policyGeneration: Int64,
+        transcriptionModel: String,
+        transcriptionLanguageCode: String?,
+        durationMilliseconds: Int64?
+    ) throws -> IOSAcceptedHistoryEntry {
+        try IOSAcceptedHistoryEntry(
+            deliveryID: deliveryID,
+            transcriptID: transcriptID,
+            acceptedText: acceptedText,
+            outputIntent: outputIntent,
+            createdAt: createdAt,
+            policyGeneration: policyGeneration,
+            transcriptionModel: transcriptionModel,
+            transcriptionLanguageCode: transcriptionLanguageCode,
+            durationMilliseconds: durationMilliseconds,
             cachedAudioRelativeIdentifier: nil
         )
     }
@@ -47,16 +162,66 @@ enum IOSAcceptedHistoryRetentionDecision: Equatable, Sendable {
     case notRetained
 }
 
+fileprivate enum IOSAcceptedHistoryReceiptOutcome: Equatable, Sendable {
+    case retained(IOSAcceptedHistoryEntry)
+    case notRetained
+}
+
 struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
     fileprivate let candidate: IOSAcceptedHistoryCandidate
     fileprivate let snapshot: IOSAcceptedHistoryJournalSnapshot
-    fileprivate let retainedEntry: IOSAcceptedHistoryEntry?
+    fileprivate let outcome: IOSAcceptedHistoryReceiptOutcome
 
     var decision: IOSAcceptedHistoryRetentionDecision {
-        retainedEntry == nil ? .notRetained : .retained
+        switch outcome {
+        case .retained: .retained
+        case .notRetained: .notRetained
+        }
     }
 
-    var provesExactMembership: Bool { retainedEntry != nil }
+    func provesDecision(
+        for delivery: IOSAcceptedOutputDeliveryAuthorization
+    ) -> Bool {
+        snapshotMatchesOutcome && candidate.matches(delivery: delivery)
+    }
+
+    func provesDecision(
+        for outbox: IOSAcceptedHistoryOutboxReceipt
+    ) -> Bool {
+        snapshotMatchesOutcome && candidate.matches(outbox: outbox)
+    }
+
+    func provesMembership(
+        for delivery: IOSAcceptedOutputDeliveryAuthorization
+    ) -> Bool {
+        guard case .retained = outcome else { return false }
+        return provesDecision(for: delivery)
+    }
+
+    func provesMembership(
+        for outbox: IOSAcceptedHistoryOutboxReceipt
+    ) -> Bool {
+        guard case .retained = outcome else { return false }
+        return provesDecision(for: outbox)
+    }
+
+    fileprivate var snapshotMatchesOutcome: Bool {
+        let deliveryMatches = snapshot.envelope.entries.filter {
+            $0.deliveryID == candidate.entry.deliveryID
+        }
+        let transcriptMatches = snapshot.envelope.entries.filter {
+            $0.transcriptID == candidate.entry.transcriptID
+        }
+
+        switch outcome {
+        case .retained(let retained):
+            return retained.hasSameImmutableBytes(as: candidate.entry)
+                && deliveryMatches == [retained]
+                && transcriptMatches == [retained]
+        case .notRetained:
+            return deliveryMatches.isEmpty && transcriptMatches.isEmpty
+        }
+    }
 }
 
 extension IOSAcceptedHistoryRowReceipt: CustomStringConvertible,
@@ -79,6 +244,7 @@ actor IOSAcceptedHistoryStore {
     private struct Outcome: Equatable, Sendable {
         let envelope: IOSAcceptedHistoryEnvelope
         let retainedEntry: IOSAcceptedHistoryEntry?
+        let requiresLiveSource: Bool
     }
 
     private struct UncertainIntent: Equatable, Sendable {
@@ -120,41 +286,18 @@ actor IOSAcceptedHistoryStore {
             delivery: delivery,
             policy: policy
         )
-        let current = try journal.load()
+        return try decideUpsert(candidate)
+    }
 
-        if let uncertainIntent {
-            return try reconcile(
-                uncertainIntent,
-                candidate: candidate,
-                current: current
-            )
-        }
-
-        if let current {
-            return try publish(
-                outcome(candidate, from: current.envelope),
-                source: .existing(current),
-                candidate: candidate
-            )
-        }
-
-        let initial = try initialOutcome(candidate)
-        do {
-            return try publish(
-                initial,
-                source: .missing,
-                candidate: candidate
-            )
-        } catch IOSAcceptedHistoryError.slotOccupied {
-            guard let raced = try journal.load() else {
-                throw IOSAcceptedHistoryError.compareAndSwapFailed
-            }
-            return try publish(
-                outcome(candidate, from: raced.envelope),
-                source: .existing(raced),
-                candidate: candidate
-            )
-        }
+    func decideUpsert(
+        outbox: IOSAcceptedHistoryOutboxReceipt,
+        policy: IOSHistoryPolicyReceipt
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let candidate = try IOSAcceptedHistoryCandidate(
+            outbox: outbox,
+            policy: policy
+        )
+        return try decideUpsert(candidate)
     }
 
     /// Relaunch recovery never inserts an absent row. Exact immutable
@@ -167,32 +310,18 @@ actor IOSAcceptedHistoryStore {
             delivery: delivery,
             policy: policy
         )
-        let current = try journal.load()
+        return try confirmMembership(candidate)
+    }
 
-        if let uncertainIntent {
-            let receipt = try reconcile(
-                uncertainIntent,
-                candidate: candidate,
-                current: current
-            )
-            guard receipt.provesExactMembership else {
-                throw IOSAcceptedHistoryError.compareAndSwapFailed
-            }
-            return receipt
-        }
-
-        guard let current else {
-            throw IOSAcceptedHistoryError.compareAndSwapFailed
-        }
-        let retained = try exactMembership(
-            of: candidate,
-            in: current.envelope
+    func confirmMembership(
+        outbox: IOSAcceptedHistoryOutboxReceipt,
+        policy: IOSHistoryPolicyReceipt
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let candidate = try IOSAcceptedHistoryCandidate(
+            outbox: outbox,
+            policy: policy
         )
-        return try publish(
-            Outcome(envelope: current.envelope, retainedEntry: retained),
-            source: .existing(current),
-            candidate: candidate
-        )
+        return try confirmMembership(candidate)
     }
 
     @discardableResult
@@ -205,6 +334,88 @@ actor IOSAcceptedHistoryStore {
 }
 
 private extension IOSAcceptedHistoryStore {
+    private enum TemporalState: Equatable {
+        case live
+        case expired
+        case clockRollbackAmbiguous
+    }
+
+    private func decideUpsert(
+        _ candidate: IOSAcceptedHistoryCandidate
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let current = try journal.load()
+
+        if let uncertainIntent {
+            return try reconcileDecision(
+                uncertainIntent,
+                candidate: candidate,
+                current: current
+            )
+        }
+
+        if let current {
+            let next = try outcome(candidate, from: current.envelope)
+            try requireLiveSourceIfNeeded(next, candidate: candidate)
+            return try publish(
+                next,
+                source: .existing(current),
+                candidate: candidate
+            )
+        }
+
+        let initial = try initialOutcome(candidate)
+        try requireLiveSourceIfNeeded(initial, candidate: candidate)
+        do {
+            return try publish(
+                initial,
+                source: .missing,
+                candidate: candidate
+            )
+        } catch IOSAcceptedHistoryError.slotOccupied {
+            guard let raced = try journal.load() else {
+                throw IOSAcceptedHistoryError.compareAndSwapFailed
+            }
+            let next = try outcome(candidate, from: raced.envelope)
+            try requireLiveSourceIfNeeded(next, candidate: candidate)
+            return try publish(
+                next,
+                source: .existing(raced),
+                candidate: candidate
+            )
+        }
+    }
+
+    private func confirmMembership(
+        _ candidate: IOSAcceptedHistoryCandidate
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let current = try journal.load()
+
+        if let uncertainIntent {
+            return try reconcileMembershipConfirmation(
+                uncertainIntent,
+                candidate: candidate,
+                current: current
+            )
+        }
+
+        guard let current else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+        let retained = try exactMembership(
+            of: candidate,
+            in: current.envelope
+        )
+        return try publish(
+            Outcome(
+                envelope: current.envelope,
+                retainedEntry: retained,
+                requiresLiveSource: false
+            ),
+            source: .existing(current),
+            candidate: candidate
+        )
+    }
+
     private func initialOutcome(
         _ candidate: IOSAcceptedHistoryCandidate
     ) throws -> Outcome {
@@ -218,7 +429,8 @@ private extension IOSAcceptedHistoryStore {
         )
         return Outcome(
             envelope: envelope,
-            retainedEntry: retainedEntry(candidate, in: entries)
+            retainedEntry: retainedEntry(candidate, in: entries),
+            requiresLiveSource: true
         )
     }
 
@@ -232,7 +444,11 @@ private extension IOSAcceptedHistoryStore {
             guard duplicate.hasSameImmutableBytes(as: candidate.entry) else {
                 throw IOSAcceptedHistoryError.collision
             }
-            return Outcome(envelope: current, retainedEntry: duplicate)
+            return Outcome(
+                envelope: current,
+                retainedEntry: duplicate,
+                requiresLiveSource: false
+            )
         }
         guard !current.entries.contains(where: {
             $0.transcriptID == candidate.entry.transcriptID
@@ -284,7 +500,8 @@ private extension IOSAcceptedHistoryStore {
         )
         return Outcome(
             envelope: envelope,
-            retainedEntry: retainedEntry(candidate, in: entries)
+            retainedEntry: retainedEntry(candidate, in: entries),
+            requiresLiveSource: true
         )
     }
 
@@ -392,19 +609,34 @@ private extension IOSAcceptedHistoryStore {
                         IOSAcceptedHistoryJournalMutationAuthorization()
                 )
             }
-            uncertainIntent = nil
-            return IOSAcceptedHistoryRowReceipt(
+            guard snapshot.envelope == outcome.envelope else {
+                uncertainIntent = intent
+                throw IOSAcceptedHistoryError.commitUncertain
+            }
+            let receiptOutcome: IOSAcceptedHistoryReceiptOutcome =
+                if let retained = outcome.retainedEntry {
+                    .retained(retained)
+                } else {
+                    .notRetained
+                }
+            let receipt = IOSAcceptedHistoryRowReceipt(
                 candidate: candidate,
                 snapshot: snapshot,
-                retainedEntry: outcome.retainedEntry
+                outcome: receiptOutcome
             )
+            guard receipt.snapshotMatchesOutcome else {
+                uncertainIntent = intent
+                throw IOSAcceptedHistoryError.commitUncertain
+            }
+            uncertainIntent = nil
+            return receipt
         } catch IOSAcceptedHistoryError.commitUncertain {
             uncertainIntent = intent
             throw IOSAcceptedHistoryError.commitUncertain
         }
     }
 
-    private func reconcile(
+    private func reconcileDecision(
         _ intent: UncertainIntent,
         candidate: IOSAcceptedHistoryCandidate,
         current: IOSAcceptedHistoryJournalSnapshot?
@@ -413,30 +645,127 @@ private extension IOSAcceptedHistoryStore {
             throw IOSAcceptedHistoryError.commitUncertain
         }
 
-        switch (intent.source, current) {
-        case (.missing, .none):
+        if let current,
+           current.envelope == intent.outcome.envelope {
+            return try publish(
+                intent.outcome,
+                source: .existing(current),
+                candidate: candidate
+            )
+        }
+
+        let sourceStillCurrent: Bool = switch (intent.source, current) {
+        case (.missing, .none): true
+        case (.existing(let source), .some(let current)): source == current
+        default: false
+        }
+        guard sourceStillCurrent else {
+            uncertainIntent = nil
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+
+        do {
+            try requireLiveSourceIfNeeded(
+                intent.outcome,
+                candidate: candidate
+            )
+        } catch IOSAcceptedHistoryError.expired {
+            uncertainIntent = nil
+            throw IOSAcceptedHistoryError.expired
+        }
+
+        switch intent.source {
+        case .missing:
             return try publish(
                 intent.outcome,
                 source: .missing,
                 candidate: candidate
             )
-        case (.existing(let source), .some(let current))
-            where source == current:
+        case .existing:
+            guard let current else {
+                uncertainIntent = nil
+                throw IOSAcceptedHistoryError.compareAndSwapFailed
+            }
             return try publish(
                 intent.outcome,
                 source: .existing(current),
                 candidate: candidate
             )
-        case (_, .some(let current))
-            where current.envelope == intent.outcome.envelope:
-            return try publish(
-                intent.outcome,
-                source: .existing(current),
-                candidate: candidate
-            )
-        default:
+        }
+    }
+
+    private func reconcileMembershipConfirmation(
+        _ intent: UncertainIntent,
+        candidate: IOSAcceptedHistoryCandidate,
+        current: IOSAcceptedHistoryJournalSnapshot?
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        guard candidate == intent.candidate else {
+            throw IOSAcceptedHistoryError.commitUncertain
+        }
+        guard let current else {
+            throw IOSAcceptedHistoryError.commitUncertain
+        }
+        guard current.envelope == intent.outcome.envelope else {
+            let sourceStillCurrent: Bool = switch intent.source {
+            case .missing: false
+            case .existing(let source): source == current
+            }
+            if sourceStillCurrent {
+                throw IOSAcceptedHistoryError.commitUncertain
+            }
             uncertainIntent = nil
             throw IOSAcceptedHistoryError.compareAndSwapFailed
         }
+        guard intent.outcome.retainedEntry != nil else {
+            _ = try publish(
+                intent.outcome,
+                source: .existing(current),
+                candidate: candidate
+            )
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+        return try publish(
+            intent.outcome,
+            source: .existing(current),
+            candidate: candidate
+        )
+    }
+
+    private func requireLiveSourceIfNeeded(
+        _ outcome: Outcome,
+        candidate: IOSAcceptedHistoryCandidate
+    ) throws {
+        guard outcome.requiresLiveSource else { return }
+        switch temporalState(of: candidate, at: try currentTime()) {
+        case .live:
+            return
+        case .expired:
+            throw IOSAcceptedHistoryError.expired
+        case .clockRollbackAmbiguous:
+            throw IOSAcceptedHistoryError.clockRollbackAmbiguous
+        }
+    }
+
+    private func currentTime() throws -> Date {
+        do {
+            return try IOSAcceptedOutputDeliveryTimestampCodec.canonicalDate(
+                from: now()
+            )
+        } catch {
+            throw IOSAcceptedHistoryError.clockRollbackAmbiguous
+        }
+    }
+
+    private func temporalState(
+        of candidate: IOSAcceptedHistoryCandidate,
+        at now: Date
+    ) -> TemporalState {
+        if now < candidate.entry.createdAt {
+            return .clockRollbackAmbiguous
+        }
+        if now >= candidate.expiresAt {
+            return .expired
+        }
+        return .live
     }
 }
