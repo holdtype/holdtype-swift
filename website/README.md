@@ -153,31 +153,33 @@ text links. Shadows are reserved for the hero editor and real product windows.
 
 ### Responsive anatomy
 
-- `1021px+`: split hero, four-step horizontal workflow, three-column reasons,
-  alternating feature rows, and two-column FAQ.
+- `1021px+`: split hero, four-step horizontal workflow, five-point honesty
+  contract, alternating feature rows, and two-column FAQ.
 - `861–1020px`: narrower split hero and reduced product-window scale.
 - `621–860px`: single-column hero and feature sections, two-step workflow rows,
   compact mobile navigation, and two-column data flow.
 - `320–620px`: stacked actions and workflow, single-column data flow and FAQ,
   16px page gutters, and full-width primary CTAs.
 
-The first viewport names the product category and the current product contract:
-native Mac dictation with `gpt-4o-transcribe`, the user's OpenAI Platform API
-key, no HoldType subscription, and no mandatory model rewrite. It includes the
-two approved actions, the macOS/cost qualification, one restrained usage-cost
-badge, and the explicit illustration caption. No testimonial, unsupported
-metric, comparative speed claim, or unavailable demo action is permitted above
-the fold. The badge describes 100 short dictations as roughly 17 minutes of
-audio at the current estimated transcription rate. It remains visually
-secondary and must not present 100 as a usage cap, guaranteed maximum, or
-typical day.
+The first viewport leads with `The most honest Wispr Flow "clone".` It must
+immediately explain the provocation through a named default model, the user's
+OpenAI Platform API key, direct OpenAI billing, no HoldType subscription, and
+no mandatory model rewrite. The primary actions are the free macOS download and
+source inspection. A compact proof row repeats the named model, direct billing,
+and absence of a HoldType account or backend. No unsupported metric,
+comparative speed claim, or undocumented claim about Wispr Flow's internal
+model is permitted above the fold.
+
+The usage-cost badge and explicit illustration caption remain. The badge stays
+visually secondary and must not present 100 as a usage cap, guaranteed maximum,
+or typical day.
 
 ### Page anatomy
 
 1. Sticky brand/navigation header with a GitHub Releases CTA.
 2. Split hero with the code-native editor illustration and real indicator art.
 3. Hold → speak → release → inserted workflow rail.
-4. Three product-decision columns.
+4. Five-point `What "honest" means here` contract.
 5. Real-use-case band.
 6. Translation/vocabulary and Last Result recovery proof.
 7. OpenAI billing, the qualified 100-dictation usage example, and exact

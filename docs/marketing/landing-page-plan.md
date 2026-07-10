@@ -6,11 +6,10 @@ Research snapshot: 2026-07-09
 
 ## Product Position
 
-HoldType is a native macOS dictation client for `gpt-4o-transcribe`. It uses the
-user's OpenAI Platform API key, puts the returned transcript at the active
-cursor, and adds no HoldType account or subscription. Model-based correction is
-optional and off by default, so ordinary dictation does not require a second
-model rewrite.
+HoldType is the most honest Wispr Flow "clone": a native macOS dictation client
+that names its default model, uses the user's OpenAI Platform API key, and adds
+no HoldType account or subscription. Model-based correction is optional and off
+by default, so ordinary dictation does not require a second model rewrite.
 
 The landing page should lead with this concrete product and commercial
 contract. The idea of speaking a complete thought may remain a supporting use
@@ -26,16 +25,13 @@ Secondary job:
 > Let me speak in the language where the thought comes naturally and insert the
 > result in the language my work requires.
 
-Recommended positioning direction:
+Recommended positioning line:
 
-> Mac dictation with GPT-4o Transcribe. Your OpenAI key. No HoldType
-> subscription.
+> The most honest Wispr Flow "clone".
 
 Supporting line:
 
-> Hold Right Command, speak, and release. HoldType sends the recording through
-> the user's OpenAI Platform account and puts the transcript at the cursor in
-> most Mac apps. Model-based correction is optional and off by default.
+> No mystery model. No mandatory rewrite pass. You pay OpenAI, not HoldType.
 
 ## Role Of Each Surface
 
@@ -74,11 +70,14 @@ This is a positioning study, not a feature checklist.
 Goal: explain the outcome, platform, and commercial boundary within five
 seconds.
 
-- Headline: native Mac dictation with `gpt-4o-transcribe`.
-- Supporting copy: own OpenAI key, no HoldType subscription, and no mandatory
-  second model rewrite.
-- Primary CTA: `Download HoldType for macOS`.
-- Secondary CTA: `Watch the 20-second demo`.
+- Headline: `The most honest Wispr Flow "clone".`
+- Supporting copy: `No mystery model. No mandatory rewrite pass. You pay
+  OpenAI, not HoldType.`
+- Immediate proof: `gpt-4o-transcribe` by default, the user's OpenAI key, direct
+  OpenAI billing, no HoldType account or backend, and translation only when
+  requested.
+- Primary CTA: `Download free for macOS`.
+- Secondary CTA: `Inspect the source`.
 - Qualification: `Free app · OpenAI API usage billed separately · macOS 14+`.
 
 ### 2. End-To-End Demo
@@ -93,17 +92,17 @@ Show the actual product result, not a Settings window:
 The ideal asset is a silent 10–20 second video with a compact caption. A short
 GIF can be the fallback for GitHub.
 
-### 3. Three Reasons To Choose HoldType
+### 3. What "Honest" Means Here
 
-Keep this layer limited to three decisions:
+Present this section under `What "honest" means here`:
 
-1. **Known transcription model:** `gpt-4o-transcribe` is the configurable
-   default rather than an unnamed recognition layer.
-2. **Direct provider billing:** HoldType adds no monthly fee; OpenAI deducts
-   actual API usage from the user's Platform account.
-3. **No mandatory rewrite pass:** model-based correction is optional and off by
-   default. Local typography cleanup may still run without a second model
-   request.
+1. **The model has a name:** `gpt-4o-transcribe` is the configurable default.
+2. **The bill has a source:** OpenAI deducts API usage from the Platform account
+   connected through the user's key; HoldType adds no monthly fee.
+3. **The rewrite pass is optional:** model-based correction is off by default.
+4. **The data path is explicit:** Mac to OpenAI to the active cursor.
+5. **The limits are visible:** HoldType is Mac-only and is not presented as a
+   team cloud platform.
 
 ### 4. Work It Fits
 
@@ -154,13 +153,12 @@ that optional correction and translation are separate.
 
 Keep the story specific and short:
 
-- the founder had tried subscription tools, OpenWhispr, Codex voice input, and
-  local Whisper setups, but did not want another platform around dictation;
-- OpenAI transcription produced the most trusted first pass in the founder's
-  own daily workflow;
-- the desired combination was narrower: a named default model, optional rather
-  than mandatory correction, native Swift, direct billing, and no extra account
-  or subscription;
+- open with `I wanted Wispr Flow. I didn't want the bullshit.`;
+- explain the concrete frustration: not knowing which model heard the audio or
+  who charged for the result;
+- answer it with a named default model, the user's API key, direct OpenAI
+  billing, optional correction, native Swift, and no extra account or
+  subscription;
 - HoldType is built and tested through the same Codex-heavy voice workflow;
 - the desk microphone photo belongs here, with a note that special hardware is
   not required.

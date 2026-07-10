@@ -1,15 +1,15 @@
 {
   "locale": "en",
   "meta": {
-    "title": "{brand.holdType} — Mac dictation with GPT-4o Transcribe",
-    "description": "{brand.holdType} is native {brand.macOS} dictation with GPT-4o Transcribe. Use your own {brand.openAI} API key, with no {brand.holdType} subscription or mandatory model rewrite.",
+    "title": "{brand.holdType} — The most honest Wispr Flow “clone”",
+    "description": "{brand.holdType} is the most honest Wispr Flow “clone”: native {brand.macOS} dictation with GPT-4o Transcribe, your {brand.openAI} API key, and no {brand.holdType} subscription or mandatory rewrite pass.",
     "socialImageAlt": "{brand.holdType} app icon"
   },
   "common": {
     "skipToContent": "Skip to content",
     "brandHomeAria": "{brand.holdType} home",
     "primaryNavigationAria": "Primary",
-    "downloadForMacOS": "Download for {brand.macOS}"
+    "downloadForMacOS": "Download free for {brand.macOS}"
   },
   "localeUi": {
     "switcherLabel": "Language",
@@ -29,14 +29,14 @@
     "faq": "FAQ"
   },
   "hero": {
-    "title": "Native Mac dictation with GPT-4o Transcribe.",
-    "lede": "Your API key. No {brand.holdType} subscription.",
-    "support": "Hold the shortcut in a {brand.mac} app, speak, and release. {brand.holdType} sends the recording to GPT-4o Transcribe through your {brand.openAI} account and puts the transcript at the cursor in most {brand.mac} apps. Model-based correction is optional and off by default.",
+    "title": "The most honest Wispr Flow “clone”.",
+    "lede": "No mystery model. No mandatory rewrite pass. You pay OpenAI, not {brand.holdType}.",
+    "support": "{brand.holdType} sends audio directly from your {brand.mac} to GPT-4o Transcribe using your {brand.openAI} API key, then returns the text to the cursor in most {brand.mac} apps. Translation runs only when you ask for it.",
     "seeHowItWorks": "See the workflow",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
-      "aria": "At the current estimated transcription rate, {pricing.dailyDictations} short dictations cost about {pricing.dailyPrice}.",
-      "kicker": "{pricing.dailyDictations} short dictations",
+      "aria": "At the current estimated transcription rate, {pricing.dailyDictations} dictations cost about {pricing.dailyPrice}.",
+      "kicker": "{pricing.dailyDictations} dictations",
       "value": "≈ {pricing.dailyPrice}",
       "suffix": "at the current estimated rate"
     },
@@ -80,34 +80,34 @@
     }
   },
   "reasons": {
-    "a11yTitle": "Why {brand.holdType}",
+    "a11yTitle": "What “honest” means for {brand.holdType}",
     "stays": {
       "title": "GPT-4o Transcribe by default",
-      "body": "The configurable default is GPT-4o Transcribe, not whisper-1. Change it in Settings when another OpenAI transcription model is needed."
+      "body": "The model has a name. GPT-4o Transcribe is the configurable default."
     },
     "subscription": {
-      "title": "Pay OpenAI for usage",
-      "body": "{brand.holdType} adds no monthly fee. {brand.openAI} deducts API usage from the {brand.openAIPlatform} account connected through your key."
+      "title": "Your OpenAI key. Direct billing.",
+      "body": "{brand.openAI} charges the {brand.openAIPlatform} account connected through your key. {brand.holdType} adds no monthly fee."
     },
     "openAI": {
-      "title": "No mandatory second {brand.openAI} pass",
-      "body": "Model-based correction is optional and off by default. Local typography cleanup can run without another model request."
+      "title": "No mandatory {brand.openAI} rewrite",
+      "body": "Model-based correction is off by default. Turn it on only when you want it."
     }
   },
   "useCases": {
-    "title": "Dictate work—not voice memos to sort out later.",
-    "intro": "{brand.holdType} is for text that belongs in an active app now: a coding task, a message, a document, or a translated reply.",
+    "title": "A dictation app. Not an AI writing platform.",
+    "intro": "{brand.holdType} does three practical jobs: text at the cursor, translation on command, and spelling context for names and technical terms.",
     "aiPrompts": {
-      "title": "Technical prompts",
-      "body": "Dictate a {brand.codex}, {brand.claude}, or {brand.chatGPT} request with file names, constraints, and acceptance criteria instead of assembling it line by line."
+      "title": "Dictation where you work",
+      "body": "Dictate prompts directly into {brand.codex}, {brand.claude}, or {brand.chatGPT}. No intermediate editor and no required rewrite stage."
     },
     "everyday": {
-      "title": "Messages and working documents",
-      "body": "Dictate mail, reviews, documentation, chats, and notes directly at the cursor instead of moving a draft through another editor."
+      "title": "No intermediate editor",
+      "body": "Dictate mail, reviews, documentation, chats, and notes directly at the cursor."
     },
     "bilingual": {
-      "title": "Dictate and translate",
-      "body": "Set a target language, then use the dedicated shortcut to transcribe speech and insert the translation."
+      "title": "Translation when requested",
+      "body": "Use the translation shortcut when you want it. Ordinary dictation does not trigger a translation request."
     }
   },
   "features": {
@@ -132,31 +132,31 @@
     }
   },
   "privacy": {
-    "label": "Cost, requests, and storage",
-    "title": "Audio goes to {brand.openAI}. HoldType runs no product backend.",
-    "intro": "{brand.holdType} has no account system, product backend, telemetry, analytics, or cloud sync. Transcription itself is an {brand.openAI} API request made with the key you configure.",
+    "label": "No HoldType account or backend",
+    "title": "Your Mac → {brand.openAI} → your cursor.",
+    "intro": "{brand.holdType} has no account system, product backend, telemetry, analytics, or cloud sync. Audio goes directly to {brand.openAI} through the API key you provide.",
     "flow": {
-      "aria": "{brand.holdType} data flow",
+      "aria": "The {brand.holdType} data path is explicit",
       "microphone": "Microphone",
       "holdType": "{brand.holdType}",
       "openAI": "{brand.openAI} transcription",
       "activeApp": "Active app"
     },
     "dataPath": {
-      "title": "Where the key, audio, and text go",
+      "title": "The limits are visible",
       "items": {
-        "apiKey": "The API key is stored locally in {brand.macOSKeychain}.",
-        "audio": "Audio is sent to {brand.openAI} for transcription.",
-        "optionalTextRequests": "Optional correction and translation are separate text requests.",
-        "failedAudio": "Completed audio is not retained by default. Recoverable failures may keep bounded session-only audio for {appUi.retry}.",
-        "recordingCache": "Optional recording-cache retention is local and user-controlled."
+        "apiKey": "Your API key stays in {brand.macOSKeychain}.",
+        "audio": "Your Mac → {brand.openAI} → your cursor.",
+        "optionalTextRequests": "The rewrite pass is optional. Translation runs only when requested.",
+        "failedAudio": "Recoverable failures may keep bounded session-only audio for {appUi.retry}; completed audio is not retained by default.",
+        "recordingCache": "HoldType is Mac-only. It does not pretend to be a team cloud platform; optional recording-cache retention stays local."
       }
     },
     "billing": {
-      "title": "Pay OpenAI for transcription—not HoldType for access",
-      "body": "{brand.holdType} has no subscription. {brand.openAI} deducts actual API usage from the {brand.openAIPlatform} account connected through your key; {brand.holdType} does not collect a monthly fee.",
-      "exampleTitle": "{pricing.dailyDictations} short dictations. About {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} short dictations represent roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat that amount for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
+      "title": "The bill has a source",
+      "body": "{brand.holdType} uses the key you provide. {brand.openAI} charges the connected {brand.openAIPlatform} account; {brand.holdType} does not collect a monthly fee or meter dictation through a product account.",
+      "exampleTitle": "{pricing.dailyDictations} dictations. About {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} dictations represent roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat that amount for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
       "note": "The {appUi.billing} screen is a local estimate for successful audio transcriptions. It is not an {brand.openAI} invoice and does not include correction or translation requests.",
       "pricingLink": "{brand.openAI} API pricing",
       "imageAlt": "{brand.holdType} {appUi.billing} settings showing a local transcription usage estimate",
@@ -168,10 +168,10 @@
     "imageAlt": "A desk microphone used while building and testing {brand.holdType}",
     "imageCaption": "Special recording hardware is not required.",
     "label": "Why I built {brand.holdType}",
-    "title": "I wanted the transcript, not another subscription or rewrite pipeline.",
-    "body1": "I had tried Wispr Flow, OpenWhispr, Codex voice input, and local Whisper setups. I did not want another platform around dictation. I wanted a small native app with one job.",
-    "body2": "In my daily work, {brand.openAI} transcription gave me the first pass I trusted most often. That is why GPT-4o Transcribe is the default and model-based correction stays off until I enable it.",
-    "body3": "The app is native Swift, works through the user’s API key, and adds no account or monthly fee. {brand.holdType} is built and tested through the same voice workflow I use to direct Codex."
+    "title": "I wanted Wispr Flow. I didn’t want the bullshit.",
+    "body1": "I wanted to know which model heard me and who charged me for it. I did not want another black box between my voice and the cursor.",
+    "body2": "GPT-4o Transcribe from {brand.openAI} gave me the first pass I trusted most often. The second model pass stays off unless I turn it on.",
+    "body3": "{brand.holdType} is the native Swift app I built for that: your API key, direct OpenAI billing, no product account, and no monthly fee."
   },
   "install": {
     "label": "Get started",
@@ -307,12 +307,12 @@
     }
   },
   "finalCta": {
-    "title": "Dictate with GPT-4o Transcribe on your Mac.",
-    "body": "Free app · No {brand.holdType} subscription · {brand.openAI} usage billed directly · {fact.minimumOS}"
+    "title": "The Wispr Flow “clone” with nothing to hide.",
+    "body": "Free app · Your {brand.openAI} API key · No {brand.holdType} subscription · {fact.minimumOS}"
   },
   "footer": {
     "description": "Native {brand.macOS} dictation with GPT-4o Transcribe. Source-available under {license.fsl11} with an {license.mit} future license.",
-    "sourceLink": "View source on {brand.github}"
+    "sourceLink": "Inspect the source on {brand.github}"
   },
   "lightbox": {
     "dialogAria": "Full-size {brand.holdType} screenshot",
