@@ -405,6 +405,10 @@ private extension IOSAcceptedHistoryStore {
             of: candidate,
             in: current.envelope
         )
+        try requireNoFuturePolicyGeneration(
+            in: current.envelope,
+            candidate: candidate
+        )
         return try publish(
             Outcome(
                 envelope: current.envelope,
@@ -438,27 +442,30 @@ private extension IOSAcceptedHistoryStore {
         _ candidate: IOSAcceptedHistoryCandidate,
         from current: IOSAcceptedHistoryEnvelope
     ) throws -> Outcome {
-        if let duplicate = current.entries.first(where: {
+        let duplicate = current.entries.first(where: {
             $0.deliveryID == candidate.entry.deliveryID
-        }) {
+        })
+        if let duplicate {
             guard duplicate.hasSameImmutableBytes(as: candidate.entry) else {
                 throw IOSAcceptedHistoryError.collision
             }
+        } else {
+            guard !current.entries.contains(where: {
+                $0.transcriptID == candidate.entry.transcriptID
+            }) else {
+                throw IOSAcceptedHistoryError.collision
+            }
+        }
+        try requireNoFuturePolicyGeneration(
+            in: current,
+            candidate: candidate
+        )
+        if let duplicate {
             return Outcome(
                 envelope: current,
                 retainedEntry: duplicate,
                 requiresLiveSource: false
             )
-        }
-        guard !current.entries.contains(where: {
-            $0.transcriptID == candidate.entry.transcriptID
-        }) else {
-            throw IOSAcceptedHistoryError.collision
-        }
-        guard current.entries.allSatisfy({
-            $0.policyGeneration <= candidate.entry.policyGeneration
-        }) else {
-            throw IOSAcceptedHistoryError.stalePolicyGeneration
         }
 
         var entries = current.entries.filter {
@@ -583,6 +590,17 @@ private extension IOSAcceptedHistoryStore {
         }
     }
 
+    private func requireNoFuturePolicyGeneration(
+        in envelope: IOSAcceptedHistoryEnvelope,
+        candidate: IOSAcceptedHistoryCandidate
+    ) throws {
+        guard envelope.entries.allSatisfy({
+            $0.policyGeneration <= candidate.entry.policyGeneration
+        }) else {
+            throw IOSAcceptedHistoryError.stalePolicyGeneration
+        }
+    }
+
     private func publish(
         _ outcome: Outcome,
         source: Source,
@@ -645,8 +663,15 @@ private extension IOSAcceptedHistoryStore {
             throw IOSAcceptedHistoryError.commitUncertain
         }
 
+        let sourceStillCurrent: Bool = switch (intent.source, current) {
+        case (.missing, .none): true
+        case (.existing(let source), .some(let current)): source == current
+        default: false
+        }
+
         if let current,
-           current.envelope == intent.outcome.envelope {
+           current.envelope == intent.outcome.envelope,
+           !sourceStillCurrent {
             return try publish(
                 intent.outcome,
                 source: .existing(current),
@@ -654,11 +679,6 @@ private extension IOSAcceptedHistoryStore {
             )
         }
 
-        let sourceStillCurrent: Bool = switch (intent.source, current) {
-        case (.missing, .none): true
-        case (.existing(let source), .some(let current)): source == current
-        default: false
-        }
         guard sourceStillCurrent else {
             uncertainIntent = nil
             throw IOSAcceptedHistoryError.compareAndSwapFailed

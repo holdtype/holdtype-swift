@@ -317,6 +317,111 @@ struct IOSAcceptedHistoryStoreTests {
         }
     }
 
+    @Test func futureGenerationBlocksDuplicateDecisionAndConfirmation() async throws {
+        let capabilities = try await historyCapabilities(
+            index: 33,
+            generation: 2
+        )
+        let duplicate = try historyEntry(from: capabilities.delivery)
+        let future = try acceptedHistoryStoredEntry(
+            index: 34,
+            generation: 3,
+            createdAt: duplicate.createdAt.addingTimeInterval(1)
+        )
+        let fixture = AcceptedHistoryStoreFixture()
+        fixture.journal.install(
+            try IOSAcceptedHistoryEnvelope(
+                revision: 4,
+                entries: IOSAcceptedHistoryValidation.sorted([
+                    duplicate,
+                    future,
+                ])
+            )
+        )
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.decideUpsert(
+                outbox: outbox,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.confirmMembership(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.stalePolicyGeneration) {
+            try await fixture.store.confirmMembership(
+                outbox: outbox,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope?.revision == 4)
+    }
+
+    @Test func collisionPrecedesFutureGenerationGuardForEveryOrigin() async throws {
+        let capabilities = try await historyCapabilities(
+            index: 35,
+            generation: 2,
+            acceptedText: "candidate"
+        )
+        let colliding = try acceptedHistoryStoredEntry(
+            index: 35,
+            generation: 3,
+            acceptedText: "collision"
+        )
+        let fixture = AcceptedHistoryStoreFixture()
+        fixture.journal.install(
+            try IOSAcceptedHistoryEnvelope(
+                revision: 5,
+                entries: [colliding]
+            )
+        )
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+
+        await #expect(throws: IOSAcceptedHistoryError.collision) {
+            try await fixture.store.decideUpsert(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.collision) {
+            try await fixture.store.decideUpsert(
+                outbox: outbox,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.collision) {
+            try await fixture.store.confirmMembership(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+        await #expect(throws: IOSAcceptedHistoryError.collision) {
+            try await fixture.store.confirmMembership(
+                outbox: outbox,
+                policy: capabilities.policy
+            )
+        }
+        #expect(fixture.journal.currentEnvelope?.revision == 5)
+    }
+
     @Test func retentionSortsDeterministicallyAndSelfEvictionIsConfirmation() async throws {
         let baseDate = acceptedHistoryStoreDate()
         let existing = try (0..<20).map { offset in
@@ -646,6 +751,115 @@ struct IOSAcceptedHistoryStoreTests {
             )
         }
         #expect(fixture.journal.currentEnvelope == nil)
+    }
+
+    @Test func invisibleSelfEvictionUncertaintyRevalidatesTime() async throws {
+        for boundary in 0..<2 {
+            let baseDate = acceptedHistoryStoreDate()
+            let indexBase = 600 + (boundary * 100)
+            let existing = try (0..<20).map { offset in
+                try acceptedHistoryStoredEntry(
+                    index: indexBase + offset,
+                    createdAt: baseDate.addingTimeInterval(Double(-offset))
+                )
+            }
+            let source = try IOSAcceptedHistoryEnvelope(
+                revision: 9,
+                entries: existing
+            )
+            let fixture = AcceptedHistoryStoreFixture()
+            fixture.journal.install(source)
+            let candidate = try await historyCapabilities(
+                index: indexBase + 90,
+                createdAt: baseDate.addingTimeInterval(-100)
+            )
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: false
+            )
+
+            await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+                try await fixture.store.decideUpsert(
+                    delivery: candidate.delivery,
+                    policy: candidate.policy
+                )
+            }
+
+            if boundary == 0 {
+                fixture.setNow(candidate.delivery.record.expiresAt)
+                await #expect(throws: IOSAcceptedHistoryError.expired) {
+                    try await fixture.store.decideUpsert(
+                        delivery: candidate.delivery,
+                        policy: candidate.policy
+                    )
+                }
+            } else {
+                fixture.setNow(
+                    candidate.delivery.record.createdAt
+                        .addingTimeInterval(-1)
+                )
+                await #expect(
+                    throws: IOSAcceptedHistoryError.clockRollbackAmbiguous
+                ) {
+                    try await fixture.store.decideUpsert(
+                        delivery: candidate.delivery,
+                        policy: candidate.policy
+                    )
+                }
+            }
+            #expect(fixture.journal.currentEnvelope == source)
+        }
+    }
+
+    @Test func visibleSelfEvictionUncertaintyProvesDecisionAtTimeBoundary() async throws {
+        for boundary in 0..<2 {
+            let baseDate = acceptedHistoryStoreDate()
+            let indexBase = 800 + (boundary * 100)
+            let existing = try (0..<20).map { offset in
+                try acceptedHistoryStoredEntry(
+                    index: indexBase + offset,
+                    createdAt: baseDate.addingTimeInterval(Double(-offset))
+                )
+            }
+            let source = try IOSAcceptedHistoryEnvelope(
+                revision: 9,
+                entries: existing
+            )
+            let fixture = AcceptedHistoryStoreFixture()
+            fixture.journal.install(source)
+            let candidate = try await historyCapabilities(
+                index: indexBase + 90,
+                createdAt: baseDate.addingTimeInterval(-100)
+            )
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: true
+            )
+
+            await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+                try await fixture.store.decideUpsert(
+                    delivery: candidate.delivery,
+                    policy: candidate.policy
+                )
+            }
+
+            if boundary == 0 {
+                fixture.setNow(candidate.delivery.record.expiresAt)
+            } else {
+                fixture.setNow(
+                    candidate.delivery.record.createdAt
+                        .addingTimeInterval(-1)
+                )
+            }
+            let receipt = try await fixture.store.decideUpsert(
+                delivery: candidate.delivery,
+                policy: candidate.policy
+            )
+            #expect(receipt.decision == .notRetained)
+            #expect(receipt.provesDecision(for: candidate.delivery))
+            #expect(!receipt.provesMembership(for: candidate.delivery))
+            #expect(fixture.journal.currentEnvelope == source)
+        }
     }
 
     @Test func canonicalSubmillisecondExpiryNeverCreatesAnAbsentRow() async throws {
