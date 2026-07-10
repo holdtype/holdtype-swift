@@ -147,6 +147,11 @@
 			path = HoldTypeIOSTests;
 			sourceTree = "<group>";
 		};
+		D4A177012FF2000000000001 /* HoldTypeDomainTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypeDomain/Tests/HoldTypeDomainTests;
+			sourceTree = "<group>";
+		};
 		D4A175032FF0000000000003 /* HoldTypeKeyboard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -223,6 +228,7 @@
 				D4A175032FF0000000000003 /* HoldTypeKeyboard */,
 				D4A175042FF0000000000004 /* KeyboardShared */,
 				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
+				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
 				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
 				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
 				9DB7496A2FE6D7300053C3F3 /* Products */,
@@ -360,6 +366,7 @@
 				9DB749AA2FE7B0000053C3F3 /* Shared */,
 				D4A175042FF0000000000004 /* KeyboardShared */,
 				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
+				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
 			);
 			name = HoldTypeIOSTests;
 			packageProductDependencies = (
