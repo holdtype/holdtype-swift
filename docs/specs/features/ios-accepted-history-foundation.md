@@ -136,6 +136,10 @@ revision is unchanged and the exact envelope receives an identical durability
 rewrite.
 The durable row receipt records the final retention decision; only a receipt
 that proves exact row membership is accepted-row proof for delivery removal.
+A matching `.retained` or `.notRetained` receipt proves that the local History
+decision itself is durable and may finish the delivery marker. A
+`.notRetained` decision is never row-ownership proof and cannot stand in for an
+outbox transfer when active pending delivery bytes are removed.
 
 Individual Delete uses revision CAS, does not advance policy generation, and
 never deletes an independently retained cache file. Before deleting, the
@@ -163,6 +167,10 @@ blocking upsert and cleanup; a forward jump may expire it early.
 Rollback and expiry do not prevent exact existing membership from being
 recovered by identity validation plus an identical durability rewrite; that
 confirmation neither inserts nor removes an entry.
+An observation is snapshot-bound read authority, not direct accepted-row
+upsert authority. The worker first obtains an outbox receipt through identical
+membership confirmation, then uses that sealed receipt for the accepted-row
+decision.
 
 Entries are oldest-first by `createdAt` ascending, then `deliveryID` ascending.
 The outbox has at most 20 total entries and 4 MiB. Collision checks precede
@@ -217,6 +225,12 @@ generation, logical revision, and file revision:
 - row receipt: durable accepted-row retention decision and optional membership;
 - outbox receipt: exact durable membership of one reconstructible entry.
 
+An outbox receipt obtained from transfer or delivery-based confirmation remains
+bound to that exact delivery authorization and physical delivery revision. It
+may prove ownership before removing that delivery. A receipt recovered only
+from an outbox observation remains sufficient for outbox-to-row worker recovery
+but cannot authorize delivery removal.
+
 Before acceptance, the coordinator captures the current policy into an opaque
 value. Only an enabled capture creates `historyWrite: pending` and supplies its
 generation; callers cannot choose a generation or construct a pending marker
@@ -253,6 +267,10 @@ outbox entry first. Delivery removal requires opaque proof of exact outbox
 membership or exact accepted-row membership. Failed/uncertain transfer leaves
 delivery unchanged with `historyTransferRequired`. Duplicate ownership in
 delivery and outbox after a crash is idempotent.
+For an active pending marker, that proof is checked inside the delivery store
+and cannot be replaced by a Boolean or caller-side assertion. Exact delivery
+expiry remains the bounded abandonment exception: expired pending work is
+removed without creating or requiring a new outbox entry.
 
 The outbox worker validates policy, makes the row decision, revalidates policy,
 commits a matching pending marker when present, then removes the entry. For stale
