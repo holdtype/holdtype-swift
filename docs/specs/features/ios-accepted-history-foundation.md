@@ -160,12 +160,18 @@ Expiry is immutable and exactly 86,400 seconds after creation. Eligibility is
 `createdAt <= now < expiresAt`; the entry is expired exactly at `expiresAt`.
 Clock rollback before creation is ambiguous and preserves the entry while
 blocking upsert and cleanup; a forward jump may expire it early.
+Rollback and expiry do not prevent exact existing membership from being
+recovered by identity validation plus an identical durability rewrite; that
+confirmation neither inserts nor removes an entry.
 
 Entries are oldest-first by `createdAt` ascending, then `deliveryID` ascending.
 The outbox has at most 20 total entries and 4 MiB. Collision checks precede
-pruning. Exact duplicate transfer is idempotent. Expired or durably stale-
-generation entries may be pruned; a live entry is never evicted to admit a 21st
-entry or satisfy the byte cap.
+pruning. Delivery and transcript collision semantics are the same as accepted
+History. Exact duplicate transfer is idempotent, performs no unrelated pruning,
+and confirms the unchanged envelope. Expired or durably stale-generation
+entries may be pruned; a live entry is never evicted to admit a 21st entry or
+satisfy the byte cap. If allowed pruning is insufficient, capacity failure
+preserves the entire source rather than committing partial cleanup.
 
 Membership is the only persisted outbox state; no entry-state field and no new
 delivery enum case are added. Confirmed transfer moves absent to pending

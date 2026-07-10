@@ -1,0 +1,278 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "HoldType home" [ref=e5] [cursor=pointer]:
+        - /url: "#top"
+        - generic [ref=e6]: HoldType
+      - navigation "Primary" [ref=e7]:
+        - link "How it works" [ref=e8] [cursor=pointer]:
+          - /url: "#how-it-works"
+        - link "Features" [ref=e9] [cursor=pointer]:
+          - /url: "#features"
+        - link "Privacy" [ref=e10] [cursor=pointer]:
+          - /url: "#privacy"
+        - link "FAQ" [ref=e11] [cursor=pointer]:
+          - /url: "#faq"
+        - link "Inspect the source on GitHub" [ref=e12] [cursor=pointer]:
+          - /url: https://github.com/holdtype/holdtype-swift
+      - group [ref=e14]:
+        - 'generic "Language : English ▾" [ref=e15] [cursor=pointer]':
+          - generic [ref=e16]: Language
+          - text: ":"
+          - generic [ref=e17]: English
+          - text: ▾
+      - link "Download free for macOS" [ref=e18] [cursor=pointer]:
+        - /url: https://github.com/holdtype/holdtype-swift/releases/latest
+  - main [ref=e20]:
+    - region [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - heading "The most honest Wispr Flow “clone”." [level=1] [ref=e24]
+          - paragraph [ref=e25]: No account. Full control over your dictation. You pay OpenAI, not HoldType.
+          - link "Download free for macOS" [ref=e27] [cursor=pointer]:
+            - /url: https://github.com/holdtype/holdtype-swift/releases/latest
+          - paragraph [ref=e29]: Free app · OpenAI API usage billed separately · macOS 14+
+        - figure "Illustrated HoldType workflow, not a recorded demo. Codex did not actually make $1M. Yet." [ref=e30]:
+          - note "At the current estimated transcription rate, 100 dictations cost about $0.10.":
+            - generic: 100 dictations
+            - strong: ≈ $0.10
+            - generic: at the current estimated rate
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - generic [ref=e33]: A perfectly realistic startup plan
+              - generic [ref=e34]: Make $1M with SaaS
+              - generic [ref=e35]: Aa ···
+            - generic [ref=e36]:
+              - paragraph [ref=e37]: Make $1M with SaaS
+              - paragraph [ref=e38]: A conservative first milestone.
+              - paragraph [ref=e39]: Execution plan
+              - paragraph [ref=e41]: Hold Right Command and dictate the easy part.
+            - generic [ref=e42]: Listening
+    - region [ref=e47]:
+      - generic [ref=e48]:
+        - heading "Hold. Speak. Release. The transcript appears at the cursor." [level=2] [ref=e49]
+        - list [ref=e50]:
+          - listitem [ref=e51]:
+            - generic [ref=e52]: ⌘
+            - paragraph [ref=e54]: Hold
+            - paragraph [ref=e55]: Hold Right Command where you can type
+          - listitem [ref=e56]:
+            - paragraph [ref=e59]: Speak
+            - paragraph [ref=e60]: Dictate the text you need
+          - listitem [ref=e61]:
+            - paragraph [ref=e64]: Release
+            - paragraph [ref=e65]: Release Command
+          - listitem [ref=e66]:
+            - generic [ref=e67]: Text
+            - paragraph [ref=e68]: Inserted
+            - paragraph [ref=e69]: The transcript appears at the cursor
+    - region [ref=e70]:
+      - generic [ref=e71]:
+        - heading "What “honest” means for HoldType" [level=2] [ref=e72]
+        - generic [ref=e73]:
+          - article [ref=e74]:
+            - paragraph [ref=e75]: "01"
+            - heading "Your OpenAI key. Direct billing." [level=3] [ref=e76]
+            - paragraph [ref=e77]: OpenAI charges the OpenAI Platform account connected through your key. HoldType adds no monthly fee.
+          - article [ref=e78]:
+            - paragraph [ref=e79]: "02"
+            - heading "gpt-4o-transcribe model" [level=3] [ref=e80]
+            - paragraph [ref=e81]: OpenAI reports fewer word errors, better language recognition, and higher accuracy than its original Whisper models.
+          - article [ref=e82]:
+            - paragraph [ref=e83]: "03"
+            - heading "No mandatory second pass" [level=3] [ref=e84]
+            - paragraph [ref=e85]: By default, the transcript returns without a second model pass. Turn correction on only when you want it.
+          - article [ref=e86]:
+            - paragraph [ref=e87]: "04"
+            - heading "The HoldType data path is explicit" [level=3] [ref=e88]
+            - paragraph [ref=e89]: Your Mac → OpenAI → your cursor.
+          - article [ref=e90]:
+            - paragraph [ref=e91]: "05"
+            - heading "The limits are visible" [level=3] [ref=e92]
+            - paragraph [ref=e93]: HoldType is Mac-only. It does not pretend to be a team cloud platform; optional recording-cache retention stays local.
+    - region [ref=e94]:
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - heading "A dictation app. Not an AI writing platform." [level=2] [ref=e97]
+          - paragraph [ref=e98]: "HoldType does three practical jobs: text at the cursor, translation on command, and spelling context for names and technical terms."
+        - generic [ref=e99]:
+          - article [ref=e100]:
+            - generic [ref=e101]: "01"
+            - heading "Dictation where you work" [level=3] [ref=e102]
+            - paragraph [ref=e103]: Dictate prompts directly into Codex, Claude, or ChatGPT. No intermediate editor and no required rewrite stage.
+          - article [ref=e104]:
+            - generic [ref=e105]: "02"
+            - heading "No intermediate editor" [level=3] [ref=e106]
+            - paragraph [ref=e107]: Dictate mail, reviews, documentation, chats, and notes directly at the cursor.
+          - article [ref=e108]:
+            - generic [ref=e109]: "03"
+            - heading "Translation when requested" [level=3] [ref=e110]
+            - paragraph [ref=e111]: Use the translation shortcut when you want it. Ordinary dictation does not trigger a translation request.
+    - region [ref=e112]:
+      - generic [ref=e113]:
+        - heading "Product features" [level=2] [ref=e114]
+        - paragraph [ref=e115]: The current HoldType app and the product screenshots use an English interface.
+        - article [ref=e116]:
+          - generic [ref=e117]:
+            - paragraph [ref=e118]: Language and vocabulary
+            - heading "Translate only when you ask for it." [level=2] [ref=e119]
+            - paragraph [ref=e120]: Choose a target language, then use Right Command + Right Option. Translation runs as a separate text request after transcription.
+            - paragraph [ref=e121]: Local Dictionary entries add spelling context for names, project terms, and file names to the transcription request.
+          - figure "Real HoldType Translation settings. On phones, swipe the focused crop horizontally to inspect it." [ref=e122]:
+            - link [ref=e123] [cursor=pointer]:
+              - /url: assets/settings-translation.png
+              - img "HoldType Translation settings with the translation shortcut and target language controls" [ref=e125]
+        - article [ref=e127]:
+          - figure "Real menu bar controls, including Last Result recovery." [ref=e128]:
+            - img "HoldType menu bar popover with transcribe, translate, Paste Last Result, history, settings, and quit actions" [ref=e129]
+          - generic [ref=e131]:
+            - paragraph [ref=e132]: Recovery and control
+            - heading "Keep the transcript when insertion fails." [level=2] [ref=e133]
+            - paragraph [ref=e134]: If insertion fails, the accepted transcript remains available as Last Result. Paste it with Control + Command + V without replacing the macOS system clipboard.
+            - paragraph [ref=e135]: Model-based OpenAI correction is off by default. The menu bar keeps dictation, translation, recovery, history, and settings together.
+    - region [ref=e136]:
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - generic [ref=e139]:
+            - paragraph [ref=e140]: No HoldType account or backend
+            - heading "Your Mac → OpenAI → your cursor." [level=2] [ref=e141]
+          - paragraph [ref=e142]: HoldType has no account system, product backend, telemetry, analytics, or cloud sync. Audio goes directly to OpenAI through the API key you provide.
+        - list "The HoldType data path is explicit" [ref=e143]:
+          - listitem [ref=e144]:
+            - generic [ref=e145]: "01"
+            - generic [ref=e146]: Microphone
+          - listitem [ref=e147]:
+            - generic [ref=e148]: "02"
+            - generic [ref=e149]: HoldType
+          - listitem [ref=e150]:
+            - generic [ref=e151]: "03"
+            - generic [ref=e152]: OpenAI transcription
+          - listitem [ref=e153]:
+            - generic [ref=e154]: "04"
+            - generic [ref=e155]: Active app
+        - generic [ref=e156]:
+          - generic [ref=e157]:
+            - heading "The limits are visible" [level=3] [ref=e158]
+            - list [ref=e159]:
+              - listitem [ref=e160]: Your API key stays in macOS Keychain.
+              - listitem [ref=e161]: Your Mac → OpenAI → your cursor.
+              - listitem [ref=e162]: The rewrite pass is optional. Translation runs only when requested.
+              - listitem [ref=e163]: Recoverable failures may keep bounded session-only audio for Retry; completed audio is not retained by default.
+              - listitem [ref=e164]: HoldType is Mac-only. It does not pretend to be a team cloud platform; optional recording-cache retention stays local.
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - heading "The bill has a source" [level=3] [ref=e167]
+              - paragraph [ref=e168]: HoldType uses the key you provide. OpenAI charges the connected OpenAI Platform account; HoldType does not collect a monthly fee or meter dictation through a product account.
+              - generic [ref=e169]:
+                - paragraph [ref=e170]: 100 dictations. About $0.10.
+                - paragraph [ref=e171]: 100 dictations represent roughly 17 minutes of recorded speech. Repeat that amount for 30 days and the estimated transcription cost is about $3.
+              - paragraph [ref=e172]: The Billing screen is a local estimate for successful audio transcriptions. It is not an OpenAI invoice and does not include correction or translation requests.
+              - link "OpenAI API pricing" [ref=e173] [cursor=pointer]:
+                - /url: https://developers.openai.com/api/docs/pricing
+            - figure "On phones, swipe the focused crop of the same real Billing screenshot horizontally." [ref=e174]:
+              - link [ref=e175] [cursor=pointer]:
+                - /url: assets/settings-billing.png
+                - img "HoldType Billing settings showing a local transcription usage estimate" [ref=e177]
+    - region [ref=e179]:
+      - generic [ref=e180]:
+        - figure "Special recording hardware is not required." [ref=e181]:
+          - img "A desk microphone used while building and testing HoldType" [ref=e182]
+        - generic [ref=e184]:
+          - paragraph [ref=e185]: Why I built HoldType
+          - heading "I wanted a dictation tool. Not all the bullshit." [level=2] [ref=e186]
+          - paragraph [ref=e187]: I wanted to know who charged me and why every transcript had to be rewritten by a second model. I did not want another black box between my voice and the cursor.
+          - paragraph [ref=e188]: In my daily work, OpenAI transcription gave me the first pass I trusted most often. The optional rewrite pass stays off unless I turn it on.
+          - paragraph [ref=e189]: "HoldType is the native Swift app I built for that: your API key, direct OpenAI billing, no product account, and no monthly fee."
+    - region [ref=e190]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - paragraph [ref=e193]: Get started
+          - heading "From download to first dictation." [level=2] [ref=e194]
+          - list [ref=e195]:
+            - listitem [ref=e196]: Download the latest disk image from GitHub Releases.
+            - listitem [ref=e197]: Drag HoldType into Applications and launch it.
+            - listitem [ref=e198]: Grant microphone, global-shortcut, and insertion permissions.
+            - listitem [ref=e199]: Add your OpenAI Platform API key in Settings.
+          - generic [ref=e200]:
+            - link "Download free for macOS" [ref=e201] [cursor=pointer]:
+              - /url: https://github.com/holdtype/holdtype-swift/releases/latest
+            - link "All releases" [ref=e203] [cursor=pointer]:
+              - /url: https://github.com/holdtype/holdtype-swift/releases
+        - generic [ref=e205]:
+          - heading "Prefer Homebrew?" [level=3] [ref=e206]
+          - paragraph [ref=e207]: The project tap installs the same disk image published on GitHub Releases.
+          - generic [ref=e208]:
+            - code [ref=e210]: brew tap holdtype/tap brew trust holdtype/tap brew install --cask holdtype open -a HoldType
+            - button "Copy Homebrew install commands" [ref=e211] [cursor=pointer]: Copy
+            - status [ref=e212]
+          - link "View the project tap" [ref=e213] [cursor=pointer]:
+            - /url: https://github.com/holdtype/homebrew-tap
+      - generic [ref=e214]:
+        - generic [ref=e215]:
+          - paragraph [ref=e216]: New to API keys?
+          - heading "Create an API key, then add it in Settings." [level=3] [ref=e217]
+          - paragraph [ref=e218]: An API key is a private credential that lets HoldType send audio for transcription through your OpenAI Platform account. It is separate from your ChatGPT login and subscription.
+          - list [ref=e219]:
+            - listitem [ref=e220]:
+              - text: Sign in to OpenAI Platform and open the
+              - link "API key page" [ref=e221] [cursor=pointer]:
+                - /url: https://platform.openai.com/api-keys
+              - text: .
+            - listitem [ref=e222]: Create a secret key and copy it when OpenAI shows it.
+            - listitem [ref=e223]: In HoldType, open Settings → OpenAI, paste the key, and save.
+          - generic [ref=e224]:
+            - link "Create an OpenAI key" [ref=e225] [cursor=pointer]:
+              - /url: https://platform.openai.com/api-keys
+            - link "Official instructions" [ref=e226] [cursor=pointer]:
+              - /url: https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key
+          - paragraph [ref=e227]: OpenAI shows the full key only when it is created. Keep it private and paste it only into HoldType, which stores it locally in macOS Keychain. API billing is separate from ChatGPT, and a new OpenAI Platform account may require prepaid credit.
+        - figure [ref=e228]:
+          - button "Play the 2-minute API key tutorial" [ref=e230] [cursor=pointer]:
+            - generic [ref=e234]:
+              - generic [ref=e235]: 2-minute walkthrough
+              - strong [ref=e236]: See how an OpenAI API key is created
+              - generic [ref=e237]: Play the tutorial
+          - generic [ref=e238]:
+            - text: Third-party tutorial by
+            - link "GEEKrar" [ref=e239] [cursor=pointer]:
+              - /url: https://www.youtube.com/@Geekrar
+            - text: ", 2:16, published June 2026. YouTube loads only after Play."
+    - region [ref=e240]:
+      - generic [ref=e241]:
+        - generic [ref=e242]:
+          - heading "Frequently asked questions" [level=2] [ref=e243]
+          - paragraph [ref=e244]: Short answers to the decisions that matter before installing.
+        - generic [ref=e245]:
+          - group [ref=e246]:
+            - generic "Why is an OpenAI API key required?" [ref=e247] [cursor=pointer]
+          - group [ref=e248]:
+            - generic "Is ChatGPT Plus enough?" [ref=e249] [cursor=pointer]
+          - group [ref=e250]:
+            - generic "What does dictation cost?" [ref=e251] [cursor=pointer]
+          - group [ref=e252]:
+            - generic "What data is sent to OpenAI?" [ref=e253] [cursor=pointer]
+          - group [ref=e254]:
+            - generic "Is audio stored?" [ref=e255] [cursor=pointer]
+          - group [ref=e256]:
+            - generic "Which Mac apps work?" [ref=e257] [cursor=pointer]
+          - group [ref=e258]:
+            - generic "Which languages are supported?" [ref=e259] [cursor=pointer]
+          - group [ref=e260]:
+            - generic "Why does HoldType need macOS permissions?" [ref=e261] [cursor=pointer]
+          - group [ref=e262]:
+            - generic "Is HoldType open source?" [ref=e263] [cursor=pointer]
+    - region [ref=e264]:
+      - generic [ref=e265]:
+        - generic [ref=e266]:
+          - heading "Full control over your dictation." [level=2] [ref=e267]
+          - paragraph [ref=e268]: Free app · Your OpenAI API key · No HoldType subscription · macOS 14+
+        - link "Download free for macOS" [ref=e269] [cursor=pointer]:
+          - /url: https://github.com/holdtype/holdtype-swift/releases/latest
+  - contentinfo [ref=e271]:
+    - generic [ref=e272]:
+      - generic [ref=e273]: HoldType
+      - paragraph [ref=e275]: Native macOS dictation. Source-available under FSL 1.1 with an MIT future license.
+      - link "Inspect the source on GitHub" [ref=e276] [cursor=pointer]:
+        - /url: https://github.com/holdtype/holdtype-swift
