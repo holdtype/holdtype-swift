@@ -107,6 +107,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				HoldTypeIOS.entitlements,
+				Info.plist,
 			);
 			target = 9DB749A62FE7A0000053C3F3 /* HoldType-iOS */;
 		};
@@ -948,6 +949,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HoldTypeIOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HoldType;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -984,6 +986,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HoldTypeIOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HoldType;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

@@ -842,8 +842,17 @@ correction, and translation now share identity-aware, race-safe transport
 cancellation. Explicit cancellation and timeout complete without waiting for a
 non-cooperative loader; late completions cannot publish or clear a newer
 request. The transport and timeout boundaries are `Sendable`, and mutable test
-doubles are synchronized. App-only Keychain operations, marker reconciliation,
-bounded file-backed multipart upload, and provider-module extraction remain.
+doubles are synchronized. `HoldTypePersistence` also owns an app-only actor for
+the fixed `app.holdtype.HoldType.ios` / `openai-api-key` generic-password item.
+Fake-backed tests prove non-synchronizable `WhenUnlockedThisDeviceOnly` adds,
+update-before-add replacement with duplicate-race recovery, typed locked and
+invalid-result failures, idempotent removal, and redacted errors. Every SecItem
+operation is scoped to the containing app's built-in signed
+`application-identifier` group rather than the shared App Group or a wildcard;
+missing or unresolved build-time identity fails before Keychain access.
+Marker/cache reconciliation, bounded file-backed multipart upload, and
+provider-module extraction remain; signed-device lock behavior remains a
+physical gate.
 
 ### P3 — Native containing-app shell
 
@@ -1034,20 +1043,15 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The first two P2 foundations are complete: the non-secret marker package and
-real transport cancellation. Continue with small independent checkpoints:
+The first three P2 foundations are complete: the non-secret marker package,
+real transport cancellation, and the app-only iOS Keychain adapter. Continue
+with small independent checkpoints:
 
-1. add the app-only iOS Keychain adapter inside `HoldTypePersistence`. Freeze
-   one generic-password service/account identity, non-synchronizable storage,
-   `WhenUnlockedThisDeviceOnly`, no access group, update-before-add replacement,
-   typed locked-device failure, and idempotent removal through a fake SecItem
-   boundary. Do not add marker reconciliation or keyboard linkage in this
-   checkpoint;
-2. bootstrap `HoldTypeOpenAI` around only the portable credential value and
+1. bootstrap `HoldTypeOpenAI` around only the portable credential value and
    resolver contract. Keep the keyboard unlinked and keep the current provider
    services in the app until bounded file-backed multipart preparation and
    upload are implemented and verified without full-audio buffering;
-3. follow with serialized Keychain/cache/marker reconciliation, then the
+2. follow with serialized Keychain/cache/marker reconciliation, then the
    bounded multipart/upload checkpoint, before moving provider services into
    `HoldTypeOpenAI`.
 

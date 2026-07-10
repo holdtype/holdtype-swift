@@ -74,9 +74,28 @@ default. Typing layouts and dictionaries appear only after their entry gate.
 
 ## OpenAI API key
 
-- The API key is stored in one stable containing-app Keychain item.
-- The item is not synchronizable, is not in an App Group/shared access group,
-  and uses `WhenUnlockedThisDeviceOnly` accessibility.
+- The API key is stored as one generic-password item with the fixed service
+  `app.holdtype.HoldType.ios` and account `openai-api-key`. These values are
+  stable storage identifiers, not values derived dynamically from the current
+  bundle identifier.
+- The item is not synchronizable, is not in an App Group or custom shared
+  Keychain group, and uses `WhenUnlockedThisDeviceOnly` accessibility.
+- Every add, update, read, and remove is scoped to the containing app's built-in
+  signed `application-identifier` access group. The value is expanded from
+  `$(AppIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)` at build time; HoldType
+  never performs a wildcard search and never uses
+  `group.app.holdtype.HoldType.shared` for the key. A missing, unsigned,
+  unresolved, shared, or wrong-bundle value fails locally before any Keychain
+  call. Public iOS APIs do not prove that an otherwise well-shaped prefix is
+  entitled; Security rejects an unauthorized group and HoldType reports a
+  redacted local Keychain failure.
+- Save/replace updates that exact item before attempting an add. If another
+  operation creates the item between update and add, HoldType retries the
+  update; it never deletes the previous item before replacement.
+- A locked-device Keychain response and an invalid Keychain result are distinct
+  typed local failures. Removing an already-missing item succeeds. Public error
+  text, debug output, and reflection contain neither key material nor raw
+  Keychain status details.
 - The extension never reads Keychain and never receives key metadata.
 - HoldType does not read the key on launch, passive Settings appearance,
   permission refresh, keyboard status refresh, or diagnostics export.
