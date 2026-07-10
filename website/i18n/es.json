@@ -30,7 +30,7 @@
   },
   "hero": {
     "title": "Expresa la idea completa.",
-    "lede": "{brand.holdType} la coloca donde estás trabajando.",
+    "lede": "Sin cuenta. Control total sobre tu dictado. Le pagas a OpenAI, no a {brand.holdType}.",
     "support": "Prompts largos, mensajes, documentos y notas, dictados directamente en la aplicación de {brand.mac} donde estás trabajando. {brand.holdType} usa tu clave de API de {brand.openAI} y devuelve el texto aceptado al cursor en la mayoría de las aplicaciones de {brand.mac}.",
     "qualification": "Aplicación gratuita · El uso de la API de {brand.openAI} se factura por separado · {fact.minimumOS}",
     "price": {
@@ -167,7 +167,7 @@
     "imageAlt": "Un micrófono de escritorio utilizado durante el desarrollo y las pruebas de {brand.holdType}",
     "imageCaption": "No se necesita equipo de grabación especializado.",
     "label": "Por qué creé {brand.holdType}",
-    "title": "La velocidad al escribir no era el problema.",
+    "title": "Quería una herramienta de dictado. Sin toda esa mierda.",
     "body1": "El problema era la frecuencia con la que un prompt largo, una reseña o una explicación terminaban siendo más breves antes de que acabara de escribirlos. Hablar hacía más fácil incluir la idea completa.",
     "body2": "Probé herramientas por suscripción y aplicaciones basadas en la elección entre modelos locales y en la nube. Resuelven problemas diferentes. En mi trabajo diario, la transcripción de {brand.openAI} me ofrecía con más frecuencia un primer resultado en el que podía confiar.",
     "body3": "Quería una configuración más sencilla: un proveedor, una opción predeterminada sensata, facturación directa de la API y ninguna suscripción al producto que recordar. {brand.holdType} se crea y se prueba con el mismo flujo de trabajo centrado en la voz que pretende facilitar."
@@ -306,7 +306,7 @@
     }
   },
   "finalCta": {
-    "title": "Expresa la idea. Conserva el contexto.",
+    "title": "Control total sobre tu dictado.",
     "body": "Aplicación gratuita · Sin suscripción de {brand.holdType} · Uso de {brand.openAI} facturado directamente · {fact.minimumOS}"
   },
   "footer": {

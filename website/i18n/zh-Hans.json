@@ -30,7 +30,7 @@
   },
   "hero": {
     "title": "把完整的想法说出来。",
-    "lede": "{brand.holdType} 会将它直接输入到你正在工作的地方。",
+    "lede": "无需注册账号。你的语音输入，完全由你掌控。你付费给 OpenAI，而不是 {brand.holdType}。",
     "support": "长提示词、消息、文档和笔记，都可以直接说进当前使用的 {brand.mac} 应用。{brand.holdType} 使用你自己的 {brand.openAI} API 密钥，并将确认后的文本送回大多数 {brand.mac} 应用中的光标位置。",
     "qualification": "应用免费 · {brand.openAI} API 用量另行计费 · {fact.minimumOS}",
     "price": {
@@ -167,7 +167,7 @@
     "imageAlt": "开发和测试 {brand.holdType} 时使用的桌面麦克风",
     "imageCaption": "无需专用录音设备。",
     "label": "我为什么开发 {brand.holdType}",
-    "title": "问题不在于打字速度。",
+    "title": "我想要的只是个语音输入工具。不是一堆狗屁玩意儿。",
     "body1": "真正的问题是，长提示词、评论或说明常常在我打完字之前就被越写越短。改用说话后，更容易把完整的想法都表达出来。",
     "body2": "我试过订阅制工具，也试过围绕本地和云端模型选择而设计的应用。它们解决的是不同的问题。在我的日常工作中，{brand.openAI} 转写最常给出我愿意信任的第一版结果。",
     "body3": "我想要一个更精简的方案：一个服务商、合理的默认设置、API 直接计费，而且无需惦记产品订阅。{brand.holdType} 正是通过它要支持的同一套语音优先工作流程来开发和测试的。"
@@ -306,7 +306,7 @@
     }
   },
   "finalCta": {
-    "title": "说出想法，保留完整上下文。",
+    "title": "你的语音输入，完全由你掌控。",
     "body": "应用免费 · 无 {brand.holdType} 订阅 · {brand.openAI} 用量直接计费 · {fact.minimumOS}"
   },
   "footer": {

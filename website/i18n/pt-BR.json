@@ -30,7 +30,7 @@
   },
   "hero": {
     "title": "Fale tudo o que está pensando.",
-    "lede": "O {brand.holdType} coloca o texto onde você está trabalhando.",
+    "lede": "Sem conta. Controle total sobre o seu ditado. Você paga à OpenAI, não ao {brand.holdType}.",
     "support": "Prompts longos, mensagens, documentos e notas — ditados diretamente no app para {brand.mac} em que você está trabalhando. O {brand.holdType} usa sua chave de API da {brand.openAI} e devolve o texto aceito ao cursor na maioria dos apps para {brand.mac}.",
     "qualification": "App gratuito · Uso da API da {brand.openAI} cobrado à parte · {fact.minimumOS}",
     "price": {
@@ -167,7 +167,7 @@
     "imageAlt": "Microfone de mesa usado durante a criação e os testes do {brand.holdType}",
     "imageCaption": "Não é necessário ter equipamento de gravação especial.",
     "label": "Por que criei o {brand.holdType}",
-    "title": "A velocidade de digitação não era o problema.",
+    "title": "Eu queria uma ferramenta de ditado. Sem toda essa merda.",
     "body1": "O problema era a frequência com que um prompt longo, uma avaliação ou uma explicação acabava mais curto antes que eu terminasse de digitá-lo. Falando, ficou mais fácil expressar a ideia completa.",
     "body2": "Testei ferramentas por assinatura e apps baseados em diferentes opções de modelos locais e na nuvem. Eles resolvem problemas distintos. No meu trabalho diário, a transcrição da {brand.openAI} foi a que mais vezes produziu uma primeira versão em que confiei.",
     "body3": "Eu queria uma configuração mais enxuta: um só provedor, uma opção padrão sensata, cobrança direta da API e nenhuma assinatura do produto para lembrar. O {brand.holdType} é criado e testado com o mesmo fluxo de trabalho centrado em voz que ele pretende oferecer."
@@ -306,7 +306,7 @@
     }
   },
   "finalCta": {
-    "title": "Diga tudo. Preserve o contexto.",
+    "title": "Controle total sobre o seu ditado.",
     "body": "App gratuito · Sem assinatura do {brand.holdType} · Uso da {brand.openAI} cobrado diretamente · {fact.minimumOS}"
   },
   "footer": {

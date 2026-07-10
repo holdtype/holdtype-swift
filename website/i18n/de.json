@@ -30,7 +30,7 @@
   },
   "hero": {
     "title": "Sprich den ganzen Gedanken aus.",
-    "lede": "{brand.holdType} setzt ihn dort ein, wo du gerade arbeitest.",
+    "lede": "Kein Konto. Volle Kontrolle über deine Diktate. Du zahlst OpenAI, nicht {brand.holdType}.",
     "support": "Lange Prompts, Nachrichten, Dokumente und Notizen – direkt in die {brand.mac}-App gesprochen, in der du gerade arbeitest. {brand.holdType} verwendet deinen API-Schlüssel von {brand.openAI} und setzt den übernommenen Text in den meisten {brand.mac}-Apps am Cursor ein.",
     "qualification": "Kostenlose App · API-Nutzung von {brand.openAI} wird separat berechnet · {fact.minimumOS}",
     "price": {
@@ -167,7 +167,7 @@
     "imageAlt": "Ein Schreibtischmikrofon, das bei der Entwicklung und beim Testen von {brand.holdType} verwendet wurde",
     "imageCaption": "Spezielle Aufnahmehardware ist nicht erforderlich.",
     "label": "Warum ich {brand.holdType} entwickelt habe",
-    "title": "Die Tippgeschwindigkeit war nicht das Problem.",
+    "title": "Ich wollte ein Diktier-Tool. Nicht den ganzen Bullshit.",
     "body1": "Das Problem war, wie oft ein langer Prompt, eine Rezension oder eine Erklärung schon kürzer wurde, bevor ich mit dem Tippen fertig war. Beim Sprechen fiel es leichter, den ganzen Gedanken festzuhalten.",
     "body2": "Ich habe Abonnement-Tools und Apps ausprobiert, bei denen man zwischen lokalen und Cloud-Modellen wählt. Sie lösen unterschiedliche Probleme. Bei meiner täglichen Arbeit lieferte mir die Transkription von {brand.openAI} am häufigsten ein erstes Ergebnis, dem ich vertraute.",
     "body3": "Ich wollte eine schlankere Lösung: einen Anbieter, eine sinnvolle Standardeinstellung, direkte API-Abrechnung und kein Produktabonnement, an das ich denken muss. {brand.holdType} wird mit demselben sprachbasierten Arbeitsablauf entwickelt und getestet, den es unterstützen soll."
@@ -306,7 +306,7 @@
     }
   },
   "finalCta": {
-    "title": "Sprich den Gedanken aus. Behalte den Kontext.",
+    "title": "Volle Kontrolle über deine Diktate.",
     "body": "Kostenlose App · Kein {brand.holdType}-Abonnement · Direkte Abrechnung der {brand.openAI}-Nutzung · {fact.minimumOS}"
   },
   "footer": {

@@ -30,7 +30,7 @@
   },
   "hero": {
     "title": "Exprimez toute votre pensée.",
-    "lede": "{brand.holdType} l’insère là où vous travaillez.",
+    "lede": "Pas de compte. Contrôle total sur votre dictée. Vous payez OpenAI, pas {brand.holdType}.",
     "support": "Longs prompts, messages, documents et notes : dictez-les directement dans l’application {brand.mac} où vous travaillez. {brand.holdType} utilise votre clé API {brand.openAI} et replace le texte validé au niveau du curseur dans la plupart des applications {brand.mac}.",
     "qualification": "Application gratuite · Utilisation de l’API {brand.openAI} facturée séparément · {fact.minimumOS}",
     "price": {
@@ -167,7 +167,7 @@
     "imageAlt": "Un microphone de bureau utilisé pendant le développement et les tests de {brand.holdType}",
     "imageCaption": "Aucun équipement d’enregistrement spécialisé n’est nécessaire.",
     "label": "Pourquoi j’ai créé {brand.holdType}",
-    "title": "La vitesse de frappe n’était pas le problème.",
+    "title": "Je voulais un outil de dictée. Pas toutes ces conneries.",
     "body1": "Le problème, c’était la fréquence à laquelle un long prompt, un avis ou une explication se retrouvait raccourci avant même que j’aie fini de le taper. En parlant, il était plus facile d’exprimer toute la pensée.",
     "body2": "J’ai essayé des outils par abonnement et des applications fondées sur le choix entre modèles locaux et modèles cloud. Ils répondent à des besoins différents. Dans mon travail quotidien, la transcription de {brand.openAI} produisait le plus souvent une première version à laquelle je pouvais me fier.",
     "body3": "Je voulais une configuration plus simple : un seul fournisseur, un réglage par défaut pertinent, une facturation directe de l’API et aucun abonnement au produit à gérer. {brand.holdType} est développé et testé avec le même flux de travail centré sur la voix qu’il est destiné à faciliter."
@@ -306,7 +306,7 @@
     }
   },
   "finalCta": {
-    "title": "Exprimez la pensée. Gardez le contexte.",
+    "title": "Contrôle total sur votre dictée.",
     "body": "Application gratuite · Aucun abonnement {brand.holdType} · Utilisation de {brand.openAI} facturée directement · {fact.minimumOS}"
   },
   "footer": {
