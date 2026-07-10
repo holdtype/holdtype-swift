@@ -14,11 +14,26 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 
 DEFAULT_APP_NAME = "holdtype"
 DEFAULT_MARKER = "Speak the whole thought."
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_APP_SPEC = REPOSITORY_ROOT / ".do" / "app.yaml"
+LOCALE_ROUTES = (
+    ("", "en"),
+    ("es/", "es"),
+    ("de/", "de"),
+    ("fr/", "fr"),
+    ("pt-br/", "pt-BR"),
+    ("ja/", "ja"),
+    ("zh-hans/", "zh-Hans"),
+    ("ko/", "ko"),
+    ("ru/", "ru"),
+    ("ar/", "ar"),
+)
 
 
 class PublishError(RuntimeError):
@@ -61,7 +76,12 @@ def deployment_id_and_phase(payload: Any) -> tuple[str | None, str | None]:
     candidates = objects(payload)
     if not candidates:
         return None, None
-    deployment = candidates[0].get("deployment", candidates[0])
+    candidate = candidates[0]
+    app = candidate.get("app", candidate)
+    if isinstance(app, dict) and isinstance(app.get("active_deployment"), dict):
+        deployment = app["active_deployment"]
+    else:
+        deployment = candidate.get("deployment", candidate)
     if not isinstance(deployment, dict):
         return None, None
     deployment_id = deployment.get("id")
@@ -135,15 +155,53 @@ def cache_bust(url: str, deployment_id: str | None) -> str:
     )
 
 
+def verification_targets(
+    base_url: str,
+    *,
+    deployment_id: str | None,
+    root_marker: str,
+) -> list[dict[str, Any]]:
+    normalized_base = base_url.rstrip("/") + "/"
+    targets: list[dict[str, Any]] = []
+    for route, locale in LOCALE_ROUTES:
+        url = urllib.parse.urljoin(normalized_base, route)
+        required = [f'data-site-locale="{locale}"']
+        forbidden: list[str] = []
+        if not route:
+            required.append(root_marker)
+            forbidden.append("data-i18n")
+        targets.append(
+            {
+                "label": f"/{route}",
+                "url": cache_bust(url, deployment_id),
+                "required": required,
+                "forbidden": forbidden,
+            }
+        )
+    targets.append(
+        {
+            "label": "/sitemap.xml",
+            "url": cache_bust(
+                urllib.parse.urljoin(normalized_base, "sitemap.xml"), deployment_id
+            ),
+            "required": ["<loc>https://holdtype.app/ru/</loc>"],
+            "forbidden": [],
+        }
+    )
+    return targets
+
+
 def verify_landing(
     url: str,
     *,
-    marker: str,
+    required_markers: Sequence[str],
+    forbidden_markers: Sequence[str] = (),
     deadline: float,
     request_timeout: float,
     retry_delay: float = 5.0,
 ) -> None:
-    encoded_marker = marker.encode("utf-8")
+    required = [marker.encode("utf-8") for marker in required_markers]
+    forbidden = [marker.encode("utf-8") for marker in forbidden_markers]
     last_error = "no response"
     while True:
         attempt_timeout = min(request_timeout, remaining(deadline))
@@ -154,9 +212,16 @@ def verify_landing(
             )
             with urllib.request.urlopen(request, timeout=attempt_timeout) as response:
                 body = response.read()
-            if encoded_marker in body:
+            missing = [marker.decode("utf-8") for marker in required if marker not in body]
+            present = [marker.decode("utf-8") for marker in forbidden if marker in body]
+            if not missing and not present:
                 return
-            last_error = f"HTTP response did not contain {marker!r}"
+            details: list[str] = []
+            if missing:
+                details.append(f"missing {missing!r}")
+            if present:
+                details.append(f"contains forbidden {present!r}")
+            last_error = "; ".join(details)
         except (OSError, urllib.error.URLError) as error:
             last_error = str(error)
 
@@ -168,12 +233,41 @@ def verify_landing(
     raise PublishError(f"landing verification failed for {url}: {last_error}")
 
 
+def verify_public_site(
+    base_url: str,
+    *,
+    deployment_id: str | None,
+    root_marker: str,
+    deadline: float,
+    request_timeout: float,
+) -> None:
+    for target in verification_targets(
+        base_url,
+        deployment_id=deployment_id,
+        root_marker=root_marker,
+    ):
+        print(f"Verifying {target['label']} at {target['url']}...")
+        verify_landing(
+            target["url"],
+            required_markers=target["required"],
+            forbidden_markers=target["forbidden"],
+            deadline=deadline,
+            request_timeout=request_timeout,
+        )
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description="Force a DigitalOcean App Platform rebuild and verify the landing page."
     )
     result.add_argument("--app-id", default=os.environ.get("DIGITALOCEAN_APP_ID"))
     result.add_argument("--app-name", default=DEFAULT_APP_NAME)
+    result.add_argument(
+        "--spec",
+        type=Path,
+        default=DEFAULT_APP_SPEC,
+        help="App Platform spec to synchronize before deployment",
+    )
     result.add_argument(
         "--url",
         help="additional public URL to verify after the technical App Platform URL",
@@ -191,6 +285,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if arguments.timeout <= 0 or arguments.request_timeout <= 0:
         raise PublishError("timeouts must be positive")
 
+    app_spec = arguments.spec.resolve()
+    if not app_spec.is_file():
+        raise PublishError(f"DigitalOcean app spec not found: {app_spec}")
+
     doctl = shutil.which(arguments.doctl)
     if not doctl:
         raise PublishError(f"{arguments.doctl!r} is not installed")
@@ -200,11 +298,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             "DRY RUN:",
             doctl,
-            "apps create-deployment",
+            "apps update",
             app_id,
-            "--force-rebuild --wait --output json",
+            "--spec",
+            app_spec,
+            "--update-sources --wait --output json",
         )
-        print("DRY RUN: verify <DigitalOcean technical URL>")
+        print("DRY RUN: verify 10 locale routes and sitemap at <DigitalOcean technical URL>")
         if arguments.url:
             print("DRY RUN: verify", arguments.url)
         return 0
@@ -215,31 +315,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         apps = run_doctl(doctl, ["apps", "list"], timeout=remaining(deadline))
         app_id = find_app_id(apps, arguments.app_name)
 
-    print(f"Deploying DigitalOcean app {app_id}...")
-    deployment = run_doctl(
+    print(f"Synchronizing and deploying DigitalOcean app {app_id} from {app_spec}...")
+    run_doctl(
         doctl,
-        ["apps", "create-deployment", app_id, "--force-rebuild", "--wait"],
+        [
+            "apps",
+            "update",
+            app_id,
+            "--spec",
+            str(app_spec),
+            "--update-sources",
+            "--wait",
+        ],
         timeout=remaining(deadline),
     )
-    deployment_id, phase = deployment_id_and_phase(deployment)
+
+    app = run_doctl(doctl, ["apps", "get", app_id], timeout=remaining(deadline))
+    deployment_id, phase = deployment_id_and_phase(app)
     if phase != "ACTIVE":
         raise PublishError(
             f"deployment {deployment_id or '<unknown>'} finished as {phase or '<unknown>'}"
         )
 
-    app = run_doctl(doctl, ["apps", "get", app_id], timeout=remaining(deadline))
-    technical_url = cache_bust(default_ingress_url(app), deployment_id)
+    technical_url = default_ingress_url(app)
     urls = [technical_url]
     if arguments.url:
-        public_url = cache_bust(arguments.url, deployment_id)
+        public_url = arguments.url.rstrip("/") + "/"
         if public_url != technical_url:
             urls.append(public_url)
 
     for verify_url in urls:
-        print(f"Verifying {verify_url}...")
-        verify_landing(
+        verify_public_site(
             verify_url,
-            marker=arguments.marker,
+            deployment_id=deployment_id,
+            root_marker=arguments.marker,
             deadline=deadline,
             request_timeout=arguments.request_timeout,
         )

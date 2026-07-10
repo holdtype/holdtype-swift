@@ -43,6 +43,10 @@ that already uses GitHub Pages.
 - A push to the configured production branch automatically deploys landing-page
   changes. An explicit publish command can request a bounded rebuild and verify
   the resulting page without storing a DigitalOcean token in the repository.
+- The explicit publish command synchronizes the committed `.do/app.yaml` with
+  the existing DigitalOcean app before deploying the latest source. A stale
+  server-side build command must not publish the source template in place of
+  the generated locale artifact.
 
 ## Invariants
 
@@ -56,6 +60,9 @@ that already uses GitHub Pages.
 - A release deployment must use the newly generated signed appcast and the
   same release-notes content published in the GitHub Release.
 - Website documentation and local QA files are not part of the public artifact.
+- The production artifact contains every supported locale route plus
+  `sitemap.xml`; published HTML contains generated locale identity and no source
+  `data-i18n` markers.
 - Pages deployments are serialized so a website publish cannot race a release
   publish and leave a partial artifact live.
 - GitHub Pages must not retain `holdtype.app` as its custom domain after the DNS
@@ -86,6 +93,9 @@ that already uses GitHub Pages.
   previously published Pages site remains in place.
 - If an App Platform deployment does not reach a successful state within its
   bounded timeout, the publish command fails and does not change DNS.
+- If App Spec synchronization fails, any locale route is missing, the sitemap
+  is missing, or the root still contains source localization markers, the
+  publish command fails instead of reporting a healthy landing deployment.
 - If the DigitalOcean technical hostname does not return the expected landing
   marker, custom-domain setup and DNS cutover stop.
 - If the third-party tutorial is removed, blocked, or outdated, the official
@@ -113,8 +123,9 @@ that already uses GitHub Pages.
   same complete Pages artifact.
 - App Platform configuration checks verify a static-site component sourced from
   `website/`, the production branch, and automatic deployments.
-- Publish-script checks verify bounded deployment polling, expected-site marker
-  validation, and the absence of embedded credentials.
+- Publish-script checks verify bounded App Spec synchronization, all generated
+  locale routes, sitemap content, expected-site markers, and the absence of
+  embedded credentials.
 - Artifact tests verify the public-file allowlist, exact appcast copy, and
   reconstruction of every referenced release-notes file.
 - Runtime verification checks the deployed root page, current appcast, current

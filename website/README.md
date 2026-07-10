@@ -70,9 +70,10 @@ scripts/release/publish_digitalocean.py
 ```
 
 The command uses the authenticated `doctl` context, discovers the app named
-`holdtype` (or accepts `DIGITALOCEAN_APP_ID`), waits for an active deployment
-within a bounded timeout, and checks for the landing marker. A DigitalOcean API
-token belongs in the local `doctl` configuration, never in this repository.
+`holdtype` (or accepts `DIGITALOCEAN_APP_ID`), synchronizes the committed
+`.do/app.yaml`, deploys its latest source within a bounded timeout, and verifies
+all ten locale routes plus `sitemap.xml`. A DigitalOcean API token belongs in
+the local `doctl` configuration, never in this repository.
 
 The technical App Platform ingress is always verified first. After DNS cutover,
 verify the public domain in the same run as an additional check:

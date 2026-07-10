@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -815,6 +816,138 @@ end
                 [{"id": "deployment-id", "status": "error"}]
             ),
             ("deployment-id", "ERROR"),
+        )
+        self.assertEqual(
+            module.deployment_id_and_phase(
+                {
+                    "app": {
+                        "active_deployment": {
+                            "id": "active-deployment-id",
+                            "phase": "ACTIVE",
+                        }
+                    }
+                }
+            ),
+            ("active-deployment-id", "ACTIVE"),
+        )
+
+    def test_digitalocean_publish_verifies_all_locales_and_sitemap(self) -> None:
+        module = load_digitalocean_publish_module()
+
+        targets = module.verification_targets(
+            "https://example.ondigitalocean.app/",
+            deployment_id="deployment-id",
+            root_marker="Speak the whole thought.",
+        )
+
+        self.assertEqual(len(targets), 11)
+        self.assertEqual(
+            [target["label"] for target in targets],
+            [
+                "/",
+                "/es/",
+                "/de/",
+                "/fr/",
+                "/pt-br/",
+                "/ja/",
+                "/zh-hans/",
+                "/ko/",
+                "/ru/",
+                "/ar/",
+                "/sitemap.xml",
+            ],
+        )
+        self.assertIn('data-site-locale="en"', targets[0]["required"])
+        self.assertIn("data-i18n", targets[0]["forbidden"])
+        self.assertIn('data-site-locale="ru"', targets[8]["required"])
+        self.assertEqual(targets[8]["forbidden"], [])
+        self.assertIn("deployment=deployment-id", targets[8]["url"])
+        self.assertEqual(
+            targets[-1]["required"],
+            ["<loc>https://holdtype.app/ru/</loc>"],
+        )
+
+    def test_digitalocean_publish_syncs_spec_and_latest_source_before_checks(self) -> None:
+        module = load_digitalocean_publish_module()
+        doctl_calls: list[list[str]] = []
+        verified_urls: list[tuple[str, str | None]] = []
+
+        def fake_run_doctl(doctl: str, arguments: list[str], *, timeout: float):
+            self.assertEqual(doctl, "/usr/local/bin/doctl")
+            self.assertGreater(timeout, 0)
+            doctl_calls.append(arguments)
+            if arguments[:2] == ["apps", "list"]:
+                return [{"id": "app-id", "spec": {"name": "holdtype"}}]
+            if arguments[:2] == ["apps", "update"]:
+                return {"app": {"id": "app-id"}}
+            if arguments[:2] == ["apps", "get"]:
+                return {
+                    "app": {
+                        "id": "app-id",
+                        "default_ingress": "example.ondigitalocean.app",
+                        "active_deployment": {
+                            "id": "deployment-id",
+                            "phase": "ACTIVE",
+                        },
+                    }
+                }
+            self.fail(f"unexpected doctl arguments: {arguments}")
+
+        def fake_verify_public_site(
+            base_url: str,
+            *,
+            deployment_id: str | None,
+            root_marker: str,
+            deadline: float,
+            request_timeout: float,
+        ) -> None:
+            self.assertEqual(root_marker, "Speak the whole thought.")
+            self.assertGreater(deadline, 0)
+            self.assertEqual(request_timeout, 20.0)
+            verified_urls.append((base_url, deployment_id))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_spec = Path(temp_dir) / "app.yaml"
+            app_spec.write_text("name: holdtype\n")
+            with (
+                mock.patch.object(module.shutil, "which", return_value="/usr/local/bin/doctl"),
+                mock.patch.object(module, "run_doctl", side_effect=fake_run_doctl),
+                mock.patch.object(
+                    module,
+                    "verify_public_site",
+                    side_effect=fake_verify_public_site,
+                ),
+            ):
+                result = module.main(
+                    [
+                        "--spec",
+                        str(app_spec),
+                        "--url",
+                        "https://holdtype.app/",
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(doctl_calls[0], ["apps", "list"])
+        self.assertEqual(
+            doctl_calls[1],
+            [
+                "apps",
+                "update",
+                "app-id",
+                "--spec",
+                str(app_spec.resolve()),
+                "--update-sources",
+                "--wait",
+            ],
+        )
+        self.assertEqual(doctl_calls[2], ["apps", "get", "app-id"])
+        self.assertEqual(
+            verified_urls,
+            [
+                ("https://example.ondigitalocean.app/", "deployment-id"),
+                ("https://holdtype.app/", "deployment-id"),
+            ],
         )
 
     def test_digitalocean_spec_keeps_landing_and_update_hosts_separate(self) -> None:
