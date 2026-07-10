@@ -18,6 +18,10 @@ three explicit data lifecycles.
 - Turning history off immediately clears accepted and failed entries plus
   failed-attempt retry audio. It does not clear the normal recording cache or an
   attempt that is currently in flight.
+- The canonical History enabled state and policy generation live in the
+  dedicated strict app-private `HoldType/ios-history-policy.json` record. Clear,
+  disable, and re-enable each advance its generation before cleanup so stale
+  delivery markers or outbox entries cannot resurrect removed rows.
 - Every completed recording gets a minimal atomic `PendingRecording` journal
   before the first provider request, regardless of the history setting.
 - Recording cache remains off by default. When enabled it defaults to keeping
@@ -390,13 +394,21 @@ identity without deleting the only valid artifact.
 - On success, HoldType first commits the mandatory protected accepted-output
   delivery record. When History is on, it then attempts the accepted History
   row before publishing output. If that append fails, the delivery record keeps
-  a bounded `historyWritePending` marker, output continues with a visible
-  non-blocking History error, and a later app lifecycle retries only that local
-  append. With Recording Cache off, accepted text is sufficient recovery and
-  the app then removes the journal/audio; with cache on, it transfers the file
-  to the independent cache, links a successfully written accepted row by
-  relative identifier when useful, applies retention, and then removes the
-  journal.
+  a structured History-write object containing a `pending` state, captured
+  policy generation, and the accepted row's model, language, and duration
+  metadata. A successful append retains that metadata and moves the state to
+  `committed`; invalidated policy moves it to `cancelled`.
+  Output continues with a visible non-blocking History error, and a later app
+  lifecycle retries only that local append. Clear History or a later disabled
+  policy generation must not resurrect an old row. Before delivery-record
+  replacement, explicit clear, or Keep Latest cleanup could lose outstanding
+  pending work, it moves to the bounded History outbox defined by
+  `ios-accepted-output-delivery-record.md`; until that durable transfer exists,
+  removal fails closed. With Recording Cache off, accepted text is sufficient
+  recovery and the app then removes the journal/audio; with cache on, it
+  transfers the file to the independent cache, links a successfully written
+  accepted row by relative identifier when useful, applies retention, and then
+  removes the journal.
 - A cache transfer uses `copy to cache temporary path -> atomic cache rename ->
   cache metadata commit -> pending source/journal delete`. The journal remains
   until the copy/rename and destination metadata commit, so restart can finish

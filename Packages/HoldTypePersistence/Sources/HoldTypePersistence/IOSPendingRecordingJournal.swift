@@ -114,6 +114,8 @@ struct IOSPendingRecordingJournalFile: Equatable, Sendable {
 
 protocol IOSPendingRecordingJournalFileSystem: Sendable {
     func readFileIfPresent() throws -> IOSPendingRecordingJournalFile?
+    func readOpaqueFileRevisionIfPresent() throws
+        -> IOSPendingRecordingJournalFileRevision?
     func createFile(with data: Data) throws -> IOSPendingRecordingJournalFileRevision
     func replaceFile(
         with data: Data,
@@ -122,6 +124,61 @@ protocol IOSPendingRecordingJournalFileSystem: Sendable {
     func removeFile(
         expected: IOSPendingRecordingJournalFileRevision
     ) throws
+}
+
+extension IOSPendingRecordingJournalFileSystem {
+    func readOpaqueFileRevisionIfPresent() throws
+        -> IOSPendingRecordingJournalFileRevision? {
+        try readFileIfPresent()?.revision
+    }
+}
+
+typealias IOSStrictProtectedRecordFileSystemError =
+    IOSPendingRecordingJournalFileSystemError
+typealias IOSStrictProtectedRecordFileRevision =
+    IOSPendingRecordingJournalFileRevision
+typealias IOSStrictProtectedRecordFile = IOSPendingRecordingJournalFile
+typealias IOSStrictProtectedRecordFileSystem =
+    IOSPendingRecordingJournalFileSystem
+
+/// Physical policy for one crash-safe protected record in the app-private
+/// HoldType directory. The legacy journal file system is parameterized by this
+/// value so mandatory records can share its strict durability boundary without
+/// using the best-effort metadata writer.
+struct IOSStrictProtectedRecordConfiguration: Equatable, Sendable {
+    struct Marker: Equatable, Sendable {
+        let name: String
+        let value: [UInt8]
+    }
+
+    static let pendingRecording = Self(
+        rootDirectoryName: IOSPendingRecordingStorageLocation.rootDirectoryName,
+        fileName: IOSPendingRecordingStorageLocation.journalFileName,
+        maximumByteCount:
+            FoundationIOSPendingRecordingJournalRepository.maximumJournalByteCount,
+        marker: nil
+    )
+
+    let rootDirectoryName: String
+    let fileName: String
+    let maximumByteCount: Int
+    let marker: Marker?
+}
+
+struct IOSStrictProtectedRecordMaintenanceReport: Equatable, Sendable {
+    let inspectedEntryCount: Int
+    let inspectedByteCount: Int64
+    let removedFileCount: Int
+    let removedByteCount: Int64
+    let reachedLimit: Bool
+
+    static let empty = Self(
+        inspectedEntryCount: 0,
+        inspectedByteCount: 0,
+        removedFileCount: 0,
+        removedByteCount: 0,
+        reachedLimit: false
+    )
 }
 
 /// Strict journal repository. All compare-and-swap decisions are made from the
@@ -564,6 +621,12 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     private static let processMutationLock = NSLock()
     private static let transferChunkByteCount = 64 * 1_024
     private static let maximumInterruptedRetryCount = 8
+    private static let maintenanceMaximumDirectoryEntryCount = 256
+    private static let maintenanceMaximumCandidateCount = 32
+    private static let maintenanceMaximumByteCount: Int64 = 4 * 1_024 * 1_024
+    private static let maintenanceMaximumElapsedNanoseconds: UInt64 =
+        100_000_000
+    private static let maintenanceMinimumAge: TimeInterval = 24 * 60 * 60
     private static let completeProtectionClass: Int32 = 1
     private static let backupExclusionAttributeName =
         "com.apple.metadata:com_apple_backup_excludeItem"
@@ -588,13 +651,16 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     ) -> IOSPendingRecordingPOSIXResult<Void>
 
     private let applicationSupportDirectoryURL: URL
+    private let configuration: IOSStrictProtectedRecordConfiguration
     private let adapter: any IOSPendingRecordingPOSIXAdapter
     private let replaceOperation: ReplaceOperation
     private let directorySynchronizationOperation:
         DirectorySynchronizationOperation?
+    private let monotonicNowNanoseconds: @Sendable () -> UInt64
 
     init(
         applicationSupportDirectoryURL: URL,
+        configuration: IOSStrictProtectedRecordConfiguration = .pendingRecording,
         adapter: any IOSPendingRecordingPOSIXAdapter =
             DarwinIOSPendingRecordingPOSIXAdapter(),
         replaceOperation: @escaping ReplaceOperation = {
@@ -608,13 +674,18 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
             )
         },
         directorySynchronizationOperation:
-            DirectorySynchronizationOperation? = nil
+            DirectorySynchronizationOperation? = nil,
+        monotonicNowNanoseconds: @escaping @Sendable () -> UInt64 = {
+            DispatchTime.now().uptimeNanoseconds
+        }
     ) {
         self.applicationSupportDirectoryURL = applicationSupportDirectoryURL
+        self.configuration = configuration
         self.adapter = adapter
         self.replaceOperation = replaceOperation
         self.directorySynchronizationOperation =
             directorySynchronizationOperation
+        self.monotonicNowNanoseconds = monotonicNowNanoseconds
     }
 
     func readFileIfPresent() throws -> IOSPendingRecordingJournalFile? {
@@ -625,7 +696,7 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         try validateDirectoryIdentity(directory)
 
         guard let pathStatus = try statusIfPresent(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             directory: directory,
             failure: .readFailed
         ) else {
@@ -636,10 +707,7 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
             effectiveUserID: directory.effectiveUserID
         )
         guard pathStatus.st_size >= 0,
-              pathStatus.st_size <= off_t(
-                  FoundationIOSPendingRecordingJournalRepository
-                      .maximumJournalByteCount
-              ) else {
+              pathStatus.st_size <= off_t(configuration.maximumByteCount) else {
             throw IOSPendingRecordingJournalFileSystemError.sourceTooLarge
         }
 
@@ -674,7 +742,7 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
             throw IOSPendingRecordingJournalFileSystemError.readFailed
         }
         try validatePathIdentity(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             descriptorStatus: finalStatus,
             directory: directory,
             failure: .readFailed
@@ -686,6 +754,52 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
             revision: IOSPendingRecordingJournalFileRevision(
                 snapshot: snapshot
             )
+        )
+    }
+
+    func readOpaqueFileRevisionIfPresent() throws
+        -> IOSPendingRecordingJournalFileRevision? {
+        guard let directory = try openJournalDirectory(createIfMissing: false) else {
+            return nil
+        }
+        defer { close(directory) }
+        try validateDirectoryIdentity(directory)
+
+        guard let pathStatus = try statusIfPresent(
+            named: configuration.fileName,
+            directory: directory,
+            failure: .readFailed
+        ) else {
+            return nil
+        }
+        try validateJournalStatus(
+            pathStatus,
+            effectiveUserID: directory.effectiveUserID
+        )
+
+        let descriptor = try openJournalForReading(directory: directory)
+        defer { adapter.closeFile(descriptor) }
+        let openedStatus = try status(
+            descriptor: descriptor,
+            failure: .readFailed
+        )
+        try validateJournalStatus(
+            openedStatus,
+            effectiveUserID: directory.effectiveUserID
+        )
+        guard IOSPendingRecordingJournalFileSnapshot(pathStatus)
+                == IOSPendingRecordingJournalFileSnapshot(openedStatus) else {
+            throw IOSPendingRecordingJournalFileSystemError.readFailed
+        }
+        try validatePathIdentity(
+            named: configuration.fileName,
+            descriptorStatus: openedStatus,
+            directory: directory,
+            failure: .readFailed
+        )
+        try validateDirectoryIdentity(directory)
+        return IOSPendingRecordingJournalFileRevision(
+            snapshot: IOSPendingRecordingJournalFileSnapshot(openedStatus)
         )
     }
 
@@ -704,7 +818,7 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         try validateDirectoryIdentity(directory)
 
         if try statusIfPresent(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             directory: directory,
             failure: .writeFailed
         ) != nil {
@@ -761,7 +875,7 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         let result = retryInterrupted {
             adapter.unlinkAt(
                 directoryDescriptor: directory.descriptor,
-                name: IOSPendingRecordingStorageLocation.journalFileName
+                name: configuration.fileName
             )
         }
         switch result {
@@ -777,6 +891,193 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         }
 
         try synchronizeDirectory(directory.descriptor)
+    }
+
+    func removeAbandonedTemporaryFiles(
+        now: Date
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport {
+        guard now.timeIntervalSince1970.isFinite else {
+            throw IOSPendingRecordingJournalFileSystemError.invalidLocation
+        }
+        Self.processMutationLock.lock()
+        defer { Self.processMutationLock.unlock() }
+        guard let directory = try openJournalDirectory(createIfMissing: false) else {
+            return .empty
+        }
+        defer { close(directory) }
+        try validateDirectoryIdentity(directory)
+        try lockDirectoryForMutation(directory)
+        try validateDirectoryIdentity(directory)
+
+        let stream = try openDirectoryStream(directory: directory)
+        defer { adapter.closeDirectoryStream(stream) }
+        let startedAt = monotonicNowNanoseconds()
+        var inspectedEntryCount = 0
+        var inspectedByteCount: Int64 = 0
+        var removedFileCount = 0
+        var removedByteCount: Int64 = 0
+        var reachedLimit = false
+
+        do {
+            var enumeratedEntryCount = 0
+            var candidateNames: [String] = []
+            while true {
+                guard enumeratedEntryCount
+                        < Self.maintenanceMaximumDirectoryEntryCount,
+                      elapsedNanoseconds(since: startedAt)
+                        < Self.maintenanceMaximumElapsedNanoseconds else {
+                    reachedLimit = true
+                    break
+                }
+
+                let entry: IOSPendingRecordingDirectoryEntry?
+                switch retryInterrupted({
+                    adapter.nextDirectoryEntry(stream: stream)
+                }) {
+                case .success(let value):
+                    entry = value
+                case .failure(let code) where isProtectedDataError(code):
+                    throw IOSPendingRecordingJournalFileSystemError
+                        .protectedDataUnavailable
+                case .failure:
+                    throw IOSPendingRecordingJournalFileSystemError.readFailed
+                }
+                guard let entry else { break }
+                enumeratedEntryCount += 1
+                guard case .name(let name) = entry,
+                      name != ".",
+                      name != "..",
+                      isTemporaryFileName(name) else {
+                    continue
+                }
+                candidateNames.append(name)
+            }
+
+            let candidateCount = min(
+                candidateNames.count,
+                Self.maintenanceMaximumCandidateCount
+            )
+            if candidateNames.count > candidateCount {
+                reachedLimit = true
+            }
+            let startIndex = maintenanceStartIndex(
+                now: now,
+                candidateCount: candidateNames.count
+            )
+
+            for offset in 0..<candidateCount {
+                guard elapsedNanoseconds(since: startedAt)
+                        < Self.maintenanceMaximumElapsedNanoseconds else {
+                    reachedLimit = true
+                    break
+                }
+                let name = candidateNames[
+                    (startIndex + offset) % candidateNames.count
+                ]
+                inspectedEntryCount += 1
+                guard let pathStatus = try statusIfPresent(
+                    named: name,
+                    directory: directory,
+                    failure: .readFailed
+                ) else {
+                    continue
+                }
+                guard pathStatus.st_size >= 0 else { continue }
+                let byteCount = Int64(pathStatus.st_size)
+                guard byteCount <= Self.maintenanceMaximumByteCount,
+                      inspectedByteCount
+                        <= Self.maintenanceMaximumByteCount - byteCount else {
+                    reachedLimit = true
+                    continue
+                }
+                inspectedByteCount += byteCount
+                guard isOldEnoughForMaintenance(pathStatus, now: now) else {
+                    continue
+                }
+
+                do {
+                    let descriptor = try openTemporaryForMaintenance(
+                        named: name,
+                        directory: directory
+                    )
+                    defer { adapter.closeFile(descriptor) }
+                    let descriptorStatus = try status(
+                        descriptor: descriptor,
+                        failure: .readFailed
+                    )
+                    try validateJournalStatus(
+                        descriptorStatus,
+                        effectiveUserID: directory.effectiveUserID
+                    )
+                    guard IOSPendingRecordingJournalFileSnapshot(descriptorStatus)
+                            == IOSPendingRecordingJournalFileSnapshot(pathStatus)
+                    else {
+                        continue
+                    }
+                    if descriptorStatus.st_size != 0 {
+                        guard configuration.marker != nil else { continue }
+                        do {
+                            try validateExactConfiguration(
+                                descriptor: descriptor
+                            )
+                        } catch IOSPendingRecordingJournalFileSystemError
+                            .invalidFile {
+                            continue
+                        }
+                    }
+                    try validatePathIdentity(
+                        named: name,
+                        descriptorStatus: descriptorStatus,
+                        directory: directory,
+                        failure: .readFailed
+                    )
+                    guard elapsedNanoseconds(since: startedAt)
+                            < Self.maintenanceMaximumElapsedNanoseconds else {
+                        reachedLimit = true
+                        break
+                    }
+
+                    switch retryInterrupted({
+                        adapter.unlinkAt(
+                            directoryDescriptor: directory.descriptor,
+                            name: name
+                        )
+                    }) {
+                    case .success:
+                        removedFileCount += 1
+                        removedByteCount += byteCount
+                    case .failure(ENOENT):
+                        continue
+                    case .failure(let code) where isProtectedDataError(code):
+                        throw IOSPendingRecordingJournalFileSystemError
+                            .protectedDataUnavailable
+                    case .failure:
+                        throw IOSPendingRecordingJournalFileSystemError
+                            .removeFailed
+                    }
+                } catch IOSPendingRecordingJournalFileSystemError.missing,
+                        IOSPendingRecordingJournalFileSystemError.invalidFile,
+                        IOSPendingRecordingJournalFileSystemError.readFailed {
+                    continue
+                }
+            }
+        } catch {
+            if removedFileCount > 0 {
+                try synchronizeDirectory(directory.descriptor)
+            }
+            throw error
+        }
+
+        if removedFileCount > 0 {
+            try synchronizeDirectory(directory.descriptor)
+        }
+        return IOSStrictProtectedRecordMaintenanceReport(
+            inspectedEntryCount: inspectedEntryCount,
+            inspectedByteCount: inspectedByteCount,
+            removedFileCount: removedFileCount,
+            removedByteCount: removedByteCount,
+            reachedLimit: reachedLimit
+        )
     }
 }
 
@@ -804,12 +1105,148 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         let identity: FileIdentity
     }
 
+    func openDirectoryStream(
+        directory: DirectoryHandle
+    ) throws -> UnsafeMutablePointer<DIR> {
+        let descriptorResult = retryInterrupted {
+            adapter.openAt(
+                directoryDescriptor: directory.parentDescriptor,
+                name: configuration.rootDirectoryName,
+                flags: O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW,
+                mode: nil
+            )
+        }
+        let descriptor: Int32
+        switch descriptorResult {
+        case .success(let value):
+            descriptor = value
+        case .failure(let code) where isProtectedDataError(code):
+            throw IOSPendingRecordingJournalFileSystemError
+                .protectedDataUnavailable
+        case .failure:
+            throw IOSPendingRecordingJournalFileSystemError.readFailed
+        }
+
+        do {
+            let status = try status(
+                descriptor: descriptor,
+                failure: .readFailed
+            )
+            guard isDirectory(status),
+                  status.st_uid == directory.effectiveUserID,
+                  status.st_mode & mode_t(0o7777) == mode_t(0o700),
+                  FileIdentity(status) == directory.identity else {
+                throw IOSPendingRecordingJournalFileSystemError.readFailed
+            }
+        } catch {
+            adapter.closeFile(descriptor)
+            throw error
+        }
+
+        switch retryInterrupted({
+            adapter.openDirectoryStream(fileDescriptor: descriptor)
+        }) {
+        case .success(let stream):
+            return stream
+        case .failure(let code) where isProtectedDataError(code):
+            adapter.closeFile(descriptor)
+            throw IOSPendingRecordingJournalFileSystemError
+                .protectedDataUnavailable
+        case .failure:
+            adapter.closeFile(descriptor)
+            throw IOSPendingRecordingJournalFileSystemError.readFailed
+        }
+    }
+
+    func isTemporaryFileName(_ name: String) -> Bool {
+        let prefix = ".\(configuration.fileName)."
+        let suffix = ".tmp"
+        guard name.hasPrefix(prefix),
+              name.hasSuffix(suffix),
+              name.count == prefix.count + 36 + suffix.count else {
+            return false
+        }
+        let identifierStart = name.index(
+            name.startIndex,
+            offsetBy: prefix.count
+        )
+        let identifierEnd = name.index(identifierStart, offsetBy: 36)
+        let value = String(name[identifierStart..<identifierEnd])
+        guard let identifier = UUID(uuidString: value) else { return false }
+        return value == identifier.uuidString.lowercased()
+    }
+
+    func elapsedNanoseconds(since startedAt: UInt64) -> UInt64 {
+        let current = monotonicNowNanoseconds()
+        return current >= startedAt ? current - startedAt : UInt64.max
+    }
+
+    func maintenanceStartIndex(
+        now: Date,
+        candidateCount: Int
+    ) -> Int {
+        guard candidateCount > 0 else { return 0 }
+        let minute = (now.timeIntervalSince1970 / 60).rounded(.towardZero)
+        let remainder = minute.truncatingRemainder(
+            dividingBy: Double(candidateCount)
+        )
+        let normalized = remainder >= 0
+            ? remainder
+            : remainder + Double(candidateCount)
+        return Int(normalized)
+    }
+
+    func isOldEnoughForMaintenance(
+        _ status: stat,
+        now: Date
+    ) -> Bool {
+        let modificationTime = Double(status.st_mtimespec.tv_sec)
+            + Double(status.st_mtimespec.tv_nsec) / 1_000_000_000
+        let age = now.timeIntervalSince1970 - modificationTime
+        return modificationTime.isFinite
+            && age.isFinite
+            && age >= Self.maintenanceMinimumAge
+    }
+
+    func openTemporaryForMaintenance(
+        named name: String,
+        directory: DirectoryHandle
+    ) throws -> Int32 {
+        switch retryInterrupted({
+            adapter.openAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                mode: nil
+            )
+        }) {
+        case .success(let descriptor):
+            return descriptor
+        case .failure(ENOENT):
+            throw IOSPendingRecordingJournalFileSystemError.missing
+        case .failure(let code) where isProtectedDataError(code):
+            throw IOSPendingRecordingJournalFileSystemError
+                .protectedDataUnavailable
+        case .failure:
+            throw IOSPendingRecordingJournalFileSystemError.readFailed
+        }
+    }
+
     func openJournalDirectory(
         createIfMissing: Bool
     ) throws -> DirectoryHandle? {
         guard applicationSupportDirectoryURL.isFileURL,
               !applicationSupportDirectoryURL.path.isEmpty,
-              !applicationSupportDirectoryURL.path.utf8.contains(0) else {
+              !applicationSupportDirectoryURL.path.utf8.contains(0),
+              isValidPathComponent(configuration.rootDirectoryName),
+              isValidPathComponent(configuration.fileName),
+              configuration.maximumByteCount > 0,
+              configuration.maximumByteCount < Int.max,
+              configuration.marker.map({
+                  !$0.name.isEmpty
+                      && !$0.name.utf8.contains(0)
+                      && !$0.value.isEmpty
+              }) ?? true else {
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
 
@@ -856,7 +1293,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
 
-        let rootName = IOSPendingRecordingStorageLocation.rootDirectoryName
+        let rootName = configuration.rootDirectoryName
         var createdDirectory = false
         var rootStatus = try directoryStatusIfPresent(
             named: rootName,
@@ -920,7 +1357,9 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             }
         }
 
-        if createdDirectory {
+        let rootModeNeedsTightening =
+            rootStatus.st_mode & mode_t(0o7777) != mode_t(0o700)
+        if createdDirectory || rootModeNeedsTightening {
             try requireSuccess(
                 retryInterrupted {
                     adapter.changeMode(
@@ -938,11 +1377,12 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         )
         guard isDirectory(openedStatus),
               openedStatus.st_uid == effectiveUserID,
+              openedStatus.st_mode & mode_t(0o7777) == mode_t(0o700),
               FileIdentity(openedStatus) == FileIdentity(rootStatus) else {
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
 
-        if createdDirectory {
+        if createdDirectory || rootModeNeedsTightening {
             try synchronizeDirectory(rootDescriptor)
             try synchronizeDirectory(parentDescriptor)
         }
@@ -986,14 +1426,16 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         )
         guard isDirectory(descriptorStatus),
               descriptorStatus.st_uid == directory.effectiveUserID,
+              descriptorStatus.st_mode & mode_t(0o7777) == mode_t(0o700),
               FileIdentity(descriptorStatus) == directory.identity,
               let pathStatus = try directoryStatusIfPresent(
-                  named: IOSPendingRecordingStorageLocation.rootDirectoryName,
+                  named: configuration.rootDirectoryName,
                   parentDescriptor: directory.parentDescriptor,
                   failure: .invalidLocation
               ),
               isDirectory(pathStatus),
               pathStatus.st_uid == directory.effectiveUserID,
+              pathStatus.st_mode & mode_t(0o7777) == mode_t(0o700),
               FileIdentity(pathStatus) == directory.identity else {
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
@@ -1032,7 +1474,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         if let expected {
             try validateCurrentFile(directory: directory, expected: expected)
         } else if try statusIfPresent(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             directory: directory,
             failure: .writeFailed
         ) != nil {
@@ -1058,7 +1500,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
                 adapter.publishExclusively(
                     directoryDescriptor: directory.descriptor,
                     temporaryName: temporary.name,
-                    finalName: IOSPendingRecordingStorageLocation.journalFileName
+                    finalName: configuration.fileName
                 )
             }
         } else {
@@ -1066,7 +1508,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
                 replaceOperation(
                     directory.descriptor,
                     temporary.name,
-                    IOSPendingRecordingStorageLocation.journalFileName
+                    configuration.fileName
                 )
             }
         }
@@ -1108,27 +1550,56 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         var publishedStatus: stat?
         var postCommitFailed = false
         do {
-            let status = try status(
+            let preconfigurationStatus = try status(
                 descriptor: temporary.descriptor,
                 failure: .writeFailed
             )
             try validateJournalStatus(
-                status,
+                preconfigurationStatus,
                 effectiveUserID: directory.effectiveUserID
             )
-            guard status.st_size == off_t(data.count),
-                  FileIdentity(status) == temporary.identity else {
+            guard preconfigurationStatus.st_size == off_t(data.count),
+                  FileIdentity(preconfigurationStatus) == temporary.identity else {
                 throw IOSPendingRecordingJournalFileSystemError.writeFailed
             }
             try validatePathIdentity(
-                named: IOSPendingRecordingStorageLocation.journalFileName,
-                descriptorStatus: status,
+                named: configuration.fileName,
+                descriptorStatus: preconfigurationStatus,
                 directory: directory,
                 failure: .writeFailed
             )
+            try requireConfigurationSuccess(
+                retryInterrupted {
+                    adapter.setExtendedAttribute(
+                        fileDescriptor: temporary.descriptor,
+                        name: Self.backupExclusionAttributeName,
+                        value: Self.backupExclusionAttributeValue,
+                        flags: 0
+                    )
+                }
+            )
+            try synchronizeFile(temporary.descriptor)
             try validateExactConfiguration(descriptor: temporary.descriptor)
+            let finalStatus = try status(
+                descriptor: temporary.descriptor,
+                failure: .writeFailed
+            )
+            try validateJournalStatus(
+                finalStatus,
+                effectiveUserID: directory.effectiveUserID
+            )
+            guard finalStatus.st_size == off_t(data.count),
+                  FileIdentity(finalStatus) == temporary.identity else {
+                throw IOSPendingRecordingJournalFileSystemError.writeFailed
+            }
+            try validatePathIdentity(
+                named: configuration.fileName,
+                descriptorStatus: finalStatus,
+                directory: directory,
+                failure: .writeFailed
+            )
             try validateDirectoryIdentity(directory)
-            publishedStatus = status
+            publishedStatus = finalStatus
         } catch {
             postCommitFailed = true
         }
@@ -1155,7 +1626,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
     ) -> Bool? {
         do {
             guard let finalStatus = try statusIfPresent(
-                named: IOSPendingRecordingStorageLocation.journalFileName,
+                named: configuration.fileName,
                 directory: directory,
                 failure: .writeFailed
             ) else {
@@ -1170,7 +1641,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
     func createTemporaryFile(
         directory: DirectoryHandle
     ) throws -> TemporaryFile {
-        let name = ".\(IOSPendingRecordingStorageLocation.journalFileName)."
+        let name = ".\(configuration.fileName)."
             + UUID().uuidString.lowercased()
             + ".tmp"
         let result = retryInterrupted {
@@ -1269,10 +1740,22 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
                     fileDescriptor: temporary.descriptor,
                     name: Self.backupExclusionAttributeName,
                     value: Self.backupExclusionAttributeValue,
-                    flags: 0
+                    flags: XATTR_CREATE
                 )
             }
         )
+        if let marker = configuration.marker {
+            try requireConfigurationSuccess(
+                retryInterrupted {
+                    adapter.setExtendedAttribute(
+                        fileDescriptor: temporary.descriptor,
+                        name: marker.name,
+                        value: marker.value,
+                        flags: XATTR_CREATE
+                    )
+                }
+            )
+        }
         try validateExactConfiguration(descriptor: temporary.descriptor)
         try validateOwnedTemporaryFile(
             temporary,
@@ -1311,6 +1794,25 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         default:
             throw IOSPendingRecordingJournalFileSystemError.invalidFile
         }
+
+        if let marker = configuration.marker {
+            let markerResult = retryInterrupted {
+                adapter.extendedAttribute(
+                    fileDescriptor: descriptor,
+                    name: marker.name,
+                    maximumByteCount: marker.value.count + 1
+                )
+            }
+            switch markerResult {
+            case .success(marker.value):
+                break
+            case .failure(let code) where isProtectedDataError(code):
+                throw IOSPendingRecordingJournalFileSystemError
+                    .protectedDataUnavailable
+            default:
+                throw IOSPendingRecordingJournalFileSystemError.invalidFile
+            }
+        }
     }
 
     func validateCurrentFile(
@@ -1318,7 +1820,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         expected: IOSPendingRecordingJournalFileRevision
     ) throws {
         guard let pathStatus = try statusIfPresent(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             directory: directory,
             failure: .writeFailed
         ) else {
@@ -1350,7 +1852,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         }
         try validateExactConfiguration(descriptor: descriptor)
         try validatePathIdentity(
-            named: IOSPendingRecordingStorageLocation.journalFileName,
+            named: configuration.fileName,
             descriptorStatus: descriptorStatus,
             directory: directory,
             failure: .writeFailed
@@ -1363,7 +1865,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         let result = retryInterrupted {
             adapter.openAt(
                 directoryDescriptor: directory.descriptor,
-                name: IOSPendingRecordingStorageLocation.journalFileName,
+                name: configuration.fileName,
                 flags: O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
                 mode: nil
             )
@@ -1442,8 +1944,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
     }
 
     func readBoundedData(from descriptor: Int32) throws -> Data {
-        let maximumByteCount = FoundationIOSPendingRecordingJournalRepository
-            .maximumJournalByteCount
+        let maximumByteCount = configuration.maximumByteCount
         var data = Data()
         var buffer = [UInt8](
             repeating: 0,
@@ -1511,8 +2012,7 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         guard !data.isEmpty else {
             throw IOSPendingRecordingJournalFileSystemError.writeFailed
         }
-        guard data.count <= FoundationIOSPendingRecordingJournalRepository
-            .maximumJournalByteCount else {
+        guard data.count <= configuration.maximumByteCount else {
             throw IOSPendingRecordingJournalFileSystemError.sourceTooLarge
         }
     }
@@ -1691,6 +2191,14 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
     func isProtectedDataError(_ code: Int32) -> Bool {
         code == EACCES || code == EPERM
     }
+
+    func isValidPathComponent(_ value: String) -> Bool {
+        !value.isEmpty
+            && value != "."
+            && value != ".."
+            && !value.contains("/")
+            && !value.utf8.contains(0)
+    }
 }
 
 private func liveIOSPendingRecordingJournalReplace(
@@ -1710,3 +2218,6 @@ private func liveIOSPendingRecordingJournalReplace(
     }
     return result == 0 ? .success(()) : .failure(errno)
 }
+
+typealias FoundationIOSStrictProtectedRecordFileSystem =
+    FoundationIOSPendingRecordingJournalFileSystem

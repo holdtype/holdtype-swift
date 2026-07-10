@@ -122,19 +122,28 @@ behavior remain platform-owned.
   clears it. Expiry is enforced at read time and followed by physical deletion
   at the first app maintenance opportunity.
 - Turning `Keep latest result` off immediately clears any already-terminal
-  latest result and prevents future post-session retention. A result whose
-  delivery decision is still pending remains only until insertion is
-  reconciled, the user explicitly dismisses/discards it, or the 24-hour safety
-  cap expires.
+  latest result and prevents future post-session retention, except that a
+  `submittedUnverified` result remains recoverable until explicit clear,
+  replacement, or the 24-hour cap because automatic replay is forbidden and
+  insertion success is unknown. A result whose delivery decision is still
+  pending remains only until insertion is reconciled, the user explicitly
+  dismisses/discards it, or the 24-hour safety cap expires.
 - The protected pending/latest delivery record is the mandatory pre-handoff
   recovery and commits before any short-lived keyboard snapshot. When History
   is enabled, the app also attempts its accepted row before publication. A
   History append failure does not suppress an otherwise durable result: output
-  may continue with a visible non-blocking History error and a bounded pending
-  History-write marker on the delivery record. The app retries only local
-  metadata persistence, never provider work. If the mandatory delivery record
-  fails, no accepted text is published and the journaled attempt remains
-  recoverable.
+  may continue with a visible non-blocking History error and a structured
+  History-write object on the delivery record. It retains the captured History
+  policy generation and accepted-row metadata while its state moves only from
+  `pending` to `committed` or `cancelled`; it is not a Boolean or a disappearing
+  marker. Before Clear Latest, replacement, or non-retention could remove a
+  delivery with pending History work, the app must durably move that work to
+  the bounded History outbox. Until that outbox exists, such removal fails
+  closed.
+  The app retries only local metadata persistence, never provider work. If the
+  mandatory delivery record fails, no accepted text is published and the
+  journaled attempt remains recoverable. The exact contract is frozen in
+  `ios-accepted-output-delivery-record.md`.
 
 ## Keyboard Insertion
 
@@ -146,26 +155,31 @@ behavior remain platform-owned.
   - the current result explicitly carries
     `automaticInsertionAuthorized: true` from the containing app;
   - the shared record is supported, unexpired, and contains accepted text;
-  - session and transcript identities match the active delivery;
+  - delivery, session, attempt, transcript, and committed publication
+    generation match the active delivery;
   - a non-empty source document identifier was captured for the session;
   - the current non-empty document identifier still matches it;
-  - the transcript has not already received a durable pre-insert claim.
+  - the delivery ID has not already received a durable pre-insert claim.
 - A document identifier is only a conservative guard. It is not proof of the
   host app, field, cursor position, or user intent.
 - If any automatic-insertion condition is missing, HoldType keeps the result
   recoverable and offers explicit keyboard Insert or containing-app Copy where
   the platform and approved bridge allow it.
+- Keyboard delivery is limited to 8,192 UTF-8 bytes. A larger accepted result
+  remains app-private for Copy/Share recovery and is never inserted in chunks;
+  partial chunk delivery would make the insertion outcome ambiguous.
 - Explicit Insert is a user confirmation to place the displayed accepted text
   into the field that is active at tap time. It may proceed after a missing or
   changed document identifier, but only while HoldType is visibly active and
   the user can see which result is being inserted.
-- One Insert attempt consumes the primary Insert action for that transcript
+- One Insert attempt consumes the primary Insert action for that delivery
   across keyboard presentations. Before calling `insertText`, the extension
   atomically records a pre-insert claim in its own sandbox. The bounded ledger
-  contains only transcript ID, claim time, and `claimed`, `confirmedInserted`,
-  or `submittedUnverified` status; it stores no text or host identity, retains
-  at most 64 IDs, prunes entries after 24 hours, uses Data Protection, and is
-  excluded from device backup.
+  contains only delivery ID, claim time, and `claimed`, `confirmedInserted`, or
+  `submittedUnverified` status; it stores no text or host identity, retains at
+  most 512 live IDs, prunes entries after 24 hours, uses Data Protection, and is
+  excluded from device backup. A 513th unexpired live claim fails closed; the
+  extension never evicts an unexpired duplicate barrier to make room.
 - `UITextDocumentProxy.insertText` has no success return. After the call returns,
   the extension may mark `confirmedInserted` only when the same non-empty
   document identifier is still present and the immediately available local
@@ -176,7 +190,9 @@ behavior remain platform-owned.
   match, the outcome is `submittedUnverified`, not inserted or failed. The UI
   says delivery could not be verified, keeps app-owned recovery, and never
   automatically replays the transcript.
-- A claimed transcript is never inserted automatically again after refresh,
+- Accepted text with bidirectional controls is displayed as isolated plain text,
+  never interpolated into a status/action label, Markdown, or format string.
+- A claimed delivery is never inserted automatically again after refresh,
   reappearance, eviction, or restart. If the extension is interrupted after
   claiming but before it durably records a terminal outcome, the surviving
   `claimed` state is treated as delivery uncertain and directs the user to
@@ -202,8 +218,9 @@ behavior remain platform-owned.
 
 - Automatic insertion must not ship until the shared-state contract includes
   idempotent insertion acknowledgement.
-- An acknowledgement identifies the session, transcript, source document, and
-  one honest outcome: `confirmedInserted` or `submittedUnverified`. It never
+- An acknowledgement identifies the delivery, session, attempt, transcript,
+  durable publication generation, source document, and one honest outcome:
+  `confirmedInserted` or `submittedUnverified`. It never
   turns a void API call into a success claim and never copies transcript text
   into logs. The
   extension-local pre-insert claim is the at-most-once guard; the App Group
@@ -212,6 +229,9 @@ behavior remain platform-owned.
 - A missing or delayed acknowledgement must never trigger a second insertion.
   The keyboard suppresses duplicates locally while visible, and the app keeps
   the result recoverable until delivery is reconciled.
+- The containing app applies an acknowledgement only when every immutable
+  identity and the current publication generation match. Older-generation,
+  cross-attempt, or cross-delivery acknowledgements are harmless no-ops.
 - If eligibility fails before the pre-insert claim/call, no insertion was
   attempted and the user may retry explicitly after fixing the target. If the
   call was made but the result cannot be confirmed, use the non-replayable

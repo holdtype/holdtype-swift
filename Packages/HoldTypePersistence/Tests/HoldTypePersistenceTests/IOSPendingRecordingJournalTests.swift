@@ -443,6 +443,281 @@ struct IOSPendingRecordingJournalTests {
             #expect(finalData == firstBytes || finalData == secondBytes)
         }
     }
+
+    @Test func liveFileSystemTightensAnExistingOwnedRootDirectory() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let rootURL = directoryURL.appendingPathComponent(
+                IOSPendingRecordingStorageLocation.rootDirectoryName,
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(
+                at: rootURL,
+                withIntermediateDirectories: false
+            )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: rootURL.path
+            )
+            let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+
+            _ = try fileSystem.createFile(with: Data("strict".utf8))
+
+            let attributes = try FileManager.default.attributesOfItem(
+                atPath: rootURL.path
+            )
+            #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
+        }
+    }
+
+    @Test func liveFileSystemAppliesCustomNameLimitAndMarker() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let marker = IOSStrictProtectedRecordConfiguration.Marker(
+                name: "com.holdtype.tests.strict-record",
+                value: Array("v1".utf8)
+            )
+            let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL,
+                configuration: IOSStrictProtectedRecordConfiguration(
+                    rootDirectoryName:
+                        IOSPendingRecordingStorageLocation.rootDirectoryName,
+                    fileName: "strict-test-record.json",
+                    maximumByteCount: 16,
+                    marker: marker
+                )
+            )
+            let exactLimit = Data(repeating: 0x61, count: 16)
+
+            _ = try fileSystem.createFile(with: exactLimit)
+
+            #expect(try fileSystem.readFileIfPresent()?.data == exactLimit)
+            let fileURL = directoryURL
+                .appendingPathComponent(
+                    IOSPendingRecordingStorageLocation.rootDirectoryName,
+                    isDirectory: true
+                )
+                .appendingPathComponent("strict-test-record.json")
+            let rawDescriptor = Darwin.open(fileURL.path, O_RDONLY | O_CLOEXEC)
+            let descriptor = try #require(
+                rawDescriptor >= 0 ? rawDescriptor : nil
+            )
+            defer { Darwin.close(descriptor) }
+            var markerBytes = [UInt8](repeating: 0, count: 3)
+            let markerByteCount = marker.name.withCString { name in
+                markerBytes.withUnsafeMutableBytes {
+                    Darwin.fgetxattr(
+                        descriptor,
+                        name,
+                        $0.baseAddress,
+                        $0.count,
+                        0,
+                        0
+                    )
+                }
+            }
+            #expect(markerByteCount == 2)
+            #expect(Array(markerBytes.prefix(2)) == Array("v1".utf8))
+            #expect(
+                throws: IOSPendingRecordingJournalFileSystemError.sourceTooLarge
+            ) {
+                _ = try FoundationIOSPendingRecordingJournalFileSystem(
+                    applicationSupportDirectoryURL: directoryURL,
+                    configuration: IOSStrictProtectedRecordConfiguration(
+                        rootDirectoryName:
+                            IOSPendingRecordingStorageLocation.rootDirectoryName,
+                        fileName: "strict-too-large.json",
+                        maximumByteCount: 16,
+                        marker: marker
+                    )
+                ).createFile(with: Data(repeating: 0x61, count: 17))
+            }
+        }
+    }
+
+    @Test func maintenanceRemovesOnlyOldOwnedMarkedOrZeroByteStaging() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let fileName = "ios-accepted-output-delivery.json"
+            let marker = IOSStrictProtectedRecordConfiguration.Marker(
+                name: "com.holdtype.tests.delivery-maintenance",
+                value: Array("v1".utf8)
+            )
+            let rootURL = directoryURL.appendingPathComponent(
+                IOSPendingRecordingStorageLocation.rootDirectoryName,
+                isDirectory: true
+            )
+            let oldMarkedName = ".\(fileName)."
+                + "11111111-2222-4333-8444-555555555555.tmp"
+            let freshMarkedName = ".\(fileName)."
+                + "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.tmp"
+            let oldDate = Date(timeIntervalSince1970: 1_700_000_000)
+            let now = oldDate.addingTimeInterval(24 * 60 * 60 + 1)
+
+            for name in [oldMarkedName, freshMarkedName] {
+                _ = try FoundationIOSPendingRecordingJournalFileSystem(
+                    applicationSupportDirectoryURL: directoryURL,
+                    configuration: IOSStrictProtectedRecordConfiguration(
+                        rootDirectoryName:
+                            IOSPendingRecordingStorageLocation.rootDirectoryName,
+                        fileName: name,
+                        maximumByteCount: 1_024,
+                        marker: marker
+                    )
+                ).createFile(with: Data("marked".utf8))
+            }
+            try FileManager.default.setAttributes(
+                [.modificationDate: oldDate],
+                ofItemAtPath: rootURL.appendingPathComponent(oldMarkedName).path
+            )
+
+            let oldZeroName = ".\(fileName)."
+                + "99999999-8888-4777-8666-555555555555.tmp"
+            let oldZeroURL = rootURL.appendingPathComponent(oldZeroName)
+            #expect(
+                FileManager.default.createFile(
+                    atPath: oldZeroURL.path,
+                    contents: Data(),
+                    attributes: [.posixPermissions: 0o600]
+                )
+            )
+            try FileManager.default.setAttributes(
+                [.modificationDate: oldDate],
+                ofItemAtPath: oldZeroURL.path
+            )
+
+            let unknownURL = rootURL.appendingPathComponent(
+                ".\(fileName).not-a-canonical-uuid.tmp"
+            )
+            #expect(
+                FileManager.default.createFile(
+                    atPath: unknownURL.path,
+                    contents: Data(),
+                    attributes: [.posixPermissions: 0o600]
+                )
+            )
+            try FileManager.default.setAttributes(
+                [.modificationDate: oldDate],
+                ofItemAtPath: unknownURL.path
+            )
+
+            let maintenance = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL,
+                configuration: IOSStrictProtectedRecordConfiguration(
+                    rootDirectoryName:
+                        IOSPendingRecordingStorageLocation.rootDirectoryName,
+                    fileName: fileName,
+                    maximumByteCount: 1_024,
+                    marker: marker
+                ),
+                monotonicNowNanoseconds: { 0 }
+            )
+            let report = try maintenance.removeAbandonedTemporaryFiles(now: now)
+
+            #expect(report.removedFileCount == 2)
+            #expect(report.removedByteCount == Int64(Data("marked".utf8).count))
+            #expect(!FileManager.default.fileExists(
+                atPath: rootURL.appendingPathComponent(oldMarkedName).path
+            ))
+            #expect(!FileManager.default.fileExists(atPath: oldZeroURL.path))
+            #expect(FileManager.default.fileExists(
+                atPath: rootURL.appendingPathComponent(freshMarkedName).path
+            ))
+            #expect(FileManager.default.fileExists(atPath: unknownURL.path))
+        }
+    }
+
+    @Test func maintenanceSkipsUnsafeAndOversizedCanonicalCandidates() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let fileName = "ios-accepted-output-delivery.json"
+            let marker = IOSStrictProtectedRecordConfiguration.Marker(
+                name: "com.holdtype.tests.delivery-maintenance",
+                value: Array("v1".utf8)
+            )
+            let rootURL = directoryURL.appendingPathComponent(
+                IOSPendingRecordingStorageLocation.rootDirectoryName,
+                isDirectory: true
+            )
+            let validName = ".\(fileName)."
+                + "11111111-2222-4333-8444-555555555555.tmp"
+            _ = try FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL,
+                configuration: IOSStrictProtectedRecordConfiguration(
+                    rootDirectoryName:
+                        IOSPendingRecordingStorageLocation.rootDirectoryName,
+                    fileName: validName,
+                    maximumByteCount: 1_024,
+                    marker: marker
+                )
+            ).createFile(with: Data("valid".utf8))
+
+            let invalidNames = [
+                ".\(fileName).22222222-3333-4444-8555-666666666666.tmp",
+                ".\(fileName).33333333-4444-4555-8666-777777777777.tmp",
+                ".\(fileName).44444444-5555-4666-8777-888888888888.tmp",
+                ".\(fileName).55555555-6666-4777-8888-999999999999.tmp",
+                ".\(fileName).66666666-7777-4888-8999-aaaaaaaaaaaa.tmp",
+            ]
+            let wrongModeURL = rootURL.appendingPathComponent(invalidNames[0])
+            #expect(FileManager.default.createFile(
+                atPath: wrongModeURL.path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o644]
+            ))
+            try FileManager.default.createDirectory(
+                at: rootURL.appendingPathComponent(invalidNames[1]),
+                withIntermediateDirectories: false
+            )
+            try FileManager.default.createSymbolicLink(
+                at: rootURL.appendingPathComponent(invalidNames[2]),
+                withDestinationURL: wrongModeURL
+            )
+            let hardLinkSourceURL = rootURL.appendingPathComponent("hard-link-source")
+            #expect(FileManager.default.createFile(
+                atPath: hardLinkSourceURL.path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o600]
+            ))
+            try FileManager.default.linkItem(
+                at: hardLinkSourceURL,
+                to: rootURL.appendingPathComponent(invalidNames[3])
+            )
+            let oversizedURL = rootURL.appendingPathComponent(invalidNames[4])
+            #expect(FileManager.default.createFile(
+                atPath: oversizedURL.path,
+                contents: Data(),
+                attributes: [.posixPermissions: 0o600]
+            ))
+            let truncateResult = oversizedURL.path.withCString {
+                Darwin.truncate($0, off_t(4 * 1_024 * 1_024 + 1))
+            }
+            #expect(truncateResult == 0)
+
+            let maintenance = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL,
+                configuration: IOSStrictProtectedRecordConfiguration(
+                    rootDirectoryName:
+                        IOSPendingRecordingStorageLocation.rootDirectoryName,
+                    fileName: fileName,
+                    maximumByteCount: 1_024,
+                    marker: marker
+                ),
+                monotonicNowNanoseconds: { 0 }
+            )
+            let report = try maintenance.removeAbandonedTemporaryFiles(
+                now: Date().addingTimeInterval(2 * 24 * 60 * 60)
+            )
+
+            #expect(report.removedFileCount == 1)
+            #expect(!FileManager.default.fileExists(
+                atPath: rootURL.appendingPathComponent(validName).path
+            ))
+            for name in invalidNames {
+                #expect(FileManager.default.fileExists(
+                    atPath: rootURL.appendingPathComponent(name).path
+                ))
+            }
+        }
+    }
 }
 
 private func replaceSucceeded(

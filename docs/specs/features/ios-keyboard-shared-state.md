@@ -20,7 +20,7 @@ with voice delivery state.
 
 ## Snapshot Contract
 
-The JSON snapshot contains only:
+The Phase 0 JSON snapshot contains only:
 
 - schema version;
 - monotonically increasing revision;
@@ -60,9 +60,11 @@ directionally owned records:
   extension has Full Access.
 
 No process performs a shared read-modify-write cycle across writer domains.
-Every writer serializes its own strictly increasing revision. A session ID,
-transcript ID, revision, and source document ID together prevent late or
-duplicate results.
+Every writer serializes its own strictly increasing revision. Production
+accepted output is anchored by the app-private `deliveryID`, session, attempt,
+transcript, and durable publication generation defined by
+`ios-accepted-output-delivery-record.md`. The source document ID remains only a
+conservative target guard; it is not the globally unique delivery identity.
 
 Production command envelopes expire no later than the active Quick Session
 deadline. An accepted-result snapshot expires 10 minutes after it becomes

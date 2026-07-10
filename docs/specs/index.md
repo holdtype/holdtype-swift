@@ -39,6 +39,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS diagnostics | `features/ios-diagnostics.md` | Redacted runtime events, app-owned diagnostics, explicit local export |
 | iOS keyboard settings | `features/ios-keyboard-settings-snapshot.md` | One-way non-secret preference snapshot, fallback, M0B read gate |
 | iOS output actions | `features/ios-output-actions.md` | Latest result, Copy/Share, insertion eligibility, acknowledgement, recovery |
+| iOS accepted output delivery | `features/ios-accepted-output-delivery-record.md` | App-private accepted-text recovery, CAS, History handoff, expiry |
 | iOS usage estimate | `features/ios-usage-estimate.md` | Local successful-transcription estimate, 30-day summary/chart, pricing gaps, Reset |
 
 ## Source Hints
