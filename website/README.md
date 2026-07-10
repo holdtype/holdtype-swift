@@ -181,7 +181,8 @@ typical day.
 
 ### Page anatomy
 
-1. Sticky brand/navigation header with a GitHub Releases CTA.
+1. Sticky brand/navigation header with a compact GitHub source icon and a
+   GitHub Releases CTA.
 2. Split hero with the code-native editor illustration and real indicator art.
 3. Hold → speak → release → inserted workflow rail.
 4. Five-point `What "honest" means here` contract.

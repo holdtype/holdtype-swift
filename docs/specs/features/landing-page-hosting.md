@@ -27,6 +27,9 @@ that already uses GitHub Pages.
 - The hero presents one action: the free macOS download. Source inspection
   remains available in the footer, and the hero does not repeat product claims
   as a separate row of proof chips.
+- The primary navigation includes a compact GitHub icon linked to the HoldType
+  source repository. The icon has a localized accessible name; the expanded
+  mobile navigation also shows the source-link text beside it.
 - The landing page must turn `honest` into a visible product contract rather
   than leaving it as praise. The contract covers the billing source, the
   default transcription model, optional rewrite pass, explicit Mac-to-OpenAI
