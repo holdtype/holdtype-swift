@@ -575,11 +575,15 @@ h3 {
 }
 
 .editor-window-label {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-faint);
   font-size: 0.68rem;
   font-weight: 620;
   letter-spacing: 0.03em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .editor-toolbar-title {

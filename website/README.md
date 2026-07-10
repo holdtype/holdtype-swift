@@ -174,8 +174,10 @@ The code-native editor uses a dry, self-ironic fictional plan to build a tiny
 SaaS and reach `$1M ARR`; the interface presents the request as if it were
 ordinary. Its caption still identifies the scene as an illustration rather
 than a recorded demo and makes no claim that Codex produced the business
-result. The usage-cost badge remains visually secondary and must not present
-100 as a usage cap, guaranteed maximum, or typical day.
+result. The toolbar label stays unbranded and on one line, using an ellipsis
+rather than wrapping when space is tight. The usage-cost badge remains visually
+secondary and must not present 100 as a usage cap, guaranteed maximum, or
+typical day.
 
 ### Page anatomy
 
