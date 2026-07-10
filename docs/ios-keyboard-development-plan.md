@@ -32,12 +32,15 @@ flowchart LR
 Target dependency rule:
 
 - macOS app: existing domain and OpenAI pipeline;
-- iOS containing app: portable domain/OpenAI code plus iOS audio and bridge;
+- iOS containing app: portable domain/OpenAI code, app-only orchestration,
+  iOS audio, and bridge;
 - keyboard extension: keyboard UI, `UITextDocumentProxy`, and bridge only;
 - no OpenAI, Keychain, raw audio, or microphone code linked into the extension.
 
-The long-term code boundaries are `HoldTypeDomain`, `HoldTypeOpenAI`, and
-`HoldTypeKeyboardBridge`. The feasibility spike starts with an isolated bridge
+The long-term code boundaries are `HoldTypeDomain`, `HoldTypeOpenAI`,
+`HoldTypePersistence`, app-only `HoldTypeIOSCore`, and
+`HoldTypeKeyboardBridge`. The keyboard never links the provider, persistence,
+or app-core products. The feasibility spike starts with an isolated bridge
 folder so it does not prematurely reorganize the stable macOS target.
 
 ## Milestone 0 — Platform Feasibility
@@ -295,7 +298,10 @@ host app, state, expected result, actual result, and go/no-go decision.
   the credential-only `HoldTypeOpenAI` bootstrap while Keychain access and
   availability errors remain platform-owned. The keyboard stays unlinked from
   `HoldTypeOpenAI`, and Domain no longer carries this provider-only contract
-  before its future typing-only keyboard linkage. Successful transcription
+  before its future typing-only keyboard linkage. The containing-app-only
+  `HoldTypeIOSCore` now reconciles Keychain truth, its transient credential
+  cache, and the private presence marker through serialized explicit actions;
+  it is not linked by the keyboard or macOS app. Successful transcription
   usage now has a portable, idempotent
   containing-app handoff and remains absent from keyboard/App Group state; its
   durable replay ID and versioned repository remain P2 work. The runtime-only

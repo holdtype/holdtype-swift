@@ -111,6 +111,32 @@ struct CredentialPresenceMarkerTests {
         #expect(fileSystem.replacementCallCount == 0)
     }
 
+    @Test func removalIsIdempotentAndRestoresAnExactlyMissingMarker() throws {
+        let fileSystem = CredentialMarkerFileSystemFake(data: Data("marker".utf8))
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        try repository.removeIfPresent()
+        try repository.removeIfPresent()
+
+        #expect(fileSystem.data == nil)
+        #expect(fileSystem.removalCallCount == 2)
+    }
+
+    @Test func failedRemovalPreservesBytesAndUsesTheTypedError() throws {
+        let originalData = Data("marker".utf8)
+        let fileSystem = CredentialMarkerFileSystemFake(
+            data: originalData,
+            removalError: CredentialMarkerFileSystemFakeError.removalFailed
+        )
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        #expect(throws: CredentialPresenceMarkerRepositoryError.removeFailed) {
+            try repository.removeIfPresent()
+        }
+        #expect(fileSystem.data == originalData)
+        #expect(fileSystem.removalCallCount == 1)
+    }
+
     @Test func invalidSourcesReturnTypedErrorsAndStayByteForByteUnchanged() throws {
         let cases: [(String, CredentialPresenceMarkerRepositoryError)] = [
             ("not-json", .corruptData),
@@ -282,30 +308,58 @@ private struct Fixture {
 private enum CredentialMarkerFileSystemFakeError: Error {
     case readFailed
     case replacementFailed
+    case removalFailed
 }
 
-private final class CredentialMarkerFileSystemFake: CredentialPresenceMarkerFileSystem {
-    var data: Data?
-    var replacementCallCount = 0
-    var replacementOptions: [CredentialPresenceMarkerReplacementOptions] = []
-    var readError: Error?
-    var replacementError: Error?
+private final class CredentialMarkerFileSystemFake:
+    CredentialPresenceMarkerFileSystem,
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var storedData: Data?
+    private var storedReplacementCallCount = 0
+    private var storedRemovalCallCount = 0
+    private var storedReplacementOptions: [CredentialPresenceMarkerReplacementOptions] = []
+    private let readError: Error?
+    private let replacementError: Error?
+    private let removalError: Error?
+
+    var data: Data? {
+        get { lock.withLock { storedData } }
+        set { lock.withLock { storedData = newValue } }
+    }
+
+    var replacementCallCount: Int {
+        lock.withLock { storedReplacementCallCount }
+    }
+
+    var removalCallCount: Int {
+        lock.withLock { storedRemovalCallCount }
+    }
+
+    var replacementOptions: [CredentialPresenceMarkerReplacementOptions] {
+        lock.withLock { storedReplacementOptions }
+    }
 
     init(
         data: Data? = nil,
         readError: Error? = nil,
-        replacementError: Error? = nil
+        replacementError: Error? = nil,
+        removalError: Error? = nil
     ) {
-        self.data = data
+        storedData = data
         self.readError = readError
         self.replacementError = replacementError
+        self.removalError = removalError
     }
 
     func readFileIfPresent(at fileURL: URL) throws -> Data? {
-        if let readError {
-            throw readError
+        try lock.withLock {
+            if let readError {
+                throw readError
+            }
+            return storedData
         }
-        return data
     }
 
     func replaceFileAtomically(
@@ -313,12 +367,24 @@ private final class CredentialMarkerFileSystemFake: CredentialPresenceMarkerFile
         with data: Data,
         options: CredentialPresenceMarkerReplacementOptions
     ) throws {
-        replacementCallCount += 1
-        replacementOptions.append(options)
-        if let replacementError {
-            throw replacementError
+        try lock.withLock {
+            storedReplacementCallCount += 1
+            storedReplacementOptions.append(options)
+            if let replacementError {
+                throw replacementError
+            }
+            storedData = data
         }
-        self.data = data
+    }
+
+    func removeFileIfPresent(at fileURL: URL) throws {
+        try lock.withLock {
+            storedRemovalCallCount += 1
+            if let removalError {
+                throw removalError
+            }
+            storedData = nil
+        }
     }
 }
 

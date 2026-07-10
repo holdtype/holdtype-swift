@@ -10,10 +10,11 @@ public enum CredentialPresenceMarkerRepositoryError: Error, Equatable, Sendable 
     case invalidMutationCombination
     case encodingFailed
     case writeFailed
+    case removeFailed
 }
 
 /// Persists the app-private credential-presence marker without touching Keychain.
-public struct CredentialPresenceMarkerRepository {
+public struct CredentialPresenceMarkerRepository: Sendable {
     private static let replacementOptions = CredentialPresenceMarkerReplacementOptions(
         fileProtection: .complete,
         excludesFromBackup: true
@@ -72,6 +73,15 @@ public struct CredentialPresenceMarkerRepository {
             )
         } catch {
             throw CredentialPresenceMarkerRepositoryError.writeFailed
+        }
+    }
+
+    /// Restores the marker's exact previously-missing state after a failed mutation.
+    public func removeIfPresent() throws {
+        do {
+            try fileSystem.removeFileIfPresent(at: fileURL)
+        } catch {
+            throw CredentialPresenceMarkerRepositoryError.removeFailed
         }
     }
 }

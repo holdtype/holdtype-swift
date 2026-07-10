@@ -34,6 +34,8 @@
 		D4A179072FF4000000000007 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179032FF4000000000003 /* HoldTypeOpenAI */; };
 		D4A179082FF4000000000008 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179042FF4000000000004 /* HoldTypeOpenAI */; };
 		D4A179092FF4000000000009 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179052FF4000000000005 /* HoldTypeOpenAI */; };
+		D4A180042FF5000000000004 /* HoldTypeIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4A180022FF5000000000002 /* HoldTypeIOSCore */; };
+		D4A180052FF5000000000005 /* HoldTypeIOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4A180032FF5000000000003 /* HoldTypeIOSCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -169,6 +171,11 @@
 			path = Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests;
 			sourceTree = "<group>";
 		};
+		D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests;
+			sourceTree = "<group>";
+		};
 		D4A175032FF0000000000003 /* HoldTypeKeyboard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -218,6 +225,7 @@
 				D4A176052FF1000000000005 /* HoldTypeDomain in Frameworks */,
 				D4A179072FF4000000000007 /* HoldTypeOpenAI in Frameworks */,
 				D4A178042FF3000000000004 /* HoldTypePersistence in Frameworks */,
+				D4A180042FF5000000000004 /* HoldTypeIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +236,7 @@
 				D4A176062FF1000000000006 /* HoldTypeDomain in Frameworks */,
 				D4A179082FF4000000000008 /* HoldTypeOpenAI in Frameworks */,
 				D4A178052FF3000000000005 /* HoldTypePersistence in Frameworks */,
+				D4A180052FF5000000000005 /* HoldTypeIOSCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -254,6 +263,7 @@
 				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
 				D4A179012FF4000000000001 /* HoldTypeOpenAITests */,
 				D4A178012FF3000000000001 /* HoldTypePersistenceTests */,
+				D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */,
 				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
 				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
 				9DB7496A2FE6D7300053C3F3 /* Products */,
@@ -374,6 +384,7 @@
 				D4A176022FF1000000000002 /* HoldTypeDomain */,
 				D4A179032FF4000000000003 /* HoldTypeOpenAI */,
 				D4A178022FF3000000000002 /* HoldTypePersistence */,
+				D4A180022FF5000000000002 /* HoldTypeIOSCore */,
 			);
 			productName = "HoldType-iOS";
 			productReference = 9DB749A12FE7A0000053C3F3 /* HoldType-iOS.app */;
@@ -398,12 +409,14 @@
 				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
 				D4A179012FF4000000000001 /* HoldTypeOpenAITests */,
 				D4A178012FF3000000000001 /* HoldTypePersistenceTests */,
+				D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */,
 			);
 			name = HoldTypeIOSTests;
 			packageProductDependencies = (
 				D4A176032FF1000000000003 /* HoldTypeDomain */,
 				D4A179042FF4000000000004 /* HoldTypeOpenAI */,
 				D4A178032FF3000000000003 /* HoldTypePersistence */,
+				D4A180032FF5000000000003 /* HoldTypeIOSCore */,
 			);
 			productName = HoldTypeIOSTests;
 			productReference = 9DB749B02FE800000053C3F3 /* HoldTypeIOSTests.xctest */;
@@ -480,6 +493,7 @@
 				D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */,
 				D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */,
 				D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "HoldTypePersistence" */,
+				D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */,
 				D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -650,6 +664,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/HoldTypeOpenAI;
 		};
+		D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HoldTypeIOSCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -718,6 +736,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */;
 			productName = HoldTypeOpenAI;
+		};
+		D4A180022FF5000000000002 /* HoldTypeIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */;
+			productName = HoldTypeIOSCore;
+		};
+		D4A180032FF5000000000003 /* HoldTypeIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */;
+			productName = HoldTypeIOSCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 

@@ -9,7 +9,7 @@ struct CredentialPresenceMarkerReplacementOptions: Equatable, Sendable {
     let excludesFromBackup: Bool
 }
 
-protocol CredentialPresenceMarkerFileSystem {
+protocol CredentialPresenceMarkerFileSystem: Sendable {
     func readFileIfPresent(at fileURL: URL) throws -> Data?
 
     func replaceFileAtomically(
@@ -17,16 +17,13 @@ protocol CredentialPresenceMarkerFileSystem {
         with data: Data,
         options: CredentialPresenceMarkerReplacementOptions
     ) throws
+
+    func removeFileIfPresent(at fileURL: URL) throws
 }
 
 struct FoundationCredentialPresenceMarkerFileSystem: CredentialPresenceMarkerFileSystem {
-    private let fileManager: FileManager
-
-    init(fileManager: FileManager = .default) {
-        self.fileManager = fileManager
-    }
-
     func readFileIfPresent(at fileURL: URL) throws -> Data? {
+        let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: fileURL.path) else {
             return nil
         }
@@ -39,6 +36,7 @@ struct FoundationCredentialPresenceMarkerFileSystem: CredentialPresenceMarkerFil
         with data: Data,
         options: CredentialPresenceMarkerReplacementOptions
     ) throws {
+        let fileManager = FileManager.default
         let directoryURL = fileURL.deletingLastPathComponent()
         try fileManager.createDirectory(
             at: directoryURL,
@@ -76,6 +74,19 @@ struct FoundationCredentialPresenceMarkerFileSystem: CredentialPresenceMarkerFil
         } catch {
             try? fileManager.removeItem(at: temporaryURL)
             throw error
+        }
+    }
+
+    func removeFileIfPresent(at fileURL: URL) throws {
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            return
+        }
+
+        do {
+            try fileManager.removeItem(at: fileURL)
+        } catch let error as CocoaError where error.code == .fileNoSuchFile {
+            return
         }
     }
 

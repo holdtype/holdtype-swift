@@ -106,6 +106,17 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   does not inspect the clipboard passively.
 - No separate Save button is required.
 - Save/replace updates the same stable item and the process credential cache.
+- The containing app serializes save, replace, remove, explicit Settings
+  refresh, and voice-preflight resolution as whole operations. Awaiting a
+  Keychain adapter must not allow a second credential operation to interleave
+  its marker, Keychain, or runtime-cache steps. Cancellation before an
+  operation receives its lease performs no work; ordinary cancellation after a
+  mutation marker is durable does not abandon reconciliation or restoration.
+- The app composition root owns exactly one credential coordinator for the
+  process lifetime and shares it across every scene, Settings surface, and voice
+  flow. Production callers never construct scene-local coordinators or invoke
+  the underlying Keychain or marker adapters directly; otherwise a per-instance
+  transaction gate and credential generation could diverge.
 - A separate app-private non-secret
   `credentialPresenceLastKnown` marker records only `present`, `absent`,
   `unknown`, or `mutationInProgress` plus its schema/update date and mutation
@@ -118,6 +129,10 @@ default. Typing layouts and dictionaries appear only after their entry gate.
 - Remove requires explicit user action. A failed delete must not present the key
   as removed.
 - Provider rejection never deletes, replaces, or rewrites the saved key.
+- Provider rejection is process-only status tied to the exact current runtime
+  credential generation. A late rejection for a replaced credential is
+  ignored, and voice preflight never silently reuses a current credential that
+  is already marked rejected.
 - Provider services receive an already resolved credential and never read
   Keychain themselves.
 - The resolved runtime credential trims only surrounding whitespace and rejects
@@ -132,6 +147,10 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   blocked or an already completed journaled attempt waits for foreground and
   unlock.
 - iOS does not inherit the macOS debug key-file exception.
+- The only public resolution purposes are an explicit OpenAI Settings refresh
+  and a requested voice preflight. Voice preflight reuses a current runtime
+  credential or known absence; Settings refresh always checks Keychain. There
+  is no general or passive credential-load API.
 
 ## API-key status
 
@@ -165,10 +184,35 @@ only after success commits `present` or `absent`. If the final marker write or
 the process fails, a fresh process sees `not checked in this process` with the
 refresh warning, never the previous false `present`/`absent` state. If the
 Keychain operation fails, HoldType attempts to restore the prior marker; a
-failed restore remains `unknown`. Reconciliation reads Keychain only on a later
-explicit OpenAI or voice action. A marker write never rolls back or deletes a
-successfully saved item, and no stale marker is treated as proof after an
-interrupted mutation.
+failed exact restore falls back to conservative unknown semantics.
+Reconciliation reads Keychain only on a later explicit OpenAI or voice action.
+A marker write never rolls back or deletes a successfully saved item, and no
+stale marker is treated as proof after an interrupted mutation.
+
+A successful Keychain mutation is also a successful user mutation even if the
+final non-secret marker replacement fails. HoldType updates the process cache
+to the Keychain truth, keeps the durable `mutationInProgress` marker, reports a
+visible `status needs refresh` partial-success outcome, and never rolls the
+Keychain item back. If a Keychain mutation fails, the exact prior marker is
+restored, including removal of the marker file when it was previously missing.
+If exact restoration fails, HoldType attempts to persist `unknown`; if marker
+storage remains unavailable, the durable `mutationInProgress` state is treated
+with the same not-checked/refresh-required semantics.
+
+An unreadable, corrupt, or unsupported marker is preserved byte-for-byte.
+Passive status performs no Keychain read, while save and remove stop before any
+Keychain mutation. An explicit Settings refresh or voice preflight may still
+resolve and cache the actual Keychain item, but it does not overwrite the
+unreadable marker and reports a separate redacted local marker issue.
+
+Successful explicit reconciliation avoids a marker write when the durable
+marker already matches Keychain truth. For `unknown` or
+`mutationInProgress`, it writes the final actual state. For a missing or
+contradictory `present`/`absent` marker, it first attempts `unknown` and then
+the final actual state so a failed final replacement cannot leave the opposite
+last-known state. Failure to prepare `unknown` does not prevent the final
+actual-state attempt; a remaining failure is surfaced as a local marker issue
+without discarding a successfully resolved runtime credential or absence.
 
 ## Persistence ownership
 
@@ -293,6 +337,10 @@ interrupted mutation.
   reconciliation, pre-mutation marker failure, every crash point between marker
   and Keychain commits, and partial write failures without passive Keychain
   access.
+- Test FIFO non-interleaving across suspended save, remove, and resolve calls;
+  cancellation before and after the mutation lease; stale provider-rejection
+  suppression; cache-first voice behavior; forced Settings refresh; and the
+  rule that unreadable marker bytes are never rewritten by resolution.
 - Test redaction and absence of secrets from all non-Keychain stores.
 - Test iPhone/iPad navigation and that gated controls are absent rather than
   inert.

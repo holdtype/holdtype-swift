@@ -445,6 +445,7 @@ flowchart TB
     D["HoldTypeDomain\nconfigurations, accepted text, emoji, replacements, session/history/usage models"]
     O["HoldTypeOpenAI\ntranscription, correction, translation, cancellation, bounded upload"]
     P["HoldTypePersistence\nsettings, library, history, usage, cache, logs"]
+    C["HoldTypeIOSCore\napp-only credential and session orchestration"]
     A["HoldTypeAppleAudio\nshared contracts plus macOS/iOS adapters"]
     B["HoldTypeKeyboardBridge\ndirectionally owned snapshots and envelopes"]
     M["HoldType macOS\nAppKit, AX, Carbon, CGEvent, Sparkle"]
@@ -455,11 +456,14 @@ flowchart TB
     P --> D
     A --> D
     B --> D
+    C --> O
+    C --> P
     M --> D
     M --> O
     M --> P
     M --> A
     I --> D
+    I --> C
     I --> O
     I --> P
     I --> A
@@ -474,6 +478,12 @@ Dependency invariants:
 - `HoldTypeOpenAI` receives credentials and configuration; it does not own
   Keychain or UI.
 - platform persistence adapters implement shared repositories.
+- `HoldTypeIOSCore` is a containing-app-only imperative shell over provider and
+  persistence boundaries. It is not linked by the macOS app or keyboard.
+- The iOS composition root owns one process-lifetime `HoldTypeIOSCore`
+  credential coordinator and injects that same instance into every scene and
+  voice/Settings consumer. Production code does not call its Keychain or marker
+  adapters in parallel or construct a coordinator per scene.
 - the keyboard target links domain types needed for typing and the bridge, but
   not OpenAI, Keychain, raw-audio, history, or diagnostic bundle code.
 - The provider-only credential value and resolver contract live behind the
@@ -852,8 +862,24 @@ invalid-result failures, idempotent removal, and redacted errors. Every SecItem
 operation is scoped to the containing app's built-in signed
 `application-identifier` group rather than the shared App Group or a wildcard;
 missing or unresolved build-time identity fails before Keychain access.
-Marker/cache reconciliation, bounded file-backed multipart upload, and
-provider-service extraction remain; signed-device lock behavior remains a
+The app-only `HoldTypeIOSCore` package now serializes save, replace, remove,
+explicit Settings refresh, and voice-preflight resolution across the Keychain,
+runtime credential cache, and presence marker. Its cancellation-latched FIFO
+gate prevents actor reentrancy from interleaving transactions and shields a
+granted transaction until finalization or exact restoration. Construction and
+passive status perform no Keychain work; voice is cache-first, Settings forces
+an explicit read, provider rejection is generation-bound, and unreadable marker
+bytes are preserved. Partial Keychain success updates runtime truth without
+rollback and leaves a refresh-required marker. Twenty-nine fake-backed package
+tests cover ordering, cancellation races, fresh-process crash fixtures,
+the full locked-to-unlocked outcome matrix, reconciliation, redaction, and
+provider-rejection staleness. The future iOS composition root must own one
+coordinator for the app process and route all production Keychain and marker
+access through it; scene-local coordinators and parallel direct adapter access
+are forbidden.
+`HoldTypeIOSCore` is linked only to the iOS app and iOS tests; the keyboard and
+macOS app remain unlinked. Bounded file-backed multipart upload and
+provider-service extraction remain; signed-device Keychain behavior remains a
 physical gate. The `HoldTypeOpenAI` package now owns the unchanged portable
 credential value and synchronous resolver contract. Its six shared tests run
 beside the remaining 145 Domain tests on macOS and iOS, both containing apps
@@ -1051,14 +1077,12 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The first four P2 foundations are complete: the non-secret marker package,
+The first five P2 foundations are complete: the non-secret marker package,
 real transport cancellation, the app-only iOS Keychain adapter, and the
-credential-only `HoldTypeOpenAI` bootstrap. Continue with small independent
-checkpoints:
+credential-only `HoldTypeOpenAI` bootstrap, plus serialized app-only
+credential reconciliation. Continue with small independent checkpoints:
 
-1. add serialized Keychain/cache/marker reconciliation without passive
-   Keychain reads or keyboard linkage;
-2. implement and verify bounded file-backed multipart preparation and upload
+1. implement and verify bounded file-backed multipart preparation and upload
    without full-audio buffering, then move the current provider services into
    `HoldTypeOpenAI` in a separate behavior-neutral checkpoint.
 
