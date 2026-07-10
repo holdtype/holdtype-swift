@@ -48,10 +48,8 @@ that already uses GitHub Pages.
   as an illustration rather than a recorded demo and does not imply that Codex
   produced that business result. The editor-toolbar label describes the startup
   plan without naming HoldType, stays on one line, and truncates with an
-  ellipsis when space runs out. The label receives the remaining toolbar width;
-  on desktop, the document title is shifted toward the inline start by the
-  pricing sticker's 134px diameter plus a 16px gap so it does not sit behind the
-  circle. Mobile layout remains unchanged. The listening and transcribing
+  ellipsis when space runs out. The document title appears only in the editor
+  body and is not duplicated in the toolbar. The listening and transcribing
   labels, animation states, outer hero, calls to action, and pricing sticker
   remain unchanged when this sample copy changes.
 - Product copy may describe the request path, billing boundary, native
