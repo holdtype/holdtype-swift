@@ -48,6 +48,8 @@ struct BoundedJSONMemberValidationLimits: Equatable, Sendable {
 /// the repositories. JSON escape and Unicode canonical equivalence are both
 /// detected without case folding or compatibility normalization.
 enum BoundedJSONMemberValidator {
+    private static let absoluteMaximumNestingDepth = 64
+
     static func validate(
         _ data: Data,
         limits: BoundedJSONMemberValidationLimits
@@ -59,7 +61,8 @@ enum BoundedJSONMemberValidator {
               limits.maximumElementsPerArray >= 0,
               limits.maximumTotalValues >= 0,
               limits.maximumDecodedKeyByteCount >= 0,
-              limits.maximumNumberTokenByteCount >= 0 else {
+              limits.maximumNumberTokenByteCount >= 0,
+              limits.maximumNestingDepth <= absoluteMaximumNestingDepth else {
             throw BoundedJSONMemberValidationError.resourceLimitExceeded
         }
         guard data.count <= limits.maximumInputByteCount else {

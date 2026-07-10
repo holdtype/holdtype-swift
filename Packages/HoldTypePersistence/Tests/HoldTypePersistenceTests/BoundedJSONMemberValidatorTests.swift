@@ -295,14 +295,20 @@ struct BoundedJSONMemberValidatorTests {
     }
 
     @Test func invalidLimitConfigurationFailsWithoutATrap() {
-        let invalidLimits = BoundedJSONMemberValidationLimits(
-            maximumInputByteCount: -1
-        )
-        #expect(throws: BoundedJSONMemberValidationError.resourceLimitExceeded) {
-            try BoundedJSONMemberValidator.validate(
-                Data("0".utf8),
-                limits: invalidLimits
-            )
+        let invalidLimits = [
+            BoundedJSONMemberValidationLimits(maximumInputByteCount: -1),
+            BoundedJSONMemberValidationLimits(
+                maximumInputByteCount: 1,
+                maximumNestingDepth: 65
+            ),
+        ]
+        for limits in invalidLimits {
+            #expect(throws: BoundedJSONMemberValidationError.resourceLimitExceeded) {
+                try BoundedJSONMemberValidator.validate(
+                    Data("0".utf8),
+                    limits: limits
+                )
+            }
         }
     }
 
@@ -329,7 +335,7 @@ struct BoundedJSONMemberValidatorTests {
         }
     }
 
-    @Test func deterministicRenderedKeysMatchDecodedByteIdentity() throws {
+    @Test func deterministicRenderedKeysMatchDecodedStringIdentity() throws {
         var generator = DeterministicGenerator(seed: 0xC0DEC0DE)
 
         for iteration in 0..<128 {
