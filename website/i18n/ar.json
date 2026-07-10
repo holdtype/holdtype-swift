@@ -1,0 +1,355 @@
+{
+  "locale": "ar",
+  "meta": {
+    "title": "{brand.holdType} — عبّر عن فكرتك كاملةً",
+    "description": "{brand.holdType} أداة إدخال صوتي لنظام {brand.macOS} للمطالبات الطويلة والرسائل والمستندات والملاحظات. استخدم مفتاح API الخاص بك من {brand.openAI}، من دون حساب أو اشتراك في {brand.holdType}.",
+    "socialImageAlt": "أيقونة تطبيق {brand.holdType}"
+  },
+  "common": {
+    "skipToContent": "انتقل إلى المحتوى",
+    "brandHomeAria": "الصفحة الرئيسية لتطبيق {brand.holdType}",
+    "primaryNavigationAria": "التنقل الرئيسي",
+    "downloadForMacOS": "نزّل لنظام {brand.macOS}"
+  },
+  "localeUi": {
+    "switcherLabel": "اللغة",
+    "switcherAria": "اختر اللغة",
+    "suggestionAria": "اقتراح لغة",
+    "suggestionMessage": "هذه الصفحة متاحة باللغة {languageName}.",
+    "suggestionAction": "عرض الصفحة",
+    "suggestionDismiss": "ليس الآن",
+    "suggestionDismissAria": "تجاهل اقتراح اللغة"
+  },
+  "header": {
+    "menuClosed": "القائمة",
+    "menuOpen": "إغلاق",
+    "howItWorks": "آلية العمل",
+    "features": "الميزات",
+    "privacy": "الخصوصية",
+    "faq": "الأسئلة الشائعة"
+  },
+  "hero": {
+    "title": "عبّر عن فكرتك كاملةً.",
+    "lede": "يضعها {brand.holdType} في المكان الذي تعمل فيه.",
+    "support": "مطالبات طويلة ورسائل ومستندات وملاحظات — أملِها مباشرةً داخل تطبيق {brand.mac} الذي تعمل فيه. يستخدم {brand.holdType} مفتاح API الخاص بك من {brand.openAI} ويعيد النص المعتمد إلى موضع المؤشر في معظم تطبيقات {brand.mac}.",
+    "seeHowItWorks": "تعرّف على آلية العمل",
+    "qualification": "تطبيق مجاني · تُحاسب على استخدام API من {brand.openAI} بصورة منفصلة · {fact.minimumOS}",
+    "price": {
+      "aria": "حتى {pricing.dailyDictations} عملية إملاء يوميًا لا تكلّف سوى نحو {pricing.dailyPrice} في مثال الاستخدام المكثف هذا.",
+      "kicker": "حتى {pricing.dailyDictations} عملية إملاء يوميًا",
+      "value": "≈ {pricing.dailyPrice}",
+      "suffix": "للاستخدام المكثف"
+    },
+    "demo": {
+      "editorIllustration": "رسم توضيحي لتطبيق {brand.holdType}",
+      "documentTitle": "تحديث المشروع",
+      "toolbarSample": "Aa  ···",
+      "intro": "إليك ملخصًا للتقدم والخطوات التالية.",
+      "sectionTitle": "الملخص",
+      "listeningBody": "اضغط مطولًا على {keyboard.rightCommand} وتحدّث بطبيعتك.",
+      "transcribingBody": "جارٍ إعداد النص المعتمد…",
+      "insertedBody": "أصدرنا أحدث نسخة الأسبوع الماضي. كانت الآراء إيجابية، وخطوتنا التالية هي تحسين تجربة البدء والحفاظ على سلاسة الكتابة وبساطتها.",
+      "status": {
+        "listening": "جارٍ الاستماع",
+        "transcribing": "جارٍ النسخ",
+        "inserted": "تم الإدراج"
+      },
+      "caption": "سير عمل توضيحي: يستمع {brand.holdType} ثم يحوّل الكلام إلى نص ويدرجه في محرر عام. هذا ليس عرضًا توضيحيًا مسجلًا."
+    }
+  },
+  "workflow": {
+    "title": "حوّل صوتك إلى نص — في مكان عملك مباشرةً.",
+    "steps": {
+      "hold": {
+        "title": "اضغط مطولًا",
+        "body": "اضغط مطولًا على {keyboard.rightCommand}"
+      },
+      "speak": {
+        "title": "تحدّث",
+        "body": "عبّر عن الفكرة كاملةً"
+      },
+      "release": {
+        "title": "اترك المفتاح",
+        "body": "اترك {keyboard.command}"
+      },
+      "inserted": {
+        "artLabel": "النص",
+        "title": "تم الإدراج",
+        "body": "يظهر النص عند موضع المؤشر"
+      }
+    }
+  },
+  "reasons": {
+    "a11yTitle": "لماذا {brand.holdType}",
+    "stays": {
+      "title": "يبقى حيث تعمل",
+      "body": "اضغط مطولًا على الاختصار وتحدّث، وستعود النتيجة إلى موضع المؤشر. لا حاجة إلى إدارة محرر منفصل أو علامة تبويب في المتصفح."
+    },
+    "subscription": {
+      "title": "لا اشتراك آخر لتتذكره",
+      "body": "لا يضيف {brand.holdType} أي رسوم شهرية. تخصم {brand.openAI} تكلفة استخدام API من حسابك في {brand.openAIPlatform} عند إرسال الطلبات."
+    },
+    "openAI": {
+      "title": "اختيار {brand.openAI} مقصود",
+      "body": "ابدأ بخيار افتراضي واحد يعطي الأولوية للجودة. لا حاجة إلى مقارنة مزودي الخدمة أو تنزيل نموذج محلي قبل أول عملية إملاء."
+    }
+  },
+  "useCases": {
+    "title": "للنصوص التي تختصرها حين تكتبها.",
+    "intro": "صُمم {brand.holdType} للأفكار المكتملة، سواء كانت وجهتها وكيلاً برمجيًا أو رسالة أو مستندًا.",
+    "aiPrompts": {
+      "title": "مطالبات طويلة للذكاء الاصطناعي",
+      "body": "امنح {brand.codex} أو {brand.claude} أو {brand.chatGPT} السياق الذي يسهل إغفاله حين تضطر إلى كتابة المطالبة سطرًا بعد سطر."
+    },
+    "everyday": {
+      "title": "الكتابة اليومية",
+      "body": "أملِ رسائل البريد والمراجعات والوثائق والمحادثات والملاحظات من دون نقل المسودة عبر محرر آخر."
+    },
+    "bilingual": {
+      "title": "العمل بلغتين",
+      "body": "تحدّث باللغة التي تتشكل بها الفكرة بصورة طبيعية، ثم أدرج النص باللغة الهدف التي ضبطتها عند طلب الترجمة."
+    }
+  },
+  "features": {
+    "a11yTitle": "ميزات المنتج",
+    "appUiLanguageNote": "يستخدم الإصدار الحالي من تطبيق {brand.holdType} ولقطات شاشة المنتج واجهة باللغة الإنجليزية.",
+    "translation": {
+      "label": "اللغة والمفردات",
+      "title": "تحدّث بطبيعتك. وأدرج النص المناسب للعمل الذي أمامك.",
+      "body1": "لا تعمل الترجمة إلا عند طلبها. اختر اللغة الهدف، ثم استخدم {keyboard.translationShortcut} لتحويل الكلام إلى نص وترجمته في عملية واحدة.",
+      "body2": "تضيف إدخالات {appUi.localDictionary} سياقًا إملائيًا للأسماء ومصطلحات المشاريع وأسماء الملفات إلى طلب تحويل الكلام إلى نص.",
+      "imageAlt": "إعدادات {appUi.translation} في {brand.holdType} مع اختصار الترجمة وعناصر التحكم في اللغة الهدف",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "إعدادات {appUi.translation} الحقيقية في {brand.holdType}. على الهواتف، مرر الجزء المحدد أفقيًا لتفقده. "
+          },
+          {
+            "type": "link",
+            "ref": "translationScreenshot",
+            "text": "فتح الصورة بالحجم الكامل"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "lightboxCaption": "إعدادات {appUi.translation} في {brand.holdType}"
+    },
+    "menu": {
+      "imageAlt": "نافذة {brand.holdType} المنبثقة من شريط القوائم وبها إجراءات النسخ والترجمة و{appUi.pasteLastResult} والسجل والإعدادات والإنهاء",
+      "imageCaption": "عناصر تحكم حقيقية في شريط القوائم، تشمل الاسترداد عبر {appUi.lastResult}.",
+      "label": "في متناولك دائمًا",
+      "title": "ابدأ وترجم واسترد واضبط الإعدادات من شريط القوائم.",
+      "body1": "إذا تعذر الإدراج، فسيظل النص المعتمد متاحًا في {appUi.lastResult}. ألصقه باستخدام {keyboard.pasteShortcut} من دون استبدال محتوى حافظة نظام {brand.macOS}.",
+      "body2": "يكون التصحيح الاختياري عبر {brand.openAI} متوقفًا افتراضيًا. ويمكن أن يعمل التنقيح الطباعي المحلي من دون إرسال طلب آخر إلى نموذج."
+    }
+  },
+  "privacy": {
+    "label": "حدود التكلفة والبيانات",
+    "title": "وضوح تام بشأن ما يبقى محليًا وما يُرسل إلى {brand.openAI}.",
+    "intro": "لا يتضمن {brand.holdType} نظام حسابات أو خادمًا خلفيًا للمنتج أو قياسًا عن بُعد أو تحليلات أو مزامنة سحابية. أما عملية تحويل الكلام إلى نص نفسها فهي طلب إلى API من {brand.openAI} يُرسل باستخدام المفتاح الذي تضبطه.",
+    "flow": {
+      "aria": "تدفق بيانات {brand.holdType}",
+      "microphone": "الميكروفون",
+      "holdType": "{brand.holdType}",
+      "openAI": "النسخ عبر {brand.openAI}",
+      "activeApp": "التطبيق النشط"
+    },
+    "dataPath": {
+      "title": "مسار بياناتك",
+      "items": {
+        "apiKey": "يُخزن مفتاح API محليًا في {brand.macOSKeychain}.",
+        "audio": "يُرسل الصوت إلى {brand.openAI} لتحويله إلى نص.",
+        "optionalTextRequests": "التصحيح والترجمة الاختياريان طلبان نصيان منفصلان.",
+        "failedAudio": "لا يُحتفظ بالصوت بعد اكتمال معالجته افتراضيًا. وقد تحتفظ الأخطاء القابلة للاسترداد بقدر محدود من الصوت طوال الجلسة الحالية فقط، لاستخدامه في {appUi.retry}.",
+        "recordingCache": "الاحتفاظ الاختياري بذاكرة التخزين المؤقت للتسجيلات محلي ويتحكم فيه المستخدم."
+      }
+    },
+    "billing": {
+      "title": "ادفع مقابل الاستخدام، لا مقابل الوصول",
+      "body": "لا يتطلب {brand.holdType} اشتراكًا. تخصم {brand.openAI} تكلفة استخدام API الفعلية من حساب {brand.openAIPlatform} المرتبط بمفتاحك؛ ولا يجمع {brand.holdType} أي رسوم شهرية.",
+      "exampleTitle": "{pricing.dailyDictations} رسالة سريعة. نحو {pricing.dailyPrice}.",
+      "exampleBody": "تعادل {pricing.dailyDictations} رسالة سريعة نحو {pricing.recordedMinutes} دقيقة من الكلام المسجل. كرر الإجمالي اليومي نفسه مدة {pricing.daysInMonth} يومًا، وستبلغ التكلفة التقديرية للنسخ نحو {pricing.monthlyPrice}.",
+      "note": "تعرض شاشة {appUi.billing} تقديرًا محليًا لعمليات تحويل الصوت إلى نص الناجحة. وهي ليست فاتورة من {brand.openAI} ولا تشمل طلبات التصحيح أو الترجمة.",
+      "pricingLink": "أسعار API من {brand.openAI}",
+      "imageAlt": "إعدادات {appUi.billing} في {brand.holdType} تعرض تقديرًا محليًا لاستخدام النسخ",
+      "imageCaption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "على الهواتف، مرر أفقيًا الجزء المحدد من لقطة شاشة {appUi.billing} الحقيقية نفسها. "
+          },
+          {
+            "type": "link",
+            "ref": "billingScreenshot",
+            "text": "فتح الصورة بالحجم الكامل"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "lightboxCaption": "إعدادات {appUi.billing} في {brand.holdType} وتقدير الاستخدام المحلي"
+    }
+  },
+  "founder": {
+    "imageAlt": "ميكروفون مكتبي استُخدم أثناء تطوير {brand.holdType} واختباره",
+    "imageCaption": "لا تحتاج إلى معدات تسجيل خاصة.",
+    "label": "لماذا طورت {brand.holdType}",
+    "title": "لم تكن سرعة الكتابة هي المشكلة.",
+    "body1": "كانت المشكلة أن المطالبة الطويلة أو المراجعة أو الشرح كثيرًا ما تصبح أقصر قبل أن أنتهي من كتابتها. أما التحدث فسهّل عليّ التعبير عن الفكرة كاملةً.",
+    "body2": "جرّبت أدوات باشتراك وتطبيقات مبنية حول خيارات من النماذج المحلية والسحابية. وهي تعالج مشكلات مختلفة. وفي عملي اليومي، كان نسخ {brand.openAI} يمنحني في معظم الأحيان مسودة أولى أثق بها.",
+    "body3": "أردت إعدادًا أبسط: مزودًا واحدًا، وخيارًا افتراضيًا معقولًا، وفوترة مباشرة لاستخدام API، ومن دون اشتراك في المنتج. يُطوّر {brand.holdType} ويُختبر باستخدام سير العمل الصوتي نفسه الذي صُمم لدعمه."
+  },
+  "install": {
+    "label": "ابدأ الاستخدام",
+    "title": "من التنزيل إلى أول عملية إملاء.",
+    "steps": {
+      "download": "نزّل أحدث صورة قرص من {brand.githubReleases}.",
+      "applications": "اسحب {brand.holdType} إلى {appUi.applications} ثم شغّله.",
+      "permissions": "امنح أذونات الميكروفون والاختصار العام وإدراج النص.",
+      "apiKey": "أضف مفتاح API الخاص بك من {brand.openAIPlatform} في الإعدادات."
+    },
+    "allReleases": "كل الإصدارات",
+    "homebrew": {
+      "title": "تفضل {brand.homebrew}؟",
+      "body": "يثبت مستودع tap الخاص بالمشروع صورة القرص نفسها المنشورة في {brand.githubReleases}.",
+      "copyAria": "نسخ أوامر التثبيت عبر {brand.homebrew}",
+      "copyIdle": "نسخ",
+      "copyCopied": "تم النسخ",
+      "copyRetry": "إعادة المحاولة",
+      "copySuccessStatus": "تم نسخ أمر {brand.homebrew}.",
+      "copyFailureStatus": "تعذر النسخ. حدد الأمر يدويًا.",
+      "tapLink": "عرض مستودع tap للمشروع"
+    }
+  },
+  "apiKeyGuide": {
+    "label": "هل هذه أول مرة تستخدم فيها مفاتيح API؟",
+    "title": "أنشئ مفتاحًا خلال دقيقتين.",
+    "intro": "مفتاح API هو بيانات اعتماد خاصة تتيح لتطبيق {brand.holdType} إرسال الصوت لتحويله إلى نص عبر حسابك في {brand.openAIPlatform}. وهو منفصل عن تسجيل دخولك واشتراكك في {brand.chatGPT}.",
+    "steps": {
+      "openPage": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "سجّل الدخول إلى {brand.openAIPlatform} وافتح "
+          },
+          {
+            "type": "link",
+            "ref": "openAIKeys",
+            "text": "صفحة مفاتيح API"
+          },
+          {
+            "type": "text",
+            "value": "."
+          }
+        ]
+      },
+      "create": "أنشئ مفتاحًا سريًا وانسخه عندما تعرضه {brand.openAI}.",
+      "save": "في {brand.holdType}، افتح {appUi.settingsOpenAI} والصق المفتاح ثم احفظه."
+    },
+    "createAction": "إنشاء مفتاح من {brand.openAI}",
+    "instructionsAction": "التعليمات الرسمية",
+    "note": "لا تعرض {brand.openAI} المفتاح كاملًا إلا عند إنشائه. احتفظ بسريته ولا تلصقه إلا في {brand.holdType}، حيث يُخزن محليًا في {brand.macOSKeychain}. فوترة API منفصلة عن {brand.chatGPT}، وقد يتطلب حساب {brand.openAIPlatform} الجديد رصيدًا مدفوعًا مسبقًا.",
+    "video": {
+      "iframeTitle": "كيفية إنشاء مفتاح API لـ {brand.chatGPT} (شرح لعام {video.year})",
+      "playAria": "تشغيل شرح مفتاح API ومدته {video.roundedMinutes} دقيقة",
+      "kicker": "شرح في {video.roundedMinutes} دقيقة",
+      "title": "شاهد كيفية إنشاء مفتاح API من {brand.openAI}",
+      "playAction": "تشغيل الشرح",
+      "noScriptAction": "مشاهدة شرح مفتاح API على {brand.youtube}",
+      "caption": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "شرح من جهة خارجية يقدمه "
+          },
+          {
+            "type": "link",
+            "ref": "videoCreator",
+            "text": "{brand.geekrar}"
+          },
+          {
+            "type": "text",
+            "value": "، مدته {video.duration}، ونُشر في يونيو {video.year}. لا يُحمّل {brand.youtube} إلا بعد الضغط على التشغيل."
+          }
+        ]
+      },
+      "fallbackIframeTitle": "شرح على {brand.youtube}"
+    }
+  },
+  "faq": {
+    "title": "الأسئلة الشائعة",
+    "intro": "إجابات مختصرة عن القرارات المهمة قبل التثبيت.",
+    "apiKeyRequired": {
+      "question": "لماذا يلزم مفتاح API من {brand.openAI}؟",
+      "answer": {
+        "parts": [
+          {
+            "type": "text",
+            "value": "يرسل {brand.holdType} طلبات النسخ عبر حسابك الخاص في {brand.openAIPlatform}. يُخزن المفتاح محليًا في {brand.macOSKeychain}. إذا كانت مفاتيح API جديدة عليك، فاتبع "
+          },
+          {
+            "type": "link",
+            "ref": "apiKeyGuide",
+            "text": "الدليل المكوّن من ثلاث خطوات"
+          },
+          {
+            "type": "text",
+            "value": " أعلاه."
+          }
+        ]
+      }
+    },
+    "chatGPTPlus": {
+      "question": "هل يكفي {brand.chatGPTPlus}؟",
+      "answer": "لا. اشتراكات {brand.chatGPT} وفوترة API في {brand.openAIPlatform} منفصلان. يحتاج {brand.holdType} إلى مفتاح API مع ضبط الفوترة في {brand.openAIPlatform}."
+    },
+    "cost": {
+      "question": "كم تبلغ تكلفة الإملاء؟",
+      "answer": "لا يفرض {brand.holdType} رسومًا ثابتة. تخصم {brand.openAI} تكلفة استخدام API من رصيدك في {brand.openAIPlatform}، وقد تتطلب حسابات API الجديدة رصيدًا مدفوعًا مسبقًا. تقدّر شاشة {appUi.billing} في {brand.holdType} عمليات تحويل الصوت إلى نص الناجحة على جهاز {brand.mac} هذا؛ أما التصحيح والترجمة الاختياريان فهما طلبان منفصلان."
+    },
+    "dataSent": {
+      "question": "ما البيانات التي تُرسل إلى {brand.openAI}؟",
+      "answer": "يُرسل الصوت لتحويله إلى نص. ويرسل التصحيح والترجمة الاختياريان النص الناتج في طلبين منفصلين، وعند تفعيل السياق القريب الاختياري يُرسل مقتطف قصير مع طلب تحويل الكلام إلى نص."
+    },
+    "audioStorage": {
+      "question": "هل يُخزن الصوت؟",
+      "answer": "لا يُحتفظ بالصوت بعد اكتمال معالجته افتراضيًا. وقد يحتفظ الخطأ القابل للاسترداد بقدر محدود من الصوت طوال الجلسة الحالية فقط، لاستخدامه في {appUi.retry}؛ أما الاحتفاظ الاختياري بذاكرة التخزين المؤقت للتسجيلات فمحلي ويتحكم فيه المستخدم."
+    },
+    "compatibleApps": {
+      "question": "ما تطبيقات {brand.mac} المتوافقة؟",
+      "answer": "يدرج {brand.holdType} النص المعتمد في معظم تطبيقات {brand.mac} من خلال تسهيلات الاستخدام في {brand.macOS}. وإذا تعذر التسليم، فسيظل {appUi.lastResult} متاحًا للاسترداد."
+    },
+    "languages": {
+      "question": "ما اللغات المدعومة؟",
+      "answer": "يمكن لعملية تحويل الكلام إلى نص استخدام الكشف التلقائي عن لغة المصدر أو لغة مصدر ثابتة. وتستخدم الترجمة اللغة الهدف التي تضبطها في {brand.holdType}."
+    },
+    "permissions": {
+      "question": "لماذا يحتاج {brand.holdType} إلى أذونات {brand.macOS}؟",
+      "answer": "يسمح الوصول إلى الميكروفون بتسجيل الكلام، وتدعم مراقبة الإدخال الاختصار العام، وتتيح تسهيلات الاستخدام إدراج النص في التطبيق النشط."
+    },
+    "sourceAvailable": {
+      "question": "هل {brand.holdType} مفتوح المصدر؟",
+      "answer": "الشيفرة المصدرية لتطبيق {brand.holdType} متاحة بموجب {license.fsl11}، على أن تنتقل مستقبلًا إلى ترخيص {license.mit}. يتحول ترخيص كل إصدار منشور إلى {license.mit} بعد عامين من نشره."
+    }
+  },
+  "finalCta": {
+    "title": "عبّر عن الفكرة. واحتفظ بالسياق.",
+    "body": "تطبيق مجاني · بلا اشتراك في {brand.holdType} · تُحاسب مباشرةً على استخدام {brand.openAI} · {fact.minimumOS}"
+  },
+  "footer": {
+    "description": "إدخال صوتي أصلي لنظام {brand.macOS}. الشيفرة المصدرية متاحة بموجب {license.fsl11}، على أن تنتقل مستقبلًا إلى ترخيص {license.mit}.",
+    "sourceLink": "عرض الشيفرة المصدرية على {brand.github}"
+  },
+  "lightbox": {
+    "dialogAria": "لقطة شاشة بالحجم الكامل لتطبيق {brand.holdType}",
+    "closeAria": "إغلاق الصورة بالحجم الكامل",
+    "closeLabel": "إغلاق",
+    "fallbackImageAlt": "لقطة شاشة بالحجم الكامل لتطبيق {brand.holdType}"
+  }
+}
