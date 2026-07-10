@@ -265,16 +265,54 @@ extension IOSPendingTranscriptionDispatch: CustomStringConvertible,
 /// One process-local dispatch authorization. It cannot be reconstructed from disk.
 public final class IOSPendingTranscriptionHandoff: @unchecked Sendable {
     private let lock = NSLock()
+    private let authorization: IOSPendingTranscriptionAuthorization
     private var pendingDispatch: IOSPendingTranscriptionDispatch?
 
-    init(dispatch: IOSPendingTranscriptionDispatch) {
+    init(
+        dispatch: IOSPendingTranscriptionDispatch,
+        authorization: IOSPendingTranscriptionAuthorization =
+            IOSPendingTranscriptionAuthorization()
+    ) {
         pendingDispatch = dispatch
+        self.authorization = authorization
     }
 
     public func consume() -> IOSPendingTranscriptionDispatch? {
         lock.withLock {
             defer { pendingDispatch = nil }
+            guard authorization.claim() else {
+                return nil
+            }
             return pendingDispatch
+        }
+    }
+}
+
+final class IOSPendingTranscriptionAuthorization: @unchecked Sendable {
+    private enum State {
+        case available
+        case claimed
+        case retired
+    }
+
+    private let lock = NSLock()
+    private var state = State.available
+
+    func claim() -> Bool {
+        lock.withLock {
+            guard case .available = state else {
+                return false
+            }
+            state = .claimed
+            return true
+        }
+    }
+
+    func retire() {
+        lock.withLock {
+            if case .available = state {
+                state = .retired
+            }
         }
     }
 }
@@ -314,6 +352,7 @@ public enum IOSPendingRecordingError: Error, Equatable, Sendable {
     case compareAndSwapFailed
     case invalidTransition
     case dispatchAlreadyCommitted
+    case destinationInspectionFailed
 }
 
 extension IOSPendingRecordingError: CustomStringConvertible,

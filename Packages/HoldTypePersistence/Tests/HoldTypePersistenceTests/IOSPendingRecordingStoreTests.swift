@@ -170,6 +170,32 @@ struct IOSPendingRecordingStoreTests {
         #expect(handoff.consume()?.recording.transcriptionID == freshID)
     }
 
+    @Test func failedPostcommitCompensationKeepsAuthorityBlockedUntilRecovery() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        fixture.audio.validateError = .protectedAudioInvalid
+        fixture.audio.validateErrorCallNumber = 2
+        fixture.journal.replaceError = .journalWriteFailed
+        fixture.journal.replaceErrorCallNumber = 2
+
+        await #expect(throws: IOSPendingRecordingError.journalWriteFailed) {
+            _ = try await fixture.store.beginTranscription(
+                expected: IOSPendingRecordingCASExpectation(recording: prepared),
+                transcriptionID: UUID()
+            )
+        }
+
+        let stranded = try #require(fixture.journal.recording)
+        #expect(stranded.phase == .transcribing)
+        #expect(stranded.transcriptionID != nil)
+        fixture.journal.replaceError = nil
+        let recovered = try await fixture.store.markAwaitingRecovery(
+            expected: IOSPendingRecordingCASExpectation(recording: stranded)
+        )
+        #expect(recovered.phase == .awaitingRecovery)
+        #expect(recovered.transcriptionID == nil)
+    }
+
     @Test func transitionsUseExactCASAndClearLateResultIdentityBeforeRecovery() async throws {
         let fixture = StoreFixture()
         let prepared = try await fixture.store.prepare(fixture.preparation())
@@ -199,6 +225,28 @@ struct IOSPendingRecordingStoreTests {
                 expected: IOSPendingRecordingCASExpectation(recording: postProcessing)
             )
         }
+    }
+
+    @Test func recoveryRevokesAnUnconsumedHandoffBeforeRetry() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let transcribing = try #require(fixture.journal.recording)
+
+        let recovery = try await fixture.store.markAwaitingRecovery(
+            expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+
+        #expect(handoff.consume() == nil)
+        let retryHandoff = try await fixture.store.retryTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: recovery),
+            transcriptionID: UUID(),
+            transcriptionConfiguration: .defaults
+        )
+        #expect(retryHandoff.consume() != nil)
     }
 
     @Test func freshStoreRequiresDestinationAbsenceBeforeProcessLossRecovery() async throws {
@@ -233,6 +281,102 @@ struct IOSPendingRecordingStoreTests {
                 expected: IOSPendingRecordingCASExpectation(recording: transcribing)
             )
         }
+
+        fixture.journal.recording = transcribing
+        destination.hasDestination = false
+        destination.error = .journalUnreadable
+        let failingStore = fixture.makeStore(destinationInspector: destination)
+        await #expect(
+            throws: IOSPendingRecordingError.destinationInspectionFailed
+        ) {
+            _ = try await failingStore.recoverAfterProcessLoss(
+                expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+            )
+        }
+    }
+
+    @Test func outputDeliveryHappyPathIsIdempotentAndRecoverableAfterRelaunch() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        _ = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let transcribing = try #require(fixture.journal.recording)
+        let postProcessing = try await fixture.store.markPostProcessing(
+            expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+        let outputDelivery = try await fixture.store.markOutputDelivery(
+            expected: IOSPendingRecordingCASExpectation(recording: postProcessing)
+        )
+        #expect(outputDelivery.phase == .outputDelivery)
+        #expect(
+            try await fixture.store.markOutputDelivery(
+                expected: IOSPendingRecordingCASExpectation(recording: outputDelivery)
+            ) == outputDelivery
+        )
+
+        let destination = FakePendingDestinationInspector()
+        let relaunchedStore = fixture.makeStore(destinationInspector: destination)
+        let recovered = try await relaunchedStore.recoverAfterProcessLoss(
+            expected: IOSPendingRecordingCASExpectation(recording: outputDelivery)
+        )
+        #expect(recovered.phase == .awaitingRecovery)
+        #expect(recovered.transcriptionID == nil)
+    }
+
+    @Test func publicDestinationProofReceivesExactDurableIdentity() async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-pending-store-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let attemptID = UUID()
+        let transcriptionID = UUID()
+        let timestamp = try IOSPendingRecordingTimestampCodec.canonicalDate(
+            from: Date()
+        )
+        let recording = try IOSPendingRecording(
+            attemptID: attemptID,
+            audioRelativeIdentifier: IOSPendingRecordingStorageLocation
+                .relativeAudioIdentifier(for: attemptID, format: .wav),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            phase: .outputDelivery,
+            outputIntent: .standard,
+            transcriptionID: transcriptionID,
+            transcriptionModel: TranscriptionConfiguration.defaultModel,
+            transcriptionLanguageCode: nil,
+            durationMilliseconds: 1_000,
+            byteCount: 1_000
+        )
+        try FoundationIOSPendingRecordingJournalRepository(
+            applicationSupportDirectoryURL: directoryURL
+        ).create(recording)
+        let capture = PublicDestinationProofCapture()
+        let store = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: directoryURL,
+            canonicalDestinationExists: { attemptID, transcriptionID in
+                capture.record(
+                    attemptID: attemptID,
+                    transcriptionID: transcriptionID
+                )
+                return false
+            }
+        )
+
+        let recovered = try await store.recoverAfterProcessLoss(
+            expected: IOSPendingRecordingCASExpectation(recording: recording)
+        )
+
+        #expect(recovered.phase == .awaitingRecovery)
+        #expect(capture.attemptID == attemptID)
+        #expect(capture.transcriptionID == transcriptionID)
     }
 
     @Test func loadNeverExposesAudioURLAndDistinguishesOrphanAndAvailability() async throws {
@@ -251,6 +395,84 @@ struct IOSPendingRecordingStoreTests {
         #expect(observation.recording == prepared)
         #expect(observation.availability == .missing)
         #expect(!String(describing: observation).contains("protected"))
+    }
+
+    @Test func sharedLiveOwnerRegistryBlocksRecoveryUntilProcessLoss() async throws {
+        let fixture = StoreFixture()
+        let registry = IOSPendingRecordingLiveOwnerRegistry()
+        let destination = FakePendingDestinationInspector()
+        let owner = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            liveOwnerRegistry: registry,
+            now: { fixture.clockDate }
+        )
+        let secondStore = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            destinationInspector: destination,
+            liveOwnerRegistry: registry,
+            now: { fixture.clockDate }
+        )
+        let prepared = try await owner.prepare(fixture.preparation())
+        _ = try await owner.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let transcribing = try #require(fixture.journal.recording)
+
+        await #expect(throws: IOSPendingRecordingError.invalidTransition) {
+            _ = try await secondStore.recoverAfterProcessLoss(
+                expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+            )
+        }
+
+        let relaunchedStore = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            destinationInspector: destination,
+            liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry(),
+            now: { fixture.clockDate }
+        )
+        let recovered = try await relaunchedStore.recoverAfterProcessLoss(
+            expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+        #expect(recovered.phase == .awaitingRecovery)
+    }
+
+    @Test func retiredIdentityIsRejectedAcrossStoresInTheSameProcess() async throws {
+        let fixture = StoreFixture()
+        let registry = IOSPendingRecordingLiveOwnerRegistry()
+        let owner = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            liveOwnerRegistry: registry,
+            now: { fixture.clockDate }
+        )
+        let secondStore = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            liveOwnerRegistry: registry,
+            now: { fixture.clockDate }
+        )
+        let prepared = try await owner.prepare(fixture.preparation())
+        let retiredID = UUID()
+        _ = try await owner.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: retiredID
+        )
+        let transcribing = try #require(fixture.journal.recording)
+        let recovery = try await owner.markAwaitingRecovery(
+            expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+
+        await #expect(throws: IOSPendingRecordingError.invalidTransition) {
+            _ = try await secondStore.retryTranscription(
+                expected: IOSPendingRecordingCASExpectation(recording: recovery),
+                transcriptionID: retiredID,
+                transcriptionConfiguration: .defaults
+            )
+        }
     }
 
     @Test func discardRemovesAudioBeforeJournalAndKeepsJournalOnAudioFailure() async throws {
@@ -289,21 +511,75 @@ struct IOSPendingRecordingStoreTests {
 
     @Test func processGatePreventsTwoStoresFromPublishingTheSameSlot() async {
         let fixture = StoreFixture()
+        let publishBarrier = PendingStorePublishBarrier()
+        let gateProbe = PendingStoreGateProbe()
+        let sharedGate = IOSPendingRecordingOperationGate { event in
+            gateProbe.record(event)
+        }
+        fixture.audio.blockNextPublish(with: publishBarrier)
+        let firstStore = IOSPendingRecordingStore(
+            journal: fixture.journal,
+            audioFileSystem: fixture.audio,
+            operationGate: sharedGate,
+            now: { fixture.clockDate }
+        )
         let secondStore = IOSPendingRecordingStore(
             journal: fixture.journal,
             audioFileSystem: fixture.audio,
+            operationGate: sharedGate,
             now: { fixture.clockDate }
         )
         let firstPreparation = fixture.preparation(attemptID: UUID())
         let secondPreparation = fixture.preparation(attemptID: UUID())
 
-        async let first = try? fixture.store.prepare(firstPreparation)
-        async let second = try? secondStore.prepare(secondPreparation)
-        let results = await [first, second]
+        let firstTask = Task { try? await firstStore.prepare(firstPreparation) }
+        #expect(publishBarrier.waitUntilBlocked())
+        let secondTask = Task { try? await secondStore.prepare(secondPreparation) }
+        #expect(gateProbe.waitUntilEnqueued())
+        publishBarrier.release()
+        let results = await [firstTask.value, secondTask.value]
 
         #expect(results.compactMap { $0 }.count == 1)
         #expect(fixture.audio.publishCallCount == 1)
         #expect(fixture.journal.recording != nil)
+    }
+
+    @Test func discardResumesAfterAudioFirstCrashWithoutGuessingOrphans() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(
+            fixture.preparation(initialState: .awaitingRecovery)
+        )
+        fixture.journal.removeError = .journalRemoveFailed
+
+        await #expect(throws: IOSPendingRecordingError.journalRemoveFailed) {
+            _ = try await fixture.store.discard(
+                expected: IOSPendingRecordingCASExpectation(recording: prepared)
+            )
+        }
+        #expect(!fixture.audio.published)
+        #expect(fixture.journal.recording == prepared)
+
+        fixture.journal.removeError = nil
+        #expect(
+            try await fixture.store.discard(
+                expected: IOSPendingRecordingCASExpectation(recording: prepared)
+            ) == .discarded
+        )
+        #expect(fixture.journal.recording == nil)
+
+        let orphan = StoreFixture()
+        _ = try await orphan.store.prepare(
+            orphan.preparation(initialState: .awaitingRecovery)
+        )
+        orphan.journal.recording = nil
+        orphan.events.reset()
+        #expect(
+            try await orphan.store.discard(
+                expected: IOSPendingRecordingCASExpectation(recording: prepared)
+            ) == .alreadyAbsent
+        )
+        #expect(orphan.events.values.isEmpty)
+        #expect(orphan.audio.published)
     }
 }
 
@@ -367,6 +643,10 @@ private final class FakePendingRecordingJournal:
     private let events: PendingStoreEventLog
     private var storedRecording: IOSPendingRecording?
     private var storedCreateError: IOSPendingRecordingError?
+    private var storedReplaceError: IOSPendingRecordingError?
+    private var storedReplaceErrorCallNumber: Int?
+    private var storedReplaceCallCount = 0
+    private var storedRemoveError: IOSPendingRecordingError?
 
     var recording: IOSPendingRecording? {
         get { lock.withLock { storedRecording } }
@@ -376,6 +656,18 @@ private final class FakePendingRecordingJournal:
     var createError: IOSPendingRecordingError? {
         get { lock.withLock { storedCreateError } }
         set { lock.withLock { storedCreateError = newValue } }
+    }
+    var replaceError: IOSPendingRecordingError? {
+        get { lock.withLock { storedReplaceError } }
+        set { lock.withLock { storedReplaceError = newValue } }
+    }
+    var replaceErrorCallNumber: Int? {
+        get { lock.withLock { storedReplaceErrorCallNumber } }
+        set { lock.withLock { storedReplaceErrorCallNumber = newValue } }
+    }
+    var removeError: IOSPendingRecordingError? {
+        get { lock.withLock { storedRemoveError } }
+        set { lock.withLock { storedRemoveError = newValue } }
     }
 
     init(events: PendingStoreEventLog) {
@@ -405,6 +697,12 @@ private final class FakePendingRecordingJournal:
     ) throws {
         events.append("journal.replace")
         try lock.withLock {
+            storedReplaceCallCount += 1
+            if let storedReplaceError,
+               storedReplaceErrorCallNumber == nil
+                || storedReplaceErrorCallNumber == storedReplaceCallCount {
+                throw storedReplaceError
+            }
             guard storedRecording == expected else {
                 throw IOSPendingRecordingError.compareAndSwapFailed
             }
@@ -415,6 +713,9 @@ private final class FakePendingRecordingJournal:
     func remove(expected: IOSPendingRecording) throws -> Bool {
         events.append("journal.remove")
         return try lock.withLock {
+            if let storedRemoveError {
+                throw storedRemoveError
+            }
             guard let storedRecording else {
                 return false
             }
@@ -440,6 +741,7 @@ private final class FakePendingRecordingAudioFileSystem:
     private var storedValidateErrorCallNumber: Int?
     private var storedValidateCallCount = 0
     private var storedRemoveError: IOSPendingRecordingAudioFileSystemError?
+    private var storedPublishBarrier: PendingStorePublishBarrier?
 
     var published: Bool { lock.withLock { storedPublished } }
     var publishCallCount: Int { lock.withLock { storedPublishCallCount } }
@@ -461,6 +763,10 @@ private final class FakePendingRecordingAudioFileSystem:
         set { lock.withLock { storedRemoveError = newValue } }
     }
 
+    func blockNextPublish(with barrier: PendingStorePublishBarrier) {
+        lock.withLock { storedPublishBarrier = barrier }
+    }
+
     init(events: PendingStoreEventLog) {
         self.events = events
     }
@@ -479,6 +785,11 @@ private final class FakePendingRecordingAudioFileSystem:
         durationMilliseconds: Int64
     ) async throws -> any IOSPendingRecordingPublishedAudioLease {
         events.append("audio.publish")
+        let barrier = lock.withLock { () -> PendingStorePublishBarrier? in
+            defer { storedPublishBarrier = nil }
+            return storedPublishBarrier
+        }
+        barrier?.block()
         lock.withLock {
             storedPublished = true
             storedPublishCallCount += 1
@@ -546,6 +857,38 @@ private final class FakePendingRecordingAudioFileSystem:
     }
 }
 
+private final class PendingStorePublishBarrier: @unchecked Sendable {
+    private let blocked = DispatchSemaphore(value: 0)
+    private let releaseSignal = DispatchSemaphore(value: 0)
+
+    func block() {
+        blocked.signal()
+        _ = releaseSignal.wait(timeout: .now() + 2)
+    }
+
+    func waitUntilBlocked() -> Bool {
+        blocked.wait(timeout: .now() + 2) == .success
+    }
+
+    func release() {
+        releaseSignal.signal()
+    }
+}
+
+private final class PendingStoreGateProbe: @unchecked Sendable {
+    private let enqueued = DispatchSemaphore(value: 0)
+
+    func record(_ event: IOSPendingRecordingOperationGate.Event) {
+        if case .enqueued = event {
+            enqueued.signal()
+        }
+    }
+
+    func waitUntilEnqueued() -> Bool {
+        enqueued.wait(timeout: .now() + 2) == .success
+    }
+}
+
 private final class FakePendingRecordingAudioLease:
     IOSPendingRecordingPublishedAudioLease,
     @unchecked Sendable {
@@ -586,17 +929,26 @@ private final class FakePendingDestinationInspector:
     @unchecked Sendable {
     private let lock = NSLock()
     private var storedHasDestination = false
+    private var storedError: IOSPendingRecordingError?
 
     var hasDestination: Bool {
         get { lock.withLock { storedHasDestination } }
         set { lock.withLock { storedHasDestination = newValue } }
     }
 
+    var error: IOSPendingRecordingError? {
+        get { lock.withLock { storedError } }
+        set { lock.withLock { storedError = newValue } }
+    }
+
     func hasCanonicalDestination(
         attemptID: UUID,
         transcriptionID: UUID
     ) throws -> Bool {
-        hasDestination
+        if let error = lock.withLock({ storedError }) {
+            throw error
+        }
+        return hasDestination
     }
 }
 
@@ -614,5 +966,21 @@ private final class PendingStoreEventLog: @unchecked Sendable {
 
     func reset() {
         lock.withLock { storedValues.removeAll() }
+    }
+}
+
+private final class PublicDestinationProofCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedAttemptID: UUID?
+    private var storedTranscriptionID: UUID?
+
+    var attemptID: UUID? { lock.withLock { storedAttemptID } }
+    var transcriptionID: UUID? { lock.withLock { storedTranscriptionID } }
+
+    func record(attemptID: UUID, transcriptionID: UUID) {
+        lock.withLock {
+            storedAttemptID = attemptID
+            storedTranscriptionID = transcriptionID
+        }
     }
 }

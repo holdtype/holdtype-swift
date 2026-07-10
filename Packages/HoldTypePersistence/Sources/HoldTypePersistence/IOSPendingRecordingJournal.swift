@@ -1025,6 +1025,19 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             throw IOSPendingRecordingJournalFileSystemError.destinationConflict
         }
 
+        let prepublishStatus = try status(
+            descriptor: temporary.descriptor,
+            failure: .writeFailed
+        )
+        try validateJournalStatus(
+            prepublishStatus,
+            effectiveUserID: directory.effectiveUserID
+        )
+        guard prepublishStatus.st_size == off_t(data.count),
+              FileIdentity(prepublishStatus) == temporary.identity else {
+            throw IOSPendingRecordingJournalFileSystemError.writeFailed
+        }
+
         let publishResult: IOSPendingRecordingPOSIXResult<Void>
         if createOnly {
             publishResult = retryInterrupted {
@@ -1057,27 +1070,26 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             throw IOSPendingRecordingJournalFileSystemError.writeFailed
         }
 
-        let publishedStatus = try status(
+        // Rename is the commit point. Post-commit verification and the required
+        // directory sync are attempted, but cannot turn a visible commit into
+        // an ambiguous reported failure.
+        let publishedStatus = (try? status(
             descriptor: temporary.descriptor,
             failure: .writeFailed
-        )
-        try validateJournalStatus(
+        )) ?? prepublishStatus
+        try? validateJournalStatus(
             publishedStatus,
             effectiveUserID: directory.effectiveUserID
         )
-        guard publishedStatus.st_size == off_t(data.count),
-              FileIdentity(publishedStatus) == temporary.identity else {
-            throw IOSPendingRecordingJournalFileSystemError.writeFailed
-        }
-        try validatePathIdentity(
+        try? validatePathIdentity(
             named: IOSPendingRecordingStorageLocation.journalFileName,
             descriptorStatus: publishedStatus,
             directory: directory,
             failure: .writeFailed
         )
-        try validateExactConfiguration(descriptor: temporary.descriptor)
-        try validateDirectoryIdentity(directory)
-        try synchronizeDirectory(directory.descriptor)
+        try? validateExactConfiguration(descriptor: temporary.descriptor)
+        try? validateDirectoryIdentity(directory)
+        try? synchronizeDirectory(directory.descriptor)
 
         return IOSPendingRecordingJournalFileRevision(
             snapshot: IOSPendingRecordingJournalFileSnapshot(publishedStatus)

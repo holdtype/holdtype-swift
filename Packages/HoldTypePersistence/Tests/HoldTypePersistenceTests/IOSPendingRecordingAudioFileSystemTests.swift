@@ -334,6 +334,32 @@ struct IOSPendingRecordingAudioFileSystemTests {
         #expect(adapter.sourceBytes == bytes)
     }
 
+    @Test func wrongProtectionPolicyIsPersistentInvalidityNotDeviceLock() async throws {
+        let bytes = [UInt8](repeating: 0x79, count: 40)
+        let adapter = SimulatedPendingRecordingPOSIXAdapter(sourceBytes: bytes)
+        let fileSystem = makeFileSystem(adapter: adapter)
+        let lease = try await fileSystem.publishProtectedCopy(
+            from: artifact(byteCount: bytes.count),
+            attemptID: attemptID,
+            format: .m4a,
+            durationMilliseconds: 1_500
+        )
+        lease.release()
+        adapter.setPublishedProtectionClass(2)
+
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        ) {
+            _ = try await fileSystem.validatePublishedAudio(
+                relativeIdentifier: lease.relativeIdentifier,
+                attemptID: attemptID,
+                durationMilliseconds: 1_500,
+                byteCount: Int64(bytes.count)
+            )
+        }
+        #expect(adapter.publishedBytes == bytes)
+    }
+
     @Test func finalNameConflictNeverOverwritesExistingAudio() async throws {
         let bytes = [UInt8](repeating: 0x21, count: 8)
         let sentinel = [UInt8](repeating: 0xF0, count: bytes.count)
@@ -385,15 +411,17 @@ struct IOSPendingRecordingAudioFileSystemTests {
         #expect(media.waitUntilSecondValidationStarts())
         let closeCountBeforeRelease = adapter.events.filter { $0 == "close" }.count
 
+        validation.cancel()
         lease.release()
 
         #expect(adapter.events.filter { $0 == "close" }.count == closeCountBeforeRelease)
         media.resumeSecondValidation()
-        _ = try await validation.value
-        #expect(
-            adapter.events.filter { $0 == "close" }.count
-                == closeCountBeforeRelease + 2
-        )
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError.operationCancelled
+        ) {
+            _ = try await validation.value
+        }
+        #expect(adapter.waitUntilCloseCount(closeCountBeforeRelease + 2))
         await #expect(
             throws: IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
         ) {
@@ -437,6 +465,58 @@ struct IOSPendingRecordingAudioFileSystemTests {
         }
     }
 
+    @Test func liveDarwinAndAVFoundationRoundTripAValidWAV() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-pending-audio-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let applicationSupportURL = rootURL.appendingPathComponent(
+            "ApplicationSupport",
+            isDirectory: true
+        )
+        let sourceURL = rootURL.appendingPathComponent("source.wav")
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        try FileManager.default.createDirectory(
+            at: applicationSupportURL,
+            withIntermediateDirectories: true
+        )
+        let sourceData = makeOneSecondPCM16WAV()
+        try sourceData.write(to: sourceURL, options: .withoutOverwriting)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: sourceURL.path
+        )
+
+        let fileSystem = FoundationIOSPendingRecordingAudioFileSystem(
+            applicationSupportDirectoryURL: applicationSupportURL
+        )
+        let liveAttemptID = UUID()
+        let lease = try await fileSystem.publishProtectedCopy(
+            from: AudioRecordingArtifact(
+                fileURL: sourceURL,
+                duration: 1,
+                byteCount: Int64(sourceData.count)
+            ),
+            attemptID: liveAttemptID,
+            format: .wav,
+            durationMilliseconds: 1_000
+        )
+
+        let validated = try await lease.revalidate()
+        #expect(validated.byteCount == Int64(sourceData.count))
+        #expect(validated.duration == 1)
+        lease.release()
+        #expect(
+            try await fileSystem.removePublishedAudioIfPresent(
+                relativeIdentifier: lease.relativeIdentifier,
+                attemptID: liveAttemptID,
+                expectedByteCount: Int64(sourceData.count)
+            )
+        )
+        #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
     private var finalName: String {
         "recording-v1-01234567-89ab-cdef-0123-456789abcdef.m4a"
     }
@@ -465,6 +545,40 @@ struct IOSPendingRecordingAudioFileSystemTests {
             monotonicClock: clock,
             queue: DispatchQueue(label: "pending-recording-audio-tests")
         )
+    }
+}
+
+private func makeOneSecondPCM16WAV() -> Data {
+    let sampleRate: UInt32 = 8_000
+    let channelCount: UInt16 = 1
+    let bitsPerSample: UInt16 = 16
+    let sampleCount = Int(sampleRate)
+    let dataByteCount = UInt32(sampleCount * Int(bitsPerSample / 8))
+    let byteRate = sampleRate * UInt32(channelCount) * UInt32(bitsPerSample / 8)
+    let blockAlign = channelCount * (bitsPerSample / 8)
+
+    var data = Data()
+    data.append(contentsOf: "RIFF".utf8)
+    data.appendLittleEndian(UInt32(36) + dataByteCount)
+    data.append(contentsOf: "WAVE".utf8)
+    data.append(contentsOf: "fmt ".utf8)
+    data.appendLittleEndian(UInt32(16))
+    data.appendLittleEndian(UInt16(1))
+    data.appendLittleEndian(channelCount)
+    data.appendLittleEndian(sampleRate)
+    data.appendLittleEndian(byteRate)
+    data.appendLittleEndian(blockAlign)
+    data.appendLittleEndian(bitsPerSample)
+    data.append(contentsOf: "data".utf8)
+    data.appendLittleEndian(dataByteCount)
+    data.append(Data(repeating: 0, count: Int(dataByteCount)))
+    return data
+}
+
+private extension Data {
+    mutating func appendLittleEndian<Value: FixedWidthInteger>(_ value: Value) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { append(contentsOf: $0) }
     }
 }
 
@@ -682,7 +796,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
         }
     }
 
-    private let lock = NSLock()
+    private let lock = NSCondition()
     private let state: State
 
     init(sourceBytes: [UInt8]) {
@@ -697,6 +811,17 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
     var maximumReadResult: Int { lock.withLock { state.maximumReadResult } }
     var maximumWriteResult: Int { lock.withLock { state.maximumWriteResult } }
     var sourceOpenFlags: Int32 { lock.withLock { state.sourceOpenFlags } }
+    func waitUntilCloseCount(_ expectedCount: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        let deadline = Date().addingTimeInterval(2)
+        while state.events.filter({ $0 == "close" }).count < expectedCount {
+            guard lock.wait(until: deadline) else {
+                return false
+            }
+        }
+        return true
+    }
     var markerReadCount: Int {
         lock.withLock {
             state.events.filter {
@@ -749,6 +874,19 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
                 return
             }
             node.mode = S_IFREG | mode
+            node.version += 1
+        }
+    }
+
+    func setPublishedProtectionClass(_ protectionClass: Int32) {
+        lock.withLock {
+            guard let pending = state.pendingDirectory(create: false),
+                  let node = pending.children.first(where: {
+                      $0.key.hasPrefix("recording-v1-")
+                  })?.value else {
+                return
+            }
+            node.protectionClass = protectionClass
             node.version += 1
         }
     }
@@ -1180,6 +1318,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
             if descriptor.node.lockedByDescriptor == fileDescriptor {
                 descriptor.node.lockedByDescriptor = nil
             }
+            lock.broadcast()
         }
     }
 

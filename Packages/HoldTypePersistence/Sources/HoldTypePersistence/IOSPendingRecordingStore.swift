@@ -30,6 +30,73 @@ private struct UnconfiguredIOSPendingRecordingDestinationInspector:
     }
 }
 
+private struct IOSPendingRecordingDispatchIdentity: Hashable, Sendable {
+    let attemptID: UUID
+    let transcriptionID: UUID
+}
+
+final class IOSPendingRecordingLiveOwnerRegistry: @unchecked Sendable {
+    static let shared = IOSPendingRecordingLiveOwnerRegistry()
+
+    private let lock = NSLock()
+    private var identities: Set<IOSPendingRecordingDispatchIdentity> = []
+    private var retiredIdentities: [UUID: Set<UUID>] = [:]
+
+    func register(attemptID: UUID, transcriptionID: UUID) {
+        _ = lock.withLock {
+            identities.insert(
+                IOSPendingRecordingDispatchIdentity(
+                    attemptID: attemptID,
+                    transcriptionID: transcriptionID
+                )
+            )
+        }
+    }
+
+    func contains(attemptID: UUID, transcriptionID: UUID) -> Bool {
+        lock.withLock {
+            identities.contains(
+                IOSPendingRecordingDispatchIdentity(
+                    attemptID: attemptID,
+                    transcriptionID: transcriptionID
+                )
+            )
+        }
+    }
+
+    func hasLiveOwner(attemptID: UUID) -> Bool {
+        lock.withLock {
+            identities.contains { $0.attemptID == attemptID }
+        }
+    }
+
+    func isRetired(attemptID: UUID, transcriptionID: UUID) -> Bool {
+        lock.withLock {
+            retiredIdentities[attemptID]?.contains(transcriptionID) == true
+        }
+    }
+
+    func retire(attemptID: UUID, transcriptionID: UUID) {
+        lock.withLock {
+            _ = identities.remove(
+                IOSPendingRecordingDispatchIdentity(
+                    attemptID: attemptID,
+                    transcriptionID: transcriptionID
+                )
+            )
+            _ = retiredIdentities[attemptID, default: []].insert(
+                transcriptionID
+            )
+        }
+    }
+
+    func clearRetired(attemptID: UUID) {
+        lock.withLock {
+            _ = retiredIdentities.removeValue(forKey: attemptID)
+        }
+    }
+}
+
 /// Owns the one app-private pending recording transaction for the app process.
 public actor IOSPendingRecordingStore {
     private static let processOperationGate = IOSPendingRecordingOperationGate()
@@ -43,10 +110,11 @@ public actor IOSPendingRecordingStore {
     private let audioFileSystem: any IOSPendingRecordingAudioFileSystem
     private let destinationInspector: any IOSPendingRecordingDestinationInspecting
     private let operationGate: IOSPendingRecordingOperationGate
+    private let liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry
     private let now: @Sendable () -> Date
 
     private var activeDispatchIdentity: ActiveDispatchIdentity?
-    private var retiredTranscriptionIDs: Set<UUID> = []
+    private var activeDispatchAuthorization: IOSPendingTranscriptionAuthorization?
 
     public init(applicationSupportDirectoryURL: URL) {
         journal = FoundationIOSPendingRecordingJournalRepository(
@@ -57,6 +125,7 @@ public actor IOSPendingRecordingStore {
         )
         destinationInspector = UnconfiguredIOSPendingRecordingDestinationInspector()
         operationGate = Self.processOperationGate
+        liveOwnerRegistry = .shared
         now = { Date() }
     }
 
@@ -75,6 +144,7 @@ public actor IOSPendingRecordingStore {
             canonicalDestinationExists: canonicalDestinationExists
         )
         operationGate = Self.processOperationGate
+        liveOwnerRegistry = .shared
         now = { Date() }
     }
 
@@ -85,12 +155,15 @@ public actor IOSPendingRecordingStore {
             UnconfiguredIOSPendingRecordingDestinationInspector(),
         operationGate: IOSPendingRecordingOperationGate =
             IOSPendingRecordingStore.processOperationGate,
+        liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry =
+            IOSPendingRecordingLiveOwnerRegistry(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.journal = journal
         self.audioFileSystem = audioFileSystem
         self.destinationInspector = destinationInspector
         self.operationGate = operationGate
+        self.liveOwnerRegistry = liveOwnerRegistry
         self.now = now
     }
 
@@ -250,7 +323,6 @@ private extension IOSPendingRecordingStore {
         } catch {
             throw IOSPendingRecordingError.journalWriteFailed
         }
-        retiredTranscriptionIDs.removeAll(keepingCapacity: true)
         do {
             _ = try await lease.revalidate()
         } catch {
@@ -309,16 +381,23 @@ private extension IOSPendingRecordingStore {
             transcriptionLanguageCode: current.transcriptionLanguageCode
         )
         try journal.replace(updated, expected: current)
+        liveOwnerRegistry.register(
+            attemptID: updated.attemptID,
+            transcriptionID: transcriptionID
+        )
+        let authorization = IOSPendingTranscriptionAuthorization()
         activeDispatchIdentity = ActiveDispatchIdentity(
             attemptID: updated.attemptID,
             transcriptionID: transcriptionID
         )
+        activeDispatchAuthorization = authorization
         let artifact = try await validateCommittedHandoffOrRecover(updated)
         return IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
                 audioArtifact: artifact
-            )
+            ),
+            authorization: authorization
         )
     }
 
@@ -330,7 +409,11 @@ private extension IOSPendingRecordingStore {
         let current = try requireCurrent(expected: expected)
         guard current.phase == .awaitingRecovery,
               current.transcriptionID == nil,
-              !retiredTranscriptionIDs.contains(transcriptionID) else {
+              !liveOwnerRegistry.hasLiveOwner(attemptID: current.attemptID),
+              !liveOwnerRegistry.isRetired(
+                  attemptID: current.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
             if current.phase == .transcribing,
                current.transcriptionID == transcriptionID {
                 throw IOSPendingRecordingError.dispatchAlreadyCommitted
@@ -355,16 +438,23 @@ private extension IOSPendingRecordingStore {
             transcriptionLanguageCode: languageCode
         )
         try journal.replace(updated, expected: current)
+        liveOwnerRegistry.register(
+            attemptID: updated.attemptID,
+            transcriptionID: transcriptionID
+        )
+        let authorization = IOSPendingTranscriptionAuthorization()
         activeDispatchIdentity = ActiveDispatchIdentity(
             attemptID: updated.attemptID,
             transcriptionID: transcriptionID
         )
+        activeDispatchAuthorization = authorization
         let artifact = try await validateCommittedHandoffOrRecover(updated)
         return IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
                 audioArtifact: artifact
-            )
+            ),
+            authorization: authorization
         )
     }
 
@@ -402,6 +492,7 @@ private extension IOSPendingRecordingStore {
     ) throws -> IOSPendingRecording {
         let current = try requireCurrent(expected: expected)
         if current.phase == .awaitingRecovery {
+            retireActiveDispatchIfOwned(attemptID: current.attemptID)
             return current
         }
         guard current.phase == .transcribing || current.phase == .postProcessing,
@@ -421,9 +512,28 @@ private extension IOSPendingRecordingStore {
             transcriptionLanguageCode: current.transcriptionLanguageCode
         )
         try journal.replace(updated, expected: current)
-        retiredTranscriptionIDs.insert(transcriptionID)
+        liveOwnerRegistry.retire(
+            attemptID: current.attemptID,
+            transcriptionID: transcriptionID
+        )
+        activeDispatchAuthorization?.retire()
+        activeDispatchAuthorization = nil
         activeDispatchIdentity = nil
         return updated
+    }
+
+    func retireActiveDispatchIfOwned(attemptID: UUID) {
+        guard let activeDispatchIdentity,
+              activeDispatchIdentity.attemptID == attemptID else {
+            return
+        }
+        liveOwnerRegistry.retire(
+            attemptID: activeDispatchIdentity.attemptID,
+            transcriptionID: activeDispatchIdentity.transcriptionID
+        )
+        activeDispatchAuthorization?.retire()
+        activeDispatchAuthorization = nil
+        self.activeDispatchIdentity = nil
     }
 
     func performRecoverAfterProcessLoss(
@@ -437,13 +547,24 @@ private extension IOSPendingRecordingStore {
                 || current.phase == .postProcessing
                 || current.phase == .outputDelivery,
               let transcriptionID = current.transcriptionID,
-              activeDispatchIdentity == nil else {
+              activeDispatchIdentity == nil,
+              !liveOwnerRegistry.contains(
+                  attemptID: current.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
             throw IOSPendingRecordingError.invalidTransition
         }
-        guard try !destinationInspector.hasCanonicalDestination(
-            attemptID: current.attemptID,
-            transcriptionID: transcriptionID
-        ) else {
+        let hasCanonicalDestination: Bool
+        do {
+            hasCanonicalDestination = try destinationInspector
+                .hasCanonicalDestination(
+                    attemptID: current.attemptID,
+                    transcriptionID: transcriptionID
+                )
+        } catch {
+            throw IOSPendingRecordingError.destinationInspectionFailed
+        }
+        guard !hasCanonicalDestination else {
             throw IOSPendingRecordingError.invalidTransition
         }
 
@@ -455,7 +576,10 @@ private extension IOSPendingRecordingStore {
             transcriptionLanguageCode: current.transcriptionLanguageCode
         )
         try journal.replace(updated, expected: current)
-        retiredTranscriptionIDs.insert(transcriptionID)
+        liveOwnerRegistry.retire(
+            attemptID: current.attemptID,
+            transcriptionID: transcriptionID
+        )
         return updated
     }
 
@@ -468,7 +592,8 @@ private extension IOSPendingRecordingStore {
         try requireExpectation(expected, matches: current)
         guard current.phase == .readyForTranscription
                 || current.phase == .awaitingRecovery,
-              activeDispatchIdentity == nil else {
+              activeDispatchIdentity == nil,
+              !liveOwnerRegistry.hasLiveOwner(attemptID: current.attemptID) else {
             throw IOSPendingRecordingError.invalidTransition
         }
 
@@ -489,7 +614,7 @@ private extension IOSPendingRecordingStore {
         } catch {
             throw IOSPendingRecordingError.journalRemoveFailed
         }
-        retiredTranscriptionIDs.removeAll(keepingCapacity: true)
+        liveOwnerRegistry.clearRetired(attemptID: current.attemptID)
         return .discarded
     }
 

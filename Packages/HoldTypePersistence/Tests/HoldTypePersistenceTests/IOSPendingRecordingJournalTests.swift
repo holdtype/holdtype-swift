@@ -297,6 +297,107 @@ struct IOSPendingRecordingJournalTests {
                 == "IOSPendingRecordingError(redacted)"
         )
     }
+
+    @Test func liveFileSystemRoundTripsProtectedBytesAndEnforcesRevision() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let initial = Data(#"{"schemaVersion":1}"#.utf8)
+            let replacement = Data(#"{"schemaVersion":2}"#.utf8)
+
+            let initialRevision = try fileSystem.createFile(with: initial)
+            #expect(try fileSystem.readFileIfPresent()?.data == initial)
+            let replacementRevision = try fileSystem.replaceFile(
+                with: replacement,
+                expected: initialRevision
+            )
+            #expect(try fileSystem.readFileIfPresent()?.data == replacement)
+            #expect(
+                throws: IOSPendingRecordingJournalFileSystemError.staleRevision
+            ) {
+                _ = try fileSystem.replaceFile(
+                    with: initial,
+                    expected: initialRevision
+                )
+            }
+            try fileSystem.removeFile(expected: replacementRevision)
+            #expect(try fileSystem.readFileIfPresent() == nil)
+        }
+    }
+
+    @Test func liveFileSystemSerializesConcurrentRevisionCommits() async throws {
+        try await withTemporaryJournalDirectory { directoryURL in
+            let firstFileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let secondFileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let initial = Data(#"{"value":0}"#.utf8)
+            let firstBytes = Data(#"{"value":1}"#.utf8)
+            let secondBytes = Data(#"{"value":2}"#.utf8)
+            let revision = try firstFileSystem.createFile(with: initial)
+
+            async let firstSucceeded = replaceSucceeded(
+                fileSystem: firstFileSystem,
+                data: firstBytes,
+                expected: revision
+            )
+            async let secondSucceeded = replaceSucceeded(
+                fileSystem: secondFileSystem,
+                data: secondBytes,
+                expected: revision
+            )
+            let outcomes = await [firstSucceeded, secondSucceeded]
+            #expect(outcomes.filter { $0 }.count == 1)
+            let finalData = try #require(
+                firstFileSystem.readFileIfPresent()?.data
+            )
+            #expect(finalData == firstBytes || finalData == secondBytes)
+        }
+    }
+}
+
+private func replaceSucceeded(
+    fileSystem: FoundationIOSPendingRecordingJournalFileSystem,
+    data: Data,
+    expected: IOSPendingRecordingJournalFileRevision
+) -> Bool {
+    do {
+        _ = try fileSystem.replaceFile(with: data, expected: expected)
+        return true
+    } catch IOSPendingRecordingJournalFileSystemError.staleRevision {
+        return false
+    } catch {
+        return false
+    }
+}
+
+private func withTemporaryJournalDirectory<Result>(
+    _ operation: (URL) throws -> Result
+) throws -> Result {
+    let directoryURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: directoryURL,
+        withIntermediateDirectories: false
+    )
+    defer { try? FileManager.default.removeItem(at: directoryURL) }
+    return try operation(directoryURL)
+}
+
+private func withTemporaryJournalDirectory<Result>(
+    _ operation: (URL) async throws -> Result
+) async throws -> Result {
+    let directoryURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: directoryURL,
+        withIntermediateDirectories: false
+    )
+    defer { try? FileManager.default.removeItem(at: directoryURL) }
+    return try await operation(directoryURL)
 }
 
 private func fixtureRecording(

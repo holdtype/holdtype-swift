@@ -573,17 +573,25 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     private func runQueued<Value: Sendable>(
         deadlineNanoseconds: UInt64,
         onLateValue: @escaping @Sendable (Value) -> Void = { _ in },
+        onOperationFinished: @escaping @Sendable () -> Void = {},
         operation: @escaping @Sendable (PendingRecordingOperationControl) throws -> Value
     ) async throws -> Value {
-        let control = try PendingRecordingOperationControl(
-            timeoutNanoseconds: deadlineNanoseconds,
-            monotonicClock: monotonicClock
-        )
+        let control: PendingRecordingOperationControl
+        do {
+            control = try PendingRecordingOperationControl(
+                timeoutNanoseconds: deadlineNanoseconds,
+                monotonicClock: monotonicClock
+            )
+        } catch {
+            onOperationFinished()
+            throw error
+        }
         let completion = PendingRecordingOperationCompletion<Value>()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 completion.install(continuation)
                 queue.async {
+                    defer { onOperationFinished() }
                     do {
                         let value = try operation(control)
                         guard completion.resolve(.success(value)) else {
@@ -1280,6 +1288,10 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         let pathResult = try call(control: control) {
             adapter.statusAtPath(source.fileURL.path)
         }
+        if case .failure(let errorCode) = pathResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError.dataProtectionUnavailable
+        }
         guard case .success(let pathStatus) = pathResult,
               FileSnapshot(descriptorStatus) == source.snapshot,
               FileSnapshot(pathStatus) == source.snapshot else {
@@ -1351,8 +1363,12 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         let protectionResult = try call(control: control) {
             adapter.protectionClass(fileDescriptor: descriptor)
         }
-        guard case .success(Self.completeProtectionClass) = protectionResult else {
+        if case .failure(let errorCode) = protectionResult,
+           isDataProtectionFailure(errorCode) {
             throw IOSPendingRecordingAudioFileSystemError.dataProtectionUnavailable
+        }
+        guard case .success(Self.completeProtectionClass) = protectionResult else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
         }
         let backupResult = try call(control: control) {
             adapter.extendedAttribute(
@@ -1361,8 +1377,12 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
                 maximumByteCount: Self.backupExclusionAttributeValue.count + 1
             )
         }
-        guard case .success(Self.backupExclusionAttributeValue) = backupResult else {
+        if case .failure(let errorCode) = backupResult,
+           isDataProtectionFailure(errorCode) {
             throw IOSPendingRecordingAudioFileSystemError.dataProtectionUnavailable
+        }
+        guard case .success(Self.backupExclusionAttributeValue) = backupResult else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
         }
     }
 
@@ -1679,9 +1699,13 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         fileDescriptor: Int32,
         identity: FileIdentity,
         byteCount: Int64,
-        durationMilliseconds: Int64
+        durationMilliseconds: Int64,
+        onOperationFinished: @escaping @Sendable () -> Void
     ) async throws -> AudioRecordingArtifact {
-        try await runQueued(deadlineNanoseconds: Self.copyDeadlineNanoseconds) { control in
+        try await runQueued(
+            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            onOperationFinished: onOperationFinished
+        ) { control in
             guard IOSPendingRecordingStorageLocation.audioFileURL(
                 forRelativeIdentifier: relativeIdentifier,
                 in: self.applicationSupportDirectoryURL
@@ -2089,7 +2113,6 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
             state.activeRevalidationCount += 1
             return (directoryDescriptor, fileDescriptor)
         }
-        defer { finishRevalidation() }
         return try await fileSystem.revalidateLease(
             relativeIdentifier: relativeIdentifier,
             fileURL: fileURL,
@@ -2097,7 +2120,8 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
             fileDescriptor: descriptors.1,
             identity: identity,
             byteCount: byteCount,
-            durationMilliseconds: durationMilliseconds
+            durationMilliseconds: durationMilliseconds,
+            onOperationFinished: { [self] in finishRevalidation() }
         )
     }
 
