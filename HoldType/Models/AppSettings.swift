@@ -240,6 +240,20 @@ struct AppSettings: Equatable {
         )
     }
 
+    func acceptedTranscriptHistoryRequest(
+        acceptedTranscript: AcceptedTranscript,
+        audioDuration: TimeInterval?,
+        cachedAudioFileURL: URL?
+    ) -> AcceptedTranscriptHistoryRequest {
+        AcceptedTranscriptHistoryRequest(
+            acceptedTranscript: acceptedTranscript,
+            transcriptionConfiguration: transcriptionConfiguration,
+            retentionConfiguration: retentionConfiguration,
+            audioDuration: audioDuration,
+            cachedAudioFileURL: cachedAudioFileURL
+        )
+    }
+
     var resolvedCustomDictionaryEntries: [String] {
         resolvedCustomDictionary.entries
     }

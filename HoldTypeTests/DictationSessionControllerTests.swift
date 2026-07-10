@@ -436,6 +436,9 @@ struct DictationSessionControllerTests {
             result: .success("History cache transcript")
         )
         var settings = AppSettings.defaults
+        settings.transcriptionModel = " history-model "
+        settings.language = .custom
+        settings.customLanguageCode = " EN "
         settings.recordingCachePolicy = .keepLast(10)
         let transcriptHistory = FakeTranscriptRecoveryHistory()
         let controller = makeController(
@@ -449,7 +452,13 @@ struct DictationSessionControllerTests {
 
         await controller.performRecordingAction()
 
-        #expect(transcriptHistory.calls.first?.cachedAudioFileURL == artifact.fileURL)
+        let historyRequest = transcriptHistory.calls.first
+        #expect(historyRequest?.acceptedTranscript.text == "History cache transcript")
+        #expect(historyRequest?.transcriptionModel == "history-model")
+        #expect(historyRequest?.languageCode == "en")
+        #expect(historyRequest?.audioDuration == 2)
+        #expect(historyRequest?.cachedAudioFileURL == artifact.fileURL)
+        #expect(historyRequest?.historyEnabled == true)
         #expect(transcriptHistory.entries.first?.cachedAudioFileURL == artifact.fileURL)
     }
 
@@ -569,6 +578,7 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["corrected transcript"])
+        #expect(transcriptHistory.calls.map(\.acceptedTranscript.text) == ["corrected transcript"])
     }
 
     @Test func textCorrectionFailureFallsBackToTranscriptionText() async {
@@ -686,6 +696,7 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["Corrected English text"])
+        #expect(transcriptHistory.calls.map(\.acceptedTranscript.text) == ["Corrected English text"])
     }
 
     @Test func translationIntentCleansFinalTypographyWithoutReplacementRules() async {
@@ -1546,6 +1557,13 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["recovered text"])
+        let historyRequest = transcriptHistory.calls.first
+        #expect(historyRequest?.acceptedTranscript.text == "recovered text")
+        #expect(historyRequest?.transcriptionModel == "current-retry-model")
+        #expect(historyRequest?.languageCode == nil)
+        #expect(historyRequest?.audioDuration == 12)
+        #expect(historyRequest?.cachedAudioFileURL == nil)
+        #expect(historyRequest?.historyEnabled == true)
         #expect(
             textCorrectionService.calls == [
                 TextCorrectionCall(
@@ -1944,6 +1962,8 @@ struct DictationSessionControllerTests {
         await controller.performRecordingAction()
 
         #expect(controller.status == .success(transcript: "Private text"))
+        #expect(transcriptHistory.calls.count == 1)
+        #expect(transcriptHistory.calls.first?.historyEnabled == false)
         #expect(transcriptHistory.entries.isEmpty)
     }
 
@@ -2115,13 +2135,6 @@ private struct TranslationCall: Equatable {
         self.resolvedSourceLanguageCode = resolvedSourceLanguageCode
         self.credentialAPIKey = credentialAPIKey
     }
-}
-
-private struct RecoveryHistoryCall: Equatable {
-    let transcript: String
-    let settings: AppSettings
-    let audioDuration: TimeInterval?
-    let cachedAudioFileURL: URL?
 }
 
 private struct RecordingCachePolicyCall: Equatable {
@@ -2336,45 +2349,31 @@ private final class FakeTranscriptionUsageRecorder: TranscriptionUsageRecording 
 @MainActor
 private final class FakeTranscriptRecoveryHistory: TranscriptRecoveryHistoryRecording {
     private(set) var entries: [TranscriptHistoryEntry] = []
-    private(set) var calls: [RecoveryHistoryCall] = []
+    private(set) var calls: [AcceptedTranscriptHistoryRequest] = []
     private let recordError: (any Error)?
 
     init(recordError: (any Error)? = nil) {
         self.recordError = recordError
     }
 
-    func recordAcceptedTranscript(
-        _ transcript: String,
-        settings: AppSettings,
-        audioDuration: TimeInterval?,
-        cachedAudioFileURL: URL?
-    ) throws {
-        calls.append(
-            RecoveryHistoryCall(
-                transcript: transcript,
-                settings: settings,
-                audioDuration: audioDuration,
-                cachedAudioFileURL: cachedAudioFileURL
-            )
-        )
+    func recordAcceptedTranscript(_ request: AcceptedTranscriptHistoryRequest) throws {
+        calls.append(request)
 
         if let recordError {
             throw recordError
         }
 
-        guard settings.saveTranscriptHistory else {
+        guard request.historyEnabled else {
             return
         }
 
         entries = try [
             TranscriptHistoryEntry(
-                transcriptText: transcript,
-                transcriptionModel: settings.resolvedTranscriptionModel,
-                languageCode: settings.resolvedLanguageCode,
-                audioDuration: audioDuration,
-                cachedAudioFileURL: settings.recordingCachePolicy.keepsRecordings
-                    ? cachedAudioFileURL
-                    : nil
+                transcriptText: request.acceptedTranscript.text,
+                transcriptionModel: request.transcriptionModel,
+                languageCode: request.languageCode,
+                audioDuration: request.audioDuration,
+                cachedAudioFileURL: request.cachedAudioFileURL
             )
         ] + entries
     }

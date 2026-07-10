@@ -290,7 +290,7 @@ final class DictationSessionController {
             failurePresentation = nil
 
             recordRecoveryHistory(
-                acceptedTranscript.text,
+                acceptedTranscript,
                 settings: settings,
                 audioDuration: attempt.audioDuration,
                 cachedAudioFileURL: nil
@@ -563,7 +563,7 @@ final class DictationSessionController {
             status = .success(transcript: acceptedTranscript.text)
             failurePresentation = nil
             recordRecoveryHistory(
-                acceptedTranscript.text,
+                acceptedTranscript,
                 settings: settings,
                 audioDuration: artifact.duration,
                 cachedAudioFileURL: artifact.fileURL
@@ -650,18 +650,19 @@ final class DictationSessionController {
     }
 
     private func recordRecoveryHistory(
-        _ transcript: String,
+        _ acceptedTranscript: AcceptedTranscript,
         settings: AppSettings,
         audioDuration: TimeInterval?,
         cachedAudioFileURL: URL?
     ) {
+        let request = settings.acceptedTranscriptHistoryRequest(
+            acceptedTranscript: acceptedTranscript,
+            audioDuration: audioDuration,
+            cachedAudioFileURL: cachedAudioFileURL
+        )
+
         do {
-            try transcriptHistory.recordAcceptedTranscript(
-                transcript,
-                settings: settings,
-                audioDuration: audioDuration,
-                cachedAudioFileURL: cachedAudioFileURL
-            )
+            try transcriptHistory.recordAcceptedTranscript(request)
         } catch {
             outputStatusText = Self.userFacingMessage(for: error)
         }
