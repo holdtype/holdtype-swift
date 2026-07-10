@@ -264,6 +264,13 @@ the attempt ID, audio identity, creation date, duration, byte count, and output
 intent, and returns only after the new `transcribing` record is durable. This
 UUID is the local usage/replay identity, not an OpenAI idempotency header.
 
+Only that successful commit may create one process-local, one-shot dispatch
+authorization containing the validated runtime audio artifact. Consuming it is
+atomic and succeeds once even under concurrent callers. `load`, observations,
+and a persisted `transcribing` record never expose a provider-capable URL or
+reconstruct dispatch authority. If the process loses the authorization, the
+attempt must use process-loss recovery and explicit Retry with a fresh UUID.
+
 Preparing a pending attempt follows this order:
 
 1. reject a valid, corrupt, or future journal and perform a bounded read-only
