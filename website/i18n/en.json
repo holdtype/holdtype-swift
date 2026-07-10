@@ -2,7 +2,7 @@
   "locale": "en",
   "meta": {
     "title": "{brand.holdType} — The most honest Wispr Flow “clone”",
-    "description": "{brand.holdType} is the most honest Wispr Flow “clone”: native {brand.macOS} dictation with GPT-4o Transcribe, your {brand.openAI} API key, and no {brand.holdType} subscription or mandatory rewrite pass.",
+    "description": "{brand.holdType} is the most honest Wispr Flow “clone”: native {brand.macOS} dictation with your {brand.openAI} API key, no {brand.holdType} subscription, and no mandatory rewrite pass.",
     "socialImageAlt": "{brand.holdType} app icon"
   },
   "common": {
@@ -30,8 +30,8 @@
   },
   "hero": {
     "title": "The most honest Wispr Flow “clone”.",
-    "lede": "No mystery model. No mandatory rewrite pass. You pay OpenAI, not {brand.holdType}.",
-    "support": "{brand.holdType} sends audio directly from your {brand.mac} to GPT-4o Transcribe using your {brand.openAI} API key, then returns the text to the cursor in most {brand.mac} apps. Translation runs only when you ask for it.",
+    "lede": "No account. No mandatory rewrite pass. You pay OpenAI, not {brand.holdType}.",
+    "support": "{brand.holdType} sends audio directly from your {brand.mac} to {brand.openAI} using your API key, then returns the text to the cursor in most {brand.mac} apps. Translation runs only when you ask for it.",
     "seeHowItWorks": "See the workflow",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
@@ -82,8 +82,8 @@
   "reasons": {
     "a11yTitle": "What “honest” means for {brand.holdType}",
     "stays": {
-      "title": "GPT-4o Transcribe by default",
-      "body": "The model has a name. GPT-4o Transcribe is the configurable default."
+      "title": "Text at your cursor",
+      "body": "Hold a shortcut, speak, and the result returns to the cursor. No separate editor or browser tab to manage."
     },
     "subscription": {
       "title": "Your OpenAI key. Direct billing.",
@@ -169,8 +169,8 @@
     "imageCaption": "Special recording hardware is not required.",
     "label": "Why I built {brand.holdType}",
     "title": "I wanted Wispr Flow. I didn’t want the bullshit.",
-    "body1": "I wanted to know which model heard me and who charged me for it. I did not want another black box between my voice and the cursor.",
-    "body2": "GPT-4o Transcribe from {brand.openAI} gave me the first pass I trusted most often. The second model pass stays off unless I turn it on.",
+    "body1": "I wanted to know who charged me and why every transcript had to be rewritten by a second model. I did not want another black box between my voice and the cursor.",
+    "body2": "In my daily work, {brand.openAI} transcription gave me the first pass I trusted most often. The optional rewrite pass stays off unless I turn it on.",
     "body3": "{brand.holdType} is the native Swift app I built for that: your API key, direct OpenAI billing, no product account, and no monthly fee."
   },
   "install": {
@@ -311,7 +311,7 @@
     "body": "Free app · Your {brand.openAI} API key · No {brand.holdType} subscription · {fact.minimumOS}"
   },
   "footer": {
-    "description": "Native {brand.macOS} dictation with GPT-4o Transcribe. Source-available under {license.fsl11} with an {license.mit} future license.",
+    "description": "Native {brand.macOS} dictation. Source-available under {license.fsl11} with an {license.mit} future license.",
     "sourceLink": "Inspect the source on {brand.github}"
   },
   "lightbox": {

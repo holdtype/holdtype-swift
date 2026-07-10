@@ -162,13 +162,13 @@ text links. Shadows are reserved for the hero editor and real product windows.
   16px page gutters, and full-width primary CTAs.
 
 The first viewport leads with `The most honest Wispr Flow "clone".` It must
-immediately explain the provocation through a named default model, the user's
-OpenAI Platform API key, direct OpenAI billing, no HoldType subscription, and
-no mandatory model rewrite. The primary actions are the free macOS download and
-source inspection. A compact proof row repeats the named model, direct billing,
-and absence of a HoldType account or backend. No unsupported metric,
-comparative speed claim, or undocumented claim about Wispr Flow's internal
-model is permitted above the fold.
+immediately explain the provocation through text returning to the active
+cursor, the user's OpenAI Platform API key, direct OpenAI billing, no HoldType
+subscription, and no mandatory model rewrite. The primary actions are the free
+macOS download and source inspection. A compact proof row repeats the cursor
+workflow, direct billing, and absence of a HoldType account or backend. No
+unsupported metric, comparative speed claim, or undocumented claim about Wispr
+Flow's internal model is permitted above the fold.
 
 The code-native editor uses a dry, self-ironic fictional plan to build a tiny
 SaaS and reach `$1M ARR`; the interface presents the request as if it were
@@ -220,7 +220,9 @@ UI states were redrawn or retouched.
 ## Product-copy boundaries
 
 - HoldType is a native macOS app for macOS 14 or newer.
-- Its configurable default transcription model is `gpt-4o-transcribe`.
+- The exact transcription-model name appears at most once in subdued secondary
+  copy. It is not used in metadata, headlines, hero lead or support copy, proof
+  chips, section headings, founder copy, the final CTA, or the footer.
 - Model-based correction is optional and off by default. Local typography
   cleanup may still run without another model request.
 - It inserts accepted text in **most** Mac apps; it does not claim universal

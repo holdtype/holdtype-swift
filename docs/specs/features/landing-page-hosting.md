@@ -20,25 +20,30 @@ that already uses GitHub Pages.
   App Platform's static-site service, managed HTTPS, and CDN.
 - `www.holdtype.app` redirects to the canonical apex domain.
 - The first viewport may position HoldType as the most honest Wispr Flow
-  "clone" when the same viewport immediately defines that claim: the default
-  model is named, model-based correction is optional and off by default, the
-  user supplies the OpenAI Platform API key, and OpenAI rather than HoldType
+  "clone" when the same viewport immediately defines that claim: text returns
+  to the active cursor, model-based correction is optional and off by default,
+  the user supplies the OpenAI Platform API key, and OpenAI rather than HoldType
   bills API usage.
 - The landing page must turn `honest` into a visible product contract rather
-  than leaving it as praise. The contract covers the named model, billing
-  source, optional rewrite pass, explicit Mac-to-OpenAI data path, and the
-  Mac-only product boundary.
+  than leaving it as praise. The contract covers the cursor-level workflow,
+  billing source, optional rewrite pass, explicit Mac-to-OpenAI data path, and
+  the Mac-only product boundary.
+- The exact transcription-model name may appear at most once in public copy,
+  in subdued secondary text such as the muted transcribing message inside the
+  hero illustration. It must not appear in metadata, the hero headline, lead,
+  or support copy, proof chips, section headings, founder copy, the final call
+  to action, or the footer.
 - The hero editor illustration uses a dry, self-ironic fictional plan to build
   a small SaaS and reach `$1M ARR`. Its caption explicitly identifies the scene
   as an illustration rather than a recorded demo and does not imply that Codex
   produced that business result. The listening and transcribing labels,
   animation states, outer hero, calls to action, and pricing sticker remain
   unchanged when this sample copy changes.
-- Product copy may describe the known model, request path, billing boundary,
-  and native implementation. It must not claim that HoldType is the fastest or
-  most accurate dictation product, publish a comparative speed multiplier, or
-  attribute an undocumented recognition model to a competitor without a dated,
-  reproducible evidence package.
+- Product copy may describe the request path, billing boundary, and native
+  implementation. It must not turn the current model into a headline or claim
+  that HoldType is the fastest or most accurate dictation product, publish a
+  comparative speed multiplier, or attribute an undocumented recognition model
+  to a competitor without a dated, reproducible evidence package.
 - The generated pages remain usable at the DigitalOcean technical hostname and
   at the custom-domain routes without a server-side application runtime.
 - Download links continue to use the stable GitHub latest-release URL.

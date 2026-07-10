@@ -6,10 +6,15 @@ Research snapshot: 2026-07-09
 
 ## Product Position
 
-HoldType is the most honest Wispr Flow "clone": a native macOS dictation client
-that names its default model, uses the user's OpenAI Platform API key, and adds
-no HoldType account or subscription. Model-based correction is optional and off
-by default, so ordinary dictation does not require a second model rewrite.
+HoldType is the most honest Wispr Flow "clone": a native macOS dictation app
+that returns text to the active cursor, uses the user's OpenAI Platform API key,
+and adds no HoldType account or subscription. Model-based correction is
+optional and off by default, so ordinary dictation does not require a second
+model rewrite.
+
+The exact transcription model is a secondary implementation detail, not the
+positioning. Name it once in subdued technical copy; do not repeat it in
+headlines, proof chips, section headings, founder copy, or the footer.
 
 The landing page should lead with this concrete product and commercial
 contract. The idea of speaking a complete thought may remain a supporting use
@@ -17,8 +22,8 @@ case, but it is not the product position.
 
 Primary job:
 
-> Let me hold one shortcut, dictate through `gpt-4o-transcribe`, and put the
-> returned text at the cursor without paying for another dictation subscription.
+> Let me hold one shortcut, dictate, and put the returned text at the cursor
+> without paying for another dictation subscription.
 
 Secondary job:
 
@@ -31,7 +36,7 @@ Recommended positioning line:
 
 Supporting line:
 
-> No mystery model. No mandatory rewrite pass. You pay OpenAI, not HoldType.
+> No account. No mandatory rewrite pass. You pay OpenAI, not HoldType.
 
 ## Role Of Each Surface
 
@@ -59,7 +64,7 @@ This is a positioning study, not a feature checklist.
 | --- | --- | --- |
 | [Wispr Flow](https://wisprflow.ai/) | A quantified speed promise, immediate before/after demonstration, repeated download CTA, and extensive social proof | Show the result before explaining settings. Do not copy speed multipliers without HoldType-specific measurement. |
 | [OpenWhispr](https://openwhispr.com/) | Privacy and user control directly after the hero, plus a concise GitHub README with direct downloads | Explain the data boundary early. Keep HoldType focused instead of matching OpenWhispr's meetings, notes, agents, and local-model breadth. |
-| [Superwhisper](https://superwhisper.com/) | A short “speak → polished text” hero, visible demo, concrete coding workflows, and clear local/cloud data-flow documentation | Use a real end-to-end demo and show the apps where HoldType is useful. HoldType may name its default model because the model and direct API path are part of the product contract. |
+| [Superwhisper](https://superwhisper.com/) | A short “speak → polished text” hero, visible demo, concrete coding workflows, and clear local/cloud data-flow documentation | Use a real end-to-end demo and show the apps where HoldType is useful. Do not turn model choice into the headline. |
 | [VoiceInk](https://tryvoiceink.com/) | Native Mac and privacy positioning, concrete use cases, founder presence, pricing clarity, and public source as trust | Combine founder credibility with product proof. Avoid accuracy and speed claims without a reproducible method. |
 | [MacWhisper](https://www.macwhisper.com/) | Use-case-led product breadth, UI proof, reviews, and a clear one-time purchase story | Borrow use-case clarity, not the all-in-one transcription-studio scope. |
 
@@ -71,9 +76,9 @@ Goal: explain the outcome, platform, and commercial boundary within five
 seconds.
 
 - Headline: `The most honest Wispr Flow "clone".`
-- Supporting copy: `No mystery model. No mandatory rewrite pass. You pay
+- Supporting copy: `No account. No mandatory rewrite pass. You pay
   OpenAI, not HoldType.`
-- Immediate proof: `gpt-4o-transcribe` by default, the user's OpenAI key, direct
+- Immediate proof: text returns to the cursor, the user's OpenAI key, direct
   OpenAI billing, no HoldType account or backend, and translation only when
   requested.
 - Primary CTA: `Download free for macOS`.
@@ -96,7 +101,8 @@ GIF can be the fallback for GitHub.
 
 Present this section under `What "honest" means here`:
 
-1. **The model has a name:** `gpt-4o-transcribe` is the configurable default.
+1. **Text stays where the user works:** the result returns to the active cursor
+   without a separate editor or browser tab.
 2. **The bill has a source:** OpenAI deducts API usage from the Platform account
    connected through the user's key; HoldType adds no monthly fee.
 3. **The rewrite pass is optional:** model-based correction is off by default.
@@ -138,14 +144,14 @@ A simple data-flow visual can make this easier to scan:
 Use one factual, low-friction cost conversion rather than an abstract
 minutes-per-day table:
 
-> About $0.10 covers 100 quick voice messages at the current estimated
-> `gpt-4o-transcribe` rate—roughly 17 minutes of recorded speech in total.
+> About $0.10 covers 100 voice messages at the current estimated OpenAI
+> transcription rate—roughly 17 minutes of recorded speech in total.
 > Repeating the same daily total for 30 days is about $3.
 
 The hero may use the restrained
-`Even 100 a day · ≈ $0.10 · for quick voice messages` badge and the supporting
-line `A hundred quick messages is already a very talkative day.` Keep the
-17-minute, model-rate, and $3 monthly qualifications in the detailed cost
+`Even 100 a day · ≈ $0.10 · for voice messages` badge and the supporting line
+`A hundred messages is already a very talkative day.` Keep the 17-minute,
+provider-rate, and $3 monthly qualifications in the detailed cost
 section instead of the first viewport. The detailed example must still state
 that optional correction and translation are separate.
 
@@ -154,11 +160,10 @@ that optional correction and translation are separate.
 Keep the story specific and short:
 
 - open with `I wanted Wispr Flow. I didn't want the bullshit.`;
-- explain the concrete frustration: not knowing which model heard the audio or
-  who charged for the result;
-- answer it with a named default model, the user's API key, direct OpenAI
-  billing, optional correction, native Swift, and no extra account or
-  subscription;
+- explain the concrete frustration: another product account, opaque billing,
+  and a mandatory rewrite pipeline between voice and cursor;
+- answer it with the user's API key, direct OpenAI billing, optional correction,
+  native Swift, and no extra account or subscription;
 - HoldType is built and tested through the same Codex-heavy voice workflow;
 - the desk microphone photo belongs here, with a note that special hardware is
   not required.
@@ -171,7 +176,7 @@ Use evidence that can be checked:
 - current macOS requirement;
 - public source and release history;
 - short privacy explanation;
-- measured examples with the model, recording length, date, and method;
+- measured examples with the provider rate, recording length, date, and method;
 - real user quotes only after permission and attribution.
 
 ### 8. Download, Setup, And FAQ
@@ -237,19 +242,19 @@ Do not publish `3x faster`, `5x faster`, `99% accurate`, `perfect`, `private`,
 or `works in every app` without a documented HoldType-specific method and the
 necessary qualifications.
 
-Do not describe `gpt-4o-transcribe` as the best model on the market. The landing
-page may name it as the current configurable default and may link to OpenAI's
-own model documentation. Do not claim that a competitor uses `whisper-1` or an
+Do not turn the current transcription model into a marketing claim. The landing
+page may name it once in subdued technical copy and may link to OpenAI's own
+model documentation. Do not claim that a competitor uses `whisper-1` or an
 older Whisper model unless the competitor publishes that fact.
 
 Do not describe 100 dictations as a daily maximum or typical usage, claim that
 HoldType is always cheaper than a flat subscription, say that free and paid
 competitor tiers use different recognition quality, or suggest that competing
-providers deliberately reduce quality. Cost examples must name the model,
-reviewed rate, recording duration, and excluded optional requests in the
+providers deliberately reduce quality. Cost examples must name the reviewed
+provider rate, recording duration, and excluded optional requests in the
 detailed cost section; the hero may use the approved rounded example backed by
-that explanation. Quality preference belongs in the founder's first-person
-experience unless a reproducible HoldType benchmark exists.
+that explanation. Quality preference must not become a model slogan unless a
+reproducible HoldType benchmark exists.
 
 Prefer claims that are already observable:
 
