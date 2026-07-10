@@ -1,0 +1,296 @@
+{
+  "origin": "https://holdtype.app",
+  "defaultLocale": "en",
+  "openGraphLocales": {
+    "en": "en_US",
+    "es": "es_ES",
+    "de": "de_DE",
+    "fr": "fr_FR",
+    "pt-BR": "pt_BR",
+    "ja": "ja_JP",
+    "zh-Hans": "zh_CN",
+    "ko": "ko_KR",
+    "ru": "ru_RU",
+    "ar": "ar_AR"
+  },
+  "tokens": {
+    "brand.holdType": {
+      "value": "HoldType",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.openAI": {
+      "value": "OpenAI",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.openAIPlatform": {
+      "value": "OpenAI Platform",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.chatGPT": {
+      "value": "ChatGPT",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.chatGPTPlus": {
+      "value": "ChatGPT Plus",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.macOS": {
+      "value": "macOS",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.mac": {
+      "value": "Mac",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.macOSKeychain": {
+      "value": "macOS Keychain",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.github": {
+      "value": "GitHub",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.githubReleases": {
+      "value": "GitHub Releases",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.homebrew": {
+      "value": "Homebrew",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.codex": {
+      "value": "Codex",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.claude": {
+      "value": "Claude",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.youtube": {
+      "value": "YouTube",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "brand.geekrar": {
+      "value": "GEEKrar",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "license.fsl11": {
+      "value": "FSL 1.1",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "license.mit": {
+      "value": "MIT",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "appUi.translation": {
+      "value": "Translation",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.localDictionary": {
+      "value": "Local Dictionary",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.billing": {
+      "value": "Billing",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.pasteLastResult": {
+      "value": "Paste Last Result",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.lastResult": {
+      "value": "Last Result",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.retry": {
+      "value": "Retry",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.settingsOpenAI": {
+      "value": "Settings → OpenAI",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "appUi.applications": {
+      "value": "Applications",
+      "translate": false,
+      "language": "en",
+      "direction": "ltr"
+    },
+    "keyboard.rightCommand": {
+      "value": "Right Command",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "keyboard.translationShortcut": {
+      "value": "Right Command + Right Option",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "keyboard.pasteShortcut": {
+      "value": "Control + Command + V",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "keyboard.command": {
+      "value": "Command",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "fact.minimumOS": {
+      "value": "macOS 14+",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.dailyDictations": {
+      "value": "100",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.dailyPrice": {
+      "value": "$0.10",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.recordedMinutes": {
+      "value": "17",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.daysInMonth": {
+      "value": "30",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.monthlyPrice": {
+      "value": "$3",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "video.roundedMinutes": {
+      "value": "2",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "video.duration": {
+      "value": "2:16",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "video.year": {
+      "value": "2026",
+      "translate": false,
+      "direction": "ltr"
+    }
+  },
+  "links": {
+    "latestRelease": {
+      "href": "https://github.com/holdtype/holdtype-swift/releases/latest"
+    },
+    "allReleases": {
+      "href": "https://github.com/holdtype/holdtype-swift/releases"
+    },
+    "sourceRepository": {
+      "href": "https://github.com/holdtype/holdtype-swift"
+    },
+    "homebrewTap": {
+      "href": "https://github.com/holdtype/homebrew-tap"
+    },
+    "openAIPricing": {
+      "href": "https://developers.openai.com/api/docs/pricing"
+    },
+    "openAIKeys": {
+      "href": "https://platform.openai.com/api-keys",
+      "attrs": {
+        "target": "_blank",
+        "rel": "noopener noreferrer"
+      }
+    },
+    "openAIKeyHelp": {
+      "href": "https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key",
+      "attrs": {
+        "target": "_blank",
+        "rel": "noopener noreferrer"
+      }
+    },
+    "apiKeyGuide": {
+      "href": "#api-key-guide"
+    },
+    "apiKeyTutorial": {
+      "href": "https://www.youtube.com/watch?v=CGncYPblQA8",
+      "attrs": {
+        "target": "_blank",
+        "rel": "noopener noreferrer"
+      }
+    },
+    "videoCreator": {
+      "href": "https://www.youtube.com/@Geekrar",
+      "attrs": {
+        "target": "_blank",
+        "rel": "noopener noreferrer"
+      }
+    },
+    "translationScreenshot": {
+      "href": "assets/settings-translation.png",
+      "attrs": {
+        "data-lightbox-link": ""
+      }
+    },
+    "billingScreenshot": {
+      "href": "assets/settings-billing.png",
+      "attrs": {
+        "data-lightbox-link": ""
+      }
+    }
+  },
+  "assets": {
+    "appIcon": "assets/app-icon.png",
+    "indicatorListening": "assets/indicator-listening.png",
+    "indicatorTranscribing": "assets/indicator-transcribing.png",
+    "menuPopover": "assets/menu-popover.png",
+    "settingsTranslation": "assets/settings-translation.png",
+    "settingsTranslationMobile": "assets/settings-translation-mobile.png",
+    "settingsBilling": "assets/settings-billing.png",
+    "settingsBillingMobile": "assets/settings-billing-mobile.png",
+    "workflowMicrophone": "assets/workflow-microphone.jpg"
+  },
+  "commands": {
+    "homebrewInstall": "brew tap holdtype/tap\nbrew trust holdtype/tap\nbrew install --cask holdtype\nopen -a HoldType"
+  },
+  "video": {
+    "apiKeyTutorial": {
+      "id": "CGncYPblQA8",
+      "privacyEnhancedHost": "https://www.youtube-nocookie.com"
+    }
+  }
+}

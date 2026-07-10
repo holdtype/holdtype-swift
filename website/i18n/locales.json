@@ -1,0 +1,97 @@
+{
+  "default": "en",
+  "locales": [
+    {
+      "code": "en",
+      "path": "/",
+      "dir": "ltr",
+      "nativeName": "English",
+      "browserMatches": [
+        "en"
+      ]
+    },
+    {
+      "code": "es",
+      "path": "/es/",
+      "dir": "ltr",
+      "nativeName": "Español",
+      "browserMatches": [
+        "es"
+      ]
+    },
+    {
+      "code": "de",
+      "path": "/de/",
+      "dir": "ltr",
+      "nativeName": "Deutsch",
+      "browserMatches": [
+        "de"
+      ]
+    },
+    {
+      "code": "fr",
+      "path": "/fr/",
+      "dir": "ltr",
+      "nativeName": "Français",
+      "browserMatches": [
+        "fr"
+      ]
+    },
+    {
+      "code": "pt-BR",
+      "path": "/pt-br/",
+      "dir": "ltr",
+      "nativeName": "Português (Brasil)",
+      "browserMatches": [
+        "pt"
+      ]
+    },
+    {
+      "code": "ja",
+      "path": "/ja/",
+      "dir": "ltr",
+      "nativeName": "日本語",
+      "browserMatches": [
+        "ja"
+      ]
+    },
+    {
+      "code": "zh-Hans",
+      "path": "/zh-hans/",
+      "dir": "ltr",
+      "nativeName": "简体中文",
+      "browserMatches": [
+        "zh-Hans",
+        "zh-CN",
+        "zh-SG"
+      ]
+    },
+    {
+      "code": "ko",
+      "path": "/ko/",
+      "dir": "ltr",
+      "nativeName": "한국어",
+      "browserMatches": [
+        "ko"
+      ]
+    },
+    {
+      "code": "ru",
+      "path": "/ru/",
+      "dir": "ltr",
+      "nativeName": "Русский",
+      "browserMatches": [
+        "ru"
+      ]
+    },
+    {
+      "code": "ar",
+      "path": "/ar/",
+      "dir": "rtl",
+      "nativeName": "العربية",
+      "browserMatches": [
+        "ar"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr" data-locale-document>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,23 +7,65 @@
     <meta
       name="description"
       content="HoldType is macOS voice input for long prompts, messages, docs, and notes. Use your own OpenAI API key with no HoldType account or subscription."
+      data-i18n-attrs="content:meta.description"
     >
-    <title>HoldType — Speak the whole thought</title>
+    <title data-i18n="meta.title">HoldType — Speak the whole thought</title>
+    <link rel="canonical" href="https://holdtype.app/" data-locale-canonical>
+    <link rel="alternate" hreflang="en" href="https://holdtype.app/" data-locale-alternate="en">
+    <link rel="alternate" hreflang="es" href="https://holdtype.app/es/" data-locale-alternate="es">
+    <link rel="alternate" hreflang="de" href="https://holdtype.app/de/" data-locale-alternate="de">
+    <link rel="alternate" hreflang="fr" href="https://holdtype.app/fr/" data-locale-alternate="fr">
+    <link rel="alternate" hreflang="pt-BR" href="https://holdtype.app/pt-br/" data-locale-alternate="pt-BR">
+    <link rel="alternate" hreflang="ja" href="https://holdtype.app/ja/" data-locale-alternate="ja">
+    <link rel="alternate" hreflang="zh-Hans" href="https://holdtype.app/zh-hans/" data-locale-alternate="zh-Hans">
+    <link rel="alternate" hreflang="ko" href="https://holdtype.app/ko/" data-locale-alternate="ko">
+    <link rel="alternate" hreflang="ru" href="https://holdtype.app/ru/" data-locale-alternate="ru">
+    <link rel="alternate" hreflang="ar" href="https://holdtype.app/ar/" data-locale-alternate="ar">
+    <link rel="alternate" hreflang="x-default" href="https://holdtype.app/" data-locale-alternate="x-default">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="HoldType" data-token-attr="content:brand.holdType">
+    <meta property="og:locale" content="en_US" data-locale-open-graph>
+    <meta property="og:title" content="HoldType — Speak the whole thought" data-i18n-attrs="content:meta.title">
+    <meta
+      property="og:description"
+      content="HoldType is macOS voice input for long prompts, messages, docs, and notes. Use your own OpenAI API key with no HoldType account or subscription."
+      data-i18n-attrs="content:meta.description"
+    >
+    <meta property="og:url" content="https://holdtype.app/" data-locale-canonical-content>
+    <meta property="og:image" content="https://holdtype.app/assets/app-icon.png">
+    <meta property="og:image:alt" content="HoldType app icon" data-i18n-attrs="content:meta.socialImageAlt">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="HoldType — Speak the whole thought" data-i18n-attrs="content:meta.title">
+    <meta
+      name="twitter:description"
+      content="HoldType is macOS voice input for long prompts, messages, docs, and notes. Use your own OpenAI API key with no HoldType account or subscription."
+      data-i18n-attrs="content:meta.description"
+    >
+    <meta name="twitter:image" content="https://holdtype.app/assets/app-icon.png">
+    <meta name="twitter:image:alt" content="HoldType app icon" data-i18n-attrs="content:meta.socialImageAlt">
     <link rel="icon" type="image/png" href="assets/app-icon.png">
     <link rel="preload" as="image" href="assets/indicator-listening.png">
     <link rel="preload" as="image" href="assets/indicator-transcribing.png">
     <script>document.documentElement.classList.add("js");</script>
     <link rel="stylesheet" href="styles.css">
     <script src="script.js" defer></script>
+    <script type="application/json" id="locale-config" data-locale-config>
+      {"locale":"en","path":"/","isDefault":true}
+    </script>
   </head>
   <body id="top">
-    <a class="skip-link" href="#main-content">Skip to content</a>
+    <a class="skip-link" href="#main-content" data-i18n="common.skipToContent">Skip to content</a>
 
     <header class="site-header" data-site-header>
       <div class="header-inner">
-        <a class="brand" href="#top" aria-label="HoldType home">
+        <a
+          class="brand"
+          href="#top"
+          aria-label="HoldType home"
+          data-i18n-attrs="aria-label:common.brandHomeAria"
+        >
           <img src="assets/app-icon.png" width="512" height="512" alt="">
-          <span>HoldType</span>
+          <span data-token-ref="brand.holdType">HoldType</span>
         </a>
 
         <button
@@ -33,38 +75,94 @@
           aria-controls="primary-navigation"
           data-nav-toggle
         >
-          <span data-nav-label>Menu</span>
+          <span
+            data-nav-label
+            data-i18n="header.menuClosed"
+            data-i18n-runtime="closed:header.menuClosed;open:header.menuOpen"
+          >Menu</span>
         </button>
 
-        <nav class="site-nav" id="primary-navigation" aria-label="Primary" data-site-nav>
-          <a href="#how-it-works">How it works</a>
-          <a href="#features">Features</a>
-          <a href="#privacy">Privacy</a>
-          <a href="#faq">FAQ</a>
+        <nav
+          class="site-nav"
+          id="primary-navigation"
+          aria-label="Primary"
+          data-site-nav
+          data-i18n-attrs="aria-label:common.primaryNavigationAria"
+        >
+          <a href="#how-it-works" data-i18n="header.howItWorks">How it works</a>
+          <a href="#features" data-i18n="header.features">Features</a>
+          <a href="#privacy" data-i18n="header.privacy">Privacy</a>
+          <a href="#faq" data-i18n="header.faq">FAQ</a>
           <a
             class="mobile-download"
             href="https://github.com/holdtype/holdtype-swift/releases/latest"
+            data-link-ref="latestRelease"
           >
-            Download for macOS
+            <span data-i18n="common.downloadForMacOS">Download for macOS</span>
           </a>
         </nav>
+
+        <details class="language-selector" data-language-selector>
+          <summary>
+            <span data-i18n="localeUi.switcherLabel">Language</span>:
+            <span data-locale-current-name>English</span>
+          </summary>
+          <ul
+            aria-label="Choose language"
+            data-locale-links
+            data-i18n-attrs="aria-label:localeUi.switcherAria"
+          >
+            <li><a href="/" lang="en" hreflang="en" aria-current="page" data-locale-link="en">English</a></li>
+            <li><a href="/es/" lang="es" hreflang="es" data-locale-link="es">Español</a></li>
+            <li><a href="/de/" lang="de" hreflang="de" data-locale-link="de">Deutsch</a></li>
+            <li><a href="/fr/" lang="fr" hreflang="fr" data-locale-link="fr">Français</a></li>
+            <li><a href="/pt-br/" lang="pt-BR" hreflang="pt-BR" data-locale-link="pt-BR">Português (Brasil)</a></li>
+            <li><a href="/ja/" lang="ja" hreflang="ja" data-locale-link="ja">日本語</a></li>
+            <li><a href="/zh-hans/" lang="zh-Hans" hreflang="zh-Hans" data-locale-link="zh-Hans">简体中文</a></li>
+            <li><a href="/ko/" lang="ko" hreflang="ko" data-locale-link="ko">한국어</a></li>
+            <li><a href="/ru/" lang="ru" hreflang="ru" data-locale-link="ru">Русский</a></li>
+            <li><a href="/ar/" lang="ar" hreflang="ar" dir="rtl" data-locale-link="ar">العربية</a></li>
+          </ul>
+        </details>
 
         <a
           class="button button-small header-download"
           href="https://github.com/holdtype/holdtype-swift/releases/latest"
+          data-link-ref="latestRelease"
         >
-          Download for macOS
+          <span data-i18n="common.downloadForMacOS">Download for macOS</span>
         </a>
       </div>
     </header>
+
+    <aside
+      class="language-suggestion"
+      aria-label="Language suggestion"
+      hidden
+      data-language-suggestion
+      data-root-only
+      data-i18n-attrs="aria-label:localeUi.suggestionAria"
+    >
+      <p data-i18n-template="localeUi.suggestionMessage">
+        This page is available in <strong data-language-suggestion-name>your language</strong>.
+      </p>
+      <a href="/" data-language-suggestion-action data-i18n="localeUi.suggestionAction">View page</a>
+      <button
+        type="button"
+        aria-label="Dismiss language suggestion"
+        data-language-suggestion-dismiss
+        data-i18n="localeUi.suggestionDismiss"
+        data-i18n-attrs="aria-label:localeUi.suggestionDismissAria"
+      >Not now</button>
+    </aside>
 
     <main id="main-content">
       <section class="hero" aria-labelledby="hero-title">
         <div class="container hero-layout">
           <div class="hero-copy">
-            <h1 id="hero-title">Speak the whole thought.</h1>
-            <p class="hero-lede">HoldType puts it where you’re working.</p>
-            <p class="hero-support">
+            <h1 id="hero-title" data-i18n="hero.title">Speak the whole thought.</h1>
+            <p class="hero-lede" data-i18n="hero.lede">HoldType puts it where you’re working.</p>
+            <p class="hero-support" data-i18n="hero.support">
               Long prompts, messages, docs, and notes—spoken directly into the Mac
               app where you’re working. HoldType uses your OpenAI API key and
               returns accepted text to the cursor in most Mac apps.
@@ -73,14 +171,15 @@
               <a
                 class="button"
                 href="https://github.com/holdtype/holdtype-swift/releases/latest"
+                data-link-ref="latestRelease"
               >
-                Download for macOS
+                <span data-i18n="common.downloadForMacOS">Download for macOS</span>
               </a>
-              <a class="text-link" href="#how-it-works">
+              <a class="text-link" href="#how-it-works" data-i18n="hero.seeHowItWorks">
                 See how it works
               </a>
             </div>
-            <p class="hero-qualification">
+            <p class="hero-qualification" data-i18n="hero.qualification">
               Free app · OpenAI API usage billed separately · macOS 14+
             </p>
           </div>
@@ -89,40 +188,45 @@
             <div
               class="price-sticker hero-price-sticker"
               role="note"
-              aria-label="Even one hundred dictations a day cost about ten cents in this intensive-use example."
+              aria-label="Even 100 dictations a day cost about $0.10 in this intensive-use example."
+              data-i18n-attrs="aria-label:hero.price.aria"
             >
-              <span class="price-sticker-kicker">Even 100 dictations a day</span>
-              <strong>≈ $0.10</strong>
-              <span>for intensive use</span>
+              <span class="price-sticker-kicker" data-i18n="hero.price.kicker">Even 100 dictations a day</span>
+              <strong data-i18n="hero.price.value">≈ $0.10</strong>
+              <span data-i18n="hero.price.suffix">for intensive use</span>
             </div>
             <div class="editor-window" aria-hidden="true">
               <div class="editor-toolbar" aria-hidden="true">
-                <span class="editor-window-label">HoldType illustration</span>
-                <span class="editor-toolbar-title">Project update</span>
-                <span class="editor-tools">Aa&nbsp;&nbsp; ···</span>
+                <span class="editor-window-label" data-i18n="hero.demo.editorIllustration">HoldType illustration</span>
+                <span class="editor-toolbar-title" data-i18n="hero.demo.documentTitle">Project update</span>
+                <span class="editor-tools" data-i18n="hero.demo.toolbarSample">Aa&nbsp;&nbsp; ···</span>
               </div>
               <div class="editor-body">
-                <p class="editor-heading">Project update</p>
-                <p>Here’s a summary of progress and next steps.</p>
-                <p class="editor-subheading">Summary</p>
+                <p class="editor-heading" data-i18n="hero.demo.documentTitle">Project update</p>
+                <p data-i18n="hero.demo.intro">Here’s a summary of progress and next steps.</p>
+                <p class="editor-subheading" data-i18n="hero.demo.sectionTitle">Summary</p>
 
                 <div class="demo-panel" data-demo-panel="listening" hidden>
-                  <p class="demo-placeholder">Hold Right Command and speak naturally.</p>
+                  <p class="demo-placeholder" data-i18n="hero.demo.listeningBody">Hold Right Command and speak naturally.</p>
                 </div>
                 <div class="demo-panel" data-demo-panel="transcribing" hidden>
-                  <p class="demo-placeholder">Preparing the accepted text…</p>
+                  <p class="demo-placeholder" data-i18n="hero.demo.transcribingBody">Preparing the accepted text…</p>
                 </div>
                 <div class="demo-panel" data-demo-panel="inserted">
                   <p>
-                    We shipped the latest release last week. Feedback has been
+                    <span data-i18n="hero.demo.insertedBody">We shipped the latest release last week. Feedback has been
                     positive, and the next step is to tighten onboarding and keep
-                    the writing flow simple.<span class="text-cursor" aria-hidden="true"></span>
+                    the writing flow simple.</span><span class="text-cursor" aria-hidden="true"></span>
                   </p>
                 </div>
               </div>
               <div class="demo-status" aria-hidden="true">
                 <span class="demo-status-dot"></span>
-                <span data-demo-status>Inserted</span>
+                <span
+                  data-demo-status
+                  data-i18n="hero.demo.status.inserted"
+                  data-i18n-runtime="listening:hero.demo.status.listening;transcribing:hero.demo.status.transcribing;inserted:hero.demo.status.inserted"
+                >Inserted</span>
               </div>
             </div>
             <img
@@ -134,7 +238,7 @@
               aria-hidden="true"
               data-demo-indicator
             >
-            <figcaption>
+            <figcaption data-i18n="hero.demo.caption">
               Illustrated workflow: HoldType listens, transcribes, then inserts
               text in a generic editor. Not a recorded demo.
             </figcaption>
@@ -144,12 +248,12 @@
 
       <section class="workflow section-rule" id="how-it-works" aria-labelledby="workflow-title">
         <div class="container">
-          <h2 id="workflow-title">Turn your voice into text—right where you are.</h2>
+          <h2 id="workflow-title" data-i18n="workflow.title">Turn your voice into text—right where you are.</h2>
           <ol class="workflow-list" role="list">
             <li>
               <div class="step-art"><kbd>⌘</kbd></div>
-              <p class="step-title">Hold</p>
-              <p>Hold Right Command</p>
+              <p class="step-title" data-i18n="workflow.steps.hold.title">Hold</p>
+              <p data-i18n="workflow.steps.hold.body">Hold Right Command</p>
             </li>
             <li>
               <div class="step-art">
@@ -161,8 +265,8 @@
                   aria-hidden="true"
                 >
               </div>
-              <p class="step-title">Speak</p>
-              <p>Say the complete thought</p>
+              <p class="step-title" data-i18n="workflow.steps.speak.title">Speak</p>
+              <p data-i18n="workflow.steps.speak.body">Say the complete thought</p>
             </li>
             <li>
               <div class="step-art">
@@ -174,13 +278,13 @@
                   aria-hidden="true"
                 >
               </div>
-              <p class="step-title">Release</p>
-              <p>Let go of Command</p>
+              <p class="step-title" data-i18n="workflow.steps.release.title">Release</p>
+              <p data-i18n="workflow.steps.release.body">Let go of Command</p>
             </li>
             <li>
-              <div class="step-art step-art-text" aria-hidden="true">Text</div>
-              <p class="step-title">Inserted</p>
-              <p>Text appears at the cursor</p>
+              <div class="step-art step-art-text" aria-hidden="true" data-i18n="workflow.steps.inserted.artLabel">Text</div>
+              <p class="step-title" data-i18n="workflow.steps.inserted.title">Inserted</p>
+              <p data-i18n="workflow.steps.inserted.body">Text appears at the cursor</p>
             </li>
           </ol>
         </div>
@@ -188,28 +292,28 @@
 
       <section class="reasons section-rule" aria-labelledby="reasons-title">
         <div class="container">
-          <h2 class="visually-hidden" id="reasons-title">Why HoldType</h2>
+          <h2 class="visually-hidden" id="reasons-title" data-i18n="reasons.a11yTitle">Why HoldType</h2>
           <div class="reason-grid">
             <article>
               <p class="reason-number" aria-hidden="true">01</p>
-              <h3>Stays where you work</h3>
-              <p>
+              <h3 data-i18n="reasons.stays.title">Stays where you work</h3>
+              <p data-i18n="reasons.stays.body">
                 Hold a shortcut, speak, and the result returns to the cursor. No
                 separate editor or browser tab to manage.
               </p>
             </article>
             <article>
               <p class="reason-number" aria-hidden="true">02</p>
-              <h3>No subscription to remember</h3>
-              <p>
+              <h3 data-i18n="reasons.subscription.title">No subscription to remember</h3>
+              <p data-i18n="reasons.subscription.body">
                 HoldType adds no monthly fee. OpenAI deducts the API usage from your
-                Platform account when requests are made.
+                OpenAI Platform account when requests are made.
               </p>
             </article>
             <article>
               <p class="reason-number" aria-hidden="true">03</p>
-              <h3>OpenAI by design</h3>
-              <p>
+              <h3 data-i18n="reasons.openAI.title">OpenAI by design</h3>
+              <p data-i18n="reasons.openAI.body">
                 Start with one quality-first default. No provider comparison or
                 local-model download is required before the first dictation.
               </p>
@@ -221,8 +325,8 @@
       <section class="use-cases" aria-labelledby="use-cases-title">
         <div class="container">
           <div class="section-heading">
-            <h2 id="use-cases-title">For the writing that gets shortened when you type it.</h2>
-            <p>
+            <h2 id="use-cases-title" data-i18n="useCases.title">For the writing that gets shortened when you type it.</h2>
+            <p data-i18n="useCases.intro">
               HoldType is built for complete thoughts, whether the destination is a
               coding agent, a message, or a document.
             </p>
@@ -230,24 +334,24 @@
           <div class="use-case-grid">
             <article>
               <span aria-hidden="true">01</span>
-              <h3>Long AI prompts</h3>
-              <p>
+              <h3 data-i18n="useCases.aiPrompts.title">Long AI prompts</h3>
+              <p data-i18n="useCases.aiPrompts.body">
                 Give Codex, Claude, or ChatGPT the context that is easy to skip when
                 a prompt has to be typed line by line.
               </p>
             </article>
             <article>
               <span aria-hidden="true">02</span>
-              <h3>Everyday writing</h3>
-              <p>
+              <h3 data-i18n="useCases.everyday.title">Everyday writing</h3>
+              <p data-i18n="useCases.everyday.body">
                 Dictate mail, reviews, documentation, chats, and notes without moving
                 the draft through another editor.
               </p>
             </article>
             <article>
               <span aria-hidden="true">03</span>
-              <h3>Bilingual work</h3>
-              <p>
+              <h3 data-i18n="useCases.bilingual.title">Bilingual work</h3>
+              <p data-i18n="useCases.bilingual.body">
                 Speak where the thought comes naturally, then insert the configured
                 target language when translation is requested.
               </p>
@@ -258,18 +362,21 @@
 
       <section class="features" id="features" aria-labelledby="features-title">
         <div class="container">
-          <h2 class="visually-hidden" id="features-title">Product features</h2>
+          <h2 class="visually-hidden" id="features-title" data-i18n="features.a11yTitle">Product features</h2>
+          <p class="app-ui-language-note" data-i18n="features.appUiLanguageNote">
+            The current HoldType app and the product screenshots use an English interface.
+          </p>
 
           <article class="feature-row feature-row-primary">
             <div class="feature-copy">
-              <p class="section-label">Language and vocabulary</p>
-              <h2>Say it naturally. Insert it for the work in front of you.</h2>
-              <p>
+              <p class="section-label" data-i18n="features.translation.label">Language and vocabulary</p>
+              <h2 data-i18n="features.translation.title">Say it naturally. Insert it for the work in front of you.</h2>
+              <p data-i18n="features.translation.body1">
                 Translation runs only when requested. Choose a target language, then
                 use Right Command + Right Option to transcribe and translate in one
                 flow.
               </p>
-              <p>
+              <p data-i18n="features.translation.body2">
                 Local Dictionary entries add spelling context for names, project
                 terms, and file names to the transcription request.
               </p>
@@ -289,15 +396,18 @@
                   loading="lazy"
                   decoding="async"
                   alt="HoldType Translation settings with the translation shortcut and target language controls"
+                  data-i18n-attrs="alt:features.translation.imageAlt"
                 >
               </picture>
-              <figcaption>
+              <figcaption data-i18n-rich="features.translation.caption">
                 Real HoldType Translation settings. On phones, swipe the focused
                 crop horizontally to inspect it.
                 <a
                   href="assets/settings-translation.png"
                   data-lightbox-link
+                  data-link-ref="translationScreenshot"
                   data-lightbox-caption="HoldType Translation settings"
+                  data-i18n-attrs="data-lightbox-caption:features.translation.lightboxCaption"
                 >Open the full-size image</a>.
               </figcaption>
             </figure>
@@ -312,18 +422,19 @@
                 loading="lazy"
                 decoding="async"
                 alt="HoldType menu bar popover with transcribe, translate, Paste Last Result, history, settings, and quit actions"
+                data-i18n-attrs="alt:features.menu.imageAlt"
               >
-              <figcaption>Real menu bar controls, including Last Result recovery.</figcaption>
+              <figcaption data-i18n="features.menu.imageCaption">Real menu bar controls, including Last Result recovery.</figcaption>
             </figure>
             <div class="feature-copy">
-              <p class="section-label">Always within reach</p>
-              <h2>Start, translate, recover, and adjust from the menu bar.</h2>
-              <p>
+              <p class="section-label" data-i18n="features.menu.label">Always within reach</p>
+              <h2 data-i18n="features.menu.title">Start, translate, recover, and adjust from the menu bar.</h2>
+              <p data-i18n="features.menu.body1">
                 If insertion fails, the accepted transcript remains available as Last
                 Result. Paste it with Control + Command + V without replacing the
                 macOS system clipboard.
               </p>
-              <p>
+              <p data-i18n="features.menu.body2">
                 Optional OpenAI correction is off by default. Local typography cleanup
                 can still run without another model request.
               </p>
@@ -336,60 +447,70 @@
         <div class="container">
           <div class="data-intro">
             <div>
-              <p class="section-label">Cost and data boundary</p>
-              <h2 id="privacy-title">Clear about what stays local—and what goes to OpenAI.</h2>
+              <p class="section-label" data-i18n="privacy.label">Cost and data boundary</p>
+              <h2 id="privacy-title" data-i18n="privacy.title">Clear about what stays local—and what goes to OpenAI.</h2>
             </div>
-            <p>
+            <p data-i18n="privacy.intro">
               HoldType has no account system, product backend, telemetry, analytics,
               or cloud sync. Transcription itself is an OpenAI API request made with
               the key you configure.
             </p>
           </div>
 
-          <ol class="data-flow" aria-label="HoldType data flow" role="list">
-            <li><span aria-hidden="true">01</span>Microphone</li>
-            <li><span aria-hidden="true">02</span>HoldType</li>
-            <li><span aria-hidden="true">03</span>OpenAI transcription</li>
-            <li><span aria-hidden="true">04</span>Active app</li>
+          <ol
+            class="data-flow"
+            aria-label="HoldType data flow"
+            role="list"
+            data-i18n-attrs="aria-label:privacy.flow.aria"
+          >
+            <li><span aria-hidden="true">01</span><div data-i18n="privacy.flow.microphone">Microphone</div></li>
+            <li><span aria-hidden="true">02</span><div data-i18n="privacy.flow.holdType">HoldType</div></li>
+            <li><span aria-hidden="true">03</span><div data-i18n="privacy.flow.openAI">OpenAI transcription</div></li>
+            <li><span aria-hidden="true">04</span><div data-i18n="privacy.flow.activeApp">Active app</div></li>
           </ol>
 
           <div class="data-grid">
             <div class="privacy-points">
-              <h3>Your data path</h3>
+              <h3 data-i18n="privacy.dataPath.title">Your data path</h3>
               <ul class="check-list" role="list">
-                <li>The API key is stored locally in macOS Keychain.</li>
-                <li>Audio is sent to OpenAI for transcription.</li>
-                <li>Optional correction and translation are separate text requests.</li>
-                <li>
+                <li data-i18n="privacy.dataPath.items.apiKey">The API key is stored locally in macOS Keychain.</li>
+                <li data-i18n="privacy.dataPath.items.audio">Audio is sent to OpenAI for transcription.</li>
+                <li data-i18n="privacy.dataPath.items.optionalTextRequests">Optional correction and translation are separate text requests.</li>
+                <li data-i18n="privacy.dataPath.items.failedAudio">
                   Completed audio is not retained by default. Recoverable failures may
                   keep bounded session-only audio for Retry.
                 </li>
-                <li>Optional recording-cache retention is local and user-controlled.</li>
+                <li data-i18n="privacy.dataPath.items.recordingCache">Optional recording-cache retention is local and user-controlled.</li>
               </ul>
             </div>
 
             <div class="billing-proof">
               <div class="billing-copy">
-                <h3>Pay for usage, not access</h3>
-                <p>
+                <h3 data-i18n="privacy.billing.title">Pay for usage, not access</h3>
+                <p data-i18n="privacy.billing.body">
                   HoldType has no subscription. OpenAI deducts actual API usage from
-                  the Platform account connected through your key; HoldType does not
+                  the OpenAI Platform account connected through your key; HoldType does not
                   collect a monthly fee.
                 </p>
                 <div class="usage-example">
-                  <p class="usage-example-title">One hundred quick messages. About ten cents.</p>
-                  <p>
-                    One hundred quick messages add up to roughly 17 minutes of recorded
+                  <p class="usage-example-title" data-i18n="privacy.billing.exampleTitle">100 quick messages. About $0.10.</p>
+                  <p data-i18n="privacy.billing.exampleBody">
+                    100 quick messages add up to roughly 17 minutes of recorded
                     speech. Repeat the same daily total for 30 days and the estimated
                     transcription cost is about $3.
                   </p>
                 </div>
-                <p class="small-copy">
+                <p class="small-copy" data-i18n="privacy.billing.note">
                   The Billing screen is a local estimate for successful audio
                   transcriptions. It is not an OpenAI invoice and does not include
                   correction or translation requests.
                 </p>
-                <a class="text-link" href="https://developers.openai.com/api/docs/pricing">
+                <a
+                  class="text-link"
+                  href="https://developers.openai.com/api/docs/pricing"
+                  data-link-ref="openAIPricing"
+                  data-i18n="privacy.billing.pricingLink"
+                >
                   OpenAI API pricing
                 </a>
               </div>
@@ -408,15 +529,18 @@
                     loading="lazy"
                     decoding="async"
                     alt="HoldType Billing settings showing a local transcription usage estimate"
+                    data-i18n-attrs="alt:privacy.billing.imageAlt"
                   >
                 </picture>
-                <figcaption>
+                <figcaption data-i18n-rich="privacy.billing.imageCaption">
                   On phones, swipe the focused crop of the same real Billing
                   screenshot horizontally.
                   <a
                     href="assets/settings-billing.png"
                     data-lightbox-link
+                    data-link-ref="billingScreenshot"
                     data-lightbox-caption="HoldType Billing settings and local usage estimate"
+                    data-i18n-attrs="data-lightbox-caption:privacy.billing.lightboxCaption"
                   >Open the full-size image</a>.
                 </figcaption>
               </figure>
@@ -435,23 +559,24 @@
               loading="lazy"
               decoding="async"
               alt="A desk microphone used while building and testing HoldType"
+              data-i18n-attrs="alt:founder.imageAlt"
             >
-            <figcaption>Special recording hardware is not required.</figcaption>
+            <figcaption data-i18n="founder.imageCaption">Special recording hardware is not required.</figcaption>
           </figure>
           <div class="founder-copy">
-            <p class="section-label">Why I built HoldType</p>
-            <h2 id="founder-title">Typing speed was not the problem.</h2>
-            <p>
+            <p class="section-label" data-i18n="founder.label">Why I built HoldType</p>
+            <h2 id="founder-title" data-i18n="founder.title">Typing speed was not the problem.</h2>
+            <p data-i18n="founder.body1">
               The problem was how often a long prompt, review, or explanation became
               shorter before I finished typing it. Speaking made it easier to include
               the full thought.
             </p>
-            <p>
+            <p data-i18n="founder.body2">
               I tried subscription tools and apps built around local and cloud model
               choices. They solve different problems. In my daily work, OpenAI
               transcription gave me the first pass I trusted most often.
             </p>
-            <p>
+            <p data-i18n="founder.body3">
               I wanted a narrower setup: one provider, a sensible default, direct API
               billing, and no product subscription to remember. HoldType is built and
               tested through the same voice-first workflow it is meant to support.
@@ -463,34 +588,36 @@
       <section class="install" id="install" aria-labelledby="install-title">
         <div class="container install-layout">
           <div>
-            <p class="section-label">Get started</p>
-            <h2 id="install-title">From download to first dictation.</h2>
+            <p class="section-label" data-i18n="install.label">Get started</p>
+            <h2 id="install-title" data-i18n="install.title">From download to first dictation.</h2>
             <ol class="install-steps" role="list">
-              <li>Download the latest disk image from GitHub Releases.</li>
-              <li>Drag HoldType into Applications and launch it.</li>
-              <li>Grant microphone, global-shortcut, and insertion permissions.</li>
-              <li>Add your OpenAI Platform API key in Settings.</li>
+              <li data-i18n="install.steps.download">Download the latest disk image from GitHub Releases.</li>
+              <li data-i18n="install.steps.applications">Drag HoldType into Applications and launch it.</li>
+              <li data-i18n="install.steps.permissions">Grant microphone, global-shortcut, and insertion permissions.</li>
+              <li data-i18n="install.steps.apiKey">Add your OpenAI Platform API key in Settings.</li>
             </ol>
             <div class="install-actions">
               <a
                 class="button"
                 href="https://github.com/holdtype/holdtype-swift/releases/latest"
+                data-link-ref="latestRelease"
               >
-                Download for macOS
+                <span data-i18n="common.downloadForMacOS">Download for macOS</span>
               </a>
               <a
                 class="text-link"
                 href="https://github.com/holdtype/holdtype-swift/releases"
+                data-link-ref="allReleases"
               >
-                All releases
+                <span data-i18n="install.allReleases">All releases</span>
               </a>
             </div>
           </div>
           <div class="homebrew-panel">
-            <h3>Prefer Homebrew?</h3>
-            <p>The project tap installs the same disk image published on GitHub Releases.</p>
+            <h3 data-i18n="install.homebrew.title">Prefer Homebrew?</h3>
+            <p data-i18n="install.homebrew.body">The project tap installs the same disk image published on GitHub Releases.</p>
             <div class="command-block">
-              <pre><code id="homebrew-command">brew tap holdtype/tap
+              <pre><code id="homebrew-command" data-command-ref="homebrewInstall">brew tap holdtype/tap
 brew trust holdtype/tap
 brew install --cask holdtype
 open -a HoldType</code></pre>
@@ -499,12 +626,25 @@ open -a HoldType</code></pre>
                 type="button"
                 data-copy-target="homebrew-command"
                 aria-label="Copy Homebrew install commands"
+                data-i18n="install.homebrew.copyIdle"
+                data-i18n-attrs="aria-label:install.homebrew.copyAria"
+                data-i18n-runtime="idle:install.homebrew.copyIdle;copied:install.homebrew.copyCopied;retry:install.homebrew.copyRetry"
               >
                 Copy
               </button>
-              <span class="visually-hidden" role="status" data-copy-status></span>
+              <span
+                class="visually-hidden"
+                role="status"
+                data-copy-status
+                data-i18n-runtime="success:install.homebrew.copySuccessStatus;failure:install.homebrew.copyFailureStatus"
+              ></span>
             </div>
-            <a class="text-link homebrew-link" href="https://github.com/holdtype/homebrew-tap">
+            <a
+              class="text-link homebrew-link"
+              href="https://github.com/holdtype/homebrew-tap"
+              data-link-ref="homebrewTap"
+              data-i18n="install.homebrew.tapLink"
+            >
               View the project tap
             </a>
           </div>
@@ -516,24 +656,25 @@ open -a HoldType</code></pre>
           aria-labelledby="api-key-guide-title"
         >
           <div class="api-key-copy">
-            <p class="section-label">New to API keys?</p>
-            <h3 id="api-key-guide-title">Create one in a couple of minutes.</h3>
-            <p class="api-key-intro">
+            <p class="section-label" data-i18n="apiKeyGuide.label">New to API keys?</p>
+            <h3 id="api-key-guide-title" data-i18n="apiKeyGuide.title">Create one in a couple of minutes.</h3>
+            <p class="api-key-intro" data-i18n="apiKeyGuide.intro">
               An API key is a private credential that lets HoldType send audio for
               transcription through your OpenAI Platform account. It is separate from
               your ChatGPT login and subscription.
             </p>
             <ol class="api-key-steps">
-              <li>
+              <li data-i18n-rich="apiKeyGuide.steps.openPage">
                 Sign in to OpenAI Platform and open the
                 <a
                   href="https://platform.openai.com/api-keys"
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-link-ref="openAIKeys"
                 >API key page</a>.
               </li>
-              <li>Create a secret key and copy it when OpenAI shows it.</li>
-              <li>In HoldType, open Settings → OpenAI, paste the key, and save.</li>
+              <li data-i18n="apiKeyGuide.steps.create">Create a secret key and copy it when OpenAI shows it.</li>
+              <li data-i18n="apiKeyGuide.steps.save">In HoldType, open Settings → OpenAI, paste the key, and save.</li>
             </ol>
             <div class="api-key-actions">
               <a
@@ -541,6 +682,8 @@ open -a HoldType</code></pre>
                 href="https://platform.openai.com/api-keys"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-link-ref="openAIKeys"
+                data-i18n="apiKeyGuide.createAction"
               >
                 Create an OpenAI key
               </a>
@@ -549,14 +692,16 @@ open -a HoldType</code></pre>
                 href="https://help.openai.com/en/articles/4936850-where-do-i-find-my-openai-api-key"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-link-ref="openAIKeyHelp"
+                data-i18n="apiKeyGuide.instructionsAction"
               >
                 Official instructions
               </a>
             </div>
-            <p class="api-key-note">
+            <p class="api-key-note" data-i18n="apiKeyGuide.note">
               OpenAI shows the full key only when it is created. Keep it private and
               paste it only into HoldType, which stores it locally in macOS Keychain.
-              API billing is separate from ChatGPT, and a new Platform account may
+              API billing is separate from ChatGPT, and a new OpenAI Platform account may
               require prepaid credit.
             </p>
           </div>
@@ -568,8 +713,11 @@ open -a HoldType</code></pre>
                 type="button"
                 data-video-facade
                 data-video-id="CGncYPblQA8"
-                data-video-title="How to Create a ChatGPT API Key (2026 Tutorial)"
-                aria-label="Play the two-minute API key tutorial"
+                data-video-ref="apiKeyTutorial"
+                data-video-title="How to create a ChatGPT API key (2026 tutorial)"
+                aria-label="Play the 2-minute API key tutorial"
+                data-i18n-attrs="data-video-title:apiKeyGuide.video.iframeTitle;aria-label:apiKeyGuide.video.playAria"
+                data-i18n-runtime="iframeFallback:apiKeyGuide.video.fallbackIframeTitle"
               >
                 <span class="video-play" aria-hidden="true">
                   <svg viewBox="0 0 48 48" focusable="false">
@@ -577,9 +725,9 @@ open -a HoldType</code></pre>
                   </svg>
                 </span>
                 <span class="video-facade-copy">
-                  <span class="video-kicker">2-minute walkthrough</span>
-                  <strong>See how an OpenAI API key is created</strong>
-                  <span>Play the tutorial</span>
+                  <span class="video-kicker" data-i18n="apiKeyGuide.video.kicker">2-minute walkthrough</span>
+                  <strong data-i18n="apiKeyGuide.video.title">See how an OpenAI API key is created</strong>
+                  <span data-i18n="apiKeyGuide.video.playAction">Play the tutorial</span>
                 </span>
               </button>
               <noscript>
@@ -588,17 +736,20 @@ open -a HoldType</code></pre>
                   href="https://www.youtube.com/watch?v=CGncYPblQA8"
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-link-ref="apiKeyTutorial"
+                  data-i18n="apiKeyGuide.video.noScriptAction"
                 >
                   Watch the API key tutorial on YouTube
                 </a>
               </noscript>
             </div>
-            <figcaption>
+            <figcaption data-i18n-rich="apiKeyGuide.video.caption">
               Third-party tutorial by
               <a
                 href="https://www.youtube.com/@Geekrar"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-link-ref="videoCreator"
               >GEEKrar</a>, 2:16, published June 2026. YouTube loads only after Play.
             </figcaption>
           </figure>
@@ -608,76 +759,76 @@ open -a HoldType</code></pre>
       <section class="faq section-rule" id="faq" aria-labelledby="faq-title">
         <div class="container">
           <div class="section-heading faq-heading">
-            <h2 id="faq-title">Frequently asked questions</h2>
-            <p>Short answers to the decisions that matter before installing.</p>
+            <h2 id="faq-title" data-i18n="faq.title">Frequently asked questions</h2>
+            <p data-i18n="faq.intro">Short answers to the decisions that matter before installing.</p>
           </div>
           <div class="faq-grid">
             <details>
-              <summary>Why is an OpenAI API key required?</summary>
-              <p>
+              <summary data-i18n="faq.apiKeyRequired.question">Why is an OpenAI API key required?</summary>
+              <p data-i18n-rich="faq.apiKeyRequired.answer">
                 HoldType sends transcription requests through your own OpenAI Platform
                 account. The key is stored locally in macOS Keychain. If API keys are
-                new to you, follow the <a href="#api-key-guide">three-step guide</a>
+                new to you, follow the <a href="#api-key-guide" data-link-ref="apiKeyGuide">three-step guide</a>
                 above.
               </p>
             </details>
             <details>
-              <summary>Is ChatGPT Plus enough?</summary>
-              <p>
+              <summary data-i18n="faq.chatGPTPlus.question">Is ChatGPT Plus enough?</summary>
+              <p data-i18n="faq.chatGPTPlus.answer">
                 No. ChatGPT subscriptions and OpenAI Platform API billing are separate.
-                HoldType needs an API key with Platform billing configured.
+                HoldType needs an API key with OpenAI Platform billing configured.
               </p>
             </details>
             <details>
-              <summary>What does dictation cost?</summary>
-              <p>
-                HoldType has no fixed fee. OpenAI deducts API usage from your Platform
+              <summary data-i18n="faq.cost.question">What does dictation cost?</summary>
+              <p data-i18n="faq.cost.answer">
+                HoldType has no fixed fee. OpenAI deducts API usage from your OpenAI Platform
                 balance, and new API accounts may require prepaid credit. HoldType’s
                 Billing screen estimates successful transcriptions on this Mac;
                 optional correction and translation are separate requests.
               </p>
             </details>
             <details>
-              <summary>What data is sent to OpenAI?</summary>
-              <p>
+              <summary data-i18n="faq.dataSent.question">What data is sent to OpenAI?</summary>
+              <p data-i18n="faq.dataSent.answer">
                 Audio is sent for transcription. Optional correction and translation
                 send transcript text in separate requests, and optional nearby context
                 sends a short excerpt with the transcription request.
               </p>
             </details>
             <details>
-              <summary>Is audio stored?</summary>
-              <p>
+              <summary data-i18n="faq.audioStorage.question">Is audio stored?</summary>
+              <p data-i18n="faq.audioStorage.answer">
                 Completed audio is not retained by default. A recoverable failure may
                 keep bounded session-only audio for Retry, and optional recording-cache
                 retention is local and user-controlled.
               </p>
             </details>
             <details>
-              <summary>Which Mac apps work?</summary>
-              <p>
+              <summary data-i18n="faq.compatibleApps.question">Which Mac apps work?</summary>
+              <p data-i18n="faq.compatibleApps.answer">
                 HoldType inserts accepted text in most Mac apps through macOS
                 Accessibility support. If handoff fails, Last Result remains available
                 for recovery.
               </p>
             </details>
             <details>
-              <summary>Which languages are supported?</summary>
-              <p>
+              <summary data-i18n="faq.languages.question">Which languages are supported?</summary>
+              <p data-i18n="faq.languages.answer">
                 Transcription can use automatic or fixed source-language settings.
                 Translation uses the target language you configure in HoldType.
               </p>
             </details>
             <details>
-              <summary>Why does HoldType need macOS permissions?</summary>
-              <p>
+              <summary data-i18n="faq.permissions.question">Why does HoldType need macOS permissions?</summary>
+              <p data-i18n="faq.permissions.answer">
                 Microphone access records speech, Input Monitoring supports the global
                 shortcut, and Accessibility enables text insertion into the active app.
               </p>
             </details>
             <details>
-              <summary>Is HoldType open source?</summary>
-              <p>
+              <summary data-i18n="faq.sourceAvailable.question">Is HoldType open source?</summary>
+              <p data-i18n="faq.sourceAvailable.answer">
                 HoldType is source-available under FSL 1.1 with an MIT future license.
                 Each released version converts to MIT two years after release.
               </p>
@@ -689,14 +840,15 @@ open -a HoldType</code></pre>
       <section class="final-cta" aria-labelledby="final-cta-title">
         <div class="container download-panel">
           <div>
-            <h2 id="final-cta-title">Speak the thought. Keep the context.</h2>
-            <p>Free app · No HoldType subscription · OpenAI usage billed directly · macOS 14+</p>
+            <h2 id="final-cta-title" data-i18n="finalCta.title">Speak the thought. Keep the context.</h2>
+            <p data-i18n="finalCta.body">Free app · No HoldType subscription · OpenAI usage billed directly · macOS 14+</p>
           </div>
           <a
             class="button"
             href="https://github.com/holdtype/holdtype-swift/releases/latest"
+            data-link-ref="latestRelease"
           >
-            Download for macOS
+            <span data-i18n="common.downloadForMacOS">Download for macOS</span>
           </a>
         </div>
       </section>
@@ -706,13 +858,17 @@ open -a HoldType</code></pre>
       <div class="container footer-layout">
         <div class="footer-brand">
           <img src="assets/app-icon.png" width="512" height="512" alt="">
-          <span>HoldType</span>
+          <span data-token-ref="brand.holdType">HoldType</span>
         </div>
-        <p>
+        <p data-i18n="footer.description">
           Native macOS voice input. Source-available under FSL 1.1 with an MIT
           future license.
         </p>
-        <a href="https://github.com/holdtype/holdtype-swift">View source on GitHub</a>
+        <a
+          href="https://github.com/holdtype/holdtype-swift"
+          data-link-ref="sourceRepository"
+          data-i18n="footer.sourceLink"
+        >View source on GitHub</a>
       </div>
     </footer>
 
@@ -724,6 +880,8 @@ open -a HoldType</code></pre>
       aria-label="Full-size HoldType screenshot"
       aria-describedby="image-lightbox-caption"
       hidden
+      data-i18n-attrs="aria-label:lightbox.dialogAria"
+      data-i18n-runtime="fallbackAlt:lightbox.fallbackImageAlt"
     >
       <div class="image-lightbox-panel">
         <button
@@ -731,9 +889,10 @@ open -a HoldType</code></pre>
           type="button"
           data-lightbox-close
           aria-label="Close full-size image"
+          data-i18n-attrs="aria-label:lightbox.closeAria"
         >
           <span aria-hidden="true">×</span>
-          <span>Close</span>
+          <span data-i18n="lightbox.closeLabel">Close</span>
         </button>
         <div class="image-lightbox-stage" data-lightbox-stage>
           <img class="image-lightbox-image" data-lightbox-image decoding="async" alt="">
