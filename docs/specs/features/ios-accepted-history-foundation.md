@@ -122,9 +122,18 @@ Before pruning, the whole source is checked for collisions:
 - same delivery ID plus different immutable bytes is a collision;
 - the same transcript ID under another delivery ID is a collision.
 
+Immutable identity is all nine non-cache row fields. Text and model identity is
+their exact UTF-8 byte sequence, not Swift canonical String equality. An exact
+duplicate confirms the current envelope without pruning unrelated stale rows.
+
 Only after duplicate/collision checks may one atomic mutation remove stale
 generations, insert and sort the candidate, then evict deterministic oldest
-rows until both the 20-row and 4-MiB limits hold. Duplicate upsert never evicts.
+rows until both the 20-row and canonical encoded 4-MiB limits hold. Duplicate
+upsert never evicts.
+If the candidate is itself evicted and the final membership is byte-identical
+to the source, that is a retention confirmation rather than a logical mutation:
+revision is unchanged and the exact envelope receives an identical durability
+rewrite.
 The durable row receipt records the final retention decision; only a receipt
 that proves exact row membership is accepted-row proof for delivery removal.
 
