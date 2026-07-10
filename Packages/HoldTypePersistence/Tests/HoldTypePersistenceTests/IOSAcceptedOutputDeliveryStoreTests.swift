@@ -245,6 +245,11 @@ struct IOSAcceptedOutputDeliveryStoreTests {
                 rowReceipt: foreignReceipt
             )
         }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(
+                fixture.preparation(rawAcceptedText: "blocked transition")
+            )
+        }
         #expect(fixture.journal.replacementRecords.count == replacementCount)
 
         fixture.clock.wall = visible.expiresAt
@@ -617,6 +622,503 @@ struct IOSAcceptedOutputDeliveryStoreTests {
         let replayedOriginal = try await fixture.store.accept(original)
         #expect(replayedOriginal.revision == weakened.revision)
         #expect(!replayedOriginal.keepLatestResult)
+    }
+
+    @Test func ordinaryAcceptanceCreateUncertaintyRequiresExactRetry() async throws {
+        for commitWasVisible in [false, true] {
+            let fixture = AcceptedDeliveryStoreFixture()
+            let preparation = fixture.preparation(
+                rawAcceptedText: "create secret \(commitWasVisible)"
+            )
+            let intended = try fixture.record(preparation: preparation)
+            fixture.journal.failNextCreate(
+                with: .commitUncertain,
+                commitBeforeThrowing: commitWasVisible
+            )
+
+            await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+                try await fixture.store.accept(preparation)
+            }
+            #expect(
+                fixture.journal.currentRecord
+                    == (commitWasVisible ? intended : nil)
+            )
+
+            let mismatch = fixture.preparation(
+                rawAcceptedText: "mismatched create secret"
+            )
+            let eventCount = fixture.journal.events.count
+            do {
+                _ = try await fixture.store.accept(mismatch)
+                Issue.record("Mismatched acceptance unexpectedly succeeded")
+            } catch let error as IOSAcceptedOutputDeliveryError {
+                #expect(error == .commitUncertain)
+                #expect(error.description == "IOSAcceptedOutputDeliveryError(redacted)")
+                #expect(error.customMirror.children.count == 1)
+                #expect(error.customMirror.children.first?.label == "state")
+                #expect(
+                    String(
+                        describing: error.customMirror.children.first?.value
+                    ) == "Optional(\"redacted\")"
+                )
+                #expect(!String(reflecting: error).contains(mismatch.acceptedText))
+            }
+            #expect(fixture.journal.events.count == eventCount)
+
+            fixture.journal.resetEvents()
+            let confirmed = try await fixture.store.accept(preparation)
+
+            #expect(confirmed == intended)
+            #expect(
+                fixture.journal.events
+                    == (commitWasVisible
+                        ? ["load", "replace:1"]
+                        : ["load", "create"])
+            )
+        }
+    }
+
+    @Test func ordinaryReplacementUncertaintyUsesItsSealedIntendedRecord() async throws {
+        for commitWasVisible in [false, true] {
+            let fixture = AcceptedDeliveryStoreFixture()
+            let old = try await fixture.store.accept(fixture.preparation())
+            let preparation = fixture.preparation(
+                rawAcceptedText: "replacement \(commitWasVisible)"
+            )
+            let intended = try fixture.record(preparation: preparation)
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: commitWasVisible
+            )
+
+            await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+                try await fixture.store.accept(preparation)
+            }
+            #expect(
+                fixture.journal.currentRecord
+                    == (commitWasVisible ? intended : old)
+            )
+
+            fixture.clock.wall = fixture.clock.wall.addingTimeInterval(60)
+            let confirmed = try await fixture.store.accept(preparation)
+
+            #expect(confirmed == intended)
+            #expect(confirmed.createdAt == intended.createdAt)
+            #expect(confirmed.updatedAt == intended.updatedAt)
+            #expect(confirmed.revision == 1)
+        }
+    }
+
+    @Test func sameAcceptanceUncertaintyConfirmsWithoutLogicalMutation() async throws {
+        for commitWasVisible in [false, true] {
+            let fixture = AcceptedDeliveryStoreFixture()
+            let preparation = fixture.preparation(
+                rawAcceptedText: "identical \(commitWasVisible)"
+            )
+            let accepted = try await fixture.store.accept(preparation)
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: commitWasVisible
+            )
+
+            await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+                try await fixture.store.accept(preparation)
+            }
+            let confirmed = try await fixture.store.accept(preparation)
+
+            #expect(confirmed == accepted)
+            #expect(confirmed.revision == accepted.revision)
+            #expect(confirmed.updatedAt == accepted.updatedAt)
+            #expect(fixture.journal.replacementRecords.last == accepted)
+        }
+    }
+
+    @Test func keepLatestWeakeningUncertaintyKeepsSealedRevisionAndTimestamp() async throws {
+        for commitWasVisible in [false, true] {
+            let fixture = AcceptedDeliveryStoreFixture()
+            let original = fixture.preparation(keepLatestResult: true)
+            let accepted = try await fixture.store.accept(original)
+            let weakeningTime = accepted.createdAt.addingTimeInterval(10)
+            fixture.clock.wall = weakeningTime
+            let weakening = fixture.preparation(
+                deliveryID: original.deliveryID,
+                sessionID: original.sessionID,
+                attemptID: original.attemptID,
+                transcriptID: original.transcriptID,
+                rawAcceptedText: original.acceptedText,
+                keepLatestResult: false
+            )
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: commitWasVisible
+            )
+
+            await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+                try await fixture.store.accept(weakening)
+            }
+            fixture.clock.wall = weakeningTime.addingTimeInterval(20)
+            let confirmed = try await fixture.store.accept(weakening)
+
+            #expect(confirmed.revision == accepted.revision + 1)
+            #expect(confirmed.updatedAt == weakeningTime)
+            #expect(!confirmed.keepLatestResult)
+        }
+    }
+
+    @Test func visibleAcceptanceUncertaintyConfirmsDespiteRollbackOrExpiry() async throws {
+        let rollbackFixture = AcceptedDeliveryStoreFixture()
+        let create = rollbackFixture.preparation(rawAcceptedText: "rollback")
+        let createIntended = try rollbackFixture.record(preparation: create)
+        rollbackFixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await rollbackFixture.store.accept(create)
+        }
+        rollbackFixture.clock.wall = createIntended.createdAt
+            .addingTimeInterval(-1)
+
+        let rollbackConfirmed = try await rollbackFixture.store.accept(create)
+
+        #expect(rollbackConfirmed == createIntended)
+        #expect(
+            try await rollbackFixture.store.load()
+                == .clockRollbackAmbiguous(
+                    IOSAcceptedOutputDeliveryExpectation(
+                        record: createIntended
+                    )
+                )
+        )
+
+        let expiryFixture = AcceptedDeliveryStoreFixture()
+        _ = try await expiryFixture.store.accept(expiryFixture.preparation())
+        let replacement = expiryFixture.preparation(rawAcceptedText: "expiry")
+        let replacementIntended = try expiryFixture.record(
+            preparation: replacement
+        )
+        expiryFixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await expiryFixture.store.accept(replacement)
+        }
+        expiryFixture.clock.wall = replacementIntended.expiresAt
+
+        let expiryConfirmed = try await expiryFixture.store.accept(replacement)
+
+        #expect(expiryConfirmed == replacementIntended)
+        #expect(
+            try await expiryFixture.store.load()
+                == .expired(
+                    IOSAcceptedOutputDeliveryExpectation(
+                        record: replacementIntended
+                    )
+                )
+        )
+    }
+
+    @Test func visibleIntentSurvivesASecondInvisibleConfirmationFailure() async throws {
+        for retryAtExpiry in [false, true] {
+            let fixture = AcceptedDeliveryStoreFixture()
+            _ = try await fixture.store.accept(fixture.preparation())
+            let replacement = fixture.preparation(
+                rawAcceptedText: retryAtExpiry
+                    ? "second failure expiry"
+                    : "second failure rollback"
+            )
+            let intended = try fixture.record(preparation: replacement)
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: true
+            )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                try await fixture.store.accept(replacement)
+            }
+
+            fixture.clock.wall = retryAtExpiry
+                ? intended.expiresAt
+                : intended.createdAt.addingTimeInterval(-1)
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: false
+            )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                try await fixture.store.accept(replacement)
+            }
+            #expect(fixture.journal.currentRecord == intended)
+
+            let confirmed = try await fixture.store.accept(replacement)
+
+            #expect(confirmed == intended)
+            #expect(fixture.journal.replacementRecords.last == intended)
+        }
+    }
+
+    @Test func invisibleAcceptanceUncertaintyRetainsOrClearsItsGateExactly() async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let preparation = fixture.preparation(rawAcceptedText: "temporal secret")
+        let intended = try fixture.record(preparation: preparation)
+        fixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(preparation)
+        }
+
+        for loadError in [
+            IOSAcceptedOutputDeliveryError.readFailed,
+            .dataProtectionUnavailable,
+        ] {
+            fixture.journal.failLoads(with: loadError)
+            await #expect(throws: loadError) {
+                try await fixture.store.accept(preparation)
+            }
+            fixture.journal.failLoads(with: nil)
+            await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+                try await fixture.store.load()
+            }
+        }
+
+        fixture.clock.wall = intended.createdAt.addingTimeInterval(-1)
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.clockRollbackAmbiguous
+        ) {
+            try await fixture.store.accept(preparation)
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.load()
+        }
+
+        fixture.clock.wall = intended.expiresAt
+        await #expect(throws: IOSAcceptedOutputDeliveryError.expired) {
+            try await fixture.store.accept(preparation)
+        }
+        #expect(try await fixture.store.load() == nil)
+    }
+
+    @Test func acceptanceUncertaintyBlocksEveryOtherStorePath() async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let preparation = fixture.preparation(
+            historyWrite: try fixture.historyWrite()
+        )
+        let accepted = try await fixture.store.accept(preparation)
+        let authorization = try await fixture.store.authorizePendingHistoryWrite(
+            expected: IOSAcceptedOutputDeliveryExpectation(record: accepted)
+        )
+        let rowReceipt = try await fixture.retainedRowReceipt(
+            for: authorization
+        )
+        let policy = try await fixture.policyReceipt(generation: 2)
+        let outbox = try await fixture.outboxReceipt(for: authorization)
+        let ownership = IOSAcceptedOutputHistoryOwnershipProof(
+            outboxReceipt: outbox
+        )
+        fixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(preparation)
+        }
+
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.load()
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.authorizePendingHistoryWrite(
+                expected: IOSAcceptedOutputDeliveryExpectation(record: accepted)
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.commitHistoryWrite(
+                authorization: authorization,
+                rowReceipt: rowReceipt
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.cancelHistoryWrite(
+                authorization: authorization,
+                policyInvalidationReceipt: policy
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.replacePendingHistory(
+                with: fixture.preparation(rawAcceptedText: "replacement"),
+                authorization: authorization,
+                ownershipProof: ownership
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.clearPendingHistory(
+                authorization: authorization,
+                ownershipProof: ownership
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.disableKeepLatestResult(
+                expected: IOSAcceptedOutputDeliveryExpectation(record: accepted)
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.clear(
+                expected: IOSAcceptedOutputDeliveryExpectation(record: accepted)
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.removeExpired(
+                expected: IOSAcceptedOutputDeliveryExpectation(record: accepted)
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.performStagingMaintenance()
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.discardUnreadableLocalResult()
+        }
+
+        #expect(try await fixture.store.accept(preparation) == accepted)
+    }
+
+    @Test func supersedingOrMissingWinnerClearsAcceptanceUncertainty() async throws {
+        let winnerFixture = AcceptedDeliveryStoreFixture()
+        let old = try await winnerFixture.store.accept(
+            winnerFixture.preparation()
+        )
+        let uncertain = winnerFixture.preparation(
+            rawAcceptedText: "uncertain winner"
+        )
+        winnerFixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await winnerFixture.store.accept(uncertain)
+        }
+        let winningPreparation = winnerFixture.preparation(
+            rawAcceptedText: "actual winner"
+        )
+        let winner = try await winnerFixture.makeStore().accept(
+            winningPreparation
+        )
+        #expect(winner.deliveryID != old.deliveryID)
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            try await winnerFixture.store.accept(uncertain)
+        }
+        #expect(try await winnerFixture.store.load() == .active(winner))
+
+        let missingFixture = AcceptedDeliveryStoreFixture()
+        let existing = try await missingFixture.store.accept(
+            missingFixture.preparation()
+        )
+        let missingUncertain = missingFixture.preparation(
+            rawAcceptedText: "missing winner"
+        )
+        missingFixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await missingFixture.store.accept(missingUncertain)
+        }
+        #expect(
+            try await missingFixture.makeStore().clear(
+                expected: IOSAcceptedOutputDeliveryExpectation(record: existing)
+            ) == .removed
+        )
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            try await missingFixture.store.accept(missingUncertain)
+        }
+        #expect(try await missingFixture.store.load() == nil)
+    }
+
+    @Test func physicalSourceRewriteCannotAuthorizeInvisibleAcceptanceReplay() async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let original = fixture.preparation(rawAcceptedText: "physical source")
+        let accepted = try await fixture.store.accept(original)
+        let replacement = fixture.preparation(rawAcceptedText: "stale replay")
+        fixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(replacement)
+        }
+
+        #expect(try await fixture.makeStore().accept(original) == accepted)
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            try await fixture.store.accept(replacement)
+        }
+        #expect(try await fixture.store.load() == .active(accepted))
+    }
+
+    @Test func visibleSameAcceptanceRetryPreservesMonotonicExpiry() async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let preparation = fixture.preparation(rawAcceptedText: "monotonic")
+        let accepted = try await fixture.store.accept(preparation)
+        #expect(try await fixture.store.load() == .active(accepted))
+        fixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(preparation)
+        }
+
+        fixture.clock.monotonicNanoseconds = 86_400_000_000_000
+        #expect(try await fixture.store.accept(preparation) == accepted)
+        #expect(
+            try await fixture.store.load()
+                == .expired(IOSAcceptedOutputDeliveryExpectation(record: accepted))
+        )
+    }
+
+    @Test func invisibleMutationExpiryClearsIntentWithoutRestoringWallEligibility() async throws {
+        let fixture = AcceptedDeliveryStoreFixture()
+        let original = fixture.preparation(
+            rawAcceptedText: "invisible monotonic",
+            keepLatestResult: true
+        )
+        let accepted = try await fixture.store.accept(original)
+        let weakening = fixture.preparation(
+            deliveryID: original.deliveryID,
+            sessionID: original.sessionID,
+            attemptID: original.attemptID,
+            transcriptID: original.transcriptID,
+            rawAcceptedText: original.acceptedText,
+            keepLatestResult: false
+        )
+        #expect(try await fixture.store.load() == .active(accepted))
+        fixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await fixture.store.accept(weakening)
+        }
+
+        fixture.clock.monotonicNanoseconds = 86_400_000_000_000
+        await #expect(throws: IOSAcceptedOutputDeliveryError.expired) {
+            try await fixture.store.accept(weakening)
+        }
+        #expect(
+            try await fixture.store.load()
+                == .expired(IOSAcceptedOutputDeliveryExpectation(record: accepted))
+        )
     }
 
     @Test func pendingHistoryDecisionUsesOneTemporalSnapshot() async throws {
@@ -1142,6 +1644,13 @@ struct IOSAcceptedOutputDeliveryStoreTests {
                     ownershipProof: foreignProof
                 )
             }
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                try await fixture.store.accept(
+                    fixture.preparation(rawAcceptedText: "blocked clear")
+                )
+            }
             #expect(
                 try await fixture.store.clearPendingHistory(
                     authorization: authorization,
@@ -1179,6 +1688,13 @@ struct IOSAcceptedOutputDeliveryStoreTests {
             try await removalFixture.store.clearPendingHistory(
                 authorization: removalAuthorization,
                 ownershipProof: foreignProof
+            )
+        }
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            try await removalFixture.store.accept(
+                removalFixture.preparation(
+                    rawAcceptedText: "blocked removal uncertainty"
+                )
             )
         }
         #expect(
@@ -1791,6 +2307,7 @@ private final class AcceptedDeliveryFakeJournal:
     private var nextToken: UInt64 = 1
     private var createFailure: ReplacementFailure?
     private var replacementFailure: ReplacementFailure?
+    private var loadFailure: IOSAcceptedOutputDeliveryError?
     private var storedEvents: [String] = []
     private var storedReplacementRecords: [IOSAcceptedOutputDeliveryRecord] = []
     private var storedRemovedRecords: [IOSAcceptedOutputDeliveryRecord] = []
@@ -1845,6 +2362,10 @@ private final class AcceptedDeliveryFakeJournal:
         }
     }
 
+    func failLoads(with error: IOSAcceptedOutputDeliveryError?) {
+        lock.withLock { loadFailure = error }
+    }
+
     func install(_ record: IOSAcceptedOutputDeliveryRecord) {
         lock.withLock {
             snapshot = IOSAcceptedOutputDeliveryJournalSnapshot(
@@ -1859,8 +2380,9 @@ private final class AcceptedDeliveryFakeJournal:
     }
 
     func load() throws -> IOSAcceptedOutputDeliveryJournalSnapshot? {
-        lock.withLock {
+        try lock.withLock {
             storedEvents.append("load")
+            if let loadFailure { throw loadFailure }
             return snapshot
         }
     }

@@ -253,6 +253,19 @@ visible, the store rewrites those identical bytes without changing logical
 revision or timestamp and completes a successful directory sync before it
 confirms durability.
 
+An uncertain ordinary acceptance keeps a process-local exact intent containing
+the preparation, missing or physical source snapshot, and sealed intended
+record. Every load, mutation, authorization, clear, and staging-maintenance path
+fails closed until the exact same preparation reconciles it. A visible intended
+record requires an identical rewrite even after rollback or expiry. An
+invisible retry is legal only while the exact source is current; rollback then
+preserves the intent and blocks the retry, while expiry definitively clears it
+and fails. Once intended bytes are observed, another uncertain identical
+rewrite remains a confirmation retry and cannot restore the earlier temporal
+gate. A missing or superseding winner clears the intent with a CAS failure. Read
+or protection failure never clears the intent. Proof-bound pending-History
+replacement keeps its separate exact uncertainty contract.
+
 Every mutation requires the expected delivery identity, record revision, and
 underlying file revision read by that operation. The file revision is the exact
 descriptor snapshot of device, inode, byte count, modification seconds and

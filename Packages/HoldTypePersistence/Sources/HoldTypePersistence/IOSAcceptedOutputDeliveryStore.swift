@@ -100,6 +100,22 @@ public actor IOSAcceptedOutputDeliveryStore {
         let stage: PendingHistoryClearStage
     }
 
+    private enum AcceptanceSource: Equatable, Sendable {
+        case missing
+        case existing(IOSAcceptedOutputDeliveryJournalSnapshot)
+    }
+
+    private struct UncertainAcceptanceIntent: Equatable, Sendable {
+        let preparation: IOSAcceptedOutputDeliveryPreparation
+        let source: AcceptanceSource
+        let intended: IOSAcceptedOutputDeliveryRecord
+
+        var intendedWasVisibleInSource: Bool {
+            guard case .existing(let source) = source else { return false }
+            return source.record == intended
+        }
+    }
+
     private let journal: any IOSAcceptedOutputDeliveryJournalStoring
     private let now: @Sendable () -> Date
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
@@ -111,6 +127,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     private var uncertainPendingHistoryReplacement:
         UncertainPendingHistoryReplacement?
     private var uncertainPendingHistoryClear: UncertainPendingHistoryClear?
+    private var uncertainAcceptanceIntent: UncertainAcceptanceIntent?
 
     public init(applicationSupportDirectoryURL: URL) {
         journal = FoundationIOSAcceptedOutputDeliveryJournalRepository(
@@ -137,6 +154,13 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func accept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        if let uncertainAcceptanceIntent {
+            try requireNoUncertainHistoryMutationExceptAcceptance()
+            guard preparation == uncertainAcceptanceIntent.preparation else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            return try reconcileAcceptance(uncertainAcceptanceIntent)
+        }
         try requireNoUncertainHistoryMutation()
         return try performAccept(preparation)
     }
@@ -165,6 +189,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     }
 
     public func load() throws -> IOSAcceptedOutputDeliveryObservation? {
+        try requireNoUncertainAcceptance()
         guard let snapshot = try journal.load() else { return nil }
         return observation(for: snapshot.record)
     }
@@ -419,7 +444,8 @@ public actor IOSAcceptedOutputDeliveryStore {
     @discardableResult
     public func performStagingMaintenance()
         throws -> IOSAcceptedOutputDeliveryMaintenanceReport {
-        IOSAcceptedOutputDeliveryMaintenanceReport(
+        try requireNoUncertainAcceptance()
+        return IOSAcceptedOutputDeliveryMaintenanceReport(
             try journal.performStagingMaintenance(now: now())
         )
     }
@@ -451,7 +477,11 @@ private extension IOSAcceptedOutputDeliveryStore {
                 throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
             }
             do {
-                let created = try journal.create(newRecord)
+                let created = try publishAcceptance(
+                    newRecord,
+                    source: .missing,
+                    preparation: preparation
+                )
                 clearTransientState(for: nil)
                 return created.record
             } catch IOSAcceptedOutputDeliveryError.slotOccupied {
@@ -490,7 +520,9 @@ private extension IOSAcceptedOutputDeliveryStore {
             return try reconcileSameAcceptance(
                 preparation,
                 snapshot: current,
-                temporalState: currentTemporalState
+                temporalState: currentTemporalState,
+                recordsOrdinaryAcceptanceUncertainty:
+                    pendingHistoryReplacement == nil
             )
         }
         if current.record.collides(with: preparation) {
@@ -525,7 +557,11 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
 
         do {
-            let replaced = try commit(newRecord, replacing: current)
+            let replaced = try publishAcceptance(
+                newRecord,
+                source: .existing(current),
+                preparation: preparation
+            )
             clearTransientState(for: current.record.deliveryID)
             return replaced.record
         } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
@@ -533,6 +569,128 @@ private extension IOSAcceptedOutputDeliveryStore {
                 preparation,
                 otherwise: .compareAndSwapFailed
             )
+        }
+    }
+
+    private func reconcileAcceptance(
+        _ intent: UncertainAcceptanceIntent
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        let current = try journal.load()
+        let sourceStillCurrent: Bool = switch (intent.source, current) {
+        case (.missing, .none): true
+        case (.existing(let source), .some(let current)): source == current
+        default: false
+        }
+
+        let publicationSource: AcceptanceSource
+        if sourceStillCurrent {
+            if !intent.intendedWasVisibleInSource {
+                try requireActiveAcceptanceIntent(
+                    intent,
+                    current: current
+                )
+            }
+            publicationSource = intent.source
+        } else if let current,
+                  current.record == intent.intended {
+            publicationSource = .existing(current)
+        } else {
+            clearAcceptanceIntent(keeping: current)
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+
+        do {
+            let confirmed = try publishAcceptance(
+                intent.intended,
+                source: publicationSource,
+                preparation: intent.preparation
+            )
+            pruneMonotonicDeadlines(
+                keeping: confirmed.record.deliveryID
+            )
+            return confirmed.record
+        } catch IOSAcceptedOutputDeliveryError.slotOccupied {
+            return try reconcileAcceptancePublicationConflict(intent)
+        } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
+            return try reconcileAcceptancePublicationConflict(intent)
+        }
+    }
+
+    private func reconcileAcceptancePublicationConflict(
+        _ intent: UncertainAcceptanceIntent
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        let current = try journal.load()
+        guard let current,
+              current.record == intent.intended else {
+            clearAcceptanceIntent(keeping: current)
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        do {
+            let confirmed = try publishAcceptance(
+                intent.intended,
+                source: .existing(current),
+                preparation: intent.preparation
+            )
+            pruneMonotonicDeadlines(
+                keeping: confirmed.record.deliveryID
+            )
+            return confirmed.record
+        } catch IOSAcceptedOutputDeliveryError.slotOccupied {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+    }
+
+    private func requireActiveAcceptanceIntent(
+        _ intent: UncertainAcceptanceIntent,
+        current: IOSAcceptedOutputDeliveryJournalSnapshot?
+    ) throws {
+        switch temporalState(for: intent.intended) {
+        case .active:
+            return
+        case .rollbackAmbiguous:
+            throw IOSAcceptedOutputDeliveryError.clockRollbackAmbiguous
+        case .expired:
+            clearAcceptanceIntent(keeping: current)
+            throw IOSAcceptedOutputDeliveryError.expired
+        }
+    }
+
+    private func clearAcceptanceIntent(
+        keeping current: IOSAcceptedOutputDeliveryJournalSnapshot?
+    ) {
+        uncertainAcceptanceIntent = nil
+        confirmedAuthorizationFileRevision = nil
+        if let current {
+            pruneMonotonicDeadlines(keeping: current.record.deliveryID)
+        } else {
+            monotonicDeadlines.removeAll()
+        }
+    }
+
+    private func publishAcceptance(
+        _ intended: IOSAcceptedOutputDeliveryRecord,
+        source: AcceptanceSource,
+        preparation: IOSAcceptedOutputDeliveryPreparation
+    ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
+        let intent = UncertainAcceptanceIntent(
+            preparation: preparation,
+            source: source,
+            intended: intended
+        )
+        do {
+            let committed: IOSAcceptedOutputDeliveryJournalSnapshot =
+                switch source {
+                case .missing:
+                    try journal.create(intended)
+                case .existing(let snapshot):
+                    try journal.replace(intended, expected: snapshot)
+                }
+            uncertainAcceptanceIntent = nil
+            confirmedAuthorizationFileRevision = nil
+            return committed
+        } catch IOSAcceptedOutputDeliveryError.commitUncertain {
+            uncertainAcceptanceIntent = intent
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
     }
 
@@ -546,7 +704,8 @@ private extension IOSAcceptedOutputDeliveryStore {
             return try reconcileSameAcceptance(
                 preparation,
                 snapshot: current,
-                temporalState: currentTemporalState
+                temporalState: currentTemporalState,
+                recordsOrdinaryAcceptanceUncertainty: true
             )
         }
         if current.record.collides(with: preparation) {
@@ -641,7 +800,8 @@ private extension IOSAcceptedOutputDeliveryStore {
     private func reconcileSameAcceptance(
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
         snapshot: IOSAcceptedOutputDeliveryJournalSnapshot,
-        temporalState: TemporalState
+        temporalState: TemporalState,
+        recordsOrdinaryAcceptanceUncertainty: Bool
     ) throws -> IOSAcceptedOutputDeliveryRecord {
         switch temporalState {
         case .active:
@@ -660,12 +820,30 @@ private extension IOSAcceptedOutputDeliveryStore {
                 updatedAt: try mutationNow(for: snapshot.record),
                 keepLatestResult: false
             )
-            let committed = try commit(replacement, replacing: snapshot)
+            let committed: IOSAcceptedOutputDeliveryJournalSnapshot
+            if recordsOrdinaryAcceptanceUncertainty {
+                committed = try publishAcceptance(
+                    replacement,
+                    source: .existing(snapshot),
+                    preparation: preparation
+                )
+            } else {
+                committed = try commit(replacement, replacing: snapshot)
+            }
             pruneMonotonicDeadlines(keeping: committed.record.deliveryID)
             return committed.record
         }
 
-        let confirmed = try confirmIdentical(snapshot)
+        let confirmed: IOSAcceptedOutputDeliveryJournalSnapshot
+        if recordsOrdinaryAcceptanceUncertainty {
+            confirmed = try publishAcceptance(
+                snapshot.record,
+                source: .existing(snapshot),
+                preparation: preparation
+            )
+        } else {
+            confirmed = try confirmIdentical(snapshot)
+        }
         pruneMonotonicDeadlines(keeping: confirmed.record.deliveryID)
         try requireActive(confirmed.record)
         return confirmed.record
@@ -848,6 +1026,7 @@ private extension IOSAcceptedOutputDeliveryStore {
     private func transitionHistoryWrite(
         _ operation: HistoryTransitionOperation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try requireNoUncertainAcceptance()
         guard uncertainPendingHistoryReplacement == nil,
               uncertainPendingHistoryClear == nil else {
             throw IOSAcceptedOutputDeliveryError.commitUncertain
@@ -962,9 +1141,20 @@ private extension IOSAcceptedOutputDeliveryStore {
     }
 
     func requireNoUncertainHistoryMutation() throws {
+        try requireNoUncertainHistoryMutationExceptAcceptance()
+        try requireNoUncertainAcceptance()
+    }
+
+    func requireNoUncertainHistoryMutationExceptAcceptance() throws {
         guard uncertainHistoryTransition == nil,
               uncertainPendingHistoryReplacement == nil,
               uncertainPendingHistoryClear == nil else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+    }
+
+    func requireNoUncertainAcceptance() throws {
+        guard uncertainAcceptanceIntent == nil else {
             throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
     }
