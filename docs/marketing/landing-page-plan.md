@@ -1,38 +1,41 @@
 # HoldType Landing Page Working Plan
 
-Status: working brief for a future `holdtype.app` landing page
+Status: working brief for the published `holdtype.app` landing page
 
 Research snapshot: 2026-07-09
 
 ## Product Position
 
-HoldType is a focused native macOS voice-input tool for people who write long
-AI prompts, messages, reviews, documentation, and notes. Its primary audience
-is comfortable using an OpenAI Platform API key and values a native workflow,
-direct provider billing, one opinionated transcription default, and no
-additional product account or subscription. HoldType is the narrow alternative
-for people who do not want either a managed dictation subscription or a model
-and provider marketplace.
+HoldType is a native macOS dictation client for `gpt-4o-transcribe`. It uses the
+user's OpenAI Platform API key, puts the returned transcript at the active
+cursor, and adds no HoldType account or subscription. Model-based correction is
+optional and off by default, so ordinary dictation does not require a second
+model rewrite.
+
+The landing page should lead with this concrete product and commercial
+contract. The idea of speaking a complete thought may remain a supporting use
+case, but it is not the product position.
 
 Primary job:
 
-> When a thought is longer than I want to type, let me say it without leaving
-> the app where I am working, then put the accepted text at the cursor.
+> Let me hold one shortcut, dictate through `gpt-4o-transcribe`, and put the
+> returned text at the cursor without paying for another dictation subscription.
 
 Secondary job:
 
 > Let me speak in the language where the thought comes naturally and insert the
 > result in the language my work requires.
 
-Recommended positioning line:
+Recommended positioning direction:
 
-> Speak the whole thought. HoldType puts it where you're working.
+> Mac dictation with GPT-4o Transcribe. Your OpenAI key. No HoldType
+> subscription.
 
 Supporting line:
 
-> Native macOS voice input for long AI prompts, messages, docs, and notes.
-> Bring your own OpenAI API key. No HoldType account or subscription, and no
-> provider comparison or local-model download before the first dictation.
+> Hold Right Command, speak, and release. HoldType sends the recording through
+> the user's OpenAI Platform account and puts the transcript at the cursor in
+> most Mac apps. Model-based correction is optional and off by default.
 
 ## Role Of Each Surface
 
@@ -60,7 +63,7 @@ This is a positioning study, not a feature checklist.
 | --- | --- | --- |
 | [Wispr Flow](https://wisprflow.ai/) | A quantified speed promise, immediate before/after demonstration, repeated download CTA, and extensive social proof | Show the result before explaining settings. Do not copy speed multipliers without HoldType-specific measurement. |
 | [OpenWhispr](https://openwhispr.com/) | Privacy and user control directly after the hero, plus a concise GitHub README with direct downloads | Explain the data boundary early. Keep HoldType focused instead of matching OpenWhispr's meetings, notes, agents, and local-model breadth. |
-| [Superwhisper](https://superwhisper.com/) | A short “speak → polished text” hero, visible demo, concrete coding workflows, and clear local/cloud data-flow documentation | Use a real end-to-end demo and show the apps where HoldType is useful. Avoid turning model choice into the headline. |
+| [Superwhisper](https://superwhisper.com/) | A short “speak → polished text” hero, visible demo, concrete coding workflows, and clear local/cloud data-flow documentation | Use a real end-to-end demo and show the apps where HoldType is useful. HoldType may name its default model because the model and direct API path are part of the product contract. |
 | [VoiceInk](https://tryvoiceink.com/) | Native Mac and privacy positioning, concrete use cases, founder presence, pricing clarity, and public source as trust | Combine founder credibility with product proof. Avoid accuracy and speed claims without a reproducible method. |
 | [MacWhisper](https://www.macwhisper.com/) | Use-case-led product breadth, UI proof, reviews, and a clear one-time purchase story | Borrow use-case clarity, not the all-in-one transcription-studio scope. |
 
@@ -71,8 +74,9 @@ This is a positioning study, not a feature checklist.
 Goal: explain the outcome, platform, and commercial boundary within five
 seconds.
 
-- Headline: `Speak the whole thought. HoldType puts it where you're working.`
-- Supporting copy: native macOS voice input, own OpenAI key, most Mac apps.
+- Headline: native Mac dictation with `gpt-4o-transcribe`.
+- Supporting copy: own OpenAI key, no HoldType subscription, and no mandatory
+  second model rewrite.
 - Primary CTA: `Download HoldType for macOS`.
 - Secondary CTA: `Watch the 20-second demo`.
 - Qualification: `Free app · OpenAI API usage billed separately · macOS 14+`.
@@ -93,13 +97,13 @@ GIF can be the fallback for GitHub.
 
 Keep this layer limited to three decisions:
 
-1. **Stays where you work:** hold the shortcut and return accepted text to the
-   cursor without moving the draft through a separate editor.
-2. **No subscription to remember:** HoldType adds no monthly fee; OpenAI deducts
+1. **Known transcription model:** `gpt-4o-transcribe` is the configurable
+   default rather than an unnamed recognition layer.
+2. **Direct provider billing:** HoldType adds no monthly fee; OpenAI deducts
    actual API usage from the user's Platform account.
-3. **OpenAI by design:** `gpt-4o-transcribe` is the quality-first default, with
-   no provider comparison or local-model download required before first use.
-   Advanced settings remain available.
+3. **No mandatory rewrite pass:** model-based correction is optional and off by
+   default. Local typography cleanup may still run without a second model
+   request.
 
 ### 4. Work It Fits
 
@@ -150,12 +154,13 @@ that optional correction and translation are separate.
 
 Keep the story specific and short:
 
-- typing speed was not the problem; long thoughts were being shortened;
-- subscription tools, local models, and provider-rich tools solve different
-  problems, while OpenAI transcription produced the most trusted first pass in
-  the founder's own daily workflow;
-- the desired combination was narrower: one provider, a sensible default,
-  native Swift, direct billing, and no extra account or subscription;
+- the founder had tried subscription tools, OpenWhispr, Codex voice input, and
+  local Whisper setups, but did not want another platform around dictation;
+- OpenAI transcription produced the most trusted first pass in the founder's
+  own daily workflow;
+- the desired combination was narrower: a named default model, optional rather
+  than mandatory correction, native Swift, direct billing, and no extra account
+  or subscription;
 - HoldType is built and tested through the same Codex-heavy voice workflow;
 - the desk microphone photo belongs here, with a note that special hardware is
   not required.
@@ -210,7 +215,6 @@ Priority 0:
 - 10–20 second end-to-end demo in a real target app;
 - hero frame that shows the cursor, floating indicator, and inserted text;
 - a first-run permissions walkthrough beyond the published API-key guide;
-- a working public website before linking it from the README;
 - a documented cost example that states what the estimate includes.
 
 Priority 1:
@@ -234,6 +238,11 @@ Priority 2:
 Do not publish `3x faster`, `5x faster`, `99% accurate`, `perfect`, `private`,
 or `works in every app` without a documented HoldType-specific method and the
 necessary qualifications.
+
+Do not describe `gpt-4o-transcribe` as the best model on the market. The landing
+page may name it as the current configurable default and may link to OpenAI's
+own model documentation. Do not claim that a competitor uses `whisper-1` or an
+older Whisper model unless the competitor publishes that fact.
 
 Do not describe 100 dictations as a daily maximum or typical usage, claim that
 HoldType is always cheaper than a flat subscription, say that free and paid

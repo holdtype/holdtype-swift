@@ -161,17 +161,16 @@ text links. Shadows are reserved for the hero editor and real product windows.
 - `320–620px`: stacked actions and workflow, single-column data flow and FAQ,
   16px page gutters, and full-width primary CTAs.
 
-The allowed first-viewport copy is limited to the HoldType brand, essential
-navigation, the approved headline `Speak the whole thought.`, the approved
-support line `HoldType puts it where you’re working.`, the Mac/BYOK description,
-the two approved actions, the macOS/cost qualification, one restrained
-usage-cost badge, one human supporting line, and the explicit illustration
-caption. No testimonial, unsupported metric, or unavailable demo action is
-permitted above the fold. The approved badge is
-`Even 100 dictations a day · ≈ $0.10 · for intensive use`. Technical duration
-and model-rate qualifications stay in the detailed cost section. The
-badge must remain visually secondary to the product outcome and must not
-present 100 as a usage cap, guaranteed maximum, or typical day.
+The first viewport names the product category and the current product contract:
+native Mac dictation with `gpt-4o-transcribe`, the user's OpenAI Platform API
+key, no HoldType subscription, and no mandatory model rewrite. It includes the
+two approved actions, the macOS/cost qualification, one restrained usage-cost
+badge, and the explicit illustration caption. No testimonial, unsupported
+metric, comparative speed claim, or unavailable demo action is permitted above
+the fold. The badge describes 100 short dictations as roughly 17 minutes of
+audio at the current estimated transcription rate. It remains visually
+secondary and must not present 100 as a usage cap, guaranteed maximum, or
+typical day.
 
 ### Page anatomy
 
@@ -216,6 +215,9 @@ UI states were redrawn or retouched.
 ## Product-copy boundaries
 
 - HoldType is a native macOS app for macOS 14 or newer.
+- Its configurable default transcription model is `gpt-4o-transcribe`.
+- Model-based correction is optional and off by default. Local typography
+  cleanup may still run without another model request.
 - It inserts accepted text in **most** Mac apps; it does not claim universal
   compatibility.
 - HoldType has no account or recurring fee. OpenAI may require prepaid API

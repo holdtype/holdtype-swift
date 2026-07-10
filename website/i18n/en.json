@@ -1,8 +1,8 @@
 {
   "locale": "en",
   "meta": {
-    "title": "{brand.holdType} — Speak the whole thought",
-    "description": "{brand.holdType} is {brand.macOS} voice input for long prompts, messages, docs, and notes. Use your own {brand.openAI} API key with no {brand.holdType} account or subscription.",
+    "title": "{brand.holdType} — Mac dictation with GPT-4o Transcribe",
+    "description": "{brand.holdType} is native {brand.macOS} dictation with GPT-4o Transcribe. Use your own {brand.openAI} API key, with no {brand.holdType} subscription or mandatory model rewrite.",
     "socialImageAlt": "{brand.holdType} app icon"
   },
   "common": {
@@ -29,85 +29,85 @@
     "faq": "FAQ"
   },
   "hero": {
-    "title": "Speak the whole thought.",
-    "lede": "{brand.holdType} puts it where you’re working.",
-    "support": "Long prompts, messages, docs, and notes—spoken directly into the {brand.mac} app where you’re working. {brand.holdType} uses your {brand.openAI} API key and returns accepted text to the cursor in most {brand.mac} apps.",
-    "seeHowItWorks": "See how it works",
+    "title": "Native Mac dictation with GPT-4o Transcribe.",
+    "lede": "Your API key. No {brand.holdType} subscription.",
+    "support": "Hold the shortcut in a {brand.mac} app, speak, and release. {brand.holdType} sends the recording to GPT-4o Transcribe through your {brand.openAI} account and puts the transcript at the cursor in most {brand.mac} apps. Model-based correction is optional and off by default.",
+    "seeHowItWorks": "See the workflow",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
-      "aria": "Even {pricing.dailyDictations} dictations a day cost about {pricing.dailyPrice} in this intensive-use example.",
-      "kicker": "Even {pricing.dailyDictations} dictations a day",
+      "aria": "At the current estimated transcription rate, {pricing.dailyDictations} short dictations cost about {pricing.dailyPrice}.",
+      "kicker": "{pricing.dailyDictations} short dictations",
       "value": "≈ {pricing.dailyPrice}",
-      "suffix": "for intensive use"
+      "suffix": "at the current estimated rate"
     },
     "demo": {
-      "editorIllustration": "{brand.holdType} illustration",
-      "documentTitle": "Project update",
+      "editorIllustration": "{brand.holdType} workflow illustration",
+      "documentTitle": "Codex task",
       "toolbarSample": "Aa  ···",
-      "intro": "Here’s a summary of progress and next steps.",
-      "sectionTitle": "Summary",
-      "listeningBody": "Hold {keyboard.rightCommand} and speak naturally.",
-      "transcribingBody": "Preparing the accepted text…",
-      "insertedBody": "We shipped the latest release last week. Feedback has been positive, and the next step is to tighten onboarding and keep the writing flow simple.",
+      "intro": "Refactor the upload path without changing user-visible behavior.",
+      "sectionTitle": "Requirements",
+      "listeningBody": "Hold {keyboard.rightCommand} and dictate the task.",
+      "transcribingBody": "Sending the recording to GPT-4o Transcribe…",
+      "insertedBody": "Preserve retry state, keep the request timeout bounded, and add a regression test for the failed upload path.",
       "status": {
         "listening": "Listening",
         "transcribing": "Transcribing",
         "inserted": "Inserted"
       },
-      "caption": "Illustrated workflow: {brand.holdType} listens, transcribes, then inserts text in a generic editor. Not a recorded demo."
+      "caption": "Illustrated {brand.holdType} workflow using a sample technical dictation. This is not a recorded demo."
     }
   },
   "workflow": {
-    "title": "Turn your voice into text—right where you are.",
+    "title": "Hold. Speak. Release. The transcript appears at the cursor.",
     "steps": {
       "hold": {
         "title": "Hold",
-        "body": "Hold {keyboard.rightCommand}"
+        "body": "Hold {keyboard.rightCommand} where you can type"
       },
       "speak": {
         "title": "Speak",
-        "body": "Say the complete thought"
+        "body": "Dictate the text you need"
       },
       "release": {
         "title": "Release",
-        "body": "Let go of {keyboard.command}"
+        "body": "Release {keyboard.command}"
       },
       "inserted": {
         "artLabel": "Text",
         "title": "Inserted",
-        "body": "Text appears at the cursor"
+        "body": "The transcript appears at the cursor"
       }
     }
   },
   "reasons": {
     "a11yTitle": "Why {brand.holdType}",
     "stays": {
-      "title": "Stays where you work",
-      "body": "Hold a shortcut, speak, and the result returns to the cursor. No separate editor or browser tab to manage."
+      "title": "GPT-4o Transcribe by default",
+      "body": "The configurable default is GPT-4o Transcribe, not whisper-1. Change it in Settings when another OpenAI transcription model is needed."
     },
     "subscription": {
-      "title": "No subscription to remember",
-      "body": "{brand.holdType} adds no monthly fee. {brand.openAI} deducts the API usage from your {brand.openAIPlatform} account when requests are made."
+      "title": "Pay OpenAI for usage",
+      "body": "{brand.holdType} adds no monthly fee. {brand.openAI} deducts API usage from the {brand.openAIPlatform} account connected through your key."
     },
     "openAI": {
-      "title": "{brand.openAI} by design",
-      "body": "Start with one quality-first default. No provider comparison or local-model download is required before the first dictation."
+      "title": "No mandatory second {brand.openAI} pass",
+      "body": "Model-based correction is optional and off by default. Local typography cleanup can run without another model request."
     }
   },
   "useCases": {
-    "title": "For the writing that gets shortened when you type it.",
-    "intro": "{brand.holdType} is built for complete thoughts, whether the destination is a coding agent, a message, or a document.",
+    "title": "Dictate work—not voice memos to sort out later.",
+    "intro": "{brand.holdType} is for text that belongs in an active app now: a coding task, a message, a document, or a translated reply.",
     "aiPrompts": {
-      "title": "Long AI prompts",
-      "body": "Give {brand.codex}, {brand.claude}, or {brand.chatGPT} the context that is easy to skip when a prompt has to be typed line by line."
+      "title": "Technical prompts",
+      "body": "Dictate a {brand.codex}, {brand.claude}, or {brand.chatGPT} request with file names, constraints, and acceptance criteria instead of assembling it line by line."
     },
     "everyday": {
-      "title": "Everyday writing",
-      "body": "Dictate mail, reviews, documentation, chats, and notes without moving the draft through another editor."
+      "title": "Messages and working documents",
+      "body": "Dictate mail, reviews, documentation, chats, and notes directly at the cursor instead of moving a draft through another editor."
     },
     "bilingual": {
-      "title": "Bilingual work",
-      "body": "Speak where the thought comes naturally, then insert the configured target language when translation is requested."
+      "title": "Dictate and translate",
+      "body": "Set a target language, then use the dedicated shortcut to transcribe speech and insert the translation."
     }
   },
   "features": {
@@ -115,8 +115,8 @@
     "appUiLanguageNote": "The current {brand.holdType} app and the product screenshots use an English interface.",
     "translation": {
       "label": "Language and vocabulary",
-      "title": "Say it naturally. Insert it for the work in front of you.",
-      "body1": "Translation runs only when requested. Choose a target language, then use {keyboard.translationShortcut} to transcribe and translate in one flow.",
+      "title": "Translate only when you ask for it.",
+      "body1": "Choose a target language, then use {keyboard.translationShortcut}. Translation runs as a separate text request after transcription.",
       "body2": "{appUi.localDictionary} entries add spelling context for names, project terms, and file names to the transcription request.",
       "imageAlt": "{brand.holdType} {appUi.translation} settings with the translation shortcut and target language controls",
       "caption": "Real {brand.holdType} {appUi.translation} settings. On phones, swipe the focused crop horizontally to inspect it.",
@@ -125,15 +125,15 @@
     "menu": {
       "imageAlt": "{brand.holdType} menu bar popover with transcribe, translate, {appUi.pasteLastResult}, history, settings, and quit actions",
       "imageCaption": "Real menu bar controls, including {appUi.lastResult} recovery.",
-      "label": "Always within reach",
-      "title": "Start, translate, recover, and adjust from the menu bar.",
+      "label": "Recovery and control",
+      "title": "Keep the transcript when insertion fails.",
       "body1": "If insertion fails, the accepted transcript remains available as {appUi.lastResult}. Paste it with {keyboard.pasteShortcut} without replacing the {brand.macOS} system clipboard.",
-      "body2": "Optional {brand.openAI} correction is off by default. Local typography cleanup can still run without another model request."
+      "body2": "Model-based {brand.openAI} correction is off by default. The menu bar keeps dictation, translation, recovery, history, and settings together."
     }
   },
   "privacy": {
-    "label": "Cost and data boundary",
-    "title": "Clear about what stays local—and what goes to {brand.openAI}.",
+    "label": "Cost, requests, and storage",
+    "title": "Audio goes to {brand.openAI}. HoldType runs no product backend.",
     "intro": "{brand.holdType} has no account system, product backend, telemetry, analytics, or cloud sync. Transcription itself is an {brand.openAI} API request made with the key you configure.",
     "flow": {
       "aria": "{brand.holdType} data flow",
@@ -143,7 +143,7 @@
       "activeApp": "Active app"
     },
     "dataPath": {
-      "title": "Your data path",
+      "title": "Where the key, audio, and text go",
       "items": {
         "apiKey": "The API key is stored locally in {brand.macOSKeychain}.",
         "audio": "Audio is sent to {brand.openAI} for transcription.",
@@ -153,10 +153,10 @@
       }
     },
     "billing": {
-      "title": "Pay for usage, not access",
+      "title": "Pay OpenAI for transcription—not HoldType for access",
       "body": "{brand.holdType} has no subscription. {brand.openAI} deducts actual API usage from the {brand.openAIPlatform} account connected through your key; {brand.holdType} does not collect a monthly fee.",
-      "exampleTitle": "{pricing.dailyDictations} messages. About {pricing.dailyPrice}.",
-      "exampleBody": "{pricing.dailyDictations} messages add up to roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat the same daily total for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
+      "exampleTitle": "{pricing.dailyDictations} short dictations. About {pricing.dailyPrice}.",
+      "exampleBody": "{pricing.dailyDictations} short dictations represent roughly {pricing.recordedMinutes} minutes of recorded speech. Repeat that amount for {pricing.daysInMonth} days and the estimated transcription cost is about {pricing.monthlyPrice}.",
       "note": "The {appUi.billing} screen is a local estimate for successful audio transcriptions. It is not an {brand.openAI} invoice and does not include correction or translation requests.",
       "pricingLink": "{brand.openAI} API pricing",
       "imageAlt": "{brand.holdType} {appUi.billing} settings showing a local transcription usage estimate",
@@ -168,10 +168,10 @@
     "imageAlt": "A desk microphone used while building and testing {brand.holdType}",
     "imageCaption": "Special recording hardware is not required.",
     "label": "Why I built {brand.holdType}",
-    "title": "Typing speed was not the problem.",
-    "body1": "The problem was how often a long prompt, review, or explanation became shorter before I finished typing it. Speaking made it easier to include the full thought.",
-    "body2": "I tried subscription tools and apps built around local and cloud model choices. They solve different problems. In my daily work, {brand.openAI} transcription gave me the first pass I trusted most often.",
-    "body3": "I wanted a narrower setup: one provider, a sensible default, direct API billing, and no product subscription to remember. {brand.holdType} is built and tested through the same voice-first workflow it is meant to support."
+    "title": "I wanted the transcript, not another subscription or rewrite pipeline.",
+    "body1": "I had tried Wispr Flow, OpenWhispr, Codex voice input, and local Whisper setups. I did not want another platform around dictation. I wanted a small native app with one job.",
+    "body2": "In my daily work, {brand.openAI} transcription gave me the first pass I trusted most often. That is why GPT-4o Transcribe is the default and model-based correction stays off until I enable it.",
+    "body3": "The app is native Swift, works through the user’s API key, and adds no account or monthly fee. {brand.holdType} is built and tested through the same voice workflow I use to direct Codex."
   },
   "install": {
     "label": "Get started",
@@ -197,7 +197,7 @@
   },
   "apiKeyGuide": {
     "label": "New to API keys?",
-    "title": "Create one in a couple of minutes.",
+    "title": "Create an API key, then add it in Settings.",
     "intro": "An API key is a private credential that lets {brand.holdType} send audio for transcription through your {brand.openAIPlatform} account. It is separate from your {brand.chatGPT} login and subscription.",
     "steps": {
       "openPage": {
@@ -307,11 +307,11 @@
     }
   },
   "finalCta": {
-    "title": "Speak the thought. Keep the context.",
+    "title": "Dictate with GPT-4o Transcribe on your Mac.",
     "body": "Free app · No {brand.holdType} subscription · {brand.openAI} usage billed directly · {fact.minimumOS}"
   },
   "footer": {
-    "description": "Native {brand.macOS} voice input. Source-available under {license.fsl11} with an {license.mit} future license.",
+    "description": "Native {brand.macOS} dictation with GPT-4o Transcribe. Source-available under {license.fsl11} with an {license.mit} future license.",
     "sourceLink": "View source on {brand.github}"
   },
   "lightbox": {

@@ -19,6 +19,17 @@ that already uses GitHub Pages.
 - `https://holdtype.app/` serves the HoldType landing page through DigitalOcean
   App Platform's static-site service, managed HTTPS, and CDN.
 - `www.holdtype.app` redirects to the canonical apex domain.
+- The first viewport must identify HoldType as native Mac dictation that uses
+  `gpt-4o-transcribe` by default, works through the user's OpenAI Platform API
+  key, and adds no HoldType subscription.
+- The first viewport must state that model-based correction is optional and off
+  by default instead of implying that every transcript requires a second model
+  rewrite.
+- Product copy may describe the known model, request path, billing boundary,
+  and native implementation. It must not claim that HoldType is the fastest or
+  most accurate dictation product, publish a comparative speed multiplier, or
+  attribute an undocumented recognition model to a competitor without a dated,
+  reproducible evidence package.
 - The generated pages remain usable at the DigitalOcean technical hostname and
   at the custom-domain routes without a server-side application runtime.
 - Download links continue to use the stable GitHub latest-release URL.
