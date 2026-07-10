@@ -73,6 +73,33 @@ public actor IOSAcceptedOutputDeliveryStore {
         let intended: IOSAcceptedOutputDeliveryRecord
     }
 
+    private struct PendingHistoryReplacementOperation: Equatable, Sendable {
+        let preparation: IOSAcceptedOutputDeliveryPreparation
+        let authorization: IOSAcceptedOutputDeliveryAuthorization
+        let ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
+    }
+
+    private struct UncertainPendingHistoryReplacement: Equatable, Sendable {
+        let operation: PendingHistoryReplacementOperation
+        let intended: IOSAcceptedOutputDeliveryRecord
+    }
+
+    private struct PendingHistoryClearOperation: Equatable, Sendable {
+        let authorization: IOSAcceptedOutputDeliveryAuthorization
+        let ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
+    }
+
+    private enum PendingHistoryClearStage: Equatable, Sendable {
+        case tombstoneCommit
+        case removalCommit
+    }
+
+    private struct UncertainPendingHistoryClear: Equatable, Sendable {
+        let operation: PendingHistoryClearOperation
+        let tombstone: IOSAcceptedOutputDeliveryRecord
+        let stage: PendingHistoryClearStage
+    }
+
     private let journal: any IOSAcceptedOutputDeliveryJournalStoring
     private let now: @Sendable () -> Date
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
@@ -81,6 +108,9 @@ public actor IOSAcceptedOutputDeliveryStore {
     private var confirmedAuthorizationFileRevision:
         IOSStrictProtectedRecordFileRevision?
     private var uncertainHistoryTransition: UncertainHistoryTransition?
+    private var uncertainPendingHistoryReplacement:
+        UncertainPendingHistoryReplacement?
+    private var uncertainPendingHistoryClear: UncertainPendingHistoryClear?
 
     public init(applicationSupportDirectoryURL: URL) {
         journal = FoundationIOSAcceptedOutputDeliveryJournalRepository(
@@ -107,7 +137,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func accept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         return try performAccept(preparation)
     }
 
@@ -116,10 +146,21 @@ public actor IOSAcceptedOutputDeliveryStore {
         authorization: IOSAcceptedOutputDeliveryAuthorization,
         ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        try requireNoUncertainHistoryTransition()
+        let operation = PendingHistoryReplacementOperation(
+            preparation: preparation,
+            authorization: authorization,
+            ownershipProof: ownershipProof
+        )
+        if let uncertainPendingHistoryReplacement {
+            return try reconcilePendingHistoryReplacement(
+                uncertainPendingHistoryReplacement,
+                operation: operation
+            )
+        }
+        try requireNoUncertainHistoryMutation()
         return try performAccept(
             preparation,
-            pendingHistoryOwnership: (authorization, ownershipProof)
+            pendingHistoryReplacement: operation
         )
     }
 
@@ -133,7 +174,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func authorizePendingHistoryWrite(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryAuthorization {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         let snapshot = try requireSnapshot(expected: expected)
         try requireActive(snapshot.record)
         guard snapshot.record.historyWrite?.state == .pending,
@@ -176,7 +217,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func disableKeepLatestResult(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         let snapshot = try requireCurrentSnapshot()
         try requireActive(snapshot.record)
 
@@ -208,7 +249,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func clear(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
 
         if snapshot.record.deliveryState == .discarded {
@@ -272,7 +313,17 @@ public actor IOSAcceptedOutputDeliveryStore {
         authorization: IOSAcceptedOutputDeliveryAuthorization,
         ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
-        try requireNoUncertainHistoryTransition()
+        let operation = PendingHistoryClearOperation(
+            authorization: authorization,
+            ownershipProof: ownershipProof
+        )
+        if let uncertainPendingHistoryClear {
+            return try reconcilePendingHistoryClear(
+                uncertainPendingHistoryClear,
+                operation: operation
+            )
+        }
+        try requireNoUncertainHistoryMutation()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
         guard ownershipProof.provesOwnership(for: authorization) else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
@@ -288,10 +339,19 @@ public actor IOSAcceptedOutputDeliveryStore {
                 throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
             }
             try requireBridgeRevoked(snapshot.record)
-            let confirmed = try confirmIdentical(snapshot)
-            try journal.remove(expected: confirmed)
-            clearTransientState(for: snapshot.record.deliveryID)
-            return .removed
+            let intent = UncertainPendingHistoryClear(
+                operation: operation,
+                tombstone: snapshot.record,
+                stage: .removalCommit
+            )
+            let confirmed = try confirmPendingHistoryClearTombstone(
+                intent,
+                replacing: snapshot
+            )
+            return try removePendingHistoryClear(
+                intent,
+                confirmed: confirmed
+            )
         }
 
         guard snapshot == authorization.snapshot,
@@ -319,10 +379,16 @@ public actor IOSAcceptedOutputDeliveryStore {
             automaticInsertionPreferenceEnabled: false,
             historyWrite: .some(nil)
         )
-        let committed = try commit(tombstone, replacing: snapshot)
-        try journal.remove(expected: committed)
-        clearTransientState(for: snapshot.record.deliveryID)
-        return .removed
+        let intent = UncertainPendingHistoryClear(
+            operation: operation,
+            tombstone: tombstone,
+            stage: .tombstoneCommit
+        )
+        let committed = try confirmPendingHistoryClearTombstone(
+            intent,
+            replacing: snapshot
+        )
+        return try removePendingHistoryClear(intent, confirmed: committed)
     }
 
     /// Removes an expired generation-zero record directly, without creating a
@@ -330,7 +396,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     public func removeExpired(
         expected: IOSAcceptedOutputDeliveryExpectation
     ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         guard let snapshot = try journal.load() else { return .alreadyAbsent }
         guard expected.matches(snapshot.record) else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
@@ -362,19 +428,16 @@ public actor IOSAcceptedOutputDeliveryStore {
     /// no unexpired app-group projection remains.
     public func discardUnreadableLocalResult()
         throws -> IOSAcceptedOutputDeliveryRemovalResult {
-        try requireNoUncertainHistoryTransition()
+        try requireNoUncertainHistoryMutation()
         guard try journal.loadOpaque() != nil else { return .alreadyAbsent }
         throw IOSAcceptedOutputDeliveryError.bridgeRevocationRequired
     }
 }
 
 private extension IOSAcceptedOutputDeliveryStore {
-    func performAccept(
+    private func performAccept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
-        pendingHistoryOwnership: (
-            IOSAcceptedOutputDeliveryAuthorization,
-            IOSAcceptedOutputHistoryOwnershipProof
-        )? = nil
+        pendingHistoryReplacement: PendingHistoryReplacementOperation? = nil
     ) throws -> IOSAcceptedOutputDeliveryRecord {
         let timestamp = try IOSAcceptedOutputDeliveryTimestampCodec
             .canonicalDate(from: now())
@@ -384,6 +447,9 @@ private extension IOSAcceptedOutputDeliveryStore {
         )
 
         guard let current = try journal.load() else {
+            guard pendingHistoryReplacement == nil else {
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
             do {
                 let created = try journal.create(newRecord)
                 clearTransientState(for: nil)
@@ -396,6 +462,30 @@ private extension IOSAcceptedOutputDeliveryStore {
             }
         }
 
+        if let pendingHistoryReplacement {
+            let authorization = pendingHistoryReplacement.authorization
+            guard pendingHistoryReplacement.ownershipProof.provesOwnership(
+                for: authorization
+            ) else {
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
+            guard current == authorization.snapshot else {
+                guard current.record.hasSameAcceptance(as: preparation) else {
+                    throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+                }
+                let intent = UncertainPendingHistoryReplacement(
+                    operation: pendingHistoryReplacement,
+                    intended: current.record
+                )
+                let confirmed = try publishPendingHistoryReplacement(
+                    intent,
+                    replacing: current
+                )
+                clearTransientState(for: authorization.record.deliveryID)
+                return confirmed.record
+            }
+        }
+
         let currentTemporalState = temporalState(for: current.record)
         switch currentTemporalState {
         case .rollbackAmbiguous:
@@ -403,7 +493,9 @@ private extension IOSAcceptedOutputDeliveryStore {
         case .active:
             break
         case .expired:
-            break
+            if pendingHistoryReplacement != nil {
+                throw IOSAcceptedOutputDeliveryError.expired
+            }
         }
 
         if current.record.hasSameAcceptance(as: preparation) {
@@ -420,13 +512,27 @@ private extension IOSAcceptedOutputDeliveryStore {
         try requireBridgeRevoked(current.record)
         if currentTemporalState == .active,
            current.record.historyWrite?.state == .pending {
-            guard let pendingHistoryOwnership else {
+            guard pendingHistoryReplacement != nil else {
                 throw IOSAcceptedOutputDeliveryError.historyTransferRequired
             }
-            let (authorization, proof) = pendingHistoryOwnership
-            guard current == authorization.snapshot,
-                  proof.provesOwnership(for: authorization) else {
-                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+
+        if let pendingHistoryReplacement {
+            let intent = UncertainPendingHistoryReplacement(
+                operation: pendingHistoryReplacement,
+                intended: newRecord
+            )
+            do {
+                let replaced = try publishPendingHistoryReplacement(
+                    intent,
+                    replacing: current
+                )
+                clearTransientState(for: current.record.deliveryID)
+                return replaced.record
+            } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
+                return try reconcilePendingHistoryReplacementConflict(
+                    intent
+                )
             }
         }
 
@@ -459,6 +565,95 @@ private extension IOSAcceptedOutputDeliveryStore {
             throw IOSAcceptedOutputDeliveryError.identityCollision
         }
         throw error
+    }
+
+    private func reconcilePendingHistoryReplacement(
+        _ intent: UncertainPendingHistoryReplacement,
+        operation: PendingHistoryReplacementOperation
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        guard operation == intent.operation else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+        let current = try requireCurrentSnapshot()
+
+        if current != operation.authorization.snapshot,
+           current.record == intent.intended
+            || current.record.hasSameAcceptance(as: operation.preparation) {
+            let visibleIntent = UncertainPendingHistoryReplacement(
+                operation: operation,
+                intended: current.record
+            )
+            let confirmed = try publishPendingHistoryReplacement(
+                visibleIntent,
+                replacing: current
+            )
+            clearTransientState(for: operation.authorization.record.deliveryID)
+            return confirmed.record
+        }
+
+        guard current == operation.authorization.snapshot,
+              operation.ownershipProof.provesOwnership(
+                  for: operation.authorization
+              ),
+              current.record.historyWrite?.state == .pending else {
+            uncertainPendingHistoryReplacement = nil
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        do {
+            try requireActive(current.record)
+            _ = try mutationNow(for: current.record)
+        } catch IOSAcceptedOutputDeliveryError.expired {
+            uncertainPendingHistoryReplacement = nil
+            throw IOSAcceptedOutputDeliveryError.expired
+        }
+        try requireBridgeRevoked(current.record)
+        let replaced = try publishPendingHistoryReplacement(
+            intent,
+            replacing: current
+        )
+        clearTransientState(for: current.record.deliveryID)
+        return replaced.record
+    }
+
+    private func reconcilePendingHistoryReplacementConflict(
+        _ intent: UncertainPendingHistoryReplacement
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        let current = try requireCurrentSnapshot()
+        guard current.record.hasSameAcceptance(
+            as: intent.operation.preparation
+        ) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        let visibleIntent = UncertainPendingHistoryReplacement(
+            operation: intent.operation,
+            intended: current.record
+        )
+        let confirmed = try publishPendingHistoryReplacement(
+            visibleIntent,
+            replacing: current
+        )
+        clearTransientState(
+            for: intent.operation.authorization.record.deliveryID
+        )
+        return confirmed.record
+    }
+
+    private func publishPendingHistoryReplacement(
+        _ intent: UncertainPendingHistoryReplacement,
+        replacing snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
+        do {
+            let committed = try journal.replace(
+                intent.intended,
+                expected: snapshot
+            )
+            uncertainPendingHistoryReplacement = nil
+            confirmedAuthorizationFileRevision = nil
+            return committed
+        } catch IOSAcceptedOutputDeliveryError.commitUncertain {
+            uncertainPendingHistoryReplacement = intent
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
     }
 
     private func reconcileSameAcceptance(
@@ -565,9 +760,114 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
     }
 
+    private func reconcilePendingHistoryClear(
+        _ intent: UncertainPendingHistoryClear,
+        operation: PendingHistoryClearOperation
+    ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        guard operation == intent.operation else {
+            switch intent.stage {
+            case .tombstoneCommit:
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            case .removalCommit:
+                throw IOSAcceptedOutputDeliveryError.removalCommitUncertain
+            }
+        }
+
+        guard let current = try journal.load() else {
+            guard intent.stage == .removalCommit else {
+                uncertainPendingHistoryClear = nil
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
+            uncertainPendingHistoryClear = nil
+            clearTransientState(
+                for: operation.authorization.record.deliveryID
+            )
+            return .removed
+        }
+
+        if current.record == intent.tombstone {
+            let confirmed = try confirmPendingHistoryClearTombstone(
+                intent,
+                replacing: current
+            )
+            return try removePendingHistoryClear(
+                intent,
+                confirmed: confirmed
+            )
+        }
+
+        guard intent.stage == .tombstoneCommit,
+              current == operation.authorization.snapshot,
+              operation.ownershipProof.provesOwnership(
+                  for: operation.authorization
+              ),
+              current.record.historyWrite?.state == .pending else {
+            uncertainPendingHistoryClear = nil
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireBridgeRevoked(current.record)
+        switch temporalState(for: current.record) {
+        case .active:
+            _ = try mutationNow(for: current.record)
+        case .rollbackAmbiguous:
+            break
+        case .expired:
+            uncertainPendingHistoryClear = nil
+            throw IOSAcceptedOutputDeliveryError.expired
+        }
+        let committed = try confirmPendingHistoryClearTombstone(
+            intent,
+            replacing: current
+        )
+        return try removePendingHistoryClear(intent, confirmed: committed)
+    }
+
+    private func confirmPendingHistoryClearTombstone(
+        _ intent: UncertainPendingHistoryClear,
+        replacing snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    ) throws -> IOSAcceptedOutputDeliveryJournalSnapshot {
+        do {
+            let committed = try journal.replace(
+                intent.tombstone,
+                expected: snapshot
+            )
+            uncertainPendingHistoryClear = nil
+            confirmedAuthorizationFileRevision = nil
+            return committed
+        } catch IOSAcceptedOutputDeliveryError.commitUncertain {
+            uncertainPendingHistoryClear = intent
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+    }
+
+    private func removePendingHistoryClear(
+        _ intent: UncertainPendingHistoryClear,
+        confirmed: IOSAcceptedOutputDeliveryJournalSnapshot
+    ) throws -> IOSAcceptedOutputDeliveryRemovalResult {
+        do {
+            try journal.remove(expected: confirmed)
+            uncertainPendingHistoryClear = nil
+            clearTransientState(
+                for: intent.operation.authorization.record.deliveryID
+            )
+            return .removed
+        } catch IOSAcceptedOutputDeliveryError.removalCommitUncertain {
+            uncertainPendingHistoryClear = UncertainPendingHistoryClear(
+                operation: intent.operation,
+                tombstone: intent.tombstone,
+                stage: .removalCommit
+            )
+            throw IOSAcceptedOutputDeliveryError.removalCommitUncertain
+        }
+    }
+
     private func transitionHistoryWrite(
         _ operation: HistoryTransitionOperation
     ) throws -> IOSAcceptedOutputDeliveryRecord {
+        guard uncertainPendingHistoryReplacement == nil,
+              uncertainPendingHistoryClear == nil else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
         let current = try requireCurrentSnapshot()
 
         if let uncertainHistoryTransition {
@@ -670,8 +970,10 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
     }
 
-    func requireNoUncertainHistoryTransition() throws {
-        guard uncertainHistoryTransition == nil else {
+    func requireNoUncertainHistoryMutation() throws {
+        guard uncertainHistoryTransition == nil,
+              uncertainPendingHistoryReplacement == nil,
+              uncertainPendingHistoryClear == nil else {
             throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
     }
