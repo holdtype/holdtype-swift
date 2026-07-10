@@ -282,7 +282,7 @@ h3 {
 }
 
 .hero {
-  padding: clamp(76px, 8vw, 112px) 0 clamp(86px, 9vw, 126px);
+  padding: clamp(66px, 6.4vw, 90px) 0 clamp(74px, 7.2vw, 102px);
 }
 
 .hero-layout {
@@ -321,10 +321,80 @@ h3 {
   gap: 20px;
 }
 
+.hero-pricing {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 15px;
+}
+
+.price-sticker {
+  width: 134px;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 17px;
+  border: 1px solid rgb(81 101 232 / 0.34);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f5f6ff 0%, #eeeaff 100%);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 14px 34px rgb(67 65 150 / 0.14);
+  transform: rotate(-3.5deg);
+}
+
+.price-sticker-kicker {
+  color: var(--accent-ink);
+  font-size: 0.65rem;
+  font-weight: 760;
+  letter-spacing: 0.075em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.price-sticker strong {
+  display: block;
+  margin: 4px 0 3px;
+  color: var(--text);
+  font-size: 1.9rem;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.price-sticker > span:last-child {
+  max-width: 98px;
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.28;
+}
+
+.hero-price-copy {
+  max-width: 286px;
+}
+
 .hero-qualification {
-  margin: 18px 0 0;
+  margin: 0;
   color: var(--text-faint);
   font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.hero-price-note {
+  margin: 9px 0 0;
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  line-height: 1.48;
+}
+
+.hero-price-note code {
+  color: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
 }
 
 .hero-visual {
@@ -836,6 +906,25 @@ h3 {
 
 .billing-copy p {
   color: var(--text-soft);
+}
+
+.usage-example {
+  padding: 16px 0;
+  margin: 20px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.usage-example p {
+  margin: 0;
+}
+
+.usage-example .usage-example-title {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 .billing-copy .small-copy {
@@ -1393,6 +1482,28 @@ h3 {
     font-size: 1rem;
   }
 
+  .hero-pricing {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .price-sticker {
+    width: 132px;
+    padding: 16px;
+  }
+
+  .price-sticker strong {
+    font-size: 1.85rem;
+  }
+
+  .price-sticker > span:last-child {
+    font-size: 0.66rem;
+  }
+
+  .hero-price-copy {
+    padding-top: 11px;
+  }
+
   .hero-actions {
     align-items: stretch;
     flex-direction: column;
@@ -1575,6 +1686,27 @@ h3 {
 
   .brand {
     font-size: 1.08rem;
+  }
+
+  .hero-pricing {
+    gap: 12px;
+  }
+
+  .price-sticker {
+    width: 118px;
+    padding: 13px;
+  }
+
+  .price-sticker strong {
+    font-size: 1.7rem;
+  }
+
+  .hero-price-copy {
+    padding-top: 4px;
+  }
+
+  .hero-price-note {
+    font-size: 0.68rem;
   }
 
   .editor-body {

@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <sub>macOS 14 Sonoma or newer · Bring your own OpenAI API key · No HoldType account, subscription, or telemetry</sub>
+  <sub>macOS 14 Sonoma or newer · Free app · No HoldType subscription · OpenAI API usage billed directly</sub>
 </p>
 
 <p align="center">
@@ -64,25 +64,27 @@ another.
 
 ## What Makes It Different
 
-### A Focused Native Mac App
+### Stays Where You Work
 
-HoldType is written in Swift, lives in the menu bar, and keeps the recording
-path close to macOS. The shortcut and compact indicator work around the active
-app instead of asking you to move the draft into a separate workspace.
+Hold the shortcut, speak, and release. HoldType returns the accepted text to
+the cursor in the Mac app already in front of you, without asking you to move
+the draft through a separate editor or browser tab.
 
-The source is available for inspection, including the paths that record audio,
-send OpenAI requests, store local settings, and hand text back to the active
-app.
+The app is written in Swift, lives in the menu bar, and keeps the recording
+path close to macOS. Its source is available for inspection, including the
+paths that record audio, send OpenAI requests, store local settings, and hand
+text back to the active app.
 
-### Your OpenAI Key, Not Another Product Account
+### Your OpenAI Account, One Focused Path
 
-HoldType sends requests through your OpenAI Platform account. OpenAI bills the
-API usage directly; HoldType does not meter dictation through its own account
-or subscription.
+HoldType sends requests through your OpenAI Platform account. OpenAI deducts
+API usage from that account; HoldType has no recurring fee and does not meter
+dictation through a separate product account.
 
-The default transcription model is `gpt-4o-transcribe`. Settings can keep the
-language on Auto, choose a fixed language, add prompt guidance, and optionally
-include a short nearby text excerpt for continuity.
+HoldType is OpenAI-only by design and starts with `gpt-4o-transcribe`. You do
+not have to compare providers or download local models before the first
+dictation. Advanced model, language, prompt, and nearby-context settings remain
+available when you want them.
 
 ### Vocabulary And Translation For Real Work
 
@@ -118,13 +120,20 @@ separate OpenAI request.
 
 ## What It Costs
 
-HoldType itself is free to use. OpenAI API usage is billed separately by
-OpenAI through the key configured in HoldType.
+HoldType has no subscription. OpenAI deducts API usage from the Platform
+account connected through your key; new API accounts may require prepaid
+credit.
+
+At OpenAI's current estimated `gpt-4o-transcribe` rate, about **$1 covers 1,000
+ten-second dictations**. Reaching $10 would mean roughly 10,000 of those short
+dictations, or about 333 every day for a 30-day month. This is an estimate based
+on recorded audio duration, not a fixed HoldType plan or price ceiling.
 
 The Billing screen estimates successful audio transcriptions made on this Mac.
 It does not include correction or translation requests, and it is not an
 OpenAI invoice, balance, or account dashboard. Current model rates live on the
-[OpenAI pricing page](https://developers.openai.com/api/docs/pricing).
+[OpenAI pricing page](https://developers.openai.com/api/docs/pricing), and new
+accounts may use [prepaid billing](https://help.openai.com/en/articles/8264778-what-is-prepaid-billing).
 
 <p align="center">
   <img alt="HoldType local OpenAI usage estimate with projected 30-day cost" src="docs/readme-assets/settings-billing.png" width="820">
@@ -155,9 +164,13 @@ Typing speed was not the problem for me. The problem was how often a long
 prompt, review, or explanation became shorter before I finished typing it.
 Speaking made it easier to include the full thought.
 
-After trying Wispr Flow, OpenWhispr, Codex voice input, and smaller tools, I
-wanted a narrower setup: a native Swift menu bar app, direct OpenAI billing
-through my own key, and no extra product account or subscription.
+I tried Wispr Flow, OpenWhispr, Codex voice input, local Whisper models, and
+other provider setups. They solve different problems. In my daily work, OpenAI
+transcription gave me the first pass I trusted most often.
+
+I wanted a narrower setup: one provider, a sensible default, direct API
+billing, and no product subscription to remember. HoldType is the native Swift
+menu bar app I wanted around that choice.
 
 HoldType has also been built through Codex, directed and tested with the same
 voice-first workflow it is meant to support.
@@ -196,7 +209,7 @@ the native macOS version.
 <p align="center">
   <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download HoldType for macOS</strong></a>
   <br>
-  <sub>Free app · OpenAI API usage billed separately · macOS 14+</sub>
+  <sub>Free app · No HoldType subscription · OpenAI API usage billed directly · macOS 14+</sub>
 </p>
 
 ## License

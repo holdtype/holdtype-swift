@@ -92,10 +92,13 @@ text links. Shadows are reserved for the hero editor and real product windows.
 
 The allowed first-viewport copy is limited to the HoldType brand, essential
 navigation, the approved headline `Speak the whole thought.`, the approved
-support line `HoldType puts it where you’re working.`, the native macOS/BYOK
-description, the two approved actions, the macOS/cost qualification, and the
-explicit illustration caption. No eyebrow, metric, testimonial, badge, or
-unavailable demo action is permitted above the fold.
+support line `HoldType puts it where you’re working.`, the Mac/BYOK description,
+the two approved actions, the macOS/cost qualification, one restrained
+usage-cost badge, its factual rate qualification, and the explicit illustration
+caption. No testimonial, unsupported metric, or unavailable demo action is
+permitted above the fold. The approved badge is
+`≈ $1 per 1,000 ten-second dictations`; it must remain visually secondary to the
+product outcome and must not imply that $10 is a price ceiling.
 
 ### Page anatomy
 
@@ -105,7 +108,8 @@ unavailable demo action is permitted above the fold.
 4. Three product-decision columns.
 5. Real-use-case band.
 6. Translation/vocabulary and Last Result recovery proof.
-7. OpenAI billing and exact data-boundary explanation.
+7. OpenAI billing, the qualified $10 usage example, and exact data-boundary
+   explanation.
 8. Authentic first-person founder story and microphone photo.
 9. GitHub/Homebrew setup and native FAQ disclosures.
 10. Final download CTA and source-available footer.
@@ -138,6 +142,12 @@ UI states were redrawn or retouched.
 - HoldType is a native macOS app for macOS 14 or newer.
 - It inserts accepted text in **most** Mac apps; it does not claim universal
   compatibility.
+- HoldType has no account or recurring fee. OpenAI may require prepaid API
+  credit and deducts actual request usage from the user's Platform balance.
+- The approved cost examples use the current estimated
+  `gpt-4o-transcribe` rate of `$0.006/minute`: about `$1` for 1,000 ten-second
+  dictations and about `$10` for 10,000. They are estimates, not a fixed price
+  or ceiling, and optional correction and translation are separate requests.
 - It uses the user's OpenAI Platform API key, and OpenAI bills API usage
   separately.
 - Audio goes to OpenAI for transcription. Optional correction and translation

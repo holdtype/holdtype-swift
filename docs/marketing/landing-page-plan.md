@@ -9,7 +9,10 @@ Research snapshot: 2026-07-09
 HoldType is a focused native macOS voice-input tool for people who write long
 AI prompts, messages, reviews, documentation, and notes. Its primary audience
 is comfortable using an OpenAI Platform API key and values a native workflow,
-direct provider billing, and no additional product account or subscription.
+direct provider billing, one opinionated transcription default, and no
+additional product account or subscription. HoldType is the narrow alternative
+for people who do not want either a managed dictation subscription or a model
+and provider marketplace.
 
 Primary job:
 
@@ -28,7 +31,8 @@ Recommended positioning line:
 Supporting line:
 
 > Native macOS voice input for long AI prompts, messages, docs, and notes.
-> Bring your own OpenAI API key; no HoldType account or subscription.
+> Bring your own OpenAI API key. No HoldType account or subscription, and no
+> provider comparison or local-model download before the first dictation.
 
 ## Role Of Each Surface
 
@@ -89,11 +93,13 @@ GIF can be the fallback for GitHub.
 
 Keep this layer limited to three decisions:
 
-1. Native, system-wide Mac input that stays around the active app.
-2. The user's OpenAI key and direct OpenAI billing, with no HoldType account or
-   subscription.
-3. Practical output control: translation, vocabulary hints, minimal correction,
-   and Last Result recovery.
+1. **Stays where you work:** hold the shortcut and return accepted text to the
+   cursor without moving the draft through a separate editor.
+2. **No subscription to remember:** HoldType adds no monthly fee; OpenAI deducts
+   actual API usage from the user's Platform account.
+3. **OpenAI by design:** `gpt-4o-transcribe` is the quality-first default, with
+   no provider comparison or local-model download required before first use.
+   Advanced settings remain available.
 
 ### 4. Work It Fits
 
@@ -109,8 +115,10 @@ Use real before/after examples rather than profession tiles:
 
 Explain the decision in one place:
 
-- HoldType is free; OpenAI bills API usage directly;
+- HoldType is free and has no recurring fee; OpenAI deducts API usage directly
+  from the user's Platform balance;
 - ChatGPT subscriptions and OpenAI Platform API billing are separate;
+- new OpenAI API accounts may require prepaid credit;
 - the local Billing view currently estimates successful audio transcriptions,
   not correction or translation requests;
 - audio goes to OpenAI for transcription;
@@ -124,13 +132,27 @@ A simple data-flow visual can make this easier to scan:
 
 `Microphone → HoldType → OpenAI transcription → optional text step → active app`
 
+Use one factual cost conversion rather than an abstract minutes-per-day table:
+
+> About $1 covers 1,000 ten-second dictations at the current estimated
+> `gpt-4o-transcribe` rate. Reaching $10 would mean roughly 10,000 such
+> dictations, or about 333 every day for a 30-day month.
+
+The hero may use the restrained `≈ $1 per 1,000 ten-second dictations` badge.
+The full $10 conversion belongs in this cost section. Both require a visible
+qualification that the rate is approximate, OpenAI-controlled, and excludes
+optional correction and translation.
+
 ### 6. Founder Story
 
 Keep the story specific and short:
 
 - typing speed was not the problem; long thoughts were being shortened;
-- existing tools were useful, but the desired combination was narrower:
-  native Swift, BYOK, direct billing, no extra account;
+- subscription tools, local models, and provider-rich tools solve different
+  problems, while OpenAI transcription produced the most trusted first pass in
+  the founder's own daily workflow;
+- the desired combination was narrower: one provider, a sensible default,
+  native Swift, direct billing, and no extra account or subscription;
 - HoldType is built and tested through the same Codex-heavy voice workflow;
 - the desk microphone photo belongs here, with a note that special hardware is
   not required.
@@ -194,6 +216,13 @@ Priority 2:
 Do not publish `3x faster`, `5x faster`, `99% accurate`, `perfect`, `private`,
 or `works in every app` without a documented HoldType-specific method and the
 necessary qualifications.
+
+Do not claim that $10 is a price ceiling, that HoldType is always cheaper than
+a flat subscription, that free and paid competitor tiers use different
+recognition quality, or that competing providers deliberately reduce quality.
+Cost examples must name the model, reviewed rate, recording duration, and
+excluded optional requests. Quality preference belongs in the founder's
+first-person experience unless a reproducible HoldType benchmark exists.
 
 Prefer claims that are already observable:
 

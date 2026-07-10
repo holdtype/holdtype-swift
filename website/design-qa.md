@@ -87,6 +87,22 @@ story, installation instructions, and a fuller FAQ.
 - JavaScript syntax, release/Pages tests, YAML parsing, and
   `git diff --check` pass.
 
+## Pricing-message follow-up — 2026-07-10
+
+- Added one restrained, magazine-style `No subscription` badge to the hero.
+  The estimate is qualified against `gpt-4o-transcribe` at OpenAI's current
+  estimated `$0.006/minute` rate; correction and translation are called out as
+  separate requests.
+- Reframed the cost example as short actions: about 1,000 ten-second
+  dictations per `$1`, or about 10,000 per `$10`. The page does not present
+  `$10` as a cap or fixed plan price.
+- Confirmed that the badge and qualification remain inside the `1440×900` first
+  viewport and that `390×844` and `320×568` layouts have no page-level
+  horizontal overflow.
+- Opened the new `What does dictation cost?` FAQ disclosure and verified its
+  prepaid-credit and optional-request qualifications.
+- Browser console remained at zero warnings and zero errors.
+
 ## Final result
 
 final result: passed

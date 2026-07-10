@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light">
     <meta
       name="description"
-      content="HoldType is native macOS voice input for long prompts, messages, docs, and notes. Use your own OpenAI API key and insert accepted text in most Mac apps."
+      content="HoldType is macOS voice input for long prompts, messages, docs, and notes. Use your own OpenAI API key with no HoldType account or subscription."
     >
     <title>HoldType — Speak the whole thought</title>
     <link rel="icon" type="image/png" href="assets/app-icon.png">
@@ -65,9 +65,9 @@
             <h1 id="hero-title">Speak the whole thought.</h1>
             <p class="hero-lede">HoldType puts it where you’re working.</p>
             <p class="hero-support">
-              Native macOS voice input for long prompts, messages, docs, and notes.
-              Use your own OpenAI API key and insert accepted text at the cursor in
-              most Mac apps.
+              Long prompts, messages, docs, and notes—spoken directly into the Mac
+              app where you’re working. HoldType uses your OpenAI API key and
+              returns accepted text to the cursor in most Mac apps.
             </p>
             <div class="hero-actions">
               <a
@@ -80,9 +80,26 @@
                 See how it works
               </a>
             </div>
-            <p class="hero-qualification">
-              Free app · OpenAI API usage billed separately · macOS 14+
-            </p>
+            <div class="hero-pricing">
+              <div
+                class="price-sticker"
+                role="note"
+                aria-label="No HoldType subscription. About one dollar per one thousand ten-second dictations."
+              >
+                <span class="price-sticker-kicker">No subscription</span>
+                <strong>≈ $1</strong>
+                <span>per 1,000 ten-second dictations*</span>
+              </div>
+              <div class="hero-price-copy">
+                <p class="hero-qualification">
+                  Free app · OpenAI usage billed directly · macOS 14+
+                </p>
+                <p class="hero-price-note">
+                  *Estimate using <code>gpt-4o-transcribe</code> at OpenAI’s current
+                  $0.006/minute rate. Optional correction and translation are separate.
+                </p>
+              </div>
+            </div>
           </div>
 
           <figure class="hero-visual" data-demo data-state="inserted">
@@ -183,26 +200,26 @@
           <div class="reason-grid">
             <article>
               <p class="reason-number" aria-hidden="true">01</p>
-              <h3>Native and out of the way</h3>
+              <h3>Stays where you work</h3>
               <p>
-                A focused Swift menu bar app that works around the active app—no
-                separate writing workspace to manage.
+                Hold a shortcut, speak, and the result returns to the cursor. No
+                separate editor or browser tab to manage.
               </p>
             </article>
             <article>
               <p class="reason-number" aria-hidden="true">02</p>
-              <h3>Your OpenAI key</h3>
+              <h3>No subscription to remember</h3>
               <p>
-                Requests use your OpenAI Platform account. There is no HoldType
-                account or product subscription.
+                HoldType adds no monthly fee. OpenAI deducts the API usage from your
+                Platform account when requests are made.
               </p>
             </article>
             <article>
               <p class="reason-number" aria-hidden="true">03</p>
-              <h3>Practical output control</h3>
+              <h3>OpenAI by design</h3>
               <p>
-                Translation, spelling context, optional correction, and Last Result
-                recovery stay close to the voice workflow.
+                Start with one quality-first default. No provider comparison or
+                local-model download is required before the first dictation.
               </p>
             </article>
           </div>
@@ -357,11 +374,19 @@
 
             <div class="billing-proof">
               <div class="billing-copy">
-                <h3>Usage-based OpenAI billing</h3>
+                <h3>Pay for usage, not access</h3>
                 <p>
-                  HoldType is free to use. OpenAI bills API usage separately through
-                  your OpenAI Platform account.
+                  HoldType has no subscription. OpenAI deducts actual API usage from
+                  the Platform account connected through your key; HoldType does not
+                  collect a monthly fee.
                 </p>
+                <div class="usage-example">
+                  <p class="usage-example-title">It takes a lot of talking to reach $10.</p>
+                  <p>
+                    At the current estimated transcription rate, that is about 10,000
+                    ten-second dictations—roughly 333 every day for a month.
+                  </p>
+                </div>
                 <p class="small-copy">
                   The Billing screen is a local estimate for successful audio
                   transcriptions. It is not an OpenAI invoice and does not include
@@ -421,10 +446,14 @@
               the full thought.
             </p>
             <p>
-              I wanted a narrower setup: a native Swift menu bar app, direct OpenAI
-              billing through my own key, and no extra product account or subscription.
-              HoldType is built and tested through the same voice-first workflow it is
-              meant to support.
+              I tried subscription tools and apps built around local and cloud model
+              choices. They solve different problems. In my daily work, OpenAI
+              transcription gave me the first pass I trusted most often.
+            </p>
+            <p>
+              I wanted a narrower setup: one provider, a sensible default, direct API
+              billing, and no product subscription to remember. HoldType is built and
+              tested through the same voice-first workflow it is meant to support.
             </p>
           </div>
         </div>
@@ -503,6 +532,15 @@ open -a HoldType</code></pre>
               </p>
             </details>
             <details>
+              <summary>What does dictation cost?</summary>
+              <p>
+                HoldType has no fixed fee. OpenAI deducts API usage from your Platform
+                balance, and new API accounts may require prepaid credit. HoldType’s
+                Billing screen estimates successful transcriptions on this Mac;
+                optional correction and translation are separate requests.
+              </p>
+            </details>
+            <details>
               <summary>What data is sent to OpenAI?</summary>
               <p>
                 Audio is sent for transcription. Optional correction and translation
@@ -555,7 +593,7 @@ open -a HoldType</code></pre>
         <div class="container download-panel">
           <div>
             <h2 id="final-cta-title">Speak the thought. Keep the context.</h2>
-            <p>Free app · Your OpenAI key · macOS 14+</p>
+            <p>Free app · No HoldType subscription · OpenAI usage billed directly · macOS 14+</p>
           </div>
           <a
             class="button"
