@@ -227,6 +227,10 @@ row.
 After process loss, a receipt is recovered only by strict reload, identity
 validation, and identical durability confirmation. A Boolean, stale revision,
 or caller assertion is never authority.
+Outbox recovery does not depend on retaining the original delivery
+authorization: strict load yields an opaque snapshot-bound observation, and
+confirmation succeeds only while that exact snapshot still contains the
+byte-identical entry.
 
 Delivery `historyWrite` moves `pending -> committed` only with a matching row
 receipt and `pending -> cancelled` only with a matching policy-invalidation

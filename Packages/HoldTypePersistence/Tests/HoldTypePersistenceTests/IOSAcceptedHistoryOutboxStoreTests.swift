@@ -62,9 +62,29 @@ struct IOSAcceptedHistoryOutboxStoreTests {
                 policy: capabilities.policy
             )
         }
+
+        let submillisecondCreatedAtFixture = OutboxStoreFixture(
+            now: createdAt.addingTimeInterval(-0.0004)
+        )
+        _ = try await submillisecondCreatedAtFixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+
+        let submillisecondExpiryFixture = OutboxStoreFixture(
+            now: createdAt.addingTimeInterval(86_400 - 0.0004)
+        )
+        await #expect(throws: IOSAcceptedHistoryOutboxError.expired) {
+            try await submillisecondExpiryFixture.store.transfer(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
         #expect(rollbackFixture.clock.readCount == 1)
         #expect(liveFixture.clock.readCount == 1)
         #expect(expiredFixture.clock.readCount == 1)
+        #expect(submillisecondCreatedAtFixture.clock.readCount == 1)
+        #expect(submillisecondExpiryFixture.clock.readCount == 1)
     }
 
     @Test func sealedTransferRequiresPendingEnabledMatchingGeneration() async throws {
@@ -508,11 +528,242 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             )
         }
 
-        let receipt = try await fixture.store.confirmMembership(
-            delivery: first.delivery
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await fixture.store.confirmMembership(delivery: first.delivery)
+        }
+        #expect(fixture.journal.currentEnvelope?.revision == 1)
+        #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
+
+        let receipt = try await fixture.store.transfer(
+            delivery: first.delivery,
+            policy: first.policy
         )
         #expect(receipt.provesMembership(for: first.delivery))
         #expect(fixture.journal.currentEnvelope?.revision == 2)
+    }
+
+    @Test func prepublicationCreateConfirmationNeverInsertsMembership() async throws {
+        let now = outboxStoreDate()
+        let fixture = OutboxStoreFixture(now: now)
+        let capabilities = try await outboxCapabilities(
+            index: 437,
+            createdAt: now
+        )
+        fixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await fixture.store.transfer(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await fixture.store.confirmMembership(
+                delivery: capabilities.delivery
+            )
+        }
+        #expect(fixture.journal.currentEnvelope == nil)
+        #expect(fixture.journal.events.filter { $0 == "create:1" }.count == 1)
+    }
+
+    @Test func invisibleUncertainTransferRevalidatesTimeBeforePublishing() async throws {
+        let now = outboxStoreDate()
+        let createFixture = OutboxStoreFixture(now: now)
+        let createCapabilities = try await outboxCapabilities(
+            index: 438,
+            createdAt: now
+        )
+        createFixture.journal.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await createFixture.store.transfer(
+                delivery: createCapabilities.delivery,
+                policy: createCapabilities.policy
+            )
+        }
+        createFixture.clock.set(now.addingTimeInterval(86_400))
+        await #expect(throws: IOSAcceptedHistoryOutboxError.expired) {
+            try await createFixture.store.transfer(
+                delivery: createCapabilities.delivery,
+                policy: createCapabilities.policy
+            )
+        }
+        #expect(createFixture.journal.currentEnvelope == nil)
+        #expect(
+            createFixture.journal.events.filter { $0 == "create:1" }.count == 1
+        )
+        let nextCapabilities = try await outboxCapabilities(
+            index: 446,
+            createdAt: now.addingTimeInterval(86_400)
+        )
+        let nextReceipt = try await createFixture.store.transfer(
+            delivery: nextCapabilities.delivery,
+            policy: nextCapabilities.policy
+        )
+        #expect(nextReceipt.provesMembership(for: nextCapabilities.delivery))
+
+        let replaceFixture = OutboxStoreFixture(now: now)
+        replaceFixture.journal.install(
+            try IOSAcceptedHistoryOutboxEnvelope(revision: 1, entries: [])
+        )
+        let replaceCapabilities = try await outboxCapabilities(
+            index: 439,
+            createdAt: now
+        )
+        replaceFixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await replaceFixture.store.transfer(
+                delivery: replaceCapabilities.delivery,
+                policy: replaceCapabilities.policy
+            )
+        }
+        replaceFixture.clock.set(now.addingTimeInterval(-0.001))
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.clockRollbackAmbiguous
+        ) {
+            try await replaceFixture.store.transfer(
+                delivery: replaceCapabilities.delivery,
+                policy: replaceCapabilities.policy
+            )
+        }
+        #expect(replaceFixture.journal.currentEnvelope?.revision == 1)
+        #expect(replaceFixture.journal.currentEnvelope?.entries.isEmpty == true)
+        #expect(
+            replaceFixture.journal.events.filter { $0 == "replace:2" }.count
+                == 1
+        )
+
+        replaceFixture.clock.set(now)
+        let recovered = try await replaceFixture.store.transfer(
+            delivery: replaceCapabilities.delivery,
+            policy: replaceCapabilities.policy
+        )
+        #expect(recovered.provesMembership(for: replaceCapabilities.delivery))
+        #expect(replaceFixture.journal.currentEnvelope?.revision == 2)
+    }
+
+    @Test func visibleUncertaintyRemainsConfirmableAcrossTimeBoundaries() async throws {
+        let now = outboxStoreDate()
+        for (index, confirmationTime) in [
+            (442, now.addingTimeInterval(86_400)),
+            (443, now.addingTimeInterval(-0.001)),
+        ] {
+            let fixture = OutboxStoreFixture(now: now)
+            let capabilities = try await outboxCapabilities(
+                index: index,
+                createdAt: now
+            )
+            fixture.journal.failNextCreate(
+                with: .commitUncertain,
+                commitBeforeThrowing: true
+            )
+            await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+                try await fixture.store.transfer(
+                    delivery: capabilities.delivery,
+                    policy: capabilities.policy
+                )
+            }
+            fixture.clock.set(confirmationTime)
+
+            let receipt = try await fixture.store.confirmMembership(
+                delivery: capabilities.delivery
+            )
+            #expect(receipt.provesMembership(for: capabilities.delivery))
+            #expect(fixture.journal.currentEnvelope?.revision == 1)
+            #expect(fixture.clock.readCount == 1)
+        }
+    }
+
+    @Test func snapshotObservationRecoversAfterRelaunchWithoutDelivery() async throws {
+        let now = outboxStoreDate()
+        let fixture = OutboxStoreFixture(now: now)
+        let capabilities = try await outboxCapabilities(
+            index: 444,
+            createdAt: now
+        )
+        _ = try await fixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        fixture.clock.set(now.addingTimeInterval(86_400))
+        let relaunchedStore = fixture.makeStore()
+        let observations = try #require(try await relaunchedStore.observe())
+        let observation = try #require(observations.first)
+        #expect(
+            String(describing: observation)
+                == "IOSAcceptedHistoryOutboxObservation(redacted)"
+        )
+        #expect(observation.customMirror.children.isEmpty)
+
+        let receipt = try await relaunchedStore.confirmMembership(
+            observation: observation
+        )
+        #expect(receipt.provesMembership(for: observation))
+
+        let staleObservations = try #require(
+            try await fixture.makeStore().observe()
+        )
+        let staleObservation = try #require(staleObservations.first)
+        let other = try await outboxCapabilities(
+            index: 445,
+            createdAt: now.addingTimeInterval(86_400)
+        )
+        _ = try await fixture.makeStore().transfer(
+            delivery: other.delivery,
+            policy: other.policy
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await fixture.makeStore().confirmMembership(
+                observation: staleObservation
+            )
+        }
+    }
+
+    @Test func staleObservationCannotResolveVisibleUncertainty() async throws {
+        let now = outboxStoreDate()
+        let fixture = OutboxStoreFixture(now: now)
+        let capabilities = try await outboxCapabilities(
+            index: 447,
+            createdAt: now
+        )
+        _ = try await fixture.store.transfer(
+            delivery: capabilities.delivery,
+            policy: capabilities.policy
+        )
+        let observations = try #require(try await fixture.store.observe())
+        let staleObservation = try #require(observations.first)
+        fixture.journal.failNextReplace(
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+        await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
+            try await fixture.store.transfer(
+                delivery: capabilities.delivery,
+                policy: capabilities.policy
+            )
+        }
+
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        ) {
+            try await fixture.store.confirmMembership(
+                observation: staleObservation
+            )
+        }
+        let receipt = try await fixture.store.confirmMembership(
+            delivery: capabilities.delivery
+        )
+        #expect(receipt.provesMembership(for: capabilities.delivery))
     }
 
     @Test func twoStoresUsePhysicalCASWithoutLostMembership() async throws {
@@ -789,12 +1040,16 @@ private func outboxUUID(prefix: Int, index: Int) -> UUID {
 
 private final class OutboxClock: @unchecked Sendable {
     private let lock = NSLock()
-    private let value: Date
+    private var value: Date
     private var count = 0
 
     init(_ value: Date) { self.value = value }
 
     var readCount: Int { lock.withLock { count } }
+
+    func set(_ value: Date) {
+        lock.withLock { self.value = value }
+    }
 
     func read() -> Date {
         lock.withLock { count += 1 }

@@ -86,6 +86,15 @@ struct IOSAcceptedHistoryOutboxReceipt: Equatable, Sendable {
             $0.hasSameImmutableBytes(as: entry)
         }
     }
+
+    func provesMembership(
+        for observation: IOSAcceptedHistoryOutboxObservation
+    ) -> Bool {
+        entry.hasSameImmutableBytes(as: observation.entry)
+            && snapshot.envelope.entries.contains {
+                $0.hasSameImmutableBytes(as: entry)
+            }
+    }
 }
 
 extension IOSAcceptedHistoryOutboxReceipt: CustomStringConvertible,
@@ -133,12 +142,15 @@ actor IOSAcceptedHistoryOutboxStore {
 
     private enum Operation: Equatable, Sendable {
         case transfer(IOSAcceptedHistoryOutboxCandidate)
-        case confirmation(IOSAcceptedHistoryOutboxEntry)
+        case deliveryConfirmation(IOSAcceptedHistoryOutboxEntry)
+        case observationConfirmation(IOSAcceptedHistoryOutboxObservation)
 
         var entry: IOSAcceptedHistoryOutboxEntry {
             switch self {
             case .transfer(let candidate): candidate.entry
-            case .confirmation(let entry): entry
+            case .deliveryConfirmation(let entry): entry
+            case .observationConfirmation(let observation):
+                observation.entry
             }
         }
     }
@@ -271,7 +283,7 @@ actor IOSAcceptedHistoryOutboxStore {
         return try publish(
             Outcome(envelope: current.envelope),
             source: .existing(current),
-            operation: .confirmation(candidate.entry)
+            operation: .deliveryConfirmation(candidate.entry)
         )
     }
 
@@ -281,6 +293,16 @@ actor IOSAcceptedHistoryOutboxStore {
         let current = try journal.load()
 
         if let uncertainIntent {
+            switch uncertainIntent.operation {
+            case .observationConfirmation(let intendedObservation):
+                guard observation == intendedObservation else {
+                    throw IOSAcceptedHistoryOutboxError.commitUncertain
+                }
+            case .transfer, .deliveryConfirmation:
+                guard current == observation.snapshot else {
+                    throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+                }
+            }
             return try reconcileConfirmation(
                 uncertainIntent,
                 entry: observation.entry,
@@ -300,7 +322,7 @@ actor IOSAcceptedHistoryOutboxStore {
         return try publish(
             Outcome(envelope: current.envelope),
             source: .existing(current),
-            operation: .confirmation(observation.entry)
+            operation: .observationConfirmation(observation)
         )
     }
 
