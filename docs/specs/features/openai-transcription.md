@@ -291,8 +291,19 @@ adapter concerns; bounded file-backed upload remains required in P2.
 
 - The MVP transcription request has a default 60 second maximum wait covering
   upload and response.
+- Cancelling an in-flight transcription must synchronously cancel the actual
+  transport task. Repeated cancellation and cancellation with no active request
+  are safe no-ops, and the cancelled call completes with the existing
+  `cancelled` product error.
+- Parent-task cancellation must reach the same transport task. A response that
+  arrives after cancellation must be discarded before response validation or
+  transcript parsing, even when a loader does not cooperate with cancellation.
+- Request cleanup is identity-aware: completion or cancellation of an older
+  request must not clear or cancel a newer request, and a later request can
+  complete independently.
 - If the timeout expires, the attempt fails visibly as `Transcription timed
-  out`; the app returns to a recoverable state.
+  out`; the app returns to a recoverable state. Timeout cleanup cancels the
+  transport task without changing the attempt from `timedOut` to `cancelled`.
 - The MVP does not silently retry transcription requests.
 - The user may start a new recording after a timeout or provider failure.
 - The user may retry a recoverable failed attempt from Transcript History.

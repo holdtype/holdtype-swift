@@ -69,6 +69,158 @@ struct OpenAITranscriptionServiceTests {
         #expect(sleeper.sleepCalls == [3])
     }
 
+    @Test func explicitCancellationCancelsTransportAndIsIdempotent() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.failImmediately])
+        let service = makeService(loader: loader)
+        let request = try makeTranscriptionRequest(audioFileURL: audioFileURL)
+        let credential = try testCredential()
+
+        service.cancelActiveTranscription()
+        let transcription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(1)
+
+        service.cancelActiveTranscription()
+        service.cancelActiveTranscription()
+
+        await expectTranscriptionError(.cancelled) {
+            try await transcription.value
+        }
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+
+        service.cancelActiveTranscription()
+        #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+    }
+
+    @Test func cancelledLateLoaderResponseCannotBecomeTranscript() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.awaitResponse])
+        let service = makeService(loader: loader)
+        let request = try makeTranscriptionRequest(audioFileURL: audioFileURL)
+        let credential = try testCredential()
+        let transcription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(1)
+
+        service.cancelActiveTranscription()
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        loader.resolveRequest(
+            at: 0,
+            data: Data(#"{"text":"late transcript"}"#.utf8),
+            response: makeHTTPResponse(statusCode: 200)
+        )
+
+        await expectTranscriptionError(.cancelled) {
+            try await transcription.value
+        }
+    }
+
+    @Test func parentTaskCancellationCancelsTransport() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.failImmediately])
+        let service = makeService(loader: loader)
+        let request = try makeTranscriptionRequest(audioFileURL: audioFileURL)
+        let credential = try testCredential()
+        let transcription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(1)
+
+        transcription.cancel()
+
+        await expectTranscriptionError(.cancelled) {
+            try await transcription.value
+        }
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+    }
+
+    @Test func timeoutCancelsTransportWithoutChangingTimeoutError() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.failImmediately])
+        let service = makeService(
+            loader: loader,
+            sleeper: FakeTimeoutSleeper(mode: .timeoutImmediately),
+            requestTimeout: 3
+        )
+
+        await expectTranscriptionError(.timedOut) {
+            try await service.transcribe(
+                try makeTranscriptionRequest(audioFileURL: audioFileURL),
+                credential: testCredential()
+            )
+        }
+
+        try await loader.waitForRequestCount(1)
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+    }
+
+    @Test func olderRequestCleanupCannotClearNewerRequestAndNextRequestCanSucceed() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(
+            cancellationBehaviors: [.awaitResponse, .awaitResponse, .failImmediately]
+        )
+        let service = makeService(loader: loader)
+        let request = try makeTranscriptionRequest(audioFileURL: audioFileURL)
+        let credential = try testCredential()
+        let olderTranscription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(1)
+
+        let newerTranscription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(2)
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        loader.resolveRequest(
+            at: 0,
+            data: Data(#"{"text":"stale transcript"}"#.utf8),
+            response: makeHTTPResponse(statusCode: 200)
+        )
+        await expectTranscriptionError(.cancelled) {
+            try await olderTranscription.value
+        }
+
+        service.cancelActiveTranscription()
+        try await loader.waitForCancellation(ofRequestAt: 1)
+        loader.resolveRequest(
+            at: 1,
+            data: Data(#"{"text":"also stale"}"#.utf8),
+            response: makeHTTPResponse(statusCode: 200)
+        )
+        await expectTranscriptionError(.cancelled) {
+            try await newerTranscription.value
+        }
+
+        let finalTranscription = Task {
+            try await service.transcribe(request, credential: credential)
+        }
+        try await loader.waitForRequestCount(3)
+        loader.resolveRequest(
+            at: 2,
+            data: Data(#"{"text":"independent success"}"#.utf8),
+            response: makeHTTPResponse(statusCode: 200)
+        )
+
+        #expect(try await finalTranscription.value == "independent success")
+    }
+
     @Test func urlSessionTimeoutErrorMapsToUserVisibleTimeoutError() async throws {
         let audioFileURL = try makeTemporaryAudioFile()
         defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
@@ -443,8 +595,8 @@ struct OpenAITranscriptionServiceTests {
     }
 
     private func makeService(
-        loader: FakeURLLoader,
-        sleeper: FakeTimeoutSleeper = FakeTimeoutSleeper(),
+        loader: any URLLoading,
+        sleeper: any TranscriptionTimeoutSleeping = FakeTimeoutSleeper(),
         requestTimeout: TimeInterval = 7
     ) -> OpenAITranscriptionService {
         OpenAITranscriptionService(
@@ -547,5 +699,175 @@ private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping {
         case .timeoutImmediately:
             return
         }
+    }
+}
+
+private final class ControlledURLLoader: URLLoading, @unchecked Sendable {
+    enum CancellationBehavior {
+        case failImmediately
+        case awaitResponse
+    }
+
+    private typealias Output = (Data, URLResponse)
+
+    private struct RequestState {
+        let cancellationBehavior: CancellationBehavior
+        var continuation: CheckedContinuation<Output, Error>?
+        var resolvedOutput: Output?
+        var cancellationCount = 0
+        var isFinished = false
+    }
+
+    private enum WaitError: Error {
+        case requestCountTimedOut(expected: Int)
+        case cancellationTimedOut(requestIndex: Int)
+    }
+
+    private let cancellationBehaviors: [CancellationBehavior]
+    private let lock = NSLock()
+    private var requestStates: [RequestState] = []
+
+    init(cancellationBehaviors: [CancellationBehavior]) {
+        self.cancellationBehaviors = cancellationBehaviors
+    }
+
+    func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
+        let requestIndex = registerRequest()
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                registerResponseContinuation(continuation, forRequestAt: requestIndex)
+            }
+        } onCancel: {
+            cancelRequest(at: requestIndex)
+        }
+    }
+
+    func waitForRequestCount(_ count: Int) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while lock.withLock({ requestStates.count }) < count {
+            guard clock.now < deadline else {
+                throw WaitError.requestCountTimedOut(expected: count)
+            }
+            try await clock.sleep(for: .milliseconds(1))
+        }
+    }
+
+    func waitForCancellation(ofRequestAt requestIndex: Int) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while cancellationCount(forRequestAt: requestIndex) == 0 {
+            guard clock.now < deadline else {
+                throw WaitError.cancellationTimedOut(requestIndex: requestIndex)
+            }
+            try await clock.sleep(for: .milliseconds(1))
+        }
+    }
+
+    func cancellationCount(forRequestAt requestIndex: Int) -> Int {
+        lock.withLock {
+            guard requestStates.indices.contains(requestIndex) else {
+                return 0
+            }
+            return requestStates[requestIndex].cancellationCount
+        }
+    }
+
+    func resolveRequest(at requestIndex: Int, data: Data, response: URLResponse) {
+        let continuation: CheckedContinuation<Output, Error>? = lock.withLock {
+            guard requestStates.indices.contains(requestIndex),
+                  !requestStates[requestIndex].isFinished else {
+                return nil
+            }
+
+            if let continuation = requestStates[requestIndex].continuation {
+                requestStates[requestIndex].continuation = nil
+                requestStates[requestIndex].isFinished = true
+                return continuation
+            }
+
+            requestStates[requestIndex].resolvedOutput = (data, response)
+            return nil
+        }
+
+        continuation?.resume(returning: (data, response))
+    }
+
+    private func registerRequest() -> Int {
+        lock.withLock {
+            let requestIndex = requestStates.count
+            let behavior = cancellationBehaviors.indices.contains(requestIndex)
+                ? cancellationBehaviors[requestIndex]
+                : .failImmediately
+            requestStates.append(RequestState(cancellationBehavior: behavior))
+            return requestIndex
+        }
+    }
+
+    private func registerResponseContinuation(
+        _ continuation: CheckedContinuation<Output, Error>,
+        forRequestAt requestIndex: Int
+    ) {
+        enum ResumeAction {
+            case wait
+            case returnOutput(Output)
+            case throwCancellation
+        }
+
+        let action: ResumeAction = lock.withLock {
+            guard requestStates.indices.contains(requestIndex) else {
+                return .throwCancellation
+            }
+
+            if let output = requestStates[requestIndex].resolvedOutput {
+                requestStates[requestIndex].resolvedOutput = nil
+                requestStates[requestIndex].isFinished = true
+                return .returnOutput(output)
+            }
+
+            if requestStates[requestIndex].cancellationCount > 0,
+               requestStates[requestIndex].cancellationBehavior == .failImmediately {
+                requestStates[requestIndex].isFinished = true
+                return .throwCancellation
+            }
+
+            requestStates[requestIndex].continuation = continuation
+            return .wait
+        }
+
+        switch action {
+        case .wait:
+            return
+        case .returnOutput(let output):
+            continuation.resume(returning: output)
+        case .throwCancellation:
+            continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    private func cancelRequest(at requestIndex: Int) {
+        let responseContinuation: CheckedContinuation<Output, Error>? = lock.withLock {
+            guard requestStates.indices.contains(requestIndex) else {
+                return nil
+            }
+
+            requestStates[requestIndex].cancellationCount += 1
+            if requestStates[requestIndex].cancellationBehavior == .failImmediately,
+               !requestStates[requestIndex].isFinished {
+                let responseContinuation = requestStates[requestIndex].continuation
+                requestStates[requestIndex].continuation = nil
+                if responseContinuation != nil {
+                    requestStates[requestIndex].isFinished = true
+                }
+                return responseContinuation
+            } else {
+                return nil
+            }
+        }
+
+        responseContinuation?.resume(throwing: CancellationError())
     }
 }

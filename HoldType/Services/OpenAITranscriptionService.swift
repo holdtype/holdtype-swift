@@ -36,19 +36,22 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
     private let timeoutSleeper: any TranscriptionTimeoutSleeping
     private let requestTimeout: TimeInterval
     private let decoder: JSONDecoder
+    private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
 
     init(
         requestBuilder: OpenAITranscriptionRequestBuilder = OpenAITranscriptionRequestBuilder(),
         urlLoader: any URLLoading = URLSession.shared,
         timeoutSleeper: any TranscriptionTimeoutSleeping = TaskTranscriptionTimeoutSleeper(),
         requestTimeout: TimeInterval = Self.defaultRequestTimeout,
-        decoder: JSONDecoder = JSONDecoder()
+        decoder: JSONDecoder = JSONDecoder(),
+        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
     ) {
         self.requestBuilder = requestBuilder
         self.urlLoader = urlLoader
         self.timeoutSleeper = timeoutSleeper
         self.requestTimeout = requestTimeout > 0 ? requestTimeout : Self.defaultRequestTimeout
         self.decoder = decoder
+        self.requestTaskCoordinator = requestTaskCoordinator
     }
 
     func transcribe(
@@ -65,6 +68,10 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
         let (data, response) = try await loadWithTimeout(urlRequest)
         try validateHTTPResponse(response)
         return try parseTranscript(from: data, promptComposition: request.promptComposition)
+    }
+
+    func cancelActiveTranscription() {
+        requestTaskCoordinator.cancelActiveRequest()
     }
 
     private func makeAuthorizedRequest(
@@ -84,23 +91,25 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
 
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await withThrowingTaskGroup(of: URLLoadResult.self) { group in
-                group.addTask {
-                    let (data, response) = try await urlLoader.loadData(for: request)
-                    return URLLoadResult(data: data, response: response)
-                }
+            return try await requestTaskCoordinator.perform {
+                try await withThrowingTaskGroup(of: URLLoadResult.self) { group in
+                    group.addTask {
+                        let (data, response) = try await urlLoader.loadData(for: request)
+                        return URLLoadResult(data: data, response: response)
+                    }
 
-                group.addTask {
-                    try await timeoutSleeper.sleep(seconds: requestTimeout)
-                    throw OpenAITranscriptionServiceError.timedOut
-                }
+                    group.addTask {
+                        try await timeoutSleeper.sleep(seconds: requestTimeout)
+                        throw OpenAITranscriptionServiceError.timedOut
+                    }
 
-                guard let result = try await group.next() else {
-                    throw OpenAITranscriptionServiceError.invalidResponse
-                }
+                    guard let result = try await group.next() else {
+                        throw OpenAITranscriptionServiceError.invalidResponse
+                    }
 
-                group.cancelAll()
-                return (result.data, result.response)
+                    group.cancelAll()
+                    return (result.data, result.response)
+                }
             }
         } catch let error as OpenAITranscriptionServiceError {
             throw error
