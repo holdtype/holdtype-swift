@@ -224,9 +224,11 @@ UI states were redrawn or retouched.
 ## Product-copy boundaries
 
 - HoldType is a native macOS app for macOS 14 or newer.
-- The exact transcription-model name appears at most once in subdued secondary
-  copy. It is not used in metadata, headlines, hero lead or support copy, proof
-  chips, section headings, founder copy, the final CTA, or the footer.
+- The exact API model identifier `gpt-4o-transcribe` appears at most once in
+  subdued secondary copy. Its hyphens and lowercase spelling stay verbatim in
+  every locale. It is not used in metadata, headlines, hero lead or support
+  copy, proof chips, section headings, founder copy, the final CTA, or the
+  footer.
 - Model-based correction is optional and off by default. Local typography
   cleanup may still run without another model request.
 - It inserts accepted text in **most** Mac apps; it does not claim universal

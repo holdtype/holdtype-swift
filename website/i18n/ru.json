@@ -84,7 +84,7 @@
       "body": "{brand.openAI} списывает стоимость API с учётной записи {brand.openAIPlatform}, связанной с вашим ключом. {brand.holdType} не берёт ежемесячную плату."
     },
     "model": {
-      "title": "{model.gpt4oTranscribe} по умолчанию",
+      "title": "Модель {model.gpt4oTranscribe}",
       "body": "По данным {brand.openAI}, эта модель делает меньше ошибок и точнее распознаёт речь на разных языках, чем исходные модели {model.whisper}."
     },
     "openAI": {

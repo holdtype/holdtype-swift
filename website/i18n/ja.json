@@ -84,7 +84,7 @@
       "body": "{brand.holdType} に月額料金はありません。リクエストを行うと、{brand.openAI} が API 利用料を {brand.openAIPlatform} アカウントから差し引きます。"
     },
     "model": {
-      "title": "標準モデルは {model.gpt4oTranscribe}",
+      "title": "{model.gpt4oTranscribe} モデル",
       "body": "{brand.openAI} によると、元の {model.whisper} モデルよりも単語の誤りが少なく、言語認識と精度が向上しています。"
     },
     "openAI": {

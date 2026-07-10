@@ -84,7 +84,7 @@
       "body": "{brand.holdType} verlangt keine monatliche Gebühr. {brand.openAI} zieht die API-Nutzung von deinem {brand.openAIPlatform}-Konto ab, sobald Anfragen gestellt werden."
     },
     "model": {
-      "title": "Standardmäßig {model.gpt4oTranscribe}",
+      "title": "Modell {model.gpt4oTranscribe}",
       "body": "Laut {brand.openAI} bietet das Modell weniger Wortfehler, bessere Spracherkennung und höhere Genauigkeit als die ursprünglichen {model.whisper}-Modelle."
     },
     "openAI": {

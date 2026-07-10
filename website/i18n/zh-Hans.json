@@ -84,7 +84,7 @@
       "body": "{brand.holdType} 不收取月费。发起请求时，{brand.openAI} 会从你的 {brand.openAIPlatform} 账户中扣除 API 使用费。"
     },
     "model": {
-      "title": "默认使用 {model.gpt4oTranscribe}",
+      "title": "{model.gpt4oTranscribe} 模型",
       "body": "{brand.openAI} 表示，与早期 {model.whisper} 模型相比，该模型的词错误更少，语言识别和准确性也更高。"
     },
     "openAI": {

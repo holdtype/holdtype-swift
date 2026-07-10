@@ -84,7 +84,7 @@
       "body": "{brand.holdType}에는 월 요금이 없습니다. 요청이 발생하면 {brand.openAI}가 {brand.openAIPlatform} 계정에서 API 사용료를 차감합니다."
     },
     "model": {
-      "title": "기본 모델은 {model.gpt4oTranscribe}",
+      "title": "{model.gpt4oTranscribe} 모델",
       "body": "{brand.openAI}에 따르면 기존 {model.whisper} 모델보다 단어 오류가 적고 언어 인식과 정확도가 향상됐습니다."
     },
     "openAI": {

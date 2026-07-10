@@ -84,7 +84,7 @@
       "body": "O {brand.holdType} não acrescenta nenhuma mensalidade. A {brand.openAI} desconta o uso da API da sua conta da {brand.openAIPlatform} quando as solicitações são feitas."
     },
     "model": {
-      "title": "{model.gpt4oTranscribe} por padrão",
+      "title": "Modelo {model.gpt4oTranscribe}",
       "body": "Segundo a {brand.openAI}, o modelo comete menos erros de palavras e melhora o reconhecimento de idiomas e a precisão em relação aos modelos {model.whisper} originais."
     },
     "openAI": {

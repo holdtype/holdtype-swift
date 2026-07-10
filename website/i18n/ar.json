@@ -84,7 +84,7 @@
       "body": "لا يضيف {brand.holdType} أي رسوم شهرية. تخصم {brand.openAI} تكلفة استخدام API من حسابك في {brand.openAIPlatform} عند إرسال الطلبات."
     },
     "model": {
-      "title": "{model.gpt4oTranscribe} افتراضيًا",
+      "title": "نموذج {model.gpt4oTranscribe}",
       "body": "بحسب {brand.openAI}، يقدّم النموذج أخطاء كلمات أقل وتعرّفًا أفضل على اللغات ودقة أعلى مقارنةً بنماذج {model.whisper} الأصلية."
     },
     "openAI": {

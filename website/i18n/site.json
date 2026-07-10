@@ -11,7 +11,7 @@
       "direction": "ltr"
     },
     "model.gpt4oTranscribe": {
-      "value": "GPT-4o Transcribe",
+      "value": "gpt-4o-transcribe",
       "translate": false,
       "direction": "ltr"
     },

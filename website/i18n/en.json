@@ -84,7 +84,7 @@
       "body": "{brand.openAI} charges the {brand.openAIPlatform} account connected through your key. {brand.holdType} adds no monthly fee."
     },
     "model": {
-      "title": "{model.gpt4oTranscribe} by default",
+      "title": "{model.gpt4oTranscribe} model",
       "body": "{brand.openAI} reports fewer word errors, better language recognition, and higher accuracy than its original {model.whisper} models."
     },
     "openAI": {

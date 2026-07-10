@@ -40,6 +40,9 @@ that already uses GitHub Pages.
   an unmeasured HoldType-specific speed or accuracy result. The exact model
   name must not also appear in metadata, hero copy, founder copy, the final
   call to action, or the footer.
+- The second-card heading renders the API model identifier verbatim as
+  `gpt-4o-transcribe`. Localization must not replace its hyphens, change its
+  case, or turn it into a display name.
 - The hero editor illustration uses a dry, self-ironic fictional plan to build
   a small SaaS and reach `$1M ARR`. Its caption explicitly identifies the scene
   as an illustration rather than a recorded demo and does not imply that Codex

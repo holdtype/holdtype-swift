@@ -103,7 +103,7 @@ Present this section under `What "honest" means here`:
 
 1. **The bill has a source:** OpenAI deducts API usage from the Platform account
    connected through the user's key; HoldType adds no monthly fee.
-2. **The model has a name:** GPT-4o Transcribe is the default. OpenAI documents
+2. **The model has an ID:** `gpt-4o-transcribe` is the default. OpenAI documents
    better word error rate, language recognition, and accuracy than its original
    Whisper models in the
    [model documentation](https://developers.openai.com/api/docs/models/gpt-4o-transcribe).
@@ -244,7 +244,7 @@ Do not publish `3x faster`, `5x faster`, `99% accurate`, `perfect`, `private`,
 or `works in every app` without a documented HoldType-specific method and the
 necessary qualifications.
 
-The landing page may name GPT-4o Transcribe once in the honesty contract and
+The landing page may name `gpt-4o-transcribe` once in the honesty contract and
 repeat OpenAI's documented comparison with its original Whisper models. Keep
 the comparison attributable to OpenAI and do not turn it into an unmeasured
 HoldType-specific speed or accuracy claim. Do not claim that a competitor uses
