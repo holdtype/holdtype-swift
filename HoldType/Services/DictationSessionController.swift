@@ -236,10 +236,13 @@ final class DictationSessionController {
             let settings = settingsProvider()
             eventLogger.record(.transcriptionStarted)
             let transcriptionID = transcriptionIDGenerator()
-            let rawTranscript = try await transcriptionService.transcribe(
+            let transcriptionRequest = try makeAudioTranscriptionRequest(
                 audioFileURL: attempt.audioFileURL,
                 settings: settings,
-                context: nil,
+                context: nil
+            )
+            let rawTranscript = try await transcriptionService.transcribe(
+                transcriptionRequest,
                 credential: credential
             )
             eventLogger.record(.transcriptionSucceeded)
@@ -250,7 +253,7 @@ final class DictationSessionController {
             let transcribedTranscript = try Self.acceptedTranscript(from: rawTranscript)
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
-                model: settings.resolvedTranscriptionModel,
+                model: transcriptionRequest.model,
                 audioDuration: attempt.audioDuration
             )
             let correctedTranscriptText = await correctedTranscriptText(
@@ -496,10 +499,13 @@ final class DictationSessionController {
             let context = activeTextContextReader.currentContext(settings: transcriptionSettings)
             eventLogger.record(.transcriptionStarted)
             let transcriptionID = transcriptionIDGenerator()
-            let rawTranscript = try await transcriptionService.transcribe(
+            let transcriptionRequest = try makeAudioTranscriptionRequest(
                 audioFileURL: artifact.fileURL,
                 settings: transcriptionSettings,
-                context: context,
+                context: context
+            )
+            let rawTranscript = try await transcriptionService.transcribe(
+                transcriptionRequest,
                 credential: credential
             )
             eventLogger.record(.transcriptionSucceeded)
@@ -510,7 +516,7 @@ final class DictationSessionController {
             let transcribedTranscript = try Self.acceptedTranscript(from: rawTranscript)
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
-                model: transcriptionSettings.resolvedTranscriptionModel,
+                model: transcriptionRequest.model,
                 audioDuration: artifact.duration
             )
             stage = .postProcessing
@@ -752,6 +758,23 @@ final class DictationSessionController {
         transcriptionSettings.language = settings.translationSourceLanguage
         transcriptionSettings.customLanguageCode = settings.customTranslationSourceLanguageCode
         return transcriptionSettings
+    }
+
+    private func makeAudioTranscriptionRequest(
+        audioFileURL: URL,
+        settings: AppSettings,
+        context: TranscriptionPromptContext?
+    ) throws -> AudioTranscriptionRequest {
+        do {
+            return try settings.audioTranscriptionRequest(
+                audioFileURL: audioFileURL,
+                context: context
+            )
+        } catch AudioTranscriptionRequest.ValidationError.invalidCustomLanguageCode(let code) {
+            throw OpenAITranscriptionServiceError.invalidRecording(
+                .invalidCustomLanguageCode(code)
+            )
+        }
     }
 
     private func postActionTranscriptText(

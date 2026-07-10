@@ -144,7 +144,16 @@ struct DictationSessionControllerTests {
         #expect(controller.status.lastTranscriptText == "Shared controller transcript")
         #expect(controller.outputStatusText == "Paste Last Result is disabled.")
         #expect(recorder.stopCount == 1)
-        #expect(transcriptionService.calls == [TranscriptionCall(audioFileURL: artifact.fileURL, settings: settings)])
+        #expect(
+            transcriptionService.calls == [
+                TranscriptionCall(
+                    audioFileURL: artifact.fileURL,
+                    model: settings.resolvedTranscriptionModel,
+                    languageCode: settings.resolvedLanguageCode,
+                    promptComposition: settings.transcriptionPromptComposition(context: nil)
+                )
+            ]
+        )
         #expect(
             transcriptOutput.calls == [
                 TranscriptOutputCall(
@@ -291,9 +300,47 @@ struct DictationSessionControllerTests {
             transcriptionService.calls == [
                 TranscriptionCall(
                     audioFileURL: artifact.fileURL,
-                    settings: settings,
-                    context: context
+                    model: settings.resolvedTranscriptionModel,
+                    languageCode: settings.resolvedLanguageCode,
+                    promptComposition: settings.transcriptionPromptComposition(context: context)
                 )
+            ]
+        )
+    }
+
+    @Test func invalidCustomLanguageRequestUsesExistingInvalidRecordingFailure() async {
+        let transcriptionService = FakeControllerTranscriptionService()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let eventLogger = FakeDictationEventLogger()
+        var settings = AppSettings.defaults
+        settings.language = .custom
+        settings.customLanguageCode = "en-US"
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .recording),
+            transcriptionService: transcriptionService,
+            settings: settings,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
+            initialStatus: .recording,
+            lastTranscriptText: "previous transcript"
+        )
+
+        await controller.performRecordingAction()
+
+        #expect(
+            controller.status == .failure(
+                message: "Use a two- or three-letter custom language code."
+            )
+        )
+        #expect(controller.lastTranscriptText == "previous transcript")
+        #expect(controller.failurePresentation?.settingsTarget == .transcription)
+        #expect(controller.failurePresentation?.canRetry == false)
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(
+            attemptStageFailureEvents(in: eventLogger.events) == [
+                .transcriptionFailed(category: "invalid_language_code")
             ]
         )
     }
@@ -609,7 +656,7 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .success(transcript: "Corrected English text"))
         #expect(controller.lastTranscriptText == "Corrected English text")
-        #expect(transcriptionService.calls.map(\.settings.language) == [.spanish])
+        #expect(transcriptionService.calls.map(\.languageCode) == ["es"])
         #expect(
             textCorrectionService.calls == [
                 TextCorrectionCall(
@@ -713,7 +760,7 @@ struct DictationSessionControllerTests {
         await controller.performRecordingAction(intent: .translate)
 
         #expect(controller.status == .success(transcript: "English text"))
-        #expect(transcriptionService.calls.map(\.settings.language) == [.spanish])
+        #expect(transcriptionService.calls.map(\.languageCode) == ["es"])
         #expect(
             translationService.calls == [
                 TranslationCall(
@@ -1455,6 +1502,8 @@ struct DictationSessionControllerTests {
         settings.textCorrectionEnabled = true
         settings.textCorrectionModelPreset = .fast
         settings.localTextCleanupEnabled = false
+        settings.transcriptionModel = " current-retry-model "
+        settings.useActiveTextContext = true
         let controller = makeController(
             recorder: FakeAudioRecorderService(currentStatus: .idle),
             transcriptionService: transcriptionService,
@@ -1472,7 +1521,16 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "recovered text"))
         #expect(controller.lastTranscriptText == "recovered text")
         #expect(failureRecovery.failedAttempts.isEmpty)
-        #expect(transcriptionService.calls.map(\.audioFileURL) == [attempt.audioFileURL])
+        #expect(
+            transcriptionService.calls == [
+                TranscriptionCall(
+                    audioFileURL: attempt.audioFileURL,
+                    model: "current-retry-model",
+                    languageCode: nil,
+                    promptComposition: settings.transcriptionPromptComposition(context: nil)
+                )
+            ]
+        )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["recovered text"])
         #expect(
             textCorrectionService.calls == [
@@ -1487,7 +1545,7 @@ struct DictationSessionControllerTests {
             usageRecorder.calls == [
                 try SuccessfulTranscriptionUsage(
                     transcriptionID: transcriptionID,
-                    model: "gpt-4o-transcribe",
+                    model: "current-retry-model",
                     audioDuration: 12
                 )
             ]
@@ -1955,20 +2013,36 @@ private let defaultControllerCredentialAPIKey = "sk-controller-test"
 
 private struct TranscriptionCall: Equatable {
     let audioFileURL: URL
-    let settings: AppSettings
-    let context: TranscriptionPromptContext?
+    let model: String
+    let languageCode: String?
+    let promptComposition: TranscriptionPromptComposition
     let credentialAPIKey: String
 
     init(
         audioFileURL: URL,
-        settings: AppSettings,
-        context: TranscriptionPromptContext? = nil,
+        model: String,
+        languageCode: String?,
+        promptComposition: TranscriptionPromptComposition,
         credentialAPIKey: String = defaultControllerCredentialAPIKey
     ) {
         self.audioFileURL = audioFileURL
-        self.settings = settings
-        self.context = context
+        self.model = model
+        self.languageCode = languageCode
+        self.promptComposition = promptComposition
         self.credentialAPIKey = credentialAPIKey
+    }
+
+    init(
+        request: AudioTranscriptionRequest,
+        credentialAPIKey: String = defaultControllerCredentialAPIKey
+    ) {
+        self.init(
+            audioFileURL: request.audioFileURL,
+            model: request.model,
+            languageCode: request.languageCode,
+            promptComposition: request.promptComposition,
+            credentialAPIKey: credentialAPIKey
+        )
     }
 }
 
@@ -2116,16 +2190,12 @@ private final class FakeControllerTranscriptionService: OpenAITranscriptionServi
     }
 
     func transcribe(
-        audioFileURL: URL,
-        settings: AppSettings,
-        context: TranscriptionPromptContext?,
+        _ request: AudioTranscriptionRequest,
         credential: OpenAICredential
     ) async throws -> String {
         calls.append(
             TranscriptionCall(
-                audioFileURL: audioFileURL,
-                settings: settings,
-                context: context,
+                request: request,
                 credentialAPIKey: credential.apiKey
             )
         )
