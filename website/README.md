@@ -170,9 +170,12 @@ and absence of a HoldType account or backend. No unsupported metric,
 comparative speed claim, or undocumented claim about Wispr Flow's internal
 model is permitted above the fold.
 
-The usage-cost badge and explicit illustration caption remain. The badge stays
-visually secondary and must not present 100 as a usage cap, guaranteed maximum,
-or typical day.
+The code-native editor uses a dry, self-ironic fictional plan to build a tiny
+SaaS and reach `$1M ARR`; the interface presents the request as if it were
+ordinary. Its caption still identifies the scene as an illustration rather
+than a recorded demo and makes no claim that Codex produced the business
+result. The usage-cost badge remains visually secondary and must not present
+100 as a usage cap, guaranteed maximum, or typical day.
 
 ### Page anatomy
 

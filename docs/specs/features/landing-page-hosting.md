@@ -28,6 +28,12 @@ that already uses GitHub Pages.
   than leaving it as praise. The contract covers the named model, billing
   source, optional rewrite pass, explicit Mac-to-OpenAI data path, and the
   Mac-only product boundary.
+- The hero editor illustration uses a dry, self-ironic fictional plan to build
+  a small SaaS and reach `$1M ARR`. Its caption explicitly identifies the scene
+  as an illustration rather than a recorded demo and does not imply that Codex
+  produced that business result. The listening and transcribing labels,
+  animation states, outer hero, calls to action, and pricing sticker remain
+  unchanged when this sample copy changes.
 - Product copy may describe the known model, request path, billing boundary,
   and native implementation. It must not claim that HoldType is the fastest or
   most accurate dictation product, publish a comparative speed multiplier, or

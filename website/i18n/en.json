@@ -41,20 +41,20 @@
       "suffix": "at the current estimated rate"
     },
     "demo": {
-      "editorIllustration": "{brand.holdType} workflow illustration",
-      "documentTitle": "Codex task",
+      "editorIllustration": "A perfectly realistic {brand.holdType} startup plan",
+      "documentTitle": "Make $1M with SaaS",
       "toolbarSample": "Aa  ···",
-      "intro": "Refactor the upload path without changing user-visible behavior.",
-      "sectionTitle": "Requirements",
-      "listeningBody": "Hold {keyboard.rightCommand} and dictate the task.",
-      "transcribingBody": "Sending the recording to GPT-4o Transcribe…",
-      "insertedBody": "Preserve retry state, keep the request timeout bounded, and add a regression test for the failed upload path.",
+      "intro": "A conservative first milestone.",
+      "sectionTitle": "Execution plan",
+      "listeningBody": "Hold {keyboard.rightCommand} and dictate the easy part.",
+      "transcribingBody": "Sending the startup plan to GPT-4o Transcribe…",
+      "insertedBody": "Build a tiny SaaS, find product-market fit, reach $1M ARR, and keep support under ten minutes a week. No marketing budget.",
       "status": {
         "listening": "Listening",
         "transcribing": "Transcribing",
-        "inserted": "Inserted"
+        "inserted": "Plan inserted. Easy."
       },
-      "caption": "Illustrated {brand.holdType} workflow using a sample technical dictation. This is not a recorded demo."
+      "caption": "Illustrated {brand.holdType} workflow, not a recorded demo. Codex did not actually make $1M. Yet."
     }
   },
   "workflow": {

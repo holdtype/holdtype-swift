@@ -41,20 +41,20 @@
       "suffix": "по текущему расчётному тарифу"
     },
     "demo": {
-      "editorIllustration": "Иллюстрация работы {brand.holdType}",
-      "documentTitle": "Задача для Codex",
+      "editorIllustration": "Совершенно реалистичный стартап-план {brand.holdType}",
+      "documentTitle": "Заработать $1 млн на SaaS",
       "toolbarSample": "Aa  ···",
-      "intro": "Переработай загрузку, не меняя поведение для пользователя.",
-      "sectionTitle": "Требования",
-      "listeningBody": "Зажмите {keyboard.rightCommand} и продиктуйте задачу.",
-      "transcribingBody": "Отправляем запись в GPT-4o Transcribe…",
-      "insertedBody": "Сохрани состояние повторной попытки, оставь ограничение времени запроса и добавь регрессионный тест на сбой загрузки.",
+      "intro": "Консервативная первая цель.",
+      "sectionTitle": "План действий",
+      "listeningBody": "Зажмите {keyboard.rightCommand} и продиктуйте лёгкую часть.",
+      "transcribingBody": "Отправляем стартап-план в GPT-4o Transcribe…",
+      "insertedBody": "Сделать небольшой SaaS, найти product-market fit, выйти на $1 млн ARR и тратить на поддержку меньше десяти минут в неделю. Без бюджета на маркетинг.",
       "status": {
         "listening": "Слушаю",
         "transcribing": "Расшифровываю",
-        "inserted": "Вставлено"
+        "inserted": "План вставлен. Легко."
       },
-      "caption": "Иллюстрация работы {brand.holdType} с примером технической диктовки. Это не запись реальной демонстрации."
+      "caption": "Иллюстрация работы {brand.holdType}, а не запись реальной демонстрации. Codex на самом деле не заработал $1 млн. Пока."
     }
   },
   "workflow": {
