@@ -20,17 +20,47 @@ full-size screenshot lightbox.
 
 ## Hosting
 
-GitHub Pages publishes the page at
-<https://holdtype.github.io/holdtype-swift/>. The Pages workflow deploys a
-single complete artifact containing the public landing files, the current
-Sparkle appcast, and all release-notes pages referenced by that appcast. The
-release workflow builds the same artifact so a later app release cannot erase
-the landing page.
+DigitalOcean App Platform serves the product landing page at
+<https://holdtype.app/> as a static site with managed HTTPS and CDN delivery.
+Its source component is `website/` on `master`, and automatic deployment is
+enabled. The canonical App Platform configuration is `.do/app.yaml`.
+
+GitHub Pages remains the canonical host for the Sparkle appcast and versioned
+release notes at <https://holdtype.github.io/holdtype-swift/>. The Pages and
+release workflows still build one complete Pages artifact so a website change
+or app release cannot erase update metadata. Do not point the shipped update
+feed at `holdtype.app` as part of a landing-only deployment.
 
 `README.md` and `design-qa.md` are repository documentation and are deliberately
-excluded from the public artifact. No `CNAME` is published yet. Configure the
-GitHub Pages custom domain and the `holdtype.app` DNS records together during a
-separate domain cutover.
+excluded from both public artifacts. The App Platform build copies only
+`index.html`, `styles.css`, `script.js`, and `assets/` into its output directory.
+
+### Publish explicitly
+
+App Platform normally deploys a committed landing change after it reaches
+`master`. To force a rebuild and verify the deployed page:
+
+```sh
+scripts/release/publish_digitalocean.py
+```
+
+The command uses the authenticated `doctl` context, discovers the app named
+`holdtype` (or accepts `DIGITALOCEAN_APP_ID`), waits for an active deployment
+within a bounded timeout, and checks for the landing marker. A DigitalOcean API
+token belongs in the local `doctl` configuration, never in this repository.
+
+The technical App Platform ingress is always verified first. After DNS cutover,
+verify the public domain in the same run as an additional check:
+
+```sh
+scripts/release/publish_digitalocean.py --url https://holdtype.app/
+```
+
+The first domain cutover must be ordered carefully: verify the DigitalOcean
+technical hostname, remove `holdtype.app` from the GitHub Pages custom-domain
+setting, confirm the stable `github.io/appcast.xml` no longer redirects, then
+attach the domains in App Platform and replace only the old apex and `www` DNS
+records at the registrar.
 
 ## Files
 

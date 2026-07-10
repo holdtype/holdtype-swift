@@ -36,6 +36,7 @@ OPEN_OFFICIAL_CASK_FROM_BUNDLE_SCRIPT = (
     ROOT / "scripts" / "release" / "open_official_homebrew_cask_pr_from_bundle.sh"
 )
 PREPARE_PAGES_ARTIFACT_SCRIPT = ROOT / "scripts" / "release" / "prepare_pages_artifact.py"
+PUBLISH_DIGITALOCEAN_SCRIPT = ROOT / "scripts" / "release" / "publish_digitalocean.py"
 PREPARE_OFFICIAL_CASK_SCRIPT = ROOT / "scripts" / "release" / "prepare_official_homebrew_cask.sh"
 PRUNE_GITHUB_RELEASE_ASSETS_SCRIPT = ROOT / "scripts" / "release" / "prune_github_release_assets.py"
 UPDATE_TAP_SCRIPT = ROOT / "scripts" / "release" / "update_homebrew_tap.sh"
@@ -60,6 +61,7 @@ WRITE_HOMEBREW_CASK_SUBMISSION_SCRIPT = (
 WRITE_RELEASE_NOTES_SCRIPT = ROOT / "scripts" / "release" / "write_release_notes.sh"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 PAGES_WORKFLOW = ROOT / ".github" / "workflows" / "pages.yml"
+DIGITALOCEAN_APP_SPEC = ROOT / ".do" / "app.yaml"
 
 
 def load_preflight_module():
@@ -81,6 +83,19 @@ def load_published_release_module():
         raise RuntimeError("could not load verify_published_release module")
     module = importlib.util.module_from_spec(spec)
     sys.modules["verify_published_release"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_digitalocean_publish_module():
+    spec = importlib.util.spec_from_file_location(
+        "publish_digitalocean",
+        PUBLISH_DIGITALOCEAN_SCRIPT,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load DigitalOcean publish module")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["publish_digitalocean"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -549,6 +564,64 @@ end
         self.assertIn("Verify published site and update feed", pages_workflow)
         self.assertIn("--current-release-notes", release_workflow)
         self.assertIn("Speak the whole thought.", release_workflow)
+
+    def test_digitalocean_publish_discovers_unique_app_and_default_ingress(self) -> None:
+        module = load_digitalocean_publish_module()
+        apps = [
+            {
+                "id": "app-id",
+                "spec": {"name": "holdtype"},
+                "default_ingress": "holdtype-example.ondigitalocean.app",
+            },
+            {"id": "other-id", "spec": {"name": "other"}},
+        ]
+
+        self.assertEqual(module.find_app_id(apps, "holdtype"), "app-id")
+        self.assertEqual(
+            module.default_ingress_url(apps[0]),
+            "https://holdtype-example.ondigitalocean.app/",
+        )
+        self.assertEqual(
+            module.cache_bust("https://example.com/?qa=1", "deployment-id"),
+            "https://example.com/?qa=1&deployment=deployment-id",
+        )
+
+        with self.assertRaises(module.PublishError):
+            module.find_app_id(apps, "missing")
+
+    def test_digitalocean_publish_requires_active_finished_deployment(self) -> None:
+        module = load_digitalocean_publish_module()
+
+        self.assertEqual(
+            module.deployment_id_and_phase(
+                {"deployment": {"id": "deployment-id", "phase": "ACTIVE"}}
+            ),
+            ("deployment-id", "ACTIVE"),
+        )
+        self.assertEqual(
+            module.deployment_id_and_phase(
+                [{"id": "deployment-id", "status": "error"}]
+            ),
+            ("deployment-id", "ERROR"),
+        )
+
+    def test_digitalocean_spec_keeps_landing_and_update_hosts_separate(self) -> None:
+        app_spec = DIGITALOCEAN_APP_SPEC.read_text()
+
+        self.assertIn("repo: holdtype/holdtype-swift", app_spec)
+        self.assertIn("branch: master", app_spec)
+        self.assertIn("deploy_on_push: true", app_spec)
+        self.assertIn("source_dir: /website", app_spec)
+        self.assertIn("output_dir: public", app_spec)
+        self.assertIn("cp index.html styles.css script.js public/", app_spec)
+        self.assertIn("cp -R assets public/assets", app_spec)
+        self.assertNotIn("README.md", app_spec)
+        self.assertNotIn("design-qa.md", app_spec)
+        self.assertNotIn("token", app_spec.lower())
+        self.assertIn("domain: holdtype.app", app_spec)
+        self.assertIn("domain: www.holdtype.app", app_spec)
+        self.assertIn("redirect_code: 301", app_spec)
+        self.assertIn("authority: holdtype.app", app_spec)
 
     def test_release_workflow_reuses_existing_homebrew_tap_pr(self) -> None:
         workflow = RELEASE_WORKFLOW.read_text()

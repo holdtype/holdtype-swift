@@ -1,0 +1,47 @@
+name: holdtype
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+domains:
+  - domain: holdtype.app
+    type: PRIMARY
+    minimum_tls_version: "1.2"
+  - domain: www.holdtype.app
+    type: ALIAS
+    minimum_tls_version: "1.2"
+
+ingress:
+  rules:
+    - match:
+        authority:
+          exact: www.holdtype.app
+        path:
+          prefix: /
+      redirect:
+        authority: holdtype.app
+        scheme: https
+        redirect_code: 301
+    - match:
+        path:
+          prefix: /
+      component:
+        name: landing
+
+static_sites:
+  - name: landing
+    environment_slug: html
+    github:
+      repo: holdtype/holdtype-swift
+      branch: master
+      deploy_on_push: true
+    source_dir: /website
+    build_command: |
+      set -eu
+      rm -rf public
+      mkdir -p public
+      cp index.html styles.css script.js public/
+      cp -R assets public/assets
+    output_dir: public
+    index_document: index.html
