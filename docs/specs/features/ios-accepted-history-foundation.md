@@ -221,6 +221,11 @@ operations. Repositories never coordinate themselves. It issues opaque,
 process-local, non-Codable, redacted receipts bound to exact identity, policy
 generation, logical revision, and file revision:
 
+Within one app process, coordinator transactions use a FIFO, non-reentrant gate
+across suspension points. Cancellation before acquisition performs no
+transaction work; after acquisition, success, failure, or caller cancellation
+cannot release the gate before that transaction finishes exactly once.
+
 - policy receipt: current enabled generation or durable invalidation;
 - row receipt: durable accepted-row retention decision and optional membership;
 - outbox receipt: exact durable membership of one reconstructible entry.

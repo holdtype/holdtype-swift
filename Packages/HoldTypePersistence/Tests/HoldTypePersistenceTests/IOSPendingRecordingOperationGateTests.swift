@@ -26,7 +26,7 @@ struct IOSPendingRecordingOperationGateTests {
                 return 2
             }
         }
-        await Task.yield()
+        await events.waitUntilEnqueuedCount(1)
 
         #expect(events.values == [1])
         await firstBlocker.open()
@@ -73,12 +73,16 @@ struct IOSPendingRecordingOperationGateTests {
     }
 
     @Test func cancellationAfterGrantDoesNotInterruptTheTransaction() async throws {
+        let events = GateEventRecorder()
         let blocker = AsyncOperationBlocker()
         let didFinish = LockedFlag()
-        let gate = IOSPendingRecordingOperationGate()
+        let gate = IOSPendingRecordingOperationGate { event in
+            events.append(event)
+        }
         let task = Task {
             try await gate.perform {
                 await blocker.wait()
+                try Task.checkCancellation()
                 didFinish.set()
                 return 7
             }
@@ -86,10 +90,17 @@ struct IOSPendingRecordingOperationGateTests {
 
         await blocker.waitUntilSuspended()
         task.cancel()
+        let tail = Task {
+            try await gate.perform { 8 }
+        }
+        await events.waitUntilEnqueuedCount(1)
         await blocker.open()
 
         #expect(try await task.value == 7)
+        #expect(try await tail.value == 8)
         #expect(didFinish.value)
+        #expect(events.grantedIdentifiers.count == 2)
+        #expect(events.releasedIdentifiers == events.grantedIdentifiers)
     }
 
     @Test func transactionCannotReenterTheSameGate() async throws {
@@ -105,12 +116,269 @@ struct IOSPendingRecordingOperationGateTests {
             Issue.record("Unexpected re-entry error: \(type(of: error))")
         }
     }
+
+    @Test func operationErrorReleasesTheLiveTailExactlyOnce() async throws {
+        let events = GateEventRecorder()
+        let blocker = AsyncOperationBlocker()
+        let gate = IOSPersistenceOperationGate { event in
+            events.append(event)
+        }
+
+        let failing = Task<Void, Error> {
+            try await gate.perform {
+                await blocker.wait()
+                throw GateTestError.expected
+            }
+        }
+        await blocker.waitUntilSuspended()
+
+        let tail = Task {
+            try await gate.perform { 2 }
+        }
+        await events.waitUntilEnqueuedCount(1)
+        await blocker.open()
+
+        do {
+            try await failing.value
+            Issue.record("The operation error must be returned after releasing its lease.")
+        } catch GateTestError.expected {
+        } catch {
+            Issue.record("Unexpected operation error: \(type(of: error))")
+        }
+
+        #expect(try await tail.value == 2)
+        #expect(events.grantedIdentifiers.count == 2)
+        #expect(events.releasedIdentifiers == events.grantedIdentifiers)
+    }
+
+    @Test func spawnedTaskCannotReenterTheActiveLease() async throws {
+        let gate = IOSPersistenceOperationGate()
+
+        try await gate.perform {
+            let nested = Task {
+                try await gate.perform { 1 }
+            }
+
+            do {
+                _ = try await nested.value
+                Issue.record("A spawned task must retain the active lease context.")
+            } catch IOSPersistenceOperationGate.AcquisitionError.reentrantOperation {
+            } catch {
+                Issue.record("Unexpected spawned-task re-entry error: \(type(of: error))")
+            }
+        }
+
+        #expect(try await gate.perform { 2 } == 2)
+    }
+
+    @Test func operationPreservesAnUnrelatedTaskLocalContext() async throws {
+        let gate = IOSPersistenceOperationGate()
+
+        let inheritedValue = try await UnrelatedGateTaskContext.$value.withValue("trace-canary") {
+            try await gate.perform {
+                UnrelatedGateTaskContext.value
+            }
+        }
+
+        #expect(inheritedValue == "trace-canary")
+    }
+
+    @Test func crossGateCycleCannotReenterAnOuterActiveLease() async throws {
+        let firstGate = IOSPersistenceOperationGate()
+        let secondGate = IOSPersistenceOperationGate()
+
+        do {
+            _ = try await firstGate.perform {
+                try await secondGate.perform {
+                    try await firstGate.perform { 1 }
+                }
+            }
+            Issue.record("A -> B -> A must reject the still-active A lease.")
+        } catch IOSPersistenceOperationGate.AcquisitionError.reentrantOperation {
+        } catch {
+            Issue.record("Unexpected cross-gate re-entry error: \(type(of: error))")
+        }
+
+        #expect(try await firstGate.perform { 2 } == 2)
+        #expect(try await secondGate.perform { 3 } == 3)
+    }
+
+    @Test func transactionMayUseAnotherIndependentGate() async throws {
+        let firstGate = IOSPersistenceOperationGate()
+        let secondGate = IOSPersistenceOperationGate()
+
+        let value = try await firstGate.perform {
+            try await secondGate.perform { 7 }
+        }
+
+        #expect(value == 7)
+    }
+
+    @Test func escapedTaskWithStaleContextMayAcquireAfterRelease() async throws {
+        let events = GateEventRecorder()
+        let staleTaskBlocker = AsyncOperationBlocker()
+        let currentOperationBlocker = AsyncOperationBlocker()
+        let gate = IOSPersistenceOperationGate { event in
+            events.append(event)
+        }
+
+        let escapedTask = try await gate.perform {
+            Task {
+                await staleTaskBlocker.wait()
+                return try await gate.perform { 9 }
+            }
+        }
+
+        await staleTaskBlocker.waitUntilSuspended()
+        let currentOperation = Task {
+            try await gate.perform {
+                await currentOperationBlocker.wait()
+                return 2
+            }
+        }
+        await currentOperationBlocker.waitUntilSuspended()
+
+        await staleTaskBlocker.open()
+        await events.waitUntilEnqueuedCount(1)
+        await currentOperationBlocker.open()
+
+        #expect(try await currentOperation.value == 2)
+        #expect(try await escapedTask.value == 9)
+    }
+
+    @Test func cancellationBeforeWaiterInstallationResumesExactlyOnce() async throws {
+        let boundary = GateBoundaryBlocker()
+        let operationDidRun = LockedFlag()
+        let gate = IOSPersistenceOperationGate { event in
+            if case .installing = event {
+                boundary.blockOnce()
+            }
+        }
+
+        let task = Task {
+            try await gate.perform {
+                operationDidRun.set()
+                return 1
+            }
+        }
+        #expect(boundary.waitUntilBlocked())
+        task.cancel()
+        boundary.open()
+
+        do {
+            _ = try await task.value
+            Issue.record("Cancellation before continuation installation must reject the lease.")
+        } catch IOSPersistenceOperationGate.AcquisitionError.cancelledBeforeLease {
+        } catch {
+            Issue.record("Unexpected pre-install cancellation error: \(type(of: error))")
+        }
+
+        #expect(!operationDidRun.value)
+        #expect(try await gate.perform { 2 } == 2)
+    }
+
+    @Test func cancellationBeforeGrantClaimResumesExactlyOnce() async throws {
+        let boundary = GateBoundaryBlocker()
+        let operationDidRun = LockedFlag()
+        let gate = IOSPersistenceOperationGate { event in
+            if case .claiming = event {
+                boundary.blockOnce()
+            }
+        }
+
+        let task = Task {
+            try await gate.perform {
+                operationDidRun.set()
+                return 1
+            }
+        }
+        #expect(boundary.waitUntilBlocked())
+        task.cancel()
+        boundary.open()
+
+        do {
+            _ = try await task.value
+            Issue.record("Cancellation before grant claim must reject the lease.")
+        } catch IOSPersistenceOperationGate.AcquisitionError.cancelledBeforeLease {
+        } catch {
+            Issue.record("Unexpected pre-grant cancellation error: \(type(of: error))")
+        }
+
+        #expect(!operationDidRun.value)
+        #expect(try await gate.perform { 2 } == 2)
+    }
+
+    @Test func cancellationStormDoesNotBlockALiveTail() async throws {
+        let events = GateEventRecorder()
+        let blocker = AsyncOperationBlocker()
+        let cancelledOperationDidRun = LockedFlag()
+        let gate = IOSPersistenceOperationGate { event in
+            events.append(event)
+        }
+
+        let active = Task {
+            try await gate.perform {
+                await blocker.wait()
+                return 1
+            }
+        }
+        await blocker.waitUntilSuspended()
+
+        let cancelledTasks = (0..<16).map { _ in
+            Task {
+                try await gate.perform {
+                    cancelledOperationDidRun.set()
+                    return -1
+                }
+            }
+        }
+        await events.waitUntilEnqueuedCount(cancelledTasks.count)
+        for task in cancelledTasks {
+            task.cancel()
+        }
+        for task in cancelledTasks {
+            do {
+                _ = try await task.value
+                Issue.record("A cancelled queued operation must not receive a lease.")
+            } catch IOSPersistenceOperationGate.AcquisitionError.cancelledBeforeLease {
+            } catch {
+                Issue.record("Unexpected cancellation-storm error: \(type(of: error))")
+            }
+        }
+
+        let tail = Task {
+            try await gate.perform { 2 }
+        }
+        await events.waitUntilEnqueuedCount(cancelledTasks.count + 1)
+        await blocker.open()
+
+        #expect(try await active.value == 1)
+        #expect(try await tail.value == 2)
+        #expect(!cancelledOperationDidRun.value)
+        #expect(events.grantedIdentifiers.count == 2)
+        #expect(events.releasedIdentifiers == events.grantedIdentifiers)
+    }
+}
+
+private enum GateTestError: Error {
+    case expected
+}
+
+private enum UnrelatedGateTaskContext {
+    @TaskLocal static var value: String?
 }
 
 nonisolated private final class GateEventRecorder: @unchecked Sendable {
+    private struct EnqueuedObserver {
+        let expectedCount: Int
+        let continuation: CheckedContinuation<Void, Never>
+    }
+
     private let lock = NSLock()
     private var storedEvents: [IOSPendingRecordingOperationGate.Event] = []
     private var storedValues: [Int] = []
+    private var enqueuedCount = 0
+    private var enqueuedObservers: [EnqueuedObserver] = []
 
     var values: [Int] {
         lock.withLock { storedValues }
@@ -139,11 +407,42 @@ nonisolated private final class GateEventRecorder: @unchecked Sendable {
     }
 
     func append(_ event: IOSPendingRecordingOperationGate.Event) {
-        lock.withLock { storedEvents.append(event) }
+        let readyObservers: [EnqueuedObserver]
+
+        lock.lock()
+        storedEvents.append(event)
+        if case .enqueued = event {
+            enqueuedCount += 1
+        }
+        readyObservers = enqueuedObservers.filter { enqueuedCount >= $0.expectedCount }
+        enqueuedObservers.removeAll { enqueuedCount >= $0.expectedCount }
+        lock.unlock()
+
+        for observer in readyObservers {
+            observer.continuation.resume()
+        }
     }
 
     func appendValue(_ value: Int) {
         lock.withLock { storedValues.append(value) }
+    }
+
+    func waitUntilEnqueuedCount(_ expectedCount: Int) async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            guard enqueuedCount < expectedCount else {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
+            enqueuedObservers.append(
+                EnqueuedObserver(
+                    expectedCount: expectedCount,
+                    continuation: continuation
+                )
+            )
+            lock.unlock()
+        }
     }
 }
 
@@ -157,6 +456,37 @@ nonisolated private final class LockedFlag: @unchecked Sendable {
 
     func set() {
         lock.withLock { storedValue = true }
+    }
+}
+
+nonisolated private final class GateBoundaryBlocker: @unchecked Sendable {
+    private let lock = NSLock()
+    private let blocked = DispatchSemaphore(value: 0)
+    private let releaseSignal = DispatchSemaphore(value: 0)
+    private var didBlock = false
+
+    func blockOnce() {
+        let shouldBlock = lock.withLock {
+            guard !didBlock else {
+                return false
+            }
+            didBlock = true
+            return true
+        }
+        guard shouldBlock else {
+            return
+        }
+
+        blocked.signal()
+        _ = releaseSignal.wait(timeout: .now() + 10)
+    }
+
+    func waitUntilBlocked() -> Bool {
+        blocked.wait(timeout: .now() + 10) == .success
+    }
+
+    func open() {
+        releaseSignal.signal()
     }
 }
 
