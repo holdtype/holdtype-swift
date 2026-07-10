@@ -7,6 +7,7 @@
 
 import AppKit
 import Darwin
+import HoldTypeOpenAI
 import SwiftUI
 
 @main
@@ -245,6 +246,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let clearTranscriptHistoryOverride: (@MainActor () -> Void)?
     private let startRuntimeComponentsOverride: (@MainActor () -> Void)?
     private let stopRuntimeComponentsOverride: (@MainActor () -> Void)?
+    private let scheduleProviderStartupMaintenance: @MainActor () -> Void
     private let isUpdaterRelaunchInProgress: @MainActor () -> Bool
 
     override init() {
@@ -256,6 +258,9 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         clearTranscriptHistoryOverride = nil
         startRuntimeComponentsOverride = nil
         stopRuntimeComponentsOverride = nil
+        scheduleProviderStartupMaintenance = {
+            OpenAIProviderStartupMaintenance.schedule()
+        }
         isUpdaterRelaunchInProgress = {
             SoftwareUpdateRelaunchState.isUpdaterRelaunchInProgress
         }
@@ -269,6 +274,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         clearTranscriptHistory: (@MainActor () -> Void)? = nil,
         startRuntimeComponents: (@MainActor () -> Void)? = nil,
         stopRuntimeComponents: (@MainActor () -> Void)? = nil,
+        scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
         isUpdaterRelaunchInProgress: @escaping @MainActor () -> Bool = {
             SoftwareUpdateRelaunchState.isUpdaterRelaunchInProgress
         }
@@ -279,6 +285,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         clearTranscriptHistoryOverride = clearTranscriptHistory
         startRuntimeComponentsOverride = startRuntimeComponents
         stopRuntimeComponentsOverride = stopRuntimeComponents
+        self.scheduleProviderStartupMaintenance = scheduleProviderStartupMaintenance
         self.isUpdaterRelaunchInProgress = isUpdaterRelaunchInProgress
         super.init()
     }
@@ -288,6 +295,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        scheduleProviderStartupMaintenance()
         transcriptionFailurePromptCoordinator?.start()
 
         if let startRuntimeComponentsOverride {

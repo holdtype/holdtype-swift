@@ -288,6 +288,22 @@ runtime request value still does not own its scratch-file lifecycle.
   eventually absent after cancellation during preparation. Cleanup must never
   mutate or remove the source recording. The same private-namespace threat
   boundary applies to check-then-unlink cleanup during failed preparation.
+- New scratch bodies use a crash-recoverable two-name creation protocol. The
+  app first creates an owner-only `0600` staging file named exactly as an
+  uppercase canonical UUID plus `.multipart`, applies Complete protection and
+  backup exclusion, and writes the descriptor-bound extended attribute
+  `com.holdtype.openai.multipart-scratch` with the exact UTF-8 value `v1`.
+  The marker uses create-only xattr semantics and is read back exactly. The
+  writer also acquires a non-blocking exclusive advisory lock on its descriptor
+  and holds it until the pathname is pinned/unlinked or the writer closes.
+  Before writing body bytes it publishes that same inode with
+  `renameatx_np(..., RENAME_EXCL)` as
+  `htmp-v1-<lowercase-canonical-uuid>.multipart`; there is no replacing-rename
+  fallback. Directory, staging path, descriptor, and final path identities are
+  verified around publication through one opened private-directory descriptor.
+  A failed marker, protection, lock, or publish step removes only the staging
+  or final inode whose identity the operation owns. The final and staging names
+  contain no source filename, attempt identity, credential, or user content.
 - Cancellation is checked after every potentially blocking local preparation
   operation and again before pinning or starting URLSession. Work that returns
   after its request already timed out or was cancelled must not launch an
@@ -316,10 +332,62 @@ runtime request value still does not own its scratch-file lifecycle.
 - Failure to open, read, or replay the pinned multipart artifact is a typed
   local multipart/preparation failure. It must not be presented as network
   unavailability or a provider rejection.
-- A process crash can leave an unreachable protected scratch file. Bounded
-  startup scavenging of only the exact HoldType multipart namespace belongs to
-  the later P2 containing-app storage reconciliation slice; this checkpoint
-  does not claim crash-orphan cleanup.
+- A process crash can leave a protected scratch pathname. Each normal
+  containing-app process schedules one asynchronous, non-blocking maintenance
+  pass over only `<temporary-directory>/holdtype-openai-multipart/`; a missing
+  namespace is a successful no-op and maintenance never creates it.
+- The public startup hook is content-free: it takes no URL or payload, returns
+  no filenames, counts, or errors, starts no provider/Keychain/audio work, and
+  schedules at most once per process. The macOS app calls it only after ruling
+  out the one-shot Input Monitoring recovery launch; the iOS containing app
+  calls it during app initialization. The keyboard remains unlinked from
+  `HoldTypeOpenAI` and cannot call the hook.
+- The pass opens the exact namespace without following a symbolic link and
+  proceeds only when it is an `0700` directory owned by the effective user. It
+  does not create, chmod, protect, or otherwise repair the directory. It
+  enumerates incrementally through that same directory descriptor and never
+  recurses. Raw ASCII names must match either
+  `htmp-v1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}.multipart`
+  plus the exact two-byte `v1` xattr, or the legacy/staging grammar
+  `[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}.multipart`.
+  Marked and unmarked legacy/staging names use the same 24-hour rule. Lower-
+  case legacy-like, malformed, unmarked v1, wrongly marked, nested, or unrelated
+  entries remain untouched; UUID parsing alone is not accepted as the grammar.
+- A recognized candidate is removable only when it is a no-follow regular file
+  owned by the effective user, has exact `0600` permissions, one link, a
+  nonnegative size, and grants the scanner a non-blocking exclusive advisory
+  lock. A live creator's lock therefore protects the pathname even across
+  another containing-app process or a wall-clock jump. Immediately before
+  descriptor-relative unlink, the scanner repeats descriptor and no-follow
+  path status, identity, type, owner, mode, link-count, size, age, and budget
+  checks; a v1 file's descriptor xattr is also reread and must still be exactly
+  `v1`. Symbolic links, directories, hard links, active files, and a raced or
+  mutated replacement are never removed. This still assumes the private
+  sandbox without a hostile same-UID interposer in the final
+  identity-check/unlink window; no kernel-level conditional-unlink guarantee is
+  claimed.
+- Age is measured from the newer of modification and change time. A marked v1
+  file becomes eligible at exactly one hour; a legacy/staging filename becomes
+  eligible at exactly 24 hours. Future timestamps remain untouched. Wall time
+  is captured once and file times are compared at nanosecond precision. One
+  pass inspects at most 256 directory entries other than the literal `.` and
+  `..`, removes at most 32 files, and charges at most 512 MiB of logical
+  `st_size` from each candidate's final pre-deletion snapshot. An exact
+  count/byte boundary is allowed; a candidate whose final charge would exceed
+  the byte budget is not removed and ends the pass.
+- The pass also has a one-second monotonic work budget. An injected monotonic
+  clock is checked before each new enumeration, open, metadata, lock, attribute,
+  or deletion syscall; at elapsed time greater than or equal to one second no
+  new inspection/deletion syscall starts. Required descriptor cleanup still
+  runs. One already-started local syscall may finish later, so this is a
+  bounded-work contract rather than a hard real-time deadline. Production uses
+  one internal POSIX adapter plus wall/monotonic clocks; tests replace all three
+  to prove exact age, race, and resource boundaries.
+- Any namespace, entry, attribute, clock, or removal error fails closed for
+  deletion: the candidate stays in place and app launch/provider use continues.
+  The pass emits no path, filename, size, audio, prompt, credential, or content
+  through its public API or default product logs. Repeated launches are
+  idempotent and can finish work left beyond an earlier pass's bounds.
 - Post-capture transcription failure handling must not save, delete, clear,
   rewrite, or validate Keychain API key storage. It may only explain the error
   and offer navigation to Settings as an explicit user action.
@@ -493,6 +561,23 @@ runtime request value still does not own its scratch-file lifecycle.
   destinations receive neither a credential nor body bytes.
 - Test early EOF and descriptor read failures as redacted typed local multipart
   failures rather than network failures.
+- Test that new bodies publish the exact v1 name and descriptor-bound marker
+  before content writes; marker/protection/publish failure preserves source and
+  cleans only the operation-owned staging inode.
+- Test startup maintenance at `59:59`/one hour and `23:59:59`/24 hours; exact
+  filename/xattr matching; missing namespace; symlink, hardlink, directory,
+  nested, valid `m4a`/`wav` source-name, and replacement-race preservation;
+  idempotency; and the exact 256-entry, 32-removal, 512-MiB, and one-second
+  boundaries. An arbitrary old owner-only file deliberately placed inside the
+  private namespace with the exact legacy grammar is indistinguishable from a
+  legacy orphan and is not claimed as a protected source recording.
+- Test that a creator-held advisory lock protects an otherwise old v1 file and
+  that a crash-released/unlocked orphan can be removed. Repeat every final
+  status/xattr/budget check after an injected pre-unlink mutation.
+- Test that a normal macOS launch and iOS initialization schedule the content-
+  free hook, while the one-shot Input Monitoring recovery launch does not.
+  Inspect the built keyboard target to confirm it still has no
+  `HoldTypeOpenAI` dependency.
 - Test active-text context with fake Accessibility/context readers. Normal tests
   must not read live focused app contents.
 - Test usage estimate handoff with fake storage and fake transcription services.

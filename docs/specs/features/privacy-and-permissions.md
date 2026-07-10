@@ -242,9 +242,9 @@ This spec covers:
   Accessibility checks, then return the user to the Input Monitoring settings
   pane while the main Settings window continues polling.
 - That one-shot Input Monitoring instance must not run normal dictation,
-  hotkey, clipboard, setup-window, or transcript-cleanup startup/shutdown work;
-  it exists only to make the permission request from a fresh process and then
-  exit or return control to the main app.
+  hotkey, clipboard, setup-window, transcript cleanup, or provider startup
+  maintenance work; it exists only to make the permission request from a fresh
+  process and then exit or return control to the main app.
 - Before making that request, the one-shot Input Monitoring instance must
   activate as a regular foreground app and wait briefly on the main run loop.
   It must not call the HID listen-event request immediately from a menu-bar or

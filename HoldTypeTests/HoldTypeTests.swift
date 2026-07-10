@@ -421,6 +421,7 @@ struct QuitConfirmationTests {
         var startCount = 0
         var stopCount = 0
         var clearHistoryCount = 0
+        var maintenanceScheduleCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
@@ -434,6 +435,9 @@ struct QuitConfirmationTests {
             },
             stopRuntimeComponents: {
                 stopCount += 1
+            },
+            scheduleProviderStartupMaintenance: {
+                maintenanceScheduleCount += 1
             }
         )
 
@@ -443,6 +447,7 @@ struct QuitConfirmationTests {
         #expect(startCount == 1)
         #expect(stopCount == 1)
         #expect(clearHistoryCount == 1)
+        #expect(maintenanceScheduleCount == 1)
         #expect(promptCoordinator.startCount == 1)
         #expect(promptCoordinator.stopCount == 1)
     }
@@ -452,6 +457,7 @@ struct QuitConfirmationTests {
         var startCount = 0
         var stopCount = 0
         var clearHistoryCount = 0
+        var maintenanceScheduleCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
@@ -465,6 +471,9 @@ struct QuitConfirmationTests {
             },
             stopRuntimeComponents: {
                 stopCount += 1
+            },
+            scheduleProviderStartupMaintenance: {
+                maintenanceScheduleCount += 1
             }
         )
 
@@ -474,6 +483,7 @@ struct QuitConfirmationTests {
         #expect(startCount == 0)
         #expect(stopCount == 0)
         #expect(clearHistoryCount == 0)
+        #expect(maintenanceScheduleCount == 0)
         #expect(promptCoordinator.startCount == 0)
         #expect(promptCoordinator.stopCount == 0)
     }

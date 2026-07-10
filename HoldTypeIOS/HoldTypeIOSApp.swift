@@ -5,10 +5,15 @@
 //  Created by Codex on 6/21/26.
 //
 
+import HoldTypeOpenAI
 import SwiftUI
 
 @main
 struct HoldTypeIOSApp: App {
+    init() {
+        OpenAIProviderStartupMaintenance.schedule()
+    }
+
     var body: some Scene {
         WindowGroup {
             HoldTypeIOSRootView()

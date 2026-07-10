@@ -26,5 +26,11 @@ struct OpenAIProviderServicesIOSTests {
         requireSendable(OpenAITextTranslationService.self)
     }
 
+    @Test func publicStartupMaintenanceScheduleHasAContentFreeSignature() {
+        requireContentFreeSchedule(OpenAIProviderStartupMaintenance.schedule)
+    }
+
     private func requireSendable<Value: Sendable>(_: Value.Type) {}
+
+    private func requireContentFreeSchedule(_: () -> Void) {}
 }

@@ -23,8 +23,7 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
         self.endpointURL = endpointURL
         boundaryProvider = if let boundary { { boundary } } else { { "Boundary-\(UUID().uuidString)" } }
         self.scratchDirectoryURL = scratchDirectoryURL
-            ?? FileManager.default.temporaryDirectory
-                .appendingPathComponent("holdtype-openai-multipart", isDirectory: true)
+            ?? OpenAIMultipartScratchNamespace.defaultDirectoryURL
         self.fileSystem = fileSystem
     }
 
@@ -93,7 +92,7 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
             )
 
             let bodyFileURL = scratchDirectoryURL.appendingPathComponent(
-                "\(UUID().uuidString).multipart",
+                OpenAIMultipartScratchNamespace.v1FileName(for: UUID()),
                 isDirectory: false
             )
             scratch = try fileSystem.createScratchFile(at: bodyFileURL)
@@ -114,18 +113,18 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
             return preparation
         } catch is CancellationError {
             source.close()
-            scratch?.close()
             scratch?.unlinkIfOwned()
+            scratch?.close()
             throw CancellationError()
         } catch let error as OpenAITranscriptionRequestBuilderError {
             source.close()
-            scratch?.close()
             scratch?.unlinkIfOwned()
+            scratch?.close()
             throw error
         } catch {
             source.close()
-            scratch?.close()
             scratch?.unlinkIfOwned()
+            scratch?.close()
             throw OpenAITranscriptionRequestBuilderError.multipartBodyUnavailable
         }
     }
@@ -397,8 +396,8 @@ nonisolated struct OpenAITranscriptionMultipartPreparation: Sendable {
 
     func cleanup() {
         source.close()
-        scratch.close()
         scratch.unlinkIfOwned()
+        scratch.close()
     }
 }
 
@@ -517,11 +516,53 @@ nonisolated protocol OpenAITranscriptionPOSIXCalling: Sendable {
         _ count: Int,
         _ offset: Int64
     ) -> Int
+    func installMultipartScratchMarker(on fileDescriptor: Int32) -> Bool
+    func hasExactMultipartScratchMarker(on fileDescriptor: Int32) -> Bool
+    func publishMultipartScratch(
+        in directoryFileDescriptor: Int32,
+        from stagingName: String,
+        to finalName: String
+    ) -> Bool
+    func lockMultipartScratch(on fileDescriptor: Int32) -> Bool
 }
 
 nonisolated extension OpenAITranscriptionPOSIXCalling {
     func pread(_ fd: Int32, _ buffer: UnsafeMutableRawPointer, _ count: Int, _ offset: Int64) -> Int {
         Darwin.pread(fd, buffer, count, off_t(offset))
+    }
+
+    func installMultipartScratchMarker(on fileDescriptor: Int32) -> Bool {
+        OpenAIMultipartScratchNamespace.installMarker(on: fileDescriptor)
+    }
+
+    func hasExactMultipartScratchMarker(on fileDescriptor: Int32) -> Bool {
+        OpenAIMultipartScratchNamespace.hasExactMarker(on: fileDescriptor)
+    }
+
+    func publishMultipartScratch(
+        in directoryFileDescriptor: Int32,
+        from stagingName: String,
+        to finalName: String
+    ) -> Bool {
+        stagingName.withCString { stagingPath in
+            finalName.withCString { finalPath in
+                var result: Int32
+                repeat {
+                    result = Darwin.renameatx_np(
+                        directoryFileDescriptor,
+                        stagingPath,
+                        directoryFileDescriptor,
+                        finalPath,
+                        UInt32(RENAME_EXCL)
+                    )
+                } while result != 0 && errno == EINTR
+                return result == 0
+            }
+        }
+    }
+
+    func lockMultipartScratch(on fileDescriptor: Int32) -> Bool {
+        flock(fileDescriptor, LOCK_EX | LOCK_NB) == 0
     }
 }
 
@@ -536,9 +577,18 @@ nonisolated struct DarwinOpenAITranscriptionPOSIXCalls: OpenAITranscriptionPOSIX
 
 nonisolated struct POSIXOpenAITranscriptionMultipartFileSystem: OpenAITranscriptionMultipartFileSystem {
     private let calls: any OpenAITranscriptionPOSIXCalling
+    private let scratchResourceValueApplier: @Sendable (URL) throws -> Void
 
-    init(calls: any OpenAITranscriptionPOSIXCalling = DarwinOpenAITranscriptionPOSIXCalls()) {
+    init(
+        calls: any OpenAITranscriptionPOSIXCalling =
+            DarwinOpenAITranscriptionPOSIXCalls(),
+        scratchResourceValueApplier: @escaping @Sendable (URL) throws -> Void = {
+            try POSIXOpenAITranscriptionMultipartFileSystem
+                .applyPrivateResourceValues($0)
+        }
+    ) {
         self.calls = calls
+        self.scratchResourceValueApplier = scratchResourceValueApplier
     }
 
     func openAudioSource(at fileURL: URL) throws -> any OpenAITranscriptionAudioSource {
@@ -575,60 +625,130 @@ nonisolated struct POSIXOpenAITranscriptionMultipartFileSystem: OpenAITranscript
 
     func createScratchFile(at fileURL: URL) throws -> any OpenAITranscriptionScratchFile {
         let directoryURL = fileURL.deletingLastPathComponent()
+        guard let identifier = OpenAIMultipartScratchNamespace.identifier(
+            inV1FileName: fileURL.lastPathComponent
+        ) else {
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        let stagingName = OpenAIMultipartScratchNamespace.legacyFileName(
+            for: identifier
+        )
+        let finalName = OpenAIMultipartScratchNamespace.v1FileName(
+            for: identifier
+        )
+        guard fileURL.lastPathComponent == finalName else {
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        let stagingURL = directoryURL.appendingPathComponent(
+            stagingName,
+            isDirectory: false
+        )
         try ensurePrivateDirectory(directoryURL)
-        return try fileURL.withUnsafeFileSystemRepresentation { path in
-            guard let path else { throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable }
-            let fd = Darwin.open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0o600)
-            guard fd >= 0 else { throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable }
-            var createdStatus = stat()
-            guard Darwin.fstat(fd, &createdStatus) == 0,
-                  isRegular(createdStatus),
-                  createdStatus.st_uid == geteuid(),
-                  createdStatus.st_nlink == 1,
-                  createdStatus.st_size == 0 else {
-                Darwin.close(fd)
+        let directoryDescriptor = try openPrivateDirectory(directoryURL)
+        defer { Darwin.close(directoryDescriptor) }
+
+        let fd = stagingName.withCString { name in
+            Darwin.openat(
+                directoryDescriptor,
+                name,
+                O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                0o600
+            )
+        }
+        guard fd >= 0 else {
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        var published = false
+        var createdStatus = stat()
+        guard Darwin.fstat(fd, &createdStatus) == 0,
+              isRegular(createdStatus),
+              createdStatus.st_uid == geteuid(),
+              createdStatus.st_nlink == 1,
+              createdStatus.st_size == 0 else {
+            Darwin.close(fd)
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        let createdIdentity = fileIdentity(createdStatus)
+        guard calls.lockMultipartScratch(on: fd) else {
+            unlinkScratchIfMatching(
+                stagingName,
+                in: directoryDescriptor,
+                identity: createdIdentity
+            )
+            Darwin.close(fd)
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        guard Darwin.fchmod(fd, 0o600) == 0 else {
+            unlinkScratchIfMatching(
+                stagingName,
+                in: directoryDescriptor,
+                identity: createdIdentity
+            )
+            Darwin.close(fd)
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        do {
+            guard calls.installMultipartScratchMarker(on: fd) else {
                 throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
             }
-            let createdIdentity = fileIdentity(createdStatus)
-            guard Darwin.fchmod(fd, 0o600) == 0 else {
-                Darwin.close(fd)
-                unlinkScratchIfMatching(fileURL, identity: createdIdentity)
+            try scratchResourceValueApplier(stagingURL)
+            var descriptorStatus = stat()
+            guard let stagingStatus = try statusIfPresent(
+                named: stagingName,
+                in: directoryDescriptor
+            ),
+                  Darwin.fstat(fd, &descriptorStatus) == 0,
+                  isPrivateScratch(descriptorStatus),
+                  isPrivateScratch(stagingStatus),
+                  fileIdentity(stagingStatus) == fileIdentity(descriptorStatus),
+                  calls.hasExactMultipartScratchMarker(on: fd),
+                  calls.publishMultipartScratch(
+                      in: directoryDescriptor,
+                      from: stagingName,
+                      to: finalName
+                  ) else {
                 throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
             }
-            var status = stat()
-            guard Darwin.fstat(fd, &status) == 0,
-                  isRegular(status),
-                  status.st_uid == geteuid(),
-                  status.st_mode & mode_t(0o777) == mode_t(0o600),
-                  status.st_nlink == 1,
-                  status.st_dev == createdStatus.st_dev,
-                  status.st_ino == createdStatus.st_ino else {
-                Darwin.close(fd)
-                unlinkScratchIfMatching(fileURL, identity: createdIdentity)
+            published = true
+
+            var publishedDescriptorStatus = stat()
+            guard let publishedPathStatus = try statusIfPresent(
+                named: finalName,
+                in: directoryDescriptor
+            ),
+                  Darwin.fstat(fd, &publishedDescriptorStatus) == 0,
+                  isPrivateScratch(publishedDescriptorStatus),
+                  isPrivateScratch(publishedPathStatus),
+                  fileIdentity(publishedPathStatus)
+                    == fileIdentity(publishedDescriptorStatus),
+                  calls.hasExactMultipartScratchMarker(on: fd),
+                  try statusIfPresent(
+                      named: stagingName,
+                      in: directoryDescriptor
+                  ) == nil else {
                 throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
             }
-            do {
-                try applyPrivateResourceValues(fileURL)
-                var descriptorStatus = stat()
-                var pathStatus = stat()
-                guard Darwin.fstat(fd, &descriptorStatus) == 0,
-                      Darwin.lstat(path, &pathStatus) == 0,
-                      isPrivateScratch(descriptorStatus),
-                      isPrivateScratch(pathStatus),
-                      fileIdentity(pathStatus) == fileIdentity(descriptorStatus) else {
-                    throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
-                }
-                return POSIXOpenAITranscriptionScratchFile(
-                    fileURL: fileURL,
-                    fileDescriptor: fd,
-                    identity: fileIdentity(descriptorStatus),
-                    calls: calls
+            return POSIXOpenAITranscriptionScratchFile(
+                fileURL: fileURL,
+                fileDescriptor: fd,
+                identity: fileIdentity(publishedDescriptorStatus),
+                calls: calls
+            )
+        } catch {
+            if published {
+                unlinkScratchIfMatching(
+                    finalName,
+                    in: directoryDescriptor,
+                    identity: createdIdentity
                 )
-            } catch {
-                Darwin.close(fd)
-                unlinkScratchIfMatching(fileURL, identity: createdIdentity)
-                throw error
             }
+            unlinkScratchIfMatching(
+                stagingName,
+                in: directoryDescriptor,
+                identity: createdIdentity
+            )
+            Darwin.close(fd)
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
         }
     }
 
@@ -647,7 +767,7 @@ nonisolated struct POSIXOpenAITranscriptionMultipartFileSystem: OpenAITranscript
             guard Darwin.chmod(path, 0o700) == 0 else {
                 throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
             }
-            try applyPrivateResourceValues(directoryURL)
+            try Self.applyPrivateResourceValues(directoryURL)
             var protectedStatus = stat()
             guard Darwin.lstat(path, &protectedStatus) == 0,
                   protectedStatus.st_mode & S_IFMT == S_IFDIR,
@@ -658,7 +778,7 @@ nonisolated struct POSIXOpenAITranscriptionMultipartFileSystem: OpenAITranscript
         }
     }
 
-    private func applyPrivateResourceValues(_ fileURL: URL) throws {
+    private static func applyPrivateResourceValues(_ fileURL: URL) throws {
 #if os(iOS)
         try FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.complete],
@@ -671,25 +791,79 @@ nonisolated struct POSIXOpenAITranscriptionMultipartFileSystem: OpenAITranscript
         try mutableURL.setResourceValues(values)
     }
 
+    private func openPrivateDirectory(_ directoryURL: URL) throws -> Int32 {
+        try directoryURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else {
+                throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+            }
+            let descriptor = Darwin.open(
+                path,
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+            )
+            guard descriptor >= 0 else {
+                throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+            }
+            var status = stat()
+            guard Darwin.fstat(descriptor, &status) == 0,
+                  status.st_mode & S_IFMT == S_IFDIR,
+                  status.st_uid == geteuid(),
+                  status.st_mode & mode_t(0o777) == mode_t(0o700) else {
+                Darwin.close(descriptor)
+                throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+            }
+            return descriptor
+        }
+    }
+
+    private func statusIfPresent(
+        named fileName: String,
+        in directoryFileDescriptor: Int32
+    ) throws -> stat? {
+        var status = stat()
+        let result = fileName.withCString { name in
+            Darwin.fstatat(
+                directoryFileDescriptor,
+                name,
+                &status,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard result == 0 else {
+            if errno == ENOENT {
+                return nil
+            }
+            throw OpenAITranscriptionMultipartFileSystemError.scratchUnavailable
+        }
+        return status
+    }
+
     private func unlinkScratchIfMatching(
-        _ fileURL: URL,
+        _ fileName: String,
+        in directoryFileDescriptor: Int32,
         identity: OpenAITranscriptionFileIdentity
     ) {
-        fileURL.withUnsafeFileSystemRepresentation { path in
-            guard let path else { return }
-            var status = stat()
-            guard Darwin.lstat(path, &status) == 0,
-                  isRegular(status),
-                  status.st_uid == geteuid(),
-                  UInt64(status.st_dev) == identity.device,
-                  UInt64(status.st_ino) == identity.inode else {
-                return
-            }
-            var result: Int32
-            repeat {
-                result = Darwin.unlink(path)
-            } while result != 0 && errno == EINTR
+        let candidateStatus: stat?
+        do {
+            candidateStatus = try statusIfPresent(
+                named: fileName,
+                in: directoryFileDescriptor
+            )
+        } catch {
+            return
         }
+        guard let status = candidateStatus,
+              isRegular(status),
+              status.st_uid == geteuid(),
+              UInt64(status.st_dev) == identity.device,
+              UInt64(status.st_ino) == identity.inode else {
+            return
+        }
+        var result: Int32
+        repeat {
+            result = fileName.withCString { name in
+                Darwin.unlinkat(directoryFileDescriptor, name, 0)
+            }
+        } while result != 0 && errno == EINTR
     }
 }
 
@@ -1071,8 +1245,8 @@ nonisolated private final class POSIXOpenAITranscriptionScratchFile:
     }
 
     deinit {
-        close()
         unlinkIfOwned()
+        close()
     }
 }
 

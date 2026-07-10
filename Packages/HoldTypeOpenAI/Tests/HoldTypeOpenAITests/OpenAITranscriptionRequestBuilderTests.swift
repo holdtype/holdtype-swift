@@ -46,6 +46,24 @@ struct OpenAITranscriptionRequestBuilderTests {
         #expect((directoryAttributes[.posixPermissions] as? NSNumber)?.intValue == 0o700)
         #expect(scratchResourceValues.isExcludedFromBackup == true)
         #expect(directoryResourceValues.isExcludedFromBackup == true)
+        #expect(
+            OpenAIMultipartScratchNamespace.identifier(
+                inV1FileName: preparation.bodyFileURL.lastPathComponent
+            ) != nil
+        )
+        let scratchNames = try FileManager.default.contentsOfDirectory(
+            atPath: scratchDirectory.path
+        )
+        #expect(scratchNames == [preparation.bodyFileURL.lastPathComponent])
+        let scratchDescriptor = Darwin.open(
+            preparation.bodyFileURL.path,
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW
+        )
+        #expect(scratchDescriptor >= 0)
+        if scratchDescriptor >= 0 {
+            #expect(OpenAIMultipartScratchNamespace.hasExactMarker(on: scratchDescriptor))
+            Darwin.close(scratchDescriptor)
+        }
 #if os(iOS)
         let scratchProtection = scratchAttributes[.protectionKey] as? FileProtectionType
         let directoryProtection = directoryAttributes[.protectionKey] as? FileProtectionType
@@ -108,6 +126,50 @@ struct OpenAITranscriptionRequestBuilderTests {
         #expect(!body.contains(Data("secret".utf8)))
         #expect(!body.contains(Data("Injected".utf8)))
         #expect(try Data(contentsOf: source) == audio)
+    }
+
+    @Test func scratchCreationFailuresPreserveSourceAndRemoveOnlyOwnedNames() async throws {
+        for failure in ScratchCreationFailure.allCases {
+            let audio = Data("source-stays-unchanged".utf8)
+            let source = try temporaryAudio(
+                named: "recording-\(failure).m4a",
+                data: audio
+            )
+            let scratchDirectory = temporaryDirectory("multipart-create-\(failure)")
+            defer {
+                remove(source.deletingLastPathComponent())
+                remove(scratchDirectory)
+            }
+            let fileSystem = POSIXOpenAITranscriptionMultipartFileSystem(
+                calls: ScratchCreationFailurePOSIXCalls(failure: failure),
+                scratchResourceValueApplier: { url in
+                    guard failure != .protection else {
+                        throw ScratchCreationFailureError.injected
+                    }
+                    var values = URLResourceValues()
+                    values.isExcludedFromBackup = true
+                    var mutableURL = url
+                    try mutableURL.setResourceValues(values)
+                }
+            )
+            let builder = OpenAITranscriptionRequestBuilder(
+                scratchDirectoryURL: scratchDirectory,
+                fileSystem: fileSystem
+            )
+
+            await #expect(throws: OpenAITranscriptionRequestBuilderError.multipartBodyUnavailable) {
+                _ = try await builder.makePreparation(
+                    try request(source),
+                    cleanupRegistration: builder.makeCleanupRegistration()
+                )
+            }
+
+            #expect(try Data(contentsOf: source) == audio)
+            let names = try FileManager.default.contentsOfDirectory(
+                atPath: scratchDirectory.path
+            )
+            #expect(names.isEmpty)
+        }
     }
 
     @Test func rejectsMissingNonregularSymlinkEmptyUnsupportedAndExclusiveLimit() async throws {
@@ -1065,6 +1127,73 @@ private struct FakeUploadBody: OpenAIFileUploadBody, Sendable {
             throw OpenAITranscriptionRequestBuilderError.multipartBodyUnavailable
         }
         return InputStream(data: data.dropFirst(offset))
+    }
+}
+
+nonisolated private enum ScratchCreationFailure: String, CaseIterable, Sendable {
+    case marker
+    case protection
+    case lock
+    case publish
+}
+
+nonisolated private enum ScratchCreationFailureError: Error {
+    case injected
+}
+
+nonisolated private struct ScratchCreationFailurePOSIXCalls:
+    OpenAITranscriptionPOSIXCalling {
+    let failure: ScratchCreationFailure
+
+    func read(
+        _ fileDescriptor: Int32,
+        _ buffer: UnsafeMutableRawPointer,
+        _ count: Int
+    ) -> Int {
+        Darwin.read(fileDescriptor, buffer, count)
+    }
+
+    func write(
+        _ fileDescriptor: Int32,
+        _ buffer: UnsafeRawPointer,
+        _ count: Int
+    ) -> Int {
+        Darwin.write(fileDescriptor, buffer, count)
+    }
+
+    func synchronize(_ fileDescriptor: Int32) -> Int32 {
+        Darwin.fsync(fileDescriptor)
+    }
+
+    func installMultipartScratchMarker(on fileDescriptor: Int32) -> Bool {
+        failure != .marker
+            && OpenAIMultipartScratchNamespace.installMarker(on: fileDescriptor)
+    }
+
+    func lockMultipartScratch(on fileDescriptor: Int32) -> Bool {
+        failure != .lock
+            && flock(fileDescriptor, LOCK_EX | LOCK_NB) == 0
+    }
+
+    func publishMultipartScratch(
+        in directoryFileDescriptor: Int32,
+        from stagingName: String,
+        to finalName: String
+    ) -> Bool {
+        guard failure != .publish else {
+            return false
+        }
+        return stagingName.withCString { stagingPath in
+            finalName.withCString { finalPath in
+                Darwin.renameatx_np(
+                    directoryFileDescriptor,
+                    stagingPath,
+                    directoryFileDescriptor,
+                    finalPath,
+                    UInt32(RENAME_EXCL)
+                ) == 0
+            }
+        }
     }
 }
 
