@@ -148,6 +148,18 @@ struct CredentialPresenceMarkerTests {
         let cases: [(String, CredentialPresenceMarkerRepositoryError)] = [
             ("not-json", .corruptData),
             (
+                "\u{FEFF}" + #"{"schemaVersion":1,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .corruptData
+            ),
+            (
+                #"{"schemaVersion":2,"schema\u0056ersion":1,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .corruptData
+            ),
+            (
+                #"{"schemaVersion":1,"state":"present","state":"absent","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
+                .corruptData
+            ),
+            (
                 #"{"schemaVersion":2,"state":"present","updatedAt":"2026-07-10T12:34:56.000Z"}"#,
                 .unsupportedSchemaVersion
             ),
@@ -320,6 +332,22 @@ struct CredentialPresenceMarkerTests {
             "oversized-marker-source",
             "EFBIG",
         ])
+
+        let returnedOversizedData = Data(
+            repeating: 0x20,
+            count: 16 * 1_024 + 1
+        )
+        let returnedOversizedFileSystem = CredentialMarkerFileSystemFake(
+            data: returnedOversizedData
+        )
+        let returnedOversizedRepository = makeRepository(
+            fileSystem: returnedOversizedFileSystem
+        )
+        #expect(throws: CredentialPresenceMarkerRepositoryError.storageLimitExceeded) {
+            _ = try returnedOversizedRepository.load()
+        }
+        #expect(returnedOversizedFileSystem.data == returnedOversizedData)
+        #expect(returnedOversizedFileSystem.replacementCallCount == 0)
     }
 
     @Test func untrustedWireValuesNeverAppearInPublicErrorRendering() throws {

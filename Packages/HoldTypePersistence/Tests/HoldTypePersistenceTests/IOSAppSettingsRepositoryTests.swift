@@ -120,6 +120,32 @@ struct IOSAppSettingsRepositoryTests {
         }
     }
 
+    @Test func duplicateJSONMembersAreMalformedBeforeSemanticDecode() async {
+        let excessiveNesting = #"{"schemaVersion":1,"attacker":"#
+            + String(repeating: "[", count: 65)
+            + "0"
+            + String(repeating: "]", count: 65)
+            + "}"
+        let fixtures = [
+            Data(
+                #"{"schemaVersion":2,"schema\u0056ersion":1}"#.utf8
+            ),
+            Data(
+                #"{"schemaVersion":1,"voice":{"audioCuesEnabled":true,"audioCues\u0045nabled":false}}"#.utf8
+            ),
+            Data(#"{"schemaVersion":1,"é":1,"e\u0301":2}"#.utf8),
+            Data(excessiveNesting.utf8),
+            Data(("\u{FEFF}" + #"{"schemaVersion":1}"#).utf8),
+        ]
+
+        for data in fixtures {
+            await expectLoadFailure(
+                data: data,
+                expectedError: .malformedData
+            )
+        }
+    }
+
     @Test func schemaVersionIsRequiredTypedAndExactlySupported() async {
         let fixtures: [(Data, IOSAppSettingsRepositoryError)] = [
             (Data(#"{}"#.utf8), .missingSchemaVersion),
@@ -352,6 +378,15 @@ struct IOSAppSettingsRepositoryTests {
 
         #expect(fileSystem.data == sourceData)
         #expect(fileSystem.replacementCallCount == 0)
+    }
+
+    @Test func validatorRejectsOverLimitDataReturnedByTheFileSystem() async {
+        let sourceData = Data(repeating: 0x20, count: 1_024 * 1_024 + 1)
+
+        await expectLoadFailure(
+            data: sourceData,
+            expectedError: .sourceTooLarge
+        )
     }
 
     @Test func oversizedCanonicalEncodingFailsBeforeTheFileSystemIsAskedToWrite() async {

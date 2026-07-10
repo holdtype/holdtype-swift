@@ -58,7 +58,10 @@ public struct CredentialPresenceMarkerRepository: Sendable {
             return nil
         }
 
-        return try CredentialPresenceMarkerWireCodec.decode(data)
+        return try CredentialPresenceMarkerWireCodec.decode(
+            data,
+            maximumInputByteCount: Self.filePolicy.maximumByteCount
+        )
     }
 
     public func save(_ marker: CredentialPresenceMarker) throws {
@@ -121,7 +124,30 @@ private enum CredentialPresenceMarkerWireCodec {
         }
     }
 
-    static func decode(_ data: Data) throws -> CredentialPresenceMarker {
+    static func decode(
+        _ data: Data,
+        maximumInputByteCount: Int
+    ) throws -> CredentialPresenceMarker {
+        do {
+            try BoundedJSONMemberValidator.validate(
+                data,
+                limits: .metadataFile(
+                    maximumInputByteCount: maximumInputByteCount
+                )
+            )
+        } catch let error as BoundedJSONMemberValidationError {
+            switch error {
+            case .inputTooLarge:
+                throw CredentialPresenceMarkerRepositoryError.storageLimitExceeded
+            case .malformedJSON,
+                 .duplicateObjectMember,
+                 .resourceLimitExceeded:
+                throw CredentialPresenceMarkerRepositoryError.corruptData
+            }
+        } catch {
+            throw CredentialPresenceMarkerRepositoryError.corruptData
+        }
+
         let version = try decodeSchemaVersion(from: data)
         guard version == supportedSchemaVersion else {
             throw CredentialPresenceMarkerRepositoryError.unsupportedSchemaVersion

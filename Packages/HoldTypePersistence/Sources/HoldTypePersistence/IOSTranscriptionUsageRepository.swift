@@ -186,7 +186,10 @@ public actor IOSTranscriptionUsageRepository {
         guard let data else {
             return nil
         }
-        return try IOSTranscriptionUsageWireCodec.decode(data)
+        return try IOSTranscriptionUsageWireCodec.decode(
+            data,
+            maximumInputByteCount: filePolicy.maximumByteCount
+        )
     }
 
     private func persist(
@@ -295,7 +298,30 @@ private enum IOSTranscriptionUsageWireCodec {
         }
     }
 
-    static func decode(_ data: Data) throws -> [TranscriptionUsageEvent] {
+    static func decode(
+        _ data: Data,
+        maximumInputByteCount: Int
+    ) throws -> [TranscriptionUsageEvent] {
+        do {
+            try BoundedJSONMemberValidator.validate(
+                data,
+                limits: .metadataFile(
+                    maximumInputByteCount: maximumInputByteCount
+                )
+            )
+        } catch let error as BoundedJSONMemberValidationError {
+            switch error {
+            case .inputTooLarge:
+                throw IOSTranscriptionUsageRepositoryError.sourceTooLarge
+            case .malformedJSON,
+                 .duplicateObjectMember,
+                 .resourceLimitExceeded:
+                throw IOSTranscriptionUsageRepositoryError.malformedData
+            }
+        } catch {
+            throw IOSTranscriptionUsageRepositoryError.malformedData
+        }
+
         let rootValue: Any
         do {
             rootValue = try JSONSerialization.jsonObject(

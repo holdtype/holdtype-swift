@@ -402,6 +402,29 @@ struct IOSTranscriptionUsageRepositoryTests {
         }
     }
 
+    @Test func duplicateJSONMembersRejectLoadAndRecordWithoutMutation() async throws {
+        let source = Data(
+            #"{"events":[{"id":"80000000-0000-0000-0000-000000000000","timestamp":"2026-07-10T10:00:00.000Z","model":"gpt-4o-transcribe","durationSeconds":60,"duration\u0053econds":60,"priceUSDPerMinute":null,"estimatedCostUSD":null,"pricingSource":null}],"schemaVersion":1}"#.utf8
+        )
+        let fileSystem = UsageFileSystemFake(data: source)
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        await expectError(.malformedData) {
+            _ = try await repository.load()
+        }
+
+        let newUsage = try usage(
+            id: "8F000000-0000-0000-0000-000000000000"
+        )
+        await expectError(.malformedData) {
+            _ = try await repository.record(newUsage)
+        }
+
+        #expect(fileSystem.data == source)
+        #expect(fileSystem.replacementCallCount == 0)
+        #expect(fileSystem.removalCallCount == 0)
+    }
+
     @Test func timestampUUIDDuplicateAndOrderFormsAreStrict() async throws {
         let id = "90000000-0000-0000-0000-000000000000"
         let invalidTimestamps = [
@@ -484,6 +507,25 @@ struct IOSTranscriptionUsageRepositoryTests {
         #expect(oversizedFileSystem.data == oversizedData)
         #expect(oversizedFileSystem.replacementCallCount == 0)
         #expect(oversizedFileSystem.removalCallCount == 0)
+    }
+
+    @Test func validatorUsesTheInjectedLimitWhenTheFileSystemReturnsTooMuch() async throws {
+        let source = try fixtureData(events: [])
+        let fileSystem = UsageFileSystemFake(
+            data: source,
+            enforcesReadSizeLimit: false
+        )
+        let repository = makeRepository(
+            fileSystem: fileSystem,
+            maximumByteCount: source.count - 1
+        )
+
+        await expectError(.sourceTooLarge) {
+            _ = try await repository.load()
+        }
+        #expect(fileSystem.data == source)
+        #expect(fileSystem.replacementCallCount == 0)
+        #expect(fileSystem.removalCallCount == 0)
     }
 
     @Test func exactFourMiBEncodingIsAcceptedAndOneByteMorePreservesSource() async throws {
@@ -876,9 +918,14 @@ private final class UsageFileSystemFake:
     private var storedReadFailure: UsageFileSystemFakeError?
     private var storedReplacementFailure: UsageFileSystemFakeError?
     private var storedRemovalFailure: UsageFileSystemFakeError?
+    private let enforcesReadSizeLimit: Bool
 
-    init(data: Data? = nil) {
+    init(
+        data: Data? = nil,
+        enforcesReadSizeLimit: Bool = true
+    ) {
         storedData = data
+        self.enforcesReadSizeLimit = enforcesReadSizeLimit
     }
 
     var data: Data? {
@@ -926,7 +973,9 @@ private final class UsageFileSystemFake:
             if let storedReadFailure {
                 throw storedReadFailure
             }
-            if let storedData, storedData.count > policy.maximumByteCount {
+            if enforcesReadSizeLimit,
+               let storedData,
+               storedData.count > policy.maximumByteCount {
                 throw ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded
             }
             return storedData

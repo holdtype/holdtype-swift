@@ -96,6 +96,22 @@ complete provider-usage dashboard.
 - The canonical file is app-private Application Support at
   `HoldType/ios-transcription-usage.json`. It uses Complete Data Protection, is
   excluded from backup, and is limited to 4 MiB.
+- Before Foundation semantic decoding, the repository validates the complete
+  source as strict UTF-8 JSON with no byte-order mark and rejects duplicate
+  object members at every nesting level. Member identity matches Swift
+  `String` equality over decoded UTF-8 scalars, so escaped/literal spellings and
+  canonically equivalent Unicode names collide without case folding or
+  compatibility normalization.
+- Structural validation permits at most 64 nested containers, 1,024 members in
+  one object, 262,144 members in the document, 65,536 elements in one array,
+  524,288 total values, 4,096 decoded key bytes, and a 256-byte number token.
+  Malformed JSON, a duplicate member, or a structural-limit failure is
+  `malformedData`. A source beyond 4 MiB remains `sourceTooLarge` and wins
+  before structural validation.
+- The structural pass covers the entire document before schema and field
+  checks. It therefore wins over an unsupported schema or another semantic
+  failure and preserves the exact source without compaction, replacement, or
+  removal. Both `load()` and `record()` use this same decode boundary.
 - The private v1 wire root is exactly `schemaVersion` plus `events`. Every event
   row contains all seven fields: canonical uppercase hyphenated local UUID,
   canonical UTC ISO-8601 timestamp in

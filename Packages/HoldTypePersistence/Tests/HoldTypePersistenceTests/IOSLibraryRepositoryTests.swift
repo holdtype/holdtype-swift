@@ -238,6 +238,26 @@ struct IOSLibraryRepositoryTests {
         }
     }
 
+    @Test func duplicateJSONMembersInsideArrayRowsAreMalformed() async {
+        let data = Data(
+            #"{"replacementRules":[{"id":"01234567-89AB-CDEF-0123-456789ABCDEF","search":"old","sear\u0063h":"old","replacement":"new","isEnabled":true}],"schemaVersion":1}"#.utf8
+        )
+
+        await expectLoadFailure(
+            data: data,
+            expectedError: .malformedData
+        )
+    }
+
+    @Test func validatorRejectsOverLimitDataReturnedByTheFileSystem() async {
+        let sourceData = Data(repeating: 0x20, count: 1_024 * 1_024 + 1)
+
+        await expectLoadFailure(
+            data: sourceData,
+            expectedError: .sourceTooLarge
+        )
+    }
+
     @Test func nullWrongTypeAndNonObjectRowsAreRejectedWithoutWriting() async {
         let fixtures: [(String, IOSLibraryRepositoryError)] = [
             (

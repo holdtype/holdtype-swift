@@ -307,7 +307,11 @@ host app, state, expected result, actual result, and go/no-go decision.
   `HoldType/ios-transcription-usage.json`. Its bounded protected state remains
   absent from keyboard and App Group data. Durable pre-provider ownership of
   the replay UUID still belongs to the PendingRecording journal in P2; the
-  usage repository alone does not satisfy that replay gate. The runtime-only
+  usage repository alone does not satisfy that replay gate. The app-private
+  credential, settings, Library, and Usage decoders now share bounded strict
+  JSON structural validation; that validator and those repositories remain
+  unlinked from the keyboard and do not change the bridge wire contract. The
+  runtime-only
   four-case `VoiceAttemptStage` is portable too, while preflight, outcomes,
   recovery eligibility, and durable resume checkpoints remain separate. The
   containing-app output handoff is now narrowed to accepted text plus the two

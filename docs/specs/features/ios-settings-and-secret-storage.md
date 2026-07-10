@@ -278,6 +278,35 @@ without discarding a successfully resolved runtime credential or absence.
   cannot be completed, so callers never receive a failure after the durable
   destination has already changed.
 
+### Bounded JSON structural validation
+
+- Before Foundation turns JSON objects into dictionaries, the credential
+  marker, general settings, and Library decoders run one shared structural pass
+  over the complete source. It accepts strict UTF-8 JSON and JSON whitespace;
+  a byte-order mark, invalid UTF-8, malformed token, trailing value, or
+  truncated document is corrupt input.
+- Object-member identity matches Swift `String` equality over the decoded UTF-8
+  scalars, because the repositories consume Swift dictionaries. Literal and
+  escaped spellings plus canonically equivalent Unicode names are duplicates;
+  case differences and compatibility-only equivalents are not folded together.
+  A duplicate at any nesting level is rejected before schema, field, or value
+  validation.
+- The pass allows at most 64 nested object/array containers, 1,024 members in
+  one object, 262,144 object members in the document, 65,536 elements in one
+  array, 524,288 total values, 4,096 decoded UTF-8 bytes in one member name,
+  and 256 bytes in one number token. Hitting a structural limit is corruption,
+  not a partial decode.
+- The repository byte limit is checked first. A source beyond that limit keeps
+  the existing settings/Library source-too-large or marker storage-limit error;
+  malformed JSON, duplicate members, and structural resource-limit failures
+  map to the repository's existing malformed/corrupt-data error. The complete
+  structural pass precedes unsupported-schema and unexpected-field checks, so
+  structural corruption wins when both are present.
+- Every validation failure preserves the exact source and performs no rewrite,
+  removal, default publication, or Usage-style compaction. This pass is scoped
+  to app-private `HoldTypePersistence` metadata; the bounded App Group bridge
+  and legacy macOS/UserDefaults stores remain governed by their own contracts.
+
 ### General app settings v1
 
 - The app-private general settings record lives at the stable relative path

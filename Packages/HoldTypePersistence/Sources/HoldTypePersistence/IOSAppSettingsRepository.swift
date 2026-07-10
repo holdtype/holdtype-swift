@@ -66,7 +66,10 @@ public actor IOSAppSettingsRepository {
             return .defaults
         }
 
-        return try IOSAppSettingsWireCodec.decode(data)
+        return try IOSAppSettingsWireCodec.decode(
+            data,
+            maximumInputByteCount: Self.filePolicy.maximumByteCount
+        )
     }
 
     public func save(_ settings: IOSAppSettings) throws {
@@ -138,7 +141,30 @@ private enum IOSAppSettingsWireCodec {
         }
     }
 
-    static func decode(_ data: Data) throws -> IOSAppSettings {
+    static func decode(
+        _ data: Data,
+        maximumInputByteCount: Int
+    ) throws -> IOSAppSettings {
+        do {
+            try BoundedJSONMemberValidator.validate(
+                data,
+                limits: .metadataFile(
+                    maximumInputByteCount: maximumInputByteCount
+                )
+            )
+        } catch let error as BoundedJSONMemberValidationError {
+            switch error {
+            case .inputTooLarge:
+                throw IOSAppSettingsRepositoryError.sourceTooLarge
+            case .malformedJSON,
+                 .duplicateObjectMember,
+                 .resourceLimitExceeded:
+                throw IOSAppSettingsRepositoryError.malformedData
+            }
+        } catch {
+            throw IOSAppSettingsRepositoryError.malformedData
+        }
+
         let rootValue: Any
 
         do {

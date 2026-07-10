@@ -1141,20 +1141,22 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 The provider foundation, general iOS settings v1, credential reconciliation,
-shared protected atomic-file substrate, app-private Library v1, and local
-transcription Usage v1 are now implemented without moving secrets, canonical
-content, or usage state into App Group or the keyboard. The next P2 checkpoint
-is bounded duplicate-member validation across the app-private metadata
-repositories. Then continue with protected recording identity/storage and the
-minimal PendingRecording journal that durably owns the provider-attempt UUID
-before dispatch. Durable History and delivery records remain separate
-checkpoints.
+shared protected atomic-file substrate, app-private Library v1, local
+transcription Usage v1, and bounded JSON structural validation are now
+implemented without moving secrets, canonical content, or usage state into App
+Group or the keyboard. The next P2 checkpoint is bounded startup scavenging for
+abandoned private multipart scratch files. Then continue with protected
+recording identity/storage and the minimal PendingRecording journal that
+durably owns the provider-attempt UUID before dispatch. Durable History and
+delivery records remain separate checkpoints.
 
-Foundation object parsing does not itself reject duplicate JSON member names.
-A standalone bounded duplicate-member validator now exists, but integration
-across the app-private metadata repositories remains the next explicit P2
-hardening gate before final persistence/security signoff; the current field
-whitelists do not yet claim that extra parser guarantee.
+The app-private credential marker, settings, Library, and Usage repositories
+now run one strict bounded structural pass before Foundation decoding. It
+rejects malformed UTF-8 JSON, duplicate members including escaped and Unicode
+canonical equivalents, and fixed resource-limit violations while preserving
+the source and each repository's redacted size/corruption error contract. The
+App Group bridge and legacy macOS/UserDefaults stores remain outside this
+checkpoint and retain their own bounded contracts.
 
 Keep startup scavenging for abandoned private multipart scratch files as an
 explicit later P2 provider gate. It must stay bounded, must never touch source
