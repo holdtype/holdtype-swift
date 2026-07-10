@@ -618,6 +618,12 @@ h3 {
   white-space: nowrap;
 }
 
+@media (min-width: 621px) {
+  .editor-toolbar-title {
+    margin-inline-end: calc(134px + 16px);
+  }
+}
+
 .editor-tools {
   justify-self: end;
 }

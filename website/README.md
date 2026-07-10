@@ -177,10 +177,11 @@ SaaS and reach `$1M ARR`; the interface presents the request as if it were
 ordinary. Its caption still identifies the scene as an illustration rather
 than a recorded demo and makes no claim that Codex produced the business
 result. The toolbar label stays unbranded and on one line, using an ellipsis
-rather than wrapping when space is tight. The document title and right-side
-tools form a compact end-aligned group instead of reserving a second flexible
-column. The usage-cost badge remains visually secondary and must not present
-100 as a usage cap, guaranteed maximum, or typical day.
+rather than wrapping when space is tight. On desktop, the document title keeps
+the pricing sticker's 134px diameter plus a 16px inline-end gap clear; the
+mobile title treatment remains unchanged. The usage-cost badge remains visually
+secondary and must not present 100 as a usage cap, guaranteed maximum, or
+typical day.
 
 ### Page anatomy
 
