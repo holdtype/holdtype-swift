@@ -272,7 +272,7 @@ audited macOS baseline, then document every intentional iOS difference:
 | Credential-presence marker | Containing app | Non-secret app-private status, excluded from backup | Never |
 | Small preferences and models | Containing app settings repository | App defaults behind versioned migrations | Published subset only |
 | Dictionary, emoji commands, replacements | Containing app library repository | Versioned app-private structured file; atomic writes; Complete protection; system-managed backup eligible | None in v1; any future normalized lexicon subset requires a separate spec and M0B physical-device evidence |
-| Usage events | Containing app | Bounded app-private persistence | Never |
+| Usage events | Containing app usage repository actor | Strict v1 app-private `HoldType/ios-transcription-usage.json`; 4 MiB; Complete protection; backup excluded; current calendar day plus prior 364 | Never |
 | Pending provider attempt | Containing app | Minimal atomic app-private journal plus protected audio | Never |
 | Latest/pending accepted output | Containing app | Protected versioned delivery record, 24-hour cap, excluded from backup | Bounded result snapshot only |
 | Accepted and failed history | Containing app | Approved bounded durable app-private persistence | Never |
@@ -828,13 +828,13 @@ output ordering remain unchanged. The current session-only entry and absolute
 URL are compatibility state only; stable relative audio identity, versioned
 durable repositories, migration, and journaling remain P2 work.
 
-P1 exit is complete: the shared Foundation-only extraction originally built and
-ran the same 151 behavioral tests on macOS and iOS, with separate normal-import
-iOS smoke coverage. P2 first moved six credential tests and then the 69
-existing provider tests into `HoldTypeOpenAI`; Domain now runs 145 tests and
-OpenAI runs 75. The macOS compatibility facades preserve existing behavior,
-and the remaining persistence, Apple audio, and bridge work belongs to named
-later milestones.
+P1 exit is complete: the shared Foundation-only extraction builds and runs the
+same behavioral contracts on macOS and iOS, with separate normal-import iOS
+smoke coverage. P2 then moved the credential and provider boundaries into
+`HoldTypeOpenAI`. The current Domain and OpenAI package suites pass without a
+live provider, the macOS compatibility facades preserve existing behavior, and
+the remaining persistence, Apple audio, and bridge work belongs to named later
+milestones.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -929,11 +929,27 @@ source bytes are preserved, duplicate identifiers and unusable command rows
 fail with redacted errors, and Library data remains outside App Group and the
 keyboard snapshot. One process-wide Library state owner must serve every scene
 so read-modify-write work is not split across repository actors. The
-Persistence package passes 89 normal and strict-concurrency tests; macOS and
+Persistence package passes its normal and strict-concurrency suites; macOS and
 the full iOS simulator suite cover stable paths, canonical round trips,
 normalization, strict shapes, exact limits, rollback, backup policy, and the
 protected-file boundary. Effective Data Protection and signed Keychain
 accessibility remain physical-device gates rather than simulator claims.
+
+Usage v1 is now implemented as a containing-app-owned actor repository.
+Portable non-Codable event and pricing values live in `HoldTypeDomain`, while
+macOS keeps its existing surface through narrow aliases and a private legacy
+wire adapter. The strict newest-first v1 log lives at
+`HoldType/ios-transcription-usage.json`, freezes known price snapshots, uses
+explicit nulls for unknown pricing, rejects corrupt, duplicate, or out-of-order
+rows, and compacts expired events atomically. It retains the current calendar
+day plus the prior 364 days, preserves finite future rows after clock changes,
+uses a 4 MiB Complete-protected backup-excluded file, and never enters Keychain,
+App Group, or the keyboard.
+
+Domain and Persistence pass their normal and complete strict-concurrency
+package suites; normal-import iOS coverage verifies the public repository,
+stable path, backup exclusion, and configured Complete protection without a
+live provider. Effective Data Protection remains a signed physical-device gate.
 
 ### P3 — Native containing-app shell
 
@@ -1125,20 +1141,20 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 The provider foundation, general iOS settings v1, credential reconciliation,
-shared protected atomic-file substrate, and app-private Library v1 are now
-implemented without moving Keychain, UI, or canonical Library state into the
-provider package or App Group. Continue P2 with the local transcription-usage
-repository: move the portable event/pricing value into the shared domain,
-persist a strict versioned newest-first event log at
-`HoldType/ios-transcription-usage.json`, retain 365 calendar days, freeze known
-price snapshots, keep duplicate request UUIDs idempotent, and use a 4 MiB
-Complete-protected backup-excluded file. History, pending-attempt, and
-recording-storage state remain separate checkpoints.
+shared protected atomic-file substrate, app-private Library v1, and local
+transcription Usage v1 are now implemented without moving secrets, canonical
+content, or usage state into App Group or the keyboard. The next P2 checkpoint
+is bounded duplicate-member validation across the app-private metadata
+repositories. Then continue with protected recording identity/storage and the
+minimal PendingRecording journal that durably owns the provider-attempt UUID
+before dispatch. Durable History and delivery records remain separate
+checkpoints.
 
 Foundation object parsing does not itself reject duplicate JSON member names.
-A shared bounded duplicate-member rejection layer for app-private metadata
-remains an explicit P2 hardening gate before final persistence/security signoff;
-the current field whitelists do not claim that extra parser guarantee.
+A standalone bounded duplicate-member validator now exists, but integration
+across the app-private metadata repositories remains the next explicit P2
+hardening gate before final persistence/security signoff; the current field
+whitelists do not yet claim that extra parser guarantee.
 
 Keep startup scavenging for abandoned private multipart scratch files as an
 explicit later P2 provider gate. It must stay bounded, must never touch source

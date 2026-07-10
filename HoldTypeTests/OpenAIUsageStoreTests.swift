@@ -21,12 +21,12 @@ struct OpenAIUsageStoreTests {
             calendar: makeCalendar(),
             now: { now }
         )
-        let olderEvent = OpenAIUsagePricing.current.makeEvent(
+        let olderEvent = try OpenAIUsagePricing.current.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 21, hour: 10),
             model: "gpt-4o-transcribe",
             durationSeconds: 60
         )
-        let newerEvent = OpenAIUsagePricing.current.makeEvent(
+        let newerEvent = try OpenAIUsagePricing.current.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 22, hour: 10),
             model: "gpt-4o-mini-transcribe",
             durationSeconds: 120
@@ -49,12 +49,12 @@ struct OpenAIUsageStoreTests {
             calendar: makeCalendar(),
             now: { now }
         )
-        let retainedEvent = OpenAIUsagePricing.current.makeEvent(
+        let retainedEvent = try OpenAIUsagePricing.current.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 21, hour: 10),
             model: "gpt-4o-transcribe",
             durationSeconds: 60
         )
-        let prunedEvent = OpenAIUsagePricing.current.makeEvent(
+        let prunedEvent = try OpenAIUsagePricing.current.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 19, hour: 10),
             model: "gpt-4o-transcribe",
             durationSeconds: 60
@@ -159,7 +159,7 @@ struct OpenAIUsageStoreTests {
             calendar: makeCalendar(),
             now: { now }
         )
-        let event = OpenAIUsagePricing.current.makeEvent(
+        let event = try OpenAIUsagePricing.current.makeEvent(
             timestamp: now,
             model: "gpt-4o-transcribe",
             durationSeconds: 60
@@ -170,6 +170,148 @@ struct OpenAIUsageStoreTests {
 
         #expect(store.entries.isEmpty)
         #expect(persistence.removedKeys == [OpenAIUsageStore.defaultStorageKey])
+    }
+
+    @Test func legacyBareArrayLoadsAndResavesTheSameSevenKeys() throws {
+        let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
+        let identifier = try #require(
+            UUID(uuidString: "71111111-1111-1111-1111-111111111111")
+        )
+        let persistence = FakeOpenAIUsagePersistence(
+            savedData: try legacyData(rows: [[
+                "id": identifier.uuidString,
+                "timestamp": now.timeIntervalSinceReferenceDate,
+                "model": "gpt-4o-transcribe",
+                "durationSeconds": 60,
+                "priceUSDPerMinute": 0.006,
+                "estimatedCostUSD": 0.006,
+                "pricingSource": "OpenAI pricing reviewed 2026-06-22",
+            ]])
+        )
+        let store = OpenAIUsageStore(
+            persistence: persistence,
+            calendar: makeCalendar(),
+            now: { now }
+        )
+
+        #expect(try store.load().map(\.id) == [identifier])
+        try store.append(
+            OpenAIUsagePricing.current.makeEvent(
+                timestamp: now.addingTimeInterval(1),
+                model: "custom-model",
+                durationSeconds: 30
+            )
+        )
+
+        let data = try #require(persistence.savedData)
+        let rows = try #require(
+            JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        )
+        let expectedKeys: Set<String> = [
+            "id", "timestamp", "model", "durationSeconds",
+            "priceUSDPerMinute", "estimatedCostUSD", "pricingSource",
+        ]
+        #expect(Set(try #require(rows.first).keys) == [
+            "id", "timestamp", "model", "durationSeconds",
+        ])
+        #expect(Set(try #require(rows.last).keys) == expectedKeys)
+    }
+
+    @Test func legacyUnknownPriceMayOmitItsThreeOptionalKeys() throws {
+        let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
+        let identifier = try #require(
+            UUID(uuidString: "72222222-2222-2222-2222-222222222222")
+        )
+        let persistence = FakeOpenAIUsagePersistence(
+            savedData: try legacyData(rows: [[
+                "id": identifier.uuidString,
+                "timestamp": now.timeIntervalSinceReferenceDate,
+                "model": "custom-model",
+                "durationSeconds": 60,
+            ]])
+        )
+        let store = OpenAIUsageStore(
+            persistence: persistence,
+            calendar: makeCalendar(),
+            now: { now }
+        )
+
+        let event = try #require(try store.load().first)
+        #expect(event.id == identifier)
+        #expect(event.priceUSDPerMinute == nil)
+        #expect(event.estimatedCostUSD == nil)
+        #expect(event.pricingSource == nil)
+    }
+
+    @Test func invalidOrDuplicateLegacyRowsMapOnlyToUnreadableUsage() throws {
+        let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
+        let identifier = try #require(
+            UUID(uuidString: "73333333-3333-3333-3333-333333333333")
+        )
+        let canonical: [String: Any] = [
+            "id": identifier.uuidString,
+            "timestamp": now.timeIntervalSinceReferenceDate,
+            "model": "gpt-4o-transcribe",
+            "durationSeconds": 60,
+            "priceUSDPerMinute": 0.006,
+            "estimatedCostUSD": 0.006,
+            "pricingSource": "OpenAI pricing reviewed 2026-06-22",
+        ]
+        var invalidTimestamp = canonical
+        invalidTimestamp["timestamp"] = "not-a-date"
+        var invalidDuration = canonical
+        invalidDuration["durationSeconds"] = 0
+        var noncanonicalModel = canonical
+        noncanonicalModel["model"] = " GPT-4O-Transcribe "
+        var noncanonicalSource = canonical
+        noncanonicalSource["pricingSource"] = " source "
+        var incompleteSnapshot = canonical
+        incompleteSnapshot.removeValue(forKey: "estimatedCostUSD")
+        var inconsistentSnapshot = canonical
+        inconsistentSnapshot["estimatedCostUSD"] = 1
+        let fixtures = [
+            [invalidTimestamp],
+            [invalidDuration],
+            [noncanonicalModel],
+            [noncanonicalSource],
+            [incompleteSnapshot],
+            [inconsistentSnapshot],
+            [canonical, canonical],
+        ]
+
+        for rows in fixtures {
+            let source = try legacyData(rows: rows)
+            let persistence = FakeOpenAIUsagePersistence(savedData: source)
+            let store = OpenAIUsageStore(
+                persistence: persistence,
+                calendar: makeCalendar(),
+                now: { now }
+            )
+
+            #expect(throws: OpenAIUsageStoreError.unreadableUsage) {
+                _ = try store.load()
+            }
+            #expect(persistence.savedData == source)
+        }
+    }
+
+    @Test func injectedLoadAndSaveFailuresKeepTheirExistingErrorMapping() throws {
+        let persistence = FakeOpenAIUsagePersistence()
+        persistence.loadError = OpenAIUsagePersistenceTestError.loadFailed
+        let store = OpenAIUsageStore(persistence: persistence)
+        #expect(throws: OpenAIUsageStoreError.loadFailed) {
+            _ = try store.load()
+        }
+
+        persistence.loadError = nil
+        persistence.saveError = OpenAIUsagePersistenceTestError.saveFailed
+        let event = try OpenAIUsagePricing.current.makeEvent(
+            model: "gpt-4o-transcribe",
+            durationSeconds: 60
+        )
+        #expect(throws: OpenAIUsageStoreError.saveFailed) {
+            _ = try store.append(event)
+        }
     }
 
     private func makeCalendar() -> Calendar {
@@ -196,16 +338,28 @@ struct OpenAIUsageStoreTests {
 
         return abs(value - expected) <= tolerance
     }
+
+    private func legacyData(rows: [[String: Any]]) throws -> Data {
+        try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys])
+    }
 }
 
 private final class FakeOpenAIUsagePersistence: OpenAIUsagePersistence {
     var savedData: Data?
     var removedKeys: [String] = []
     var saveCount = 0
+    var loadError: (any Error)?
     var saveError: (any Error)?
 
+    init(savedData: Data? = nil) {
+        self.savedData = savedData
+    }
+
     func loadData(forKey key: String) throws -> Data? {
-        savedData
+        if let loadError {
+            throw loadError
+        }
+        return savedData
     }
 
     func saveData(_ data: Data, forKey key: String) throws {
@@ -223,5 +377,6 @@ private final class FakeOpenAIUsagePersistence: OpenAIUsagePersistence {
 }
 
 private enum OpenAIUsagePersistenceTestError: Error {
+    case loadFailed
     case saveFailed
 }

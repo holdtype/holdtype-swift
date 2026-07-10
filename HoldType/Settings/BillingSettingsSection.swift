@@ -6,6 +6,7 @@
 //
 
 import Charts
+import HoldTypeDomain
 import SwiftUI
 
 struct BillingSettingsSection: View {
@@ -255,18 +256,22 @@ private extension OpenAIUsageSummary {
         let now = Date()
         let calendar = Calendar.current
         let events = [
-            pricing.makeEvent(model: "gpt-4o-transcribe", durationSeconds: 420),
-            pricing.makeEvent(
+            try? pricing.makeEvent(
+                timestamp: now,
+                model: "gpt-4o-transcribe",
+                durationSeconds: 420
+            ),
+            try? pricing.makeEvent(
                 timestamp: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
                 model: "gpt-4o-mini-transcribe",
                 durationSeconds: 960
             ),
-            pricing.makeEvent(
+            try? pricing.makeEvent(
                 timestamp: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
                 model: "custom-model",
                 durationSeconds: 180
             ),
-        ]
+        ].compactMap { $0 }
 
         return OpenAIUsageSummary.make(events: events, now: now, calendar: calendar)
     }

@@ -112,12 +112,15 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
     }
 
     func recordSuccessfulTranscriptionUsage(_ usage: SuccessfulTranscriptionUsage) {
-        let event = pricing.makeEvent(
-            timestamp: now(),
-            model: usage.model,
-            durationSeconds: usage.audioDuration,
-            id: usage.transcriptionID
-        )
+        let event: OpenAIUsageEvent
+        do {
+            event = try pricing.makeEvent(timestamp: now(), for: usage)
+        } catch {
+            storageErrorMessage = Self.userFacingMessage(
+                for: OpenAIUsageStoreError.saveFailed
+            )
+            return
+        }
 
         do {
             _ = try append(event)
@@ -140,7 +143,19 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         }
 
         do {
-            return retainedEntries(try decoder.decode([OpenAIUsageEvent].self, from: data))
+            let wireEvents = try decoder.decode(
+                [LegacyOpenAIUsageEventWire].self,
+                from: data
+            )
+            var identifiers: Set<UUID> = []
+            let events = try wireEvents.map { wireEvent in
+                let event = try wireEvent.runtimeEvent()
+                guard identifiers.insert(event.id).inserted else {
+                    throw OpenAIUsageStoreError.unreadableUsage
+                }
+                return event
+            }
+            return retainedEntries(events)
         } catch {
             throw OpenAIUsageStoreError.unreadableUsage
         }
@@ -181,7 +196,8 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
 
     private func save(_ entries: [OpenAIUsageEvent]) throws {
         do {
-            try persistence.saveData(try encoder.encode(entries), forKey: storageKey)
+            let wireEvents = entries.map(LegacyOpenAIUsageEventWire.init(event:))
+            try persistence.saveData(try encoder.encode(wireEvents), forKey: storageKey)
         } catch {
             throw OpenAIUsageStoreError.saveFailed
         }
@@ -197,7 +213,10 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         return entries
             .filter { $0.timestamp >= cutoffDay }
             .sorted { lhs, rhs in
-                lhs.timestamp > rhs.timestamp
+                if lhs.timestamp != rhs.timestamp {
+                    return lhs.timestamp > rhs.timestamp
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
             }
     }
 
@@ -209,5 +228,44 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         }
 
         return error.localizedDescription
+    }
+}
+
+/// Preserves the existing macOS UserDefaults JSON shape without making the
+/// portable runtime event a persistence contract.
+private struct LegacyOpenAIUsageEventWire: Codable {
+    let id: UUID
+    let timestamp: Date
+    let model: String
+    let durationSeconds: TimeInterval
+    let priceUSDPerMinute: Double?
+    let estimatedCostUSD: Double?
+    let pricingSource: String?
+
+    init(event: OpenAIUsageEvent) {
+        id = event.id
+        timestamp = event.timestamp
+        model = event.model
+        durationSeconds = event.durationSeconds
+        priceUSDPerMinute = event.priceUSDPerMinute
+        estimatedCostUSD = event.estimatedCostUSD
+        pricingSource = event.pricingSource
+    }
+
+    func runtimeEvent() throws -> OpenAIUsageEvent {
+        let event = try OpenAIUsageEvent(
+            id: id,
+            timestamp: timestamp,
+            model: model,
+            durationSeconds: durationSeconds,
+            priceUSDPerMinute: priceUSDPerMinute,
+            estimatedCostUSD: estimatedCostUSD,
+            pricingSource: pricingSource
+        )
+        guard event.model == model,
+              event.pricingSource == pricingSource else {
+            throw OpenAIUsageStoreError.unreadableUsage
+        }
+        return event
     }
 }

@@ -6,14 +6,15 @@
 //
 
 import Foundation
+import HoldTypeDomain
 import Testing
 @testable import HoldType
 
 struct OpenAIUsageEstimateTests {
 
-    @Test func pricingCalculatesKnownTranscriptionModelCosts() {
+    @Test func pricingCalculatesKnownTranscriptionModelCosts() throws {
         let pricing = OpenAIUsagePricing.current
-        let event = pricing.makeEvent(
+        let event = try pricing.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 22, hour: 10),
             model: " gpt-4o-transcribe ",
             durationSeconds: 120
@@ -25,8 +26,8 @@ struct OpenAIUsageEstimateTests {
         #expect(event.pricingSource == "OpenAI pricing reviewed 2026-06-22")
     }
 
-    @Test func pricingLeavesUnknownModelCostUnavailable() {
-        let event = OpenAIUsagePricing.current.makeEvent(
+    @Test func pricingLeavesUnknownModelCostUnavailable() throws {
+        let event = try OpenAIUsagePricing.current.makeEvent(
             timestamp: makeDate(year: 2026, month: 6, day: 22, hour: 10),
             model: "custom-model",
             durationSeconds: 180
@@ -37,22 +38,22 @@ struct OpenAIUsageEstimateTests {
         #expect(event.pricingSource == nil)
     }
 
-    @Test func summaryGroupsRecentUsageAndProjectsKnownCost() {
+    @Test func summaryGroupsRecentUsageAndProjectsKnownCost() throws {
         let calendar = makeCalendar()
         let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
         let pricing = OpenAIUsagePricing.current
         let events = [
-            pricing.makeEvent(
+            try pricing.makeEvent(
                 timestamp: makeDate(year: 2026, month: 6, day: 22, hour: 9),
                 model: "gpt-4o-transcribe",
                 durationSeconds: 600
             ),
-            pricing.makeEvent(
+            try pricing.makeEvent(
                 timestamp: makeDate(year: 2026, month: 6, day: 21, hour: 9),
                 model: "gpt-4o-mini-transcribe",
                 durationSeconds: 300
             ),
-            pricing.makeEvent(
+            try pricing.makeEvent(
                 timestamp: makeDate(year: 2026, month: 6, day: 22, hour: 10),
                 model: "custom-model",
                 durationSeconds: 120
@@ -77,10 +78,10 @@ struct OpenAIUsageEstimateTests {
         #expect(summary.averageDailyDurationSeconds == 510)
     }
 
-    @Test func summaryMarksUnknownOnlyCostAsUnavailable() {
+    @Test func summaryMarksUnknownOnlyCostAsUnavailable() throws {
         let calendar = makeCalendar()
         let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
-        let event = OpenAIUsagePricing.current.makeEvent(
+        let event = try OpenAIUsagePricing.current.makeEvent(
             timestamp: now,
             model: "custom-model",
             durationSeconds: 300

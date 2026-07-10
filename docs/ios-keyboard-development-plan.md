@@ -301,10 +301,13 @@ host app, state, expected result, actual result, and go/no-go decision.
   before its future typing-only keyboard linkage. The containing-app-only
   `HoldTypeIOSCore` now reconciles Keychain truth, its transient credential
   cache, and the private presence marker through serialized explicit actions;
-  it is not linked by the keyboard or macOS app. Successful transcription
-  usage now has a portable, idempotent
-  containing-app handoff and remains absent from keyboard/App Group state; its
-  durable replay ID and versioned repository remain P2 work. The runtime-only
+  it is not linked by the keyboard or macOS app. Successful transcription usage
+  now has portable non-Codable event/pricing values and a strict
+  containing-app-only v1 repository at
+  `HoldType/ios-transcription-usage.json`. Its bounded protected state remains
+  absent from keyboard and App Group data. Durable pre-provider ownership of
+  the replay UUID still belongs to the PendingRecording journal in P2; the
+  usage repository alone does not satisfy that replay gate. The runtime-only
   four-case `VoiceAttemptStage` is portable too, while preflight, outcomes,
   recovery eligibility, and durable resume checkpoints remain separate. The
   containing-app output handoff is now narrowed to accepted text plus the two

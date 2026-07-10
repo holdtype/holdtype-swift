@@ -89,9 +89,35 @@ complete provider-usage dashboard.
 
 ## Persistence And Privacy
 
-- The containing app is the only writer. Events use versioned app-private
-  persistence with Data Protection and retain at most the most recent 365
-  calendar days.
+- The containing app is the only reader and writer. Its composition root owns
+  exactly one process-wide repository actor, which serializes read-modify-write
+  operations. Concurrent repository instances for the same file are unsupported;
+  the keyboard, App Group, and Keychain never receive usage state.
+- The canonical file is app-private Application Support at
+  `HoldType/ios-transcription-usage.json`. It uses Complete Data Protection, is
+  excluded from backup, and is limited to 4 MiB.
+- The private v1 wire root is exactly `schemaVersion` plus `events`. Every event
+  row contains all seven fields: canonical uppercase hyphenated local UUID,
+  canonical UTC ISO-8601 timestamp in
+  `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` millisecond form,
+  canonical model, duration seconds, price per minute, calculated cost, and
+  pricing source. The three price fields are explicit JSON `null` together for
+  an unknown price or are all present together for a known frozen price.
+- Events retain the current local calendar day and the previous 364 calendar
+  days. The inclusive cutoff is calculated from the injected current Calendar's
+  start of day with calendar-day arithmetic, never elapsed-second arithmetic.
+  A valid finite future timestamp is preserved so a device clock correction
+  cannot destroy an otherwise valid event.
+- `load()` physically removes expired rows with one protected atomic rewrite,
+  or removes the file when no rows remain. `record()` evaluates retention before
+  deciding whether an ID is a duplicate and combines compaction with insertion
+  in one atomic replacement. A retained duplicate with other stale rows writes
+  only the required compaction. A compaction failure is surfaced and preserves
+  the previous source; it does not return a stale success.
+- Missing storage loads as an empty list without creating a file. A missing
+  file also makes Reset an idempotent success. Reset acts directly on the usage
+  file, so an explicitly confirmed Reset may remove corrupt or unsupported
+  source that ordinary load preserves.
 - Before dispatching a replayable provider request, the pending-attempt journal
   durably stores its local transcription UUID. Replaying the same accepted
   handoff reuses that UUID; only a genuinely new provider request allocates a
@@ -110,6 +136,27 @@ complete provider-usage dashboard.
   clamped into new valid events.
 - One successful audio request produces at most one event even after callback
   duplication, lifecycle replay, or output retry.
+- Runtime event and pricing values are `Equatable`, `Sendable`, and non-Codable;
+  only the repository's private wire values are Codable. Model keys are trimmed
+  and lowercased before runtime lookup. Empty normalized keys, normalized-key
+  collisions, non-finite or negative rates, and an empty pricing source are
+  rejected.
+- A known event price snapshot requires a finite nonnegative rate and cost plus
+  a trimmed non-empty source. Cost must equal `duration / 60 * rate`; zero
+  expected cost requires exact zero, and other values allow only
+  `max(1e-12, abs(expected) * 1e-9)` absolute error. Overflow is invalid.
+- Persisted model and pricing-source strings must already be canonical. A
+  noncanonical row, inconsistent price snapshot, duplicate UUID, out-of-order
+  event log, non-finite timestamp or numeric value, or invalid duration is
+  corrupt v1 storage; it is never silently normalized, deduplicated, or
+  clamped.
+- Canonical order is newest timestamp first, then ascending UUID text for equal
+  timestamps. A runtime duplicate preserves the first frozen event. It performs
+  no write when no retention compaction is needed; if stale rows exist, only
+  the required compaction is persisted before the duplicate result is returned.
+  Idempotency is bounded by retention: when the only prior row for a UUID has
+  expired, compaction removes it and a later handoff with that UUID is inserted
+  as a new retained event.
 - Correction and translation requests do not affect this estimate until a
   separate token-estimate contract is approved.
 - Reset isolation is exact and a failed reset does not pretend the events were
@@ -121,6 +168,12 @@ complete provider-usage dashboard.
   preserves the source for bounded recovery; it is not silently overwritten.
 - A failed append leaves the successful dictation/output available and shows a
   non-blocking estimate-storage error.
+- A source larger than 4 MiB is rejected before decode. If adding a valid event
+  would exceed 4 MiB, the append fails without modifying the old file; valid
+  within-retention events are not evicted merely to make the new event fit.
+- Reset and retention-compaction failures are typed local errors and preserve
+  the existing source. Public errors contain no file path, stored field value,
+  transcript, prompt, credential, audio, or provider payload.
 - Calendar/time-zone changes regroup the 30-day presentation by the current
   local calendar without changing event timestamps or duplicating events.
 - A future pricing-table update applies only to new events unless a separate

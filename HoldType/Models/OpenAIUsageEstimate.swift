@@ -6,77 +6,10 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
-struct OpenAIUsageEvent: Codable, Equatable, Identifiable {
-    let id: UUID
-    let timestamp: Date
-    let model: String
-    let durationSeconds: TimeInterval
-    let priceUSDPerMinute: Double?
-    let estimatedCostUSD: Double?
-    let pricingSource: String?
-
-    init(
-        id: UUID = UUID(),
-        timestamp: Date = Date(),
-        model: String,
-        durationSeconds: TimeInterval,
-        priceUSDPerMinute: Double?,
-        estimatedCostUSD: Double?,
-        pricingSource: String?
-    ) {
-        self.id = id
-        self.timestamp = timestamp
-        self.model = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        self.durationSeconds = max(0, durationSeconds)
-        self.priceUSDPerMinute = priceUSDPerMinute
-        self.estimatedCostUSD = estimatedCostUSD
-        self.pricingSource = pricingSource
-    }
-}
-
-struct OpenAIUsagePricing: Equatable {
-    static let current = OpenAIUsagePricing(
-        ratesUSDPerMinute: [
-            "gpt-4o-transcribe": 0.006,
-            "gpt-4o-mini-transcribe": 0.003,
-        ],
-        sourceLabel: "OpenAI pricing reviewed 2026-06-22"
-    )
-
-    let ratesUSDPerMinute: [String: Double]
-    let sourceLabel: String
-
-    func rateUSDPerMinute(for model: String) -> Double? {
-        ratesUSDPerMinute[Self.normalizedModel(model)]
-    }
-
-    func makeEvent(
-        timestamp: Date = Date(),
-        model: String,
-        durationSeconds: TimeInterval,
-        id: UUID = UUID()
-    ) -> OpenAIUsageEvent {
-        let normalizedModel = Self.normalizedModel(model)
-        let durationSeconds = max(0, durationSeconds)
-        let rate = rateUSDPerMinute(for: normalizedModel)
-        let cost = rate.map { durationSeconds / 60 * $0 }
-
-        return OpenAIUsageEvent(
-            id: id,
-            timestamp: timestamp,
-            model: normalizedModel,
-            durationSeconds: durationSeconds,
-            priceUSDPerMinute: rate,
-            estimatedCostUSD: cost,
-            pricingSource: rate == nil ? nil : sourceLabel
-        )
-    }
-
-    private static func normalizedModel(_ model: String) -> String {
-        model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-}
+typealias OpenAIUsageEvent = TranscriptionUsageEvent
+typealias OpenAIUsagePricing = TranscriptionUsagePricing
 
 struct OpenAIUsageDailyBucket: Equatable, Identifiable {
     let day: Date
