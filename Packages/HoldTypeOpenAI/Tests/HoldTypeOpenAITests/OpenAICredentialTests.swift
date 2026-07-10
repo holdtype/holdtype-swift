@@ -1,5 +1,5 @@
 import Testing
-@testable import HoldTypeDomain
+@testable import HoldTypeOpenAI
 
 struct OpenAICredentialTests {
     @Test func trimsOnlySurroundingWhitespaceAndUsesTheCompatibilitySource() throws {

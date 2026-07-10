@@ -7,6 +7,7 @@
 
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 import Security
 import Testing
 @testable import HoldType

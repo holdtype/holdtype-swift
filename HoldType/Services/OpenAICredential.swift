@@ -6,11 +6,11 @@
 //
 
 import Foundation
-import HoldTypeDomain
+import HoldTypeOpenAI
 
-typealias OpenAICredential = HoldTypeDomain.OpenAICredential
-typealias OpenAICredentialSource = HoldTypeDomain.OpenAICredentialSource
-typealias OpenAICredentialResolving = HoldTypeDomain.OpenAICredentialResolving
+typealias OpenAICredential = HoldTypeOpenAI.OpenAICredential
+typealias OpenAICredentialSource = HoldTypeOpenAI.OpenAICredentialSource
+typealias OpenAICredentialResolving = HoldTypeOpenAI.OpenAICredentialResolving
 
 struct OpenAICredentialResolver: OpenAICredentialResolving {
     private let apiKeyStorage: any APIKeyStorage

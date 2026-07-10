@@ -7,6 +7,7 @@
 
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 
 protocol TranscriptOutputDelivering {
     func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult

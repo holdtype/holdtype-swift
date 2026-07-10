@@ -7,6 +7,7 @@
 
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 
 protocol TranscriptTranslationServing {
     func translate(

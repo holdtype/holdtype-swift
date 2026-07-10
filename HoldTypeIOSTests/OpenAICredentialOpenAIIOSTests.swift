@@ -1,7 +1,7 @@
-import HoldTypeDomain
+import HoldTypeOpenAI
 import Testing
 
-struct OpenAICredentialDomainIOSTests {
+struct OpenAICredentialOpenAIIOSTests {
     @Test func publicCredentialContractWorksThroughANormalIOSImport() throws {
         let expected = try OpenAICredential(apiKey: "  sk-ios-test \n")
         let resolver: any OpenAICredentialResolving =

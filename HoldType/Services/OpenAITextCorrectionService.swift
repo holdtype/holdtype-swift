@@ -7,6 +7,7 @@
 
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 
 protocol OpenAITextCorrectionServing {
     func correct(

@@ -291,11 +291,12 @@ host app, state, expected result, actual result, and go/no-go decision.
   recovery ownership fails. The runtime-only `VoiceWorkPhase` is portable too,
   separately from setup, outcomes, delivery, timers, and transport. The
   transient provider credential value/resolver boundary is portable for
-  containing-app consumers and redacts standard diagnostics, while Keychain
-  access and availability errors remain platform-owned. The keyboard is still
-  unlinked from the transitional Domain product; before it imports typing
-  types, provider-only contracts must be split behind an app-only product
-  boundary. Successful transcription usage now has a portable, idempotent
+  containing-app consumers and redacts standard diagnostics. It now lives in
+  the credential-only `HoldTypeOpenAI` bootstrap while Keychain access and
+  availability errors remain platform-owned. The keyboard stays unlinked from
+  `HoldTypeOpenAI`, and Domain no longer carries this provider-only contract
+  before its future typing-only keyboard linkage. Successful transcription
+  usage now has a portable, idempotent
   containing-app handoff and remains absent from keyboard/App Group state; its
   durable replay ID and versioned repository remain P2 work. The runtime-only
   four-case `VoiceAttemptStage` is portable too, while preflight, outcomes,

@@ -355,7 +355,7 @@ attempt remains a separate recovery invariant, not accepted transcript history.
 | Local cleanup and replacement pipeline | `Services/TranscriptTextCorrectionService.swift` | Move pure postprocessor to domain |
 | OpenAI transcription | `OpenAITranscriptionRequestBuilder.swift`, `OpenAITranscriptionService.swift` | Move after mobile transport hardening |
 | OpenAI correction and translation | `OpenAITextCorrectionService.swift`, `OpenAITextTranslationService.swift` | Move with real cancellation |
-| Credential value | `Services/OpenAICredential.swift` | Move value/resolver contract; keep storage adapter platform-specific |
+| Credential value | `Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAICredential.swift` | Portable value/resolver contract moved; storage adapters remain platform-specific |
 | Usage models/store | `Models/OpenAIUsageEstimate.swift`, `Services/OpenAIUsageStore.swift` | Move model; inject persistence and clock |
 | History models | `Models/TranscriptHistoryEntry.swift`, `Services/TranscriptHistoryStore.swift` | Redesign before moving: current Codable drops audio URL and failed recovery is session-only/absolute-path/transcription-only |
 | Runtime diagnostic formatting | `Services/RuntimeDiagnosticsLogStore.swift` | Do not move generic string metadata; replace with typed event/field allowlists and forbidden-value tests |
@@ -476,11 +476,9 @@ Dependency invariants:
 - platform persistence adapters implement shared repositories.
 - the keyboard target links domain types needed for typing and the bridge, but
   not OpenAI, Keychain, raw-audio, history, or diagnostic bundle code.
-- The current monolithic extraction package is transitional. Before the
-  keyboard first imports portable typing types, provider-only contracts such as
-  credentials must move behind the `HoldTypeOpenAI` product boundary (or an
-  app-only provider-contract target); the keyboard must never gain that product
-  dependency merely because both areas began in one package.
+- The provider-only credential value and resolver contract live behind the
+  `HoldTypeOpenAI` product boundary. The keyboard must never gain that product
+  dependency when it later imports portable typing types from Domain.
 - the containing app is the only provider client and canonical settings writer.
 - the macOS app keeps compatibility adapters until extraction is complete.
 
@@ -673,14 +671,16 @@ model projects its five values into the supported subset, and phase-only
 controller, hotkey, runtime, explicit-action, and menu gates use that projection
 without moving transcript or error copy into Domain.
 
-`OpenAICredential` and its synchronous resolver boundary are now portable for
+`OpenAICredential` and its synchronous resolver boundary are portable for
 containing-app consumers. The transient value preserves outer-whitespace
 normalization, case and inner content, uses a typed empty-key validation error,
 is `Sendable` but non-Codable, and redacts its key and compatibility source from
-standard Swift string, debug, reflection, and dump output. The macOS adapter
-still owns Keychain access, availability and presentation errors, and maps the
-Domain validation failure back to the existing missing-key behavior. The
-keyboard remains unlinked from the transitional Domain product.
+standard Swift string, debug, reflection, and dump output. P2 moved that
+provider-only contract from Domain into `HoldTypeOpenAI` without changing its
+behavior. The macOS adapter still owns Keychain access, availability and
+presentation errors, and maps the package validation failure back to the
+existing missing-key behavior. The keyboard remains unlinked from
+`HoldTypeOpenAI`.
 
 `SuccessfulTranscriptionUsage` now narrows the usage handoff to one local
 idempotency UUID, a normalized model, and a strictly positive finite duration.
@@ -817,11 +817,13 @@ output ordering remain unchanged. The current session-only entry and absolute
 URL are compatibility state only; stable relative audio identity, versioned
 durable repositories, migration, and journaling remain P2 work.
 
-P1 exit is complete: the shared Foundation-only domain builds and runs the same
-151 behavioral tests on macOS and iOS, with separate normal-import iOS smoke
-coverage. The macOS compatibility facades preserve existing behavior, and the
-remaining provider, persistence, Apple audio, and bridge work belongs to named
-later milestones rather than to Domain extraction.
+P1 exit is complete: the shared Foundation-only extraction originally built and
+ran the same 151 behavioral tests on macOS and iOS, with separate normal-import
+iOS smoke coverage. The P2 provider-boundary bootstrap later moved six
+credential tests into `HoldTypeOpenAI`; Domain now runs 145 and OpenAI runs six
+on both platforms, preserving the same aggregate 151-test coverage. The macOS
+compatibility facades preserve existing behavior, and the remaining provider,
+persistence, Apple audio, and bridge work belongs to named later milestones.
 
 ### P2 — Mobile-ready provider and persistence foundations
 
@@ -851,8 +853,14 @@ operation is scoped to the containing app's built-in signed
 `application-identifier` group rather than the shared App Group or a wildcard;
 missing or unresolved build-time identity fails before Keychain access.
 Marker/cache reconciliation, bounded file-backed multipart upload, and
-provider-module extraction remain; signed-device lock behavior remains a
-physical gate.
+provider-service extraction remain; signed-device lock behavior remains a
+physical gate. The `HoldTypeOpenAI` package now owns the unchanged portable
+credential value and synchronous resolver contract. Its six shared tests run
+beside the remaining 145 Domain tests on macOS and iOS, both containing apps
+link the product, the macOS app uses its compatibility facade, normal-import
+iOS tests prove the containing-app boundary, and the keyboard remains unlinked.
+Keychain access, provider services, multipart upload, and UI stay outside this
+bootstrap package slice.
 
 ### P3 — Native containing-app shell
 
@@ -1043,17 +1051,16 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-The first three P2 foundations are complete: the non-secret marker package,
-real transport cancellation, and the app-only iOS Keychain adapter. Continue
-with small independent checkpoints:
+The first four P2 foundations are complete: the non-secret marker package,
+real transport cancellation, the app-only iOS Keychain adapter, and the
+credential-only `HoldTypeOpenAI` bootstrap. Continue with small independent
+checkpoints:
 
-1. bootstrap `HoldTypeOpenAI` around only the portable credential value and
-   resolver contract. Keep the keyboard unlinked and keep the current provider
-   services in the app until bounded file-backed multipart preparation and
-   upload are implemented and verified without full-audio buffering;
-2. follow with serialized Keychain/cache/marker reconciliation, then the
-   bounded multipart/upload checkpoint, before moving provider services into
-   `HoldTypeOpenAI`.
+1. add serialized Keychain/cache/marker reconciliation without passive
+   Keychain reads or keyboard linkage;
+2. implement and verify bounded file-backed multipart preparation and upload
+   without full-audio buffering, then move the current provider services into
+   `HoldTypeOpenAI` in a separate behavior-neutral checkpoint.
 
 These lanes require no live provider or real secret. Simulator and fake-backed
 evidence are sufficient for their checkpoint commits, while signed-device

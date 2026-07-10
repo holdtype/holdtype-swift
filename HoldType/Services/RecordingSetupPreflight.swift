@@ -7,6 +7,7 @@
 
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 
 struct RecordingSetupPreflight {
     private let setupStatusProvider: AppSetupStatusProvider
