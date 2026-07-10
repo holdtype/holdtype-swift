@@ -300,8 +300,12 @@ host app, state, expected result, actual result, and go/no-go decision.
   durable replay ID and versioned repository remain P2 work. The runtime-only
   four-case `VoiceAttemptStage` is portable too, while preflight, outcomes,
   recovery eligibility, and durable resume checkpoints remain separate. The
-  next P1 slice narrows containing-app output handoff to accepted text plus the
-  two portable delivery preferences; it is not an App Group record or keyboard
-  insertion command. App Group command/session records, keyboard linking, and
-  actual keyboard insertion remain unchanged until their owning milestones.
+  containing-app output handoff is now narrowed to accepted text plus the two
+  portable delivery preferences; it is not an App Group record or keyboard
+  insertion command. The next P1 slice removes full `AppSettings` from optional
+  correction while keeping its prompt containing-app-owned and outside App
+  Group/keyboard transport; emoji and replacement content also stay out of the
+  provider request.
+  App Group command/session records, keyboard linking, and actual keyboard
+  insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.

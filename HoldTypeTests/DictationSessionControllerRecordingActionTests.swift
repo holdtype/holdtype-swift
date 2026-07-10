@@ -294,8 +294,8 @@ private struct RecordingActionCredentialResolver: OpenAICredentialResolving {
 private final class RecordingActionTranscriptOutput: TranscriptOutputDelivering {
     private(set) var calls: [String] = []
 
-    func deliver(_ transcript: String, settings: AppSettings) async throws -> TextInsertionResult {
-        calls.append(transcript)
+    func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult {
+        calls.append(request.acceptedTranscript.text)
         return .skipped(reason: .appClipboardDisabled)
     }
 }

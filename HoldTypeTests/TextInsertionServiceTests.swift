@@ -14,8 +14,9 @@ import Testing
 struct TextInsertionServiceTests {
 
     @Test func deliverySavesTranscriptAndInsertsWhenBothOutputsAreEnabled() async throws {
-        let store = FakeTranscriptClipboardStore()
-        let poster = FakeTextEventPoster()
+        let trace = FakeOutputOperationTrace()
+        let store = FakeTranscriptClipboardStore(trace: trace)
+        let poster = FakeTextEventPoster(trace: trace)
         let service = makeDeliveryService(
             store: store,
             accessibilityIsTrusted: true,
@@ -23,10 +24,10 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "hello active app",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: true,
-                saveTranscriptsToAppClipboard: true
+            makeDeliveryRequest(
+                transcript: "hello active app",
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: true
             )
         )
 
@@ -36,11 +37,18 @@ struct TextInsertionServiceTests {
         #expect(await store.savedTexts() == ["hello active app"])
         #expect(await store.clearCount() == 0)
         #expect(await poster.postedTexts() == ["hello active app"])
+        #expect(
+            await trace.recordedOperations() == [
+                .save("hello active app"),
+                .post("hello active app"),
+            ]
+        )
     }
 
     @Test func deliveryInsertsAndClearsAppClipboardWhenRecoveryIsDisabled() async throws {
-        let store = FakeTranscriptClipboardStore(initialText: "previous transcript")
-        let poster = FakeTextEventPoster()
+        let trace = FakeOutputOperationTrace()
+        let store = FakeTranscriptClipboardStore(initialText: "previous transcript", trace: trace)
+        let poster = FakeTextEventPoster(trace: trace)
         let service = makeDeliveryService(
             store: store,
             accessibilityIsTrusted: true,
@@ -48,10 +56,10 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "insert only",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: true,
-                saveTranscriptsToAppClipboard: false
+            makeDeliveryRequest(
+                transcript: "insert only",
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: false
             )
         )
 
@@ -60,11 +68,18 @@ struct TextInsertionServiceTests {
         #expect(await store.savedTexts().isEmpty)
         #expect(await store.clearCount() == 1)
         #expect(await poster.postedTexts() == ["insert only"])
+        #expect(
+            await trace.recordedOperations() == [
+                .clear,
+                .post("insert only"),
+            ]
+        )
     }
 
     @Test func deliverySavesOnlyWhenAutomaticInsertionIsDisabled() async throws {
-        let store = FakeTranscriptClipboardStore()
-        let poster = FakeTextEventPoster()
+        let trace = FakeOutputOperationTrace()
+        let store = FakeTranscriptClipboardStore(trace: trace)
+        let poster = FakeTextEventPoster(trace: trace)
         let service = makeDeliveryService(
             store: store,
             accessibilityIsTrusted: true,
@@ -72,21 +87,23 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "recover later",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: false,
-                saveTranscriptsToAppClipboard: true
+            makeDeliveryRequest(
+                transcript: "recover later",
+                automaticInsertionPreferenceEnabled: false,
+                keepLatestResult: true
             )
         )
 
         #expect(result == .savedToAppClipboard)
         #expect(await store.currentText() == "recover later")
         #expect(await poster.postedTexts().isEmpty)
+        #expect(await trace.recordedOperations() == [.save("recover later")])
     }
 
     @Test func deliverySkipsWhenBothAutomaticInsertionAndRecoveryAreDisabled() async throws {
-        let store = FakeTranscriptClipboardStore(initialText: "previous transcript")
-        let poster = FakeTextEventPoster()
+        let trace = FakeOutputOperationTrace()
+        let store = FakeTranscriptClipboardStore(initialText: "previous transcript", trace: trace)
+        let poster = FakeTextEventPoster(trace: trace)
         let service = makeDeliveryService(
             store: store,
             accessibilityIsTrusted: true,
@@ -94,10 +111,10 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "unused text",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: false,
-                saveTranscriptsToAppClipboard: false
+            makeDeliveryRequest(
+                transcript: "unused text",
+                automaticInsertionPreferenceEnabled: false,
+                keepLatestResult: false
             )
         )
 
@@ -105,6 +122,7 @@ struct TextInsertionServiceTests {
         #expect(result.statusText == "Automatic insertion and Paste Last Result are disabled.")
         #expect(await store.currentText() == nil)
         #expect(await poster.postedTexts().isEmpty)
+        #expect(await trace.recordedOperations() == [.clear])
     }
 
     @Test func deliveryKeepsRecoveryTextWhenAccessibilityIsMissing() async throws {
@@ -117,10 +135,10 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "needs recovery",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: true,
-                saveTranscriptsToAppClipboard: true
+            makeDeliveryRequest(
+                transcript: "needs recovery",
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: true
             )
         )
 
@@ -140,16 +158,52 @@ struct TextInsertionServiceTests {
         )
 
         let result = try await service.deliver(
-            "still recoverable",
-            settings: makeSettings(
-                automaticallyInsertTranscripts: true,
-                saveTranscriptsToAppClipboard: true
+            makeDeliveryRequest(
+                transcript: "still recoverable",
+                automaticInsertionPreferenceEnabled: true,
+                keepLatestResult: true
             )
         )
 
         #expect(result == .failed(reason: .textInsertionFailed, savedToAppClipboard: true))
         #expect(await store.currentText() == "still recoverable")
         #expect(await poster.postedTexts() == ["still recoverable"])
+    }
+
+    @Test func deliverySaveFailureStopsBeforeAutomaticInsertion() async throws {
+        let trace = FakeOutputOperationTrace()
+        let store = FakeTranscriptClipboardStore(
+            trace: trace,
+            saveError: FakeTranscriptClipboardStoreError.saveFailed
+        )
+        let poster = FakeTextEventPoster(trace: trace)
+        let service = makeDeliveryService(
+            store: store,
+            accessibilityIsTrusted: true,
+            textEventPoster: poster
+        )
+        let request = try makeDeliveryRequest(
+            transcript: "must remain recoverable",
+            automaticInsertionPreferenceEnabled: true,
+            keepLatestResult: true
+        )
+
+        do {
+            _ = try await service.deliver(request)
+            Issue.record("Expected Latest Result save to fail")
+        } catch let error as FakeTranscriptClipboardStoreError {
+            #expect(error == .saveFailed)
+        } catch {
+            Issue.record("Expected FakeTranscriptClipboardStoreError, got \(error)")
+        }
+
+        #expect(await store.currentText() == nil)
+        #expect(await poster.postedTexts().isEmpty)
+        #expect(
+            await trace.recordedOperations() == [
+                .save("must remain recoverable")
+            ]
+        )
     }
 
     @Test func pasteShortcutInsertsCurrentAppClipboardTextWhenTrustedAndEnabled() async {
@@ -386,23 +440,73 @@ struct TextInsertionServiceTests {
             saveTranscriptHistory: false
         )
     }
+
+    private func makeDeliveryRequest(
+        transcript: String,
+        automaticInsertionPreferenceEnabled: Bool,
+        keepLatestResult: Bool
+    ) throws -> OutputDeliveryRequest {
+        OutputDeliveryRequest(
+            acceptedTranscript: try AcceptedTranscript(rawText: transcript),
+            preferences: OutputDeliveryPreferences(
+                automaticInsertionPreferenceEnabled: automaticInsertionPreferenceEnabled,
+                keepLatestResult: keepLatestResult
+            )
+        )
+    }
+}
+
+private enum FakeTranscriptClipboardStoreError: Error, Equatable {
+    case saveFailed
+}
+
+private actor FakeOutputOperationTrace {
+    enum Operation: Equatable, Sendable {
+        case save(String)
+        case clear
+        case post(String)
+    }
+
+    private var operations: [Operation] = []
+
+    func record(_ operation: Operation) {
+        operations.append(operation)
+    }
+
+    func recordedOperations() -> [Operation] {
+        operations
+    }
 }
 
 private actor FakeTranscriptClipboardStore: TranscriptClipboardStoring {
     private var text: String?
     private var recordedSaveTexts: [String] = []
     private var recordedClearCount = 0
+    private let trace: FakeOutputOperationTrace?
+    private let saveError: FakeTranscriptClipboardStoreError?
 
-    init(initialText: String? = nil) {
+    init(
+        initialText: String? = nil,
+        trace: FakeOutputOperationTrace? = nil,
+        saveError: FakeTranscriptClipboardStoreError? = nil
+    ) {
         self.text = initialText
+        self.trace = trace
+        self.saveError = saveError
     }
 
     func save(_ text: String) async throws {
+        await trace?.record(.save(text))
+        if let saveError {
+            throw saveError
+        }
+
         self.text = text
         recordedSaveTexts.append(text)
     }
 
     func clear() async {
+        await trace?.record(.clear)
         text = nil
         recordedClearCount += 1
     }
@@ -444,13 +548,19 @@ private actor FakeTextEventPoster: TextEventPosting {
     }
 
     private let mode: Mode
+    private let trace: FakeOutputOperationTrace?
     private var texts: [String] = []
 
-    init(mode: Mode = .succeed) {
+    init(
+        mode: Mode = .succeed,
+        trace: FakeOutputOperationTrace? = nil
+    ) {
         self.mode = mode
+        self.trace = trace
     }
 
     func postText(_ text: String) async throws {
+        await trace?.record(.post(text))
         texts.append(text)
 
         switch mode {

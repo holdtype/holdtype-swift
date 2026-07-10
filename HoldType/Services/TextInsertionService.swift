@@ -7,6 +7,7 @@
 
 import AppKit
 import Foundation
+import HoldTypeDomain
 
 protocol TranscriptClipboardStoring: Sendable {
     func save(_ text: String) async throws
@@ -54,9 +55,11 @@ struct TextInsertionService {
         )
     }
 
-    func deliver(_ transcript: String, settings: AppSettings) async throws -> TextInsertionResult {
+    func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult {
+        let transcript = request.acceptedTranscript.text
+        let preferences = request.preferences
         let savedToAppClipboard: Bool
-        if settings.saveTranscriptsToAppClipboard {
+        if preferences.keepLatestResult {
             try await transcriptClipboardStore.save(transcript)
             savedToAppClipboard = true
         } else {
@@ -64,7 +67,7 @@ struct TextInsertionService {
             savedToAppClipboard = false
         }
 
-        guard settings.automaticallyInsertTranscripts else {
+        guard preferences.automaticInsertionPreferenceEnabled else {
             return savedToAppClipboard
                 ? .savedToAppClipboard
                 : .skipped(reason: .outputDisabled)

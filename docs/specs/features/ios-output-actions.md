@@ -56,6 +56,30 @@ be matched conservatively.
   the keyboard only tells the user to configure Translation in HoldType.
 - Copy and Share always require explicit user action.
 
+## Runtime Output Adapter Request
+
+`OutputDeliveryRequest` is the transient containing-app input to one platform
+output adapter call. It contains exactly one validated `AcceptedTranscript`
+and one `OutputDeliveryPreferences` value. It is created only after the final
+normal, corrected, or translated text has been accepted; provider failure,
+empty final text, or required Translation failure creates no request.
+
+The request preserves both preference intents exactly. Automatic insertion
+preference is not target eligibility, authorization, a pre-insert claim, or
+proof that insertion was attempted. Keep Latest Result is not proof that the
+mandatory delivery record or History write committed. A failed-attempt Retry
+in Save Only mode forces only automatic insertion preference off and preserves
+the current Keep Latest Result preference. Follow Automatic Insertion uses both
+current preferences unchanged.
+
+This value is runtime-only, `Equatable`, `Sendable`, and non-Codable. It has no
+session, transcript, document, target, or retry identity; output intent;
+timestamp or expiry; delivery state; recovery destination; authorization;
+acknowledgement; platform result; or user-facing copy. It is not the protected
+app-private delivery record, an App Group snapshot, a keyboard command, or an
+insertion claim. The platform adapter result and macOS accessibility/AppKit
+behavior remain platform-owned.
+
 ## Containing-App Actions
 
 - The Voice destination shows the final accepted result and may place it in
@@ -269,7 +293,8 @@ be matched conservatively.
   snapshot expiry. It is not Quick Session expiry or the utterance duration
   limit.
 - `VoiceAttemptStage.outputDelivery` identifies only the controller operation
-  that called a platform output adapter. Eligibility, pre-insert claim,
+  that passed a runtime `OutputDeliveryRequest` to a platform output adapter.
+  Eligibility, pre-insert claim,
   acknowledgement, `confirmedInserted`, `submittedUnverified`, recovery, and
   expiry remain owned by `OutputDeliveryState` and the bridge contract. A
   delivery-stage failure never recreates provider work or becomes a failed-

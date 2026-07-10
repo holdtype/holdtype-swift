@@ -9,7 +9,7 @@ import Foundation
 import HoldTypeDomain
 
 protocol TranscriptOutputDelivering {
-    func deliver(_ transcript: String, settings: AppSettings) async throws -> TextInsertionResult
+    func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult
 }
 
 extension TextInsertionService: TranscriptOutputDelivering {}
@@ -275,15 +275,15 @@ final class DictationSessionController {
             )
             transcriptionFailureRecovery.removeFailedAttempt(id: retry.id)
 
-            let recoveryOutputSettings = outputSettings(
-                from: settings,
-                retryOutputMode: retry.outputMode
+            let deliveryRequest = OutputDeliveryRequest(
+                acceptedTranscript: acceptedTranscript,
+                preferences: outputDeliveryPreferences(
+                    from: settings,
+                    retryOutputMode: retry.outputMode
+                )
             )
             do {
-                outputStatusText = try await transcriptOutput.deliver(
-                    acceptedTranscript.text,
-                    settings: recoveryOutputSettings
-                ).statusText
+                outputStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return
@@ -346,17 +346,17 @@ final class DictationSessionController {
         }
     }
 
-    private func outputSettings(
+    private func outputDeliveryPreferences(
         from settings: AppSettings,
         retryOutputMode: FailedTranscriptionRetryOutputMode
-    ) -> AppSettings {
+    ) -> OutputDeliveryPreferences {
         switch retryOutputMode {
         case .saveOnly:
-            var recoveryOutputSettings = settings
-            recoveryOutputSettings.automaticallyInsertTranscripts = false
-            return recoveryOutputSettings
+            var preferences = settings.outputDeliveryPreferences
+            preferences.automaticInsertionPreferenceEnabled = false
+            return preferences
         case .followAutomaticInsertion:
-            return settings
+            return settings.outputDeliveryPreferences
         }
     }
 
@@ -545,11 +545,12 @@ final class DictationSessionController {
             )
 
             stage = .outputDelivery
+            let deliveryRequest = OutputDeliveryRequest(
+                acceptedTranscript: acceptedTranscript,
+                preferences: settings.outputDeliveryPreferences
+            )
             do {
-                outputStatusText = try await transcriptOutput.deliver(
-                    acceptedTranscript.text,
-                    settings: settings
-                ).statusText
+                outputStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return

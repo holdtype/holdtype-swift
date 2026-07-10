@@ -145,7 +145,14 @@ struct DictationSessionControllerTests {
         #expect(controller.outputStatusText == "Paste Last Result is disabled.")
         #expect(recorder.stopCount == 1)
         #expect(transcriptionService.calls == [TranscriptionCall(audioFileURL: artifact.fileURL, settings: settings)])
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "Shared controller transcript", settings: settings)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "Shared controller transcript",
+                    preferences: settings.outputDeliveryPreferences
+                )
+            ]
+        )
         #expect(cuePlayer.playedCues == [.stopRecording])
         #expect(
             eventLogger.events == [
@@ -496,7 +503,14 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "corrected transcript"))
         #expect(controller.lastTranscriptText == "corrected transcript")
         #expect(textCorrectionService.calls == [TextCorrectionCall(transcript: "raw transcript", settings: .defaults)])
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "corrected transcript", settings: .defaults)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "corrected transcript",
+                    preferences: AppSettings.defaults.outputDeliveryPreferences
+                )
+            ]
+        )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["corrected transcript"])
     }
 
@@ -521,7 +535,14 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .success(transcript: "raw transcript"))
         #expect(controller.lastTranscriptText == "raw transcript")
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "raw transcript", settings: .defaults)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "raw transcript",
+                    preferences: AppSettings.defaults.outputDeliveryPreferences
+                )
+            ]
+        )
         #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
     }
@@ -591,7 +612,14 @@ struct DictationSessionControllerTests {
                 TranslationCall(transcript: "texto español corregido", settings: settings)
             ]
         )
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "Corrected English text", settings: settings)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "Corrected English text",
+                    preferences: settings.outputDeliveryPreferences
+                )
+            ]
+        )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["Corrected English text"])
     }
 
@@ -634,7 +662,7 @@ struct DictationSessionControllerTests {
             transcriptOutput.calls == [
                 TranscriptOutputCall(
                     transcript: "\"Corrected\" - English... emoji smile",
-                    settings: settings
+                    preferences: settings.outputDeliveryPreferences
                 )
             ]
         )
@@ -667,7 +695,14 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "English text"))
         #expect(transcriptionService.calls.map(\.settings.language) == [.spanish])
         #expect(translationService.calls == [TranslationCall(transcript: "texto español", settings: settings)])
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "English text", settings: settings)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "English text",
+                    preferences: settings.outputDeliveryPreferences
+                )
+            ]
+        )
     }
 
     @Test func stopIntentCanPromoteActiveSessionToTranslation() async {
@@ -696,7 +731,14 @@ struct DictationSessionControllerTests {
         #expect(recorder.stopCount == 1)
         #expect(controller.status == .success(transcript: "English text"))
         #expect(translationService.calls == [TranslationCall(transcript: "русский текст", settings: settings)])
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "English text", settings: settings)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "English text",
+                    preferences: settings.outputDeliveryPreferences
+                )
+            ]
+        )
     }
 
     @Test func translationIntentFailsBeforeTranscriptionWhenTargetLanguageIsMissing() async {
@@ -766,7 +808,14 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .success(transcript: "русский текст"))
         #expect(translationService.calls.isEmpty)
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "русский текст", settings: settings)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "русский текст",
+                    preferences: settings.outputDeliveryPreferences
+                )
+            ]
+        )
     }
 
     @Test func translationFailurePreservesSuccessfulTranscriptionUsageWithoutDeliveringOutput() async throws {
@@ -1302,8 +1351,56 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(transcriptOutput.calls.map(\.transcript) == ["recovered text"])
-        #expect(transcriptOutput.calls.first?.settings.automaticallyInsertTranscripts == false)
+        #expect(
+            transcriptOutput.calls.map(\.preferences) == [
+                OutputDeliveryPreferences(
+                    automaticInsertionPreferenceEnabled: false,
+                    keepLatestResult: true
+                )
+            ]
+        )
         #expect(controller.outputStatusText == "Saved as Last Result. Press Control+Command+V to insert.")
+    }
+
+    @Test func retrySaveOnlyPreservesDisabledLatestResultPreference() async throws {
+        let attemptID = try #require(
+            UUID(uuidString: "F692D966-294B-4C23-B333-E4287E2BD245")
+        )
+        let attempt = FailedTranscriptionAttempt(
+            id: attemptID,
+            audioFileURL: URL(fileURLWithPath: "/tmp/holdtype-failed-retry-save-only.m4a"),
+            audioDuration: 6,
+            transcriptionModel: "gpt-4o-transcribe",
+            languageCode: "en",
+            reason: .networkUnavailable
+        )
+        let failureRecovery = FakeTranscriptionFailureRecovery(initialAttempts: [attempt])
+        let transcriptOutput = FakeTranscriptOutput(result: .success(.skipped(reason: .outputDisabled)))
+        var settings = AppSettings.defaults
+        settings.automaticallyInsertTranscripts = true
+        settings.saveTranscriptsToAppClipboard = false
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .idle),
+            transcriptionService: FakeControllerTranscriptionService(result: .success(" save-only result ")),
+            settings: settings,
+            transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery
+        )
+
+        await controller.retryFailedTranscription(id: attemptID)
+
+        #expect(controller.status == .success(transcript: "save-only result"))
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(transcriptOutput.calls.map(\.transcript) == ["save-only result"])
+        #expect(
+            transcriptOutput.calls.map(\.preferences) == [
+                OutputDeliveryPreferences(
+                    automaticInsertionPreferenceEnabled: false,
+                    keepLatestResult: false
+                )
+            ]
+        )
+        #expect(controller.outputStatusText == "Automatic insertion and Paste Last Result are disabled.")
     }
 
     @Test func retryFailedTranscriptionCanFollowAutomaticInsertionForRecoveryPrompt() async throws {
@@ -1318,10 +1415,10 @@ struct DictationSessionControllerTests {
         )
         let failureRecovery = FakeTranscriptionFailureRecovery(initialAttempts: [attempt])
         let transcriptionService = FakeControllerTranscriptionService(result: .success(" inserted retry "))
-        let transcriptOutput = FakeTranscriptOutput(result: .success(.insertedAndSavedToAppClipboard))
+        let transcriptOutput = FakeTranscriptOutput(result: .success(.inserted))
         var settings = AppSettings.defaults
         settings.automaticallyInsertTranscripts = true
-        settings.saveTranscriptsToAppClipboard = true
+        settings.saveTranscriptsToAppClipboard = false
         let controller = makeController(
             recorder: FakeAudioRecorderService(currentStatus: .idle),
             transcriptionService: transcriptionService,
@@ -1338,8 +1435,15 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "inserted retry"))
         #expect(failureRecovery.failedAttempts.isEmpty)
         #expect(transcriptOutput.calls.map(\.transcript) == ["inserted retry"])
-        #expect(transcriptOutput.calls.first?.settings.automaticallyInsertTranscripts == true)
-        #expect(controller.outputStatusText == "Inserted transcript into the active app. Paste Last Result is ready.")
+        #expect(
+            transcriptOutput.calls.map(\.preferences) == [
+                OutputDeliveryPreferences(
+                    automaticInsertionPreferenceEnabled: true,
+                    keepLatestResult: false
+                )
+            ]
+        )
+        #expect(controller.outputStatusText == "Inserted transcript into the active app.")
     }
 
     @Test func successfulRetriesWithInvalidLegacyDurationsSkipUsageWithoutLosingText() async {
@@ -1397,10 +1501,11 @@ struct DictationSessionControllerTests {
         )
         let failureRecovery = FakeTranscriptionFailureRecovery(initialAttempts: [attempt])
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let transcriptOutput = FakeTranscriptOutput()
         let controller = makeController(
             recorder: FakeAudioRecorderService(currentStatus: .idle),
             transcriptionService: transcriptionService,
-            transcriptOutput: FakeTranscriptOutput(),
+            transcriptOutput: transcriptOutput,
             transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder
         )
@@ -1424,6 +1529,7 @@ struct DictationSessionControllerTests {
 
         #expect(controller.status == .idle)
         #expect(usageRecorder.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
         #expect(failureRecovery.failedAttempts.map(\.id) == [attemptID])
     }
 
@@ -1483,7 +1589,12 @@ struct DictationSessionControllerTests {
             "deferred retry text",
             "deferred retry text",
         ])
-        #expect(transcriptOutput.calls.last?.settings.automaticallyInsertTranscripts == true)
+        #expect(
+            transcriptOutput.calls.map(\.preferences) == [
+                AppSettings.defaults.outputDeliveryPreferences,
+                AppSettings.defaults.outputDeliveryPreferences,
+            ]
+        )
         #expect(failureRecovery.failedAttempts.isEmpty)
         #expect(controller.status == .success(transcript: "deferred retry text"))
         #expect(usageRecorder.calls.count == 2)
@@ -1502,10 +1613,11 @@ struct DictationSessionControllerTests {
         )
         let failureRecovery = FakeTranscriptionFailureRecovery(initialAttempts: [attempt])
         let usageRecorder = FakeTranscriptionUsageRecorder()
+        let transcriptOutput = FakeTranscriptOutput()
         let controller = makeController(
             recorder: FakeAudioRecorderService(currentStatus: .idle),
             transcriptionService: FakeControllerTranscriptionService(result: .failure(.timedOut)),
-            transcriptOutput: FakeTranscriptOutput(),
+            transcriptOutput: transcriptOutput,
             transcriptionFailureRecovery: failureRecovery,
             transcriptionUsageRecorder: usageRecorder,
             initialStatus: .success(transcript: "previous transcript"),
@@ -1522,6 +1634,7 @@ struct DictationSessionControllerTests {
         #expect(controller.failurePresentation?.failedAttemptID == attemptID)
         #expect(controller.failurePresentation?.canRetry == true)
         #expect(usageRecorder.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
     }
 
     @Test func emptyTranscriptionKeepsPreviousTranscriptAndSkipsOutput() async {
@@ -1574,7 +1687,14 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "Delivered text"))
         #expect(controller.lastTranscriptText == "Delivered text")
         #expect(controller.outputStatusText == "Inserting text into the active app timed out.")
-        #expect(transcriptOutput.calls == [TranscriptOutputCall(transcript: "Delivered text", settings: .defaults)])
+        #expect(
+            transcriptOutput.calls == [
+                TranscriptOutputCall(
+                    transcript: "Delivered text",
+                    preferences: AppSettings.defaults.outputDeliveryPreferences
+                )
+            ]
+        )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["Delivered text"])
         #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
@@ -1712,7 +1832,17 @@ private struct TranscriptionCall: Equatable {
 
 private struct TranscriptOutputCall: Equatable {
     let transcript: String
-    let settings: AppSettings
+    let preferences: OutputDeliveryPreferences
+
+    init(request: OutputDeliveryRequest) {
+        transcript = request.acceptedTranscript.text
+        preferences = request.preferences
+    }
+
+    init(transcript: String, preferences: OutputDeliveryPreferences) {
+        self.transcript = transcript
+        self.preferences = preferences
+    }
 }
 
 private struct TextCorrectionCall: Equatable {
@@ -1868,8 +1998,8 @@ private final class FakeTranscriptOutput: TranscriptOutputDelivering {
         self.result = result
     }
 
-    func deliver(_ transcript: String, settings: AppSettings) async throws -> TextInsertionResult {
-        calls.append(TranscriptOutputCall(transcript: transcript, settings: settings))
+    func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult {
+        calls.append(TranscriptOutputCall(request: request))
         return try result.get()
     }
 }

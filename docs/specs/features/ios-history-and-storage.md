@@ -67,9 +67,11 @@ three explicit data lifecycles.
   never accepts or publishes the intermediate transcription as a successful
   translated result. If current configuration cannot run that intent, Retry
   routes to its owning Settings section.
-- Retry success replaces the failed row with an accepted row and publishes a
-  new latest result. It does not automatically insert into an arbitrary host
-  field.
+- Retry success replaces the failed row with an accepted row and creates the
+  same protected pending delivery result as a new accepted attempt. With Keep
+  Latest Result on, that result may remain as the new latest result after its
+  delivery decision; with the preference off, it has no post-session latest
+  retention. Retry does not automatically insert into an arbitrary host field.
 - Retry failure preserves the row and audio when the failure remains
   recoverable, updates the compact reason and count, and leaves the last
   accepted result unchanged.

@@ -196,8 +196,9 @@ decision, or compact diagnostic event:
   local final-text processing, translation, and final accepted-text validation.
   It does not by itself prove that transcription completed.
 - `outputDelivery` begins only after accepted text is available and the
-  platform output adapter is being invoked. It does not mean insertion was
-  eligible, attempted, submitted, or confirmed.
+  containing app is passing a runtime `OutputDeliveryRequest` to its platform
+  output adapter. It does not mean insertion was eligible, attempted,
+  submitted, or confirmed.
 
 The stage is runtime attribution, not a state machine or ordered progress
 record. It carries no error, text, identifier, timestamp, output intent,

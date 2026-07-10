@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap, P0 contracts and the first twenty-four P1
+Status: active implementation roadmap, P0 contracts and the first twenty-five P1
 Domain slices complete; updated 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -706,6 +706,19 @@ mappings do not redefine the iOS rule that blocked preflight happens before
 capture and creates no attempt stage. P2 still owns versioned durable-stage
 mapping and finer resume checkpoints.
 
+`OutputDeliveryRequest` now narrows one containing-app platform-adapter call to
+exactly a validated `AcceptedTranscript` and `OutputDeliveryPreferences`. The
+runtime value is `Equatable`, `Sendable`, and non-Codable; it has no identity,
+intent, target, eligibility, authorization, state, acknowledgement, timestamp,
+or persistence semantics. Normal and failed-attempt Retry paths construct it
+only after final text is accepted. Save Only disables only automatic insertion
+and preserves Keep Latest Result, while Follow Automatic Insertion preserves
+both current preferences. The macOS adapter no longer receives all of
+`AppSettings`; its existing save/clear-before-insert ordering, platform result,
+accessibility behavior, and explicit recovered-transcript path remain intact.
+The identified protected delivery record, App Group snapshot, keyboard
+command, and insertion claim remain separate P2/P6 contracts.
+
 ### P2 — Mobile-ready provider and persistence foundations
 
 - extract OpenAI transcription, correction, and translation;
@@ -906,30 +919,31 @@ already decided by their P0 specs.
 ## Recommended Next Slice
 
 Do not begin by porting `SettingsView` or adding every macOS source file to the
-iOS target. The first twenty-four value/configuration/dependency slices are
-complete, including runtime attempt-stage attribution. The next P1 slice
-narrows the platform output-adapter input without creating a durable delivery
-record:
+iOS target. The first twenty-five value/configuration/dependency slices are
+complete, including the transient output-adapter request. The next P1 slice
+narrows optional correction and local post-processing without moving provider
+transport:
 
-1. specify and add a public runtime-only `OutputDeliveryRequest` containing
-   exactly one `AcceptedTranscript` and one `OutputDeliveryPreferences`;
+1. specify and add a public runtime-only `TextCorrectionRequest` containing
+   exactly one `AcceptedTranscript`, one `TextCorrectionConfiguration`, and one
+   `TranscriptPostProcessingConfiguration`;
 2. make it `Equatable` and `Sendable`, but not `Codable`, identified,
-   timestamped, target-bearing, or acknowledgement-bearing. Preference intent
-   is not insertion eligibility, authorization, delivery state, or proof of
-   durable retention;
-3. change the macOS-local `TranscriptOutputDelivering` boundary to receive the
-   request instead of raw text plus all of `AppSettings`, while keeping
-   `TextInsertionResult`, AppKit/accessibility work, and presentation copy
-   platform-owned;
-4. construct the request only after final text is accepted. Normal delivery
-   uses the exact projected preferences; Retry Save Only forces automatic
-   insertion off while preserving the Latest Result preference, and Follow
-   Automatic Insertion uses the current preferences unchanged;
-5. add exhaustive package and normal-import iOS tests plus controller and
-   `TextInsertionService` regressions for all four preference combinations,
-   corrected/translated final text, failure/no-request paths, and retry modes;
-6. keep the request out of persistence, App Group, and keyboard transport. P2
-   owns the identified accepted-result delivery record and bridge claims.
+   persisted, logged, or transported through App Group. Keep
+   `OpenAICredential` as a separate transient dependency;
+3. change the macOS-local `TextCorrectionServing` boundary to receive the
+   request plus credential instead of raw text plus all of `AppSettings`;
+4. pass only accepted text and `TextCorrectionConfiguration` to the OpenAI
+   adapter. Local emoji/replacement configuration never enters the provider
+   request, while model, prompt, input, timeout, and cancellation behavior stay
+   unchanged;
+5. preserve optional fail-open behavior: disabled correction makes no provider
+   call; provider failure, empty output, or unsafe length falls back to the
+   accepted input; cleanup, emoji commands, and ordered replacements still run
+   after either corrected or fallback text;
+6. add package and normal-import iOS tests plus focused outer-service,
+   controller normal/Retry, cancellation, and existing OpenAI request-body
+   regressions. Keep translation, output, provider module movement, real
+   cancellation hardening, and persistence outside this slice.
 
 ## Research Basis
 
