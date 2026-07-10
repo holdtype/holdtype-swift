@@ -97,6 +97,50 @@ struct OpenAITranscriptionServiceTests {
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
     }
 
+    @Test func explicitCancellationCompletesBeforeNonCooperativeLoaderReturns() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.awaitResponse])
+        let service = makeService(loader: loader)
+        let resultProbe = AsyncOperationResultProbe<String>()
+        let lateResponse = makeHTTPResponse(statusCode: 200)
+        defer {
+            loader.resolveRequest(
+                at: 0,
+                data: Data(#"{"text":"late transcript"}"#.utf8),
+                response: lateResponse
+            )
+        }
+
+        let transcription = Task {
+            do {
+                let result = try await service.transcribe(
+                    try makeTranscriptionRequest(audioFileURL: audioFileURL),
+                    credential: testCredential()
+                )
+                resultProbe.complete(with: .success(result))
+            } catch {
+                resultProbe.complete(with: .failure(error))
+            }
+        }
+        try await loader.waitForRequestCount(1)
+
+        service.cancelActiveTranscription()
+
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        let result = try await resultProbe.waitForResult()
+        switch result {
+        case .success:
+            Issue.record("Expected cancellation before the loader returned.")
+        case let .failure(error as OpenAITranscriptionServiceError):
+            #expect(error == .cancelled)
+        case let .failure(error):
+            Issue.record("Expected OpenAITranscriptionServiceError.cancelled, got \(error)")
+        }
+        await transcription.value
+    }
+
     @Test func cancelledLateLoaderResponseCannotBecomeTranscript() async throws {
         let audioFileURL = try makeTemporaryAudioFile()
         defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
@@ -166,6 +210,53 @@ struct OpenAITranscriptionServiceTests {
         try await loader.waitForRequestCount(1)
         try await loader.waitForCancellation(ofRequestAt: 0)
         #expect(loader.cancellationCount(forRequestAt: 0) == 1)
+    }
+
+    @Test func timeoutCompletesBeforeNonCooperativeLoaderReturns() async throws {
+        let audioFileURL = try makeTemporaryAudioFile()
+        defer { try? FileManager.default.removeItem(at: audioFileURL.deletingLastPathComponent()) }
+
+        let loader = ControlledURLLoader(cancellationBehaviors: [.awaitResponse])
+        let sleeper = RequestStartedProviderTimeoutSleeper(loader: loader)
+        let service = makeService(
+            loader: loader,
+            sleeper: sleeper,
+            requestTimeout: 3
+        )
+        let resultProbe = AsyncOperationResultProbe<String>()
+        let lateResponse = makeHTTPResponse(statusCode: 200)
+        defer {
+            loader.resolveRequest(
+                at: 0,
+                data: Data(#"{"text":"late transcript"}"#.utf8),
+                response: lateResponse
+            )
+        }
+
+        let transcription = Task {
+            do {
+                let result = try await service.transcribe(
+                    try makeTranscriptionRequest(audioFileURL: audioFileURL),
+                    credential: testCredential()
+                )
+                resultProbe.complete(with: .success(result))
+            } catch {
+                resultProbe.complete(with: .failure(error))
+            }
+        }
+        try await loader.waitForRequestCount(1)
+
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        let result = try await resultProbe.waitForResult()
+        switch result {
+        case .success:
+            Issue.record("Expected timeout before the loader returned.")
+        case let .failure(error as OpenAITranscriptionServiceError):
+            #expect(error == .timedOut)
+        case let .failure(error):
+            Issue.record("Expected OpenAITranscriptionServiceError.timedOut, got \(error)")
+        }
+        await transcription.value
     }
 
     @Test func olderRequestCleanupCannotClearNewerRequestAndNextRequestCanSucceed() async throws {
@@ -648,7 +739,7 @@ private func makeHTTPResponse(statusCode: Int) -> HTTPURLResponse {
     )!
 }
 
-private final class FakeURLLoader: URLLoading {
+private final class FakeURLLoader: URLLoading, @unchecked Sendable {
     enum Result {
         case success(Data, URLResponse)
         case delayedSuccess(Data, URLResponse)
@@ -656,14 +747,21 @@ private final class FakeURLLoader: URLLoading {
     }
 
     private let result: Result
-    private(set) var requests: [URLRequest] = []
+    private let lock = NSLock()
+    private var storedRequests: [URLRequest] = []
+
+    var requests: [URLRequest] {
+        lock.withLock { storedRequests }
+    }
 
     init(result: Result) {
         self.result = result
     }
 
     func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
-        requests.append(request)
+        lock.withLock {
+            storedRequests.append(request)
+        }
 
         switch result {
         case let .success(data, response):
@@ -677,21 +775,28 @@ private final class FakeURLLoader: URLLoading {
     }
 }
 
-private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping {
+private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping, @unchecked Sendable {
     enum Mode {
         case waitForCancellation
         case timeoutImmediately
     }
 
     private let mode: Mode
-    private(set) var sleepCalls: [TimeInterval] = []
+    private let lock = NSLock()
+    private var storedSleepCalls: [TimeInterval] = []
+
+    var sleepCalls: [TimeInterval] {
+        lock.withLock { storedSleepCalls }
+    }
 
     init(mode: Mode = .waitForCancellation) {
         self.mode = mode
     }
 
     func sleep(seconds: TimeInterval) async throws {
-        sleepCalls.append(seconds)
+        lock.withLock {
+            storedSleepCalls.append(seconds)
+        }
 
         switch mode {
         case .waitForCancellation:
@@ -702,7 +807,7 @@ private final class FakeTimeoutSleeper: TranscriptionTimeoutSleeping {
     }
 }
 
-private final class ControlledURLLoader: URLLoading, @unchecked Sendable {
+final class ControlledURLLoader: URLLoading, @unchecked Sendable {
     enum CancellationBehavior {
         case failImmediately
         case awaitResponse
@@ -870,4 +975,45 @@ private final class ControlledURLLoader: URLLoading, @unchecked Sendable {
 
         responseContinuation?.resume(throwing: CancellationError())
     }
+}
+
+final class AsyncOperationResultProbe<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var result: Result<Value, Error>?
+
+    func complete(with result: Result<Value, Error>) {
+        lock.withLock {
+            guard self.result == nil else {
+                return
+            }
+            self.result = result
+        }
+    }
+
+    func waitForResult() async throws -> Result<Value, Error> {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while true {
+            if let result = lock.withLock({ result }) {
+                return result
+            }
+            guard clock.now < deadline else {
+                throw OpenAIProviderCancellationTestWaitError.operationDidNotFinish
+            }
+            try await clock.sleep(for: .milliseconds(1))
+        }
+    }
+}
+
+struct RequestStartedProviderTimeoutSleeper: TranscriptionTimeoutSleeping {
+    let loader: ControlledURLLoader
+
+    func sleep(seconds: TimeInterval) async throws {
+        try await loader.waitForRequestCount(1)
+    }
+}
+
+enum OpenAIProviderCancellationTestWaitError: Error {
+    case operationDidNotFinish
 }

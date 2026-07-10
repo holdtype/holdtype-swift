@@ -20,11 +20,11 @@ extension OpenAITranscriptionServing {
     func cancelActiveTranscription() {}
 }
 
-protocol URLLoading {
+protocol URLLoading: Sendable {
     func loadData(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
-protocol TranscriptionTimeoutSleeping {
+protocol TranscriptionTimeoutSleeping: Sendable {
     func sleep(seconds: TimeInterval) async throws
 }
 
@@ -92,24 +92,10 @@ struct OpenAITranscriptionService: OpenAITranscriptionServing {
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await requestTaskCoordinator.perform {
-                try await withThrowingTaskGroup(of: URLLoadResult.self) { group in
-                    group.addTask {
-                        let (data, response) = try await urlLoader.loadData(for: request)
-                        return URLLoadResult(data: data, response: response)
-                    }
-
-                    group.addTask {
-                        try await timeoutSleeper.sleep(seconds: requestTimeout)
-                        throw OpenAITranscriptionServiceError.timedOut
-                    }
-
-                    guard let result = try await group.next() else {
-                        throw OpenAITranscriptionServiceError.invalidResponse
-                    }
-
-                    group.cancelAll()
-                    return (result.data, result.response)
-                }
+                try await urlLoader.loadData(for: request)
+            } deadline: {
+                try await timeoutSleeper.sleep(seconds: requestTimeout)
+                throw OpenAITranscriptionServiceError.timedOut
             }
         } catch let error as OpenAITranscriptionServiceError {
             throw error
@@ -408,11 +394,6 @@ private extension OpenAITranscriptionRequestBuilderError {
             return "invalid_language_code"
         }
     }
-}
-
-private struct URLLoadResult {
-    let data: Data
-    let response: URLResponse
 }
 
 private struct OpenAITranscriptionResponse: Decodable {

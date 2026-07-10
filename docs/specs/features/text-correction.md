@@ -91,6 +91,9 @@ model-based correction on.
   any response that arrives later must not become accepted text.
 - Provider timeout remains distinct from user cancellation: expiry must still
   finish as a correction timeout while also stopping the in-flight transport.
+- Cancellation and timeout completion must be bounded at the provider adapter:
+  the correction call must finish without waiting for a cancelled loader to
+  cooperate, and any abandoned late completion is ignored.
 - Cancellation is safe to repeat and is a no-op when no correction is active.
   Finishing or cancelling an older request must not cancel a newer correction,
   and a later request must be able to complete independently.
@@ -175,8 +178,8 @@ usage-estimate spec before the Billing section may claim correction costs.
   case-insensitive replacement rules, and empty-output fallback.
 - OpenAI correction service tests should cover request construction, output
   parsing, timeout mapping with transport cancellation, explicit cancellation,
-  late-response rejection, independent next requests, provider error mapping,
-  and no live API calls.
+  bounded completion with a non-cooperative loader, late-response rejection,
+  independent next requests, provider error mapping, and no live API calls.
 - Runtime request tests should cover exact value preservation, all enabled and
   disabled configuration paths, `Sendable`, and the absence of a Codable
   transport contract through normal iOS import.

@@ -169,6 +169,50 @@ struct OpenAITextCorrectionServiceTests {
         service.cancelActiveCorrection()
     }
 
+    @Test func cancellationCompletesBeforeNonCooperativeLoaderReturns() async throws {
+        let loader = ControlledURLLoader(cancellationBehaviors: [.awaitResponse])
+        let service = makeService(loader: loader)
+        let transcript = try AcceptedTranscript(rawText: "transcript")
+        let credential = try testCredential()
+        let resultProbe = AsyncOperationResultProbe<String>()
+        let lateResponse = makeCorrectionHTTPResponse(statusCode: 200)
+        defer {
+            loader.resolveRequest(
+                at: 0,
+                data: Data(#"{"output_text":"late correction"}"#.utf8),
+                response: lateResponse
+            )
+        }
+
+        let correction = Task {
+            do {
+                let result = try await service.correct(
+                    transcript,
+                    configuration: .defaults,
+                    credential: credential
+                )
+                resultProbe.complete(with: .success(result))
+            } catch {
+                resultProbe.complete(with: .failure(error))
+            }
+        }
+        try await loader.waitForRequestCount(1)
+
+        service.cancelActiveCorrection()
+
+        try await loader.waitForCancellation(ofRequestAt: 0)
+        let result = try await resultProbe.waitForResult()
+        switch result {
+        case .success:
+            Issue.record("Expected cancellation before the loader returned.")
+        case let .failure(error as OpenAITextCorrectionServiceError):
+            #expect(error == .cancelled)
+        case let .failure(error):
+            Issue.record("Expected OpenAITextCorrectionServiceError.cancelled, got \(error)")
+        }
+        await correction.value
+    }
+
     @Test func lateCancelledResponseCannotPublishOrClearNewActiveRequest() async throws {
         let loader = CorrectionSequencedURLLoader(
             steps: [
@@ -304,7 +348,7 @@ private func makeCorrectionHTTPResponse(statusCode: Int) -> HTTPURLResponse {
     )!
 }
 
-private final class CorrectionFakeURLLoader: URLLoading {
+private final class CorrectionFakeURLLoader: URLLoading, @unchecked Sendable {
     enum Result {
         case success(Data, URLResponse)
         case delayedSuccess(Data, URLResponse)
@@ -312,15 +356,26 @@ private final class CorrectionFakeURLLoader: URLLoading {
     }
 
     private let result: Result
-    private(set) var requests: [URLRequest] = []
-    private(set) var cancellationCount = 0
+    private let lock = NSLock()
+    private var storedRequests: [URLRequest] = []
+    private var storedCancellationCount = 0
+
+    var requests: [URLRequest] {
+        lock.withLock { storedRequests }
+    }
+
+    var cancellationCount: Int {
+        lock.withLock { storedCancellationCount }
+    }
 
     init(result: Result) {
         self.result = result
     }
 
     func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
-        requests.append(request)
+        lock.withLock {
+            storedRequests.append(request)
+        }
 
         switch result {
         case let .success(data, response):
@@ -330,7 +385,9 @@ private final class CorrectionFakeURLLoader: URLLoading {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 return (data, response)
             } catch is CancellationError {
-                cancellationCount += 1
+                lock.withLock {
+                    storedCancellationCount += 1
+                }
                 throw CancellationError()
             }
         case let .failure(error):
@@ -405,21 +462,28 @@ private enum CorrectionTestWaitError: Error {
     case timedOutWaitingForRequestCount(Int)
 }
 
-private final class CorrectionFakeTimeoutSleeper: TranscriptionTimeoutSleeping {
+private final class CorrectionFakeTimeoutSleeper: TranscriptionTimeoutSleeping, @unchecked Sendable {
     enum Mode {
         case waitForCancellation
         case timeoutImmediately
     }
 
     private let mode: Mode
-    private(set) var sleepCalls: [TimeInterval] = []
+    private let lock = NSLock()
+    private var storedSleepCalls: [TimeInterval] = []
+
+    var sleepCalls: [TimeInterval] {
+        lock.withLock { storedSleepCalls }
+    }
 
     init(mode: Mode = .waitForCancellation) {
         self.mode = mode
     }
 
     func sleep(seconds: TimeInterval) async throws {
-        sleepCalls.append(seconds)
+        lock.withLock {
+            storedSleepCalls.append(seconds)
+        }
 
         switch mode {
         case .waitForCancellation:

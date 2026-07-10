@@ -1,6 +1,6 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap; P0 and P1 complete, P2 next; updated
+Status: active implementation roadmap; P0 and P1 complete, P2 in progress; updated
 2026-07-10.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -739,8 +739,9 @@ replacement rules stay local. Disabled correction still skips the provider;
 provider failure, empty output, or unsafe-length output still falls back to
 accepted text before cleanup, emoji matching, and ordered replacements. The
 macOS controller and adapters no longer expose all of `AppSettings` across this
-boundary. Provider-module movement, transport changes, and real cancellation
-remain P2 work.
+boundary. The provider adapter now owns real, bounded cancellation of the
+active transport and ignores abandoned late completions. Provider-module
+movement remains P2 work.
 
 `TextTranslationRequest` now narrows both containing-app translation boundaries
 to one validated `AcceptedTranscript`, one `TranslationConfiguration`, and the
@@ -755,8 +756,9 @@ provider failure or empty output cannot publish the untranslated intermediate,
 and cancellation rejects a late result without revoking accepted transcription
 usage. Final typography cleanup remains controller-owned, keeps a non-empty
 pre-cleanup fallback, and never reruns correction, emoji commands, or
-replacements. Provider-module movement, transport changes, real cancellation,
-persistence, and macOS Translation Retry remain outside this slice.
+replacements. The provider adapter now owns real, bounded cancellation of the
+active transport and ignores abandoned late completions. Provider-module
+movement, persistence, and macOS Translation Retry remain outside this slice.
 
 `TranscriptionPromptComposition` now freezes the runtime provider prompt and
 matching dictionary/context echo guards from only the resolved freeform prompt,
@@ -781,9 +783,10 @@ full `AppSettings` or loose context. Normal attempts use their captured
 settings/context snapshot; failed-attempt Retry captures current settings once,
 uses no Nearby Text, and attributes usage to the request's resolved model.
 Multipart bytes, file validation/error mapping, echo rejection, timeout,
-cancellation surface, recovery ordering, and stale-result rejection remain
-covered. File-backed upload, real cancellation, provider-module movement,
-durable request identity, and persistence remain P2 work.
+recovery ordering, and stale-result rejection remain covered. Active transport
+cancellation now completes independently of loader cooperation and preserves
+timeout classification. File-backed upload, provider-module movement, durable
+request identity, and persistence remain P2 work.
 
 `VoiceAttemptOutcome` now separates the four payload-free terminal result
 classes from active work, attempt-stage attribution, setup, and output delivery:
@@ -832,6 +835,15 @@ later milestones rather than to Domain extraction.
 
 Exit: fake-backed iOS tests prove save/load/migrate/cancel/expiry/recovery;
 normal verification makes no live provider call.
+
+Progress on 2026-07-10: the app-private versioned credential-presence marker
+foundation is implemented in `HoldTypePersistence`, and transcription,
+correction, and translation now share identity-aware, race-safe transport
+cancellation. Explicit cancellation and timeout complete without waiting for a
+non-cooperative loader; late completions cannot publish or clear a newer
+request. The transport and timeout boundaries are `Sendable`, and mutable test
+doubles are synchronized. App-only Keychain operations, marker reconciliation,
+bounded file-backed multipart upload, and provider-module extraction remain.
 
 ### P3 — Native containing-app shell
 
@@ -1022,28 +1034,28 @@ already decided by their P0 specs.
 
 ## Recommended Next Slice
 
-Do not begin P2 by porting `SettingsView`, the full legacy persistence graph, or
-every OpenAI source file at once. Start with two independent foundations and
-checkpoint them separately:
+The first two P2 foundations are complete: the non-secret marker package and
+real transport cancellation. Continue with small independent checkpoints:
 
-1. create the `HoldTypePersistence` package around the versioned, app-private,
-   non-secret credential-presence marker. Preserve missing, present, absent,
-   unknown, and in-progress mutation semantics; reject corrupt or future data
-   without overwriting it; use atomic replacement, Data Protection, and backup
-   exclusion; and prove through package and normal-import iOS tests that no key,
-   account, service name, provider payload, or keyboard/App Group state enters
-   the record. Real Keychain operations and reconciliation remain a later
-   adapter slice;
-2. make cancellation own the actual transport task in transcription,
-   correction, and translation. Cancellation is idempotent, completes the
-   active call through its existing cancelled error, rejects late responses,
-   leaves timeout classified as timeout, and does not poison a later request.
-   Keep file-backed multipart upload, provider-module movement, retries,
-   persistence, and failure-taxonomy redesign outside that checkpoint.
+1. add the app-only iOS Keychain adapter inside `HoldTypePersistence`. Freeze
+   one generic-password service/account identity, non-synchronizable storage,
+   `WhenUnlockedThisDeviceOnly`, no access group, update-before-add replacement,
+   typed locked-device failure, and idempotent removal through a fake SecItem
+   boundary. Do not add marker reconciliation or keyboard linkage in this
+   checkpoint;
+2. bootstrap `HoldTypeOpenAI` around only the portable credential value and
+   resolver contract. Keep the keyboard unlinked and keep the current provider
+   services in the app until bounded file-backed multipart preparation and
+   upload are implemented and verified without full-audio buffering;
+3. follow with serialized Keychain/cache/marker reconciliation, then the
+   bounded multipart/upload checkpoint, before moving provider services into
+   `HoldTypeOpenAI`.
 
-These lanes require no live provider, physical-device evidence, secret,
-provisioning change, or user-visible setting. They may proceed in parallel, but
-each must preserve the full macOS suite and the normal iOS simulator suite.
+These lanes require no live provider or real secret. Simulator and fake-backed
+evidence are sufficient for their checkpoint commits, while signed-device
+Keychain accessibility and extension-isolation claims remain explicit physical
+gates. Every checkpoint preserves the full macOS suite and normal iOS simulator
+suite.
 
 ## Research Basis
 

@@ -121,24 +121,10 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await requestTaskCoordinator.perform {
-                try await withThrowingTaskGroup(of: TextCorrectionURLLoadResult.self) { group in
-                    group.addTask {
-                        let (data, response) = try await urlLoader.loadData(for: request)
-                        return TextCorrectionURLLoadResult(data: data, response: response)
-                    }
-
-                    group.addTask {
-                        try await timeoutSleeper.sleep(seconds: requestTimeout)
-                        throw OpenAITextCorrectionServiceError.timedOut
-                    }
-
-                    guard let result = try await group.next() else {
-                        throw OpenAITextCorrectionServiceError.invalidResponse
-                    }
-
-                    group.cancelAll()
-                    return (result.data, result.response)
-                }
+                try await urlLoader.loadData(for: request)
+            } deadline: {
+                try await timeoutSleeper.sleep(seconds: requestTimeout)
+                throw OpenAITextCorrectionServiceError.timedOut
             }
         } catch let error as OpenAITextCorrectionServiceError {
             throw error
@@ -322,9 +308,4 @@ private struct OpenAITextCorrectionOutputItem: Decodable {
 private struct OpenAITextCorrectionOutputContent: Decodable {
     let type: String
     let text: String?
-}
-
-private struct TextCorrectionURLLoadResult {
-    let data: Data
-    let response: URLResponse
 }

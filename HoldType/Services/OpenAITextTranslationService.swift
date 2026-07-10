@@ -144,24 +144,10 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await requestTaskCoordinator.perform {
-                try await withThrowingTaskGroup(of: TextTranslationURLLoadResult.self) { group in
-                    group.addTask {
-                        let (data, response) = try await urlLoader.loadData(for: request)
-                        return TextTranslationURLLoadResult(data: data, response: response)
-                    }
-
-                    group.addTask {
-                        try await timeoutSleeper.sleep(seconds: requestTimeout)
-                        throw OpenAITextTranslationServiceError.timedOut
-                    }
-
-                    guard let result = try await group.next() else {
-                        throw OpenAITextTranslationServiceError.invalidResponse
-                    }
-
-                    group.cancelAll()
-                    return (result.data, result.response)
-                }
+                try await urlLoader.loadData(for: request)
+            } deadline: {
+                try await timeoutSleeper.sleep(seconds: requestTimeout)
+                throw OpenAITextTranslationServiceError.timedOut
             }
         } catch let error as OpenAITextTranslationServiceError {
             throw error
@@ -348,9 +334,4 @@ private struct OpenAITextTranslationOutputItem: Decodable {
 private struct OpenAITextTranslationOutputContent: Decodable {
     let type: String
     let text: String?
-}
-
-private struct TextTranslationURLLoadResult {
-    let data: Data
-    let response: URLResponse
 }

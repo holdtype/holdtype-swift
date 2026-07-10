@@ -298,6 +298,10 @@ adapter concerns; bounded file-backed upload remains required in P2.
 - Parent-task cancellation must reach the same transport task. A response that
   arrives after cancellation must be discarded before response validation or
   transcript parsing, even when a loader does not cooperate with cancellation.
+- Cancellation and timeout completion must be bounded at the provider adapter:
+  after the transport task is cancelled, the calling session must finish
+  without waiting for that loader to cooperate. Any abandoned late completion
+  is ignored.
 - Request cleanup is identity-aware: completion or cancellation of an older
   request must not clear or cancel a newer request, and a later request can
   complete independently.
@@ -385,6 +389,8 @@ adapter concerns; bounded file-backed upload remains required in P2.
 - Use controllable URLSession or service fakes rather than live OpenAI calls.
 - Test timeout behavior with an injectable delay or clock so verification stays
   bounded.
+- Test explicit cancellation with a loader that observes cancellation but does
+  not return until released; the provider call must finish before that release.
 - Test active-text context with fake Accessibility/context readers. Normal tests
   must not read live focused app contents.
 - Test usage estimate handoff with fake storage and fake transcription services.

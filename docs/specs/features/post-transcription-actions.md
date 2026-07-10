@@ -136,6 +136,9 @@ remains strict rather than adopting correction's fail-open behavior.
   later must not become accepted or delivered text.
 - Provider timeout remains distinct from user cancellation: expiry must still
   finish as a translation timeout while also stopping the in-flight transport.
+- Cancellation and timeout completion must be bounded at the provider adapter:
+  the translation call must finish without waiting for a cancelled loader to
+  cooperate, and any abandoned late completion is ignored.
 - Cancellation is safe to repeat and is a no-op when no translation is active.
   Finishing or cancelling an older request must not cancel a newer translation,
   and a later request must be able to complete independently.
@@ -206,8 +209,8 @@ usage-estimate spec before the Billing section may claim translation costs.
   transcript.
 - OpenAI translation service tests should cover request construction, output
   parsing, timeout mapping with transport cancellation, explicit cancellation,
-  late-response rejection, independent next requests, provider error mapping,
-  and no live API calls.
+  bounded completion with a non-cooperative loader, late-response rejection,
+  independent next requests, provider error mapping, and no live API calls.
 - Runtime request tests should cover exact accepted text/configuration/source
   preservation; Same as Transcription Auto, fixed/custom, and Override routes;
   `Sendable`; and the absence of a Codable transport contract through normal
