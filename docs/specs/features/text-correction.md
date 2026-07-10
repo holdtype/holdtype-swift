@@ -85,6 +85,15 @@ model-based correction on.
   the successful transcription result.
 - OpenAI correction must have an explicit timeout and must never wait
   indefinitely.
+- Cancelling an active dictation session during OpenAI correction must cancel
+  the in-flight provider transport, not only ignore its eventual result. A
+  cancelled correction must finish as cancelled at the provider boundary, and
+  any response that arrives later must not become accepted text.
+- Provider timeout remains distinct from user cancellation: expiry must still
+  finish as a correction timeout while also stopping the in-flight transport.
+- Cancellation is safe to repeat and is a no-op when no correction is active.
+  Finishing or cancelling an older request must not cancel a newer correction,
+  and a later request must be able to complete independently.
 - API keys, raw transcript text, correction prompts, replacement rules, and
   provider responses must not appear in default logs.
 - Normal tests must use fakes or fixtures and must not call the live OpenAI
@@ -122,6 +131,10 @@ cancellation remain platform-adapter concerns.
 - Invalid API key, rate limit, network failure, provider failure, timeout, or
   unreadable response should skip OpenAI correction and keep the transcription
   result.
+- Explicit cancellation follows the same correction-pipeline fail-open rule:
+  the provider adapter reports cancellation, while the correction wrapper keeps
+  the already accepted transcription unless the containing session itself has
+  been cancelled.
 - Empty correction output should be ignored.
 - Correction output that is much longer or much shorter than the transcript may
   be treated as unsafe and ignored.
@@ -161,7 +174,9 @@ usage-estimate spec before the Billing section may claim correction costs.
   ellipsis normalization, non-breaking space normalization, ordered
   case-insensitive replacement rules, and empty-output fallback.
 - OpenAI correction service tests should cover request construction, output
-  parsing, timeout mapping, provider error mapping, and no live API calls.
+  parsing, timeout mapping with transport cancellation, explicit cancellation,
+  late-response rejection, independent next requests, provider error mapping,
+  and no live API calls.
 - Runtime request tests should cover exact value preservation, all enabled and
   disabled configuration paths, `Sendable`, and the absence of a Codable
   transport contract through normal iOS import.

@@ -33,6 +33,7 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
     private let maxOutputTokens: Int
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
 
     init(
         endpointURL: URL = Self.defaultEndpointURL,
@@ -41,7 +42,8 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
         requestTimeout: TimeInterval = Self.defaultRequestTimeout,
         maxOutputTokens: Int = Self.defaultMaxOutputTokens,
         encoder: JSONEncoder = JSONEncoder(),
-        decoder: JSONDecoder = JSONDecoder()
+        decoder: JSONDecoder = JSONDecoder(),
+        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
     ) {
         self.endpointURL = endpointURL
         self.urlLoader = urlLoader
@@ -50,6 +52,7 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
         self.maxOutputTokens = max(1, maxOutputTokens)
         self.encoder = encoder
         self.decoder = decoder
+        self.requestTaskCoordinator = requestTaskCoordinator
     }
 
     func correct(
@@ -67,6 +70,10 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
         let (data, response) = try await loadWithTimeout(request)
         try validateHTTPResponse(response)
         return try parseCorrection(from: data)
+    }
+
+    func cancelActiveCorrection() {
+        requestTaskCoordinator.cancelActiveRequest()
     }
 
     private func makeAuthorizedRequest(
@@ -113,23 +120,25 @@ struct OpenAITextCorrectionService: OpenAITextCorrectionServing {
 
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await withThrowingTaskGroup(of: TextCorrectionURLLoadResult.self) { group in
-                group.addTask {
-                    let (data, response) = try await urlLoader.loadData(for: request)
-                    return TextCorrectionURLLoadResult(data: data, response: response)
-                }
+            return try await requestTaskCoordinator.perform {
+                try await withThrowingTaskGroup(of: TextCorrectionURLLoadResult.self) { group in
+                    group.addTask {
+                        let (data, response) = try await urlLoader.loadData(for: request)
+                        return TextCorrectionURLLoadResult(data: data, response: response)
+                    }
 
-                group.addTask {
-                    try await timeoutSleeper.sleep(seconds: requestTimeout)
-                    throw OpenAITextCorrectionServiceError.timedOut
-                }
+                    group.addTask {
+                        try await timeoutSleeper.sleep(seconds: requestTimeout)
+                        throw OpenAITextCorrectionServiceError.timedOut
+                    }
 
-                guard let result = try await group.next() else {
-                    throw OpenAITextCorrectionServiceError.invalidResponse
-                }
+                    guard let result = try await group.next() else {
+                        throw OpenAITextCorrectionServiceError.invalidResponse
+                    }
 
-                group.cancelAll()
-                return (result.data, result.response)
+                    group.cancelAll()
+                    return (result.data, result.response)
+                }
             }
         } catch let error as OpenAITextCorrectionServiceError {
             throw error

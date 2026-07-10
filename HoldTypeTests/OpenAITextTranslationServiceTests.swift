@@ -155,7 +155,90 @@ struct OpenAITextTranslationServiceTests {
         }
 
         #expect(loader.requests.count == 1)
+        #expect(loader.cancellationCount == 1)
         #expect(sleeper.sleepCalls == [2])
+    }
+
+    @Test func cancellationStopsTransportAndNextRequestSucceedsIndependently() async throws {
+        let loader = TranslationSequencedURLLoader(
+            steps: [
+                .waitForCancellation,
+                .success(
+                    Data(#"{"output_text":"fresh translation"}"#.utf8),
+                    makeTranslationHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let service = makeService(loader: loader)
+        let request = try configuredTranslationRequest("transcript")
+        let credential = try testCredential()
+
+        service.cancelActiveTranslation()
+        let cancelledTask = Task {
+            try await service.translate(
+                request,
+                credential: credential
+            )
+        }
+        try await loader.waitForRequestCount(1)
+
+        service.cancelActiveTranslation()
+        service.cancelActiveTranslation()
+
+        await expectTranslationError(.cancelled) {
+            try await cancelledTask.value
+        }
+        #expect(await loader.observedCancellationCount() == 1)
+
+        let translation = try await service.translate(
+            request,
+            credential: credential
+        )
+        #expect(translation == "fresh translation")
+
+        service.cancelActiveTranslation()
+    }
+
+    @Test func lateCancelledResponseCannotPublishOrClearNewActiveRequest() async throws {
+        let loader = TranslationSequencedURLLoader(
+            steps: [
+                .lateSuccessAfterCancellation(
+                    Data(#"{"output_text":"late translation"}"#.utf8),
+                    makeTranslationHTTPResponse(statusCode: 200)
+                ),
+                .waitForCancellation,
+            ]
+        )
+        let service = makeService(loader: loader)
+        let request = try configuredTranslationRequest("transcript")
+        let credential = try testCredential()
+
+        let oldTask = Task {
+            try await service.translate(
+                request,
+                credential: credential
+            )
+        }
+        try await loader.waitForRequestCount(1)
+
+        let newTask = Task {
+            try await service.translate(
+                request,
+                credential: credential
+            )
+        }
+        try await loader.waitForRequestCount(2)
+
+        await expectTranslationError(.cancelled) {
+            try await oldTask.value
+        }
+
+        service.cancelActiveTranslation()
+
+        await expectTranslationError(.cancelled) {
+            try await newTask.value
+        }
+        #expect(await loader.observedCancellationCount() == 2)
     }
 
     @Test func invalidProviderResponseIsRejected() async throws {
@@ -252,7 +335,7 @@ struct OpenAITextTranslationServiceTests {
     }
 
     private func makeService(
-        loader: TranslationFakeURLLoader,
+        loader: any URLLoading,
         sleeper: TranslationFakeTimeoutSleeper = TranslationFakeTimeoutSleeper(),
         requestTimeout: TimeInterval = 5
     ) -> OpenAITextTranslationService {
@@ -316,6 +399,7 @@ private final class TranslationFakeURLLoader: URLLoading {
 
     private let result: Result
     private(set) var requests: [URLRequest] = []
+    private(set) var cancellationCount = 0
 
     init(result: Result) {
         self.result = result
@@ -328,12 +412,83 @@ private final class TranslationFakeURLLoader: URLLoading {
         case let .success(data, response):
             return (data, response)
         case let .delayedSuccess(data, response):
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            return (data, response)
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                return (data, response)
+            } catch is CancellationError {
+                cancellationCount += 1
+                throw CancellationError()
+            }
         case let .failure(error):
             throw error
         }
     }
+}
+
+private actor TranslationSequencedURLLoader: URLLoading {
+    enum Step {
+        case success(Data, URLResponse)
+        case waitForCancellation
+        case lateSuccessAfterCancellation(Data, URLResponse)
+    }
+
+    private let steps: [Step]
+    private var requestCount = 0
+    private var cancellationCount = 0
+
+    init(steps: [Step]) {
+        self.steps = steps
+    }
+
+    func loadData(for _: URLRequest) async throws -> (Data, URLResponse) {
+        let index = requestCount
+        requestCount += 1
+
+        guard steps.indices.contains(index) else {
+            throw URLError(.badServerResponse)
+        }
+
+        switch steps[index] {
+        case let .success(data, response):
+            return (data, response)
+        case .waitForCancellation:
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                throw URLError(.timedOut)
+            } catch is CancellationError {
+                cancellationCount += 1
+                throw CancellationError()
+            }
+        case let .lateSuccessAfterCancellation(data, response):
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            } catch is CancellationError {
+                cancellationCount += 1
+            }
+            return (data, response)
+        }
+    }
+
+    func waitForRequestCount(_ expectedCount: Int) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while requestCount < expectedCount, clock.now < deadline {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+
+        guard requestCount >= expectedCount else {
+            throw TranslationTestWaitError.timedOutWaitingForRequestCount(expectedCount)
+        }
+    }
+
+    func observedCancellationCount() -> Int {
+        cancellationCount
+    }
+}
+
+private enum TranslationTestWaitError: Error {
+    case timedOutWaitingForRequestCount(Int)
 }
 
 private final class TranslationFakeTimeoutSleeper: TranscriptionTimeoutSleeping {

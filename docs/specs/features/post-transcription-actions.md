@@ -130,6 +130,15 @@ remains strict rather than adopting correction's fail-open behavior.
   transcript as if the special translation action succeeded.
 - The translation request must have an explicit timeout and must never wait
   indefinitely.
+- Cancelling an active dictation session during translation must cancel the
+  in-flight provider transport, not only ignore its eventual result. The
+  translation call must finish as cancelled, and any response that arrives
+  later must not become accepted or delivered text.
+- Provider timeout remains distinct from user cancellation: expiry must still
+  finish as a translation timeout while also stopping the in-flight transport.
+- Cancellation is safe to repeat and is a no-op when no translation is active.
+  Finishing or cancelling an older request must not cancel a newer translation,
+  and a later request must be able to complete independently.
 - API keys, raw transcript text, translation prompts, and provider responses
   must not appear in default logs.
 - Normal tests must use fakes or fixtures and must not call the live OpenAI API.
@@ -139,6 +148,9 @@ remains strict rather than adopting correction's fail-open behavior.
 - Missing API key, invalid API key, rate limit, network failure, provider
   failure, timeout, unreadable response, or empty translation should fail the
   current translation-mode session visibly.
+- Explicit translation cancellation remains strict rather than fail-open: the
+  cancelled translation must not fall back to accepting or delivering the
+  untranslated transcript.
 - If translation fails, the previous Last Transcript remains intact and no
   output delivery or recovery-history write occurs for the failed session.
 - If text correction fails before translation, correction follows its existing
@@ -193,7 +205,9 @@ usage-estimate spec before the Billing section may claim translation costs.
   replacement rules, and translation failure preserving the previous accepted
   transcript.
 - OpenAI translation service tests should cover request construction, output
-  parsing, timeout mapping, provider error mapping, and no live API calls.
+  parsing, timeout mapping with transport cancellation, explicit cancellation,
+  late-response rejection, independent next requests, provider error mapping,
+  and no live API calls.
 - Runtime request tests should cover exact accepted text/configuration/source
   preservation; Same as Transcription Auto, fixed/custom, and Override routes;
   `Sendable`; and the absence of a Codable transport contract through normal

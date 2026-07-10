@@ -31,6 +31,7 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
     private let maxOutputTokens: Int
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
 
     init(
         endpointURL: URL = Self.defaultEndpointURL,
@@ -39,7 +40,8 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
         requestTimeout: TimeInterval = Self.defaultRequestTimeout,
         maxOutputTokens: Int = Self.defaultMaxOutputTokens,
         encoder: JSONEncoder = JSONEncoder(),
-        decoder: JSONDecoder = JSONDecoder()
+        decoder: JSONDecoder = JSONDecoder(),
+        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
     ) {
         self.endpointURL = endpointURL
         self.urlLoader = urlLoader
@@ -48,6 +50,7 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
         self.maxOutputTokens = max(1, maxOutputTokens)
         self.encoder = encoder
         self.decoder = decoder
+        self.requestTaskCoordinator = requestTaskCoordinator
     }
 
     func translate(
@@ -63,6 +66,10 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
         let (data, response) = try await loadWithTimeout(urlRequest)
         try validateHTTPResponse(response)
         return try parseTranslation(from: data)
+    }
+
+    func cancelActiveTranslation() {
+        requestTaskCoordinator.cancelActiveRequest()
     }
 
     private func makeAuthorizedRequest(
@@ -136,23 +143,25 @@ struct OpenAITextTranslationService: OpenAITextTranslationServing {
 
     private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await withThrowingTaskGroup(of: TextTranslationURLLoadResult.self) { group in
-                group.addTask {
-                    let (data, response) = try await urlLoader.loadData(for: request)
-                    return TextTranslationURLLoadResult(data: data, response: response)
-                }
+            return try await requestTaskCoordinator.perform {
+                try await withThrowingTaskGroup(of: TextTranslationURLLoadResult.self) { group in
+                    group.addTask {
+                        let (data, response) = try await urlLoader.loadData(for: request)
+                        return TextTranslationURLLoadResult(data: data, response: response)
+                    }
 
-                group.addTask {
-                    try await timeoutSleeper.sleep(seconds: requestTimeout)
-                    throw OpenAITextTranslationServiceError.timedOut
-                }
+                    group.addTask {
+                        try await timeoutSleeper.sleep(seconds: requestTimeout)
+                        throw OpenAITextTranslationServiceError.timedOut
+                    }
 
-                guard let result = try await group.next() else {
-                    throw OpenAITextTranslationServiceError.invalidResponse
-                }
+                    guard let result = try await group.next() else {
+                        throw OpenAITextTranslationServiceError.invalidResponse
+                    }
 
-                group.cancelAll()
-                return (result.data, result.response)
+                    group.cancelAll()
+                    return (result.data, result.response)
+                }
             }
         } catch let error as OpenAITextTranslationServiceError {
             throw error
