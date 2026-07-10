@@ -62,6 +62,17 @@ WRITE_RELEASE_NOTES_SCRIPT = ROOT / "scripts" / "release" / "write_release_notes
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 PAGES_WORKFLOW = ROOT / ".github" / "workflows" / "pages.yml"
 DIGITALOCEAN_APP_SPEC = ROOT / ".do" / "app.yaml"
+PUBLIC_SITE_LOCALE_DIRECTORIES = (
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "ja",
+    "ko",
+    "pt-br",
+    "ru",
+    "zh-hans",
+)
 
 
 def load_preflight_module():
@@ -98,6 +109,124 @@ def load_digitalocean_publish_module():
     sys.modules["publish_digitalocean"] = module
     spec.loader.exec_module(module)
     return module
+
+
+def load_prepare_pages_artifact_module():
+    spec = importlib.util.spec_from_file_location(
+        "prepare_pages_artifact",
+        PREPARE_PAGES_ARTIFACT_SCRIPT,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("could not load Pages artifact module")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["prepare_pages_artifact"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def write_fake_site_builder(website: Path, *, mode: str = "success") -> None:
+    website.mkdir(parents=True, exist_ok=True)
+    (website / "build_site.py").write_text(
+        f'''#!/usr/bin/env python3
+import argparse
+import sys
+from pathlib import Path
+
+MODE = {mode!r}
+LOCALES = {PUBLIC_SITE_LOCALE_DIRECTORIES!r}
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--output-dir", required=True)
+arguments = parser.parse_args()
+
+if MODE == "failure":
+    print("intentional builder failure", file=sys.stderr)
+    raise SystemExit(17)
+
+output = Path(arguments.output_dir)
+output.mkdir(parents=True, exist_ok=True)
+files = {{
+    "index.html": "<title>HoldType</title>\\n",
+    "styles.css": "body {{ color: black; }}\\n",
+    "script.js": "document.body.dataset.ready = 'true';\\n",
+    "sitemap.xml": "<urlset />\\n",
+    "robots.txt": "User-agent: *\\nAllow: /\\n",
+}}
+for filename, content in files.items():
+    (output / filename).write_text(content)
+
+assets = output / "assets"
+assets.mkdir()
+(assets / "app-icon.png").write_bytes(b"png")
+
+for locale in LOCALES:
+    if MODE == "missing_locale" and locale == "ru":
+        continue
+    locale_dir = output / locale
+    locale_dir.mkdir()
+    (locale_dir / "index.html").write_text(
+        f'<html lang="{{locale}}"><title>HoldType</title></html>\\n'
+    )
+
+if MODE == "unexpected_path":
+    (output / "README.md").write_text("not public\\n")
+elif MODE == "generated_appcast":
+    (output / "appcast.xml").write_text("builder-owned\\n")
+elif MODE == "symlink":
+    (assets / "private-link").symlink_to("/tmp/holdtype-private")
+'''
+    )
+
+
+def write_single_release_appcast(path: Path, *, version: str = "1.0.3") -> None:
+    path.write_text(
+        f'''<?xml version="1.0"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <item>
+      <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://holdtype.github.io/holdtype-swift/HoldType-{version}.md</sparkle:releaseNotesLink>
+    </item>
+  </channel>
+</rss>
+'''
+    )
+
+
+def run_pages_artifact_fixture(
+    *,
+    website: Path,
+    appcast: Path,
+    output: Path,
+    notes: Path,
+    version: str = "1.0.3",
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            str(PREPARE_PAGES_ARTIFACT_SCRIPT),
+            "--website-dir",
+            str(website),
+            "--appcast",
+            str(appcast),
+            "--output-dir",
+            str(output),
+            "--repository",
+            "holdtype/holdtype-swift",
+            "--pages-base-url",
+            "https://holdtype.github.io/holdtype-swift/",
+            "--current-version",
+            version,
+            "--current-release-notes",
+            str(notes),
+            "--timeout",
+            "5",
+        ],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
 
 
 def load_github_setup_module():
@@ -196,6 +325,19 @@ class ReleaseScriptsTests(unittest.TestCase):
 
         self.assertEqual(settings["ENABLE_HARDENED_RUNTIME"], "YES")
         self.assertEqual(settings["MACOSX_DEPLOYMENT_TARGET"], "14.0")
+
+    def test_pages_artifact_builder_contract_is_bounded_and_preflighted(self) -> None:
+        preflight = load_preflight_module()
+        pages_artifact = load_prepare_pages_artifact_module()
+
+        self.assertIn("website/build_site.py", preflight.REQUIRED_PATHS)
+        self.assertIn("website/i18n/locales.json", preflight.REQUIRED_PATHS)
+        self.assertIn("website/i18n/zh-Hans.json", preflight.REQUIRED_PATHS)
+        self.assertEqual(pages_artifact.SITE_BUILD_TIMEOUT_SECONDS, 60)
+        self.assertEqual(
+            pages_artifact.PUBLIC_LOCALE_DIRECTORIES,
+            PUBLIC_SITE_LOCALE_DIRECTORIES,
+        )
 
     def test_secret_preflight_fails_only_when_required(self) -> None:
         module = load_preflight_module()
@@ -472,6 +614,7 @@ end
                 website = temp_path / "website"
                 assets = website / "assets"
                 assets.mkdir(parents=True)
+                write_fake_site_builder(website)
                 (website / "index.html").write_text("<title>HoldType</title>\n")
                 (website / "styles.css").write_text("body { color: black; }\n")
                 (website / "script.js").write_text("document.body.dataset.ready = 'true';\n")
@@ -538,12 +681,81 @@ end
                 )
                 self.assertTrue((output / ".nojekyll").is_file())
                 self.assertTrue((output / "assets" / "app-icon.png").is_file())
+                self.assertTrue((output / "sitemap.xml").is_file())
+                self.assertTrue((output / "robots.txt").is_file())
+                for locale in PUBLIC_SITE_LOCALE_DIRECTORIES:
+                    self.assertTrue((output / locale / "index.html").is_file())
                 self.assertFalse((output / "README.md").exists())
                 self.assertFalse((output / "design-qa.md").exists())
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def assert_pages_builder_rejected(
+        self,
+        *,
+        mode: str,
+        expected_error: str,
+        builder_owned_appcast: bool = False,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            website = temp_path / "website"
+            write_fake_site_builder(website, mode=mode)
+            appcast = temp_path / "appcast.xml"
+            write_single_release_appcast(appcast)
+            notes = temp_path / "current.md"
+            notes.write_text("# HoldType 1.0.3\n\nCurrent stable release.\n")
+            output = temp_path / "public"
+
+            result = run_pages_artifact_fixture(
+                website=website,
+                appcast=appcast,
+                output=output,
+                notes=notes,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(expected_error, result.stderr)
+            if builder_owned_appcast:
+                self.assertEqual((output / "appcast.xml").read_text(), "builder-owned\n")
+            else:
+                self.assertFalse((output / "appcast.xml").exists())
+            self.assertFalse((output / "HoldType-1.0.3.md").exists())
+
+    def test_prepare_pages_artifact_rejects_unexpected_generated_path(self) -> None:
+        self.assert_pages_builder_rejected(
+            mode="unexpected_path",
+            expected_error="generated site contains unexpected public path(s): README.md",
+        )
+
+    def test_prepare_pages_artifact_rejects_missing_locale(self) -> None:
+        self.assert_pages_builder_rejected(
+            mode="missing_locale",
+            expected_error="generated site is missing required public path(s): ru",
+        )
+
+    def test_prepare_pages_artifact_rejects_generated_appcast(self) -> None:
+        self.assert_pages_builder_rejected(
+            mode="generated_appcast",
+            expected_error="website builder must not write Sparkle-owned path(s): appcast.xml",
+            builder_owned_appcast=True,
+        )
+
+    def test_prepare_pages_artifact_rejects_generated_symlink(self) -> None:
+        self.assert_pages_builder_rejected(
+            mode="symlink",
+            expected_error="public site path must not contain symlinks",
+        )
+
+    def test_prepare_pages_artifact_stops_when_builder_fails(self) -> None:
+        self.assert_pages_builder_rejected(
+            mode="failure",
+            expected_error=(
+                "website builder failed with exit code 17: intentional builder failure"
+            ),
+        )
 
     def test_pages_workflows_publish_one_complete_serialized_artifact(self) -> None:
         release_workflow = RELEASE_WORKFLOW.read_text()
@@ -613,8 +825,9 @@ end
         self.assertIn("deploy_on_push: true", app_spec)
         self.assertIn("source_dir: /website", app_spec)
         self.assertIn("output_dir: public", app_spec)
-        self.assertIn("cp index.html styles.css script.js public/", app_spec)
-        self.assertIn("cp -R assets public/assets", app_spec)
+        self.assertIn("rm -rf public", app_spec)
+        self.assertIn("python3 build_site.py --output-dir public", app_spec)
+        self.assertNotIn("cp index.html", app_spec)
         self.assertNotIn("README.md", app_spec)
         self.assertNotIn("design-qa.md", app_spec)
         self.assertNotIn("token", app_spec.lower())

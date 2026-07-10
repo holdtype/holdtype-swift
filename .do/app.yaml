@@ -40,8 +40,6 @@ static_sites:
     build_command: |
       set -eu
       rm -rf public
-      mkdir -p public
-      cp index.html styles.css script.js public/
-      cp -R assets public/assets
+      python3 build_site.py --output-dir public
     output_dir: public
     index_document: index.html

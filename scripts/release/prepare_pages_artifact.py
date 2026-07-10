@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -17,7 +18,25 @@ from pathlib import Path
 
 
 APP_NAME = "HoldType"
-PUBLIC_WEBSITE_FILES = ("index.html", "styles.css", "script.js")
+PUBLIC_WEBSITE_FILES = (
+    "index.html",
+    "styles.css",
+    "script.js",
+    "sitemap.xml",
+    "robots.txt",
+)
+PUBLIC_LOCALE_DIRECTORIES = (
+    "ar",
+    "de",
+    "es",
+    "fr",
+    "ja",
+    "ko",
+    "pt-br",
+    "ru",
+    "zh-hans",
+)
+SITE_BUILD_TIMEOUT_SECONDS = 60
 NOTES_FILENAME_PATTERN = re.compile(
     r"^HoldType-(?P<version>[0-9][0-9A-Za-z.-]*)\.md$"
 )
@@ -162,13 +181,123 @@ def validate_release_notes(text: str, *, version: str) -> str:
 
 def reject_symlinks(path: Path) -> None:
     if path.is_symlink():
-        raise PagesArtifactError(f"public website source must not be a symlink: {path}")
+        raise PagesArtifactError(f"public site path must not be a symlink: {path}")
     if path.is_dir():
         for descendant in path.rglob("*"):
             if descendant.is_symlink():
                 raise PagesArtifactError(
-                    f"public website source must not contain symlinks: {descendant}"
+                    f"public site path must not contain symlinks: {descendant}"
                 )
+
+
+def run_site_builder(*, website_dir: Path, output_dir: Path) -> None:
+    builder = website_dir / "build_site.py"
+    if not builder.is_file():
+        raise PagesArtifactError(f"website builder not found: {builder}")
+    reject_symlinks(builder)
+
+    command = [
+        sys.executable,
+        str(builder.resolve()),
+        "--output-dir",
+        str(output_dir.resolve()),
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            cwd=website_dir,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=SITE_BUILD_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise PagesArtifactError(
+            f"website builder timed out after {SITE_BUILD_TIMEOUT_SECONDS} seconds"
+        ) from error
+
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        if detail:
+            detail = detail.splitlines()[-1]
+        else:
+            detail = "no diagnostic output"
+        raise PagesArtifactError(
+            f"website builder failed with exit code {result.returncode}: {detail}"
+        )
+
+
+def validate_generated_site(output_dir: Path) -> list[Path]:
+    if not output_dir.is_dir():
+        raise PagesArtifactError(f"website builder did not create output directory: {output_dir}")
+    reject_symlinks(output_dir)
+
+    expected_root_names = {
+        *PUBLIC_WEBSITE_FILES,
+        "assets",
+        *PUBLIC_LOCALE_DIRECTORIES,
+    }
+    actual_root_names = {path.name for path in output_dir.iterdir()}
+    missing = sorted(expected_root_names - actual_root_names)
+    if missing:
+        raise PagesArtifactError(
+            "generated site is missing required public path(s): " + ", ".join(missing)
+        )
+
+    unexpected = sorted(actual_root_names - expected_root_names)
+    sparkle_owned = [
+        name
+        for name in unexpected
+        if name in {"appcast.xml", ".nojekyll"}
+        or NOTES_FILENAME_PATTERN.fullmatch(name) is not None
+    ]
+    if sparkle_owned:
+        raise PagesArtifactError(
+            "website builder must not write Sparkle-owned path(s): "
+            + ", ".join(sparkle_owned)
+        )
+    if unexpected:
+        raise PagesArtifactError(
+            "generated site contains unexpected public path(s): " + ", ".join(unexpected)
+        )
+
+    written: list[Path] = []
+    for filename in PUBLIC_WEBSITE_FILES:
+        path = output_dir / filename
+        if not path.is_file():
+            raise PagesArtifactError(f"generated public path is not a file: {path}")
+        written.append(path)
+
+    assets = output_dir / "assets"
+    if not assets.is_dir():
+        raise PagesArtifactError(f"generated assets path is not a directory: {assets}")
+    for descendant in assets.rglob("*"):
+        if descendant.is_dir():
+            continue
+        if not descendant.is_file():
+            raise PagesArtifactError(
+                f"generated assets path is not a regular file: {descendant}"
+            )
+        written.append(descendant)
+
+    for locale in PUBLIC_LOCALE_DIRECTORIES:
+        locale_dir = output_dir / locale
+        if not locale_dir.is_dir():
+            raise PagesArtifactError(
+                f"generated locale path is not a directory: {locale_dir}"
+            )
+        locale_entries = {path.name for path in locale_dir.iterdir()}
+        if locale_entries != {"index.html"}:
+            raise PagesArtifactError(
+                f"generated locale directory must contain only index.html: {locale_dir}"
+            )
+        index = locale_dir / "index.html"
+        if not index.is_file():
+            raise PagesArtifactError(f"generated locale index is not a file: {index}")
+        written.append(index)
+
+    return sorted(written)
 
 
 def prepare_artifact(
@@ -203,24 +332,8 @@ def prepare_artifact(
 
     targets = release_note_targets(appcast_path, pages_base_url=pages_base_url)
     output_dir.mkdir(parents=True, exist_ok=True)
-    written: list[Path] = []
-
-    for filename in PUBLIC_WEBSITE_FILES:
-        source = website_dir / filename
-        if not source.is_file():
-            raise PagesArtifactError(f"public website file not found: {source}")
-        reject_symlinks(source)
-        destination = output_dir / filename
-        shutil.copy2(source, destination)
-        written.append(destination)
-
-    assets_source = website_dir / "assets"
-    if not assets_source.is_dir():
-        raise PagesArtifactError(f"website assets directory not found: {assets_source}")
-    reject_symlinks(assets_source)
-    assets_destination = output_dir / "assets"
-    shutil.copytree(assets_source, assets_destination)
-    written.extend(path for path in assets_destination.rglob("*") if path.is_file())
+    run_site_builder(website_dir=website_dir, output_dir=output_dir)
+    written = validate_generated_site(output_dir)
 
     appcast_destination = output_dir / "appcast.xml"
     shutil.copy2(appcast_path, appcast_destination)
