@@ -21,6 +21,20 @@ protocol IOSFailedHistoryJournalStoring: Sendable {
     func performStagingMaintenance(
         now: Date
     ) throws -> IOSStrictProtectedRecordMaintenanceReport
+    func performStagingMaintenance(
+        now: Date,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport
+}
+
+extension IOSFailedHistoryJournalStoring {
+    func performStagingMaintenance(
+        now: Date,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport {
+        _ = expectedRepositoryRoot
+        return try performStagingMaintenance(now: now)
+    }
 }
 
 enum IOSFailedHistoryJournal {
@@ -31,17 +45,32 @@ struct FoundationIOSFailedHistoryJournalRepository:
     IOSFailedHistoryJournalStoring,
     Sendable {
     private let fileSystem: any IOSStrictProtectedRecordFileSystem
-    private let stagingMaintenance: @Sendable (Date) throws
+    private let stagingMaintenance: @Sendable (
+        Date,
+        IOSPersistenceRepositoryRootIdentity?
+    ) throws
         -> IOSStrictProtectedRecordMaintenanceReport
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
+    ) {
         let fileSystem = FoundationIOSStrictProtectedRecordFileSystem(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            configuration: .failedHistory
+            configuration: .failedHistory,
+            expectedRepositoryRoot:
+                repositoryGuard?.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard?.invalidate()
+            }
         )
         self.fileSystem = fileSystem
-        stagingMaintenance = { now in
-            try fileSystem.removeAbandonedTemporaryFiles(now: now)
+        stagingMaintenance = { now, expectedRepositoryRoot in
+            try fileSystem.removeAbandonedTemporaryFiles(
+                now: now,
+                expectedRepositoryRoot: expectedRepositoryRoot
+            )
         }
     }
 
@@ -51,7 +80,9 @@ struct FoundationIOSFailedHistoryJournalRepository:
             -> IOSStrictProtectedRecordMaintenanceReport = { _ in .empty }
     ) {
         self.fileSystem = fileSystem
-        self.stagingMaintenance = stagingMaintenance
+        self.stagingMaintenance = { now, _ in
+            try stagingMaintenance(now)
+        }
     }
 
     func load() throws -> IOSFailedHistoryJournalSnapshot? {
@@ -69,7 +100,11 @@ struct FoundationIOSFailedHistoryJournalRepository:
         _ = authorization
         let data = try IOSFailedHistoryWireCodec.encode(envelope)
         do {
-            let revision = try fileSystem.createFile(with: data)
+            let revision = try fileSystem.createFile(
+                with: data,
+                expectedRepositoryRoot:
+                    authorization.expectedRepositoryRoot
+            )
             return IOSFailedHistoryJournalSnapshot(
                 envelope: envelope,
                 fileRevision: revision
@@ -78,6 +113,8 @@ struct FoundationIOSFailedHistoryJournalRepository:
             throw IOSFailedHistoryError.slotOccupied
         } catch IOSStrictProtectedRecordFileSystemError.protectedDataUnavailable {
             throw IOSFailedHistoryError.dataProtectionUnavailable
+        } catch IOSStrictProtectedRecordFileSystemError.repositoryIdentityConflict {
+            throw IOSFailedHistoryError.repositoryIdentityConflict
         } catch IOSStrictProtectedRecordFileSystemError.commitUncertain {
             throw IOSFailedHistoryError.commitUncertain
         } catch {
@@ -95,7 +132,9 @@ struct FoundationIOSFailedHistoryJournalRepository:
         do {
             let revision = try fileSystem.replaceFile(
                 with: data,
-                expected: expected.fileRevision
+                expected: expected.fileRevision,
+                expectedRepositoryRoot:
+                    authorization.expectedRepositoryRoot
             )
             return IOSFailedHistoryJournalSnapshot(
                 envelope: envelope,
@@ -106,6 +145,8 @@ struct FoundationIOSFailedHistoryJournalRepository:
             throw IOSFailedHistoryError.compareAndSwapFailed
         } catch IOSStrictProtectedRecordFileSystemError.protectedDataUnavailable {
             throw IOSFailedHistoryError.dataProtectionUnavailable
+        } catch IOSStrictProtectedRecordFileSystemError.repositoryIdentityConflict {
+            throw IOSFailedHistoryError.repositoryIdentityConflict
         } catch IOSStrictProtectedRecordFileSystemError.commitUncertain {
             throw IOSFailedHistoryError.commitUncertain
         } catch {
@@ -116,10 +157,22 @@ struct FoundationIOSFailedHistoryJournalRepository:
     func performStagingMaintenance(
         now: Date
     ) throws -> IOSStrictProtectedRecordMaintenanceReport {
+        try performStagingMaintenance(
+            now: now,
+            expectedRepositoryRoot: nil
+        )
+    }
+
+    func performStagingMaintenance(
+        now: Date,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport {
         do {
-            return try stagingMaintenance(now)
+            return try stagingMaintenance(now, expectedRepositoryRoot)
         } catch IOSStrictProtectedRecordFileSystemError.protectedDataUnavailable {
             throw IOSFailedHistoryError.dataProtectionUnavailable
+        } catch IOSStrictProtectedRecordFileSystemError.repositoryIdentityConflict {
+            throw IOSFailedHistoryError.repositoryIdentityConflict
         } catch {
             throw IOSFailedHistoryError.maintenanceFailed
         }
@@ -132,6 +185,8 @@ struct FoundationIOSFailedHistoryJournalRepository:
             throw IOSFailedHistoryError.sourceTooLarge
         } catch IOSStrictProtectedRecordFileSystemError.protectedDataUnavailable {
             throw IOSFailedHistoryError.dataProtectionUnavailable
+        } catch IOSStrictProtectedRecordFileSystemError.repositoryIdentityConflict {
+            throw IOSFailedHistoryError.repositoryIdentityConflict
         } catch {
             throw IOSFailedHistoryError.readFailed
         }

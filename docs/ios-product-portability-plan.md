@@ -1088,10 +1088,25 @@ C4.1 is complete. The strict app-private failed root now has bounded values,
 deterministic row and tombstone order, a protected 1-MiB journal, physical CAS,
 root-shared guarded-baseline evidence, and no public or keyboard surface. Its
 final gate is recorded in
-`docs/qa/runs/ios-failed-history-foundation-2026-07-11.md`. C4.2 is the next
-checkpoint and is split into C4.2A capability/root-gate foundations, C4.2B
-row-first PendingRecording transfer and relaunch reconciliation, and C4.2C
-exact audio inventory, retention, Delete, tombstone cleanup, and final QA.
+`docs/qa/runs/ios-failed-history-foundation-2026-07-11.md`.
+
+C4.2A is complete. The canonical physical root now owns one operation gate,
+Pending owner registry, failed-mutation interlock, media-validation worker gate,
+and coordinated store set.
+Failed mutations are bound to exact store/owner/root/active-lease/source/outcome
+capabilities; uncertainty blocks every same-root owner; and expected
+device/inode authority is consumed inside descriptor-relative journal and audio
+operations before any side effect. Media validation and the one-shot provider
+handoff retain the exact opened audio descriptor; the public executor receives
+only bounded offset reads and never an app-private URL. Root replacement between
+outer validation and repository open writes no destination bytes. Final
+evidence lives in
+`docs/qa/runs/ios-failed-history-capability-foundation-2026-07-11.md`. C4.2B
+is the next checkpoint: row-first PendingRecording transfer, metadata-only
+journal retirement, exact absence proof, and provider-free relaunch
+reconciliation.
+C4.2C then adds exact audio inventory, retention, Delete, tombstone cleanup,
+and final C4.2 QA.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1310,11 +1325,12 @@ or advances its generation. This checkpoint does not mutate Latest Result,
 bridge publication, provider work, or keyboard/App Group state. Its final gate
 record is `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`.
 
-The C4.0 contract for bounded failed History and retry audio is frozen, and the
-C4.1 strict values/journal/store foundation is complete. The next P2 checkpoint
-is C4.2A physical-root gate unification, sealed transfer/cleanup capabilities,
-and exact failed-root mutation handling. C4.2B and C4.2C then complete row-first
-PendingRecording transfer, protected-audio inventory, retention, Delete, and
+The C4.0 contract for bounded failed History and retry audio is frozen; C4.1
+strict values/journal/store and C4.2A physical-root gate, capability, exact
+mutation, and uncertainty foundations are complete. The next P2 checkpoint is
+C4.2B row-first PendingRecording ownership transfer, metadata-only journal
+retirement, exact absence proof, and provider-free relaunch reconciliation.
+C4.2C then completes protected-audio inventory, retention, Delete, and
 tombstone cleanup; C4.3 through C4.5 join policy
 cutover, explicit Retry, provider-free recovery, and the public redacted app
 boundary. The independent recording-cache and directional App Group bridge

@@ -34,10 +34,19 @@ struct FoundationIOSAcceptedHistoryJournalRepository:
     private let stagingMaintenance: @Sendable (Date) throws
         -> IOSStrictProtectedRecordMaintenanceReport
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
+    ) {
         let fileSystem = FoundationIOSStrictProtectedRecordFileSystem(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            configuration: .acceptedHistory
+            configuration: .acceptedHistory,
+            expectedRepositoryRoot:
+                repositoryGuard?.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard?.invalidate()
+            }
         )
         self.fileSystem = fileSystem
         stagingMaintenance = { now in

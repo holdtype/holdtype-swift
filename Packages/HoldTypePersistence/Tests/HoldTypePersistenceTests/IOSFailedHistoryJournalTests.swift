@@ -376,6 +376,53 @@ struct IOSFailedHistoryJournalTests {
         }
     }
 
+    @Test func wireRejectsAndPreservesTwoPendingRetirementRows() throws {
+        func encodedRow(index: Int) throws -> [String: Any] {
+            let envelope = try IOSFailedHistoryEnvelope(
+                revision: 1,
+                entries: [
+                    try failedHistoryTestEntry(
+                        index: index,
+                        ownershipState: .pendingJournalRetirement
+                    ),
+                ],
+                audioCleanup: []
+            )
+            let root = try #require(
+                JSONSerialization.jsonObject(
+                    with: IOSFailedHistoryWireCodec.encode(envelope)
+                ) as? [String: Any]
+            )
+            return try #require(
+                (root["entries"] as? [[String: Any]])?.first
+            )
+        }
+
+        let rawRoot: [String: Any] = [
+            "schemaVersion": 1,
+            "revision": 1,
+            "entries": [try encodedRow(index: 2), try encodedRow(index: 1)],
+            "audioCleanup": [],
+        ]
+        let raw = try JSONSerialization.data(
+            withJSONObject: rawRoot,
+            options: [.sortedKeys]
+        )
+        #expect(throws: IOSFailedHistoryError.invalidRecord) {
+            _ = try IOSFailedHistoryWireCodec.decode(raw)
+        }
+
+        let fileSystem = FailedHistoryFakeFileSystem()
+        fileSystem.install(raw)
+        let repository = FoundationIOSFailedHistoryJournalRepository(
+            fileSystem: fileSystem
+        )
+        #expect(throws: IOSFailedHistoryError.invalidRecord) {
+            _ = try repository.load()
+        }
+        #expect(fileSystem.file?.data == raw)
+    }
+
     @Test func schemaDispatchPrecedesV1Allowlists() {
         let future = Data(
             """

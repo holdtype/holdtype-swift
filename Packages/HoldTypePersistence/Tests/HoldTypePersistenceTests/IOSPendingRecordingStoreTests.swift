@@ -4,6 +4,187 @@ import Testing
 @testable import HoldTypePersistence
 
 struct IOSPendingRecordingStoreTests {
+    @Test func storeIdentityIsOpaqueAndGateBindingIsOneTime() {
+        let gate = IOSPersistenceOperationGate()
+        let store = IOSPendingRecordingStore(
+            journal: FakePendingRecordingJournal(
+                events: PendingStoreEventLog()
+            ),
+            audioFileSystem: FakePendingRecordingAudioFileSystem(
+                events: PendingStoreEventLog()
+            ),
+            operationGate: gate
+        )
+
+        #expect(store.bindOperationGateIdentity(gate.identity))
+        #expect(
+            !store.bindOperationGateIdentity(
+                IOSPersistenceOperationGate().identity
+            )
+        )
+        #expect(
+            String(describing: store.storeIdentity)
+                == "IOSPendingRecordingStoreIdentity(redacted)"
+        )
+        #expect(store.storeIdentity.customMirror.children.isEmpty)
+    }
+
+    @Test func publicStoresShareRootOwnerButKeepActorIdentitiesDistinct() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-root-identity-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let firstRoot = base.appendingPathComponent("first", isDirectory: true)
+        let secondRoot = base.appendingPathComponent("second", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: firstRoot,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: secondRoot,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: base) }
+
+        let first = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: firstRoot
+        )
+        let sameRoot = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: firstRoot
+        )
+        let differentRoot = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: secondRoot
+        )
+
+        #expect(first.storeIdentity != sameRoot.storeIdentity)
+        #expect(
+            first.capabilityOwnerIdentity
+                == sameRoot.capabilityOwnerIdentity
+        )
+        #expect(first.storeIdentity != differentRoot.storeIdentity)
+        #expect(
+            first.capabilityOwnerIdentity
+                != differentRoot.capabilityOwnerIdentity
+        )
+    }
+
+    @Test func publicStoreFailsClosedAfterPhysicalRootReplacement() async throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-root-replacement-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let store = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: root
+        )
+
+        try FileManager.default.removeItem(at: root)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+
+        await #expect(
+            throws: IOSPendingRecordingError.repositoryIdentityConflict
+        ) {
+            _ = try await store.load()
+        }
+    }
+
+    @Test func publicSymlinkAliasUsesCanonicalRootWithoutPoisoningOwner()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-root-alias-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        let alias = parent.appendingPathComponent("alias", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: alias,
+            withDestinationURL: root
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let canonical = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: root
+        )
+        let aliased = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: alias
+        )
+
+        #expect(canonical.storeIdentity != aliased.storeIdentity)
+        #expect(
+            canonical.capabilityOwnerIdentity
+                == aliased.capabilityOwnerIdentity
+        )
+        #expect(try await aliased.load() == nil)
+        #expect(try await canonical.load() == nil)
+    }
+
+    @Test func failedHistoryUncertaintyBlocksPendingBeforeRepositoryIO()
+        async throws {
+        let events = PendingStoreEventLog()
+        let interlock = IOSFailedHistoryMutationInterlock()
+        let failedStore = IOSFailedHistoryStore(
+            journal: FoundationIOSFailedHistoryJournalRepository(
+                fileSystem: FailedHistoryFakeFileSystem()
+            ),
+            capabilityOwnerIdentity:
+                IOSAcceptedHistoryCapabilityOwnerIdentity(),
+            mutationInterlock: interlock
+        )
+        let store = IOSPendingRecordingStore(
+            journal: FakePendingRecordingJournal(events: events),
+            audioFileSystem: FakePendingRecordingAudioFileSystem(
+                events: events
+            ),
+            failedHistoryMutationInterlock: interlock
+        )
+        await failedStore.retainMutationUncertaintyForTesting()
+
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await store.load()
+        }
+        #expect(events.values.isEmpty)
+    }
+
+    @Test func failedHistoryInterlockWinsBeforeProductionRootRevalidation()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-interlock-before-root-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let context = registry.context(for: root)
+        await context.failedHistoryStore.retainMutationUncertaintyForTesting()
+
+        try FileManager.default.removeItem(at: root)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await context.pendingRecordingStore.load()
+        }
+        #expect(!context.repositoryIdentityState.isConflicted)
+    }
+
     @Test func preparePublishesAndRevalidatesAudioAroundJournalCommit() async throws {
         let fixture = StoreFixture()
 
@@ -145,6 +326,206 @@ struct IOSPendingRecordingStoreTests {
         #expect(recording.transcriptionLanguageCode == "ja")
     }
 
+    @Test func providerAudioIsBoundedAndInvalidImmediatelyAfterExecution()
+        async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let releaseCountBeforeExecution = fixture.audio.leaseReleaseCount
+        let executor = ReadingPendingTranscriptionExecutor()
+
+        #expect(try await handoff.execute(using: executor) == "transcript")
+
+        #expect(executor.readBytes == Data(repeating: 0x5A, count: 8))
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeExecution + 1
+        )
+        let retainedAudio = try #require(executor.audio)
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await retainedAudio.read(
+                atOffset: 0,
+                maximumByteCount: 1
+            )
+        }
+    }
+
+    @Test func providerAudioMapsRepositoryIdentityConflictExactly() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        fixture.audio.leaseReadError = .repositoryIdentityConflict
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let executor = ReadingPendingTranscriptionExecutor()
+
+        await #expect(
+            throws: IOSPendingRecordingError.repositoryIdentityConflict
+        ) {
+            _ = try await handoff.execute(using: executor)
+        }
+
+        #expect(fixture.events.values.contains("audio.lease.read"))
+    }
+
+    @Test func providerAudioEnforcesExact64KiBReadCeilingBeforeLeaseIO()
+        async throws {
+        #expect(IOSPendingTranscriptionAudio.maximumReadByteCount == 64 * 1_024)
+
+        let allowedFixture = StoreFixture()
+        let allowedPrepared = try await allowedFixture.store.prepare(
+            allowedFixture.preparation(
+                byteCount:
+                    Int64(IOSPendingTranscriptionAudio.maximumReadByteCount + 8)
+            )
+        )
+        let allowedHandoff = try await allowedFixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: allowedPrepared
+            ),
+            transcriptionID: UUID()
+        )
+        let allowedExecutor = ReadingPendingTranscriptionExecutor(
+            maximumByteCount: IOSPendingTranscriptionAudio.maximumReadByteCount
+        )
+
+        _ = try await allowedHandoff.execute(using: allowedExecutor)
+
+        #expect(
+            allowedExecutor.readBytes?.count
+                == IOSPendingTranscriptionAudio.maximumReadByteCount
+        )
+        #expect(
+            allowedFixture.events.values.contains("audio.lease.read")
+        )
+
+        let rejectedFixture = StoreFixture()
+        let rejectedPrepared = try await rejectedFixture.store.prepare(
+            rejectedFixture.preparation()
+        )
+        let rejectedHandoff = try await rejectedFixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: rejectedPrepared
+            ),
+            transcriptionID: UUID()
+        )
+        rejectedFixture.events.reset()
+        let rejectedExecutor = ReadingPendingTranscriptionExecutor(
+            maximumByteCount:
+                IOSPendingTranscriptionAudio.maximumReadByteCount + 1
+        )
+
+        await #expect(throws: IOSPendingRecordingError.linkedAudioInvalid) {
+            _ = try await rejectedHandoff.execute(using: rejectedExecutor)
+        }
+
+        #expect(
+            !rejectedFixture.events.values.contains("audio.lease.read")
+        )
+    }
+
+    @Test func providerFailureInvalidatesAudioAndReleasesItsLease() async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let releaseCountBeforeExecution = fixture.audio.leaseReleaseCount
+        let executor = FailingPendingTranscriptionExecutor()
+
+        do {
+            _ = try await handoff.execute(using: executor)
+            Issue.record("Expected the provider failure")
+        } catch PendingTranscriptionExecutorTestError.failed {
+        } catch {
+            Issue.record("Expected the exact provider failure")
+        }
+
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeExecution + 1
+        )
+        let retainedAudio = try #require(executor.audio)
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await retainedAudio.read(
+                atOffset: 0,
+                maximumByteCount: 1
+            )
+        }
+    }
+
+    @Test func callerCancellationInvalidatesAudioAndReleasesItsLease()
+        async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let releaseCountBeforeExecution = fixture.audio.leaseReleaseCount
+        let probe = PendingExecutionProbe()
+        let executor = CancellablePendingTranscriptionExecutor(probe: probe)
+        let execution = Task {
+            try await handoff.execute(using: executor)
+        }
+        await probe.waitUntilStarted()
+
+        execution.cancel()
+
+        await probe.waitUntilCancelled()
+        switch await execution.result {
+        case .success:
+            Issue.record("Expected caller cancellation")
+        case .failure(let error):
+            #expect(error is CancellationError)
+        }
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeExecution + 1
+        )
+        let retainedAudio = try #require(executor.audio)
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await retainedAudio.read(
+                atOffset: 0,
+                maximumByteCount: 1
+            )
+        }
+    }
+
+    @Test func unconsumedHandoffDeinitInvalidatesAudioAndReleasesItsLease()
+        async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let releaseCountBeforeHandoff = fixture.audio.leaseReleaseCount
+        weak var releasedHandoff: IOSPendingTranscriptionHandoff?
+
+        do {
+            let handoff = try await fixture.store.beginTranscription(
+                expected: IOSPendingRecordingCASExpectation(recording: prepared),
+                transcriptionID: UUID()
+            )
+            releasedHandoff = handoff
+            #expect(releasedHandoff != nil)
+        }
+
+        #expect(releasedHandoff == nil)
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeHandoff + 1
+        )
+    }
+
     @Test func postcommitHandoffFailureClearsDispatchIdentityBeforeReturning() async throws {
         let fixture = StoreFixture()
         let prepared = try await fixture.store.prepare(fixture.preparation())
@@ -282,9 +663,14 @@ struct IOSPendingRecordingStoreTests {
             transcriptionID: UUID()
         )
         let transcribing = try #require(fixture.journal.recording)
+        let releaseCountBeforeRecovery = fixture.audio.leaseReleaseCount
 
         let recovery = try await fixture.store.markAwaitingRecovery(
             expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeRecovery + 1
         )
 
         await #expect(
@@ -313,30 +699,95 @@ struct IOSPendingRecordingStoreTests {
             expected: IOSPendingRecordingCASExpectation(recording: prepared),
             transcriptionID: UUID()
         )
+        let releaseCountBeforeExecution = fixture.audio.leaseReleaseCount
         let transcribing = try #require(fixture.journal.recording)
         let probe = PendingExecutionProbe()
         let executor = CancellablePendingTranscriptionExecutor(probe: probe)
         let execution = Task {
             try await handoff.execute(using: executor)
         }
-        #expect(probe.waitUntilStarted())
+        await probe.waitUntilStarted()
 
         let recovery = try await fixture.store.markAwaitingRecovery(
             expected: IOSPendingRecordingCASExpectation(recording: transcribing)
         )
 
         #expect(recovery.phase == .awaitingRecovery)
-        #expect(probe.waitUntilCancelled())
+        await probe.waitUntilCancelled()
         switch await execution.result {
         case .success:
             Issue.record("Expected registered execution cancellation")
         case .failure(let error):
             #expect(error is CancellationError)
         }
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeExecution + 1
+        )
+        let retainedAudio = try #require(executor.audio)
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await retainedAudio.read(
+                atOffset: 0,
+                maximumByteCount: 1
+            )
+        }
         await #expect(
             throws: IOSPendingRecordingError.dispatchAlreadyCommitted
         ) {
             _ = try await handoff.execute(using: executor)
+        }
+    }
+
+    @Test func recoveryDefersLeaseReleaseUntilInFlightReadFinishes()
+        async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        let readBarrier = PendingLeaseReadBarrier()
+        fixture.audio.blockNextLeaseRead(with: readBarrier)
+        let handoff = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let transcribing = try #require(fixture.journal.recording)
+        let releaseCountBeforeExecution = fixture.audio.leaseReleaseCount
+        let executor = ReadingPendingTranscriptionExecutor()
+        let execution = Task {
+            try await handoff.execute(using: executor)
+        }
+        await readBarrier.waitUntilBlocked()
+        defer {
+            Task { await readBarrier.release() }
+        }
+
+        let recovery = try await fixture.store.markAwaitingRecovery(
+            expected: IOSPendingRecordingCASExpectation(recording: transcribing)
+        )
+
+        #expect(recovery.phase == .awaitingRecovery)
+        #expect(
+            fixture.audio.leaseReleaseCount == releaseCountBeforeExecution
+        )
+        await readBarrier.release()
+        switch await execution.result {
+        case .success:
+            Issue.record("A retired in-flight read must observe cancellation")
+        case .failure(let error):
+            #expect(error is CancellationError)
+        }
+        #expect(
+            fixture.audio.leaseReleaseCount
+                == releaseCountBeforeExecution + 1
+        )
+        let retainedAudio = try #require(executor.audio)
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await retainedAudio.read(
+                atOffset: 0,
+                maximumByteCount: 1
+            )
         }
     }
 
@@ -865,14 +1316,15 @@ private final class StoreFixture: @unchecked Sendable {
         attemptID: UUID = UUID(
             uuidString: "01234567-89AB-CDEF-8123-456789ABCDEF"
         )!,
-        initialState: IOSPendingRecordingInitialState = .readyForTranscription
+        initialState: IOSPendingRecordingInitialState = .readyForTranscription,
+        byteCount: Int64 = 12
     ) -> IOSPendingRecordingPreparation {
         try! IOSPendingRecordingPreparation(
             attemptID: attemptID,
             sourceArtifact: AudioRecordingArtifact(
                 fileURL: URL(fileURLWithPath: "/runtime/source.m4a"),
                 duration: 1.5,
-                byteCount: 12
+                byteCount: byteCount
             ),
             initialState: initialState,
             outputIntent: .translate,
@@ -999,6 +1451,8 @@ private final class FakePendingRecordingAudioFileSystem:
     private var storedValidateCallCount = 0
     private var storedRemoveError: IOSPendingRecordingAudioFileSystemError?
     private var storedPublishBarrier: PendingStorePublishBarrier?
+    private var storedReadBarrier: PendingLeaseReadBarrier?
+    private var storedLeaseReadError: IOSPendingRecordingAudioFileSystemError?
 
     var published: Bool { lock.withLock { storedPublished } }
     var publishCallCount: Int { lock.withLock { storedPublishCallCount } }
@@ -1019,9 +1473,17 @@ private final class FakePendingRecordingAudioFileSystem:
         get { lock.withLock { storedRemoveError } }
         set { lock.withLock { storedRemoveError = newValue } }
     }
+    var leaseReadError: IOSPendingRecordingAudioFileSystemError? {
+        get { lock.withLock { storedLeaseReadError } }
+        set { lock.withLock { storedLeaseReadError = newValue } }
+    }
 
     func blockNextPublish(with barrier: PendingStorePublishBarrier) {
         lock.withLock { storedPublishBarrier = barrier }
+    }
+
+    func blockNextLeaseRead(with barrier: PendingLeaseReadBarrier) {
+        lock.withLock { storedReadBarrier = barrier }
     }
 
     init(events: PendingStoreEventLog) {
@@ -1098,6 +1560,37 @@ private final class FakePendingRecordingAudioFileSystem:
         )
     }
 
+    func acquireValidatedPublishedAudio(
+        relativeIdentifier: String,
+        attemptID: UUID,
+        durationMilliseconds: Int64,
+        byteCount: Int64
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        let artifact = try await validatePublishedAudio(
+            relativeIdentifier: relativeIdentifier,
+            attemptID: attemptID,
+            durationMilliseconds: durationMilliseconds,
+            byteCount: byteCount
+        )
+        let readBarrier = lock.withLock { () -> PendingLeaseReadBarrier? in
+            defer { storedReadBarrier = nil }
+            return storedReadBarrier
+        }
+        let readError = lock.withLock { storedLeaseReadError }
+        return FakePendingRecordingAudioLease(
+            relativeIdentifier: relativeIdentifier,
+            artifact: artifact,
+            durationMilliseconds: durationMilliseconds,
+            events: events,
+            readBarrier: readBarrier,
+            readError: readError,
+            onRelease: { [weak self] in
+                guard let self else { return }
+                self.lock.withLock { self.storedLeaseReleaseCount += 1 }
+            }
+        )
+    }
+
     func removePublishedAudioIfPresent(
         relativeIdentifier: String,
         attemptID: UUID,
@@ -1132,6 +1625,39 @@ nonisolated private final class PendingStorePublishBarrier: @unchecked Sendable 
     }
 }
 
+private actor PendingLeaseReadBarrier {
+    private var blockingContinuation: CheckedContinuation<Void, Never>?
+    private var observerContinuations: [CheckedContinuation<Void, Never>] = []
+    private var isReleased = false
+    private var isBlocked = false
+
+    func block() async {
+        guard !isReleased else { return }
+        await withCheckedContinuation { continuation in
+            blockingContinuation = continuation
+            isBlocked = true
+            let observers = observerContinuations
+            observerContinuations.removeAll()
+            for observer in observers {
+                observer.resume()
+            }
+        }
+    }
+
+    func waitUntilBlocked() async {
+        guard !isBlocked else { return }
+        await withCheckedContinuation { continuation in
+            observerContinuations.append(continuation)
+        }
+    }
+
+    func release() {
+        isReleased = true
+        blockingContinuation?.resume()
+        blockingContinuation = nil
+    }
+}
+
 nonisolated private final class PendingStoreGateProbe: @unchecked Sendable {
     private let enqueued = DispatchSemaphore(value: 0)
 
@@ -1146,24 +1672,42 @@ nonisolated private final class PendingStoreGateProbe: @unchecked Sendable {
     }
 }
 
-nonisolated private final class PendingExecutionProbe: @unchecked Sendable {
-    private let started = DispatchSemaphore(value: 0)
-    private let cancelled = DispatchSemaphore(value: 0)
+private actor PendingExecutionProbe {
+    private var didStart = false
+    private var didCancel = false
+    private var startObservers: [CheckedContinuation<Void, Never>] = []
+    private var cancellationObservers: [CheckedContinuation<Void, Never>] = []
 
     func markStarted() {
-        started.signal()
+        didStart = true
+        let observers = startObservers
+        startObservers.removeAll()
+        for observer in observers {
+            observer.resume()
+        }
     }
 
     func markCancelled() {
-        cancelled.signal()
+        didCancel = true
+        let observers = cancellationObservers
+        cancellationObservers.removeAll()
+        for observer in observers {
+            observer.resume()
+        }
     }
 
-    func waitUntilStarted() -> Bool {
-        started.wait(timeout: .now() + 10) == .success
+    func waitUntilStarted() async {
+        guard !didStart else { return }
+        await withCheckedContinuation { continuation in
+            startObservers.append(continuation)
+        }
     }
 
-    func waitUntilCancelled() -> Bool {
-        cancelled.wait(timeout: .now() + 10) == .success
+    func waitUntilCancelled() async {
+        guard !didCancel else { return }
+        await withCheckedContinuation { continuation in
+            cancellationObservers.append(continuation)
+        }
     }
 }
 
@@ -1172,23 +1716,23 @@ nonisolated private final class CapturingPendingTranscriptionExecutor:
     @unchecked Sendable {
     private let lock = NSLock()
     private var storedRecording: IOSPendingRecording?
-    private var storedAudioArtifact: AudioRecordingArtifact?
+    private var storedAudio: IOSPendingTranscriptionAudio?
 
     var recording: IOSPendingRecording? {
         lock.withLock { storedRecording }
     }
 
-    var audioArtifact: AudioRecordingArtifact? {
-        lock.withLock { storedAudioArtifact }
+    var audio: IOSPendingTranscriptionAudio? {
+        lock.withLock { storedAudio }
     }
 
     func transcribe(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) async throws -> String {
         lock.withLock {
             storedRecording = recording
-            storedAudioArtifact = audioArtifact
+            storedAudio = audio
         }
         return "transcript"
     }
@@ -1197,7 +1741,13 @@ nonisolated private final class CapturingPendingTranscriptionExecutor:
 nonisolated private final class CancellablePendingTranscriptionExecutor:
     IOSPendingTranscriptionExecutor,
     @unchecked Sendable {
+    private let lock = NSLock()
     private let probe: PendingExecutionProbe
+    private var storedAudio: IOSPendingTranscriptionAudio?
+
+    var audio: IOSPendingTranscriptionAudio? {
+        lock.withLock { storedAudio }
+    }
 
     init(probe: PendingExecutionProbe) {
         self.probe = probe
@@ -1205,16 +1755,79 @@ nonisolated private final class CancellablePendingTranscriptionExecutor:
 
     func transcribe(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) async throws -> String {
-        probe.markStarted()
+        _ = recording
+        lock.withLock { storedAudio = audio }
+        await probe.markStarted()
         do {
             try await Task.sleep(nanoseconds: 30_000_000_000)
             return "late transcript"
         } catch {
-            probe.markCancelled()
+            await probe.markCancelled()
             throw error
         }
+    }
+}
+
+nonisolated private final class ReadingPendingTranscriptionExecutor:
+    IOSPendingTranscriptionExecutor,
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private let maximumByteCount: Int
+    private var storedAudio: IOSPendingTranscriptionAudio?
+    private var storedReadBytes: Data?
+
+    init(maximumByteCount: Int = 8) {
+        self.maximumByteCount = maximumByteCount
+    }
+
+    var audio: IOSPendingTranscriptionAudio? {
+        lock.withLock { storedAudio }
+    }
+
+    var readBytes: Data? {
+        lock.withLock { storedReadBytes }
+    }
+
+    func transcribe(
+        recording: IOSPendingRecording,
+        audio: IOSPendingTranscriptionAudio
+    ) async throws -> String {
+        _ = recording
+        lock.withLock { storedAudio = audio }
+        let bytes = try await audio.read(
+            atOffset: 0,
+            maximumByteCount: maximumByteCount
+        )
+        lock.withLock {
+            storedReadBytes = bytes
+        }
+        return "transcript"
+    }
+}
+
+private enum PendingTranscriptionExecutorTestError: Error {
+    case failed
+}
+
+nonisolated private final class FailingPendingTranscriptionExecutor:
+    IOSPendingTranscriptionExecutor,
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedAudio: IOSPendingTranscriptionAudio?
+
+    var audio: IOSPendingTranscriptionAudio? {
+        lock.withLock { storedAudio }
+    }
+
+    func transcribe(
+        recording: IOSPendingRecording,
+        audio: IOSPendingTranscriptionAudio
+    ) async throws -> String {
+        _ = recording
+        lock.withLock { storedAudio = audio }
+        throw PendingTranscriptionExecutorTestError.failed
     }
 }
 
@@ -1233,8 +1846,10 @@ nonisolated private final class NoncooperativePendingTranscriptionExecutor:
 
     func transcribe(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) async throws -> String {
+        _ = recording
+        _ = audio
         started.signal()
         await withCheckedContinuation { continuation in
             let shouldResume = lock.withLock {
@@ -1284,6 +1899,8 @@ private final class FakePendingRecordingAudioLease:
     let durationMilliseconds: Int64
 
     private let events: PendingStoreEventLog
+    private let readBarrier: PendingLeaseReadBarrier?
+    private let readError: IOSPendingRecordingAudioFileSystemError?
     private let onRelease: @Sendable () -> Void
 
     init(
@@ -1291,18 +1908,45 @@ private final class FakePendingRecordingAudioLease:
         artifact: AudioRecordingArtifact,
         durationMilliseconds: Int64,
         events: PendingStoreEventLog,
+        readBarrier: PendingLeaseReadBarrier? = nil,
+        readError: IOSPendingRecordingAudioFileSystemError? = nil,
         onRelease: @escaping @Sendable () -> Void
     ) {
         self.relativeIdentifier = relativeIdentifier
         audioArtifact = artifact
         self.durationMilliseconds = durationMilliseconds
         self.events = events
+        self.readBarrier = readBarrier
+        self.readError = readError
         self.onRelease = onRelease
     }
 
     func revalidate() async throws -> AudioRecordingArtifact {
         events.append("audio.lease.revalidate")
         return audioArtifact
+    }
+
+    func read(
+        atOffset offset: Int64,
+        maximumByteCount: Int
+    ) async throws -> Data {
+        events.append("audio.lease.read")
+        if let readError {
+            throw readError
+        }
+        if let readBarrier {
+            await readBarrier.block()
+        }
+        guard offset >= 0,
+              offset <= audioArtifact.byteCount,
+              maximumByteCount > 0 else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let count = min(
+            maximumByteCount,
+            Int(audioArtifact.byteCount - offset)
+        )
+        return Data(repeating: 0x5A, count: count)
     }
 
     func release() {

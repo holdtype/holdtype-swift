@@ -5,6 +5,238 @@ import HoldTypeDomain
 @testable import HoldTypePersistence
 
 struct IOSAcceptedHistoryCoordinatorTests {
+    @Test func policyRootSwapAndRestoreBeforePostcheckIsStickyAndWritesNothing()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "coordinator-policy-root-race-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let context = registry.context(for: root)
+        let swapper = CoordinatorRepositoryRootSwap(root: root)
+        let policyFileSystem = FoundationIOSStrictProtectedRecordFileSystem(
+            applicationSupportDirectoryURL: root,
+            configuration: .historyPolicy,
+            beforeRepositoryRootOpen: {
+                try swapper.replaceRootOnce()
+            },
+            expectedRepositoryRoot:
+                context.repositoryBinding.physicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                context.repositoryGuard.invalidate()
+                swapper.restoreOriginalRoot()
+            }
+        )
+        let policyStore = IOSHistoryPolicyStore(
+            journal: FoundationIOSHistoryPolicyJournalRepository(
+                fileSystem: policyFileSystem
+            ),
+            capabilityOwnerIdentity: context.ownerIdentity
+        )
+        let coordinator = IOSAcceptedHistoryCoordinator(
+            policyStore: policyStore,
+            acceptedHistoryStore: context.acceptedHistoryStore,
+            failedHistoryStore: context.failedHistoryStore,
+            pendingRecordingStore: context.pendingRecordingStore,
+            outboxStore: context.outboxStore,
+            deliveryStore: context.deliveryStore,
+            operationGate: context.operationGate,
+            ownerIdentity: context.ownerIdentity,
+            repositoryIdentityState: context.repositoryIdentityState,
+            repositoryRegistration:
+                IOSAcceptedHistoryCoordinatorRepositoryRegistration(
+                    registry: registry,
+                    context: context,
+                    applicationSupportDirectoryURL: root
+                )
+        )
+
+        for _ in 0..<2 {
+            await #expect(
+                throws: IOSAcceptedHistoryCoordinatorError
+                    .repositoryIdentityConflict
+            ) {
+                _ = try await coordinator.capture(
+                    transcriptionModel: "model",
+                    transcriptionLanguageCode: nil,
+                    durationMilliseconds: nil
+                )
+            }
+        }
+
+        #expect(swapper.didRestoreOriginalRoot)
+        let replacementRoot = try #require(swapper.replacementRoot)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSHistoryPolicyStorageLocation
+                    .fileURL(in: replacementRoot).path
+            )
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSHistoryPolicyStorageLocation.fileURL(in: root).path
+            )
+        )
+    }
+
+    @Test func mismatchedPendingFailedInterlockPoisonsCoordinatorBeforeIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "coordinator-interlock-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let pendingStore = IOSPendingRecordingStore(
+            journal: FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: root
+            ),
+            audioFileSystem: FoundationIOSPendingRecordingAudioFileSystem(
+                applicationSupportDirectoryURL: root
+            ),
+            operationGate: fixture.gate,
+            capabilityOwnerIdentity: fixture.ownerIdentity,
+            failedHistoryMutationInterlock:
+                IOSFailedHistoryMutationInterlock()
+        )
+        let coordinator = IOSAcceptedHistoryCoordinator(
+            policyStore: fixture.policyStore,
+            acceptedHistoryStore: fixture.acceptedHistoryStore,
+            failedHistoryStore: fixture.failedHistoryStore,
+            pendingRecordingStore: pendingStore,
+            outboxStore: fixture.outboxStore,
+            deliveryStore: fixture.deliveryStore,
+            operationGate: fixture.gate,
+            ownerIdentity: fixture.ownerIdentity,
+            repositoryIdentityState: fixture.repositoryIdentityState
+        )
+
+        await #expect(
+            throws:
+                IOSAcceptedHistoryCoordinatorError.repositoryIdentityConflict
+        ) {
+            _ = try await coordinator.capture(
+                transcriptionModel: "model",
+                transcriptionLanguageCode: nil,
+                durationMilliseconds: nil
+            )
+        }
+        #expect(fixture.events.events.isEmpty)
+    }
+
+    @Test func policyCommandMapsInnerRootMismatchBeforeLogicalBoundary()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "coordinator-command-root-race-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let context = registry.context(for: root)
+        let swapper = CoordinatorRepositoryRootSwap(root: root)
+        let policyStore = IOSHistoryPolicyStore(
+            journal: FoundationIOSHistoryPolicyJournalRepository(
+                fileSystem: FoundationIOSStrictProtectedRecordFileSystem(
+                    applicationSupportDirectoryURL: root,
+                    configuration: .historyPolicy,
+                    beforeRepositoryRootOpen: {
+                        try swapper.replaceRootOnce()
+                    },
+                    expectedRepositoryRoot:
+                        context.repositoryBinding.physicalRootIdentity,
+                    onRepositoryIdentityMismatch: {
+                        context.repositoryGuard.invalidate()
+                        swapper.restoreOriginalRoot()
+                    }
+                )
+            ),
+            capabilityOwnerIdentity: context.ownerIdentity
+        )
+        let coordinator = IOSAcceptedHistoryCoordinator(
+            policyStore: policyStore,
+            acceptedHistoryStore: context.acceptedHistoryStore,
+            failedHistoryStore: context.failedHistoryStore,
+            pendingRecordingStore: context.pendingRecordingStore,
+            outboxStore: context.outboxStore,
+            deliveryStore: context.deliveryStore,
+            operationGate: context.operationGate,
+            ownerIdentity: context.ownerIdentity,
+            repositoryIdentityState: context.repositoryIdentityState,
+            repositoryRegistration:
+                IOSAcceptedHistoryCoordinatorRepositoryRegistration(
+                    registry: registry,
+                    context: context,
+                    applicationSupportDirectoryURL: root
+                )
+        )
+
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError
+                .repositoryIdentityConflict
+        ) {
+            _ = try await coordinator.clearHistoryPolicy()
+        }
+        #expect(await context.policyCutoverState.current() == nil)
+        #expect(swapper.didRestoreOriginalRoot)
+        let replacementRoot = try #require(swapper.replacementRoot)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSHistoryPolicyStorageLocation
+                    .fileURL(in: replacementRoot).path
+            )
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSHistoryPolicyStorageLocation.fileURL(in: root).path
+            )
+        )
+    }
+
+    @Test func failedMutationUncertaintyBlocksCoordinatorWorkBeforeIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        let coordinator = fixture.coordinator()
+        await fixture.failedHistoryStore
+            .retainMutationUncertaintyForTesting()
+
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await coordinator.capture(
+                transcriptionModel: "model",
+                transcriptionLanguageCode: nil,
+                durationMilliseconds: nil
+            )
+        }
+        #expect(fixture.events.events.isEmpty)
+        #expect(
+            try await coordinator.recoverAcceptedHistoryOutbox()
+                == .pendingLocalRecovery
+        )
+        #expect(fixture.events.events.isEmpty)
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await coordinator.clearHistoryPolicy()
+        }
+        #expect(fixture.events.events.isEmpty)
+    }
+
     @Test func productionContextRegistrySharesOnlyOnePhysicalRoot() async throws {
         let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
         let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
@@ -39,7 +271,33 @@ struct IOSAcceptedHistoryCoordinatorTests {
 
         #expect(first === sameRoot)
         #expect(first === symlinkAlias)
+        #expect(first.operationGate === sameRoot.operationGate)
+        #expect(first.operationGate === symlinkAlias.operationGate)
+        #expect(
+            first.pendingRecordingMediaValidationWorkerGate
+                === sameRoot.pendingRecordingMediaValidationWorkerGate
+        )
+        #expect(
+            first.pendingRecordingMediaValidationWorkerGate
+                === symlinkAlias.pendingRecordingMediaValidationWorkerGate
+        )
         #expect(first.policyStore === sameRoot.policyStore)
+        #expect(
+            first.pendingRecordingStore
+                === sameRoot.pendingRecordingStore
+        )
+        #expect(
+            first.pendingRecordingStore
+                === symlinkAlias.pendingRecordingStore
+        )
+        #expect(
+            first.pendingRecordingLiveOwnerRegistry
+                === sameRoot.pendingRecordingLiveOwnerRegistry
+        )
+        #expect(
+            first.pendingRecordingStoreIdentity
+                == sameRoot.pendingRecordingStoreIdentity
+        )
         #expect(first.acceptedHistoryStore === sameRoot.acceptedHistoryStore)
         #expect(first.failedHistoryStore === sameRoot.failedHistoryStore)
         #expect(first.outboxStore === sameRoot.outboxStore)
@@ -58,10 +316,39 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(first.policyCutoverState === sameRoot.policyCutoverState)
         #expect(first.ownerIdentity == sameRoot.ownerIdentity)
         #expect(first !== differentRoot)
+        #expect(first.operationGate !== differentRoot.operationGate)
+        #expect(
+            first.pendingRecordingMediaValidationWorkerGate
+                !== differentRoot.pendingRecordingMediaValidationWorkerGate
+        )
+        #expect(
+            first.pendingRecordingStore
+                !== differentRoot.pendingRecordingStore
+        )
+        #expect(
+            first.pendingRecordingLiveOwnerRegistry
+                !== differentRoot.pendingRecordingLiveOwnerRegistry
+        )
+        #expect(
+            first.pendingRecordingStoreIdentity
+                != differentRoot.pendingRecordingStoreIdentity
+        )
         #expect(first.ownerIdentity != differentRoot.ownerIdentity)
+        #expect(
+            first.pendingRecordingStore.storeIdentity
+                == first.pendingRecordingStoreIdentity
+        )
+        #expect(
+            first.pendingRecordingStore.capabilityOwnerIdentity
+                == first.ownerIdentity
+        )
         #expect(
             first.failedHistoryStore.capabilityOwnerIdentity
                 == first.ownerIdentity
+        )
+        #expect(
+            first.failedHistoryStore.storeIdentity
+                != differentRoot.failedHistoryStore.storeIdentity
         )
         let renderedBinding = String(describing: binding)
             + String(reflecting: binding)
@@ -82,7 +369,10 @@ struct IOSAcceptedHistoryCoordinatorTests {
             at: root,
             withIntermediateDirectories: false
         )
-        #expect(first === registry.context(for: root))
+        let replacedRoot = registry.context(for: root)
+        #expect(first !== replacedRoot)
+        #expect(first.repositoryIdentityState.isConflicted)
+        #expect(replacedRoot.repositoryIdentityState.isConflicted)
 
         let missingRoot = parent.appendingPathComponent(
             "initially-missing",
@@ -93,12 +383,16 @@ struct IOSAcceptedHistoryCoordinatorTests {
             at: missingRoot,
             withIntermediateDirectories: false
         )
-        #expect(missing === registry.context(for: missingRoot))
+        let materializedMissingRoot = registry.context(for: missingRoot)
+        #expect(missing !== materializedMissingRoot)
         #expect(missing.repositoryIdentityState.isConflicted)
+        #expect(
+            materializedMissingRoot.repositoryIdentityState.isConflicted
+        )
 
         let caseAlias = parent.appendingPathComponent("ROOT", isDirectory: true)
         if coordinatorFileIdentity(root) == coordinatorFileIdentity(caseAlias) {
-            #expect(first === registry.context(for: caseAlias))
+            #expect(replacedRoot === registry.context(for: caseAlias))
         }
 
         let renameSource = parent.appendingPathComponent(
@@ -150,6 +444,42 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(destinationFixture.delivery.loadCount == 0)
     }
 
+    @Test func observedSamePathReplacementStaysStickyAfterOriginalReturns() throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-coordinator-swap-restore-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        let original = parent.appendingPathComponent("original", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let first = registry.context(for: root)
+        try FileManager.default.moveItem(at: root, to: original)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+        let replacement = registry.context(for: root)
+
+        #expect(first !== replacement)
+        #expect(first.repositoryIdentityState.isConflicted)
+        #expect(replacement.repositoryIdentityState.isConflicted)
+
+        try FileManager.default.removeItem(at: root)
+        try FileManager.default.moveItem(at: original, to: root)
+        let restored = registry.context(for: root)
+
+        #expect(restored.repositoryIdentityState.isConflicted)
+        #expect(first.repositoryIdentityState.isConflicted)
+        #expect(replacement.repositoryIdentityState.isConflicted)
+    }
+
     @Test func retargetedAliasNeverReusesItsPathPinnedContext() throws {
         for destinationWasRegistered in [false, true] {
             let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
@@ -193,6 +523,124 @@ struct IOSAcceptedHistoryCoordinatorTests {
                 #expect(second === registeredSecond)
             }
         }
+    }
+
+    @Test func replacingRegisteredSymlinkWithDirectoryTombstonesBothRoots()
+        throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-coordinator-symlink-to-directory-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let originalRoot = parent.appendingPathComponent(
+            "original",
+            isDirectory: true
+        )
+        let alias = parent.appendingPathComponent("alias", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: originalRoot,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: alias,
+            withDestinationURL: originalRoot
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let original = registry.context(for: alias)
+        try FileManager.default.removeItem(at: alias)
+        try FileManager.default.createDirectory(
+            at: alias,
+            withIntermediateDirectories: false
+        )
+
+        let replacement = registry.context(for: alias)
+
+        #expect(original !== replacement)
+        #expect(original.repositoryIdentityState.isConflicted)
+        #expect(replacement.repositoryIdentityState.isConflicted)
+    }
+
+    @Test func newAliasCannotBypassObservedSamePathReplacement() throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-coordinator-alias-bypass-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        let original = parent.appendingPathComponent("original", isDirectory: true)
+        let alias = parent.appendingPathComponent("new-alias", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let first = registry.context(for: root)
+        try FileManager.default.moveItem(at: root, to: original)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+        try FileManager.default.createSymbolicLink(
+            at: alias,
+            withDestinationURL: root
+        )
+
+        let replacementThroughAlias = registry.context(for: alias)
+
+        #expect(first !== replacementThroughAlias)
+        #expect(first.repositoryIdentityState.isConflicted)
+        #expect(
+            replacementThroughAlias.repositoryIdentityState.isConflicted
+        )
+    }
+
+    @Test func replacedSymlinkTargetCannotBypassThroughANewAlias() throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-coordinator-target-swap-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let target = parent.appendingPathComponent("target", isDirectory: true)
+        let original = parent.appendingPathComponent("original", isDirectory: true)
+        let firstAlias = parent.appendingPathComponent(
+            "first-alias",
+            isDirectory: true
+        )
+        let secondAlias = parent.appendingPathComponent(
+            "second-alias",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: target,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: firstAlias,
+            withDestinationURL: target
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let first = registry.context(for: firstAlias)
+        try FileManager.default.moveItem(at: target, to: original)
+        try FileManager.default.createDirectory(
+            at: target,
+            withIntermediateDirectories: false
+        )
+        try FileManager.default.createSymbolicLink(
+            at: secondAlias,
+            withDestinationURL: target
+        )
+
+        let replacement = registry.context(for: secondAlias)
+
+        #expect(first !== replacement)
+        #expect(first.repositoryIdentityState.isConflicted)
+        #expect(replacement.repositoryIdentityState.isConflicted)
     }
 
     @Test func incompatibleRootOwnersFailBeforeStorageIO() async throws {
@@ -3372,6 +3820,62 @@ struct IOSAcceptedHistoryCoordinatorTests {
         }
         #expect(fixture.policy.loadCount == policyLoads)
         #expect(fixture.policy.replaceCount == policyReplaces)
+    }
+}
+
+private final class CoordinatorRepositoryRootSwap: @unchecked Sendable {
+    private let lock = NSLock()
+    private let root: URL
+    private var detachedOriginalRoot: URL?
+    private var storedReplacementRoot: URL?
+    private var restored = false
+
+    init(root: URL) {
+        self.root = root
+    }
+
+    var didRestoreOriginalRoot: Bool {
+        lock.withLock { restored }
+    }
+
+    var replacementRoot: URL? {
+        lock.withLock { storedReplacementRoot }
+    }
+
+    func replaceRootOnce() throws {
+        try lock.withLock {
+            guard detachedOriginalRoot == nil else { return }
+            let detached = root.deletingLastPathComponent()
+                .appendingPathComponent("original-root", isDirectory: true)
+            try FileManager.default.moveItem(at: root, to: detached)
+            try FileManager.default.createDirectory(
+                at: root,
+                withIntermediateDirectories: false
+            )
+            detachedOriginalRoot = detached
+        }
+    }
+
+    func restoreOriginalRoot() {
+        lock.withLock {
+            guard !restored, let detachedOriginalRoot else { return }
+            let replacement = root.deletingLastPathComponent()
+                .appendingPathComponent(
+                    "replacement-root",
+                    isDirectory: true
+                )
+            do {
+                try FileManager.default.moveItem(at: root, to: replacement)
+                try FileManager.default.moveItem(
+                    at: detachedOriginalRoot,
+                    to: root
+                )
+                storedReplacementRoot = replacement
+                restored = true
+            } catch {
+                return
+            }
+        }
     }
 }
 

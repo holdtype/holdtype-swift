@@ -1,5 +1,20 @@
 import Foundation
 
+final class IOSFailedHistoryMutationInterlock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var blocked = false
+
+    var isBlocked: Bool { lock.withLock { blocked } }
+
+    fileprivate func retainUncertainty() {
+        lock.withLock { blocked = true }
+    }
+
+    fileprivate func clearUncertainty() {
+        lock.withLock { blocked = false }
+    }
+}
+
 struct IOSFailedHistoryStoreIdentity: Equatable, Sendable {
     private let value = UUID()
 }
@@ -14,12 +29,18 @@ extension IOSFailedHistoryStoreIdentity:
 }
 
 struct IOSFailedHistoryJournalMutationAuthorization: Sendable {
-    fileprivate init() {}
+    let expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+
+    fileprivate init(
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) {
+        self.expectedRepositoryRoot = expectedRepositoryRoot
+    }
 
     #if DEBUG
     init(testingToken: Void) {
         _ = testingToken
-        self.init()
+        self.init(expectedRepositoryRoot: nil)
     }
     #endif
 }
@@ -44,6 +65,8 @@ struct IOSFailedHistoryMutationCapability: Equatable, Sendable {
     let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     let operationLeaseAuthorization:
         IOSPersistenceOperationLeaseAuthorization
+    fileprivate let repositoryBinding:
+        IOSAcceptedHistoryCoordinatorRepositoryBinding?
 
     fileprivate init(
         source: IOSFailedHistoryMutationSource,
@@ -52,7 +75,9 @@ struct IOSFailedHistoryMutationCapability: Equatable, Sendable {
         storeIdentity: IOSFailedHistoryStoreIdentity,
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
         operationLeaseAuthorization:
-            IOSPersistenceOperationLeaseAuthorization
+            IOSPersistenceOperationLeaseAuthorization,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding?
     ) {
         self.source = source
         self.outcome = outcome
@@ -60,6 +85,7 @@ struct IOSFailedHistoryMutationCapability: Equatable, Sendable {
         self.storeIdentity = storeIdentity
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
         self.operationLeaseAuthorization = operationLeaseAuthorization
+        self.repositoryBinding = repositoryBinding
     }
 }
 
@@ -80,18 +106,23 @@ struct IOSFailedHistoryMutationReceipt: Equatable, Sendable {
     let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     let operationLeaseAuthorization:
         IOSPersistenceOperationLeaseAuthorization
+    fileprivate let repositoryBinding:
+        IOSAcceptedHistoryCoordinatorRepositoryBinding?
 
     fileprivate init(
         snapshot: IOSFailedHistoryJournalSnapshot,
         storeIdentity: IOSFailedHistoryStoreIdentity,
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
         operationLeaseAuthorization:
-            IOSPersistenceOperationLeaseAuthorization
+            IOSPersistenceOperationLeaseAuthorization,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding?
     ) {
         self.snapshot = snapshot
         self.storeIdentity = storeIdentity
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
         self.operationLeaseAuthorization = operationLeaseAuthorization
+        self.repositoryBinding = repositoryBinding
     }
 }
 
@@ -134,6 +165,9 @@ actor IOSFailedHistoryStore {
     private let journal: any IOSFailedHistoryJournalStoring
     private let now: @Sendable () -> Date
     private let operationGateBinding: IOSPersistenceOperationGateBinding
+    private let repositoryGuard:
+        IOSAcceptedHistoryCoordinatorRepositoryGuard?
+    nonisolated let mutationInterlock: IOSFailedHistoryMutationInterlock
     private var uncertainMutationIntent:
         IOSFailedHistoryUncertainMutationIntent?
 
@@ -142,10 +176,15 @@ actor IOSFailedHistoryStore {
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
         storeIdentity: IOSFailedHistoryStoreIdentity =
             IOSFailedHistoryStoreIdentity(),
-        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil
+        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil,
+        mutationInterlock: IOSFailedHistoryMutationInterlock =
+            IOSFailedHistoryMutationInterlock()
     ) {
         journal = FoundationIOSFailedHistoryJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         now = { Date() }
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
@@ -153,6 +192,8 @@ actor IOSFailedHistoryStore {
         operationGateBinding = IOSPersistenceOperationGateBinding(
             identity: operationGateIdentity
         )
+        self.repositoryGuard = repositoryGuard
+        self.mutationInterlock = mutationInterlock
     }
 
     init(
@@ -161,6 +202,10 @@ actor IOSFailedHistoryStore {
         storeIdentity: IOSFailedHistoryStoreIdentity =
             IOSFailedHistoryStoreIdentity(),
         operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil,
+        mutationInterlock: IOSFailedHistoryMutationInterlock =
+            IOSFailedHistoryMutationInterlock(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.journal = journal
@@ -169,6 +214,8 @@ actor IOSFailedHistoryStore {
         operationGateBinding = IOSPersistenceOperationGateBinding(
             identity: operationGateIdentity
         )
+        self.repositoryGuard = repositoryGuard
+        self.mutationInterlock = mutationInterlock
         self.now = now
     }
 
@@ -182,7 +229,7 @@ actor IOSFailedHistoryStore {
     /// cleanup tombstones intentionally survive until bounded reconciliation.
     func load() throws -> IOSFailedHistoryEnvelope? {
         try requireNoMutationUncertainty()
-        try journal.load()?.envelope
+        return try journal.load()?.envelope
     }
 
     func proveGuardedBaseline()
@@ -200,12 +247,30 @@ actor IOSFailedHistoryStore {
     }
 
     @discardableResult
-    func performStagingMaintenance()
+    func performStagingMaintenance(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    )
         throws -> IOSFailedHistoryMaintenanceReport {
+        try requireActiveLease(operationLeaseAuthorization)
         try requireNoMutationUncertainty()
-        IOSFailedHistoryMaintenanceReport(
-            try journal.performStagingMaintenance(now: now())
-        )
+        let repositoryBinding = try currentRepositoryBinding()
+        do {
+            let report = try journal.performStagingMaintenance(
+                now: now(),
+                expectedRepositoryRoot:
+                    repositoryBinding?.physicalRootIdentity
+            )
+            try requireRepositoryBinding(repositoryBinding)
+            return IOSFailedHistoryMaintenanceReport(report)
+        } catch {
+            do {
+                try requireRepositoryBinding(repositoryBinding)
+            } catch {
+                throw IOSFailedHistoryError.repositoryIdentityConflict
+            }
+            throw error
+        }
     }
 
     #if DEBUG
@@ -248,6 +313,10 @@ actor IOSFailedHistoryStore {
             operationLeaseAuthorization: operationLeaseAuthorization
         ).envelope
     }
+
+    func retainMutationUncertaintyForTesting() {
+        mutationInterlock.retainUncertainty()
+    }
     #endif
 }
 
@@ -258,6 +327,7 @@ private extension IOSFailedHistoryStore {
             IOSPersistenceOperationLeaseAuthorization
     ) throws -> IOSFailedHistoryMutationCapability {
         try requireActiveLease(operationLeaseAuthorization)
+        let repositoryBinding = try currentRepositoryBinding()
 
         if let intent = uncertainMutationIntent {
             guard intent.outcome == outcome else {
@@ -276,7 +346,8 @@ private extension IOSFailedHistoryStore {
                     outcome: outcome,
                     retainedIntent: intent,
                     operationLeaseAuthorization:
-                        operationLeaseAuthorization
+                        operationLeaseAuthorization,
+                    repositoryBinding: repositoryBinding
                 )
             }
             if let current,
@@ -286,11 +357,11 @@ private extension IOSFailedHistoryStore {
                     outcome: outcome,
                     retainedIntent: intent,
                     operationLeaseAuthorization:
-                        operationLeaseAuthorization
+                        operationLeaseAuthorization,
+                    repositoryBinding: repositoryBinding
                 )
             }
-            uncertainMutationIntent = nil
-            throw IOSFailedHistoryError.compareAndSwapFailed
+            throw IOSFailedHistoryError.commitUncertain
         }
 
         let source: IOSFailedHistoryMutationSource =
@@ -304,7 +375,8 @@ private extension IOSFailedHistoryStore {
             source: source,
             outcome: outcome,
             retainedIntent: nil,
-            operationLeaseAuthorization: operationLeaseAuthorization
+            operationLeaseAuthorization: operationLeaseAuthorization,
+            repositoryBinding: repositoryBinding
         )
     }
 
@@ -340,45 +412,64 @@ private extension IOSFailedHistoryStore {
         )
         let retainedIntent = capability.retainedIntent
         do {
+            try requireRepositoryBinding(capability.repositoryBinding)
             let snapshot: IOSFailedHistoryJournalSnapshot = switch source {
             case .missing:
                 try journal.create(
                     outcome,
                     authorization:
-                        IOSFailedHistoryJournalMutationAuthorization()
+                        IOSFailedHistoryJournalMutationAuthorization(
+                            expectedRepositoryRoot: capability
+                                .repositoryBinding?.physicalRootIdentity
+                        )
                 )
             case .existing(let current):
                 try journal.replace(
                     outcome,
                     expected: current,
                     authorization:
-                        IOSFailedHistoryJournalMutationAuthorization()
+                        IOSFailedHistoryJournalMutationAuthorization(
+                            expectedRepositoryRoot: capability
+                                .repositoryBinding?.physicalRootIdentity
+                        )
                 )
             }
             guard snapshot.envelope == outcome else {
-                uncertainMutationIntent = attemptedIntent
+                retainMutationIntent(attemptedIntent)
                 throw IOSFailedHistoryError.commitUncertain
             }
-            uncertainMutationIntent = nil
+            do {
+                try requireRepositoryBinding(capability.repositoryBinding)
+            } catch {
+                retainMutationIntent(attemptedIntent)
+                throw error
+            }
+            clearMutationIntent()
             return IOSFailedHistoryMutationReceipt(
                 snapshot: snapshot,
                 storeIdentity: storeIdentity,
                 capabilityOwnerIdentity: capabilityOwnerIdentity,
                 operationLeaseAuthorization:
-                    capability.operationLeaseAuthorization
+                    capability.operationLeaseAuthorization,
+                repositoryBinding: capability.repositoryBinding
             )
         } catch IOSFailedHistoryError.commitUncertain {
-            uncertainMutationIntent = attemptedIntent
+            retainMutationIntent(attemptedIntent)
             throw IOSFailedHistoryError.commitUncertain
         } catch IOSFailedHistoryError.compareAndSwapFailed {
             guard let retainedIntent else {
                 throw IOSFailedHistoryError.compareAndSwapFailed
             }
-            uncertainMutationIntent = retainedIntent
+            retainMutationIntent(retainedIntent)
             throw IOSFailedHistoryError.commitUncertain
         } catch {
+            do {
+                try requireRepositoryBinding(capability.repositoryBinding)
+            } catch {
+                throw IOSFailedHistoryError.repositoryIdentityConflict
+            }
             if let retainedIntent {
-                uncertainMutationIntent = retainedIntent
+                retainMutationIntent(retainedIntent)
                 throw IOSFailedHistoryError.commitUncertain
             }
             throw error
@@ -390,7 +481,9 @@ private extension IOSFailedHistoryStore {
         outcome: IOSFailedHistoryEnvelope,
         retainedIntent: IOSFailedHistoryUncertainMutationIntent?,
         operationLeaseAuthorization:
-            IOSPersistenceOperationLeaseAuthorization
+            IOSPersistenceOperationLeaseAuthorization,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding?
     ) -> IOSFailedHistoryMutationCapability {
         IOSFailedHistoryMutationCapability(
             source: source,
@@ -398,7 +491,8 @@ private extension IOSFailedHistoryStore {
             retainedIntent: retainedIntent,
             storeIdentity: storeIdentity,
             capabilityOwnerIdentity: capabilityOwnerIdentity,
-            operationLeaseAuthorization: operationLeaseAuthorization
+            operationLeaseAuthorization: operationLeaseAuthorization,
+            repositoryBinding: repositoryBinding
         )
     }
 
@@ -428,6 +522,7 @@ private extension IOSFailedHistoryStore {
             IOSPersistenceOperationLeaseAuthorization
     ) throws -> IOSFailedHistoryJournalSnapshot {
         try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
         guard receipt.storeIdentity == storeIdentity,
               receipt.capabilityOwnerIdentity == capabilityOwnerIdentity,
               receipt.operationLeaseAuthorization.provesSameActiveLease(
@@ -435,7 +530,13 @@ private extension IOSFailedHistoryStore {
               ) else {
             throw IOSFailedHistoryError.compareAndSwapFailed
         }
-        return receipt.snapshot
+        try requireRepositoryBinding(receipt.repositoryBinding)
+        guard let current = try journal.load(),
+              current == receipt.snapshot else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        try requireRepositoryBinding(receipt.repositoryBinding)
+        return current
     }
 
     func requireCapability(
@@ -447,6 +548,7 @@ private extension IOSFailedHistoryStore {
                 == capabilityOwnerIdentity else {
             throw IOSFailedHistoryError.compareAndSwapFailed
         }
+        try requireRepositoryBinding(capability.repositoryBinding)
     }
 
     func requireActiveLease(
@@ -460,6 +562,47 @@ private extension IOSFailedHistoryStore {
     func requireNoMutationUncertainty() throws {
         guard uncertainMutationIntent == nil else {
             throw IOSFailedHistoryError.commitUncertain
+        }
+    }
+
+    func retainMutationIntent(
+        _ intent: IOSFailedHistoryUncertainMutationIntent
+    ) {
+        uncertainMutationIntent = intent
+        mutationInterlock.retainUncertainty()
+    }
+
+    func clearMutationIntent() {
+        uncertainMutationIntent = nil
+        mutationInterlock.clearUncertainty()
+    }
+
+    func currentRepositoryBinding()
+        throws -> IOSAcceptedHistoryCoordinatorRepositoryBinding? {
+        guard let repositoryGuard else { return nil }
+        do {
+            return try repositoryGuard.revalidate()
+        } catch {
+            throw IOSFailedHistoryError.repositoryIdentityConflict
+        }
+    }
+
+    func requireRepositoryBinding(
+        _ expected: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    ) throws {
+        switch (repositoryGuard, expected) {
+        case (.none, .none):
+            return
+        case (.some(let repositoryGuard), .some(let expected)):
+            do {
+                _ = try repositoryGuard.revalidate(
+                    expectedBinding: expected
+                )
+            } catch {
+                throw IOSFailedHistoryError.repositoryIdentityConflict
+            }
+        case (.none, .some), (.some, .none):
+            throw IOSFailedHistoryError.compareAndSwapFailed
         }
     }
 }

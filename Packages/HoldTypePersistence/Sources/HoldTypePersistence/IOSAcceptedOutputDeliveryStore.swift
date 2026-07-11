@@ -537,10 +537,13 @@ public actor IOSAcceptedOutputDeliveryStore {
             IOSAcceptedHistoryOutboxStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity(),
-        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil
+        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
     ) {
         journal = FoundationIOSAcceptedOutputDeliveryJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         now = { Date() }
         monotonicNowNanoseconds = { DispatchTime.now().uptimeNanoseconds }

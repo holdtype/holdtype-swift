@@ -242,16 +242,140 @@ extension IOSPendingRecordingObservation: CustomStringConvertible,
     public var customMirror: Mirror { IOSPendingRecordingRedaction.mirror(of: self) }
 }
 
-struct IOSPendingTranscriptionDispatch: Equatable, Sendable {
+/// Descriptor-backed, bounded audio input for one authorized provider call.
+/// It exposes no durable or absolute filesystem location.
+public final class IOSPendingTranscriptionAudio: @unchecked Sendable {
+    public static let maximumReadByteCount = 64 * 1_024
+
+    public let format: IOSPendingRecordingAudioFormat
+    public let durationMilliseconds: Int64
+    public let byteCount: Int64
+
+    private let state: IOSPendingTranscriptionAudioState
+
+    init(lease: any IOSPendingRecordingPublishedAudioLease) {
+        guard let format = IOSPendingRecordingAudioFormat(
+            sourceURL: lease.audioArtifact.fileURL
+        ) else {
+            preconditionFailure("A pending transcription requires supported audio.")
+        }
+        self.format = format
+        durationMilliseconds = lease.durationMilliseconds
+        byteCount = lease.audioArtifact.byteCount
+        state = IOSPendingTranscriptionAudioState(lease: lease)
+    }
+
+    /// Reads one bounded descriptor-backed chunk without reopening a pathname.
+    public func read(
+        atOffset offset: Int64,
+        maximumByteCount: Int = IOSPendingTranscriptionAudio.maximumReadByteCount
+    ) async throws -> Data {
+        guard offset >= 0,
+              offset <= byteCount,
+              maximumByteCount > 0,
+              maximumByteCount <= Self.maximumReadByteCount else {
+            throw IOSPendingRecordingError.linkedAudioInvalid
+        }
+        try Task.checkCancellation()
+        let lease = try state.beginRead()
+        defer { state.finishRead() }
+        do {
+            let data = try await lease.read(
+                atOffset: offset,
+                maximumByteCount: maximumByteCount
+            )
+            try Task.checkCancellation()
+            return data
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch IOSPendingRecordingAudioFileSystemError
+            .repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch IOSPendingRecordingAudioFileSystemError
+            .dataProtectionUnavailable {
+            throw IOSPendingRecordingError.dataProtectionUnavailable
+        } catch IOSPendingRecordingAudioFileSystemError.operationCancelled {
+            throw CancellationError()
+        } catch {
+            throw IOSPendingRecordingError.linkedAudioInvalid
+        }
+    }
+
+    func invalidate() {
+        state.invalidate()
+    }
+}
+
+private final class IOSPendingTranscriptionAudioState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lease: (any IOSPendingRecordingPublishedAudioLease)?
+    private var activeReadCount = 0
+    private var invalidated = false
+
+    init(lease: any IOSPendingRecordingPublishedAudioLease) {
+        self.lease = lease
+    }
+
+    func beginRead() throws -> any IOSPendingRecordingPublishedAudioLease {
+        try lock.withLock {
+            guard !invalidated, let lease else {
+                throw IOSPendingRecordingError.dispatchAlreadyCommitted
+            }
+            activeReadCount += 1
+            return lease
+        }
+    }
+
+    func finishRead() {
+        let leaseToRelease = lock.withLock {
+            guard activeReadCount > 0 else {
+                assertionFailure("A pending transcription audio read must be active.")
+                return nil as (any IOSPendingRecordingPublishedAudioLease)?
+            }
+            activeReadCount -= 1
+            return takeLeaseForReleaseIfPossible()
+        }
+        leaseToRelease?.release()
+    }
+
+    func invalidate() {
+        let leaseToRelease = lock.withLock {
+            invalidated = true
+            return takeLeaseForReleaseIfPossible()
+        }
+        leaseToRelease?.release()
+    }
+
+    private func takeLeaseForReleaseIfPossible()
+        -> (any IOSPendingRecordingPublishedAudioLease)? {
+        guard invalidated, activeReadCount == 0 else { return nil }
+        defer { lease = nil }
+        return lease
+    }
+
+    deinit {
+        lease?.release()
+    }
+}
+
+extension IOSPendingTranscriptionAudio: CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String { "IOSPendingTranscriptionAudio(redacted)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { IOSPendingRecordingRedaction.mirror(of: self) }
+}
+
+struct IOSPendingTranscriptionDispatch: Sendable {
     let recording: IOSPendingRecording
-    let audioArtifact: AudioRecordingArtifact
+    let audio: IOSPendingTranscriptionAudio
 
     init(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) {
         self.recording = recording
-        self.audioArtifact = audioArtifact
+        self.audio = audio
     }
 }
 
@@ -267,7 +391,7 @@ extension IOSPendingTranscriptionDispatch: CustomStringConvertible,
 public protocol IOSPendingTranscriptionExecutor: Sendable {
     func transcribe(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) async throws -> String
 }
 
@@ -283,6 +407,11 @@ public final class IOSPendingTranscriptionHandoff: @unchecked Sendable {
     ) {
         self.dispatch = dispatch
         self.authorization = authorization
+        if !authorization.installRetirementCleanup({
+            dispatch.audio.invalidate()
+        }) {
+            dispatch.audio.invalidate()
+        }
     }
 
     /// Runs one provider operation only after its cancellable task is registered.
@@ -299,11 +428,12 @@ public final class IOSPendingTranscriptionHandoff: @unchecked Sendable {
         }
 
         let task = Task<String, Error> { [dispatch] in
+            defer { dispatch.audio.invalidate() }
             try await reservation.waitForLaunch()
             try Task.checkCancellation()
             return try await executor.transcribe(
                 recording: dispatch.recording,
-                audioArtifact: dispatch.audioArtifact
+                audio: dispatch.audio
             )
         }
         guard authorization.activate(
@@ -331,6 +461,10 @@ public final class IOSPendingTranscriptionHandoff: @unchecked Sendable {
         } onCancel: {
             authorization.cancel(reservation)
         }
+    }
+
+    deinit {
+        authorization.retireAndCancel()
     }
 }
 
@@ -412,6 +546,18 @@ final class IOSPendingTranscriptionAuthorization: @unchecked Sendable {
 
     private let lock = NSLock()
     private var state = State.available
+    private var retirementCleanup: (@Sendable () -> Void)?
+
+    func installRetirementCleanup(
+        _ cleanup: @escaping @Sendable () -> Void
+    ) -> Bool {
+        lock.withLock {
+            guard retirementCleanup == nil else { return false }
+            if case .retired = state { return false }
+            retirementCleanup = cleanup
+            return true
+        }
+    }
 
     func reserve() -> IOSPendingTranscriptionReservation? {
         lock.withLock {
@@ -439,14 +585,18 @@ final class IOSPendingTranscriptionAuthorization: @unchecked Sendable {
     }
 
     func finish(_ reservation: IOSPendingTranscriptionReservation) -> Bool {
-        lock.withLock {
+        let result = lock.withLock {
             if case .running(let current, _) = state,
                current === reservation {
                 state = .retired
-                return true
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
+                return (true, cleanup)
             }
-            return false
+            return (false, nil)
         }
+        result.1?()
+        return result.0
     }
 
     func cancel(_ reservation: IOSPendingTranscriptionReservation) {
@@ -454,12 +604,20 @@ final class IOSPendingTranscriptionAuthorization: @unchecked Sendable {
             switch state {
             case .reserved(let current) where current === reservation:
                 state = .retired
-                return { reservation.cancel() }
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
+                return {
+                    reservation.cancel()
+                    cleanup?()
+                }
             case .running(let current, let cancel) where current === reservation:
                 state = .retired
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
                 return {
                     reservation.cancel()
                     cancel()
+                    cleanup?()
                 }
             case .available, .reserved, .running, .retired:
                 return nil
@@ -473,15 +631,25 @@ final class IOSPendingTranscriptionAuthorization: @unchecked Sendable {
             switch state {
             case .available:
                 state = .retired
-                return nil
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
+                return cleanup
             case .reserved(let reservation):
                 state = .retired
-                return { reservation.cancel() }
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
+                return {
+                    reservation.cancel()
+                    cleanup?()
+                }
             case .running(let reservation, let cancel):
                 state = .retired
+                let cleanup = retirementCleanup
+                retirementCleanup = nil
                 return {
                     reservation.cancel()
                     cancel()
+                    cleanup?()
                 }
             case .retired:
                 return nil
@@ -501,6 +669,8 @@ extension IOSPendingTranscriptionHandoff: CustomStringConvertible,
 public enum IOSPendingRecordingError: Error, Equatable, Sendable {
     case cancelledBeforeOperation
     case reentrantOperation
+    case repositoryIdentityConflict
+    case localRecoveryPending
     case pendingSlotOccupied
     case orphanedAudio
     case journalUnreadable

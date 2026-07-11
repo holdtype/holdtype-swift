@@ -133,6 +133,10 @@ Full Access, none of these extension-to-app commands is available.
 
 - A valid completed recording is recoverable before provider work starts.
 - Provider work begins only after capture ends and the recording is journaled.
+- Provider work reads the protected recording through the one-shot
+  descriptor-backed source defined by `ios-history-and-storage.md`; no provider
+  adapter may reopen its app-private absolute URL or materialize an equivalent
+  path-based handoff.
 - While provider work is processing, the Quick Session may remain visibly
   armed until its own deadline, but another utterance cannot begin until the
   current attempt reaches a terminal state. Stop or expiry deactivates audio

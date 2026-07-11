@@ -154,12 +154,17 @@ public extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let cutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
         do {
             return try await operationGate.perform {
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    return .pendingLocalRecovery
+                }
                 let retainedAtEntry = await cutoverState.current()
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 if repositoryIdentityState.isConflicted {
@@ -309,6 +314,8 @@ private extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let cutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -316,6 +323,15 @@ private extension IOSAcceptedHistoryCoordinator {
         do {
             return try await operationGate.perform {
                 let retainedAtEntry = await cutoverState.current()
+                if failedHistoryMutationInterlock.isBlocked {
+                    if retainedAtEntry?.ownerIdentity == ownerIdentity,
+                       retainedAtEntry?.command == command,
+                       retainedAtEntry?.phase.crossedLogicalBoundary == true {
+                        return .pendingLocalRecovery
+                    }
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 if repositoryIdentityState.isConflicted {
                     if retainedAtEntry?.ownerIdentity == ownerIdentity,
@@ -331,6 +347,7 @@ private extension IOSAcceptedHistoryCoordinator {
                         .repositoryIdentityConflict
                 }
 
+                do {
                 let work: IOSHistoryPolicyCutoverWork
                 if let retained = await cutoverState.current() {
                     let hasDeliveryWork = await deliveryStore
@@ -425,6 +442,37 @@ private extension IOSAcceptedHistoryCoordinator {
                     await cutoverState.clear()
                 }
                 return disposition
+                } catch {
+                    if let repositoryBinding {
+                        _ = repositoryRegistration?.revalidate(
+                            expectedBinding: repositoryBinding
+                        )
+                    }
+                    guard repositoryIdentityState.isConflicted else {
+                        throw error
+                    }
+                    let retainedAfterFailure = await cutoverState.current()
+                    if retainedAfterFailure?.ownerIdentity == ownerIdentity,
+                       retainedAfterFailure?.command == command,
+                       retainedAfterFailure?.phase.crossedLogicalBoundary
+                        == true {
+                        return .pendingLocalRecovery
+                    }
+                    if retainedAfterFailure?.ownerIdentity == ownerIdentity,
+                       retainedAfterFailure?.command == command,
+                       case .policyCaptured = retainedAfterFailure?.phase,
+                       error as? IOSHistoryPolicyError == .commitUncertain {
+                        return .pendingLocalRecovery
+                    }
+                    if retainedAfterFailure?.ownerIdentity == ownerIdentity,
+                       retainedAfterFailure?.command == command,
+                       retainedAfterFailure?.phase.crossedLogicalBoundary
+                        == false {
+                        await cutoverState.clear()
+                    }
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .repositoryIdentityConflict
+                }
             }
         } catch IOSPersistenceOperationGate.AcquisitionError
             .cancelledBeforeLease {

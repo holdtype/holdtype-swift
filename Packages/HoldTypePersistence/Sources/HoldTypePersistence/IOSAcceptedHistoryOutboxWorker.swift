@@ -129,12 +129,17 @@ public extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
         do {
             return try await operationGate.perform {
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    return .pendingLocalRecovery
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError

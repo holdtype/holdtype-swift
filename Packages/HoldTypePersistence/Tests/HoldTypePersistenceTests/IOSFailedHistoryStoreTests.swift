@@ -131,7 +131,13 @@ struct IOSFailedHistoryStoreTests {
                 removedByteCount: 10,
                 reachedLimit: false
             )
-        let report = try await fixture.store.performStagingMaintenance()
+        let gate = IOSPersistenceOperationGate()
+        #expect(fixture.store.bindOperationGateIdentity(gate.identity))
+        let report = try await gate.perform { lease in
+            try await fixture.store.performStagingMaintenance(
+                operationLeaseAuthorization: lease
+            )
+        }
 
         #expect(report.inspectedEntryCount == 2)
         #expect(report.removedFileCount == 1)
@@ -175,7 +181,7 @@ struct IOSFailedHistoryStoreTests {
                 == "IOSFailedHistoryMutationReceipt(redacted)"
         )
         #expect(firstReceipt.customMirror.children.isEmpty)
-        #expect(fixture.fileSystem.events == ["load", "create"])
+        #expect(fixture.fileSystem.events == ["load", "create", "load"])
 
         fixture.fileSystem.resetEvents()
         let second = try failedHistoryStoreEnvelope(revision: 2, index: 11)
@@ -226,6 +232,13 @@ struct IOSFailedHistoryStoreTests {
                 )
             }
         }
+        await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+            _ = try await gate.perform { lease in
+                try await unbound.store.performStagingMaintenance(
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
         #expect(unbound.fileSystem.events.isEmpty)
 
         let foreign = FailedHistoryStoreFixture()
@@ -239,6 +252,13 @@ struct IOSFailedHistoryStoreTests {
                 )
             }
         }
+        await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+            _ = try await foreignGate.perform { lease in
+                try await foreign.store.performStagingMaintenance(
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
         #expect(foreign.fileSystem.events.isEmpty)
 
         let expired = FailedHistoryStoreFixture()
@@ -247,6 +267,11 @@ struct IOSFailedHistoryStoreTests {
         await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
             _ = try await expired.store.mutateExactForTesting(
                 outcome,
+                operationLeaseAuthorization: expiredLease
+            )
+        }
+        await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+            _ = try await expired.store.performStagingMaintenance(
                 operationLeaseAuthorization: expiredLease
             )
         }
@@ -293,6 +318,7 @@ struct IOSFailedHistoryStoreTests {
                         )
                     }
                 }
+                #expect(fixture.mutationInterlock.isBlocked)
 
                 fixture.fileSystem.resetEvents()
                 let receipt = try await gate.perform { lease in
@@ -316,12 +342,14 @@ struct IOSFailedHistoryStoreTests {
                 #expect(
                     receipt.capabilityOwnerIdentity == fixture.ownerIdentity
                 )
+                #expect(!fixture.mutationInterlock.isBlocked)
                 #expect(
                     fixture.fileSystem.events
                         == [
                             "load",
                             (hasSource || commitWasVisible)
                                 ? "replace" : "create",
+                            "load",
                         ]
                 )
                 #expect(try await fixture.store.load() == outcome)
@@ -352,11 +380,16 @@ struct IOSFailedHistoryStoreTests {
         await #expect(throws: IOSFailedHistoryError.commitUncertain) {
             _ = try await fixture.store.load()
         }
+        #expect(fixture.mutationInterlock.isBlocked)
         await #expect(throws: IOSFailedHistoryError.commitUncertain) {
             _ = try await fixture.store.proveGuardedBaseline()
         }
         await #expect(throws: IOSFailedHistoryError.commitUncertain) {
-            _ = try await fixture.store.performStagingMaintenance()
+            _ = try await gate.perform { lease in
+                try await fixture.store.performStagingMaintenance(
+                    operationLeaseAuthorization: lease
+                )
+            }
         }
         let unrelated = try failedHistoryStoreEnvelope(
             revision: 1,
@@ -398,6 +431,223 @@ struct IOSFailedHistoryStoreTests {
         }
         #expect(fixture.fileSystem.events == ["replace"])
         #expect(try await fixture.store.load() == raced)
+    }
+
+    @Test func unrecognizedUncertainWinnerKeepsRecoveryBlocked()
+        async throws {
+        let fixture = FailedHistoryStoreFixture()
+        let gate = IOSPersistenceOperationGate()
+        #expect(fixture.store.bindOperationGateIdentity(gate.identity))
+        let intended = try failedHistoryStoreEnvelope(revision: 1, index: 63)
+        fixture.fileSystem.createFailure = FailedHistoryFakeFileSystem.Failure(
+            error: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(throws: IOSFailedHistoryError.commitUncertain) {
+            _ = try await gate.perform { lease in
+                try await fixture.store.mutateExactForTesting(
+                    intended,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+
+        try fixture.install(
+            failedHistoryStoreEnvelope(revision: 1, index: 64)
+        )
+        await #expect(throws: IOSFailedHistoryError.commitUncertain) {
+            _ = try await gate.perform { lease in
+                try await fixture.store.mutateExactForTesting(
+                    intended,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+        await #expect(throws: IOSFailedHistoryError.commitUncertain) {
+            _ = try await fixture.store.load()
+        }
+    }
+
+    @Test func staleReceiptFailsDuringTheSameActiveLease() async throws {
+        let fixture = FailedHistoryStoreFixture()
+        let gate = IOSPersistenceOperationGate()
+        #expect(fixture.store.bindOperationGateIdentity(gate.identity))
+        let first = try failedHistoryStoreEnvelope(revision: 1, index: 65)
+        let second = try failedHistoryStoreEnvelope(revision: 2, index: 66)
+
+        try await gate.perform { lease in
+            let firstReceipt = try await fixture.store.mutateExactForTesting(
+                first,
+                operationLeaseAuthorization: lease
+            )
+            _ = try await fixture.store.mutateExactForTesting(
+                second,
+                operationLeaseAuthorization: lease
+            )
+            await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+                _ = try await fixture.store
+                    .validateMutationReceiptForTesting(
+                        firstReceipt,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+    }
+
+    @Test func reservedCapabilityExpiresWithItsLeaseBeforeCommit()
+        async throws {
+        let fixture = FailedHistoryStoreFixture()
+        let gate = IOSPersistenceOperationGate()
+        #expect(fixture.store.bindOperationGateIdentity(gate.identity))
+        let outcome = try failedHistoryStoreEnvelope(revision: 1, index: 67)
+        let capability = try await gate.perform { lease in
+            try await fixture.store.reserveExactMutationForTesting(
+                outcome,
+                operationLeaseAuthorization: lease
+            )
+        }
+        fixture.fileSystem.resetEvents()
+
+        await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+            _ = try await fixture.store
+                .commitExactMutationForTesting(capability)
+        }
+        #expect(fixture.fileSystem.events.isEmpty)
+    }
+
+    @Test func invalidRevisionStepsFailBeforeMutationIO() async throws {
+        for (sourceRevision, outcomeRevision) in [
+            (Int64?.none, Int64(2)),
+            (Int64?.some(4), Int64(4)),
+            (Int64?.some(4), Int64(6)),
+        ] {
+            let fixture = FailedHistoryStoreFixture()
+            let gate = IOSPersistenceOperationGate()
+            #expect(fixture.store.bindOperationGateIdentity(gate.identity))
+            if let sourceRevision {
+                try fixture.install(
+                    failedHistoryStoreEnvelope(
+                        revision: sourceRevision,
+                        index: 68
+                    )
+                )
+            }
+            let outcome = try failedHistoryStoreEnvelope(
+                revision: outcomeRevision,
+                index: 69
+            )
+
+            await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+                _ = try await gate.perform { lease in
+                    try await fixture.store.mutateExactForTesting(
+                        outcome,
+                        operationLeaseAuthorization: lease
+                    )
+                }
+            }
+            #expect(fixture.fileSystem.events == ["load"])
+        }
+    }
+
+    @Test func rootReplacementBetweenReserveAndCommitWritesNothing()
+        async throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "failed-history-root-swap-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let context = registry.context(for: root)
+        let outcome = try failedHistoryStoreEnvelope(revision: 1, index: 70)
+
+        await #expect(
+            throws: IOSFailedHistoryError.repositoryIdentityConflict
+        ) {
+            _ = try await context.operationGate.perform { lease in
+                let capability = try await context.failedHistoryStore
+                    .reserveExactMutationForTesting(
+                        outcome,
+                        operationLeaseAuthorization: lease
+                    )
+                try FileManager.default.removeItem(at: root)
+                try FileManager.default.createDirectory(
+                    at: root,
+                    withIntermediateDirectories: false
+                )
+                return try await context.failedHistoryStore
+                    .commitExactMutationForTesting(capability)
+            }
+        }
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSFailedHistoryStorageLocation.fileURL(in: root).path
+            )
+        )
+    }
+
+    @Test func rootSwapAfterPrevalidationBeforeJournalOpenWritesNothing()
+        async throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "failed-history-root-open-race-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent("root", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let context = registry.context(for: root)
+        let swapper = FailedHistoryRootSwap(root: root)
+        let fileSystem = FoundationIOSStrictProtectedRecordFileSystem(
+            applicationSupportDirectoryURL: root,
+            configuration: .failedHistory,
+            beforeRepositoryRootOpen: {
+                try swapper.replaceRootOnce()
+            }
+        )
+        let store = IOSFailedHistoryStore(
+            journal: FoundationIOSFailedHistoryJournalRepository(
+                fileSystem: fileSystem
+            ),
+            capabilityOwnerIdentity: context.ownerIdentity,
+            operationGateIdentity: context.operationGate.identity,
+            repositoryGuard: context.repositoryGuard,
+            mutationInterlock: context.failedHistoryMutationInterlock
+        )
+        let outcome = try failedHistoryStoreEnvelope(
+            revision: 1,
+            index: 71
+        )
+
+        await #expect(
+            throws: IOSFailedHistoryError.repositoryIdentityConflict
+        ) {
+            _ = try await context.operationGate.perform { lease in
+                let capability = try await store
+                    .reserveExactMutationForTesting(
+                        outcome,
+                        operationLeaseAuthorization: lease
+                    )
+                return try await store
+                    .commitExactMutationForTesting(capability)
+            }
+        }
+
+        #expect(swapper.didReplaceRoot)
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSFailedHistoryStorageLocation.fileURL(in: root).path
+            )
+        )
     }
 
     @Test func capabilityAndReceiptRejectForeignStoreOrExpiredLeaseWithoutIO()
@@ -560,6 +810,34 @@ struct IOSFailedHistoryStoreTests {
     }
 }
 
+private final class FailedHistoryRootSwap: @unchecked Sendable {
+    private let lock = NSLock()
+    private let root: URL
+    private var replaced = false
+
+    init(root: URL) {
+        self.root = root
+    }
+
+    var didReplaceRoot: Bool {
+        lock.withLock { replaced }
+    }
+
+    func replaceRootOnce() throws {
+        try lock.withLock {
+            guard !replaced else { return }
+            let detached = root.deletingLastPathComponent()
+                .appendingPathComponent("detached-root", isDirectory: true)
+            try FileManager.default.moveItem(at: root, to: detached)
+            try FileManager.default.createDirectory(
+                at: root,
+                withIntermediateDirectories: false
+            )
+            replaced = true
+        }
+    }
+}
+
 private func failedHistoryStoreEnvelope(
     revision: Int64,
     index: Int
@@ -573,6 +851,7 @@ private func failedHistoryStoreEnvelope(
 
 private final class FailedHistoryStoreFixture: @unchecked Sendable {
     let ownerIdentity = IOSAcceptedHistoryCapabilityOwnerIdentity()
+    let mutationInterlock = IOSFailedHistoryMutationInterlock()
     let fileSystem = FailedHistoryFakeFileSystem()
     let repository: FoundationIOSFailedHistoryJournalRepository
     let store: IOSFailedHistoryStore
@@ -587,6 +866,7 @@ private final class FailedHistoryStoreFixture: @unchecked Sendable {
         store = IOSFailedHistoryStore(
             journal: repository,
             capabilityOwnerIdentity: ownerIdentity,
+            mutationInterlock: mutationInterlock,
             now: { Date(timeIntervalSince1970: 1_800_000_000) }
         )
     }

@@ -1,6 +1,18 @@
 import Foundation
 import HoldTypeDomain
 
+struct IOSPendingRecordingStoreIdentity: Equatable, Sendable {
+    private let value = UUID()
+}
+
+extension IOSPendingRecordingStoreIdentity: CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String { "IOSPendingRecordingStoreIdentity(redacted)" }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 protocol IOSPendingRecordingDestinationInspecting: Sendable {
     func hasCanonicalDestination(
         attemptID: UUID,
@@ -99,53 +111,185 @@ final class IOSPendingRecordingLiveOwnerRegistry: @unchecked Sendable {
 
 /// Owns the one app-private pending recording transaction for the app process.
 public actor IOSPendingRecordingStore {
-    private static let processOperationGate = IOSPendingRecordingOperationGate()
-
     private struct ActiveDispatchIdentity: Equatable, Sendable {
         let attemptID: UUID
         let transcriptionID: UUID
     }
 
+    nonisolated let capabilityOwnerIdentity:
+        IOSAcceptedHistoryCapabilityOwnerIdentity
+    nonisolated let storeIdentity: IOSPendingRecordingStoreIdentity
+    private nonisolated let operationGateBinding:
+        IOSPersistenceOperationGateBinding
     private let journal: any IOSPendingRecordingJournalStoring
     private let audioFileSystem: any IOSPendingRecordingAudioFileSystem
     private let destinationInspector: any IOSPendingRecordingDestinationInspecting
-    private let operationGate: IOSPendingRecordingOperationGate
+    private let operationGate: IOSPersistenceOperationGate
     private let liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry
+    private let repositoryGuard:
+        IOSAcceptedHistoryCoordinatorRepositoryGuard?
+    private let failedHistoryMutationInterlock:
+        IOSFailedHistoryMutationInterlock
+
+    nonisolated var failedMutationInterlock:
+        IOSFailedHistoryMutationInterlock {
+        failedHistoryMutationInterlock
+    }
     private let now: @Sendable () -> Date
 
     private var activeDispatchIdentity: ActiveDispatchIdentity?
     private var activeDispatchAuthorization: IOSPendingTranscriptionAuthorization?
 
     public init(applicationSupportDirectoryURL: URL) {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry
+            .shared
+        let context = registry.context(for: applicationSupportDirectoryURL)
+        let operationGate = context.operationGate
+        let repositoryGuard = IOSAcceptedHistoryCoordinatorRepositoryGuard(
+            expectedBinding: context.repositoryBinding,
+            repositoryIdentityState: context.repositoryIdentityState
+        )
+        let repositoryGuardAccepted = repositoryGuard.bind(
+            IOSAcceptedHistoryCoordinatorRepositoryRegistration(
+                registry: registry,
+                context: context,
+                applicationSupportDirectoryURL:
+                    applicationSupportDirectoryURL
+            )
+        )
         journal = FoundationIOSPendingRecordingJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL:
+                context.applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         audioFileSystem = FoundationIOSPendingRecordingAudioFileSystem(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL:
+                context.applicationSupportDirectoryURL,
+            mediaValidator: AudioToolboxIOSPendingRecordingMediaValidator(
+                workerGate:
+                    context.pendingRecordingMediaValidationWorkerGate
+            ),
+            expectedRepositoryRoot:
+                repositoryGuard.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard.invalidate()
+            }
         )
         destinationInspector = UnconfiguredIOSPendingRecordingDestinationInspector()
-        operationGate = Self.processOperationGate
-        liveOwnerRegistry = .shared
+        self.operationGate = operationGate
+        liveOwnerRegistry = context.pendingRecordingLiveOwnerRegistry
         now = { Date() }
+        capabilityOwnerIdentity = context.ownerIdentity
+        storeIdentity = IOSPendingRecordingStoreIdentity()
+        operationGateBinding = IOSPersistenceOperationGateBinding(
+            identity: operationGate.identity
+        )
+        self.repositoryGuard = repositoryGuard
+        failedHistoryMutationInterlock =
+            context.failedHistoryMutationInterlock
+        if !repositoryGuardAccepted {
+            context.repositoryIdentityState.markConflicted()
+        }
     }
 
-    public init(
+    init(
         applicationSupportDirectoryURL: URL,
         canonicalDestinationExists:
             @escaping @Sendable (UUID, UUID) throws -> Bool
     ) {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry
+            .shared
+        let context = registry.context(for: applicationSupportDirectoryURL)
+        let operationGate = context.operationGate
+        let repositoryGuard = IOSAcceptedHistoryCoordinatorRepositoryGuard(
+            expectedBinding: context.repositoryBinding,
+            repositoryIdentityState: context.repositoryIdentityState
+        )
+        let repositoryGuardAccepted = repositoryGuard.bind(
+            IOSAcceptedHistoryCoordinatorRepositoryRegistration(
+                registry: registry,
+                context: context,
+                applicationSupportDirectoryURL:
+                    applicationSupportDirectoryURL
+            )
+        )
         journal = FoundationIOSPendingRecordingJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL:
+                context.applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         audioFileSystem = FoundationIOSPendingRecordingAudioFileSystem(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL:
+                context.applicationSupportDirectoryURL,
+            mediaValidator: AudioToolboxIOSPendingRecordingMediaValidator(
+                workerGate:
+                    context.pendingRecordingMediaValidationWorkerGate
+            ),
+            expectedRepositoryRoot:
+                repositoryGuard.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard.invalidate()
+            }
         )
         destinationInspector = ClosureIOSPendingRecordingDestinationInspector(
             canonicalDestinationExists: canonicalDestinationExists
         )
-        operationGate = Self.processOperationGate
-        liveOwnerRegistry = .shared
+        self.operationGate = operationGate
+        liveOwnerRegistry = context.pendingRecordingLiveOwnerRegistry
         now = { Date() }
+        capabilityOwnerIdentity = context.ownerIdentity
+        storeIdentity = IOSPendingRecordingStoreIdentity()
+        operationGateBinding = IOSPersistenceOperationGateBinding(
+            identity: operationGate.identity
+        )
+        self.repositoryGuard = repositoryGuard
+        failedHistoryMutationInterlock =
+            context.failedHistoryMutationInterlock
+        if !repositoryGuardAccepted {
+            context.repositoryIdentityState.markConflicted()
+        }
+    }
+
+    init(
+        applicationSupportDirectoryURL: URL,
+        capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        storeIdentity: IOSPendingRecordingStoreIdentity,
+        operationGate: IOSPersistenceOperationGate,
+        liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry,
+        mediaValidationWorkerGate:
+            AudioToolboxMediaValidationWorkerGate,
+        repositoryGuard: IOSAcceptedHistoryCoordinatorRepositoryGuard,
+        failedHistoryMutationInterlock:
+            IOSFailedHistoryMutationInterlock
+    ) {
+        journal = FoundationIOSPendingRecordingJournalRepository(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
+        )
+        audioFileSystem = FoundationIOSPendingRecordingAudioFileSystem(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            mediaValidator: AudioToolboxIOSPendingRecordingMediaValidator(
+                workerGate: mediaValidationWorkerGate
+            ),
+            expectedRepositoryRoot:
+                repositoryGuard.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard.invalidate()
+            }
+        )
+        destinationInspector =
+            UnconfiguredIOSPendingRecordingDestinationInspector()
+        self.operationGate = operationGate
+        self.liveOwnerRegistry = liveOwnerRegistry
+        now = { Date() }
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+        self.storeIdentity = storeIdentity
+        operationGateBinding = IOSPersistenceOperationGateBinding(
+            identity: operationGate.identity
+        )
+        self.repositoryGuard = repositoryGuard
+        self.failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
     }
 
     init(
@@ -153,10 +297,20 @@ public actor IOSPendingRecordingStore {
         audioFileSystem: any IOSPendingRecordingAudioFileSystem,
         destinationInspector: any IOSPendingRecordingDestinationInspecting =
             UnconfiguredIOSPendingRecordingDestinationInspector(),
-        operationGate: IOSPendingRecordingOperationGate =
-            IOSPendingRecordingStore.processOperationGate,
+        operationGate: IOSPersistenceOperationGate =
+            IOSPersistenceOperationGate(),
         liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry =
             IOSPendingRecordingLiveOwnerRegistry(),
+        capabilityOwnerIdentity:
+            IOSAcceptedHistoryCapabilityOwnerIdentity =
+                IOSAcceptedHistoryCapabilityOwnerIdentity(),
+        storeIdentity: IOSPendingRecordingStoreIdentity =
+            IOSPendingRecordingStoreIdentity(),
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil,
+        failedHistoryMutationInterlock:
+            IOSFailedHistoryMutationInterlock =
+                IOSFailedHistoryMutationInterlock(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.journal = journal
@@ -164,7 +318,21 @@ public actor IOSPendingRecordingStore {
         self.destinationInspector = destinationInspector
         self.operationGate = operationGate
         self.liveOwnerRegistry = liveOwnerRegistry
+        self.capabilityOwnerIdentity = capabilityOwnerIdentity
+        self.storeIdentity = storeIdentity
         self.now = now
+        operationGateBinding = IOSPersistenceOperationGateBinding(
+            identity: operationGate.identity
+        )
+        self.repositoryGuard = repositoryGuard
+        self.failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
+    }
+
+    nonisolated func bindOperationGateIdentity(
+        _ identity: IOSPersistenceOperationGateIdentity
+    ) -> Bool {
+        operationGateBinding.bind(identity)
     }
 
     public func prepare(
@@ -262,8 +430,42 @@ private extension IOSPendingRecordingStore {
     func performExclusiveOperation<Value: Sendable>(
         _ operation: @escaping @Sendable () async throws -> Value
     ) async throws -> Value {
+        let repositoryGuard = repositoryGuard
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         do {
-            return try await operationGate.perform(operation)
+            return try await operationGate.perform {
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    throw IOSPendingRecordingError.localRecoveryPending
+                }
+                let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+                do {
+                    repositoryBinding = try repositoryGuard?.revalidate()
+                } catch {
+                    throw IOSPendingRecordingError.repositoryIdentityConflict
+                }
+                do {
+                    let value = try await operation()
+                    if let repositoryBinding {
+                        _ = try repositoryGuard?.revalidate(
+                            expectedBinding: repositoryBinding
+                        )
+                    }
+                    return value
+                } catch {
+                    if let repositoryBinding {
+                        do {
+                            _ = try repositoryGuard?.revalidate(
+                                expectedBinding: repositoryBinding
+                            )
+                        } catch {
+                            throw IOSPendingRecordingError
+                                .repositoryIdentityConflict
+                        }
+                    }
+                    throw error
+                }
+            }
         } catch IOSPendingRecordingOperationGate.AcquisitionError.cancelledBeforeLease {
             throw IOSPendingRecordingError.cancelledBeforeOperation
         } catch IOSPendingRecordingOperationGate.AcquisitionError.reentrantOperation {
@@ -285,12 +487,17 @@ private extension IOSPendingRecordingStore {
 
         let lease: any IOSPendingRecordingPublishedAudioLease
         do {
-            lease = try await audioFileSystem.publishProtectedCopy(
-                from: preparation.sourceArtifact,
-                attemptID: preparation.attemptID,
-                format: preparation.audioFormat,
-                durationMilliseconds: preparation.durationMilliseconds
-            )
+            lease = try await performRepositoryBoundary { expectedRoot in
+                try await audioFileSystem.publishProtectedCopy(
+                    from: preparation.sourceArtifact,
+                    attemptID: preparation.attemptID,
+                    format: preparation.audioFormat,
+                    durationMilliseconds: preparation.durationMilliseconds,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
         } catch {
             throw mapAudioError(error, operation: .publish)
         }
@@ -317,7 +524,12 @@ private extension IOSPendingRecordingStore {
             throw mapAudioError(error, operation: .validate)
         }
         do {
-            try journal.create(recording)
+            try performRepositoryBoundary { expectedRoot in
+                try journal.create(
+                    recording,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
         } catch let error as IOSPendingRecordingError {
             throw error
         } catch {
@@ -380,7 +592,13 @@ private extension IOSPendingRecordingStore {
             transcriptionModel: current.transcriptionModel,
             transcriptionLanguageCode: current.transcriptionLanguageCode
         )
-        try journal.replace(updated, expected: current)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
         liveOwnerRegistry.register(
             attemptID: updated.attemptID,
             transcriptionID: transcriptionID
@@ -391,11 +609,11 @@ private extension IOSPendingRecordingStore {
             transcriptionID: transcriptionID
         )
         activeDispatchAuthorization = authorization
-        let artifact = try await validateCommittedHandoffOrRecover(updated)
+        let lease = try await acquireCommittedHandoffOrRecover(updated)
         return IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
-                audioArtifact: artifact
+                audio: IOSPendingTranscriptionAudio(lease: lease)
             ),
             authorization: authorization
         )
@@ -437,7 +655,13 @@ private extension IOSPendingRecordingStore {
             transcriptionModel: model,
             transcriptionLanguageCode: languageCode
         )
-        try journal.replace(updated, expected: current)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
         liveOwnerRegistry.register(
             attemptID: updated.attemptID,
             transcriptionID: transcriptionID
@@ -448,11 +672,11 @@ private extension IOSPendingRecordingStore {
             transcriptionID: transcriptionID
         )
         activeDispatchAuthorization = authorization
-        let artifact = try await validateCommittedHandoffOrRecover(updated)
+        let lease = try await acquireCommittedHandoffOrRecover(updated)
         return IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
-                audioArtifact: artifact
+                audio: IOSPendingTranscriptionAudio(lease: lease)
             ),
             authorization: authorization
         )
@@ -484,7 +708,13 @@ private extension IOSPendingRecordingStore {
             transcriptionModel: current.transcriptionModel,
             transcriptionLanguageCode: current.transcriptionLanguageCode
         )
-        try journal.replace(updated, expected: current)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
         return updated
     }
 
@@ -518,7 +748,13 @@ private extension IOSPendingRecordingStore {
         // This is the linearization point against a concurrent handoff
         // execute: no provider operation may start after cancellation begins.
         activeDispatchAuthorization?.retireAndCancel()
-        try journal.replace(updated, expected: current)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
         liveOwnerRegistry.retire(
             attemptID: current.attemptID,
             transcriptionID: transcriptionID
@@ -586,7 +822,13 @@ private extension IOSPendingRecordingStore {
             attemptID: current.attemptID,
             transcriptionID: transcriptionID
         )
-        try journal.replace(updated, expected: current)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
         return updated
     }
 
@@ -606,17 +848,27 @@ private extension IOSPendingRecordingStore {
         }
 
         do {
-            _ = try await audioFileSystem.removePublishedAudioIfPresent(
-                relativeIdentifier: current.audioRelativeIdentifier,
-                attemptID: current.attemptID,
-                expectedByteCount: current.byteCount
-            )
+            _ = try await performRepositoryBoundary { expectedRoot in
+                try await audioFileSystem.removePublishedAudioIfPresent(
+                    relativeIdentifier: current.audioRelativeIdentifier,
+                    attemptID: current.attemptID,
+                    expectedByteCount: current.byteCount,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
         } catch {
             throw mapAudioError(error, operation: .remove)
         }
 
         do {
-            _ = try journal.remove(expected: current)
+            _ = try performRepositoryBoundary { expectedRoot in
+                try journal.remove(
+                    expected: current,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
         } catch let error as IOSPendingRecordingError {
             throw error
         } catch {
@@ -660,17 +912,22 @@ private extension IOSPendingRecordingStore {
         }
     }
 
-    func validateCommittedHandoffOrRecover(
+    func acquireCommittedHandoffOrRecover(
         _ recording: IOSPendingRecording
-    ) async throws -> AudioRecordingArtifact {
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
         do {
-            return try await validatedAudio(for: recording)
+            return try await audioFileSystem.acquireValidatedPublishedAudio(
+                relativeIdentifier: recording.audioRelativeIdentifier,
+                attemptID: recording.attemptID,
+                durationMilliseconds: recording.durationMilliseconds,
+                byteCount: recording.byteCount
+            )
         } catch {
             let validationError = error
             _ = try performMarkAwaitingRecovery(
                 expected: IOSPendingRecordingCASExpectation(recording: recording)
             )
-            throw validationError
+            throw mapAudioError(validationError, operation: .validate)
         }
     }
 
@@ -711,7 +968,83 @@ private extension IOSPendingRecordingStore {
         // actor that wrote these bytes. Rewriting every same-phase result makes
         // durability confirmation process-independent and keeps side effects
         // behind a successful directory synchronization.
-        try journal.replace(recording, expected: recording)
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                recording,
+                expected: recording,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
+    }
+
+    func performRepositoryBoundary<Value: Sendable>(
+        _ operation: @Sendable (
+            IOSPersistenceRepositoryRootIdentity?
+        ) throws -> Value
+    ) throws -> Value {
+        let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+        do {
+            repositoryBinding = try repositoryGuard?.revalidate()
+        } catch {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        }
+        do {
+            let value = try operation(
+                repositoryBinding?.physicalRootIdentity
+            )
+            if let repositoryBinding {
+                _ = try repositoryGuard?.revalidate(
+                    expectedBinding: repositoryBinding
+                )
+            }
+            return value
+        } catch {
+            if let repositoryBinding {
+                do {
+                    _ = try repositoryGuard?.revalidate(
+                        expectedBinding: repositoryBinding
+                    )
+                } catch {
+                    throw IOSPendingRecordingError.repositoryIdentityConflict
+                }
+            }
+            throw error
+        }
+    }
+
+    func performRepositoryBoundary<Value: Sendable>(
+        _ operation: @Sendable (
+            IOSPersistenceRepositoryRootIdentity?
+        ) async throws -> Value
+    ) async throws -> Value {
+        let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+        do {
+            repositoryBinding = try repositoryGuard?.revalidate()
+        } catch {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        }
+        do {
+            let value = try await operation(
+                repositoryBinding?.physicalRootIdentity
+            )
+            if let repositoryBinding {
+                _ = try repositoryGuard?.revalidate(
+                    expectedBinding: repositoryBinding
+                )
+            }
+            return value
+        } catch {
+            if let repositoryBinding {
+                do {
+                    _ = try repositoryGuard?.revalidate(
+                        expectedBinding: repositoryBinding
+                    )
+                } catch {
+                    throw IOSPendingRecordingError.repositoryIdentityConflict
+                }
+            }
+            throw error
+        }
     }
 }
 
@@ -741,6 +1074,8 @@ private extension IOSPendingRecordingStore {
         }
 
         switch error {
+        case .repositoryIdentityConflict:
+            return .repositoryIdentityConflict
         case .namespaceNotEmpty:
             return .orphanedAudio
         case .namespaceUnavailable:

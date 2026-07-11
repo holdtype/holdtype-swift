@@ -261,6 +261,8 @@ public extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -268,6 +270,10 @@ public extension IOSAcceptedHistoryCoordinator {
         do {
             return try await operationGate.perform {
                 operationLeaseAuthorization in
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
@@ -429,6 +435,8 @@ public extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -436,6 +444,10 @@ public extension IOSAcceptedHistoryCoordinator {
         do {
             return try await operationGate.perform {
                 operationLeaseAuthorization in
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError

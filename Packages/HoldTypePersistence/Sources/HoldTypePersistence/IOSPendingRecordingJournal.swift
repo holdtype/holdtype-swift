@@ -6,11 +6,51 @@ import HoldTypeDomain
 protocol IOSPendingRecordingJournalStoring: Sendable {
     func load() throws -> IOSPendingRecording?
     func create(_ recording: IOSPendingRecording) throws
+    func create(
+        _ recording: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws
     func replace(
         _ recording: IOSPendingRecording,
         expected: IOSPendingRecording
     ) throws
+    func replace(
+        _ recording: IOSPendingRecording,
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws
     func remove(expected: IOSPendingRecording) throws -> Bool
+    func remove(
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> Bool
+}
+
+extension IOSPendingRecordingJournalStoring {
+    func create(
+        _ recording: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
+        _ = expectedRepositoryRoot
+        try create(recording)
+    }
+
+    func replace(
+        _ recording: IOSPendingRecording,
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
+        _ = expectedRepositoryRoot
+        try replace(recording, expected: expected)
+    }
+
+    func remove(
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> Bool {
+        _ = expectedRepositoryRoot
+        return try remove(expected: expected)
+    }
 }
 
 /// Canonicalizes runtime dates to the journal's UTC millisecond precision.
@@ -78,6 +118,7 @@ enum IOSPendingRecordingTimestampCodec {
 
 enum IOSPendingRecordingJournalFileSystemError: Error, Equatable, Sendable {
     case invalidLocation
+    case repositoryIdentityConflict
     case sourceTooLarge
     case missing
     case destinationConflict
@@ -117,12 +158,25 @@ protocol IOSPendingRecordingJournalFileSystem: Sendable {
     func readOpaqueFileRevisionIfPresent() throws
         -> IOSPendingRecordingJournalFileRevision?
     func createFile(with data: Data) throws -> IOSPendingRecordingJournalFileRevision
+    func createFile(
+        with data: Data,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision
     func replaceFile(
         with data: Data,
         expected: IOSPendingRecordingJournalFileRevision
     ) throws -> IOSPendingRecordingJournalFileRevision
+    func replaceFile(
+        with data: Data,
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision
     func removeFile(
         expected: IOSPendingRecordingJournalFileRevision
+    ) throws
+    func removeFile(
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) throws
     func removeOpaqueFile(
         expected: IOSPendingRecordingJournalFileRevision
@@ -130,6 +184,31 @@ protocol IOSPendingRecordingJournalFileSystem: Sendable {
 }
 
 extension IOSPendingRecordingJournalFileSystem {
+    func createFile(
+        with data: Data,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision {
+        _ = expectedRepositoryRoot
+        return try createFile(with: data)
+    }
+
+    func replaceFile(
+        with data: Data,
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision {
+        _ = expectedRepositoryRoot
+        return try replaceFile(with: data, expected: expected)
+    }
+
+    func removeFile(
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
+        _ = expectedRepositoryRoot
+        try removeFile(expected: expected)
+    }
+
     func readOpaqueFileRevisionIfPresent() throws
         -> IOSPendingRecordingJournalFileRevision? {
         try readFileIfPresent()?.revision
@@ -199,9 +278,18 @@ struct FoundationIOSPendingRecordingJournalRepository:
 
     private let fileSystem: any IOSPendingRecordingJournalFileSystem
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
+    ) {
         fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            expectedRepositoryRoot:
+                repositoryGuard?.expectedPhysicalRootIdentity,
+            onRepositoryIdentityMismatch: {
+                repositoryGuard?.invalidate()
+            }
         )
     }
 
@@ -217,9 +305,19 @@ struct FoundationIOSPendingRecordingJournalRepository:
     }
 
     func create(_ recording: IOSPendingRecording) throws {
+        try create(recording, expectedRepositoryRoot: nil)
+    }
+
+    func create(
+        _ recording: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
         let data = try IOSPendingRecordingJournalWireCodec.encode(recording)
         do {
-            _ = try fileSystem.createFile(with: data)
+            _ = try fileSystem.createFile(
+                with: data,
+                expectedRepositoryRoot: expectedRepositoryRoot
+            )
         } catch let error as IOSPendingRecordingJournalFileSystemError {
             throw mapCreateError(error)
         } catch {
@@ -230,6 +328,18 @@ struct FoundationIOSPendingRecordingJournalRepository:
     func replace(
         _ recording: IOSPendingRecording,
         expected: IOSPendingRecording
+    ) throws {
+        try replace(
+            recording,
+            expected: expected,
+            expectedRepositoryRoot: nil
+        )
+    }
+
+    func replace(
+        _ recording: IOSPendingRecording,
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) throws {
         guard let currentFile = try readFile() else {
             throw IOSPendingRecordingError.compareAndSwapFailed
@@ -245,13 +355,16 @@ struct FoundationIOSPendingRecordingJournalRepository:
         do {
             _ = try fileSystem.replaceFile(
                 with: data,
-                expected: currentFile.revision
+                expected: currentFile.revision,
+                expectedRepositoryRoot: expectedRepositoryRoot
             )
         } catch IOSPendingRecordingJournalFileSystemError.staleRevision,
                 IOSPendingRecordingJournalFileSystemError.missing {
             throw IOSPendingRecordingError.compareAndSwapFailed
         } catch IOSPendingRecordingJournalFileSystemError.protectedDataUnavailable {
             throw IOSPendingRecordingError.dataProtectionUnavailable
+        } catch IOSPendingRecordingJournalFileSystemError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
         } catch IOSPendingRecordingJournalFileSystemError.commitUncertain {
             throw IOSPendingRecordingError.journalCommitUncertain
         } catch {
@@ -261,6 +374,13 @@ struct FoundationIOSPendingRecordingJournalRepository:
 
     func remove(
         expected: IOSPendingRecording
+    ) throws -> Bool {
+        try remove(expected: expected, expectedRepositoryRoot: nil)
+    }
+
+    func remove(
+        expected: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) throws -> Bool {
         guard let currentFile = try readFile() else {
             return false
@@ -273,13 +393,18 @@ struct FoundationIOSPendingRecordingJournalRepository:
         }
 
         do {
-            try fileSystem.removeFile(expected: currentFile.revision)
+            try fileSystem.removeFile(
+                expected: currentFile.revision,
+                expectedRepositoryRoot: expectedRepositoryRoot
+            )
             return true
         } catch IOSPendingRecordingJournalFileSystemError.staleRevision,
                 IOSPendingRecordingJournalFileSystemError.missing {
             throw IOSPendingRecordingError.compareAndSwapFailed
         } catch IOSPendingRecordingJournalFileSystemError.protectedDataUnavailable {
             throw IOSPendingRecordingError.dataProtectionUnavailable
+        } catch IOSPendingRecordingJournalFileSystemError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
         } catch {
             throw IOSPendingRecordingError.journalRemoveFailed
         }
@@ -292,6 +417,8 @@ struct FoundationIOSPendingRecordingJournalRepository:
             throw IOSPendingRecordingError.journalTooLarge
         } catch IOSPendingRecordingJournalFileSystemError.protectedDataUnavailable {
             throw IOSPendingRecordingError.dataProtectionUnavailable
+        } catch IOSPendingRecordingJournalFileSystemError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
         } catch {
             throw IOSPendingRecordingError.journalUnreadable
         }
@@ -307,6 +434,8 @@ struct FoundationIOSPendingRecordingJournalRepository:
             .journalTooLarge
         case .protectedDataUnavailable:
             .dataProtectionUnavailable
+        case .repositoryIdentityConflict:
+            .repositoryIdentityConflict
         case .commitUncertain:
             .journalCommitUncertain
         default:
@@ -715,6 +844,10 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     private let directorySynchronizationOperation:
         DirectorySynchronizationOperation?
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
+    private let beforeRepositoryRootOpen: @Sendable () throws -> Void
+    private let configuredExpectedRepositoryRoot:
+        IOSPersistenceRepositoryRootIdentity?
+    private let onRepositoryIdentityMismatch: @Sendable () -> Void
     private let maintenanceEnumerationCursor: MaintenanceEnumerationCursor
 
     init(
@@ -734,6 +867,12 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         },
         directorySynchronizationOperation:
             DirectorySynchronizationOperation? = nil,
+        beforeRepositoryRootOpen:
+            @escaping @Sendable () throws -> Void = {},
+        expectedRepositoryRoot:
+            IOSPersistenceRepositoryRootIdentity? = nil,
+        onRepositoryIdentityMismatch:
+            @escaping @Sendable () -> Void = {},
         monotonicNowNanoseconds: @escaping @Sendable () -> UInt64 = {
             DispatchTime.now().uptimeNanoseconds
         }
@@ -744,6 +883,10 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         self.replaceOperation = replaceOperation
         self.directorySynchronizationOperation =
             directorySynchronizationOperation
+        self.beforeRepositoryRootOpen = beforeRepositoryRootOpen
+        configuredExpectedRepositoryRoot = expectedRepositoryRoot
+        self.onRepositoryIdentityMismatch =
+            onRepositoryIdentityMismatch
         self.monotonicNowNanoseconds = monotonicNowNanoseconds
         maintenanceEnumerationCursor = MaintenanceEnumerationCursor(
             adapter: adapter
@@ -868,10 +1011,21 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     func createFile(
         with data: Data
     ) throws -> IOSPendingRecordingJournalFileRevision {
+        try createFile(with: data, expectedRepositoryRoot: nil)
+    }
+
+    func createFile(
+        with data: Data,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision {
         try validateWriteData(data)
         Self.processMutationLock.lock()
         defer { Self.processMutationLock.unlock() }
-        guard let directory = try openJournalDirectory(createIfMissing: true) else {
+        try beforeRepositoryRootOpen()
+        guard let directory = try openJournalDirectory(
+            createIfMissing: true,
+            expectedRepositoryRoot: expectedRepositoryRoot
+        ) else {
             throw IOSPendingRecordingJournalFileSystemError.writeFailed
         }
         defer { close(directory) }
@@ -899,10 +1053,26 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
         with data: Data,
         expected: IOSPendingRecordingJournalFileRevision
     ) throws -> IOSPendingRecordingJournalFileRevision {
+        try replaceFile(
+            with: data,
+            expected: expected,
+            expectedRepositoryRoot: nil
+        )
+    }
+
+    func replaceFile(
+        with data: Data,
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingJournalFileRevision {
         try validateWriteData(data)
         Self.processMutationLock.lock()
         defer { Self.processMutationLock.unlock() }
-        guard let directory = try openJournalDirectory(createIfMissing: false) else {
+        try beforeRepositoryRootOpen()
+        guard let directory = try openJournalDirectory(
+            createIfMissing: false,
+            expectedRepositoryRoot: expectedRepositoryRoot
+        ) else {
             throw IOSPendingRecordingJournalFileSystemError.missing
         }
         defer { close(directory) }
@@ -922,22 +1092,45 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     func removeFile(
         expected: IOSPendingRecordingJournalFileRevision
     ) throws {
-        try removeFile(expected: expected, requiresExactConfiguration: true)
+        try removeFile(
+            expected: expected,
+            expectedRepositoryRoot: nil
+        )
+    }
+
+    func removeFile(
+        expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
+        try removeFile(
+            expected: expected,
+            expectedRepositoryRoot: expectedRepositoryRoot,
+            requiresExactConfiguration: true
+        )
     }
 
     func removeOpaqueFile(
         expected: IOSPendingRecordingJournalFileRevision
     ) throws {
-        try removeFile(expected: expected, requiresExactConfiguration: false)
+        try removeFile(
+            expected: expected,
+            expectedRepositoryRoot: nil,
+            requiresExactConfiguration: false
+        )
     }
 
     private func removeFile(
         expected: IOSPendingRecordingJournalFileRevision,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?,
         requiresExactConfiguration: Bool
     ) throws {
         Self.processMutationLock.lock()
         defer { Self.processMutationLock.unlock() }
-        guard let directory = try openJournalDirectory(createIfMissing: false) else {
+        try beforeRepositoryRootOpen()
+        guard let directory = try openJournalDirectory(
+            createIfMissing: false,
+            expectedRepositoryRoot: expectedRepositoryRoot
+        ) else {
             throw IOSPendingRecordingJournalFileSystemError.missing
         }
         defer { close(directory) }
@@ -975,12 +1168,26 @@ struct FoundationIOSPendingRecordingJournalFileSystem:
     func removeAbandonedTemporaryFiles(
         now: Date
     ) throws -> IOSStrictProtectedRecordMaintenanceReport {
+        try removeAbandonedTemporaryFiles(
+            now: now,
+            expectedRepositoryRoot: nil
+        )
+    }
+
+    func removeAbandonedTemporaryFiles(
+        now: Date,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSStrictProtectedRecordMaintenanceReport {
         guard now.timeIntervalSince1970.isFinite else {
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
         Self.processMutationLock.lock()
         defer { Self.processMutationLock.unlock() }
-        guard let directory = try openJournalDirectory(createIfMissing: false) else {
+        try beforeRepositoryRootOpen()
+        guard let directory = try openJournalDirectory(
+            createIfMissing: false,
+            expectedRepositoryRoot: expectedRepositoryRoot
+        ) else {
             maintenanceEnumerationCursor.reset()
             return .empty
         }
@@ -1325,8 +1532,13 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
     }
 
     func openJournalDirectory(
-        createIfMissing: Bool
+        createIfMissing: Bool,
+        expectedRepositoryRoot:
+            IOSPersistenceRepositoryRootIdentity? = nil
     ) throws -> DirectoryHandle? {
+        let requiredRepositoryRoot = try requiredRepositoryRoot(
+            operationExpectedRoot: expectedRepositoryRoot
+        )
         guard applicationSupportDirectoryURL.isFileURL,
               !applicationSupportDirectoryURL.path.isEmpty,
               !applicationSupportDirectoryURL.path.utf8.contains(0),
@@ -1362,11 +1574,22 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
         case .success(let value):
             parentDescriptor = value
         case .failure(ENOENT) where !createIfMissing:
+            if requiredRepositoryRoot != nil {
+                onRepositoryIdentityMismatch()
+                throw IOSPendingRecordingJournalFileSystemError
+                    .repositoryIdentityConflict
+            }
             return nil
         case .failure(let code) where isProtectedDataError(code):
             throw IOSPendingRecordingJournalFileSystemError
                 .protectedDataUnavailable
-        case .failure:
+        case .failure(let code):
+            if requiredRepositoryRoot != nil,
+               code == ENOENT || code == ELOOP || code == ENOTDIR {
+                onRepositoryIdentityMismatch()
+                throw IOSPendingRecordingJournalFileSystemError
+                    .repositoryIdentityConflict
+            }
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
 
@@ -1381,7 +1604,13 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             failure: .invalidLocation
         )
         guard isDirectory(parentStatus),
-              parentStatus.st_uid == effectiveUserID else {
+              parentStatus.st_uid == effectiveUserID,
+              requiredRepositoryRoot?.matches(parentStatus) ?? true else {
+            if requiredRepositoryRoot != nil {
+                onRepositoryIdentityMismatch()
+                throw IOSPendingRecordingJournalFileSystemError
+                    .repositoryIdentityConflict
+            }
             throw IOSPendingRecordingJournalFileSystemError.invalidLocation
         }
 
@@ -2293,6 +2522,19 @@ private extension FoundationIOSPendingRecordingJournalFileSystem {
             && value != ".."
             && !value.contains("/")
             && !value.utf8.contains(0)
+    }
+
+    func requiredRepositoryRoot(
+        operationExpectedRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPersistenceRepositoryRootIdentity? {
+        if let operationExpectedRoot,
+           let configuredExpectedRepositoryRoot,
+           operationExpectedRoot != configuredExpectedRepositoryRoot {
+            onRepositoryIdentityMismatch()
+            throw IOSPendingRecordingJournalFileSystemError
+                .repositoryIdentityConflict
+        }
+        return operationExpectedRoot ?? configuredExpectedRepositoryRoot
     }
 }
 

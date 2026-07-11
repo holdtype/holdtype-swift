@@ -311,10 +311,13 @@ actor IOSAcceptedHistoryStore {
     init(
         applicationSupportDirectoryURL: URL,
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
-            IOSAcceptedHistoryCapabilityOwnerIdentity()
+            IOSAcceptedHistoryCapabilityOwnerIdentity(),
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
     ) {
         journal = FoundationIOSAcceptedHistoryJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         now = { Date() }
         self.capabilityOwnerIdentity = capabilityOwnerIdentity

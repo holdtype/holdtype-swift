@@ -500,10 +500,13 @@ actor IOSAcceptedHistoryOutboxStore {
             IOSAcceptedHistoryOutboxStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity(),
-        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil
+        operationGateIdentity: IOSPersistenceOperationGateIdentity? = nil,
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
     ) {
         journal = FoundationIOSAcceptedHistoryOutboxJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         now = { Date() }
         self.deliveryStoreIdentity = deliveryStoreIdentity

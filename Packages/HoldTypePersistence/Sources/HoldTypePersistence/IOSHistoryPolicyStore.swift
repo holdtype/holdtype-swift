@@ -56,10 +56,13 @@ actor IOSHistoryPolicyStore {
     init(
         applicationSupportDirectoryURL: URL,
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
-            IOSAcceptedHistoryCapabilityOwnerIdentity()
+            IOSAcceptedHistoryCapabilityOwnerIdentity(),
+        repositoryGuard:
+            IOSAcceptedHistoryCoordinatorRepositoryGuard? = nil
     ) {
         journal = FoundationIOSHistoryPolicyJournalRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            repositoryGuard: repositoryGuard
         )
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
         now = { Date() }

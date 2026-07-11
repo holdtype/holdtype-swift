@@ -304,23 +304,31 @@ intent, and returns only after the new `transcribing` record is durable. This
 UUID is the local usage/replay identity, not an OpenAI idempotency header.
 
 Only that successful commit may create one process-local, one-shot dispatch
-authorization containing the validated runtime audio artifact. The
+authorization containing a validated descriptor-backed audio source. The
 authorization never returns a detached provider-capable dispatch and never
 passes it to an arbitrary closure with a generic result. Instead, one
 concurrent caller may invoke the fixed containing-app transcription-executor
-contract. The handoff supplies its internal recording and audio artifact to
-that registered executor only inside the one cancellable task, and its public
-result is transcript text rather than a provider capability. The task is held
-behind a launch permit until cancellation is registered atomically.
+contract. The handoff supplies its internal recording and a bounded audio
+reader to that registered executor only inside the one cancellable task, and
+its public result is transcript text rather than a provider capability. The
+reader exposes format, duration, byte count, and offset-based reads of at most
+64 KiB; it exposes no URL, path, `FileHandle`, or raw descriptor and reads the
+already pinned file with `pread`. The containing-app provider adapter must
+consume that reader directly and must not convert it back into a path-based
+artifact. The task is held behind a launch permit until cancellation is
+registered atomically.
 Cancellation may retire an available or reserved authorization before launch,
 in which case the executor is never invoked. If launch wins, cancellation sees
 and cancels the registered task. A result or error is returned only when that
 task still owns the authorization at completion; cancellation wins every late
-completion race. Re-entry, operation failure, cancellation, and completion
-never make the authorization reusable. `load`, observations, and a persisted
-`transcribing` record never expose a provider-capable URL or reconstruct
-dispatch authority. If the process loses the authorization, the attempt must
-use process-loss recovery and explicit Retry with a fresh UUID.
+completion race. Success, failure, cancellation, retirement, handoff release,
+and process-local recovery invalidate the reader and close its lease after any
+already-running bounded read returns. An executor-retained reader then fails
+closed and cannot start new reads. Re-entry never makes the authorization
+reusable. `load`, observations, and a persisted `transcribing` record never
+expose a provider-capable URL or reconstruct dispatch authority. If the process
+loses the authorization, the attempt must use process-loss recovery and
+explicit Retry with a fresh UUID.
 
 Preparing a pending attempt follows this order:
 
@@ -370,11 +378,16 @@ Journal duration and byte count are consistency fields, not proof that a media
 container is playable. Before audio publication, the protected copy must pass
 bounded media/container validation with a two-second deadline. Every provider
 handoff repeats that bounded validation while the protected file is pinned and
-then repeats descriptor/path identity checks. A malformed, unreadable, or
-duration-inconsistent `.m4a`/`.wav` remains a typed local failure and never
-authorizes provider work. The validated media duration must itself fall in
-`1..<300000` milliseconds and differ from the journal value by no more than 250
-milliseconds.
+then repeats descriptor/path identity checks. Media validation parses the same
+open descriptor through read-only AudioToolbox callbacks and bounded `pread`;
+it never reopens the absolute path. A timed-out worker retains and closes only
+its duplicate descriptor, and one physical-root process context shares the
+worker gate across all of its Store replicas so another validation does not
+accumulate behind a still-running timed-out worker. A malformed, unreadable,
+wrong-format, or duration-inconsistent `.m4a`/`.wav` remains a typed local
+failure and never authorizes provider work. The validated media duration must
+itself fall in `1..<300000` milliseconds and differ from the journal value by no
+more than 250 milliseconds.
 
 If protected-audio publication fails, only the owned temporary file may be
 cleaned up. If journal commit fails after audio publication, the protected

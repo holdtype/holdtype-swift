@@ -1,3 +1,4 @@
+import AVFoundation
 import Darwin
 import Foundation
 import HoldTypeDomain
@@ -8,6 +9,36 @@ struct IOSPendingRecordingAudioFileSystemTests {
     private let attemptID = UUID(
         uuidString: "01234567-89AB-CDEF-0123-456789ABCDEF"
     )!
+
+    @Test func mismatchedOpenedRepositoryRootCannotPublishDestinationBytes()
+        async {
+        let bytes = [UInt8](repeating: 0x5A, count: 64)
+        let adapter = SimulatedPendingRecordingPOSIXAdapter(
+            sourceBytes: bytes
+        )
+        let fileSystem = makeFileSystem(adapter: adapter)
+
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .repositoryIdentityConflict
+        ) {
+            _ = try await fileSystem.publishProtectedCopy(
+                from: artifact(byteCount: bytes.count),
+                attemptID: attemptID,
+                format: .m4a,
+                durationMilliseconds: 1_500,
+                expectedRepositoryRoot:
+                    IOSPersistenceRepositoryRootIdentity(
+                        device: dev_t.max,
+                        inode: ino_t.max
+                    )
+            )
+        }
+
+        #expect(adapter.publishedBytes == nil)
+        #expect(!adapter.events.contains(where: { $0.hasPrefix("mkdir:") }))
+        #expect(!adapter.events.contains("publish-exclusive"))
+    }
 
     @Test func publishConfiguresBeforeWritingStreamsAndKeepsCreatorLease() async throws {
         let bytes = [UInt8](repeating: 0x5A, count: 131_073)
@@ -334,6 +365,54 @@ struct IOSPendingRecordingAudioFileSystemTests {
         #expect(adapter.sourceBytes == bytes)
     }
 
+    @Test func transcriptionAudioReadsPinnedDescriptorAcrossTransientPathSwap()
+        async throws {
+        let bytes = Array(UInt8(0)..<UInt8(40))
+        let replacementBytes = [UInt8](repeating: 0xEE, count: bytes.count)
+        let adapter = SimulatedPendingRecordingPOSIXAdapter(sourceBytes: bytes)
+        let media = FakePendingRecordingMediaValidator(
+            durations: [1_500, 1_500]
+        )
+        let fileSystem = makeFileSystem(adapter: adapter, media: media)
+        let creatorLease = try await fileSystem.publishProtectedCopy(
+            from: artifact(byteCount: bytes.count),
+            attemptID: attemptID,
+            format: .m4a,
+            durationMilliseconds: 1_500
+        )
+        creatorLease.release()
+        let providerLease = try await fileSystem.acquireValidatedPublishedAudio(
+            relativeIdentifier: creatorLease.relativeIdentifier,
+            attemptID: attemptID,
+            durationMilliseconds: 1_500,
+            byteCount: Int64(bytes.count)
+        )
+        let audio = IOSPendingTranscriptionAudio(lease: providerLease)
+        adapter.transientlyReplacePublishedPathDuringNextPread(
+            with: replacementBytes
+        )
+
+        let readBytes = try await audio.read(
+            atOffset: 0,
+            maximumByteCount: bytes.count
+        )
+
+        #expect(Array(readBytes) == bytes)
+        #expect(Array(readBytes) != replacementBytes)
+        #expect(adapter.didUseTransientPreadReplacement)
+        #expect(audio.format == .m4a)
+        #expect(audio.byteCount == Int64(bytes.count))
+        #expect(audio.durationMilliseconds == 1_500)
+        #expect(String(describing: audio).contains("redacted"))
+
+        audio.invalidate()
+        await #expect(
+            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+        ) {
+            _ = try await audio.read(atOffset: 0, maximumByteCount: 1)
+        }
+    }
+
     @Test func wrongProtectionPolicyIsPersistentInvalidityNotDeviceLock() async throws {
         let bytes = [UInt8](repeating: 0x79, count: 40)
         let adapter = SimulatedPendingRecordingPOSIXAdapter(sourceBytes: bytes)
@@ -465,7 +544,7 @@ struct IOSPendingRecordingAudioFileSystemTests {
         }
     }
 
-    @Test func liveDarwinAndAVFoundationRoundTripAValidWAV() async throws {
+    @Test func liveDarwinAndAudioToolboxRoundTripAValidWAV() async throws {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "holdtype-pending-audio-\(UUID().uuidString)",
@@ -515,6 +594,161 @@ struct IOSPendingRecordingAudioFileSystemTests {
             )
         )
         #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+    }
+
+    @Test func audioToolboxValidatorReadsUnlinkedDescriptorNotReplacementPath()
+        throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-media-descriptor-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let fileURL = root.appendingPathComponent("recording.wav")
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = makeOneSecondPCM16WAV()
+        try original.write(to: fileURL)
+        let descriptor = fileURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return Int32(-1) }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC)
+        }
+        #expect(descriptor >= 0)
+        defer { if descriptor >= 0 { Darwin.close(descriptor) } }
+        try FileManager.default.removeItem(at: fileURL)
+        try Data(repeating: 0xEE, count: original.count).write(to: fileURL)
+        let validator = AudioToolboxIOSPendingRecordingMediaValidator()
+
+        #expect(
+            try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(original.count),
+                format: .wav,
+                timeoutNanoseconds: 2_000_000_000
+            ) == 1_000
+        )
+        #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .mediaValidationFailed
+        ) {
+            _ = try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(original.count),
+                format: .m4a,
+                timeoutNanoseconds: 2_000_000_000
+            )
+        }
+        #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .mediaValidationFailed
+        ) {
+            _ = try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(original.count - 1),
+                format: .wav,
+                timeoutNanoseconds: 2_000_000_000
+            )
+        }
+    }
+
+    @Test func audioToolboxValidatorRoundTripsARealAACM4A() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-media-m4a-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let fileURL = root.appendingPathComponent("recording.m4a")
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let byteCount = try writeOneSecondAACM4A(to: fileURL)
+        let descriptor = fileURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return Int32(-1) }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC)
+        }
+        #expect(descriptor >= 0)
+        defer { if descriptor >= 0 { Darwin.close(descriptor) } }
+
+        let duration = try AudioToolboxIOSPendingRecordingMediaValidator()
+            .durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: byteCount,
+                format: .m4a,
+                timeoutNanoseconds: 2_000_000_000
+            )
+
+        #expect(duration > 0)
+        #expect(abs(duration - 1_000) <= 250)
+    }
+
+    @Test func timedOutMediaWorkerBlocksDuplicateWorkUntilItReleasesFD()
+        throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "pending-media-timeout-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let fileURL = root.appendingPathComponent("recording.wav")
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let wav = makeOneSecondPCM16WAV()
+        try wav.write(to: fileURL)
+        let descriptor = fileURL.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return Int32(-1) }
+            return Darwin.open(path, O_RDONLY | O_CLOEXEC)
+        }
+        #expect(descriptor >= 0)
+        defer { if descriptor >= 0 { Darwin.close(descriptor) } }
+        let gate = AudioToolboxMediaValidationWorkerGate()
+        let barrier = PendingMediaLoadBarrier()
+        let closeCounter = PendingMediaCloseCounter()
+        let validator = AudioToolboxIOSPendingRecordingMediaValidator(
+            workerGate: gate,
+            beforeDurationLoad: { barrier.blockFirstLoad() },
+            onDuplicatedDescriptorClosed: { closeCounter.increment() }
+        )
+
+        #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .mediaValidationTimedOut
+        ) {
+            _ = try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(wav.count),
+                format: .wav,
+                timeoutNanoseconds: 1_000_000
+            )
+        }
+        #expect(barrier.waitUntilBlocked())
+        #expect(closeCounter.value == 0)
+        #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .mediaValidationTimedOut
+        ) {
+            _ = try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(wav.count),
+                format: .wav,
+                timeoutNanoseconds: 2_000_000_000
+            )
+        }
+        #expect(closeCounter.value == 0)
+
+        barrier.resume()
+        #expect(closeCounter.wait(until: 1))
+        #expect(
+            try validator.durationMilliseconds(
+                forFileDescriptor: descriptor,
+                byteCount: Int64(wav.count),
+                format: .wav,
+                timeoutNanoseconds: 2_000_000_000
+            ) == 1_000
+        )
+        #expect(closeCounter.wait(until: 2))
     }
 
     private var finalName: String {
@@ -575,6 +809,40 @@ private func makeOneSecondPCM16WAV() -> Data {
     return data
 }
 
+private func writeOneSecondAACM4A(to fileURL: URL) throws -> Int64 {
+    do {
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 44_100,
+            AVNumberOfChannelsKey: 1,
+        ]
+        let file = try AVAudioFile(
+            forWriting: fileURL,
+            settings: settings,
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
+        )
+        let frameCount = AVAudioFrameCount(file.processingFormat.sampleRate)
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: file.processingFormat,
+            frameCapacity: frameCount
+        ),
+        let channel = buffer.floatChannelData?[0] else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        channel.initialize(repeating: 0, count: Int(frameCount))
+        buffer.frameLength = frameCount
+        try file.write(from: buffer)
+    }
+    let attributes = try FileManager.default.attributesOfItem(
+        atPath: fileURL.path
+    )
+    guard let size = attributes[.size] as? NSNumber else {
+        throw CocoaError(.fileReadUnknown)
+    }
+    return size.int64Value
+}
+
 private extension Data {
     mutating func appendLittleEndian<Value: FixedWidthInteger>(_ value: Value) {
         var littleEndian = value.littleEndian
@@ -598,10 +866,15 @@ private final class FakePendingRecordingMediaValidator:
     }
 
     func durationMilliseconds(
-        for fileURL: URL,
+        forFileDescriptor fileDescriptor: Int32,
+        byteCount: Int64,
+        format: IOSPendingRecordingAudioFormat,
         timeoutNanoseconds: UInt64
     ) throws -> Int64 {
-        lock.withLock {
+        _ = fileDescriptor
+        _ = byteCount
+        _ = format
+        return lock.withLock {
             timeouts.append(timeoutNanoseconds)
             return durations.isEmpty ? 1_500 : durations.removeFirst()
         }
@@ -625,6 +898,55 @@ private final class StepPendingRecordingClock: @unchecked Sendable {
     }
 }
 
+private final class PendingMediaLoadBarrier: @unchecked Sendable {
+    private let lock = NSLock()
+    private let blocked = DispatchSemaphore(value: 0)
+    private let release = DispatchSemaphore(value: 0)
+    private var callCount = 0
+
+    func blockFirstLoad() {
+        let shouldBlock = lock.withLock {
+            callCount += 1
+            return callCount == 1
+        }
+        guard shouldBlock else { return }
+        blocked.signal()
+        _ = release.wait(timeout: .now() + 10)
+    }
+
+    func waitUntilBlocked() -> Bool {
+        blocked.wait(timeout: .now() + 10) == .success
+    }
+
+    func resume() {
+        release.signal()
+    }
+}
+
+private final class PendingMediaCloseCounter: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var storedValue = 0
+
+    var value: Int { condition.withLock { storedValue } }
+
+    func increment() {
+        condition.withLock {
+            storedValue += 1
+            condition.broadcast()
+        }
+    }
+
+    func wait(until expectedValue: Int) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        let deadline = Date().addingTimeInterval(10)
+        while storedValue < expectedValue {
+            guard condition.wait(until: deadline) else { return false }
+        }
+        return true
+    }
+}
+
 private final class BlockingSecondPendingRecordingMediaValidator:
     IOSPendingRecordingMediaValidating,
     @unchecked Sendable {
@@ -634,9 +956,15 @@ private final class BlockingSecondPendingRecordingMediaValidator:
     private var callCount = 0
 
     func durationMilliseconds(
-        for fileURL: URL,
+        forFileDescriptor fileDescriptor: Int32,
+        byteCount: Int64,
+        format: IOSPendingRecordingAudioFormat,
         timeoutNanoseconds: UInt64
     ) throws -> Int64 {
+        _ = fileDescriptor
+        _ = byteCount
+        _ = format
+        _ = timeoutNanoseconds
         let shouldBlock = lock.withLock { () -> Bool in
             callCount += 1
             return callCount == 2
@@ -727,6 +1055,8 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
         var readLimit: Int?
         var writeLimit: Int?
         var sourceOpenFlags: Int32 = 0
+        var transientPreadReplacementBytes: [UInt8]?
+        var didUseTransientPreadReplacement = false
 
         init(sourceBytes: [UInt8]) {
             let owner = uid_t(501)
@@ -846,6 +1176,15 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
     var replaceSourcePathAtEndOfFile: Bool {
         get { lock.withLock { state.replaceSourcePathAtEndOfFile } }
         set { lock.withLock { state.replaceSourcePathAtEndOfFile = newValue } }
+    }
+    var didUseTransientPreadReplacement: Bool {
+        lock.withLock { state.didUseTransientPreadReplacement }
+    }
+
+    func transientlyReplacePublishedPathDuringNextPread(
+        with bytes: [UInt8]
+    ) {
+        lock.withLock { state.transientPreadReplacementBytes = bytes }
     }
 
     func failNext(_ operation: String, errors: [Int32]) {
@@ -1081,6 +1420,60 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
                     mode: S_IFREG | mode_t(0o600),
                     bytes: descriptor.node.bytes
                 )
+            }
+            return .success(count)
+        }
+    }
+
+    func readAt(
+        fileDescriptor: Int32,
+        buffer: UnsafeMutableRawPointer,
+        byteCount: Int,
+        offset: Int64
+    ) -> IOSPendingRecordingPOSIXResult<Int> {
+        lock.withLock {
+            state.events.append("pread:\(byteCount):\(offset)")
+            guard offset >= 0,
+                  offset <= Int64(Int.max),
+                  let descriptor = state.descriptors[fileDescriptor],
+                  descriptor.node.kind == .file else {
+                return .failure(EINVAL)
+            }
+            if let failure = state.popFailure("pread") {
+                return .failure(failure)
+            }
+            var restoredPath: (Node, String, Node)?
+            if let replacementBytes = state.transientPreadReplacementBytes,
+               let pending = state.pendingDirectory(create: false),
+               let published = pending.children.first(where: {
+                   $0.value === descriptor.node
+               }) {
+                let replacement = state.makeNode(
+                    kind: .file,
+                    mode: published.value.mode,
+                    bytes: replacementBytes
+                )
+                pending.children[published.key] = replacement
+                restoredPath = (pending, published.key, published.value)
+                state.transientPreadReplacementBytes = nil
+                state.didUseTransientPreadReplacement = true
+            }
+            defer {
+                if let restoredPath {
+                    restoredPath.0.children[restoredPath.1] = restoredPath.2
+                }
+            }
+            let start = Int(offset)
+            let available = max(0, descriptor.node.bytes.count - start)
+            let count = min(byteCount, available)
+            if count > 0 {
+                descriptor.node.bytes.withUnsafeBytes { source in
+                    _ = Darwin.memcpy(
+                        buffer,
+                        source.baseAddress!.advanced(by: start),
+                        count
+                    )
+                }
             }
             return .success(count)
         }

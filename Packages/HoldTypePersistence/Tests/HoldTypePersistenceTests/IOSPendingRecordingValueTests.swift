@@ -230,7 +230,9 @@ struct IOSPendingRecordingValueTests {
         let handoff = IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: recording,
-                audioArtifact: artifact
+                audio: IOSPendingTranscriptionAudio(
+                    lease: PendingValueAudioLease(artifact: artifact)
+                )
             )
         )
         let executor = PendingValueTranscriptionExecutor()
@@ -371,9 +373,47 @@ nonisolated private final class PendingValueTranscriptionExecutor:
 
     func transcribe(
         recording: IOSPendingRecording,
-        audioArtifact: AudioRecordingArtifact
+        audio: IOSPendingTranscriptionAudio
     ) async throws -> String {
+        _ = recording
+        _ = audio
         lock.withLock { storedCallCount += 1 }
         return "transcript"
     }
+}
+
+nonisolated private final class PendingValueAudioLease:
+    IOSPendingRecordingPublishedAudioLease,
+    @unchecked Sendable {
+    let relativeIdentifier = "Recordings/Pending/test.m4a"
+    let audioArtifact: AudioRecordingArtifact
+    let durationMilliseconds: Int64
+
+    init(artifact: AudioRecordingArtifact) {
+        audioArtifact = artifact
+        durationMilliseconds = Int64(
+            (artifact.duration * 1_000).rounded(.toNearestOrAwayFromZero)
+        )
+    }
+
+    func revalidate() async throws -> AudioRecordingArtifact {
+        audioArtifact
+    }
+
+    func read(
+        atOffset offset: Int64,
+        maximumByteCount: Int
+    ) async throws -> Data {
+        guard offset >= 0,
+              offset <= audioArtifact.byteCount,
+              maximumByteCount > 0 else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        return Data(
+            repeating: 0x5A,
+            count: min(maximumByteCount, Int(audioArtifact.byteCount - offset))
+        )
+    }
+
+    func release() {}
 }

@@ -256,10 +256,24 @@ no provider work.
 Every durable cross-store boundary revalidates the canonical physical root
 immediately before and after mutation and again on its error path. A changed
 binding permanently conflicts that process context and prohibits a later
-boundary. A process-local row receipt or lease never survives relaunch:
+boundary. Bracketing checks alone are not authority: the expected physical
+device and inode are consumed inside each irreversible journal or audio file
+operation, compared with the already-opened Application Support descriptor
+before the first create, publish, replace, remove, or cleanup side effect, and
+the remaining work is descriptor-relative. Failed-journal staging maintenance
+uses the same active root-gate lease and physical-root authorization as row
+mutation. A process-local row receipt or lease never survives relaunch:
 recovery mints a fresh metadata-retirement directive only from the exact durable
 `pendingJournalRetirement` row and a matching pending journal snapshot under a
 new active root lease.
+
+The same physical-root rule applies before provider dispatch. Media validation
+and the process-local provider source retain and read the already opened audio
+descriptor; neither may reopen the durable absolute path. A same-path root
+replacement observed while creating another store context conflicts both the
+old and replacement physical roots, while a retargeted symlink alias may join
+an already valid destination context only after the source context is
+permanently conflicted.
 
 Pending metadata removal preserves its own exact uncertainty. Recovery compares
 the physical source snapshot and intended absence: exact source present means
@@ -498,7 +512,9 @@ accepted-output work fails. Clear History never clears Usage.
 - Test transfer before and after every durable boundary, duplicate transfer,
   row-first process loss, journal-removal uncertainty, missing/changed audio,
   disabled or changed policy, root mismatch, capacity, cancellation, and a
-  second actor.
+  second actor. Include root replacement after outer prevalidation but before
+  the repository opens its descriptor, and prove that the replacement root
+  receives no destination bytes.
 - Test sealed namespace inventory with valid row/tombstone files, the optional
   current pending file, unknown/staging/missing/duplicate entries, foreign
   roots, stale leases, and bounded scans.

@@ -47,6 +47,7 @@ public enum IOSAcceptedHistoryCoordinatorError: Error, Equatable, Sendable {
     case cancelledBeforeOperation
     case reentrantOperation
     case repositoryIdentityConflict
+    case localRecoveryPending
 }
 
 actor IOSAcceptedHistoryBaselineRecoveryState {
@@ -77,7 +78,17 @@ final class IOSAcceptedHistoryCoordinatorRepositoryIdentityState:
 
 final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let applicationSupportDirectoryURL: URL
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
+    let repositoryGuard: IOSAcceptedHistoryCoordinatorRepositoryGuard
+    let operationGate: IOSPersistenceOperationGate
+    let pendingRecordingLiveOwnerRegistry:
+        IOSPendingRecordingLiveOwnerRegistry
+    let pendingRecordingStoreIdentity: IOSPendingRecordingStoreIdentity
+    let pendingRecordingMediaValidationWorkerGate:
+        AudioToolboxMediaValidationWorkerGate
+    let failedHistoryMutationInterlock: IOSFailedHistoryMutationInterlock
     let policyStore: IOSHistoryPolicyStore
+    let pendingRecordingStore: IOSPendingRecordingStore
     let acceptedHistoryStore: IOSAcceptedHistoryStore
     let failedHistoryStore: IOSFailedHistoryStore
     let outboxStore: IOSAcceptedHistoryOutboxStore
@@ -92,36 +103,83 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
 
-    init(applicationSupportDirectoryURL: URL) {
+    init(
+        applicationSupportDirectoryURL: URL,
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
+    ) {
         let capabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let operationGate = IOSPersistenceOperationGate()
+        let pendingRecordingLiveOwnerRegistry =
+            IOSPendingRecordingLiveOwnerRegistry()
+        let pendingRecordingStoreIdentity =
+            IOSPendingRecordingStoreIdentity()
+        let pendingRecordingMediaValidationWorkerGate =
+            AudioToolboxMediaValidationWorkerGate()
+        let failedHistoryMutationInterlock =
+            IOSFailedHistoryMutationInterlock()
         let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         let outboxStoreIdentity = IOSAcceptedHistoryOutboxStoreIdentity()
+        let repositoryIdentityState =
+            IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
+        let repositoryGuard = IOSAcceptedHistoryCoordinatorRepositoryGuard(
+            expectedBinding: repositoryBinding,
+            repositoryIdentityState: repositoryIdentityState
+        )
         self.applicationSupportDirectoryURL = applicationSupportDirectoryURL
+        self.repositoryBinding = repositoryBinding
+        self.repositoryGuard = repositoryGuard
+        self.operationGate = operationGate
+        self.pendingRecordingLiveOwnerRegistry =
+            pendingRecordingLiveOwnerRegistry
+        self.pendingRecordingStoreIdentity = pendingRecordingStoreIdentity
+        self.pendingRecordingMediaValidationWorkerGate =
+            pendingRecordingMediaValidationWorkerGate
+        self.failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         ownerIdentity = capabilityOwnerIdentity
         policyStore = IOSHistoryPolicyStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            capabilityOwnerIdentity: capabilityOwnerIdentity
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            repositoryGuard: repositoryGuard
         )
+        let pendingRecordingStore = IOSPendingRecordingStore(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            storeIdentity: pendingRecordingStoreIdentity,
+            operationGate: operationGate,
+            liveOwnerRegistry: pendingRecordingLiveOwnerRegistry,
+            mediaValidationWorkerGate:
+                pendingRecordingMediaValidationWorkerGate,
+            repositoryGuard: repositoryGuard,
+            failedHistoryMutationInterlock:
+                failedHistoryMutationInterlock
+        )
+        self.pendingRecordingStore = pendingRecordingStore
         acceptedHistoryStore = IOSAcceptedHistoryStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            capabilityOwnerIdentity: capabilityOwnerIdentity
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            repositoryGuard: repositoryGuard
         )
         failedHistoryStore = IOSFailedHistoryStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            capabilityOwnerIdentity: capabilityOwnerIdentity
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            repositoryGuard: repositoryGuard,
+            mutationInterlock: failedHistoryMutationInterlock
         )
         outboxStore = IOSAcceptedHistoryOutboxStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             deliveryStoreIdentity: deliveryStoreIdentity,
             storeIdentity: outboxStoreIdentity,
-            capabilityOwnerIdentity: capabilityOwnerIdentity
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            repositoryGuard: repositoryGuard
         )
         deliveryStore = IOSAcceptedOutputDeliveryStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             storeIdentity: deliveryStoreIdentity,
             outboxStoreIdentity: outboxStoreIdentity,
-            capabilityOwnerIdentity: capabilityOwnerIdentity
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            repositoryGuard: repositoryGuard
         )
         baselineRecoveryState = IOSAcceptedHistoryBaselineRecoveryState()
         acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
@@ -129,8 +187,26 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
-        repositoryIdentityState =
-            IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
+        self.repositoryIdentityState = repositoryIdentityState
+
+        let pendingGateBindingAccepted =
+            pendingRecordingStore.bindOperationGateIdentity(
+                operationGate.identity
+            )
+        let failedGateBindingAccepted =
+            failedHistoryStore.bindOperationGateIdentity(
+                operationGate.identity
+            )
+        let outboxGateBindingAccepted =
+            outboxStore.bindOperationGateIdentity(operationGate.identity)
+        let deliveryGateBindingAccepted =
+            deliveryStore.bindOperationGateIdentity(operationGate.identity)
+        if !pendingGateBindingAccepted
+            || !failedGateBindingAccepted
+            || !outboxGateBindingAccepted
+            || !deliveryGateBindingAccepted {
+            repositoryIdentityState.markConflicted()
+        }
     }
 }
 
@@ -138,6 +214,14 @@ struct IOSAcceptedHistoryCoordinatorRepositoryBinding: Equatable, Sendable {
     fileprivate let resolvedPath: String
     fileprivate let device: dev_t?
     fileprivate let inode: ino_t?
+
+    var physicalRootIdentity: IOSPersistenceRepositoryRootIdentity? {
+        guard let device, let inode else { return nil }
+        return IOSPersistenceRepositoryRootIdentity(
+            device: device,
+            inode: inode
+        )
+    }
 }
 
 extension IOSAcceptedHistoryCoordinatorRepositoryBinding:
@@ -153,6 +237,9 @@ extension IOSAcceptedHistoryCoordinatorRepositoryBinding:
 
 final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
     @unchecked Sendable {
+    static let shared =
+        IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+
     private struct PhysicalRootKey: Hashable {
         let device: dev_t
         let inode: ino_t
@@ -162,6 +249,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
         let lexicalKeys: [String]
         let resolvedRoot: URL
         let physicalKey: PhysicalRootKey?
+        let isSymbolicLink: Bool
 
         var binding: IOSAcceptedHistoryCoordinatorRepositoryBinding {
             IOSAcceptedHistoryCoordinatorRepositoryBinding(
@@ -182,6 +270,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
     private struct RegisteredInputRoot {
         let url: URL
         let context: IOSAcceptedHistoryCoordinatorProcessContext
+        let wasSymbolicLink: Bool
     }
 
     private let lock = NSLock()
@@ -196,10 +285,21 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
         for applicationSupportDirectoryURL: URL
     ) -> IOSAcceptedHistoryCoordinatorProcessContext {
         return lock.withLock {
+            poisonConvergedRegisteredContexts()
             let resolution = rootResolution(
                 for: applicationSupportDirectoryURL
             )
-            let candidates = contextCandidates(for: resolution)
+            var candidates = contextCandidates(for: resolution)
+            for invalidContext in candidates.invalidLexical
+                where invalidContext.applicationSupportDirectoryURL.absoluteURL
+                    .standardizedFileURL.path == resolution.resolvedRoot.path {
+                tombstoneBindingChange(
+                    from: invalidContext.repositoryBinding,
+                    to: resolution,
+                    including: [invalidContext]
+                )
+                candidates.physicalConflict = true
+            }
             if !candidates.invalidLexical.isEmpty {
                 markConflicted(candidates.invalidLexical)
             }
@@ -227,8 +327,18 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
                 return context
             }
             let context = IOSAcceptedHistoryCoordinatorProcessContext(
-                applicationSupportDirectoryURL: resolution.resolvedRoot
+                applicationSupportDirectoryURL: resolution.resolvedRoot,
+                repositoryBinding: resolution.binding
             )
+            let canonicalRegistration =
+                IOSAcceptedHistoryCoordinatorRepositoryRegistration(
+                    registry: self,
+                    context: context,
+                    applicationSupportDirectoryURL: resolution.resolvedRoot
+                )
+            if !context.repositoryGuard.bind(canonicalRegistration) {
+                context.repositoryIdentityState.markConflicted()
+            }
             if resolution.physicalKey == nil {
                 context.repositoryIdentityState.markConflicted()
             }
@@ -361,11 +471,14 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
         let currentRoot = context.applicationSupportDirectoryURL.absoluteURL
             .standardizedFileURL
             .resolvingSymlinksInPath()
-        if currentRoot.path == resolution.resolvedRoot.path {
-            return true
+        guard let pinnedPhysicalKey = physicalRootKey(
+            for: context.repositoryBinding
+        ),
+        resolution.physicalKey == pinnedPhysicalKey,
+        physicalRootKey(for: currentRoot) == pinnedPhysicalKey else {
+            return false
         }
-        guard let physicalKey = resolution.physicalKey else { return false }
-        return physicalRootKey(for: currentRoot) == physicalKey
+        return true
     }
 
     private func rootResolution(
@@ -380,7 +493,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
         return RootResolution(
             lexicalKeys: lexicalKeys,
             resolvedRoot: resolvedRoot,
-            physicalKey: physicalRootKey(for: resolvedRoot)
+            physicalKey: physicalRootKey(for: resolvedRoot),
+            isSymbolicLink: pathIsSymbolicLink(lexicalRoot)
         )
     }
 
@@ -438,7 +552,11 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
             return
         }
         registeredInputRoots.append(
-            RegisteredInputRoot(url: url, context: context)
+            RegisteredInputRoot(
+                url: url,
+                context: context,
+                wasSymbolicLink: pathIsSymbolicLink(url)
+            )
         )
     }
 
@@ -455,7 +573,21 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
                 registration.context,
                 resolution: resolution
             ) else {
-                registration.context.repositoryIdentityState.markConflicted()
+                let canonicalContextPath = registration.context
+                    .applicationSupportDirectoryURL.absoluteURL
+                    .standardizedFileURL.path
+                if resolution.resolvedRoot.path == canonicalContextPath
+                    || !registration.wasSymbolicLink
+                    || !resolution.isSymbolicLink {
+                    tombstoneBindingChange(
+                        from: registration.context.repositoryBinding,
+                        to: resolution,
+                        including: [registration.context]
+                    )
+                } else {
+                    registration.context.repositoryIdentityState
+                        .markConflicted()
+                }
                 continue
             }
             var contexts = contextsByCurrentPhysicalRoot[physicalKey] ?? []
@@ -478,6 +610,15 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
             return nil
         }
         return PhysicalRootKey(device: device, inode: inode)
+    }
+
+    private func pathIsSymbolicLink(_ url: URL) -> Bool {
+        var status = stat()
+        let didRead = url.withUnsafeFileSystemRepresentation { path in
+            guard let path else { return false }
+            return Darwin.lstat(path, &status) == 0
+        }
+        return didRead && status.st_mode & S_IFMT == S_IFLNK
     }
 
     private func physicalRootKey(
@@ -520,8 +661,72 @@ struct IOSAcceptedHistoryCoordinatorRepositoryRegistration: Sendable {
         registry.revalidate(
             context: context,
             for: applicationSupportDirectoryURL,
-            expectedBinding: expectedBinding
+            expectedBinding: expectedBinding ?? context.repositoryBinding
         )
+    }
+}
+
+enum IOSAcceptedHistoryCoordinatorRepositoryGuardError:
+    Error,
+    Equatable,
+    Sendable {
+    case unbound
+    case repositoryIdentityConflict
+}
+
+final class IOSAcceptedHistoryCoordinatorRepositoryGuard:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private let expectedBinding:
+        IOSAcceptedHistoryCoordinatorRepositoryBinding
+    private let repositoryIdentityState:
+        IOSAcceptedHistoryCoordinatorRepositoryIdentityState
+    private var registration:
+        IOSAcceptedHistoryCoordinatorRepositoryRegistration?
+
+    init(
+        expectedBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        repositoryIdentityState:
+            IOSAcceptedHistoryCoordinatorRepositoryIdentityState
+    ) {
+        self.expectedBinding = expectedBinding
+        self.repositoryIdentityState = repositoryIdentityState
+    }
+
+    func bind(
+        _ registration: IOSAcceptedHistoryCoordinatorRepositoryRegistration
+    ) -> Bool {
+        lock.withLock {
+            guard self.registration == nil else { return false }
+            self.registration = registration
+            return true
+        }
+    }
+
+    func revalidate(
+        expectedBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding? = nil
+    ) throws -> IOSAcceptedHistoryCoordinatorRepositoryBinding {
+        guard let registration = lock.withLock({ registration }) else {
+            throw IOSAcceptedHistoryCoordinatorRepositoryGuardError.unbound
+        }
+        let current = registration.revalidate(
+            expectedBinding: expectedBinding ?? self.expectedBinding
+        )
+        guard !repositoryIdentityState.isConflicted else {
+            throw IOSAcceptedHistoryCoordinatorRepositoryGuardError
+                .repositoryIdentityConflict
+        }
+        return current
+    }
+
+    var expectedPhysicalRootIdentity:
+        IOSPersistenceRepositoryRootIdentity? {
+        expectedBinding.physicalRootIdentity
+    }
+
+    func invalidate() {
+        repositoryIdentityState.markConflicted()
     }
 }
 
@@ -583,11 +788,8 @@ public actor IOSAcceptedHistoryCoordinator {
         case definitiveBaselineConflict
     }
 
-    private static let processOperationGate = IOSPersistenceOperationGate()
-    private static let processContextRegistry =
-        IOSAcceptedHistoryCoordinatorProcessContextRegistry()
-
     let policyStore: IOSHistoryPolicyStore
+    let pendingRecordingStore: IOSPendingRecordingStore?
     let acceptedHistoryStore: IOSAcceptedHistoryStore
     let failedHistoryStore: IOSFailedHistoryStore
     let outboxStore: IOSAcceptedHistoryOutboxStore
@@ -599,6 +801,7 @@ public actor IOSAcceptedHistoryCoordinator {
         IOSAcceptedHistoryPendingReplacementOperationState
     let outboxWorkerState: IOSAcceptedHistoryOutboxWorkerOperationState
     let policyCutoverState: IOSHistoryPolicyCutoverOperationState
+    let failedHistoryMutationInterlock: IOSFailedHistoryMutationInterlock
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -606,59 +809,60 @@ public actor IOSAcceptedHistoryCoordinator {
         IOSAcceptedHistoryCoordinatorRepositoryRegistration?
 
     public init(applicationSupportDirectoryURL: URL) {
-        let context = Self.processContextRegistry.context(
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry
+            .shared
+        let context = registry.context(
             for: applicationSupportDirectoryURL
         )
-        let operationGate = Self.processOperationGate
-        let outboxGateBindingAccepted =
-            context.outboxStore.bindOperationGateIdentity(
-                operationGate.identity
-            )
-        let deliveryGateBindingAccepted =
-            context.deliveryStore.bindOperationGateIdentity(
-                operationGate.identity
-            )
         policyStore = context.policyStore
+        pendingRecordingStore = context.pendingRecordingStore
         acceptedHistoryStore = context.acceptedHistoryStore
         failedHistoryStore = context.failedHistoryStore
         outboxStore = context.outboxStore
         deliveryStore = context.deliveryStore
-        self.operationGate = operationGate
+        operationGate = context.operationGate
         baselineRecoveryState = context.baselineRecoveryState
         acceptanceState = context.acceptanceState
         pendingReplacementState = context.pendingReplacementState
         outboxWorkerState = context.outboxWorkerState
         policyCutoverState = context.policyCutoverState
+        failedHistoryMutationInterlock =
+            context.failedHistoryMutationInterlock
         ownerIdentity = context.ownerIdentity
         repositoryIdentityState = context.repositoryIdentityState
         repositoryRegistration =
             IOSAcceptedHistoryCoordinatorRepositoryRegistration(
-                registry: Self.processContextRegistry,
+                registry: registry,
                 context: context,
                 applicationSupportDirectoryURL:
                     applicationSupportDirectoryURL
             )
-        if !outboxGateBindingAccepted || !deliveryGateBindingAccepted {
-            repositoryIdentityState.markConflicted()
-        }
     }
 
     init(
         policyStore: IOSHistoryPolicyStore,
         acceptedHistoryStore: IOSAcceptedHistoryStore,
         failedHistoryStore: IOSFailedHistoryStore,
+        pendingRecordingStore: IOSPendingRecordingStore? = nil,
         outboxStore: IOSAcceptedHistoryOutboxStore,
         deliveryStore: IOSAcceptedOutputDeliveryStore
     ) {
         let capabilityOwnerIdentity = policyStore.capabilityOwnerIdentity
         let identityState =
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
-        let operationGate = Self.processOperationGate
+        let operationGate = IOSPersistenceOperationGate()
+        let pendingGateBindingAccepted = pendingRecordingStore?
+            .bindOperationGateIdentity(operationGate.identity) ?? true
+        let failedGateBindingAccepted =
+            failedHistoryStore.bindOperationGateIdentity(
+                operationGate.identity
+            )
         let outboxGateBindingAccepted =
             outboxStore.bindOperationGateIdentity(operationGate.identity)
         let deliveryGateBindingAccepted =
             deliveryStore.bindOperationGateIdentity(operationGate.identity)
         self.policyStore = policyStore
+        self.pendingRecordingStore = pendingRecordingStore
         self.acceptedHistoryStore = acceptedHistoryStore
         self.failedHistoryStore = failedHistoryStore
         self.outboxStore = outboxStore
@@ -670,15 +874,26 @@ public actor IOSAcceptedHistoryCoordinator {
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
+        failedHistoryMutationInterlock =
+            failedHistoryStore.mutationInterlock
         ownerIdentity = capabilityOwnerIdentity
         repositoryIdentityState = identityState
         repositoryRegistration = nil
-        if !outboxGateBindingAccepted
+        if !pendingGateBindingAccepted
+            || !failedGateBindingAccepted
+            || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
+            || (pendingRecordingStore.map {
+                $0.capabilityOwnerIdentity != capabilityOwnerIdentity
+            } ?? false)
             || acceptedHistoryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
             || failedHistoryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
+            || (pendingRecordingStore.map {
+                $0.failedMutationInterlock
+                    !== failedHistoryStore.mutationInterlock
+            } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
@@ -694,6 +909,7 @@ public actor IOSAcceptedHistoryCoordinator {
         policyStore: IOSHistoryPolicyStore,
         acceptedHistoryStore: IOSAcceptedHistoryStore,
         failedHistoryStore: IOSFailedHistoryStore,
+        pendingRecordingStore: IOSPendingRecordingStore? = nil,
         outboxStore: IOSAcceptedHistoryOutboxStore,
         deliveryStore: IOSAcceptedOutputDeliveryStore,
         operationGate: IOSPersistenceOperationGate,
@@ -719,11 +935,18 @@ public actor IOSAcceptedHistoryCoordinator {
     ) {
         let capabilityOwnerIdentity = ownerIdentity
             ?? policyStore.capabilityOwnerIdentity
+        let pendingGateBindingAccepted = pendingRecordingStore?
+            .bindOperationGateIdentity(operationGate.identity) ?? true
+        let failedGateBindingAccepted =
+            failedHistoryStore.bindOperationGateIdentity(
+                operationGate.identity
+            )
         let outboxGateBindingAccepted =
             outboxStore.bindOperationGateIdentity(operationGate.identity)
         let deliveryGateBindingAccepted =
             deliveryStore.bindOperationGateIdentity(operationGate.identity)
         self.policyStore = policyStore
+        self.pendingRecordingStore = pendingRecordingStore
         self.acceptedHistoryStore = acceptedHistoryStore
         self.failedHistoryStore = failedHistoryStore
         self.outboxStore = outboxStore
@@ -734,16 +957,27 @@ public actor IOSAcceptedHistoryCoordinator {
         self.pendingReplacementState = pendingReplacementState
         self.outboxWorkerState = outboxWorkerState
         self.policyCutoverState = policyCutoverState
+        self.failedHistoryMutationInterlock =
+            failedHistoryStore.mutationInterlock
         self.ownerIdentity = capabilityOwnerIdentity
         self.repositoryIdentityState = repositoryIdentityState
         self.repositoryRegistration = repositoryRegistration
-        if !outboxGateBindingAccepted
+        if !pendingGateBindingAccepted
+            || !failedGateBindingAccepted
+            || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
+            || (pendingRecordingStore.map {
+                $0.capabilityOwnerIdentity != capabilityOwnerIdentity
+            } ?? false)
             || policyStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || acceptedHistoryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
             || failedHistoryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
+            || (pendingRecordingStore.map {
+                $0.failedMutationInterlock
+                    !== failedHistoryStore.mutationInterlock
+            } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
@@ -775,12 +1009,18 @@ public actor IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryMutationInterlock =
+            failedHistoryMutationInterlock
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
         let ownerIdentity = ownerIdentity
 
         do {
             let capture = try await operationGate.perform {
+                guard !failedHistoryMutationInterlock.isBlocked else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError

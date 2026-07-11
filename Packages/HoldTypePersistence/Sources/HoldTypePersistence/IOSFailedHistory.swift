@@ -18,6 +18,7 @@ enum IOSFailedHistoryError: Error, Equatable, Sendable {
     case revisionOverflow
     case retryCountOverflow
     case commitUncertain
+    case repositoryIdentityConflict
     case invalidTransition
     case maintenanceFailed
 }
