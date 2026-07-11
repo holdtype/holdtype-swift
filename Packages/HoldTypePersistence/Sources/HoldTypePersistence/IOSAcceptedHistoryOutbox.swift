@@ -124,6 +124,52 @@ public struct IOSAcceptedHistoryOutboxEntry: Sendable {
             && transcriptionLanguageCode == other.transcriptionLanguageCode
             && durationMilliseconds == other.durationMilliseconds
     }
+
+    func deliveryRelation(
+        to authorization: IOSAcceptedOutputDeliveryAuthorization
+    ) -> IOSAcceptedHistoryOutboxDeliveryRelation {
+        let record = authorization.record
+        let matchesDeliveryID = deliveryID == record.deliveryID
+        let matchesTranscriptID = transcriptID == record.transcriptID
+
+        guard matchesDeliveryID || matchesTranscriptID else {
+            return .unrelated
+        }
+        guard matchesDeliveryID,
+              matchesTranscriptID,
+              outputIntent == record.outputIntent,
+              createdAt == record.createdAt,
+              expiresAt == record.expiresAt else {
+            return .collision
+        }
+
+        if record.deliveryState == .discarded {
+            return .discarded
+        }
+
+        guard let acceptedText = record.acceptedText,
+              IOSAcceptedOutputDeliveryValidation.bytesEqual(
+                  self.acceptedText,
+                  acceptedText
+              ),
+              let marker = record.historyWrite,
+              policyGeneration == marker.policyGeneration,
+              IOSAcceptedOutputDeliveryValidation.bytesEqual(
+                  transcriptionModel,
+                  marker.transcriptionModel
+              ),
+              transcriptionLanguageCode
+                == marker.transcriptionLanguageCode,
+              durationMilliseconds == marker.durationMilliseconds else {
+            return .collision
+        }
+
+        return switch marker.state {
+        case .pending, .pendingReplacement: .pending
+        case .committed: .committed
+        case .cancelled: .cancelled
+        }
+    }
 }
 
 extension IOSAcceptedHistoryOutboxEntry: Equatable {
@@ -198,6 +244,37 @@ enum IOSAcceptedHistoryOutboxTemporalState: Equatable, Sendable {
     case live
     case expired
     case clockRollbackAmbiguous
+}
+
+extension IOSAcceptedHistoryOutboxTemporalState:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedHistoryOutboxTemporalState(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+enum IOSAcceptedHistoryOutboxDeliveryRelation: Equatable, Sendable {
+    case unrelated
+    case pending
+    case committed
+    case cancelled
+    case discarded
+    case collision
+}
+
+extension IOSAcceptedHistoryOutboxDeliveryRelation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedHistoryOutboxDeliveryRelation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 enum IOSAcceptedHistoryOutboxValidation {
