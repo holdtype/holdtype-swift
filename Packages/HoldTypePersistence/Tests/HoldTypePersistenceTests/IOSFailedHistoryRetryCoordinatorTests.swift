@@ -78,6 +78,56 @@ struct IOSFailedHistoryRetryCoordinatorTests {
             _ = try IOSFailedHistoryRetrySetupSnapshot(
                 credentialEligibility: .unavailable,
                 transcriptionConfiguration: .defaults,
+                transcriptionPromptComposition: retryPromptComposition(),
+                textCorrectionConfiguration: .defaults,
+                postProcessingConfiguration: .defaults,
+                translationConfiguration: nil,
+                keepLatestResult: true
+            )
+        }
+        let nearbyContext = try #require(
+            TranscriptionPromptContext("secret-nearby-text-canary")
+        )
+        #expect(throws: IOSFailedHistoryError.invalidTransition) {
+            _ = try IOSFailedHistoryRetrySetupSnapshot(
+                credentialEligibility: .available,
+                transcriptionConfiguration: .defaults,
+                transcriptionPromptComposition:
+                    TranscriptionPromptComposition(
+                        resolvedFreeformPrompt: nil,
+                        context: nearbyContext,
+                        emojiCommandsConfiguration: .defaults,
+                        customDictionary: .empty
+                    ),
+                textCorrectionConfiguration: .defaults,
+                postProcessingConfiguration: .defaults,
+                translationConfiguration: nil,
+                keepLatestResult: true
+            )
+        }
+        let dormantInvalidCorrection = TextCorrectionConfiguration(
+            isEnabled: false,
+            modelPreset: .custom,
+            customModel: String(repeating: "x", count: 300)
+        )
+        _ = try IOSFailedHistoryRetrySetupSnapshot(
+            credentialEligibility: .available,
+            transcriptionConfiguration: .defaults,
+            transcriptionPromptComposition: retryPromptComposition(),
+            textCorrectionConfiguration: dormantInvalidCorrection,
+            postProcessingConfiguration: .defaults,
+            translationConfiguration: nil,
+            keepLatestResult: true
+        )
+        var enabledInvalidCorrection = dormantInvalidCorrection
+        enabledInvalidCorrection.isEnabled = true
+        #expect(throws: IOSFailedHistoryError.invalidTransition) {
+            _ = try IOSFailedHistoryRetrySetupSnapshot(
+                credentialEligibility: .available,
+                transcriptionConfiguration: .defaults,
+                transcriptionPromptComposition: retryPromptComposition(),
+                textCorrectionConfiguration: enabledInvalidCorrection,
+                postProcessingConfiguration: .defaults,
                 translationConfiguration: nil,
                 keepLatestResult: true
             )
@@ -88,6 +138,9 @@ struct IOSFailedHistoryRetryCoordinatorTests {
         let incompatible = try IOSFailedHistoryRetrySetupSnapshot(
             credentialEligibility: .available,
             transcriptionConfiguration: .defaults,
+            transcriptionPromptComposition: retryPromptComposition(),
+            textCorrectionConfiguration: .defaults,
+            postProcessingConfiguration: .defaults,
             translationConfiguration: TranslationConfiguration(
                 targetLanguage: .english
             ),
@@ -442,6 +495,235 @@ struct IOSFailedHistoryRetryCoordinatorTests {
         #expect(cancelled.entries.first?.retryCount == 1)
         #expect(fixture.audioExists(for: try #require(cancelled.entries.first)))
     }
+
+    @Test func pipelineFailureCommitsMappedThenPreservedOutcome()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let original = try await fixture.prepareReadyFailure()
+        let first = try await fixture.coordinator.prepareFailedHistoryRetry(
+            attemptID: original.attemptID,
+            setup: try retryCoordinatorSetup()
+        )
+        let firstResult = try await first.executePipeline(
+            IOSFailedHistoryRetryPipeline(
+                provider: RetryCoordinatorPipelineProvider(
+                    transcription: .failure(.rateLimited)
+                ),
+                usageRecorder: RetryCoordinatorUsageRecorder()
+            )
+        )
+        guard case .failed = firstResult else {
+            Issue.record("A mapped provider failure must remain failed.")
+            return
+        }
+        #expect(
+            String(describing: firstResult)
+                == "IOSFailedHistoryRetryPipelineExecutionResult(redacted)"
+        )
+
+        let retainedEnvelope = try #require(
+            try await fixture.context.failedHistoryStore.load()
+        )
+        var retained = try #require(retainedEnvelope.entries.first)
+        #expect(retained.retryOperation == nil)
+        #expect(retained.retryCount == 1)
+        #expect(retained.failureCategory == .rateLimited)
+        #expect(retained.pipelineStage == .transcription)
+        #expect(retained.updatedAt > original.updatedAt)
+        #expect(fixture.audioExists(for: retained))
+        #expect(
+            await fixture.context.failedHistoryRetryState.hasLiveOwner()
+                == false
+        )
+
+        let second = try await fixture.coordinator.prepareFailedHistoryRetry(
+            attemptID: original.attemptID,
+            setup: try retryCoordinatorSetup()
+        )
+        let secondResult = try await second.executePipeline(
+            IOSFailedHistoryRetryPipeline(
+                provider: RetryCoordinatorPipelineProvider(
+                    transcription: .failure(.invalidRecording)
+                ),
+                usageRecorder: RetryCoordinatorUsageRecorder()
+            )
+        )
+        guard case .failed = secondResult else {
+            Issue.record("An unmappable provider failure must remain failed.")
+            return
+        }
+
+        let secondEnvelope = try #require(
+            try await fixture.context.failedHistoryStore.load()
+        )
+        let secondRetained = try #require(secondEnvelope.entries.first)
+        #expect(secondRetained.retryOperation == nil)
+        #expect(secondRetained.retryCount == 2)
+        #expect(secondRetained.failureCategory == retained.failureCategory)
+        #expect(secondRetained.pipelineStage == retained.pipelineStage)
+        #expect(secondRetained.updatedAt > retained.updatedAt)
+        retained = secondRetained
+        #expect(fixture.audioExists(for: retained))
+    }
+
+    @Test func translationFailureUsesItsActualStageAfterUsage()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let original = try await fixture.prepareReadyFailure(
+            outputIntent: .translate
+        )
+        let handoff = try await fixture.coordinator
+            .prepareFailedHistoryRetry(
+                attemptID: original.attemptID,
+                setup: try retryCoordinatorSetup(
+                    translationConfiguration: TranslationConfiguration(
+                        targetLanguage: .english
+                    )
+                )
+            )
+        let usage = RetryCoordinatorUsageRecorder()
+        let result = try await handoff.executePipeline(
+            IOSFailedHistoryRetryPipeline(
+                provider: RetryCoordinatorPipelineProvider(
+                    transcription: .success("transient transcript"),
+                    translation: .failure(.providerUnavailable)
+                ),
+                usageRecorder: usage
+            )
+        )
+
+        guard case .failed = result else {
+            Issue.record("Strict Translation failure must remain failed.")
+            return
+        }
+        let retainedEnvelope = try #require(
+            try await fixture.context.failedHistoryStore.load()
+        )
+        let retained = try #require(retainedEnvelope.entries.first)
+        #expect(retained.retryCount == 1)
+        #expect(retained.failureCategory == .providerUnavailable)
+        #expect(retained.pipelineStage == .translation)
+        #expect(retained.retryOperation == nil)
+        #expect(await usage.callCount() == 1)
+        #expect(
+            await fixture.context.failedHistoryRetryState.hasLiveOwner()
+                == false
+        )
+    }
+
+    @Test func droppedAcceptedProviderOutputReturnsRowToRetryableState()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let original = try await fixture.prepareReadyFailure()
+        let handoff = try await fixture.coordinator.prepareFailedHistoryRetry(
+            attemptID: original.attemptID,
+            setup: try retryCoordinatorSetup()
+        )
+        let usage = RetryCoordinatorUsageRecorder()
+        var acceptedOutput:
+            IOSFailedHistoryRetryAcceptedProviderOutput?
+        var result: IOSFailedHistoryRetryPipelineExecutionResult? =
+            try await handoff.executePipeline(
+            IOSFailedHistoryRetryPipeline(
+                provider: RetryCoordinatorPipelineProvider(
+                    transcription: .success("secret accepted result")
+                ),
+                usageRecorder: usage
+            )
+        )
+        switch try #require(result) {
+        case .accepted(let output):
+            acceptedOutput = output
+        case .failed:
+            Issue.record("A valid provider result must be accepted.")
+            return
+        }
+        #expect(acceptedOutput?.transcript.text == "secret accepted result")
+        #expect(
+            String(describing: acceptedOutput)
+                == "Optional(IOSFailedHistoryRetryAcceptedProviderOutput(redacted))"
+        )
+        #expect(await usage.callCount() == 1)
+        #expect(await fixture.context.failedHistoryRetryState.hasLiveOwner())
+
+        result = nil
+        acceptedOutput = nil
+        try await retryCoordinatorEventually {
+            let envelope = try await fixture.context.failedHistoryStore.load()
+            let hasLiveOwner = await fixture.context
+                .failedHistoryRetryState.hasLiveOwner()
+            return envelope?.entries.first?.retryOperation == nil
+                && !hasLiveOwner
+        }
+
+        let retainedEnvelope = try #require(
+            try await fixture.context.failedHistoryStore.load()
+        )
+        let retained = try #require(retainedEnvelope.entries.first)
+        #expect(retained.retryCount == 1)
+        #expect(retained.failureCategory == original.failureCategory)
+        #expect(retained.pipelineStage == original.pipelineStage)
+        #expect(retained.updatedAt > original.updatedAt)
+        #expect(fixture.audioExists(for: retained))
+    }
+
+    @Test func retryEntrypointResumesRetainedProviderFailure()
+        async throws {
+        let fixture = try RetryCoordinatorUncertaintyFixture()
+        let row = try await fixture.prepareReadyFailure()
+        let handoff = try await fixture.coordinator.prepareFailedHistoryRetry(
+            attemptID: row.attemptID,
+            setup: try retryCoordinatorSetup()
+        )
+        fixture.failedFileSystem.persistentReplaceFailure = .init(
+            error: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+
+        await #expect(throws: IOSFailedHistoryError.commitUncertain) {
+            _ = try await handoff.executePipeline(
+                IOSFailedHistoryRetryPipeline(
+                    provider: RetryCoordinatorPipelineProvider(
+                        transcription: .failure(.networkFailure)
+                    ),
+                    usageRecorder: RetryCoordinatorUsageRecorder()
+                )
+            )
+        }
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(fixture.mutationInterlock.isBlocked)
+
+        fixture.failedFileSystem.persistentReplaceFailure = nil
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await fixture.coordinator.prepareFailedHistoryRetry(
+                attemptID: row.attemptID,
+                setup: try retryCoordinatorSetup()
+            )
+        }
+        try await retryCoordinatorEventually {
+            guard !fixture.mutationInterlock.isBlocked,
+                  let retained = try? await fixture.failedHistoryStore
+                    .load()?.entries.first else {
+                return false
+            }
+            let hasLiveOwner = await fixture.retryState.hasLiveOwner()
+            return retained.retryOperation == nil
+                && retained.failureCategory == .networkFailure
+                && !hasLiveOwner
+        }
+
+        let resumed = try await fixture.coordinator.prepareFailedHistoryRetry(
+            attemptID: row.attemptID,
+            setup: try retryCoordinatorSetup()
+        )
+        let retried = try #require(
+            try await fixture.failedHistoryStore.load()?.entries.first
+        )
+        #expect(retried.retryCount == 2)
+        try await resumed.cancel()
+    }
 }
 
 private enum RetryCoordinatorUncertaintyBoundary: CaseIterable {
@@ -506,7 +788,9 @@ private final class RetryCoordinatorFixture: @unchecked Sendable {
         try? FileManager.default.removeItem(at: parentDirectoryURL)
     }
 
-    func prepareReadyFailure() async throws -> IOSFailedHistoryEntry {
+    func prepareReadyFailure(
+        outputIntent: DictationOutputIntent = .standard
+    ) async throws -> IOSFailedHistoryEntry {
         _ = try await coordinator.capture(
             transcriptionModel: "gpt-4o-mini-transcribe",
             transcriptionLanguageCode: "en",
@@ -528,7 +812,7 @@ private final class RetryCoordinatorFixture: @unchecked Sendable {
                     byteCount: Int64(audio.count)
                 ),
                 initialState: .awaitingRecovery,
-                outputIntent: .standard,
+                outputIntent: outputIntent,
                 transcriptionConfiguration: TranscriptionConfiguration(
                     model: "gpt-4o-mini-transcribe",
                     language: .english
@@ -754,15 +1038,98 @@ private actor RetryCoordinatorLatch {
     }
 }
 
+private actor RetryCoordinatorPipelineProvider:
+    IOSFailedHistoryRetryProviderExecuting {
+    private let transcriptionOutcome:
+        IOSFailedHistoryRetryProviderTextOutcome
+    private let correctionOutcome: IOSFailedHistoryRetryProviderTextOutcome
+    private let translationOutcome: IOSFailedHistoryRetryProviderTextOutcome
+
+    init(
+        transcription: IOSFailedHistoryRetryProviderTextOutcome,
+        correction: IOSFailedHistoryRetryProviderTextOutcome =
+            .failure(.unknown),
+        translation: IOSFailedHistoryRetryProviderTextOutcome =
+            .failure(.unknown)
+    ) {
+        transcriptionOutcome = transcription
+        correctionOutcome = correction
+        translationOutcome = translation
+    }
+
+    func transcribe(
+        _ request: IOSFailedHistoryRetryTranscriptionRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        guard (try? await request.audio.read(
+            atOffset: 0,
+            maximumByteCount: 64
+        ))?.isEmpty == false else {
+            return .failure(.invalidRecording)
+        }
+        return transcriptionOutcome
+    }
+
+    func correct(
+        _ request: IOSFailedHistoryRetryCorrectionRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        _ = request
+        return correctionOutcome
+    }
+
+    func translate(
+        _ request: IOSFailedHistoryRetryTranslationRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        _ = request
+        return translationOutcome
+    }
+}
+
+private actor RetryCoordinatorUsageRecorder:
+    IOSFailedHistoryRetryUsageRecording {
+    private var storedCallCount = 0
+
+    func recordRetryUsage(
+        _ usage: SuccessfulTranscriptionUsage
+    ) async throws {
+        _ = usage
+        storedCallCount += 1
+    }
+
+    func callCount() -> Int {
+        storedCallCount
+    }
+}
+
 private func retryCoordinatorSetup(
     transcriptionConfiguration: TranscriptionConfiguration = .defaults,
+    textCorrectionConfiguration: TextCorrectionConfiguration = .defaults,
+    postProcessingConfiguration:
+        TranscriptPostProcessingConfiguration = .defaults,
+    translationConfiguration: TranslationConfiguration? = nil,
     keepLatestResult: Bool = true
 ) throws -> IOSFailedHistoryRetrySetupSnapshot {
     try IOSFailedHistoryRetrySetupSnapshot(
         credentialEligibility: .available,
         transcriptionConfiguration: transcriptionConfiguration,
-        translationConfiguration: nil,
+        transcriptionPromptComposition: retryPromptComposition(
+            transcriptionConfiguration: transcriptionConfiguration
+        ),
+        textCorrectionConfiguration: textCorrectionConfiguration,
+        postProcessingConfiguration: postProcessingConfiguration,
+        translationConfiguration: translationConfiguration,
         keepLatestResult: keepLatestResult
+    )
+}
+
+private func retryPromptComposition(
+    transcriptionConfiguration: TranscriptionConfiguration = .defaults
+) -> TranscriptionPromptComposition {
+    TranscriptionPromptComposition(
+        resolvedFreeformPrompt:
+            transcriptionConfiguration.resolvedFreeformPrompt,
+        context: nil,
+        emojiCommandsConfiguration: .defaults,
+        customDictionary: .empty
     )
 }
 

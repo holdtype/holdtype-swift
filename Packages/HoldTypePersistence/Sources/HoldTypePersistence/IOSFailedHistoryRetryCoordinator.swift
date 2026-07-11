@@ -11,6 +11,9 @@ enum IOSFailedHistoryRetryCredentialEligibility: Equatable, Sendable {
 /// result of the app-owned credential/setup check.
 struct IOSFailedHistoryRetrySetupSnapshot: Equatable, Sendable {
     let transcriptionConfiguration: TranscriptionConfiguration
+    let transcriptionPromptComposition: TranscriptionPromptComposition
+    let textCorrectionConfiguration: TextCorrectionConfiguration
+    let postProcessingConfiguration: TranscriptPostProcessingConfiguration
     let translationConfiguration: TranslationConfiguration?
     let keepLatestResult: Bool
 
@@ -18,6 +21,9 @@ struct IOSFailedHistoryRetrySetupSnapshot: Equatable, Sendable {
         credentialEligibility:
             IOSFailedHistoryRetryCredentialEligibility,
         transcriptionConfiguration: TranscriptionConfiguration,
+        transcriptionPromptComposition: TranscriptionPromptComposition,
+        textCorrectionConfiguration: TextCorrectionConfiguration,
+        postProcessingConfiguration: TranscriptPostProcessingConfiguration,
         translationConfiguration: TranslationConfiguration?,
         keepLatestResult: Bool
     ) throws {
@@ -30,6 +36,11 @@ struct IOSFailedHistoryRetrySetupSnapshot: Equatable, Sendable {
               IOSPendingRecordingValidation.isValidLanguageCode(
                   transcriptionConfiguration.resolvedLanguageCode
               ),
+              transcriptionPromptComposition.contextEchoGuardText == nil,
+              (!textCorrectionConfiguration.isEnabled
+                  || IOSPendingRecordingValidation.isValidModel(
+                      textCorrectionConfiguration.resolvedModel
+                  )),
               translationConfiguration.map({ configuration in
                   configuration.canRunAction
                       && IOSPendingRecordingValidation.isValidModel(
@@ -39,6 +50,10 @@ struct IOSFailedHistoryRetrySetupSnapshot: Equatable, Sendable {
             throw IOSFailedHistoryError.invalidTransition
         }
         self.transcriptionConfiguration = transcriptionConfiguration
+        self.transcriptionPromptComposition =
+            transcriptionPromptComposition
+        self.textCorrectionConfiguration = textCorrectionConfiguration
+        self.postProcessingConfiguration = postProcessingConfiguration
         self.translationConfiguration = translationConfiguration
         self.keepLatestResult = keepLatestResult
     }
@@ -83,6 +98,86 @@ extension IOSFailedHistoryRetryProviderCompletion: CustomStringConvertible,
     var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
+/// Narrow transient input for one provider pipeline. It exposes only the
+/// descriptor-backed audio, the already-frozen setup, the Usage identity, and
+/// the preserved output intent; no Store receipt or mutation authority crosses
+/// the provider boundary.
+struct IOSFailedHistoryRetryProviderInvocation: Sendable {
+    let audio: IOSPendingTranscriptionAudio
+    let setup: IOSFailedHistoryRetrySetupSnapshot
+    let transcriptionID: UUID
+    let outputIntent: DictationOutputIntent
+}
+
+extension IOSFailedHistoryRetryProviderInvocation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderInvocation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// The sole successful C4.4B provider output. Dropping it before C4.4C claims
+/// local acceptance converts the exact completed Retry back into the prior
+/// recoverable failed row; it never leaves a completed live owner wedged.
+final class IOSFailedHistoryRetryAcceptedProviderOutput:
+    @unchecked Sendable {
+    let transcript: AcceptedTranscript
+    let dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt
+    let completionClaim: IOSFailedHistoryRetryProviderCompletionClaim
+    let setup: IOSFailedHistoryRetrySetupSnapshot
+
+    private let terminalRelay: IOSFailedHistoryRetryCancellationRelay
+
+    fileprivate init(
+        transcript: AcceptedTranscript,
+        dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt,
+        completionClaim: IOSFailedHistoryRetryProviderCompletionClaim,
+        setup: IOSFailedHistoryRetrySetupSnapshot,
+        terminalRelay: IOSFailedHistoryRetryCancellationRelay
+    ) {
+        self.transcript = transcript
+        self.dispatchReceipt = dispatchReceipt
+        self.completionClaim = completionClaim
+        self.setup = setup
+        self.terminalRelay = terminalRelay
+    }
+
+    deinit {
+        terminalRelay.requestProviderOutputAbandonment()
+    }
+}
+
+extension IOSFailedHistoryRetryAcceptedProviderOutput:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryAcceptedProviderOutput(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+enum IOSFailedHistoryRetryPipelineExecutionResult: Sendable {
+    case accepted(IOSFailedHistoryRetryAcceptedProviderOutput)
+    case failed
+}
+
+extension IOSFailedHistoryRetryPipelineExecutionResult:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryPipelineExecutionResult(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 /// One process-local, one-shot provider handoff for an exact durable Retry.
 /// The provider closure runs only after the root gate turn that created this
 /// value has ended. Cancellation and deinit both use the same exact durable
@@ -112,13 +207,61 @@ final class IOSFailedHistoryRetryHandoff: @unchecked Sendable {
         self.cancellationRelay = cancellationRelay
     }
 
-    /// Executes one provider operation. Provider-specific errors and timeouts
-    /// are values here so C4.4B can map them before choosing a Store transition.
+    #if DEBUG
+    /// C4.4A test seam. Production builds expose only the fixed C4.4B pipeline
+    /// below, never an arbitrary provider-capable closure.
     func execute<Outcome: Sendable>(
         _ operation: @escaping @Sendable (
             IOSPendingTranscriptionAudio,
             IOSFailedHistoryRetrySetupSnapshot
         ) async -> Outcome
+    ) async throws -> IOSFailedHistoryRetryProviderCompletion<Outcome> {
+        try await executeProvider { invocation in
+            await operation(invocation.audio, invocation.setup)
+        }
+    }
+    #endif
+
+    func executePipeline(
+        _ pipeline: IOSFailedHistoryRetryPipeline
+    ) async throws -> IOSFailedHistoryRetryPipelineExecutionResult {
+        let completion = try await executeProvider { invocation in
+            try await pipeline.run(invocation)
+        }
+
+        switch completion.outcome {
+        case .accepted(let transcript):
+            return .accepted(
+                IOSFailedHistoryRetryAcceptedProviderOutput(
+                    transcript: transcript,
+                    dispatchReceipt: completion.dispatchReceipt,
+                    completionClaim: completion.claim,
+                    setup: completion.setup,
+                    terminalRelay: cancellationRelay
+                )
+            )
+        case .failed(let failure):
+            let disposition: IOSFailedHistoryRetryFailureDisposition
+            if let category = failure.durableCategory {
+                disposition = .mapped(
+                    category: category,
+                    stage: failure.stage
+                )
+            } else {
+                disposition = .preservePrevious
+            }
+            try await cancellationRelay.completeProviderFailure(
+                claim: completion.claim,
+                disposition: disposition
+            )
+            return .failed
+        }
+    }
+
+    private func executeProvider<Outcome: Sendable>(
+        _ operation: @escaping @Sendable (
+            IOSFailedHistoryRetryProviderInvocation
+        ) async throws -> Outcome
     ) async throws -> IOSFailedHistoryRetryProviderCompletion<Outcome> {
         guard let launchClaim = await retryState.claimProviderLaunch(
             registration
@@ -128,15 +271,24 @@ final class IOSFailedHistoryRetryHandoff: @unchecked Sendable {
 
         let audio = audio
         let setup = setup
+        let transcriptionID = dispatchReceipt.retryOperation.transcriptionID
+        let outputIntent = dispatchReceipt.row.outputIntent
         let providerTask = Task<Outcome, Error> {
             defer { audio.invalidate() }
             try await launchClaim.waitForLaunch()
             try Task.checkCancellation()
-            return await IOSFailedHistoryRetryProviderTaskContext
+            return try await IOSFailedHistoryRetryProviderTaskContext
                 .$cancellationOwnerIdentity.withValue(
                     ObjectIdentifier(cancellationRelay)
                 ) {
-                    await operation(audio, setup)
+                    try await operation(
+                        IOSFailedHistoryRetryProviderInvocation(
+                            audio: audio,
+                            setup: setup,
+                            transcriptionID: transcriptionID,
+                            outputIntent: outputIntent
+                        )
+                    )
                 }
         }
         await cancellationRelay.registerProviderDrain {
@@ -229,7 +381,7 @@ extension IOSFailedHistoryRetryHandoff: CustomStringConvertible,
 }
 
 private actor IOSFailedHistoryRetryCancellationRelay:
-    IOSFailedHistoryRetryCancellationOwner {
+    IOSFailedHistoryRetryProviderTerminalOwner {
     private struct InFlight: Sendable {
         let id: UUID
         let task: Task<Void, Error>
@@ -251,8 +403,14 @@ private actor IOSFailedHistoryRetryCancellationRelay:
         Task<IOSFailedHistoryRetryProviderCancellationClaim, Error>?
     private var providerDrain: (@Sendable () async -> Void)?
     private var inFlight: InFlight?
+    private var providerFailureInFlight: InFlight?
+    private var providerFailureClaim:
+        IOSFailedHistoryRetryProviderCompletionClaim?
+    private var providerFailureDisposition:
+        IOSFailedHistoryRetryFailureDisposition?
     private var cancellationCompleted = false
     private var providerCompletionClaimed = false
+    private var providerFailureCompleted = false
     private var audioInvalidations: [@Sendable () -> Void]
 
     init(
@@ -290,6 +448,32 @@ private actor IOSFailedHistoryRetryCancellationRelay:
         }
     }
 
+    nonisolated func requestProviderCompletionRecovery() {
+        Task.detached { [self] in
+            for _ in 0..<3 {
+                do {
+                    try await recoverProviderFailure()
+                    return
+                } catch {
+                    await Task.yield()
+                }
+            }
+        }
+    }
+
+    nonisolated func requestProviderOutputAbandonment() {
+        Task.detached { [self] in
+            for _ in 0..<3 {
+                do {
+                    try await abandonProviderOutput()
+                    return
+                } catch {
+                    await Task.yield()
+                }
+            }
+        }
+    }
+
     func registerProviderDrain(
         _ drain: @escaping @Sendable () async -> Void
     ) {
@@ -314,6 +498,34 @@ private actor IOSFailedHistoryRetryCancellationRelay:
     func markProviderCompletionClaimed() {
         providerCompletionClaimed = true
         providerDrain = nil
+        invalidateProviderAudio()
+    }
+
+    func completeProviderFailure(
+        claim: IOSFailedHistoryRetryProviderCompletionClaim,
+        disposition: IOSFailedHistoryRetryFailureDisposition
+    ) async throws {
+        guard providerCompletionClaimed,
+              !cancellationCompleted,
+              !providerFailureCompleted else {
+            if providerFailureCompleted { return }
+            throw IOSFailedHistoryError.invalidTransition
+        }
+        if let providerFailureClaim {
+            guard providerFailureClaim == claim else {
+                throw IOSFailedHistoryError.invalidTransition
+            }
+        } else {
+            providerFailureClaim = claim
+        }
+        if let providerFailureDisposition {
+            guard providerFailureDisposition == disposition else {
+                throw IOSFailedHistoryError.invalidTransition
+            }
+        } else {
+            providerFailureDisposition = disposition
+        }
+        try await awaitProviderFailureWork()
     }
 
     func cancel() async throws {
@@ -360,6 +572,71 @@ private actor IOSFailedHistoryRetryCancellationRelay:
         let work = InFlight(id: id, task: task)
         inFlight = work
         return work
+    }
+
+    private func recoverProviderFailure() async throws {
+        guard providerCompletionClaimed,
+              providerFailureClaim != nil,
+              providerFailureDisposition != nil,
+              !providerFailureCompleted else {
+            return
+        }
+        try await awaitProviderFailureWork()
+    }
+
+    private func abandonProviderOutput() async throws {
+        guard providerCompletionClaimed,
+              !providerFailureCompleted else {
+            return
+        }
+        let claim = try await exactProviderCompletionClaim()
+        try await completeProviderFailure(
+            claim: claim,
+            disposition: .preservePrevious
+        )
+    }
+
+    private func awaitProviderFailureWork() async throws {
+        let work = providerFailureWork()
+        do {
+            try await work.task.value
+            if providerFailureInFlight?.id == work.id {
+                providerFailureInFlight = nil
+                providerFailureCompleted = true
+            }
+        } catch {
+            if providerFailureInFlight?.id == work.id {
+                providerFailureInFlight = nil
+            }
+            throw error
+        }
+    }
+
+    private func providerFailureWork() -> InFlight {
+        if let providerFailureInFlight {
+            return providerFailureInFlight
+        }
+        let id = UUID()
+        let task = Task.detached { [self] in
+            try await performProviderFailure()
+        }
+        let work = InFlight(id: id, task: task)
+        providerFailureInFlight = work
+        return work
+    }
+
+    private func exactProviderCompletionClaim() async throws
+        -> IOSFailedHistoryRetryProviderCompletionClaim {
+        if let providerFailureClaim {
+            return providerFailureClaim
+        }
+        guard let claim = await retryState.retainedProviderCompletion(
+            registration
+        ) else {
+            throw IOSFailedHistoryError.invalidTransition
+        }
+        providerFailureClaim = claim
+        return claim
     }
 
     private func exactCancellationClaim() async throws
@@ -451,6 +728,58 @@ private actor IOSFailedHistoryRetryCancellationRelay:
         }
     }
 
+    private func performProviderFailure() async throws {
+        let claim = try await exactProviderCompletionClaim()
+        guard let disposition = providerFailureDisposition else {
+            throw IOSFailedHistoryError.invalidTransition
+        }
+
+        let operationGate = operationGate
+        let dispatchReceipt = dispatchReceipt
+        let retryState = retryState
+        let failedStore = failedStore
+        let repositoryIdentityState = repositoryIdentityState
+        let repositoryRegistration = repositoryRegistration
+        do {
+            try await operationGate.perform { lease in
+                let repositoryBinding = repositoryRegistration?.revalidate()
+                guard !repositoryIdentityState.isConflicted else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .repositoryIdentityConflict
+                }
+                let receipt = try await IOSAcceptedHistoryCoordinator
+                    .commitExactRetryFailure(
+                        dispatchReceipt: dispatchReceipt,
+                        providerCompletionClaim: claim,
+                        disposition: disposition,
+                        failedStore: failedStore,
+                        operationLeaseAuthorization: lease
+                    )
+                guard await retryState.consumeProviderFailure(
+                    using: receipt
+                ) else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
+                if let repositoryBinding {
+                    _ = repositoryRegistration?.revalidate(
+                        expectedBinding: repositoryBinding
+                    )
+                }
+                guard !repositoryIdentityState.isConflicted else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .repositoryIdentityConflict
+                }
+            }
+        } catch IOSPersistenceOperationGate.AcquisitionError
+            .cancelledBeforeLease {
+            throw IOSAcceptedHistoryCoordinatorError.cancelledBeforeOperation
+        } catch IOSPersistenceOperationGate.AcquisitionError
+            .reentrantOperation {
+            throw IOSAcceptedHistoryCoordinatorError.reentrantOperation
+        }
+    }
+
     private func invalidateProviderAudio() {
         let invalidations = audioInvalidations
         audioInvalidations.removeAll()
@@ -487,6 +816,13 @@ extension IOSAcceptedHistoryCoordinator {
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
         let transcriptionConfiguration = setup.transcriptionConfiguration
+
+        // A previous provider completion may have exhausted its bounded local
+        // Store attempts after the exact terminal claim was already retained.
+        // Retrigger only that terminal work; provider work is never repeated.
+        if await retryState.requestRetainedProviderCompletionRecovery() {
+            throw IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        }
 
         // A previous handoff may have exhausted its bounded immediate cleanup
         // attempts after already minting the exact terminal cancellation claim.
@@ -661,7 +997,7 @@ extension IOSAcceptedHistoryCoordinator {
                         repositoryRegistration: repositoryRegistration,
                         audioInvalidation: { audioSource.invalidate() }
                     )
-                    guard await retryState.retainProviderCancellationOwner(
+                    guard await retryState.retainProviderTerminalOwner(
                         relay,
                         for: registration
                     ) else {
@@ -896,6 +1232,54 @@ extension IOSAcceptedHistoryCoordinator {
                         throw IOSFailedHistoryError.commitUncertain
                     }
                     return try await failedStore.commitRetryCancellation(
+                        using: refreshed
+                    )
+                }
+            }
+        }
+    }
+
+    fileprivate static func commitExactRetryFailure(
+        dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt,
+        providerCompletionClaim:
+            IOSFailedHistoryRetryProviderCompletionClaim,
+        disposition: IOSFailedHistoryRetryFailureDisposition,
+        failedStore: IOSFailedHistoryStore,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryRetryFailureReceipt {
+        let preparation = try await failedStore.prepareRetryFailure(
+            using: dispatchReceipt,
+            providerCompletionClaim: providerCompletionClaim,
+            disposition: disposition,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        switch preparation {
+        case .completed(let receipt):
+            return receipt
+        case .commit(let authorization):
+            do {
+                return try await failedStore.commitRetryFailure(
+                    using: authorization
+                )
+            } catch IOSFailedHistoryError.commitUncertain {
+                let retained = try await failedStore.prepareRetryFailure(
+                    using: dispatchReceipt,
+                    providerCompletionClaim: providerCompletionClaim,
+                    disposition: disposition,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+                switch retained {
+                case .completed(let receipt):
+                    return receipt
+                case .commit(let refreshed):
+                    guard refreshed.identifiesSameFailure(
+                        as: authorization
+                    ) else {
+                        throw IOSFailedHistoryError.commitUncertain
+                    }
+                    return try await failedStore.commitRetryFailure(
                         using: refreshed
                     )
                 }

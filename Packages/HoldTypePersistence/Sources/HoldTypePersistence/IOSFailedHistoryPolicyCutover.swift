@@ -777,8 +777,9 @@ enum IOSFailedHistoryRetryProviderTerminalClaim: Equatable, Sendable {
     }
 }
 
-protocol IOSFailedHistoryRetryCancellationOwner: AnyObject, Sendable {
+protocol IOSFailedHistoryRetryProviderTerminalOwner: AnyObject, Sendable {
     func requestCancellation()
+    func requestProviderCompletionRecovery()
 }
 
 actor IOSFailedHistoryRetryLiveOwnerState {
@@ -798,8 +799,10 @@ actor IOSFailedHistoryRetryLiveOwnerState {
     private var phase: Phase = .idle
     private var retainedProviderCancellationClaim:
         IOSFailedHistoryRetryProviderCancellationClaim?
-    private var retainedProviderCancellationOwner:
-        (any IOSFailedHistoryRetryCancellationOwner)?
+    private var retainedProviderCompletionClaim:
+        IOSFailedHistoryRetryProviderCompletionClaim?
+    private var retainedProviderTerminalOwner:
+        (any IOSFailedHistoryRetryProviderTerminalOwner)?
 
     nonisolated func bindProviderRegistration(
         failedStoreIdentity: IOSFailedHistoryStoreIdentity,
@@ -834,7 +837,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
     ) -> IOSFailedHistoryRetryProviderRegistration? {
         guard phase == .idle,
               retainedProviderCancellationClaim == nil,
-              retainedProviderCancellationOwner == nil,
+              retainedProviderCompletionClaim == nil,
+              retainedProviderTerminalOwner == nil,
               token.retryOperation.state == .providerDispatched,
               token.retryStateIdentity == identity,
               token.operationLeaseAuthorization.provesActiveLease(),
@@ -853,7 +857,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
     ) -> Bool {
         guard phase == .idle,
               retainedProviderCancellationClaim == nil,
-              retainedProviderCancellationOwner == nil,
+              retainedProviderCompletionClaim == nil,
+              retainedProviderTerminalOwner == nil,
               token.retryOperation.state == .reserved,
               token.retryStateIdentity == identity,
               token.operationLeaseAuthorization.provesActiveLease() else {
@@ -906,18 +911,18 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         return retained.claimLaunch()
     }
 
-    func retainProviderCancellationOwner(
-        _ owner: any IOSFailedHistoryRetryCancellationOwner,
+    func retainProviderTerminalOwner(
+        _ owner: any IOSFailedHistoryRetryProviderTerminalOwner,
         for registration: IOSFailedHistoryRetryProviderRegistration
     ) -> Bool {
         guard case .provider(let retained) = phase,
               retained == registration else {
             return false
         }
-        if let retainedProviderCancellationOwner {
-            return retainedProviderCancellationOwner === owner
+        if let retainedProviderTerminalOwner {
+            return retainedProviderTerminalOwner === owner
         }
-        retainedProviderCancellationOwner = owner
+        retainedProviderTerminalOwner = owner
         return true
     }
 
@@ -925,10 +930,23 @@ actor IOSFailedHistoryRetryLiveOwnerState {
     func requestRetainedProviderCancellation() -> Bool {
         guard case .provider = phase,
               retainedProviderCancellationClaim != nil,
-              let retainedProviderCancellationOwner else {
+              let retainedProviderTerminalOwner else {
             return false
         }
-        retainedProviderCancellationOwner.requestCancellation()
+        retainedProviderTerminalOwner.requestCancellation()
+        return true
+    }
+
+    /// Retriggers only an already-completed provider's retained terminal work.
+    /// It never invents a failure disposition or replays provider work.
+    @discardableResult
+    func requestRetainedProviderCompletionRecovery() -> Bool {
+        guard case .provider = phase,
+              retainedProviderCompletionClaim != nil,
+              let retainedProviderTerminalOwner else {
+            return false
+        }
+        retainedProviderTerminalOwner.requestProviderCompletionRecovery()
         return true
     }
 
@@ -975,13 +993,64 @@ actor IOSFailedHistoryRetryLiveOwnerState {
               let terminalEpoch = launchClaim.complete() else {
             return nil
         }
-        return .completion(
-            IOSFailedHistoryRetryProviderCompletionClaim(
-                mint: IOSFailedHistoryRetryProviderClaimMint(),
-                registration: registration,
-                terminalEpoch: terminalEpoch
-            )
+        let claim = IOSFailedHistoryRetryProviderCompletionClaim(
+            mint: IOSFailedHistoryRetryProviderClaimMint(),
+            registration: registration,
+            terminalEpoch: terminalEpoch
         )
+        retainedProviderCompletionClaim = claim
+        return .completion(claim)
+    }
+
+    /// Re-exposes only the already-minted exact completion claim so the
+    /// provider-completed durable failure may reconcile Store uncertainty
+    /// without minting another terminal epoch.
+    func retainedProviderCompletion(
+        _ registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> IOSFailedHistoryRetryProviderCompletionClaim? {
+        guard case .provider(let retained) = phase,
+              retained == registration,
+              let retainedProviderCompletionClaim,
+              retainedProviderCompletionClaim.belongs(to: retained) else {
+            return nil
+        }
+        return retainedProviderCompletionClaim
+    }
+
+    /// Retires only the exact provider completion whose Store receipt proves
+    /// that the matching failed Retry has been retained durably without an
+    /// active retry operation.
+    @discardableResult
+    func consumeProviderFailure(
+        using receipt: IOSFailedHistoryRetryFailureReceipt
+    ) -> Bool {
+        let completion = receipt.providerCompletionClaim
+        guard receipt.operationLeaseAuthorization.provesActiveLease(),
+              receipt.row.retryOperation == nil,
+              receipt.durableSnapshot.envelope.entries.contains(receipt.row),
+              receipt.authorization.providerCompletionClaim == completion,
+              completion.liveOwnerToken.retryOperation
+                == receipt.retryOperation,
+              completion.liveOwnerToken.failedStoreIdentity
+                == receipt.failedStoreIdentity,
+              completion.liveOwnerToken.ownerIdentity
+                == receipt.ownerIdentity,
+              completion.liveOwnerToken.repositoryBinding
+                == receipt.repositoryBinding,
+              retainedProviderCompletionClaim == completion,
+              case .provider(let registration) = phase,
+              completion.belongs(to: registration),
+              registration.consumeTerminal(
+                  kind: .completion,
+                  epoch: completion.terminalEpoch
+              ) else {
+            return false
+        }
+        retainedProviderCancellationClaim = nil
+        retainedProviderCompletionClaim = nil
+        retainedProviderTerminalOwner = nil
+        phase = .idle
+        return true
     }
 
     /// Retires only an exact provider cancellation whose Store receipt proves
@@ -1012,7 +1081,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
             return false
         }
         retainedProviderCancellationClaim = nil
-        retainedProviderCancellationOwner = nil
+        retainedProviderCompletionClaim = nil
+        retainedProviderTerminalOwner = nil
         phase = .idle
         return true
     }
@@ -1042,7 +1112,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         }
         guard consumed else { return false }
         retainedProviderCancellationClaim = nil
-        retainedProviderCancellationOwner = nil
+        retainedProviderCompletionClaim = nil
+        retainedProviderTerminalOwner = nil
         phase = .idle
         return true
     }
@@ -1057,7 +1128,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         switch phase {
         case .idle:
             guard retainedProviderCancellationClaim == nil,
-                  retainedProviderCancellationOwner == nil else {
+                  retainedProviderCompletionClaim == nil,
+                  retainedProviderTerminalOwner == nil else {
                 return nil
             }
             reservationID = IOSFailedHistoryRetryCancellationReservationID()

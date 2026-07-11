@@ -78,6 +78,14 @@ struct IOSFailedHistoryRetryCancellationReceiptMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryRetryFailureAuthorizationMint: Sendable {
+    fileprivate init() {}
+}
+
+struct IOSFailedHistoryRetryFailureReceiptMint: Sendable {
+    fileprivate init() {}
+}
+
 private final class IOSFailedHistoryPendingStoreIdentityBinding:
     @unchecked Sendable {
     private let lock = NSLock()
@@ -366,6 +374,7 @@ private enum IOSFailedHistoryRetryMutationIntent: Sendable {
     case reservation(IOSFailedHistoryRetryReservationAuthorization)
     case dispatch(IOSFailedHistoryRetryDispatchAuthorization)
     case cancellation(IOSFailedHistoryRetryCancellationAuthorization)
+    case failure(IOSFailedHistoryRetryFailureAuthorization)
 }
 
 struct IOSFailedHistoryMutationCapability: Equatable, Sendable {
@@ -1039,6 +1048,113 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
             }
             let receipt = try commitExactMutation(capability)
             return try retryCancellationReceipt(
+                authorization: authorization,
+                durableSnapshot: receipt.snapshot,
+                operationLeaseAuthorization:
+                    authorization.operationLeaseAuthorization
+            )
+        } catch {
+            if uncertainMutationIntent == nil {
+                retryMutationIntent = nil
+            }
+            throw error
+        }
+    }
+
+    /// Prepares the exact durable failure transition for a provider-completed
+    /// Retry. The retry count and operation identity cannot be advanced here.
+    func prepareRetryFailure(
+        using dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt,
+        providerCompletionClaim:
+            IOSFailedHistoryRetryProviderCompletionClaim,
+        disposition: IOSFailedHistoryRetryFailureDisposition,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryRetryFailurePreparation {
+        try requireActiveLease(operationLeaseAuthorization)
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        try validateRetryDispatchReceipt(
+            dispatchReceipt,
+            repositoryBinding: repositoryBinding
+        )
+        guard providerCompletionClaim.liveOwnerToken
+                == dispatchReceipt.liveOwnerToken else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        if uncertainMutationIntent != nil {
+            return try retainedRetryFailurePreparation(
+                dispatchReceipt: dispatchReceipt,
+                providerCompletionClaim: providerCompletionClaim,
+                disposition: disposition,
+                repositoryBinding: repositoryBinding,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        }
+
+        try requireFreshRetryMutationAdmission()
+        let source = dispatchReceipt.durableSnapshot
+        guard let current = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        ), current == source else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        let retainedRow = try retryFailureRow(
+            replacing: dispatchReceipt.row,
+            disposition: disposition,
+            updatedAt: try canonicalRetryTime(
+                after: dispatchReceipt.row.updatedAt
+            )
+        )
+        let outcome = try retryReplacementOutcome(
+            source: source,
+            candidate: dispatchReceipt.row,
+            replacement: retainedRow
+        )
+        return .commit(
+            try retryFailureAuthorization(
+                dispatchReceipt: dispatchReceipt,
+                providerCompletionClaim: providerCompletionClaim,
+                disposition: disposition,
+                source: source,
+                retainedRow: retainedRow,
+                outcome: outcome,
+                repositoryBinding: repositoryBinding,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        )
+    }
+
+    func commitRetryFailure(
+        using authorization: IOSFailedHistoryRetryFailureAuthorization
+    ) throws -> IOSFailedHistoryRetryFailureReceipt {
+        try validateRetryFailureAuthorization(authorization)
+        if let uncertainMutationIntent {
+            guard case .failure(let retained) = retryMutationIntent,
+                  uncertainMutationIntent.outcome == retained.outcome,
+                  retained.identifiesSameFailure(as: authorization) else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        } else {
+            try requireFreshRetryMutationAdmission()
+        }
+        retryMutationIntent = .failure(authorization)
+        do {
+            let capability = try reserveExactMutation(
+                authorization.outcome,
+                operationLeaseAuthorization:
+                    authorization.operationLeaseAuthorization
+            )
+            if uncertainMutationIntent == nil {
+                guard capability.source == .existing(
+                    authorization.failedSource
+                ) else {
+                    throw IOSFailedHistoryError.compareAndSwapFailed
+                }
+            }
+            let receipt = try commitExactMutation(capability)
+            return try retryFailureReceipt(
                 authorization: authorization,
                 durableSnapshot: receipt.snapshot,
                 operationLeaseAuthorization:
@@ -3744,6 +3860,187 @@ private extension IOSFailedHistoryStore {
         )
         return .completed(
             try retryCancellationReceipt(
+                authorization: refreshed,
+                durableSnapshot: mutationReceipt.snapshot,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        )
+    }
+
+    func retryFailureRow(
+        replacing row: IOSFailedHistoryEntry,
+        disposition: IOSFailedHistoryRetryFailureDisposition,
+        updatedAt: Date
+    ) throws -> IOSFailedHistoryEntry {
+        let failureCategory: IOSFailedHistoryFailureCategory
+        let pipelineStage: IOSFailedHistoryPipelineStage
+        switch disposition {
+        case .mapped(let category, let stage):
+            failureCategory = category
+            pipelineStage = stage
+        case .preservePrevious:
+            failureCategory = row.failureCategory
+            pipelineStage = row.pipelineStage
+        }
+        return try IOSFailedHistoryEntry(
+            attemptID: row.attemptID,
+            createdAt: row.createdAt,
+            updatedAt: updatedAt,
+            policyGeneration: row.policyGeneration,
+            failureCategory: failureCategory,
+            pipelineStage: pipelineStage,
+            retryCount: row.retryCount,
+            outputIntent: row.outputIntent,
+            transcriptionModel: row.transcriptionModel,
+            transcriptionLanguageCode: row.transcriptionLanguageCode,
+            durationMilliseconds: row.durationMilliseconds,
+            byteCount: row.byteCount,
+            audioRelativeIdentifier: row.audioRelativeIdentifier,
+            ownershipState: row.ownershipState,
+            retryOperation: nil
+        )
+    }
+
+    func retryFailureAuthorization(
+        dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt,
+        providerCompletionClaim:
+            IOSFailedHistoryRetryProviderCompletionClaim,
+        disposition: IOSFailedHistoryRetryFailureDisposition,
+        source: IOSFailedHistoryJournalSnapshot,
+        retainedRow: IOSFailedHistoryEntry,
+        outcome: IOSFailedHistoryEnvelope,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryRetryFailureAuthorization {
+        guard let authorization = IOSFailedHistoryRetryFailureAuthorization(
+            mint: IOSFailedHistoryRetryFailureAuthorizationMint(),
+            dispatchReceipt: dispatchReceipt,
+            providerCompletionClaim: providerCompletionClaim,
+            disposition: disposition,
+            failedSource: source,
+            retryingRow: dispatchReceipt.row,
+            retainedRow: retainedRow,
+            retryOperation: dispatchReceipt.retryOperation,
+            outcome: outcome,
+            failedStoreIdentity: storeIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            throw IOSFailedHistoryError.invalidTransition
+        }
+        return authorization
+    }
+
+    func validateRetryFailureAuthorization(
+        _ authorization: IOSFailedHistoryRetryFailureAuthorization
+    ) throws {
+        try requireActiveLease(
+            authorization.operationLeaseAuthorization
+        )
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        try validateRetryDispatchReceipt(
+            authorization.dispatchReceipt,
+            repositoryBinding: repositoryBinding
+        )
+        guard authorization.failedStoreIdentity == storeIdentity,
+              authorization.ownerIdentity == capabilityOwnerIdentity,
+              authorization.repositoryBinding == repositoryBinding,
+              authorization.providerCompletionClaim.liveOwnerToken
+                == authorization.dispatchReceipt.liveOwnerToken,
+              let current = try loadJournalSnapshot(
+                repositoryBinding: repositoryBinding
+              ), current == authorization.failedSource else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        let expected = try retryFailureAuthorization(
+            dispatchReceipt: authorization.dispatchReceipt,
+            providerCompletionClaim:
+                authorization.providerCompletionClaim,
+            disposition: authorization.disposition,
+            source: authorization.failedSource,
+            retainedRow: authorization.retainedRow,
+            outcome: authorization.outcome,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization:
+                authorization.operationLeaseAuthorization
+        )
+        guard expected == authorization else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+    }
+
+    func retryFailureReceipt(
+        authorization: IOSFailedHistoryRetryFailureAuthorization,
+        durableSnapshot: IOSFailedHistoryJournalSnapshot,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryRetryFailureReceipt {
+        guard let receipt = IOSFailedHistoryRetryFailureReceipt(
+            mint: IOSFailedHistoryRetryFailureReceiptMint(),
+            authorization: authorization,
+            durableSnapshot: durableSnapshot,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        return receipt
+    }
+
+    func retainedRetryFailurePreparation(
+        dispatchReceipt: IOSFailedHistoryRetryDispatchReceipt,
+        providerCompletionClaim:
+            IOSFailedHistoryRetryProviderCompletionClaim,
+        disposition: IOSFailedHistoryRetryFailureDisposition,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryRetryFailurePreparation {
+        guard let uncertainMutationIntent,
+              case .failure(let retained) = retryMutationIntent,
+              uncertainMutationIntent.outcome == retained.outcome,
+              retained.dispatchReceipt.identifiesSameDispatch(
+                as: dispatchReceipt
+              ),
+              retained.providerCompletionClaim
+                == providerCompletionClaim,
+              retained.disposition == disposition else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let refreshed = try retryFailureAuthorization(
+            dispatchReceipt: dispatchReceipt,
+            providerCompletionClaim: providerCompletionClaim,
+            disposition: disposition,
+            source: retained.failedSource,
+            retainedRow: retained.retainedRow,
+            outcome: retained.outcome,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization:
+                operationLeaseAuthorization
+        )
+        retryMutationIntent = .failure(refreshed)
+        let current = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        )
+        if current == retained.failedSource {
+            return .commit(refreshed)
+        }
+        guard let current, current.envelope == retained.outcome else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let mutationReceipt = try commitExactMutation(
+            reserveExactMutation(
+                retained.outcome,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        )
+        return .completed(
+            try retryFailureReceipt(
                 authorization: refreshed,
                 durableSnapshot: mutationReceipt.snapshot,
                 operationLeaseAuthorization:

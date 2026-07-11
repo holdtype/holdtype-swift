@@ -1,7 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
 Status: active implementation roadmap; P0 and P1 complete, P2 in progress; updated
-2026-07-11.
+2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1175,7 +1175,20 @@ drained before the row becomes retryable. Reservation, dispatch, and
 cancellation uncertainty resume only the same frozen operation. Final evidence
 lives in
 `docs/qa/runs/ios-failed-history-retry-reservation-live-ownership-2026-07-11.md`.
-C4.4B provider outcomes and non-authoritative Usage recording are next.
+
+C4.4B is complete. The fixed provider pipeline now receives only descriptor-
+backed audio plus resolved Transcription inputs, records one non-authoritative
+Usage attempt after accepted audio transcription, applies fail-open correction
+and one frozen local-processing pass, and keeps Translation strict. Every
+Transcription and Translation terminal outcome maps through the stage-aware,
+payload-free durable table; unmappable outcomes preserve the prior failed-row
+category and stage. Timeout and cancellation retire stage authority, drain the
+cancellation-bounded adapter, and ignore any lower-layer late completion.
+Provider-completion uncertainty retains the exact root owner and Store claim,
+while an unclaimed successful output returns the row to retryable state without
+persisting text. Final evidence lives in
+`docs/qa/runs/ios-failed-history-retry-provider-outcomes-2026-07-12.md`.
+C4.4C accepted-output handoff is next.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1411,12 +1424,16 @@ checkpoint, C4.4A, is also complete: the exact Retry reservation,
 descriptor-backed handoff, root-shared live owner, one-shot post-gate launch,
 Pending-provider exclusion, and exact cancellation contract are verified in
 `docs/qa/runs/ios-failed-history-retry-reservation-live-ownership-2026-07-11.md`.
-C4.4B now adds provider outcomes, transient Translation, timeout/error mapping,
-late-result rejection, and non-authoritative Usage recording. C4.4C and C4.4D
-then complete accepted-output handoff and recovery; C4.5 adds provider-free
-lifecycle recovery and the public redacted app boundary. The independent
-recording-cache and directional App Group bridge flows remain later work and do
-not enter the keyboard early. Until
+C4.4B is complete: its descriptor-backed provider pipeline, narrow resolved
+requests, transient strict Translation, fail-open correction, one local pass,
+stage-aware timeout/error mapping, bounded adapter drain, late-result rejection,
+exact durable failure recovery, and non-authoritative Usage attempt are verified
+in
+`docs/qa/runs/ios-failed-history-retry-provider-outcomes-2026-07-12.md`.
+C4.4C and C4.4D next complete accepted-output handoff and recovery; C4.5 adds
+provider-free lifecycle recovery and the public redacted app boundary. The
+independent recording-cache and directional App Group bridge flows remain later
+work and do not enter the keyboard early. Until
 the full C4 chain is complete, the shipping app does not expose a partial
 History toggle, Clear History action, or disclosure that promises those
 controls.
