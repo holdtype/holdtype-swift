@@ -37,6 +37,11 @@ Target dependency rule:
 - keyboard extension: keyboard UI, `UITextDocumentProxy`, and bridge only;
 - no OpenAI, Keychain, raw audio, or microphone code linked into the extension.
 
+History policy, generation, rows, retry-audio ownership, receipts, and cleanup
+status remain permanently app-private. They are not keyboard settings, bridge
+commands, or App Group snapshots even after the production directional bridge
+exists; Clear History and the History toggle belong only to the containing app.
+
 The long-term code boundaries are `HoldTypeDomain`, `HoldTypeOpenAI`,
 `HoldTypePersistence`, app-only `HoldTypeIOSCore`, and
 `HoldTypeKeyboardBridge`. The keyboard never links the provider, persistence,

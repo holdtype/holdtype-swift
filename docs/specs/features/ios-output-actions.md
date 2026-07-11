@@ -110,6 +110,14 @@ behavior remain platform-owned.
 - Latest result is independent of History. Clearing or disabling History does
   not silently rewrite the current latest result, and Copy does not create a
   History entry by itself.
+- History cutover may cancel only a stale unresolved nested `historyWrite`
+  marker. It does not clear accepted text, change delivery or publication state,
+  revoke bridge eligibility, or consume Copy/Share/Latest recovery. A cleanup
+  failure therefore remains app-private History maintenance and is not a failed
+  output action.
+- The keyboard never receives the History enabled state, policy generation,
+  rows, receipts, or cleanup status. Clear History is not a keyboard command and
+  never writes an App Group snapshot.
 
 ## Latest And Pending Result Lifetime
 

@@ -20,9 +20,10 @@ This contract defines:
 - delivery, History, replacement, clear, and expiry ordering;
 - the privacy boundary between the containing app and keyboard extension.
 
-The production App Group bridge, extension claim ledger, History outbox, and
-containing-app UI are separate checkpoints. They must consume this contract
-without weakening it.
+The production App Group bridge, extension claim ledger, and containing-app UI
+are separate checkpoints. The accepted-History outbox and worker consume this
+contract through `ios-accepted-history-foundation.md`; every later checkpoint
+must preserve the same ordering and privacy boundary.
 
 ## Runtime Value And Identity
 
@@ -408,14 +409,17 @@ outbox entries, and delivery History ownership are empty; otherwise it fails
 closed. Both counters remain in `1...Int64.max`. Clear always commits the next
 revision and generation. Disable and re-enable do so only when they change the
 enabled state; repeating the current state is a no-op. Overflow fails without
-changing policy. Clear or disable commits the new generation before removing
-rows. Every accepted History row is tagged with its generation, and History
-displays or retries only rows and markers matching the current enabled
-generation. Thus a crash after the policy commit may leave physically stale
-bytes, but can neither display nor resurrect them. Reconciliation then clears
-old rows and outbox entries and CASes a stale delivery History state to
-`cancelled` without an upsert. The exact contract lives in
-`ios-accepted-history-foundation.md`.
+changing policy. Clear or a state-changing toggle commits the new generation
+before cleanup. Every accepted History row is tagged with its generation, and
+History displays or retries only rows matching the current enabled generation.
+Thus a crash after the policy commit may leave physically stale bytes, but can
+neither display nor resurrect them. Reconciliation then clears old rows, retires
+outbox entries only through the one-head FIFO worker, and CASes only a stale
+unresolved delivery History state to `cancelled` without an upsert. Existing `committed`
+and `cancelled` markers remain terminal. Policy cutover does not change accepted
+text, delivery state, publication generation, Keep Latest Result, or bridge
+eligibility, and does not discard or revoke the current delivery. The exact
+contract lives in `ios-accepted-history-foundation.md`.
 
 The single current-delivery file is not the long-term owner of an outstanding
 History retry. The version-1 outbox is the strict app-private file

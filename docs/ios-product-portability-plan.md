@@ -328,9 +328,10 @@ The approved iOS contract is a local, bounded history that survives app
 restart, capped initially at 20 accepted entries plus a small failed-attempt
 queue. It must provide:
 
-- clear first-use privacy copy and a setting that disables future history and
-  immediately clears current accepted/failed entries and temporary retry
-  audio, in line with the current privacy contract;
+- clear first-use privacy copy and a setting that durably disables future
+  History, immediately removes current accepted/failed entries from History,
+  prevents their restoration, and finishes app-private retry-audio cleanup
+  through bounded lifecycle reconciliation;
 - individual delete and Clear All;
 - relative recording identifiers rather than stale absolute URLs;
 - atomic metadata saves and startup reconciliation with retained audio;
@@ -1083,6 +1084,9 @@ commands.
 
 - add the approved durable accepted and failed history while preserving the
   independent pending-recording journal;
+- expose the first-use History disclosure, History toggle, and Clear History
+  only after accepted rows, failed rows, and retry-only audio all participate in
+  the same generation cutover and cleanup contract;
 - reconcile the independent pending-recording journal after relaunch and allow
   retry of that interrupted active attempt and any approved durable failed row;
 - add playback, Share/Save to Files, retention and clear flows;
@@ -1243,17 +1247,28 @@ keyboard.
 
 The next P2 checkpoint finishes the remaining containing-app-only
 accepted-History durability chain: make Clear/Disable/Enable policy cutover the
-logical success boundary, then perform conservative stale-generation cleanup
-through the completed one-head FIFO worker. Preserve the existing root-scoped
+logical success boundary. Only a durably confirmed changed policy or confirmed
+toggle no-op succeeds; commit uncertainty and CAS supersession authorize no
+cleanup. After success, return a redacted `complete`/`pendingLocalRecovery`
+cleanup disposition
+and perform conservative stale-generation work through bounded containing-app
+lifecycle reconciliation. Accepted-row pruning must preserve the current
+generation, and outbox cleanup must use only the completed one-head FIFO worker,
+never a bulk delete or skipped head. A pending cleanup result never rolls policy
+back or advances generation when retried. Preserve the existing root-scoped
 capability graph, exact retained phases, provider-free recovery and replacement,
 no-live-entry eviction rule, and every crash-reconciliation boundary. This work
-must not publish History rows or metadata to App Group or the keyboard.
+must not mutate Latest Result, bridge publication, or provider work, and must not
+publish policy, History rows, metadata, or cleanup state to App Group or the
+keyboard.
 
 After that accepted-History chain is verified, implement the bounded failed
 History repository and retry-audio ownership, then the independent recording
 cache repository, file transfer, retention, and reconciliation flow. The
 directional App Group bridge split remains later P2/P6 work and does not enter
-the keyboard early.
+the keyboard early. Until failed rows and retry-only audio join the same policy
+generation and cleanup path, the shipping app does not expose a partial History
+toggle, Clear History action, or disclosure that promises those controls.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

@@ -571,15 +571,60 @@ is otherwise indistinguishable from an absent row after process loss.
 
 ## Clear, Disable, Enable, And Migration
 
-Clear or a state-changing toggle first commits policy cutover. That is logical
-success: UI immediately filters by current enabled generation. Cleanup then
-cancels stale pending markers and CAS-removes stale rows/outbox entries. Crash,
-lock, CAS, or removal failure may leave hidden bytes for lifecycle
-reconciliation; cleanup never rolls policy back or deletes current generation.
+Policy commands are containing-app-only and run through the same root operation
+gate as acceptance, replacement, and outbox recovery:
 
-Clear/Disable do not remove Usage, settings, credentials, current provider work,
-or Recording Cache. Failed rows and retry audio join later; until then the full
-user-facing Clear/toggle remains unavailable.
+| Command | Durable policy mutation | Immediate logical state |
+| --- | --- | --- |
+| Clear | Always increments revision and generation; preserves enabled state | Every older generation is unavailable; when enabled, later rows may use only the new generation |
+| Disable | Changes `true` to `false` and increments both counters; repeated Disable is a confirmed no-op | History is empty and no accepted or failed row may be added |
+| Enable | Changes `false` to `true` and increments both counters; repeated Enable is a confirmed no-op | Only new-generation rows may appear; older rows are never restored |
+
+A command succeeds only after the intended policy value has been durably
+confirmed. That confirmed policy commit is the logical-success boundary: reads
+immediately return only the current generation while enabled and return no rows
+while disabled. A pre-confirmation failure does not authorize cleanup or an
+optimistic UI state. Commit uncertainty retains the exact command and intended
+bytes; only the same command may resume their identical confirmation. A
+different command fails closed. CAS supersession clears no data, requires a
+fresh policy read, and never reapplies the old command blindly. After relaunch,
+the app derives state from a strictly loaded and confirmed durable policy and
+reconciles stale generations; it does not repeat a previously successful Clear
+and advance the generation again.
+
+After a changed command or confirmed toggle no-op, the coordinator reports one
+payload-free cleanup disposition: `complete` or `pendingLocalRecovery`.
+`complete` requires strict proof that no invalidated accepted row, outbox head,
+or unresolved delivery marker remains. Any retained phase, blocked cleanup, or
+successful mutation whose remaining work has not yet been proven yields
+`pendingLocalRecovery`. That case is still logical command success. It never
+rolls policy back and must not be presented as though Clear or the toggle
+failed. A separate provider-free cleanup retry uses the already committed
+generation and never advances it. Persistent cleanup trouble may appear as a
+redacted, non-blocking Storage & Recovery status; History remains filtered by
+the committed policy.
+
+Cleanup is bounded containing-app lifecycle reconciliation, not a promise that
+iOS will run a background task. One pass atomically prunes accepted rows from
+older generations while preserving every current-generation row, then processes
+at most the one store-selected canonical outbox head through the strict FIFO
+worker. It never bulk-removes outbox entries or skips a blocked head. A stale
+delivery marker may move to `cancelled` only while it is unresolved and only
+with exact newer-policy authority; `committed` and `cancelled` markers remain
+terminal. Failure or uncertainty ends the pass and retains only the exact local
+phase for a later lifecycle retry. Corrupt, future, unavailable, or newer-than-
+policy state remains preserved and fails closed.
+
+Clear and Disable do not discard Latest Result, change delivery or publication
+state, revoke or publish a keyboard bridge snapshot, repeat provider work, or
+remove Usage, settings, credentials, current provider work, pending-recording
+recovery, or Recording Cache. No policy value, generation, row, receipt, or
+cleanup status enters App Group storage or the keyboard extension.
+
+Failed rows and retry-only audio join this generation cutover in a later
+checkpoint. Until their generation ownership and physical cleanup are complete,
+the shipping app must not expose a partial Clear History action, History toggle,
+or first-use disclosure that promises those controls.
 
 There is no automatic import from macOS UserDefaults, macOS History, legacy
 Codable rows, Phase-0 bridge data, or external files. Missing accepted/outbox
@@ -595,8 +640,11 @@ Text, model, IDs, relative identifiers, paths, JSON, raw errors, values,
 receipts, reflection, and debug output are redacted from default diagnostics.
 
 Tests must cover exact paths/wire/limits; modes, protection, backup, markers and
-sync failure; guarded baseline and first `2/2`; Clear/toggle/overflow races;
-row ordering, collisions, retention and cache-link one-way mutation; outbox
+sync failure; guarded baseline and first `2/2`; Clear-always-advances and
+confirmed no-op toggles; pre-cutover failure, uncertainty, CAS supersession,
+relaunch without duplicate Clear, `complete`/`pendingLocalRecovery`, cleanup
+retry without a new generation, and current-generation preservation; row
+ordering, collisions, retention and cache-link one-way mutation; outbox
 ordering, capacity, expiry and no live eviction; every crash point in normal
 write, transfer, worker and cleanup; stale receipts/two actors/process loss;
 replacement capacity rejection sealed only by the exact terminal marker;

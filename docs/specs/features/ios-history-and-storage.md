@@ -15,10 +15,13 @@ three explicit data lifecycles.
   newest entries.
 - Failed history is local, durable, and capped at the five newest recoverable
   attempts.
-- In the completed History implementation, turning History off immediately
-  clears accepted and failed entries plus failed-attempt retry audio. It does
-  not clear the normal recording cache or an attempt that is currently in
-  flight. The accepted-only foundation does not expose this UI action early.
+- In the completed History implementation, turning History off first durably
+  commits a new disabled policy generation. Accepted and failed entries then
+  disappear from History immediately and cannot be restored; app-private
+  physical cleanup of their metadata and failed-attempt retry audio may finish
+  during bounded lifecycle reconciliation. It does not clear the normal
+  recording cache or an attempt that is currently in flight. The accepted-only
+  foundation does not expose this UI action early.
 - The canonical History enabled state and policy generation live in the
   dedicated strict app-private `HoldType/ios-history-policy.json` record. Clear,
   disable, and re-enable each advance its generation before cleanup so stale
@@ -83,13 +86,25 @@ three explicit data lifecycles.
 - Individual Delete removes only that history row. Deleting a failed row also
   removes its retry-only audio. Deleting an accepted row does not implicitly
   remove an independently retained recording-cache file.
-- Clear History removes accepted rows, failed rows, and retry-only audio. It
-  does not remove the API key, settings, usage estimates, or normal recording
-  cache. This action becomes user-visible only after failed History and
-  retry-audio cleanup join the same policy cutover.
-- Turning history off performs the same immediate clear and prevents new
-  accepted/failed history writes until the user enables it again. The toggle is
-  not wired by the accepted-only foundation.
+- Clear History first commits a new policy generation while preserving whether
+  History is enabled. Older accepted and failed rows immediately disappear and
+  cannot be retried or restored; their metadata and retry-only audio are then
+  removed by bounded lifecycle reconciliation. It does not remove the API key,
+  settings, usage estimates, or normal recording cache. This action becomes
+  user-visible only after failed History and retry-audio cleanup join the same
+  policy cutover.
+- Turning History off commits a new disabled generation, produces the same
+  immediate logical clear, and prevents new accepted/failed History writes
+  until the user enables it again. Re-enabling starts another generation and
+  never restores old rows. The toggle is not wired by the accepted-only
+  foundation.
+- Clear or a state-changing toggle is successful only after its intended policy
+  value is durably confirmed. Until then, History shows a local unavailable
+  state rather than old rows or an optimistic empty result. A later physical
+  cleanup failure does not roll policy back: History stays empty or filtered to
+  the confirmed generation, and Storage & Recovery may show a redacted,
+  non-blocking cleanup-pending status while lifecycle reconciliation retries.
+  Retrying cleanup never creates another policy generation.
 - After relaunch, an unresolved `PendingRecording` journal produces one clear
   recovery surface. The user may Retry, keep/export the audio when allowed, or
   discard that attempt.
@@ -168,6 +183,15 @@ A failed entry may store:
 - output intent and the failed pipeline stage
 - optional duration
 - relative identifier for protected retry-only audio
+
+Every accepted and failed row belongs to the exact enabled policy generation
+captured and revalidated for its durable write. Reads expose only that generation
+while History is enabled and expose no rows while it is disabled. A future
+failed-row repository must bind retry-only audio to that exact row ownership so
+cutover cleanup can remove it without guessing a filename or deleting an
+in-flight pending attempt. A disabled policy never creates a failed row; an
+eligible recoverable failure remains under the explicit pending-recording
+recovery contract instead.
 
 The pending journal stores only the attempt ID, relative audio
 identifier, creation/update dates, processing phase, output intent, optional
@@ -502,11 +526,21 @@ identity without deleting the only valid artifact.
   records do not persist absolute sandbox URLs.
 - The latest accepted result and short-lived keyboard insertion snapshot are
   separate from durable history.
+- History policy, generation, rows, retry-audio ownership, and cleanup status
+  remain app-private and never enter App Group storage or a keyboard settings
+  snapshot.
 
 ## Verification mapping
 
 - Test default-on history, max-20 accepted retention, max-five failed retention,
-  ordering, deletion, Clear History, disable-immediate-clear, and re-enable.
+  ordering, deletion, confirmed-cutover Clear History, disable-immediate logical
+  clear, re-enable without restoration, confirmed no-op toggles, and cleanup
+  retry without another generation.
+- Test failure and process loss before policy commit, after commit before each
+  cleanup owner, CAS supersession, relaunch derivation from confirmed policy,
+  current-generation preservation, one-head FIFO outbox cleanup, unresolved-only
+  delivery-marker cancellation, and redacted `complete`/
+  `pendingLocalRecovery` cleanup results.
 - Test pending journal creation before provider dispatch, relaunch recovery,
   explicit retry, discard, corrupt metadata, and missing audio.
 - Test the exact v1 paths and wire shape, 64-KiB journal bound, canonical
