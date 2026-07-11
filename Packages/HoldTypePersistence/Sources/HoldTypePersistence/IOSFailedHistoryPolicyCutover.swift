@@ -237,10 +237,555 @@ struct IOSFailedHistoryRetryCancellationCompletionAuthorization:
     }
 }
 
+struct IOSFailedHistoryRetryProviderRegistrationEpoch: Equatable, Sendable {
+    private let value = UUID()
+}
+
+struct IOSFailedHistoryRetryProviderLaunchEpoch: Equatable, Sendable {
+    private let value = UUID()
+}
+
+struct IOSFailedHistoryRetryProviderTerminalEpoch: Equatable, Sendable {
+    private let value = UUID()
+}
+
+fileprivate struct IOSFailedHistoryRetryProviderClaimMint: Sendable {
+    fileprivate init() {}
+}
+
+fileprivate enum IOSFailedHistoryRetryProviderTerminalKind:
+    Equatable,
+    Sendable {
+    case cancellation
+    case completion
+}
+
+fileprivate final class IOSFailedHistoryRetryProviderLaunchPermit:
+    @unchecked Sendable {
+    private enum State {
+        case pending
+        case waiting(CheckedContinuation<Void, Error>)
+        case launched
+        case cancelled
+    }
+
+    private let lock = NSLock()
+    private var state = State.pending
+
+    func waitForLaunch() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            let immediateResult: Result<Void, Error>? = lock.withLock {
+                switch state {
+                case .pending:
+                    state = .waiting(continuation)
+                    return nil
+                case .waiting:
+                    preconditionFailure("Provider launch permit has one waiter")
+                case .launched:
+                    return .success(())
+                case .cancelled:
+                    return .failure(CancellationError())
+                }
+            }
+            if let immediateResult {
+                continuation.resume(with: immediateResult)
+            }
+        }
+    }
+
+    func launch() {
+        let continuation: CheckedContinuation<Void, Error>? =
+            lock.withLock {
+                switch state {
+                case .pending:
+                    state = .launched
+                    return nil
+                case .waiting(let continuation):
+                    state = .launched
+                    return continuation
+                case .launched, .cancelled:
+                    return nil
+                }
+            }
+        continuation?.resume()
+    }
+
+    func cancel() {
+        let continuation: CheckedContinuation<Void, Error>? =
+            lock.withLock {
+                switch state {
+                case .pending:
+                    state = .cancelled
+                    return nil
+                case .waiting(let continuation):
+                    state = .cancelled
+                    return continuation
+                case .launched, .cancelled:
+                    return nil
+                }
+            }
+        continuation?.resume(throwing: CancellationError())
+    }
+}
+
+fileprivate final class IOSFailedHistoryRetryProviderLifecycle:
+    @unchecked Sendable {
+    private enum Phase {
+        case available
+        case launchClaimed(
+            IOSFailedHistoryRetryProviderLaunchEpoch,
+            IOSFailedHistoryRetryProviderLaunchPermit
+        )
+        case running(
+            IOSFailedHistoryRetryProviderLaunchEpoch,
+            IOSFailedHistoryRetryProviderLaunchPermit,
+            cancellation: @Sendable () -> Void,
+            launched: Bool
+        )
+        case terminal(
+            IOSFailedHistoryRetryProviderTerminalKind,
+            IOSFailedHistoryRetryProviderTerminalEpoch
+        )
+        case retired
+    }
+
+    private struct CancellationAction {
+        let terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch
+        let permit: IOSFailedHistoryRetryProviderLaunchPermit?
+        let cancellation: (@Sendable () -> Void)?
+    }
+
+    private let lock = NSLock()
+    private let registrationEpoch:
+        IOSFailedHistoryRetryProviderRegistrationEpoch
+    private var phase = Phase.available
+
+    init(
+        registrationEpoch: IOSFailedHistoryRetryProviderRegistrationEpoch
+    ) {
+        self.registrationEpoch = registrationEpoch
+    }
+
+    func permitsProviderDispatch(
+        registrationEpoch candidate:
+            IOSFailedHistoryRetryProviderRegistrationEpoch
+    ) -> Bool {
+        lock.withLock {
+            guard registrationEpoch == candidate else { return false }
+            switch phase {
+            case .available, .launchClaimed, .running:
+                return true
+            case .terminal, .retired:
+                return false
+            }
+        }
+    }
+
+    func claimLaunch() -> (
+        IOSFailedHistoryRetryProviderLaunchEpoch,
+        IOSFailedHistoryRetryProviderLaunchPermit
+    )? {
+        lock.withLock {
+            guard case .available = phase else { return nil }
+            let epoch = IOSFailedHistoryRetryProviderLaunchEpoch()
+            let permit = IOSFailedHistoryRetryProviderLaunchPermit()
+            phase = .launchClaimed(epoch, permit)
+            return (epoch, permit)
+        }
+    }
+
+    func installRunningCancellation(
+        launchEpoch: IOSFailedHistoryRetryProviderLaunchEpoch,
+        cancellation: @escaping @Sendable () -> Void
+    ) -> Bool {
+        lock.withLock {
+            guard case .launchClaimed(let retainedEpoch, let permit) = phase,
+                  retainedEpoch == launchEpoch else {
+                return false
+            }
+            phase = .running(
+                retainedEpoch,
+                permit,
+                cancellation: cancellation,
+                launched: false
+            )
+            return true
+        }
+    }
+
+    func launch(
+        launchEpoch: IOSFailedHistoryRetryProviderLaunchEpoch
+    ) -> Bool {
+        lock.withLock {
+            guard case .running(
+                let retainedEpoch,
+                let permit,
+                let cancellation,
+                false
+            ) = phase, retainedEpoch == launchEpoch else {
+                return false
+            }
+            phase = .running(
+                retainedEpoch,
+                permit,
+                cancellation: cancellation,
+                launched: true
+            )
+            permit.launch()
+            return true
+        }
+    }
+
+    func cancel() -> IOSFailedHistoryRetryProviderTerminalEpoch? {
+        let action: CancellationAction? = lock.withLock {
+            let permit: IOSFailedHistoryRetryProviderLaunchPermit?
+            let cancellation: (@Sendable () -> Void)?
+            switch phase {
+            case .available:
+                permit = nil
+                cancellation = nil
+            case .launchClaimed(_, let retainedPermit):
+                permit = retainedPermit
+                cancellation = nil
+            case .running(_, let retainedPermit, let retainedCancellation, _):
+                permit = retainedPermit
+                cancellation = retainedCancellation
+            case .terminal, .retired:
+                return nil
+            }
+            let terminalEpoch =
+                IOSFailedHistoryRetryProviderTerminalEpoch()
+            phase = .terminal(.cancellation, terminalEpoch)
+            return CancellationAction(
+                terminalEpoch: terminalEpoch,
+                permit: permit,
+                cancellation: cancellation
+            )
+        }
+        action?.permit?.cancel()
+        action?.cancellation?()
+        return action?.terminalEpoch
+    }
+
+    func complete(
+        launchEpoch: IOSFailedHistoryRetryProviderLaunchEpoch
+    ) -> IOSFailedHistoryRetryProviderTerminalEpoch? {
+        lock.withLock {
+            guard case .running(let retainedEpoch, _, _, true) = phase,
+                  retainedEpoch == launchEpoch else {
+                return nil
+            }
+            let terminalEpoch =
+                IOSFailedHistoryRetryProviderTerminalEpoch()
+            phase = .terminal(.completion, terminalEpoch)
+            return terminalEpoch
+        }
+    }
+
+    func consumeTerminal(
+        kind: IOSFailedHistoryRetryProviderTerminalKind,
+        epoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    ) -> Bool {
+        lock.withLock {
+            guard case .terminal(let retainedKind, let retainedEpoch) = phase,
+                  retainedKind == kind,
+                  retainedEpoch == epoch else {
+                return false
+            }
+            phase = .retired
+            return true
+        }
+    }
+}
+
+private struct IOSFailedHistoryRetryProviderStateBinding: Equatable, Sendable {
+    let failedStoreIdentity: IOSFailedHistoryStoreIdentity
+    let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    let physicalRootIdentity: IOSPersistenceRepositoryRootIdentity
+}
+
+private final class IOSFailedHistoryRetryProviderStateBindingBox:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var binding: IOSFailedHistoryRetryProviderStateBinding?
+
+    func bind(_ candidate: IOSFailedHistoryRetryProviderStateBinding) -> Bool {
+        lock.withLock {
+            if let binding { return binding == candidate }
+            binding = candidate
+            return true
+        }
+    }
+
+    func matches(_ token: IOSFailedHistoryRetryLiveOwnerToken) -> Bool {
+        lock.withLock {
+            guard let binding,
+                  let physicalRootIdentity =
+                    token.repositoryBinding.physicalRootIdentity else {
+                return false
+            }
+            return binding.failedStoreIdentity == token.failedStoreIdentity
+                && binding.ownerIdentity == token.ownerIdentity
+                && binding.physicalRootIdentity == physicalRootIdentity
+        }
+    }
+}
+
+/// Process-local provider lifecycle for one exact durable Retry.
+struct IOSFailedHistoryRetryProviderRegistration: Equatable, Sendable {
+    let liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken
+    let epoch: IOSFailedHistoryRetryProviderRegistrationEpoch
+    fileprivate let lifecycle: IOSFailedHistoryRetryProviderLifecycle
+
+    fileprivate init(
+        liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken
+    ) {
+        self.liveOwnerToken = liveOwnerToken
+        let epoch = IOSFailedHistoryRetryProviderRegistrationEpoch()
+        self.epoch = epoch
+        lifecycle = IOSFailedHistoryRetryProviderLifecycle(
+            registrationEpoch: epoch
+        )
+    }
+
+    static func == (
+        lhs: IOSFailedHistoryRetryProviderRegistration,
+        rhs: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        lhs.epoch == rhs.epoch
+            && lhs.liveOwnerToken == rhs.liveOwnerToken
+            && lhs.lifecycle === rhs.lifecycle
+    }
+
+    /// Proves that this exact live registration still owns the exact durable
+    /// provider dispatch. The registration epoch is process-local and cannot
+    /// be reconstructed from a copyable Store receipt.
+    func provesProviderDispatch(
+        _ receipt: IOSFailedHistoryRetryDispatchReceipt
+    ) -> Bool {
+        guard liveOwnerToken.retryOperation.state == .providerDispatched,
+              receipt.retryOperation.state == .providerDispatched,
+              lifecycle.permitsProviderDispatch(
+                registrationEpoch: epoch
+              ),
+              liveOwnerToken == receipt.liveOwnerToken,
+              liveOwnerToken.failedSource == receipt.durableSnapshot,
+              liveOwnerToken.row == receipt.row,
+              liveOwnerToken.retryOperation == receipt.retryOperation,
+              liveOwnerToken.failedStoreIdentity
+                == receipt.failedStoreIdentity,
+              liveOwnerToken.ownerIdentity == receipt.ownerIdentity,
+              liveOwnerToken.repositoryBinding == receipt.repositoryBinding,
+              let registrationRoot = liveOwnerToken.repositoryBinding
+                .physicalRootIdentity,
+              let receiptRoot = receipt.repositoryBinding
+                .physicalRootIdentity,
+              registrationRoot == receiptRoot else {
+            return false
+        }
+        return true
+    }
+
+    fileprivate func claimLaunch()
+        -> IOSFailedHistoryRetryProviderLaunchClaim? {
+        guard liveOwnerToken.retryOperation.state == .providerDispatched,
+              let (launchEpoch, permit) = lifecycle.claimLaunch() else {
+            return nil
+        }
+        return IOSFailedHistoryRetryProviderLaunchClaim(
+            mint: IOSFailedHistoryRetryProviderClaimMint(),
+            registration: self,
+            launchEpoch: launchEpoch,
+            permit: permit
+        )
+    }
+
+    fileprivate func cancel()
+        -> IOSFailedHistoryRetryProviderTerminalEpoch? {
+        lifecycle.cancel()
+    }
+
+    fileprivate func consumeTerminal(
+        kind: IOSFailedHistoryRetryProviderTerminalKind,
+        epoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    ) -> Bool {
+        lifecycle.consumeTerminal(kind: kind, epoch: epoch)
+    }
+}
+
+struct IOSFailedHistoryRetryProviderLaunchClaim: Equatable, Sendable {
+    let liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken
+    let registrationEpoch: IOSFailedHistoryRetryProviderRegistrationEpoch
+    let launchEpoch: IOSFailedHistoryRetryProviderLaunchEpoch
+    private let lifecycle: IOSFailedHistoryRetryProviderLifecycle
+    private let permit: IOSFailedHistoryRetryProviderLaunchPermit
+
+    fileprivate init(
+        mint: IOSFailedHistoryRetryProviderClaimMint,
+        registration: IOSFailedHistoryRetryProviderRegistration,
+        launchEpoch: IOSFailedHistoryRetryProviderLaunchEpoch,
+        permit: IOSFailedHistoryRetryProviderLaunchPermit
+    ) {
+        _ = mint
+        liveOwnerToken = registration.liveOwnerToken
+        registrationEpoch = registration.epoch
+        self.launchEpoch = launchEpoch
+        lifecycle = registration.lifecycle
+        self.permit = permit
+    }
+
+    static func == (
+        lhs: IOSFailedHistoryRetryProviderLaunchClaim,
+        rhs: IOSFailedHistoryRetryProviderLaunchClaim
+    ) -> Bool {
+        lhs.liveOwnerToken == rhs.liveOwnerToken
+            && lhs.registrationEpoch == rhs.registrationEpoch
+            && lhs.launchEpoch == rhs.launchEpoch
+            && lhs.lifecycle === rhs.lifecycle
+            && lhs.permit === rhs.permit
+    }
+
+    func installRunningCancellation(
+        _ cancellation: @escaping @Sendable () -> Void
+    ) -> Bool {
+        lifecycle.installRunningCancellation(
+            launchEpoch: launchEpoch,
+            cancellation: cancellation
+        )
+    }
+
+    func waitForLaunch() async throws {
+        try await permit.waitForLaunch()
+    }
+
+    func launch() -> Bool {
+        lifecycle.launch(launchEpoch: launchEpoch)
+    }
+
+    fileprivate func complete()
+        -> IOSFailedHistoryRetryProviderTerminalEpoch? {
+        lifecycle.complete(launchEpoch: launchEpoch)
+    }
+
+    fileprivate func belongs(
+        to registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        liveOwnerToken == registration.liveOwnerToken
+            && registrationEpoch == registration.epoch
+            && lifecycle === registration.lifecycle
+    }
+}
+
+struct IOSFailedHistoryRetryProviderCancellationClaim: Equatable, Sendable {
+    let liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken
+    let registrationEpoch: IOSFailedHistoryRetryProviderRegistrationEpoch
+    let terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    private let lifecycle: IOSFailedHistoryRetryProviderLifecycle
+
+    fileprivate init(
+        mint: IOSFailedHistoryRetryProviderClaimMint,
+        registration: IOSFailedHistoryRetryProviderRegistration,
+        terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    ) {
+        _ = mint
+        liveOwnerToken = registration.liveOwnerToken
+        registrationEpoch = registration.epoch
+        self.terminalEpoch = terminalEpoch
+        lifecycle = registration.lifecycle
+    }
+
+    static func == (
+        lhs: IOSFailedHistoryRetryProviderCancellationClaim,
+        rhs: IOSFailedHistoryRetryProviderCancellationClaim
+    ) -> Bool {
+        lhs.liveOwnerToken == rhs.liveOwnerToken
+            && lhs.registrationEpoch == rhs.registrationEpoch
+            && lhs.terminalEpoch == rhs.terminalEpoch
+            && lhs.lifecycle === rhs.lifecycle
+    }
+
+    fileprivate func belongs(
+        to registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        liveOwnerToken == registration.liveOwnerToken
+            && registrationEpoch == registration.epoch
+            && lifecycle === registration.lifecycle
+    }
+}
+
+struct IOSFailedHistoryRetryProviderCompletionClaim: Equatable, Sendable {
+    let liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken
+    let registrationEpoch: IOSFailedHistoryRetryProviderRegistrationEpoch
+    let terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    private let lifecycle: IOSFailedHistoryRetryProviderLifecycle
+
+    fileprivate init(
+        mint: IOSFailedHistoryRetryProviderClaimMint,
+        registration: IOSFailedHistoryRetryProviderRegistration,
+        terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch
+    ) {
+        _ = mint
+        liveOwnerToken = registration.liveOwnerToken
+        registrationEpoch = registration.epoch
+        self.terminalEpoch = terminalEpoch
+        lifecycle = registration.lifecycle
+    }
+
+    static func == (
+        lhs: IOSFailedHistoryRetryProviderCompletionClaim,
+        rhs: IOSFailedHistoryRetryProviderCompletionClaim
+    ) -> Bool {
+        lhs.liveOwnerToken == rhs.liveOwnerToken
+            && lhs.registrationEpoch == rhs.registrationEpoch
+            && lhs.terminalEpoch == rhs.terminalEpoch
+            && lhs.lifecycle === rhs.lifecycle
+    }
+
+    fileprivate func belongs(
+        to registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        liveOwnerToken == registration.liveOwnerToken
+            && registrationEpoch == registration.epoch
+            && lifecycle === registration.lifecycle
+    }
+}
+
+enum IOSFailedHistoryRetryProviderTerminalClaim: Equatable, Sendable {
+    case cancellation(IOSFailedHistoryRetryProviderCancellationClaim)
+    case completion(IOSFailedHistoryRetryProviderCompletionClaim)
+
+    var liveOwnerToken: IOSFailedHistoryRetryLiveOwnerToken {
+        switch self {
+        case .cancellation(let claim): return claim.liveOwnerToken
+        case .completion(let claim): return claim.liveOwnerToken
+        }
+    }
+
+    var registrationEpoch:
+        IOSFailedHistoryRetryProviderRegistrationEpoch {
+        switch self {
+        case .cancellation(let claim): return claim.registrationEpoch
+        case .completion(let claim): return claim.registrationEpoch
+        }
+    }
+
+    var terminalEpoch: IOSFailedHistoryRetryProviderTerminalEpoch {
+        switch self {
+        case .cancellation(let claim): return claim.terminalEpoch
+        case .completion(let claim): return claim.terminalEpoch
+        }
+    }
+}
+
+protocol IOSFailedHistoryRetryCancellationOwner: AnyObject, Sendable {
+    func requestCancellation()
+}
+
 actor IOSFailedHistoryRetryLiveOwnerState {
     private enum Phase: Equatable, Sendable {
         case idle
-        case live(IOSFailedHistoryRetryLiveOwnerToken)
+        case recoveryGuard(IOSFailedHistoryRetryLiveOwnerToken)
+        case provider(IOSFailedHistoryRetryProviderRegistration)
         case cancellationReserved(
             IOSFailedHistoryRetryCancellationReservation
         )
@@ -248,17 +793,35 @@ actor IOSFailedHistoryRetryLiveOwnerState {
 
     nonisolated let identity =
         IOSFailedHistoryRetryLiveOwnerStateIdentity()
+    private nonisolated let providerBinding =
+        IOSFailedHistoryRetryProviderStateBindingBox()
     private var phase: Phase = .idle
+    private var retainedProviderCancellationClaim:
+        IOSFailedHistoryRetryProviderCancellationClaim?
+    private var retainedProviderCancellationOwner:
+        (any IOSFailedHistoryRetryCancellationOwner)?
+
+    nonisolated func bindProviderRegistration(
+        failedStoreIdentity: IOSFailedHistoryStoreIdentity,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        physicalRootIdentity: IOSPersistenceRepositoryRootIdentity
+    ) -> Bool {
+        providerBinding.bind(
+            IOSFailedHistoryRetryProviderStateBinding(
+                failedStoreIdentity: failedStoreIdentity,
+                ownerIdentity: ownerIdentity,
+                physicalRootIdentity: physicalRootIdentity
+            )
+        )
+    }
 
     func hasLiveOwner() -> Bool {
-        if case .live(let token) = phase {
-            guard token.operationLeaseAuthorization.provesActiveLease() else {
-                phase = .idle
-                return false
-            }
+        switch phase {
+        case .recoveryGuard, .provider:
             return true
+        case .idle, .cancellationReserved:
+            return false
         }
-        return false
     }
 
     func hasCancellationReservation() -> Bool {
@@ -266,15 +829,37 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         return false
     }
 
+    func registerLiveOwner(
+        _ token: IOSFailedHistoryRetryLiveOwnerToken
+    ) -> IOSFailedHistoryRetryProviderRegistration? {
+        guard phase == .idle,
+              retainedProviderCancellationClaim == nil,
+              retainedProviderCancellationOwner == nil,
+              token.retryOperation.state == .providerDispatched,
+              token.retryStateIdentity == identity,
+              token.operationLeaseAuthorization.provesActiveLease(),
+              providerBinding.matches(token) else {
+            return nil
+        }
+        let registration = IOSFailedHistoryRetryProviderRegistration(
+            liveOwnerToken: token
+        )
+        phase = .provider(registration)
+        return registration
+    }
+
     func retainLiveOwner(
         _ token: IOSFailedHistoryRetryLiveOwnerToken
     ) -> Bool {
         guard phase == .idle,
+              retainedProviderCancellationClaim == nil,
+              retainedProviderCancellationOwner == nil,
+              token.retryOperation.state == .reserved,
               token.retryStateIdentity == identity,
               token.operationLeaseAuthorization.provesActiveLease() else {
             return false
         }
-        phase = .live(token)
+        phase = .recoveryGuard(token)
         return true
     }
 
@@ -288,7 +873,7 @@ actor IOSFailedHistoryRetryLiveOwnerState {
     func clearLiveOwner(
         _ token: IOSFailedHistoryRetryLiveOwnerToken
     ) -> Bool {
-        guard case .live(let retained) = phase,
+        guard case .recoveryGuard(let retained) = phase,
               retained == token else {
             return false
         }
@@ -298,10 +883,170 @@ actor IOSFailedHistoryRetryLiveOwnerState {
 
     @discardableResult
     func clearLiveOwner(
+        _ registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        _ = registration
+        return false
+    }
+
+    @discardableResult
+    func clearLiveOwner(
         of inspection: IOSFailedHistoryRetryRecoveryInspection
     ) -> Bool {
         clearLiveOwner(inspection.liveOwnerToken)
     }
+
+    func claimProviderLaunch(
+        _ registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> IOSFailedHistoryRetryProviderLaunchClaim? {
+        guard case .provider(let retained) = phase,
+              retained == registration else {
+            return nil
+        }
+        return retained.claimLaunch()
+    }
+
+    func retainProviderCancellationOwner(
+        _ owner: any IOSFailedHistoryRetryCancellationOwner,
+        for registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> Bool {
+        guard case .provider(let retained) = phase,
+              retained == registration else {
+            return false
+        }
+        if let retainedProviderCancellationOwner {
+            return retainedProviderCancellationOwner === owner
+        }
+        retainedProviderCancellationOwner = owner
+        return true
+    }
+
+    @discardableResult
+    func requestRetainedProviderCancellation() -> Bool {
+        guard case .provider = phase,
+              retainedProviderCancellationClaim != nil,
+              let retainedProviderCancellationOwner else {
+            return false
+        }
+        retainedProviderCancellationOwner.requestCancellation()
+        return true
+    }
+
+    func claimProviderCancellation(
+        _ registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> IOSFailedHistoryRetryProviderTerminalClaim? {
+        guard case .provider(let retained) = phase,
+              retained == registration else {
+            return nil
+        }
+        if let retainedProviderCancellationClaim,
+           retainedProviderCancellationClaim.belongs(to: retained) {
+            return .cancellation(retainedProviderCancellationClaim)
+        }
+        guard let terminalEpoch = retained.cancel() else { return nil }
+        let claim = IOSFailedHistoryRetryProviderCancellationClaim(
+            mint: IOSFailedHistoryRetryProviderClaimMint(),
+            registration: retained,
+            terminalEpoch: terminalEpoch
+        )
+        retainedProviderCancellationClaim = claim
+        return .cancellation(claim)
+    }
+
+    /// Re-exposes only the already-minted exact claim so retained Store
+    /// uncertainty can resume without inventing a new terminal epoch.
+    func retainedProviderCancellation(
+        _ registration: IOSFailedHistoryRetryProviderRegistration
+    ) -> IOSFailedHistoryRetryProviderCancellationClaim? {
+        guard case .provider(let retained) = phase,
+              retained == registration,
+              let retainedProviderCancellationClaim,
+              retainedProviderCancellationClaim.belongs(to: retained) else {
+            return nil
+        }
+        return retainedProviderCancellationClaim
+    }
+
+    func claimProviderCompletion(
+        _ launchClaim: IOSFailedHistoryRetryProviderLaunchClaim
+    ) -> IOSFailedHistoryRetryProviderTerminalClaim? {
+        guard case .provider(let registration) = phase,
+              launchClaim.belongs(to: registration),
+              let terminalEpoch = launchClaim.complete() else {
+            return nil
+        }
+        return .completion(
+            IOSFailedHistoryRetryProviderCompletionClaim(
+                mint: IOSFailedHistoryRetryProviderClaimMint(),
+                registration: registration,
+                terminalEpoch: terminalEpoch
+            )
+        )
+    }
+
+    /// Retires only an exact provider cancellation whose Store receipt proves
+    /// that the matching durable retry operation is already absent.
+    @discardableResult
+    func consumeProviderCancellation(
+        using receipt: IOSFailedHistoryRetryCancellationReceipt
+    ) -> Bool {
+        guard receipt.operationLeaseAuthorization.provesActiveLease(),
+              receipt.row.retryOperation == nil,
+              receipt.durableSnapshot.envelope.entries.contains(receipt.row),
+              let cancellation = receipt.authorization
+                .providerCancellationClaim,
+              cancellation.liveOwnerToken.retryOperation
+                == receipt.retryOperation,
+              cancellation.liveOwnerToken.failedStoreIdentity
+                == receipt.failedStoreIdentity,
+              cancellation.liveOwnerToken.ownerIdentity
+                == receipt.ownerIdentity,
+              cancellation.liveOwnerToken.repositoryBinding
+                == receipt.repositoryBinding,
+              case .provider(let registration) = phase,
+              cancellation.belongs(to: registration),
+              registration.consumeTerminal(
+                  kind: .cancellation,
+                  epoch: cancellation.terminalEpoch
+              ) else {
+            return false
+        }
+        retainedProviderCancellationClaim = nil
+        retainedProviderCancellationOwner = nil
+        phase = .idle
+        return true
+    }
+
+    #if DEBUG
+    /// Unit-test-only lifecycle probe. Production terminal retirement requires
+    /// the Store-minted durable receipt above.
+    @discardableResult
+    func consumeProviderTerminal(
+        _ claim: IOSFailedHistoryRetryProviderTerminalClaim
+    ) -> Bool {
+        guard case .provider(let registration) = phase else { return false }
+        let consumed: Bool
+        switch claim {
+        case .cancellation(let cancellation):
+            guard cancellation.belongs(to: registration) else { return false }
+            consumed = registration.consumeTerminal(
+                kind: .cancellation,
+                epoch: cancellation.terminalEpoch
+            )
+        case .completion(let completion):
+            guard completion.belongs(to: registration) else { return false }
+            consumed = registration.consumeTerminal(
+                kind: .completion,
+                epoch: completion.terminalEpoch
+            )
+        }
+        guard consumed else { return false }
+        retainedProviderCancellationClaim = nil
+        retainedProviderCancellationOwner = nil
+        phase = .idle
+        return true
+    }
+    #endif
 
     func reserveProcessLostCancellation(
         of inspection: IOSFailedHistoryRetryRecoveryInspection,
@@ -311,15 +1056,18 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         let reservationID: IOSFailedHistoryRetryCancellationReservationID
         switch phase {
         case .idle:
-            reservationID = IOSFailedHistoryRetryCancellationReservationID()
-        case .live(let retained):
-            guard !retained.operationLeaseAuthorization.provesActiveLease(),
-                  retained.identifiesSameRetry(
-                    as: inspection.liveOwnerToken
-                  ) else {
+            guard retainedProviderCancellationClaim == nil,
+                  retainedProviderCancellationOwner == nil else {
                 return nil
             }
             reservationID = IOSFailedHistoryRetryCancellationReservationID()
+        case .recoveryGuard, .provider:
+            // The lease proves that registration was minted under the root
+            // gate; it does not bound the lifetime of provider work after that
+            // gate turn ends. Only exact owner completion may return this
+            // process-local state to idle. A relaunched process receives a new
+            // idle state instead of reclassifying this live owner locally.
+            return nil
         case .cancellationReserved(let retained):
             // An active reservation is consumable and cannot be minted twice.
             // An inactive one refreshes only from the Store's exact same
@@ -533,6 +1281,94 @@ extension IOSFailedHistoryRetryCancellationCompletionAuthorization:
     CustomReflectable {
     var description: String {
         "IOSFailedHistoryRetryCancellationCompletionAuthorization(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderRegistration:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderRegistration(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderRegistrationEpoch:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderRegistrationEpoch(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderLaunchEpoch:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderLaunchEpoch(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderTerminalEpoch:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderTerminalEpoch(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderLaunchClaim:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderLaunchClaim(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderCancellationClaim:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderCancellationClaim(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderCompletionClaim:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderCompletionClaim(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSFailedHistoryRetryProviderTerminalClaim:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryRetryProviderTerminalClaim(redacted)"
     }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: [:]) }

@@ -165,6 +165,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             storeIdentity: pendingRecordingStoreIdentity,
             operationGate: operationGate,
             liveOwnerRegistry: pendingRecordingLiveOwnerRegistry,
+            failedHistoryRetryState: failedHistoryRetryState,
             mediaValidationWorkerGate:
                 pendingRecordingMediaValidationWorkerGate,
             repositoryGuard: repositoryGuard,
@@ -221,6 +222,14 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             failedHistoryStore.bindRetryLiveOwnerStateIdentity(
                 failedHistoryRetryState.identity
             )
+        let retryProviderBindingAccepted = repositoryBinding
+            .physicalRootIdentity.map {
+                failedHistoryRetryState.bindProviderRegistration(
+                    failedStoreIdentity: failedHistoryStore.storeIdentity,
+                    ownerIdentity: capabilityOwnerIdentity,
+                    physicalRootIdentity: $0
+                )
+            } ?? false
         let outboxGateBindingAccepted =
             outboxStore.bindOperationGateIdentity(operationGate.identity)
         let deliveryGateBindingAccepted =
@@ -229,6 +238,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !failedRetryStateBindingAccepted
+            || !retryProviderBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted {
             repositoryIdentityState.markConflicted()
@@ -951,6 +961,10 @@ public actor IOSAcceptedHistoryCoordinator {
                 $0.expectedFailedStoreIdentity
                     != failedHistoryStore.storeIdentity
             } ?? false)
+            || (pendingRecordingStore.map {
+                $0.failedHistoryRetryState.identity
+                    != failedHistoryRetryState.identity
+            } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
@@ -1064,6 +1078,10 @@ public actor IOSAcceptedHistoryCoordinator {
                 $0.expectedFailedStoreIdentity
                     != failedHistoryStore.storeIdentity
             } ?? false)
+            || (pendingRecordingStore.map {
+                $0.failedHistoryRetryState.identity
+                    != failedHistoryRetryState.identity
+            } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
                 != capabilityOwnerIdentity
@@ -1096,6 +1114,7 @@ public actor IOSAcceptedHistoryCoordinator {
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
         let failedHistoryTransferState = failedHistoryTransferState
+        let failedHistoryRetryState = failedHistoryRetryState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let repositoryIdentityState = repositoryIdentityState
@@ -1105,6 +1124,11 @@ public actor IOSAcceptedHistoryCoordinator {
         do {
             let capture = try await operationGate.perform {
                 operationLeaseAuthorization in
+                guard await failedHistoryRetryState.hasLiveOwner() == false
+                else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 guard !failedHistoryMutationInterlock.isBlocked else {
                     throw IOSAcceptedHistoryCoordinatorError
                         .localRecoveryPending

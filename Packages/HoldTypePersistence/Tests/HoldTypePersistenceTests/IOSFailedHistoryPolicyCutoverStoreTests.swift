@@ -435,6 +435,412 @@ struct IOSFailedHistoryPolicyCutoverStoreTests {
         #expect(outcome.audioCleanup.isEmpty)
     }
 
+    @Test func liveOwnerRequiresActiveMintLeaseButOutlivesThatLease()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let operation = try failedHistoryTestRetryOperation(
+            index: 21,
+            state: .reserved
+        )
+        let row = try failedHistoryTestEntry(
+            index: 21,
+            policyGeneration: 1,
+            retryCount: 1,
+            retryOperation: operation
+        )
+        try fixture.install(
+            IOSFailedHistoryEnvelope(
+                revision: 1,
+                entries: [row],
+                audioCleanup: []
+            )
+        )
+
+        let expiredToken = try await fixture.gate.perform { lease in
+            try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+        }
+        #expect(
+            await fixture.retryState.retainLiveOwner(expiredToken) == false
+        )
+        #expect(await fixture.retryState.hasLiveOwner() == false)
+
+        let liveToken = try await fixture.gate.perform { lease in
+            let token = try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(await fixture.retryState.retainLiveOwner(token))
+            return token
+        }
+
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(await fixture.retryState.clearLiveOwner(liveToken))
+        #expect(await fixture.retryState.hasLiveOwner() == false)
+    }
+
+    @Test func expiredLiveOwnerBlocksLocalProcessLossAndStaleClear()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let policy = try await fixture.policyReceipt(generation: 2)
+        let operation = try failedHistoryTestRetryOperation(
+            index: 22,
+            state: .reserved
+        )
+        let row = try failedHistoryTestEntry(
+            index: 22,
+            policyGeneration: 1,
+            retryCount: 1,
+            retryOperation: operation
+        )
+        try fixture.install(
+            IOSFailedHistoryEnvelope(
+                revision: 1,
+                entries: [row],
+                audioCleanup: []
+            )
+        )
+
+        let firstToken = try await fixture.gate.perform { lease in
+            let token = try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(await fixture.retryState.retainLiveOwner(token))
+            return token
+        }
+        #expect(await fixture.retryState.hasLiveOwner())
+
+        try await fixture.gate.perform { lease in
+            let directive = try await fixture.store
+                .preparePolicyCutoverDirective(
+                    using: policy,
+                    operationLeaseAuthorization: lease
+                )
+            guard case .inspectProcessLostRetry(let inspection) = directive
+            else {
+                Issue.record("missing retry recovery inspection")
+                return
+            }
+            #expect(
+                await fixture.retryState.reserveProcessLostCancellation(
+                    of: inspection,
+                    operationLeaseAuthorization: lease
+                ) == nil
+            )
+
+            let relaunchedIdleState = IOSFailedHistoryRetryLiveOwnerState()
+            #expect(
+                await relaunchedIdleState.reserveProcessLostCancellation(
+                    of: inspection,
+                    operationLeaseAuthorization: lease
+                ) != nil
+            )
+        }
+
+        #expect(await fixture.retryState.clearLiveOwner(firstToken))
+        let newerToken = try await fixture.gate.perform { lease in
+            let token = try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(await fixture.retryState.retainLiveOwner(token))
+            return token
+        }
+
+        #expect(
+            await fixture.retryState.clearLiveOwner(firstToken) == false
+        )
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(await fixture.retryState.clearLiveOwner(newerToken))
+    }
+
+    @Test func providerLaunchRequiresInstalledCancellationAndIsOneShot()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let registration = try await providerRegistration(
+            in: fixture,
+            index: 23
+        )
+        let copiedRegistration = registration
+        let launch = try #require(
+            await fixture.retryState.claimProviderLaunch(registration)
+        )
+        let copiedLaunch = launch
+        #expect(
+            await fixture.retryState.claimProviderLaunch(
+                copiedRegistration
+            ) == nil
+        )
+
+        let provider = Task {
+            try await copiedLaunch.waitForLaunch()
+        }
+        #expect(launch.launch() == false)
+        #expect(launch.installRunningCancellation { provider.cancel() })
+        #expect(
+            copiedLaunch.installRunningCancellation {} == false
+        )
+        #expect(launch.launch())
+        #expect(copiedLaunch.launch() == false)
+        _ = try await provider.value
+
+        let terminal = try #require(
+            await fixture.retryState.claimProviderCompletion(copiedLaunch)
+        )
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(
+            await fixture.retryState.clearLiveOwner(registration) == false
+        )
+        #expect(
+            await fixture.retryState.clearLiveOwner(
+                registration.liveOwnerToken
+            ) == false
+        )
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(terminal)
+        )
+        #expect(await fixture.retryState.hasLiveOwner() == false)
+    }
+
+    @Test func providerRegistrationRejectsReservedAndAcceptingOutput()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        try installRetry(
+            in: fixture,
+            index: 26,
+            state: .reserved
+        )
+
+        try await fixture.gate.perform { lease in
+            let token = try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(
+                await fixture.retryState.registerLiveOwner(token) == nil
+            )
+            #expect(await fixture.retryState.retainLiveOwner(token))
+            #expect(await fixture.retryState.clearLiveOwner(token))
+        }
+
+        try installRetry(
+            in: fixture,
+            index: 27,
+            state: .acceptingOutput
+        )
+        try await fixture.gate.perform { lease in
+            let token = try #require(
+                try await fixture.store.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(
+                await fixture.retryState.registerLiveOwner(token) == nil
+            )
+            #expect(
+                await fixture.retryState.retainLiveOwner(token) == false
+            )
+            #expect(await fixture.retryState.hasLiveOwner() == false)
+        }
+    }
+
+    @Test func providerCancellationCancelsTaskAndRejectsLateCompletion()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let registration = try await providerRegistration(
+            in: fixture,
+            index: 24
+        )
+        let launch = try #require(
+            await fixture.retryState.claimProviderLaunch(registration)
+        )
+        let provider = Task {
+            try await launch.waitForLaunch()
+            try Task.checkCancellation()
+            try await Task.sleep(nanoseconds: 30_000_000_000)
+        }
+        #expect(launch.installRunningCancellation { provider.cancel() })
+        #expect(launch.launch())
+
+        let terminal = try #require(
+            await fixture.retryState.claimProviderCancellation(
+                registration
+            )
+        )
+        switch await provider.result {
+        case .success:
+            Issue.record("Cancellation must stop the running provider task")
+        case .failure(let error):
+            #expect(error is CancellationError)
+        }
+        #expect(
+            await fixture.retryState.claimProviderCompletion(launch) == nil
+        )
+        #expect(
+            await fixture.retryState.claimProviderCancellation(
+                registration
+            ) == terminal
+        )
+        #expect(
+            await fixture.retryState.clearLiveOwner(registration) == false
+        )
+        #expect(
+            await fixture.retryState.clearLiveOwner(
+                registration.liveOwnerToken
+            ) == false
+        )
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(terminal)
+        )
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(terminal)
+                == false
+        )
+    }
+
+    @Test func providerCancellationAndCompletionRaceHasOneWinner()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let registration = try await providerRegistration(
+            in: fixture,
+            index: 28
+        )
+        let launch = try #require(
+            await fixture.retryState.claimProviderLaunch(registration)
+        )
+        let provider = Task {
+            try await launch.waitForLaunch()
+            try Task.checkCancellation()
+        }
+        #expect(launch.installRunningCancellation { provider.cancel() })
+        #expect(launch.launch())
+
+        async let cancellation = fixture.retryState
+            .claimProviderCancellation(registration)
+        async let completion = fixture.retryState
+            .claimProviderCompletion(launch)
+        let (cancellationClaim, completionClaim) = await (
+            cancellation,
+            completion
+        )
+        let terminal: IOSFailedHistoryRetryProviderTerminalClaim
+        switch (cancellationClaim, completionClaim) {
+        case (.some(let claim), .none), (.none, .some(let claim)):
+            terminal = claim
+        default:
+            Issue.record("Exactly one provider terminal claim must win")
+            return
+        }
+
+        switch terminal {
+        case .cancellation:
+            #expect(
+                await fixture.retryState.claimProviderCancellation(
+                    registration
+                ) == terminal
+            )
+        case .completion:
+            #expect(
+                await fixture.retryState.claimProviderCancellation(
+                    registration
+                ) == nil
+            )
+        }
+        #expect(
+            await fixture.retryState.claimProviderCompletion(launch) == nil
+        )
+        #expect(await fixture.retryState.hasLiveOwner())
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(terminal)
+        )
+        _ = await provider.result
+    }
+
+    @Test func staleProviderEpochAndRawClearCannotRetireNewerOwner()
+        async throws {
+        let fixture = try PolicyCutoverStoreFixture()
+        let first = try await providerRegistration(
+            in: fixture,
+            index: 25
+        )
+        let staleTerminal = try #require(
+            await fixture.retryState.claimProviderCancellation(first)
+        )
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(staleTerminal)
+        )
+
+        let newer = try await providerRegistration(
+            in: fixture,
+            index: 25
+        )
+        #expect(first.epoch != newer.epoch)
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(staleTerminal)
+                == false
+        )
+        #expect(await fixture.retryState.clearLiveOwner(first) == false)
+        #expect(
+            await fixture.retryState.clearLiveOwner(first.liveOwnerToken)
+                == false
+        )
+        #expect(
+            await fixture.retryState.claimProviderLaunch(first) == nil
+        )
+        #expect(await fixture.retryState.hasLiveOwner())
+
+        let newerTerminal = try #require(
+            await fixture.retryState.claimProviderCancellation(newer)
+        )
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(staleTerminal)
+                == false
+        )
+        #expect(
+            await fixture.retryState.consumeProviderTerminal(newerTerminal)
+        )
+    }
+
+    @Test func providerStateBindingIsOneTimeAndExact() {
+        let state = IOSFailedHistoryRetryLiveOwnerState()
+        let storeIdentity = IOSFailedHistoryStoreIdentity()
+        let ownerIdentity = IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let root = IOSPersistenceRepositoryRootIdentity(
+            device: 101,
+            inode: 202
+        )
+        #expect(
+            state.bindProviderRegistration(
+                failedStoreIdentity: storeIdentity,
+                ownerIdentity: ownerIdentity,
+                physicalRootIdentity: root
+            )
+        )
+        #expect(
+            state.bindProviderRegistration(
+                failedStoreIdentity: storeIdentity,
+                ownerIdentity: ownerIdentity,
+                physicalRootIdentity: root
+            )
+        )
+        #expect(
+            state.bindProviderRegistration(
+                failedStoreIdentity: IOSFailedHistoryStoreIdentity(),
+                ownerIdentity: ownerIdentity,
+                physicalRootIdentity: root
+            ) == false
+        )
+    }
+
     @Test func policyInvalidationReconcilesSourceAndOutcomeExactly()
         async throws {
         let sourceFixture = try PolicyCutoverStoreFixture()
@@ -527,6 +933,52 @@ struct IOSFailedHistoryPolicyCutoverStoreTests {
     }
 }
 
+private func installRetry(
+    in fixture: PolicyCutoverStoreFixture,
+    index: Int,
+    state: IOSFailedHistoryRetryOperationState
+) throws {
+    let operation = try failedHistoryTestRetryOperation(
+        index: index,
+        state: state
+    )
+    try fixture.install(
+        IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [
+                try failedHistoryTestEntry(
+                    index: index,
+                    policyGeneration: 1,
+                    retryCount: 1,
+                    retryOperation: operation
+                ),
+            ],
+            audioCleanup: []
+        )
+    )
+}
+
+private func providerRegistration(
+    in fixture: PolicyCutoverStoreFixture,
+    index: Int
+) async throws -> IOSFailedHistoryRetryProviderRegistration {
+    try installRetry(
+        in: fixture,
+        index: index,
+        state: .providerDispatched
+    )
+    return try await fixture.gate.perform { lease in
+        let token = try #require(
+            try await fixture.store.prepareRetryLiveOwnerToken(
+                operationLeaseAuthorization: lease
+            )
+        )
+        return try #require(
+            await fixture.retryState.registerLiveOwner(token)
+        )
+    }
+}
+
 private func policyInvalidationAuthorization(
     _ directive: IOSFailedHistoryPolicyCutoverDirective
 ) throws -> IOSFailedHistoryRowAudioValidationAuthorization {
@@ -615,7 +1067,7 @@ private final class PolicyCutoverStoreFixture: @unchecked Sendable {
                 .context(for: root)
             parentURL = parent
             ownerIdentity = context.ownerIdentity
-            retryState = context.failedHistoryRetryState
+            retryState = IOSFailedHistoryRetryLiveOwnerState()
             store = IOSFailedHistoryStore(
                 journal: repository,
                 capabilityOwnerIdentity: ownerIdentity,
@@ -627,6 +1079,15 @@ private final class PolicyCutoverStoreFixture: @unchecked Sendable {
                 mutationInterlock: mutationInterlock,
                 now: { Date(timeIntervalSince1970: 1_900_000_000) }
             )
+            guard let physicalRootIdentity = context.repositoryBinding
+                .physicalRootIdentity,
+                  retryState.bindProviderRegistration(
+                    failedStoreIdentity: store.storeIdentity,
+                    ownerIdentity: ownerIdentity,
+                    physicalRootIdentity: physicalRootIdentity
+                  ) else {
+                throw IOSFailedHistoryError.repositoryIdentityConflict
+            }
         } else {
             parentURL = nil
             ownerIdentity = IOSAcceptedHistoryCapabilityOwnerIdentity()

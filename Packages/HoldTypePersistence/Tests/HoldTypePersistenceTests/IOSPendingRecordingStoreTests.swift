@@ -61,10 +61,18 @@ struct IOSPendingRecordingStoreTests {
             first.capabilityOwnerIdentity
                 == sameRoot.capabilityOwnerIdentity
         )
+        #expect(
+            first.failedHistoryRetryState.identity
+                == sameRoot.failedHistoryRetryState.identity
+        )
         #expect(first.storeIdentity != differentRoot.storeIdentity)
         #expect(
             first.capabilityOwnerIdentity
                 != differentRoot.capabilityOwnerIdentity
+        )
+        #expect(
+            first.failedHistoryRetryState.identity
+                != differentRoot.failedHistoryRetryState.identity
         )
     }
 
@@ -829,6 +837,105 @@ struct IOSPendingRecordingStoreTests {
         )
         #expect(recovered.phase == .awaitingRecovery)
         #expect(recovered.transcriptionID == nil)
+    }
+
+    @Test func liveFailedRetryBlocksPendingBeginAndRetryBeforeDurableWork()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "pending-failed-retry-owner-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent(
+            "ApplicationSupport",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+
+        let context = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+            .context(for: root)
+        let retryState = context.failedHistoryRetryState
+        let failedGate = IOSPersistenceOperationGate()
+        let failedFileSystem = FailedHistoryFakeFileSystem()
+        let failedStore = IOSFailedHistoryStore(
+            journal: FoundationIOSFailedHistoryJournalRepository(
+                fileSystem: failedFileSystem
+            ),
+            capabilityOwnerIdentity: context.ownerIdentity,
+            operationGateIdentity: failedGate.identity,
+            expectedPendingStoreIdentity:
+                context.pendingRecordingStoreIdentity,
+            retryLiveOwnerState: retryState,
+            repositoryGuard: context.repositoryGuard
+        )
+        let operation = try failedHistoryTestRetryOperation(
+            index: 801,
+            state: .reserved
+        )
+        let row = try failedHistoryTestEntry(
+            index: 801,
+            retryCount: 1,
+            retryOperation: operation
+        )
+        failedFileSystem.install(
+            try IOSFailedHistoryWireCodec.encode(
+                IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [row],
+                    audioCleanup: []
+                )
+            )
+        )
+        let token = try await failedGate.perform { lease in
+            let token = try #require(
+                try await failedStore.prepareRetryLiveOwnerToken(
+                    operationLeaseAuthorization: lease
+                )
+            )
+            #expect(await retryState.retainLiveOwner(token))
+            return token
+        }
+        #expect(await retryState.hasLiveOwner())
+
+        let beginFixture = StoreFixture(
+            failedHistoryRetryState: retryState
+        )
+        let ready = try await beginFixture.store.prepare(
+            beginFixture.preparation()
+        )
+        beginFixture.events.reset()
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await beginFixture.store.beginTranscription(
+                expected: IOSPendingRecordingCASExpectation(recording: ready),
+                transcriptionID: UUID()
+            )
+        }
+        #expect(beginFixture.journal.recording == ready)
+        #expect(beginFixture.events.values.isEmpty)
+
+        let retryFixture = StoreFixture(
+            failedHistoryRetryState: retryState
+        )
+        let awaitingRecovery = try await retryFixture.store.prepare(
+            retryFixture.preparation(initialState: .awaitingRecovery)
+        )
+        retryFixture.events.reset()
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await retryFixture.store.retryTranscription(
+                expected: IOSPendingRecordingCASExpectation(
+                    recording: awaitingRecovery
+                ),
+                transcriptionID: UUID(),
+                transcriptionConfiguration: .defaults
+            )
+        }
+        #expect(retryFixture.journal.recording == awaitingRecovery)
+        #expect(retryFixture.events.values.isEmpty)
+        #expect(await retryState.clearLiveOwner(token))
     }
 
     @Test func beginCommitsUUIDBeforeReturningOneOneShotAuthorization() async throws {
@@ -2013,15 +2120,21 @@ private final class StoreFixture: @unchecked Sendable {
     let journal: FakePendingRecordingJournal
     let audio: FakePendingRecordingAudioFileSystem
     let clockDate = Date(timeIntervalSince1970: 1_752_150_896.789)
+    let failedHistoryRetryState: IOSFailedHistoryRetryLiveOwnerState
     let store: IOSPendingRecordingStore
 
-    init() {
+    init(
+        failedHistoryRetryState: IOSFailedHistoryRetryLiveOwnerState =
+            IOSFailedHistoryRetryLiveOwnerState()
+    ) {
         let events = events
+        self.failedHistoryRetryState = failedHistoryRetryState
         journal = FakePendingRecordingJournal(events: events)
         audio = FakePendingRecordingAudioFileSystem(events: events)
         store = IOSPendingRecordingStore(
             journal: journal,
             audioFileSystem: audio,
+            failedHistoryRetryState: failedHistoryRetryState,
             now: { Date(timeIntervalSince1970: 1_752_150_896.789) }
         )
     }
@@ -2033,6 +2146,7 @@ private final class StoreFixture: @unchecked Sendable {
             journal: journal,
             audioFileSystem: audio,
             destinationInspector: destinationInspector,
+            failedHistoryRetryState: failedHistoryRetryState,
             now: { self.clockDate }
         )
     }

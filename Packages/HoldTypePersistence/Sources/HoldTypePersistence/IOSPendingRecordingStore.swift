@@ -81,6 +81,10 @@ struct IOSPendingRecordingHeldAudioLeaseMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryRetryAudioSourceMint: Sendable {
+    fileprivate init() {}
+}
+
 struct IOSFailedHistoryAudioCleanupReceiptMint: Sendable {
     fileprivate init() {}
 
@@ -308,6 +312,10 @@ final class IOSPendingRecordingLiveOwnerRegistry: @unchecked Sendable {
         }
     }
 
+    func hasLiveOwner() -> Bool {
+        lock.withLock { !identities.isEmpty }
+    }
+
     func isRetired(attemptID: UUID, transcriptionID: UUID) -> Bool {
         lock.withLock {
             retiredIdentities[attemptID]?.contains(transcriptionID) == true
@@ -352,6 +360,8 @@ public actor IOSPendingRecordingStore {
     private let destinationInspector: any IOSPendingRecordingDestinationInspecting
     private let operationGate: IOSPersistenceOperationGate
     private let liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry
+    nonisolated let failedHistoryRetryState:
+        IOSFailedHistoryRetryLiveOwnerState
     private let repositoryGuard:
         IOSAcceptedHistoryCoordinatorRepositoryGuard?
     private let failedHistoryMutationInterlock:
@@ -411,6 +421,7 @@ public actor IOSPendingRecordingStore {
         destinationInspector = UnconfiguredIOSPendingRecordingDestinationInspector()
         self.operationGate = operationGate
         liveOwnerRegistry = context.pendingRecordingLiveOwnerRegistry
+        failedHistoryRetryState = context.failedHistoryRetryState
         now = { Date() }
         capabilityOwnerIdentity = context.ownerIdentity
         storeIdentity = context.pendingRecordingStoreIdentity
@@ -474,6 +485,7 @@ public actor IOSPendingRecordingStore {
         )
         self.operationGate = operationGate
         liveOwnerRegistry = context.pendingRecordingLiveOwnerRegistry
+        failedHistoryRetryState = context.failedHistoryRetryState
         now = { Date() }
         capabilityOwnerIdentity = context.ownerIdentity
         storeIdentity = context.pendingRecordingStoreIdentity
@@ -499,6 +511,10 @@ public actor IOSPendingRecordingStore {
         storeIdentity: IOSPendingRecordingStoreIdentity,
         operationGate: IOSPersistenceOperationGate,
         liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry,
+        // Production passes the physical-root context's canonical state. The
+        // default preserves isolated internal test/injection construction.
+        failedHistoryRetryState: IOSFailedHistoryRetryLiveOwnerState =
+            IOSFailedHistoryRetryLiveOwnerState(),
         mediaValidationWorkerGate:
             AudioToolboxMediaValidationWorkerGate,
         repositoryGuard: IOSAcceptedHistoryCoordinatorRepositoryGuard,
@@ -526,6 +542,7 @@ public actor IOSPendingRecordingStore {
             UnconfiguredIOSPendingRecordingDestinationInspector()
         self.operationGate = operationGate
         self.liveOwnerRegistry = liveOwnerRegistry
+        self.failedHistoryRetryState = failedHistoryRetryState
         now = { Date() }
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
         self.storeIdentity = storeIdentity
@@ -553,6 +570,8 @@ public actor IOSPendingRecordingStore {
             IOSPersistenceOperationGate(),
         liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry =
             IOSPendingRecordingLiveOwnerRegistry(),
+        failedHistoryRetryState: IOSFailedHistoryRetryLiveOwnerState =
+            IOSFailedHistoryRetryLiveOwnerState(),
         capabilityOwnerIdentity:
             IOSAcceptedHistoryCapabilityOwnerIdentity =
                 IOSAcceptedHistoryCapabilityOwnerIdentity(),
@@ -572,6 +591,7 @@ public actor IOSPendingRecordingStore {
         self.destinationInspector = destinationInspector
         self.operationGate = operationGate
         self.liveOwnerRegistry = liveOwnerRegistry
+        self.failedHistoryRetryState = failedHistoryRetryState
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
         self.storeIdentity = storeIdentity
         self.now = now
@@ -1306,6 +1326,121 @@ public actor IOSPendingRecordingStore {
         return validated
     }
 
+    func acquireValidatedFailedHistoryRetryAudio(
+        using authorization:
+            IOSFailedHistoryRetryReservationAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryRetryAudioSource {
+        try requireNoPendingProviderOwner()
+        try requireFailedHistoryRetryAudioAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+
+        let journalAuthorization =
+            IOSPendingRecordingMetadataRetirementAuthorization()
+        let pendingSource = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: journalAuthorization
+            )
+        }
+        guard let inventory = IOSProtectedAudioNamespaceInventory(
+            mint: IOSProtectedAudioNamespaceInventoryMint(),
+            failedInventory: authorization.failedInventory,
+            pendingSource: pendingSource
+        ) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        try requireProtectedAudioNamespaceInventoryAuthority(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        do {
+            try await audioFileSystem.validateProtectedAudioNamespace(
+                inventory
+            )
+        } catch {
+            throw mapAudioError(error, operation: .inspect)
+        }
+        try requireNoPendingProviderOwner()
+        try await revalidateProtectedAudioNamespaceInventory(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireFailedHistoryRetryAudioAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+
+        let audioLease: any IOSPendingRecordingPublishedAudioLease
+        do {
+            audioLease = try await performRepositoryBoundary { _ in
+                try await audioFileSystem.acquireValidatedPublishedAudio(
+                    relativeIdentifier:
+                        authorization.candidate.audioRelativeIdentifier,
+                    attemptID: authorization.candidate.attemptID,
+                    durationMilliseconds:
+                        authorization.candidate.durationMilliseconds,
+                    byteCount: authorization.candidate.byteCount
+                )
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw mapAudioError(error, operation: .validate)
+        }
+        var shouldReleaseAudio = true
+        defer {
+            if shouldReleaseAudio { audioLease.release() }
+        }
+
+        do {
+            try await audioFileSystem.validateProtectedAudioNamespace(
+                inventory,
+                holding: [audioLease]
+            )
+        } catch {
+            throw mapAudioError(error, operation: .inspect)
+        }
+        try requireNoPendingProviderOwner()
+        try await revalidateProtectedAudioNamespaceInventory(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireFailedHistoryRetryAudioAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let finalPendingSource = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: journalAuthorization
+            )
+        }
+        guard finalPendingSource == pendingSource else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        try requireNoPendingProviderOwner()
+        try requireFailedHistoryRetryAudioAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard let source = IOSFailedHistoryRetryAudioSource(
+            mint: IOSFailedHistoryRetryAudioSourceMint(),
+            reservationAuthorization: authorization,
+            pendingStoreIdentity: storeIdentity,
+            failedStoreIdentity: expectedFailedStoreIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            repositoryBinding: authorization.repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization,
+            audioLease: audioLease
+        ) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        shouldReleaseAudio = false
+        return source
+    }
+
     func reconcileFailedHistoryAudioCleanup(
         using authorization:
             IOSFailedHistoryAudioCleanupAuthorization,
@@ -1445,6 +1580,55 @@ private extension IOSPendingRecordingStore {
                     == ObjectIdentifier(currentAudioLease) else {
                 throw IOSPendingRecordingError.localRecoveryPending
             }
+        }
+    }
+
+    func requireNoPendingProviderOwner() throws {
+        guard activeDispatchIdentity == nil,
+              activeDispatchAuthorization == nil,
+              !liveOwnerRegistry.hasLiveOwner() else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+    }
+
+    func requireFailedHistoryRetryAudioAuthority(
+        _ authorization:
+            IOSFailedHistoryRetryReservationAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireProtectedAudioInventoryAuthority(
+            authorization.failedInventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              !failedHistoryMutationInterlock.isBlocked,
+              authorization.failedStoreIdentity
+                == expectedFailedStoreIdentity,
+              authorization.expectedPendingStoreIdentity == storeIdentity,
+              authorization.ownerIdentity == capabilityOwnerIdentity,
+              authorization.failedInventory.failedSource
+                == authorization.failedSource,
+              authorization.failedInventory.failedStoreIdentity
+                == authorization.failedStoreIdentity,
+              authorization.failedInventory.expectedPendingStoreIdentity
+                == authorization.expectedPendingStoreIdentity,
+              authorization.failedInventory.ownerIdentity
+                == authorization.ownerIdentity,
+              authorization.failedInventory.repositoryBinding
+                == authorization.repositoryBinding,
+              authorization.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: operationLeaseAuthorization
+                ),
+              authorization.failedSource.envelope.entries
+                .contains(authorization.candidate),
+              authorization.candidate.ownershipState == .ready,
+              authorization.candidate.retryOperation == nil,
+              authorization.failedSource.envelope.entries.allSatisfy({
+                  $0.retryOperation == nil
+              }) else {
+            throw IOSPendingRecordingError.localRecoveryPending
         }
     }
 
@@ -1817,6 +2001,9 @@ private extension IOSPendingRecordingStore {
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) async throws -> IOSPendingTranscriptionHandoff {
+        guard await failedHistoryRetryState.hasLiveOwner() == false else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
         let current = try requireCurrent(expected: expected)
         try await requireFailedOwnershipAbsent(
             for: current,
@@ -1876,6 +2063,9 @@ private extension IOSPendingRecordingStore {
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) async throws -> IOSPendingTranscriptionHandoff {
+        guard await failedHistoryRetryState.hasLiveOwner() == false else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
         let current = try requireCurrent(expected: expected)
         try await requireFailedOwnershipAbsent(
             for: current,

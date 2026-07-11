@@ -221,12 +221,18 @@ extension IOSAcceptedHistoryCoordinator {
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
         let failedHistoryTransferState = failedHistoryTransferState
+        let failedHistoryRetryState = failedHistoryRetryState
         let deliveryStore = deliveryStore
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
         do {
             return try await operationGate.perform { authorization in
+                guard await failedHistoryRetryState.hasLiveOwner() == false
+                else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError

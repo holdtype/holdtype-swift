@@ -131,6 +131,7 @@ public extension IOSAcceptedHistoryCoordinator {
         let workerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
         let failedHistoryTransferState = failedHistoryTransferState
+        let failedHistoryRetryState = failedHistoryRetryState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -140,6 +141,10 @@ public extension IOSAcceptedHistoryCoordinator {
         do {
             return try await operationGate.perform {
                 operationLeaseAuthorization in
+                guard await failedHistoryRetryState.hasLiveOwner() == false
+                else {
+                    return .pendingLocalRecovery
+                }
                 guard !failedHistoryMutationInterlock.isBlocked else {
                     return .pendingLocalRecovery
                 }

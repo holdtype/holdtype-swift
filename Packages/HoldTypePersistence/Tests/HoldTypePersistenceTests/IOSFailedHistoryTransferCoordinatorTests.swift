@@ -836,6 +836,8 @@ private final class FailedTransferCoordinatorFixture: @unchecked Sendable {
                 operationGate: context.operationGate,
                 liveOwnerRegistry:
                     context.pendingRecordingLiveOwnerRegistry,
+                failedHistoryRetryState:
+                    context.failedHistoryRetryState,
                 mediaValidationWorkerGate:
                     context.pendingRecordingMediaValidationWorkerGate,
                 repositoryGuard: context.repositoryGuard,

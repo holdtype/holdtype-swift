@@ -668,7 +668,7 @@ struct IOSFailedHistoryAudioCleanupCoordinatorTests {
         #expect(fixture.audioFileSystem.publishCallCount == 0)
     }
 
-    @Test func currentRetryLiveOwnerExpiresAndDoesNotWedgePolicyCutover()
+    @Test func currentRetryLiveOwnerOutlivesLeaseAndBlocksPolicyCutover()
         async throws {
         let fixture = try AudioCleanupCoordinatorFixture()
         #expect(
@@ -722,22 +722,17 @@ struct IOSFailedHistoryAudioCleanupCoordinatorTests {
         }
         #expect(!token.operationLeaseAuthorization.provesActiveLease())
 
-        #expect(
-            try await fixture.coordinator.setHistoryEnabled(false)
-                == .pendingLocalRecovery
-        )
-        let committedPolicy = try #require(
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await fixture.coordinator.setHistoryEnabled(false)
+        }
+        let preservedPolicy = try #require(
             try await fixture.context.policyStore.load()
         )
-        #expect(committedPolicy.revision == 2)
-        #expect(committedPolicy.policyGeneration == 2)
-        #expect(committedPolicy.historyEnabled == false)
-        let cancelled = try #require(try fixture.envelope())
-        let retained = try #require(cancelled.entries.first)
-        #expect(cancelled.revision == 51)
-        #expect(retained.retryOperation == nil)
-        #expect(retained.retryCount == currentRow.retryCount)
-        #expect(await retryState.hasLiveOwner() == false)
+        #expect(preservedPolicy == currentPolicy)
+        #expect(try fixture.envelope()?.entries == [currentRow])
+        #expect(await retryState.hasLiveOwner())
         #expect(await retryState.hasCancellationReservation() == false)
         #expect(fixture.audioFileSystem.cleanupCallCount == 0)
         #expect(fixture.audioFileSystem.publishCallCount == 0)
@@ -917,6 +912,7 @@ private final class AudioCleanupCoordinatorFixture: @unchecked Sendable {
             audioFileSystem: audioFileSystem,
             operationGate: context.operationGate,
             liveOwnerRegistry: context.pendingRecordingLiveOwnerRegistry,
+            failedHistoryRetryState: context.failedHistoryRetryState,
             capabilityOwnerIdentity: context.ownerIdentity,
             storeIdentity: context.pendingRecordingStoreIdentity,
             repositoryGuard: context.repositoryGuard,

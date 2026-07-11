@@ -128,6 +128,9 @@ final class FailedHistoryFakeFileSystem:
         IOSStrictProtectedRecordFileSystemError?
     var createFailure: Failure?
     var replaceFailure: Failure?
+    var persistentReplaceFailure: Failure?
+    var replaceFailureAfterSuccessfulReplaces:
+        (remaining: Int, failure: Failure)?
     var maintenanceError: IOSStrictProtectedRecordFileSystemError?
     var maintenanceReport = IOSStrictProtectedRecordMaintenanceReport.empty
     private(set) var events: [String] = []
@@ -173,8 +176,25 @@ final class FailedHistoryFakeFileSystem:
         guard file?.revision == expected else {
             throw IOSStrictProtectedRecordFileSystemError.staleRevision
         }
+        if var scheduled = replaceFailureAfterSuccessfulReplaces {
+            if scheduled.remaining == 0 {
+                replaceFailureAfterSuccessfulReplaces = nil
+                if scheduled.failure.commitBeforeThrowing {
+                    install(data)
+                }
+                throw scheduled.failure.error
+            }
+            scheduled.remaining -= 1
+            replaceFailureAfterSuccessfulReplaces = scheduled
+        }
         if let failure = replaceFailure {
             replaceFailure = nil
+            if failure.commitBeforeThrowing {
+                install(data)
+            }
+            throw failure.error
+        }
+        if let failure = persistentReplaceFailure {
             if failure.commitBeforeThrowing {
                 install(data)
             }

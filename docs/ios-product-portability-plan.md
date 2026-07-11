@@ -1161,7 +1161,21 @@ atomic, root-shared reservation completed only after the exact durable
 `retryOperation = null` outcome, and retained PJR phases revalidate every row
 and tombstone before further effects. Final evidence lives in
 `docs/qa/runs/ios-failed-history-policy-cutover-2026-07-11.md`. C4.4 explicit
-Retry and its exact accepted-output handoff are next.
+Retry proceeds through four bounded checkpoints.
+
+C4.4A is complete. One explicit Retry now freezes its credential-eligible app
+setup before any durable write, reserves exactly one ready row, validates and
+holds its existing audio descriptor, commits `providerDispatched`, and installs
+one root-shared provider registration before releasing the operation gate. The
+provider starts only after that gate turn and only once. Pending and failed
+providers exclude each other in both directions. Exact cancellation covers
+explicit, caller-task, provider-self, deinit, audio-transfer, and retained
+same-process recovery paths; audio access is invalidated and provider work is
+drained before the row becomes retryable. Reservation, dispatch, and
+cancellation uncertainty resume only the same frozen operation. Final evidence
+lives in
+`docs/qa/runs/ios-failed-history-retry-reservation-live-ownership-2026-07-11.md`.
+C4.4B provider outcomes and non-authoritative Usage recording are next.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1393,10 +1407,16 @@ row invalidation, and one-head audio cleanup now run before the existing C3
 cleanup under the same confirmed policy receipt and generation. The final C4.3
 gate record is
 `docs/qa/runs/ios-failed-history-policy-cutover-2026-07-11.md`. The next P2
-checkpoint is C4.4: one explicit durable Retry and its exact accepted-output
-success handoff. C4.5 then adds provider-free lifecycle recovery and the public
-redacted app boundary. The independent recording-cache and directional App
-Group bridge flows remain later work and do not enter the keyboard early. Until
+checkpoint, C4.4A, is also complete: the exact Retry reservation,
+descriptor-backed handoff, root-shared live owner, one-shot post-gate launch,
+Pending-provider exclusion, and exact cancellation contract are verified in
+`docs/qa/runs/ios-failed-history-retry-reservation-live-ownership-2026-07-11.md`.
+C4.4B now adds provider outcomes, transient Translation, timeout/error mapping,
+late-result rejection, and non-authoritative Usage recording. C4.4C and C4.4D
+then complete accepted-output handoff and recovery; C4.5 adds provider-free
+lifecycle recovery and the public redacted app boundary. The independent
+recording-cache and directional App Group bridge flows remain later work and do
+not enter the keyboard early. Until
 the full C4 chain is complete, the shipping app does not expose a partial
 History toggle, Clear History action, or disclosure that promises those
 controls.

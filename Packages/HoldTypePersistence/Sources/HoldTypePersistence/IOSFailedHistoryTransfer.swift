@@ -1355,11 +1355,17 @@ extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryRetryState = failedHistoryRetryState
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
         do {
             return try await operationGate.perform { authorization in
+                guard await failedHistoryRetryState.hasLiveOwner() == false
+                else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
@@ -1511,11 +1517,17 @@ extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryRetryState = failedHistoryRetryState
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
         do {
             return try await operationGate.perform { authorization in
+                guard await failedHistoryRetryState.hasLiveOwner() == false
+                else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
