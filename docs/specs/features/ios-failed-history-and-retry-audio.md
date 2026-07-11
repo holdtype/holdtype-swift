@@ -183,6 +183,10 @@ count overflow fails before mutation rather than wrapping or pruning data.
   is zero and it has no retry operation;
 - `ready` — the failed row is the sole durable metadata owner of its audio.
 
+A strict v1 envelope permits at most one `pendingJournalRetirement` row. More
+than one is invalid storage, not a queue that recovery may reorder or guess
+through.
+
 Rows are presented newest-first by `createdAt`, then canonical `attemptID` for
 a stable tie break. Retry updates do not change `createdAt` or retention order.
 Attempt IDs and audio identifiers are unique across entries and cleanup
@@ -210,21 +214,59 @@ or explicit reset requires its own contract.
 
 A recoverable provider failure first returns its exact pending record to
 `awaitingRecovery`. Failed-row transfer then runs under the same expected
-production-root gate as the policy, failed repository, and pending store:
+production-root gate as the policy, failed repository, and pending store. The
+gate, store identities, live-owner state, and transfer state are scoped to the
+canonical physical root, so equal UUIDs in different roots cannot authorize or
+block one another. A caller cannot mint a transfer from identifiers, paths,
+rows, policy generations, file lists, or a generic process-loss claim.
+
+The transfer is one coordinator-owned, provider-free transaction:
 
 1. strictly load the pending observation and validate its protected audio;
 2. confirm an enabled History policy and capture its exact generation;
-3. reserve the exact attempt, journal expectation, audio identity, byte count,
-   and policy receipt;
+3. seal the complete decoded pending record and its physical journal revision,
+   a descriptor-backed validated-audio lease retained across the row commit,
+   the store identities, root identity, active root-gate lease, and policy
+   receipt;
 4. commit the failed row as `pendingJournalRetirement`;
 5. use only the store-minted row receipt to remove the matching pending journal
    metadata without removing audio;
-6. prove the journal absent and advance the row to `ready`.
+6. prove the matching journal metadata durably absent after directory
+   synchronization and advance only that row to `ready`.
+
+The failed row preserves the pending record's original `createdAt` and uses the
+canonical transfer time clamped to at least `createdAt` for `updatedAt`. Its
+initial retry count is zero. Only one `pendingJournalRetirement` transaction may
+exist at a time; it must be reconciled before another transfer is admitted.
 
 The durable failed row is canonical as soon as step 4 commits. If both records
 survive a crash, provider-free recovery resumes journal retirement; it never
 creates a second row, deletes the audio, or calls the provider. If the row did
 not commit, the pending journal remains canonical.
+
+A committed row plus an already-absent matching pending journal advances to
+`ready` only after durable absence is proved. A different pending record,
+partial field mismatch, collision, foreign root, or uncertain failed-root
+outcome preserves all bytes and reports local recovery pending. Policy is
+checked before row creation. Once the row commits, a later Clear or Disable
+cannot interrupt metadata retirement; C4.3 logically filters and cleans the
+resulting failed row after transfer reconciliation. Lifecycle recovery performs
+no provider work.
+
+Every durable cross-store boundary revalidates the canonical physical root
+immediately before and after mutation and again on its error path. A changed
+binding permanently conflicts that process context and prohibits a later
+boundary. A process-local row receipt or lease never survives relaunch:
+recovery mints a fresh metadata-retirement directive only from the exact durable
+`pendingJournalRetirement` row and a matching pending journal snapshot under a
+new active root lease.
+
+Pending metadata removal preserves its own exact uncertainty. Recovery compares
+the physical source snapshot and intended absence: exact source present means
+not committed, exact absence after directory synchronization means committed,
+and any other state fails closed. A metadata-only journal observation and
+absence-proof path must not invoke the ordinary PendingRecording load behavior
+or require the protected-audio namespace to be empty.
 
 History disabled, stale policy generation, failed-row capacity, cleanup
 capacity, corrupt state, mismatched roots, live provider ownership, or any
@@ -234,9 +276,31 @@ be hidden, overwritten, or counted as a failed History row.
 The protected-audio namespace is no longer required to be globally empty once
 failed rows exist. A new pending recording may be published only after a sealed
 failed-store inventory proves the exact set of row- and tombstone-owned final
-files under the same root gate. Callers cannot provide filenames or arrays.
-Unknown files, staging files, duplicate ownership, missing expected files, or a
-foreign inventory fail closed; reconciliation never guesses from a filename.
+files under the same root gate. A separate Pending-store capability may prove
+the one exact current pending file from its full journal snapshot; the
+coordinator combines those sealed capabilities under the same active lease. A
+fully matching pending record and its
+`pendingJournalRetirement` row intentionally alias one physical file and count
+as one owner-transfer artifact; every other duplicate or partial match fails
+closed. Callers cannot provide filenames or arrays.
+
+Inventory validation is bounded to the maximum eleven expected final files
+(five rows, five tombstones, and one pending recording) plus one overflow
+sentinel. Unknown files, staging files, duplicate ownership, missing expected
+files, or a foreign inventory fail closed; reconciliation never guesses from a
+filename. Namespace validation and publication of a new pending artifact occur
+in one exclusive directory operation for cooperating HoldType writers, followed
+by bounded inventory and root-identity revalidation before the pending journal
+commit. Row and pending files receive full protected-audio and duration
+validation. Tombstone cleanup validates exact attempt, path, byte count,
+protection, and any observed physical identity without decoding media, because
+a tombstone does not retain a trusted duration.
+
+After a failed row commits, ordinary PendingRecording begin, retry, recovery,
+prepare, and discard paths cannot regain provider or audio-removal authority
+for that attempt. In particular, the normal pending discard path may remove an
+audio file only after the failed store proves that no row or tombstone owns it;
+it never substitutes for transfer-time journal retirement.
 
 ## Retention, Delete, And Audio Cleanup
 
@@ -252,15 +316,27 @@ age, constructs a path from caller text, bulk-deletes the directory, or removes
 a current pending recording. A byte-count or attempt mismatch preserves both
 the file and tombstone and reports local recovery pending.
 
-When a sixth eligible failure arrives, the oldest ready, non-retrying row must
-first move to a cleanup tombstone in the same root mutation that admits the new
-row. If no tombstone slot is available, cleanup is unavailable, or the oldest
-row is not safely removable, the new failure remains visible through
+When a sixth eligible failure arrives, the absolute oldest row in the stable
+failed-row order, `entries.last`, must be the eviction candidate; the store
+never skips it to find another eligible row. For equal `createdAt`, this is the
+lexicographically greatest lowercase canonical attempt UUID. That row must be
+`ready`, non-retrying, have exact validated audio, and have one free tombstone
+slot before it moves to a cleanup tombstone in the same root mutation that
+admits the new row. If cleanup proof is unavailable or that exact oldest row is
+not safely removable, the new failure remains visible through
 `PendingRecording`; HoldType does not silently evict either attempt.
 
 Each ordinary lifecycle pass removes or confirms at most one cleanup audio file
 and retires at most its one tombstone. Explicit Delete may drive the same exact
-state machine to completion but does not gain broader deletion authority.
+state machine to completion but does not gain broader deletion authority. Only
+a store-minted authorization for the exact canonical tombstone may remove or
+confirm absence of its file. The tombstone retires only after a sealed
+post-synchronization outcome bound to the same failed-journal snapshot, root,
+active lease, directory identity, attempt, path, and byte count. A `removed`
+outcome also binds the exact physical identity observed before unlink; an
+`alreadyAbsent` outcome has no file identity to invent. An unlink or journal
+rewrite whose commit is uncertain is reconciled against the exact intended
+snapshot before any unrelated mutation proceeds.
 
 ## History Policy Cutover
 

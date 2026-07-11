@@ -1066,21 +1066,32 @@ Implementation proceeds as separate checkpointable steps:
 1. C4.1 adds the strict failed values, journal, repository, limits, and
    corruption/protection behavior.
 2. C4.2 adds sealed PendingRecording ownership transfer, exact audio inventory,
-   retention, Delete, and tombstone cleanup.
+   retention, Delete, and tombstone cleanup through three scoped checkpoints:
+   - C4.2A unifies the physical-root gate and store ownership, defines sealed
+     identity/lease capability foundations, and adds exact failed-root mutation
+     and uncertainty handling;
+   - C4.2B commits row-first PendingRecording ownership transfer, metadata-only
+     journal retirement, durable absence proof, and its internal provider-free
+     relaunch-resume state machine;
+   - C4.2C replaces the empty namespace assumption with bounded sealed
+     inventory, then adds deterministic retention, individual Delete, exact
+     tombstone cleanup, adversarial verification, and the final C4.2 QA record.
 3. C4.3 joins failed rows and retry audio to C3 policy cutover without another
    generation change.
 4. C4.4 adds one durable, cancellable, explicit Retry and its exact
    accepted-output success handoff.
-5. C4.5 integrates provider-free lifecycle recovery, public redacted app
-   boundaries, full regression evidence, and the final C4 QA record.
+5. C4.5 wires provider-free recovery into containing-app lifecycle, adds public
+   redacted app boundaries, and records full regression evidence plus the final
+   C4 QA record.
 
 C4.1 is complete. The strict app-private failed root now has bounded values,
 deterministic row and tombstone order, a protected 1-MiB journal, physical CAS,
 root-shared guarded-baseline evidence, and no public or keyboard surface. Its
 final gate is recorded in
 `docs/qa/runs/ios-failed-history-foundation-2026-07-11.md`. C4.2 is the next
-checkpoint and owns PendingRecording transfer plus exact audio inventory,
-retention, Delete, and tombstone cleanup.
+checkpoint and is split into C4.2A capability/root-gate foundations, C4.2B
+row-first PendingRecording transfer and relaunch reconciliation, and C4.2C
+exact audio inventory, retention, Delete, tombstone cleanup, and final QA.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1301,8 +1312,10 @@ record is `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`.
 
 The C4.0 contract for bounded failed History and retry audio is frozen, and the
 C4.1 strict values/journal/store foundation is complete. The next P2 checkpoint
-is C4.2 sealed PendingRecording ownership transfer, protected-audio inventory,
-retention, Delete, and tombstone cleanup; C4.3 through C4.5 then join policy
+is C4.2A physical-root gate unification, sealed transfer/cleanup capabilities,
+and exact failed-root mutation handling. C4.2B and C4.2C then complete row-first
+PendingRecording transfer, protected-audio inventory, retention, Delete, and
+tombstone cleanup; C4.3 through C4.5 join policy
 cutover, explicit Retry, provider-free recovery, and the public redacted app
 boundary. The independent recording-cache and directional App Group bridge
 flows remain later work and do not enter the keyboard early. Until the full C4
