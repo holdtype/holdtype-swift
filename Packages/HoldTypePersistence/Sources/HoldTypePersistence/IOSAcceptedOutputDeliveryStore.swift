@@ -265,6 +265,8 @@ struct IOSAcceptedOutputDeliveryExpiredRemovalAuthorization:
     Equatable,
     Sendable {
     fileprivate let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    fileprivate let observationSnapshot:
+        IOSAcceptedOutputDeliveryJournalSnapshot
     fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
 
     var record: IOSAcceptedOutputDeliveryRecord { snapshot.record }
@@ -275,6 +277,21 @@ struct IOSAcceptedOutputDeliveryExpiredObservation: Equatable, Sendable {
     fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
 
     var record: IOSAcceptedOutputDeliveryRecord { snapshot.record }
+
+    func belongs(
+        to storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+    ) -> Bool {
+        self.storeIdentity == storeIdentity
+    }
+
+    func provesLineage(
+        of authorization:
+            IOSAcceptedOutputDeliveryExpiredRemovalAuthorization
+    ) -> Bool {
+        storeIdentity == authorization.storeIdentity
+            && snapshot == authorization.observationSnapshot
+            && record == authorization.record
+    }
 }
 
 enum IOSAcceptedOutputDeliveryExpiredObservationResult: Equatable, Sendable {
@@ -611,6 +628,18 @@ public actor IOSAcceptedOutputDeliveryStore {
 
     func hasUncertainAcceptanceForHistoryCoordinator() -> Bool {
         uncertainAcceptanceIntent != nil
+    }
+
+    /// A policy cutover must not invalidate any process-retained delivery
+    /// capability or reservation that is not represented by its own exact
+    /// cutover phase.
+    func hasRetainedHistoryWorkForPolicyCutover() -> Bool {
+        uncertainHistoryTransition != nil
+            || uncertainPendingHistoryReplacement != nil
+            || uncertainPendingHistoryClear != nil
+            || uncertainAcceptanceIntent != nil
+            || pendingHistoryTransferReservation != nil
+            || pendingBridgePublicationReservation != nil
     }
 
     func replacePendingHistory(
@@ -1275,9 +1304,24 @@ public actor IOSAcceptedOutputDeliveryStore {
         return .authorized(
             IOSAcceptedOutputDeliveryExpiredRemovalAuthorization(
                 snapshot: confirmed,
+                observationSnapshot: observation.snapshot,
                 storeIdentity: storeIdentity
             )
         )
+    }
+
+    func isExpiredHistoryAbandonmentComplete(
+        observation: IOSAcceptedOutputDeliveryExpiredObservation
+    ) throws -> Bool {
+        guard observation.storeIdentity == storeIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireNoUncertainHistoryMutation()
+        guard let current = try journal.load() else { return true }
+        guard current.record == observation.record else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        return false
     }
 
     func continueExpiredHistoryAbandonment(

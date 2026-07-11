@@ -592,6 +592,14 @@ the app derives state from a strictly loaded and confirmed durable policy and
 reconciles stale generations; it does not repeat a previously successful Clear
 and advance the generation again.
 
+Repository identity failure preserves that boundary. A conflict before a
+Clear or toggle commits remains a typed failure, as does a conflict during
+command-less provider-free cleanup. After a Clear or toggle has durably crossed
+the policy boundary, a later conflict instead returns `pendingLocalRecovery`
+and retains the exact post-boundary work. The command remains successful, and
+retrying it continues generation `N+1`; it never reports a failed command or
+advances to `N+2`.
+
 After a changed command or confirmed toggle no-op, the coordinator reports one
 payload-free cleanup disposition: `complete` or `pendingLocalRecovery`.
 `complete` requires strict proof that no invalidated accepted row, outbox head,
@@ -614,6 +622,13 @@ with exact newer-policy authority; `committed` and `cancelled` markers remain
 terminal. Failure or uncertainty ends the pass and retains only the exact local
 phase for a later lifecycle retry. Corrupt, future, unavailable, or newer-than-
 policy state remains preserved and fails closed.
+
+An expired standalone delivery is not removed by Clear or a toggle itself.
+Cutover retains the exact store-bound sealed expiry observation, then ordinary
+bounded lifecycle recovery confirms and removes only that delivery without
+resampling time or broadly reloading History. Cleanup completes after it proves
+that handoff finished. Clock rollback after sealing does not revoke the
+authority; an observation from another store fails before delivery I/O.
 
 Clear and Disable do not discard Latest Result, change delivery or publication
 state, revoke or publish a keyboard bridge snapshot, repeat provider work, or

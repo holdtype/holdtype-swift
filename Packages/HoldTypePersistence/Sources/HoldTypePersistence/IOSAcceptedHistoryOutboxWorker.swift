@@ -128,6 +128,7 @@ public extension IOSAcceptedHistoryCoordinator {
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
+        let policyCutoverState = policyCutoverState
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -146,39 +147,14 @@ public extension IOSAcceptedHistoryCoordinator {
                 do {
                     guard await acceptanceState.current() == nil,
                           await pendingReplacementState.current() == nil,
+                          await policyCutoverState.current() == nil,
                           await deliveryStore
                             .hasUncertainAcceptanceForHistoryCoordinator()
                             == false else {
                         return .pendingLocalRecovery
                     }
 
-                    let work: IOSAcceptedHistoryOutboxWorkerWork
-                    if let retained = await workerState.current() {
-                        work = retained
-                    } else {
-                        guard let head = try await outboxStore.observeHead()
-                        else {
-                            resolution = .noWork
-                            if let repositoryBinding {
-                                _ = repositoryRegistration?.revalidate(
-                                    expectedBinding: repositoryBinding
-                                )
-                            }
-                            guard !repositoryIdentityState.isConflicted else {
-                                throw IOSAcceptedHistoryCoordinatorError
-                                    .repositoryIdentityConflict
-                            }
-                            return resolution
-                        }
-                        work = IOSAcceptedHistoryOutboxWorkerWork(
-                            ownerIdentity: ownerIdentity,
-                            phase: .headObserved(head)
-                        )
-                        await workerState.store(work)
-                    }
-
-                    resolution = await Self.resumeOutboxWorker(
-                        work,
+                    resolution = try await Self.recoverOneOutboxHead(
                         policyStore: policyStore,
                         acceptedHistoryStore: acceptedHistoryStore,
                         outboxStore: outboxStore,
@@ -215,6 +191,41 @@ public extension IOSAcceptedHistoryCoordinator {
         } catch IOSPersistenceOperationGate.AcquisitionError.reentrantOperation {
             throw IOSAcceptedHistoryCoordinatorError.reentrantOperation
         }
+    }
+}
+
+extension IOSAcceptedHistoryCoordinator {
+    static func recoverOneOutboxHead(
+        policyStore: IOSHistoryPolicyStore,
+        acceptedHistoryStore: IOSAcceptedHistoryStore,
+        outboxStore: IOSAcceptedHistoryOutboxStore,
+        deliveryStore: IOSAcceptedOutputDeliveryStore,
+        workerState: IOSAcceptedHistoryOutboxWorkerOperationState,
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
+    ) async throws -> IOSAcceptedHistoryOutboxRecoveryResolution {
+        let work: IOSAcceptedHistoryOutboxWorkerWork
+        if let retained = await workerState.current() {
+            work = retained
+        } else {
+            guard let head = try await outboxStore.observeHead() else {
+                return .noWork
+            }
+            work = IOSAcceptedHistoryOutboxWorkerWork(
+                ownerIdentity: ownerIdentity,
+                phase: .headObserved(head)
+            )
+            await workerState.store(work)
+        }
+
+        return await resumeOutboxWorker(
+            work,
+            policyStore: policyStore,
+            acceptedHistoryStore: acceptedHistoryStore,
+            outboxStore: outboxStore,
+            deliveryStore: deliveryStore,
+            workerState: workerState,
+            ownerIdentity: ownerIdentity
+        )
     }
 }
 

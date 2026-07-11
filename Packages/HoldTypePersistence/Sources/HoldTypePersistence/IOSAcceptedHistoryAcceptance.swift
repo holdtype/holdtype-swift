@@ -181,6 +181,22 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
         case .replayableReplacement: .replayableReplacement(phase)
         }
     }
+
+    func provesExpiredAbandonment(
+        from observation: IOSAcceptedOutputDeliveryExpiredObservation
+    ) -> Bool {
+        switch phase {
+        case .confirmingExpired(let retainedObservation):
+            retainedObservation == observation
+        case .removingExpired(let authorization):
+            observation.provesLineage(of: authorization)
+        case .abandoningExpired:
+            false
+        case .deliveryAccepted, .deliveryAuthorized, .policyConfirmed,
+             .rowDecided, .policyRevalidated, .invalidationConfirmed:
+            false
+        }
+    }
 }
 
 extension IOSAcceptedHistoryAcceptanceWork:
@@ -244,6 +260,7 @@ public extension IOSAcceptedHistoryCoordinator {
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
+        let policyCutoverState = policyCutoverState
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -258,6 +275,9 @@ public extension IOSAcceptedHistoryCoordinator {
                 }
                 do {
                     guard await outboxWorkerState.current() == nil else {
+                        throw IOSAcceptedOutputDeliveryError.commitUncertain
+                    }
+                    guard await policyCutoverState.current() == nil else {
                         throw IOSAcceptedOutputDeliveryError.commitUncertain
                     }
                     try Self.validateHistoryPreparation(
@@ -408,6 +428,7 @@ public extension IOSAcceptedHistoryCoordinator {
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
+        let policyCutoverState = policyCutoverState
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -424,8 +445,68 @@ public extension IOSAcceptedHistoryCoordinator {
                     guard await outboxWorkerState.current() == nil else {
                         return .pendingLocalRecovery
                     }
+                    let cutoverWork = await policyCutoverState.current()
+                    let expiredCutoverObservation = await policyCutoverState
+                        .expiredDeliveryAbandonmentObservation(
+                            ownerIdentity: ownerIdentity
+                        )
+                    guard cutoverWork == nil
+                            || expiredCutoverObservation != nil else {
+                        return .pendingLocalRecovery
+                    }
                     let outcome: IOSAcceptedHistoryRecoveryOutcome
-                    if let replacement = await pendingReplacementState
+                    if let expiredCutoverObservation {
+                        guard expiredCutoverObservation.belongs(
+                            to: deliveryStore.storeIdentity
+                        ) else {
+                            return .pendingLocalRecovery
+                        }
+                        guard await pendingReplacementState.current() == nil
+                        else {
+                            return .pendingLocalRecovery
+                        }
+                        if let retained = await acceptanceState.current() {
+                            guard retained.provesExpiredAbandonment(
+                                from: expiredCutoverObservation
+                            ) else {
+                                return .pendingLocalRecovery
+                            }
+                            let resumeOutcome = await Self.resume(
+                                retained,
+                                policyStore: policyStore,
+                                acceptedHistoryStore: acceptedHistoryStore,
+                                deliveryStore: deliveryStore,
+                                acceptanceState: acceptanceState
+                            )
+                            outcome = IOSAcceptedHistoryRecoveryOutcome(
+                                resolution: resumeOutcome.didAbandon
+                                    ? nil
+                                    : .pendingLocalRecovery,
+                                observedDelivery: true
+                            )
+                        } else {
+                            let work = IOSAcceptedHistoryAcceptanceWork
+                                .relaunched(
+                                    .confirmingExpired(
+                                        expiredCutoverObservation
+                                    )
+                                )
+                            await acceptanceState.store(work)
+                            let resumeOutcome = await Self
+                                .confirmExpiredAbandonment(
+                                    work,
+                                    observation: expiredCutoverObservation,
+                                    deliveryStore: deliveryStore,
+                                    acceptanceState: acceptanceState
+                                )
+                            outcome = IOSAcceptedHistoryRecoveryOutcome(
+                                resolution: resumeOutcome.didAbandon
+                                    ? nil
+                                    : .pendingLocalRecovery,
+                                observedDelivery: true
+                            )
+                        }
+                    } else if let replacement = await pendingReplacementState
                         .current() {
                         do {
                             let acceptance = try await Self

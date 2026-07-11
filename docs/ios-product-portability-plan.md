@@ -988,7 +988,7 @@ History metadata, and the 24-hour recovery owner remain outside App Group and
 the keyboard. Publication generation cannot advance until the later production
 bridge checkpoint owns the matching projection and revocation protocol.
 
-The accepted-History foundation is implemented through the C2 slice: normal
+The accepted-History foundation is implemented through the C3 slice: normal
 acceptance, provider-free relaunch recovery, and exact pending-delivery transfer
 before a new accepted result replaces the delivery slot, followed by strict
 one-head FIFO outbox recovery. One root-scoped process capability owner binds
@@ -1036,12 +1036,25 @@ local phase and excludes acceptance and C1 replacement work. Active
 terminal-History delivery replacement and cleanup also require a capability
 minted from confirmed outbox absence, paired to both stores and valid only for
 an active lease issued by their exact expected production root operation gate;
-exact expiry remains the bounded
-abandonment exception. Final C2 gate evidence and verdict live in
-`docs/qa/runs/ios-accepted-history-outbox-worker-2026-07-11.md`. Global policy
-cutover and stale-generation cleanup remain the next local durability
-checkpoint. No History record, receipt, or text enters App Group or the
-keyboard, and this foundation adds no keyboard dependency.
+exact expiry remains the bounded abandonment exception. Final C2 gate evidence
+and verdict live in
+`docs/qa/runs/ios-accepted-history-outbox-worker-2026-07-11.md`.
+
+C3 is complete. It makes a durably confirmed Clear/Disable/Enable policy the
+logical-success boundary and exposes only the redacted cleanup disposition
+`complete` or `pendingLocalRecovery`. Exact pre-boundary command uncertainty
+performs no cleanup and can be resumed only by the same command. After the
+boundary, retries never advance the generation again: they prune only
+invalidated accepted rows, process at most one canonical outbox head through
+C2, and cancel only an exact stale unresolved standalone marker. Current and
+terminal delivery state stays intact, while future, rollback-ambiguous,
+corrupt, unavailable, or superseded state fails closed. Expiry hands a
+store-minted sealed observation to bounded ordinary recovery without resampling
+time, including after clock rollback. Final C3 evidence and verdict live in
+`docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. Failed History and
+retry-only audio ownership are the next local durability slice. No History
+record, receipt, cleanup state, or text enters App Group or the keyboard, and
+this foundation adds no keyboard dependency.
 
 ### P3 — Native containing-app shell
 
@@ -1245,30 +1258,24 @@ delivery record are now implemented without moving secrets, canonical content,
 usage state, audio, History metadata, or scratch paths into App Group or the
 keyboard.
 
-The next P2 checkpoint finishes the remaining containing-app-only
-accepted-History durability chain: make Clear/Disable/Enable policy cutover the
-logical success boundary. Only a durably confirmed changed policy or confirmed
-toggle no-op succeeds; commit uncertainty and CAS supersession authorize no
-cleanup. After success, return a redacted `complete`/`pendingLocalRecovery`
-cleanup disposition
-and perform conservative stale-generation work through bounded containing-app
-lifecycle reconciliation. Accepted-row pruning must preserve the current
-generation, and outbox cleanup must use only the completed one-head FIFO worker,
-never a bulk delete or skipped head. A pending cleanup result never rolls policy
-back or advances generation when retried. Preserve the existing root-scoped
-capability graph, exact retained phases, provider-free recovery and replacement,
-no-live-entry eviction rule, and every crash-reconciliation boundary. This work
-must not mutate Latest Result, bridge publication, or provider work, and must not
-publish policy, History rows, metadata, or cleanup state to App Group or the
-keyboard.
+The C3 containing-app-only accepted-History chain is now verified. A durably
+confirmed Clear/Disable/Enable policy is the logical-success boundary;
+pre-boundary uncertainty authorizes no cleanup, and post-boundary bounded
+reconciliation returns only redacted `complete` or `pendingLocalRecovery`.
+Accepted-row pruning preserves the current generation, outbox cleanup reuses
+the completed one-head FIFO worker, and cleanup retry never rolls policy back
+or advances its generation. This checkpoint does not mutate Latest Result,
+bridge publication, provider work, or keyboard/App Group state. Its final gate
+record is `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`.
 
-After that accepted-History chain is verified, implement the bounded failed
-History repository and retry-audio ownership, then the independent recording
-cache repository, file transfer, retention, and reconciliation flow. The
-directional App Group bridge split remains later P2/P6 work and does not enter
-the keyboard early. Until failed rows and retry-only audio join the same policy
-generation and cleanup path, the shipping app does not expose a partial History
-toggle, Clear History action, or disclosure that promises those controls.
+The next P2 checkpoint implements the bounded failed History repository and
+retry-audio ownership under that same generation and cleanup path, then the
+independent recording cache repository, file transfer, retention, and
+reconciliation flow. The directional App Group bridge split remains later
+P2/P6 work and does not enter the keyboard early. Until failed rows and
+retry-only audio join the same policy generation and cleanup path, the shipping
+app does not expose a partial History toggle, Clear History action, or
+disclosure that promises those controls.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

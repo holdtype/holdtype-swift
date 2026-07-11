@@ -331,7 +331,7 @@ host app, state, expected result, actual result, and go/no-go decision.
   completed P2 checkpoint: its strict 24-hour recovery record, identity/state
   contract, History-write marker, CAS, and uncertainty handling remain outside
   the keyboard. The accepted-History policy/repository/outbox foundation is
-  implemented through the C2 slice: normal acceptance, provider-free relaunch
+  implemented through the C3 slice: normal acceptance, provider-free relaunch
   recovery, and reservation-guarded exact outbox transfer before atomic
   pending-delivery replacement, followed by strict one-head FIFO outbox
   recovery. Its store-bound monotonic transfer lease is claimable only by the
@@ -356,12 +356,21 @@ host app, state, expected result, actual result, and go/no-go decision.
   outbox absence from the paired store in an active lease issued by their exact
   expected production root operation gate; exact expiry is the bounded
   abandonment exception. Final C2 evidence lives in
-  `docs/qa/runs/ios-accepted-history-outbox-worker-2026-07-11.md`. Global policy
-  cutover and stale-generation cleanup finish that P2 chain next. Bounded
-  failed History and the independent recording cache
-  follow. All remain outside the keyboard until the directional bridge contract
-  is implemented behind the physical M0 gates. The
-  runtime-only four-case `VoiceAttemptStage` is portable too, while preflight,
+  `docs/qa/runs/ios-accepted-history-outbox-worker-2026-07-11.md`.
+  C3 is complete. A durably confirmed Clear/Disable/Enable policy is now the
+  logical-success boundary; the API reports only redacted `complete` or
+  `pendingLocalRecovery`, preserves the generation across retry, prunes only
+  invalidated accepted rows, reuses the one-head C2 worker, and reconciles only
+  an exact stale unresolved standalone marker. Its sealed expired-delivery
+  handoff remains valid across clock rollback without publishing observation or
+  cleanup state. Final C3 evidence lives in
+  `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. Bounded failed History
+  plus retry-audio ownership is next, followed by the independent recording
+  cache. The shipping History toggle, Clear History action, and first-use
+  disclosure remain deferred until failed rows and retry-only audio join the
+  same generation and cleanup path. All remain outside the keyboard until the
+  directional bridge contract is implemented behind the physical M0 gates.
+  The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain
   separate. The containing-app output handoff is now narrowed to accepted text
   plus the two portable delivery preferences; it is not an App Group record or

@@ -83,6 +83,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let pendingReplacementState:
         IOSAcceptedHistoryPendingReplacementOperationState
     let outboxWorkerState: IOSAcceptedHistoryOutboxWorkerOperationState
+    let policyCutoverState: IOSHistoryPolicyCutoverOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -119,6 +120,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         pendingReplacementState =
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
+        policyCutoverState = IOSHistoryPolicyCutoverOperationState()
         repositoryIdentityState =
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
     }
@@ -568,7 +570,7 @@ extension IOSAcceptedOutputHistoryCapture: CustomStringConvertible,
 }
 
 public actor IOSAcceptedHistoryCoordinator {
-    private enum CaptureOperationError: Error, Sendable {
+    enum CaptureOperationError: Error, Sendable {
         case baselineCommitUncertain
         case definitiveBaselineConflict
     }
@@ -582,11 +584,12 @@ public actor IOSAcceptedHistoryCoordinator {
     let outboxStore: IOSAcceptedHistoryOutboxStore
     let deliveryStore: IOSAcceptedOutputDeliveryStore
     let operationGate: IOSPersistenceOperationGate
-    private let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
+    let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
     let acceptanceState: IOSAcceptedHistoryAcceptanceOperationState
     let pendingReplacementState:
         IOSAcceptedHistoryPendingReplacementOperationState
     let outboxWorkerState: IOSAcceptedHistoryOutboxWorkerOperationState
+    let policyCutoverState: IOSHistoryPolicyCutoverOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -615,6 +618,7 @@ public actor IOSAcceptedHistoryCoordinator {
         acceptanceState = context.acceptanceState
         pendingReplacementState = context.pendingReplacementState
         outboxWorkerState = context.outboxWorkerState
+        policyCutoverState = context.policyCutoverState
         ownerIdentity = context.ownerIdentity
         repositoryIdentityState = context.repositoryIdentityState
         repositoryRegistration =
@@ -653,6 +657,7 @@ public actor IOSAcceptedHistoryCoordinator {
         pendingReplacementState =
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
+        policyCutoverState = IOSHistoryPolicyCutoverOperationState()
         ownerIdentity = capabilityOwnerIdentity
         repositoryIdentityState = identityState
         repositoryRegistration = nil
@@ -687,6 +692,9 @@ public actor IOSAcceptedHistoryCoordinator {
         outboxWorkerState:
             IOSAcceptedHistoryOutboxWorkerOperationState =
                 IOSAcceptedHistoryOutboxWorkerOperationState(),
+        policyCutoverState:
+            IOSHistoryPolicyCutoverOperationState =
+                IOSHistoryPolicyCutoverOperationState(),
         ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         repositoryIdentityState:
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState =
@@ -709,6 +717,7 @@ public actor IOSAcceptedHistoryCoordinator {
         self.acceptanceState = acceptanceState
         self.pendingReplacementState = pendingReplacementState
         self.outboxWorkerState = outboxWorkerState
+        self.policyCutoverState = policyCutoverState
         self.ownerIdentity = capabilityOwnerIdentity
         self.repositoryIdentityState = repositoryIdentityState
         self.repositoryRegistration = repositoryRegistration
@@ -746,6 +755,7 @@ public actor IOSAcceptedHistoryCoordinator {
         let baselineRecoveryState = baselineRecoveryState
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
+        let policyCutoverState = policyCutoverState
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
         let ownerIdentity = ownerIdentity
@@ -761,6 +771,9 @@ public actor IOSAcceptedHistoryCoordinator {
                     throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
                 guard await outboxWorkerState.current() == nil else {
+                    throw IOSAcceptedOutputDeliveryError.commitUncertain
+                }
+                guard await policyCutoverState.current() == nil else {
                     throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
                 do {
@@ -847,7 +860,7 @@ public actor IOSAcceptedHistoryCoordinator {
     }
 }
 
-private extension IOSAcceptedHistoryCoordinator {
+extension IOSAcceptedHistoryCoordinator {
     static func establishGuardedBaseline(
         policyStore: IOSHistoryPolicyStore,
         acceptedHistoryStore: IOSAcceptedHistoryStore,
