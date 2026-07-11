@@ -65,6 +65,8 @@ is no separate `/en/` page.
 - Website localization does not imply app localization. The shipped app UI and
   product screenshots remain English, and localized copy must not claim or
   suggest that the app interface is available in the page language.
+- On phone-width viewports, the five honesty cards stack vertically and each
+  card occupies the full available content width.
 
 ## Invariants
 

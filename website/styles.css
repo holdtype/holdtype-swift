@@ -2011,8 +2011,10 @@ body.has-image-lightbox {
 
   .reason-grid article,
   .reason-grid article:first-child,
-  .reason-grid article:last-child {
-    grid-column: auto;
+  .reason-grid article:last-child,
+  .reason-grid article:nth-child(4),
+  .reason-grid article:nth-child(5) {
+    grid-column: 1 / -1;
     margin-top: 0;
     padding: 28px 0;
     border-top: 1px solid var(--line);
