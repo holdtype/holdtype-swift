@@ -45,6 +45,10 @@ struct IOSPendingRecordingMetadataAbsenceReceiptMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSPendingRecordingMetadataRemovalAuthorizationMint: Sendable {
+    fileprivate init() {}
+}
+
 struct IOSPendingRecordingStoreIdentity: Equatable, Sendable {
     private let value = UUID()
 }

@@ -112,7 +112,7 @@ final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
     let pendingStoreIdentity: IOSPendingRecordingStoreIdentity
     let failedStoreIdentity: IOSFailedHistoryStoreIdentity
     let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
-    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
     let operationLeaseAuthorization:
         IOSPersistenceOperationLeaseAuthorization
     let policyReceipt: IOSHistoryPolicyReceipt
@@ -121,19 +121,39 @@ final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
     private let releaseLock = NSLock()
     private var didReleaseAudioLease = false
 
-    init(
+    init?(
+        mint: IOSPendingFailedHistoryTransferPreparationMint,
         pendingSnapshot: IOSPendingRecordingJournalMetadataSnapshot,
         intendedRow: IOSFailedHistoryEntry,
         audioLease: any IOSPendingRecordingPublishedAudioLease,
         pendingStoreIdentity: IOSPendingRecordingStoreIdentity,
         failedStoreIdentity: IOSFailedHistoryStoreIdentity,
         ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
-        repositoryBinding:
-            IOSAcceptedHistoryCoordinatorRepositoryBinding?,
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization,
         policyReceipt: IOSHistoryPolicyReceipt
     ) {
+        _ = mint
+        guard operationLeaseAuthorization.provesActiveLease(),
+              repositoryBinding.physicalRootIdentity != nil,
+              policyReceipt.state.historyEnabled,
+              policyReceipt.state.policyGeneration
+                == intendedRow.policyGeneration,
+              policyReceipt.capabilityOwnerIdentity == ownerIdentity,
+              IOSFailedHistoryPendingMatchIdentity(
+                  pending: pendingSnapshot.recording
+              ) == IOSFailedHistoryPendingMatchIdentity(
+                  failedRow: intendedRow
+              ),
+              audioLease.relativeIdentifier
+                == pendingSnapshot.recording.audioRelativeIdentifier,
+              audioLease.durationMilliseconds
+                == pendingSnapshot.recording.durationMilliseconds,
+              audioLease.audioArtifact.byteCount
+                == pendingSnapshot.recording.byteCount else {
+            return nil
+        }
         self.pendingSnapshot = pendingSnapshot
         self.intendedRow = intendedRow
         self.audioLease = audioLease
@@ -150,6 +170,9 @@ final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
     }
 
     var audioMetadataMatchesPendingSnapshot: Bool {
+        guard !releaseLock.withLock({ didReleaseAudioLease }) else {
+            return false
+        }
         let recording = pendingSnapshot.recording
         return audioLease.relativeIdentifier
                 == recording.audioRelativeIdentifier
@@ -158,8 +181,16 @@ final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
             && audioLease.audioArtifact.byteCount == recording.byteCount
     }
 
-    func revalidateAudio() async throws -> AudioRecordingArtifact {
-        try await audioLease.revalidate()
+    func revalidateAudio() async throws {
+        guard !releaseLock.withLock({ didReleaseAudioLease }) else {
+            throw IOSPendingRecordingError.linkedAudioInvalid
+        }
+        let artifact = try await audioLease.revalidate()
+        guard !releaseLock.withLock({ didReleaseAudioLease }),
+              audioMetadataMatchesPendingSnapshot,
+              artifact.byteCount == pendingSnapshot.recording.byteCount else {
+            throw IOSPendingRecordingError.linkedAudioInvalid
+        }
     }
 
     func releaseAudioLease() {
@@ -171,6 +202,15 @@ final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
         if shouldRelease {
             audioLease.release()
         }
+    }
+}
+
+extension IOSPendingFailedHistoryTransferPreparation: Equatable {
+    static func == (
+        lhs: IOSPendingFailedHistoryTransferPreparation,
+        rhs: IOSPendingFailedHistoryTransferPreparation
+    ) -> Bool {
+        lhs === rhs
     }
 }
 
@@ -202,9 +242,48 @@ struct IOSFailedHistoryPendingMetadataRetirementAuthority:
     let failedStoreIdentity: IOSFailedHistoryStoreIdentity
     let expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity
     let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
-    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
     let operationLeaseAuthorization:
         IOSPersistenceOperationLeaseAuthorization
+
+    init?(
+        mint: IOSFailedHistoryMetadataRetirementAuthorityMint,
+        failedSource: IOSFailedHistoryJournalSnapshot,
+        row: IOSFailedHistoryEntry,
+        origin: Origin,
+        failedStoreIdentity: IOSFailedHistoryStoreIdentity,
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) {
+        _ = mint
+        guard operationLeaseAuthorization.provesActiveLease(),
+              repositoryBinding.physicalRootIdentity != nil,
+              failedSource.envelope.entries.contains(row),
+              let rowIdentity = IOSFailedHistoryPendingMatchIdentity(
+                  failedRow: row
+              ) else {
+            return nil
+        }
+        if case .committed(let pendingSource) = origin {
+            guard IOSFailedHistoryPendingMatchIdentity(
+                pending: pendingSource.recording
+            ) == rowIdentity else {
+                return nil
+            }
+        }
+
+        self.failedSource = failedSource
+        self.row = row
+        self.origin = origin
+        self.failedStoreIdentity = failedStoreIdentity
+        self.expectedPendingStoreIdentity = expectedPendingStoreIdentity
+        self.ownerIdentity = ownerIdentity
+        self.repositoryBinding = repositoryBinding
+        self.operationLeaseAuthorization = operationLeaseAuthorization
+    }
 }
 
 extension IOSFailedHistoryPendingMetadataRetirementAuthority:
@@ -213,6 +292,47 @@ extension IOSFailedHistoryPendingMetadataRetirementAuthority:
     CustomReflectable {
     var description: String {
         "IOSFailedHistoryPendingMetadataRetirementAuthority(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// Exact present-source authorization retained across metadata-removal
+/// uncertainty so a semantically equal replacement is never resampled.
+struct IOSPendingRecordingMetadataRemovalAuthorization:
+    Equatable,
+    Sendable {
+    let authority: IOSFailedHistoryPendingMetadataRetirementAuthority
+    let source: IOSPendingRecordingJournalMetadataSnapshot
+
+    init?(
+        mint: IOSPendingRecordingMetadataRemovalAuthorizationMint,
+        authority: IOSFailedHistoryPendingMetadataRetirementAuthority,
+        source: IOSPendingRecordingJournalMetadataSnapshot
+    ) {
+        _ = mint
+        guard authority.operationLeaseAuthorization.provesActiveLease(),
+              IOSFailedHistoryPendingMatchIdentity(
+                  pending: source.recording
+              ) == IOSFailedHistoryPendingMatchIdentity(
+                  failedRow: authority.row
+              ) else {
+            return nil
+        }
+        if case .committed(let expectedSource) = authority.origin {
+            guard source == expectedSource else { return nil }
+        }
+        self.authority = authority
+        self.source = source
+    }
+}
+
+extension IOSPendingRecordingMetadataRemovalAuthorization:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSPendingRecordingMetadataRemovalAuthorization(redacted)"
     }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: [:]) }
@@ -229,11 +349,77 @@ struct IOSPendingRecordingMetadataAbsenceReceipt: Equatable, Sendable {
         case alreadyAbsent(
             evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence
         )
+
+        func provesRemoval(
+            of source: IOSPendingRecordingJournalMetadataSnapshot
+        ) -> Bool {
+            guard case .removed(
+                let recordedSource,
+                let evidence
+            ) = self else {
+                return false
+            }
+            return recordedSource == source
+                && evidence.provesRemoval(of: source)
+        }
+
+        var provesPreexistingAbsence: Bool {
+            guard case .alreadyAbsent(let evidence) = self else {
+                return false
+            }
+            return evidence.provesPreexistingAbsence
+        }
     }
 
     let issuerStoreIdentity: IOSPendingRecordingStoreIdentity
     let authority: IOSFailedHistoryPendingMetadataRetirementAuthority
     let outcome: Outcome
+
+    init?(
+        mint: IOSPendingRecordingMetadataAbsenceReceiptMint,
+        issuerStoreIdentity: IOSPendingRecordingStoreIdentity,
+        authority: IOSFailedHistoryPendingMetadataRetirementAuthority,
+        outcome: Outcome
+    ) {
+        _ = mint
+        guard issuerStoreIdentity
+                == authority.expectedPendingStoreIdentity,
+              authority.operationLeaseAuthorization.provesActiveLease(),
+              let expectedRoot = authority.repositoryBinding
+                .physicalRootIdentity else {
+            return nil
+        }
+
+        let evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence
+        switch outcome {
+        case .removed(let source, let removedEvidence):
+            guard removedEvidence.provesRemoval(of: source),
+                  IOSFailedHistoryPendingMatchIdentity(
+                      pending: source.recording
+                  ) == IOSFailedHistoryPendingMatchIdentity(
+                      failedRow: authority.row
+                  ) else {
+                return nil
+            }
+            if case .committed(let expectedSource) = authority.origin {
+                guard source == expectedSource else { return nil }
+            }
+            evidence = removedEvidence
+        case .alreadyAbsent(let absenceEvidence):
+            guard absenceEvidence.provesPreexistingAbsence else {
+                return nil
+            }
+            evidence = absenceEvidence
+        }
+        guard evidence.provesCanonicalPendingRecordingPath,
+              evidence.binding.repositoryRoot == expectedRoot else {
+            return nil
+        }
+
+        self.issuerStoreIdentity = issuerStoreIdentity
+        self.authority = authority
+        self.outcome = outcome
+    }
 
     var evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence {
         switch outcome {
@@ -283,9 +469,34 @@ struct IOSFailedHistoryPendingOwnershipAbsenceProof: Equatable, Sendable {
     let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
     let pendingKey: IOSFailedHistoryPendingOwnershipKey
     let failedSource: IOSFailedHistoryJournalSnapshot?
-    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
     let operationLeaseAuthorization:
         IOSPersistenceOperationLeaseAuthorization
+
+    init?(
+        mint: IOSFailedHistoryPendingOwnershipAbsenceProofMint,
+        failedStoreIdentity: IOSFailedHistoryStoreIdentity,
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        pendingKey: IOSFailedHistoryPendingOwnershipKey,
+        failedSource: IOSFailedHistoryJournalSnapshot?,
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) {
+        _ = mint
+        guard operationLeaseAuthorization.provesActiveLease(),
+              repositoryBinding.physicalRootIdentity != nil else {
+            return nil
+        }
+        self.failedStoreIdentity = failedStoreIdentity
+        self.expectedPendingStoreIdentity = expectedPendingStoreIdentity
+        self.ownerIdentity = ownerIdentity
+        self.pendingKey = pendingKey
+        self.failedSource = failedSource
+        self.repositoryBinding = repositoryBinding
+        self.operationLeaseAuthorization = operationLeaseAuthorization
+    }
 }
 
 extension IOSFailedHistoryPendingOwnershipAbsenceProof:
@@ -338,9 +549,14 @@ extension IOSFailedHistoryTransferResult:
 }
 
 enum IOSFailedHistoryTransferSemanticPhase: Equatable, Sendable {
-    case committingRow(IOSFailedHistoryEntry)
-    case retiringPendingMetadata(IOSFailedHistoryEntry)
-    case committingReady(IOSFailedHistoryEntry)
+    case committingRow(IOSPendingFailedHistoryTransferPreparation)
+    case observingPendingMetadata(
+        IOSFailedHistoryPendingMetadataRetirementAuthority
+    )
+    case removingPendingMetadata(
+        IOSPendingRecordingMetadataRemovalAuthorization
+    )
+    case committingReady(IOSPendingRecordingMetadataAbsenceReceipt)
 }
 
 extension IOSFailedHistoryTransferSemanticPhase:
@@ -354,16 +570,95 @@ extension IOSFailedHistoryTransferSemanticPhase:
     var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
+fileprivate struct IOSFailedHistoryTransferStateMutationAuthorization {
+    fileprivate init() {}
+}
+
 actor IOSFailedHistoryTransferOperationState {
     private var phase: IOSFailedHistoryTransferSemanticPhase?
 
     func current() -> IOSFailedHistoryTransferSemanticPhase? { phase }
 
-    func store(_ phase: IOSFailedHistoryTransferSemanticPhase) {
-        self.phase = phase
+    fileprivate func begin(
+        _ preparation: IOSPendingFailedHistoryTransferPreparation,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        guard phase == nil else { return false }
+        phase = .committingRow(preparation)
+        return true
     }
 
-    func clear() {
+    fileprivate func recordRowCommitted(
+        _ authority: IOSFailedHistoryPendingMetadataRetirementAuthority,
+        from preparation: IOSPendingFailedHistoryTransferPreparation,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        guard phase == .committingRow(preparation) else { return false }
+        phase = .observingPendingMetadata(authority)
+        preparation.releaseAudioLease()
+        return true
+    }
+
+    fileprivate func recordMetadataRemovalAuthorized(
+        _ removalAuthorization:
+            IOSPendingRecordingMetadataRemovalAuthorization,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        guard phase
+                == .observingPendingMetadata(
+                    removalAuthorization.authority
+                ) else {
+            return false
+        }
+        phase = .removingPendingMetadata(removalAuthorization)
+        return true
+    }
+
+    fileprivate func recordMetadataAbsent(
+        _ receipt: IOSPendingRecordingMetadataAbsenceReceipt,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        let matchesCurrentPhase: Bool = switch phase {
+        case .observingPendingMetadata(let authority):
+            authority == receipt.authority
+                && receipt.outcome.provesPreexistingAbsence
+        case .removingPendingMetadata(let removalAuthorization):
+            removalAuthorization.authority == receipt.authority
+                && receipt.outcome.provesRemoval(
+                    of: removalAuthorization.source
+                )
+        default:
+            false
+        }
+        guard matchesCurrentPhase else {
+            return false
+        }
+        phase = .committingReady(receipt)
+        return true
+    }
+
+    fileprivate func abandonBeforeRowCommit(
+        _ preparation: IOSPendingFailedHistoryTransferPreparation,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        guard phase == .committingRow(preparation) else { return false }
+        preparation.releaseAudioLease()
         phase = nil
+        return true
+    }
+
+    fileprivate func clearCompleted(
+        _ receipt: IOSPendingRecordingMetadataAbsenceReceipt,
+        authorization: IOSFailedHistoryTransferStateMutationAuthorization
+    ) -> Bool {
+        _ = authorization
+        guard phase == .committingReady(receipt) else { return false }
+        phase = nil
+        return true
     }
 }

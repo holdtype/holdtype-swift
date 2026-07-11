@@ -1,5 +1,13 @@
 import Foundation
 
+struct IOSFailedHistoryMetadataRetirementAuthorityMint: Sendable {
+    fileprivate init() {}
+}
+
+struct IOSFailedHistoryPendingOwnershipAbsenceProofMint: Sendable {
+    fileprivate init() {}
+}
+
 final class IOSFailedHistoryMutationInterlock: @unchecked Sendable {
     private let lock = NSLock()
     private var blocked = false

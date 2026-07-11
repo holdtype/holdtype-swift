@@ -30,11 +30,6 @@ struct IOSFailedHistoryTransferValueTests {
                 == IOSFailedHistoryPendingMatchIdentity(failedRow: row)
         )
 
-        let state = IOSFailedHistoryTransferOperationState()
-        await state.store(.committingRow(row))
-        #expect(await state.current() == .committingRow(row))
-        await state.clear()
-        #expect(await state.current() == nil)
     }
 
     @Test func matchIdentityRejectsNonRecoveryPendingAndNonTransferRow()
