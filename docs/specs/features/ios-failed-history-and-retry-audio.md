@@ -79,7 +79,9 @@ partial UI early.
   without changing the row or retry count.
 - Retry preserves `.standard` or `.translate`. Translation retries use the
   current valid translation configuration and never publish the intermediate
-  transcription as the requested result.
+  transcription as the requested result. Both intents use one fresh frozen
+  prompt/correction/local-processing snapshot; Retry never reuses Nearby Text
+  or any prompt captured by the failed attempt.
 - Automatic insertion is off for every failed-row Retry. A successful result
   is recovered through the normal accepted-output surface, from which the user
   may Insert, Copy, Share, or use an eligible later keyboard handoff.
@@ -125,6 +127,31 @@ nearby-context-only output maps to `echoRejected`; provider status codes are
 not retained. A mapper may narrow a current runtime error into this list but
 must never persist `localizedDescription`, debug output, or an unknown enum
 case.
+
+The Retry provider adapter normalizes terminal Transcription and Translation
+outcomes before they reach the failed Store. This durable mapping is total and
+payload-free:
+
+- missing, unavailable, or rejected credentials map to
+  `credentialRejected`;
+- network-unavailable, other network failure, timeout, rate limit, and
+  provider-unavailable outcomes map to their same-named stable categories;
+- an HTTP bad-request response or other provider rejection maps to
+  `providerRejected`, with every status code discarded;
+- unreadable provider output maps to `invalidResponse`;
+- empty or whitespace-only Transcription or Translation output maps to
+  `emptyResult`;
+- dictionary-only or nearby-context-only Transcription output maps to
+  `echoRejected`.
+
+A local invalid recording, unsafe request construction, oversized multipart
+metadata, invalid Translation route, provider-reported cancellation without a
+mapped failure, or unknown runtime outcome is not mapped to a new durable
+category. It clears only the exact Retry operation while preserving the row's
+previous category and stage. Remote Text Correction is never an input to this
+durable mapper: every correction provider error, timeout, empty/unsafe output,
+or provider-reported cancellation fails open to the accepted transcription.
+Only outer user/task cancellation uses the exact C4.4A cancellation authority.
 
 Capture cancellation, invalid/corrupt audio, maximum-duration and too-short
 recordings, request construction that cannot safely use the artifact,
@@ -536,11 +563,16 @@ the sole failed-row Retry exception to the ordinary PendingRecording rule that
 an accepted delivery's transcript ID equals its pending transcription ID.
 
 Before reservation, the coordinator freezes the current valid transcription
-configuration, any required Translation configuration, credentials/setup
-eligibility, and Keep Latest Result preference. It also proves that no Pending
-provider owner is live and that fewer than five audio-cleanup tombstones exist.
-A full tombstone queue, invalid setup, retry-count overflow, stale policy, or
-failed audio validation changes no row field and issues no provider authority.
+configuration, a fresh `TranscriptionPromptComposition`, Text Correction and
+local post-processing configuration, any required Translation configuration,
+credentials/setup eligibility, and Keep Latest Result preference. The prompt
+composition has no Nearby Text and is built once from the current freeform
+prompt, emoji commands, and Custom Dictionary. No prompt, dictionary,
+replacement rule, correction configuration, or Translation content enters the
+failed row. The coordinator also proves that no Pending provider owner is live
+and that fewer than five audio-cleanup tombstones exist. A full tombstone queue,
+invalid setup, retry-count overflow, stale policy, or failed audio validation
+changes no row field and issues no provider authority.
 
 The durable transitions are ordered:
 
@@ -569,20 +601,37 @@ the audio, records the mapped category and actual failed stage, and advances
 `updatedAt` to the canonical completion time. A setup failure before reservation
 changes nothing. Cancellation and a nonrecoverable or unmappable runtime
 outcome clear the operation and preserve both the row's previous durable
-category and previous durable stage rather than inventing either. Same-process
-cancellation may advance `updatedAt`; provider-free process-loss cancellation
-preserves it. Current audio and setup validation still govern whether another
-explicit Retry is available; Delete follows the normal local cleanup contract.
+category and previous durable stage rather than inventing either. Every
+same-process terminal clear advances `updatedAt` to its canonical completion
+time, including user/task cancellation and an unmappable outcome;
+provider-free process-loss cancellation preserves it. Current audio and setup
+validation still govern whether another explicit Retry is available; Delete
+follows the normal local cleanup contract.
 
 Cancellation and provider completion race only in the stable live-owner state.
 Cancellation first retires the exact provider authority, then reacquires the
 root gate to clear the durable operation. A noncooperative late response from
 that retired epoch has no acceptance or mutation authority. Once
 `acceptingOutput` is durable, provider cancellation is no longer available;
-remaining work is local accepted-output recovery. Every provider and
-Translation boundary has an explicit timeout. Timeout cancels the exact task
-and records `timedOut` at the stage that was active only after that task is no
-longer provider-capable.
+remaining work is local accepted-output recovery. Every Transcription, remote
+Text Correction, and Translation boundary has an explicit timeout. Timeout
+retires the exact stage authority, requests transport cancellation, and waits
+only for the provider adapter's bounded completion before its outcome is used.
+The adapter must finish independently of a noncooperative loader or local I/O
+and ignore any abandoned late completion. A Transcription or Translation
+timeout records `timedOut` at the active durable stage; a correction timeout is
+fail-open and keeps the accepted transcription.
+
+After non-empty Transcription succeeds, the coordinator immediately makes the
+one idempotent Usage attempt before correction or Translation. Optional remote
+Text Correction is fail-open for provider failure, timeout, empty output, and
+unsafe-length output; then local cleanup, emoji commands, and replacement rules
+run exactly once with the frozen post-processing configuration. User/task
+cancellation is checked again after every drained boundary and still cancels
+the whole Retry. A Translation Retry consumes only that processed transient
+transcription. Translation is strict, and only its non-empty result receives
+the final optional plain-typography cleanup before acceptance; correction,
+emoji commands, and replacement rules do not run again on translated text.
 
 On process loss, lifecycle recovery never resumes `reserved` or
 `providerDispatched` work. A new idle process context cancels the durable
@@ -682,7 +731,8 @@ boundary:
    `providerDispatched` mutations, free-tombstone admission, stable root-shared
    live-owner epochs, Pending-provider exclusion, one-shot dispatch, and exact
    cancellation;
-2. **C4.4B — provider outcomes:** descriptor-backed Transcription, transient
+2. **C4.4B — provider outcomes:** descriptor-backed Transcription, fail-open
+   correction plus one local post-processing pass, transient strict
    Translation, timeout and error mapping, retry-count idempotency, late-result
    rejection, and non-authoritative Usage recording;
 3. **C4.4C — accepted-output handoff:** `acceptingOutput`, frozen predecessor,
@@ -778,10 +828,12 @@ boundary:
   process-loss cancellation.
 - Test cancellation before and after launch, cancellation/completion races,
   stale-owner completion against a newer Retry, noncooperative late results,
-  bounded timeout, Transcription and Translation success/failure, fresh frozen
-  settings, automatic insertion off, preserved category and stage for cancel or
-  unmappable outcomes, non-authoritative Usage failure, and no automatic
-  provider call after process loss.
+  bounded timeout, Transcription/correction/Translation success and failure,
+  unsafe correction fallback, exactly one local post-processing pass, fresh
+  frozen settings and prompt composition without Nearby Text, automatic
+  insertion off, preserved category and stage for cancel or unmappable
+  outcomes, non-authoritative Usage failure, and no automatic provider call
+  after process loss.
 - Test that a matching `acceptingOutput` delivery blocks replacement, Clear
   Latest, expiry, bridge publication, and every other generic delivery mutation
   across process loss. Cover a missing slot, a wholly unrelated frozen
