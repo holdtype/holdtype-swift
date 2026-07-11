@@ -234,6 +234,7 @@ struct IOSFailedHistoryPendingMetadataRetirementAuthority:
     enum Origin: Equatable, Sendable {
         case committed(IOSPendingRecordingJournalMetadataSnapshot)
         case relaunched
+        case readyOutcomeConfirmation
     }
 
     let failedSource: IOSFailedHistoryJournalSnapshot
@@ -393,6 +394,9 @@ struct IOSPendingRecordingMetadataAbsenceReceipt: Equatable, Sendable {
         let evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence
         switch outcome {
         case .removed(let source, let removedEvidence):
+            guard authority.origin != .readyOutcomeConfirmation else {
+                return nil
+            }
             guard removedEvidence.provesRemoval(of: source),
                   IOSFailedHistoryPendingMatchIdentity(
                       pending: source.recording
