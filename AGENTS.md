@@ -115,6 +115,25 @@ diagnostics after compact output proves insufficient.
 For sequential automation, the canonical checkout is the source of truth. Use
 the current repository state, not chat memory, to determine task status.
 
+## Master-Only Git Policy
+
+Agents must work only on the repository's existing `master` branch. Agents must
+never create a Git branch under any circumstance. This prohibition applies to
+local branches, remote branches, temporary branches, publish branches, task
+branches, automation branches, and branches created through a worktree.
+
+- Never run branch-creating or branch-switching workflows such as
+  `git switch -c`, `git checkout -b`, `git branch <name>`, or
+  `git worktree add -b`.
+- Never switch away from `master`, push a non-`master` ref, or use a detached
+  worktree as a substitute for direct `master` work.
+- Commit and push task changes directly on `master`, while staging only the
+  task-owned paths and preserving unrelated user changes.
+- A dirty, ahead, behind, or diverged `master` is not permission to create an
+  alternate branch. If a direct `master` commit or fast-forward push cannot be
+  completed safely, stop and ask the user how to proceed.
+- Never force-push `master` or rewrite its history to work around divergence.
+
 ## Dirty Git State Is Never A Blocker
 
 Agents must never stop, skip, block, or report success-without-work merely
