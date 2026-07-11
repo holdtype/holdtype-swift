@@ -470,11 +470,13 @@ identity without deleting the only valid artifact.
   cache metadata commit -> pending source/journal delete`. The journal remains
   until the copy/rename and destination metadata commit, so restart can finish
   cleanup without recreating or losing audio.
-- On a recoverable failure with History on, HoldType creates or updates one
-  failed row, transfers ownership of the relative audio identifier to that
-  row's retry-only audio at the same stable path, and then removes the journal.
-  If both records survive a crash, the committed failed row is canonical and
-  reconciliation removes only the redundant journal metadata.
+- On a recoverable failure with History on, HoldType commits one failed row as
+  `pendingJournalRetirement`, transfers ownership of the relative audio
+  identifier to that row's retry-only audio at the same stable path, and then
+  removes the journal. Recovery may reconcile that exact row but never performs
+  a generic row update or appends a second row. If both records survive a
+  crash, the committed failed row is canonical and reconciliation removes only
+  the redundant journal metadata.
 - On a recoverable failure with History off, the journal and protected audio
   remain as the one pending recovery attempt until explicit Retry or Discard.
   They do not become hidden durable History and block a second unresolved

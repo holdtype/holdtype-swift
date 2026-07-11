@@ -263,9 +263,11 @@ before the first create, publish, replace, remove, or cleanup side effect, and
 the remaining work is descriptor-relative. Failed-journal staging maintenance
 uses the same active root-gate lease and physical-root authorization as row
 mutation. A process-local row receipt or lease never survives relaunch:
-recovery mints a fresh metadata-retirement directive only from the exact durable
-`pendingJournalRetirement` row and a matching pending journal snapshot under a
-new active root lease.
+recovery mints a fresh row-derived metadata-retirement directive only from the
+exact durable `pendingJournalRetirement` row under a new active root lease. The
+Pending store then either requires an exactly matching journal snapshot before
+removing it or proves the canonical journal path durably absent. A present but
+mismatching journal is a conflict; absence never invents a prior snapshot.
 
 The same physical-root rule applies before provider dispatch. Media validation
 and the process-local provider source retain and read the already opened audio
@@ -281,6 +283,51 @@ not committed, exact absence after directory synchronization means committed,
 and any other state fails closed. A metadata-only journal observation and
 absence-proof path must not invoke the ordinary PendingRecording load behavior
 or require the protected-audio namespace to be empty.
+
+### Frozen C4.2B Reconciliation Identity
+
+The relaunch matching predicate is the complete set of fields shared by the
+failed row and Pending journal: `attemptID`, `createdAt`,
+`audioRelativeIdentifier`, `outputIntent`, `transcriptionModel`,
+`transcriptionLanguageCode`, `durationMilliseconds`, and `byteCount`. The
+Pending record must also be exactly `awaitingRecovery` with a null
+`transcriptionID`. Pending `updatedAt` is not persisted in the failed row and
+is not guessed or compared. The audio format is derived from the validated
+relative identifier. A mismatch in any compared field is a conflict, even
+when the attempt ID and audio path match.
+
+The Pending store is the sole issuer of a process-local metadata-absence
+receipt. A `removed` outcome binds the exact observed Pending journal snapshot
+and physical file revision. An `alreadyAbsent` outcome, including relaunch
+after a completed unlink, instead binds the exact failed-row directive and
+canonical journal path without inventing a file revision. Both outcomes prove
+the journal absent after directory synchronization and a repeated path check,
+and bind the Pending store and directory identity, canonical root, active gate
+lease, and exact failed-row receipt or relaunch directive. They authorize only
+the matching `pendingJournalRetirement` to `ready` mutation and grant no
+provider, audio-removal, generic journal-removal, or cross-row authority. The
+same exact receipt may reconcile that one mutation after an uncertain outcome
+under the same active lease, but is never reusable for another row, source,
+root, lease, or semantic mutation. Relaunch discards all old capabilities and
+mints fresh directives or absence receipts from current durable state.
+
+Advancing ownership from `pendingJournalRetirement` to `ready` preserves the
+original transfer `updatedAt`; journal-retirement housekeeping does not change
+the user-visible failure timestamp. It advances the failed-root revision once
+and changes no other row field.
+
+Mutation uncertainty retains only the exact intended source and outcome.
+Within one process, retry uses the sealed transfer timestamp and intended row.
+After process loss, durable state is the discriminator: proof that the intended
+row is absent and that no failed row or tombstone collides by attempt ID or
+audio identifier leaves Pending canonical; the exact
+`pendingJournalRetirement` row permits a fresh metadata-only directive;
+synchronized Pending absence permits a fresh absence receipt and the exact
+transition to `ready`; the exact `ready` row plus absent Pending metadata is
+terminal. A nonmatching owner is a conflict. Every other observation preserves
+all bytes and reports local recovery pending. Transfer never performs a generic
+failed-row update and never appends a second row to reconcile an exact existing
+`pendingJournalRetirement` row.
 
 History disabled, stale policy generation, failed-row capacity, cleanup
 capacity, corrupt state, mismatched roots, live provider ownership, or any
