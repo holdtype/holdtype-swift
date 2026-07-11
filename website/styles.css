@@ -227,6 +227,7 @@ h3 {
   color: var(--text);
 }
 
+.site-nav a.header-patreon-link,
 .site-nav a.header-github-link {
   width: 32px;
   height: 32px;
@@ -237,10 +238,12 @@ h3 {
   border-radius: 999px;
 }
 
+.site-nav a.header-patreon-link:hover,
 .site-nav a.header-github-link:hover {
   background: var(--surface-soft);
 }
 
+.header-patreon-link svg,
 .header-github-link svg {
   width: 18px;
   height: 18px;
@@ -248,6 +251,7 @@ h3 {
   fill: currentColor;
 }
 
+.header-patreon-text,
 .header-github-text {
   display: none;
 }
@@ -1867,6 +1871,7 @@ body.has-image-lightbox {
     border-bottom: 0;
   }
 
+  .js .site-nav .header-patreon-link,
   .js .site-nav .header-github-link {
     width: 100%;
     height: auto;
@@ -1875,6 +1880,7 @@ body.has-image-lightbox {
     border-radius: 0;
   }
 
+  .js .site-nav .header-patreon-text,
   .js .site-nav .header-github-text {
     display: inline;
   }

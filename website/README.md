@@ -186,7 +186,7 @@ maximum, or typical day.
 
 ### Page anatomy
 
-1. Sticky brand/navigation header with a compact GitHub source icon and a
+1. Sticky brand/navigation header with compact Patreon and GitHub icons plus a
    GitHub Releases CTA.
 2. Split hero with the code-native editor illustration and real indicator art.
 3. Hold → speak → release → inserted workflow rail.

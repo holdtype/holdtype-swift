@@ -310,6 +310,7 @@
   },
   "footer": {
     "description": "Ditado nativo para {brand.macOS}. Código-fonte disponível sob a {license.fsl11}, com futura licença {license.mit}.",
+    "patreonLink": "Apoie o {brand.holdType} no {brand.patreon}",
     "sourceLink": "Confira o código-fonte no {brand.github}"
   },
   "lightbox": {
