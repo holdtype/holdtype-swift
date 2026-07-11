@@ -365,8 +365,12 @@ host app, state, expected result, actual result, and go/no-go decision.
   handoff remains valid across clock rollback without publishing observation or
   cleanup state. Final C3 evidence lives in
   `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. Bounded failed History
-  plus retry-audio ownership is next, followed by the independent recording
-  cache. The shipping History toggle, Clear History action, and first-use
+  plus retry-audio ownership is specified in
+  `docs/specs/features/ios-failed-history-and-retry-audio.md`. C4 next adds its
+  strict five-row store, exact PendingRecording audio transfer and tombstone
+  cleanup, C3 cutover integration, and one explicit cancellable Retry whose
+  success first commits normal accepted output. The independent recording cache
+  follows. The shipping History toggle, Clear History action, and first-use
   disclosure remain deferred until failed rows and retry-only audio join the
   same generation and cleanup path. All remain outside the keyboard until the
   directional bridge contract is implemented behind the physical M0 gates.

@@ -10,9 +10,10 @@ This spec is the target contract for the app-private History policy,
 accepted-History repository, accepted-History outbox, and their coordination
 with the existing accepted-output delivery record. The C2 checkpoint implements
 the contract through strict one-head FIFO recovery and terminal-proof
-protection. Global policy cutover and stale-generation cleanup remain the next
-checkpoint, and the full user-facing controls remain deferred as described
-below.
+protection. C3 adds global policy cutover and stale-generation cleanup. Failed
+rows and retry audio join that cutover under
+`ios-failed-history-and-retry-audio.md`; the full user-facing controls remain
+deferred as described below.
 
 ## Scope And Deferred Work
 
@@ -20,10 +21,11 @@ In scope are the exact version-1 policy, accepted-row, and outbox records;
 policy-generation cutover and retention; pending History transfer from delivery
 to outbox; and strict CAS, commit uncertainty, expiry, privacy, and migration.
 
-Failed History, retry-only audio, Recording Cache, History UI, and production
-keyboard publication are deferred. The full user-visible Clear History and
-History toggle must not be wired until failed History and retry-audio cleanup
-join this policy cutover.
+Failed History and retry-only audio are specified separately and remain the
+next implementation slice. Recording Cache, History UI, and production keyboard
+publication remain later work. The full user-visible Clear History and History
+toggle must not be wired until failed History and retry-audio cleanup join this
+policy cutover.
 
 ## Storage Contract
 
@@ -636,10 +638,11 @@ remove Usage, settings, credentials, current provider work, pending-recording
 recovery, or Recording Cache. No policy value, generation, row, receipt, or
 cleanup status enters App Group storage or the keyboard extension.
 
-Failed rows and retry-only audio join this generation cutover in a later
-checkpoint. Until their generation ownership and physical cleanup are complete,
-the shipping app must not expose a partial Clear History action, History toggle,
-or first-use disclosure that promises those controls.
+Failed rows and retry-only audio join this generation cutover under
+`ios-failed-history-and-retry-audio.md`. Until that generation ownership and
+physical cleanup are implemented and verified, the shipping app must not expose
+a partial Clear History action, History toggle, or first-use disclosure that
+promises those controls.
 
 There is no automatic import from macOS UserDefaults, macOS History, legacy
 Codable rows, Phase-0 bridge data, or external files. Missing accepted/outbox

@@ -1056,6 +1056,29 @@ retry-only audio ownership are the next local durability slice. No History
 record, receipt, cleanup state, or text enters App Group or the keyboard, and
 this foundation adds no keyboard dependency.
 
+C4.0 freezes that next slice in
+`docs/specs/features/ios-failed-history-and-retry-audio.md`: a strict app-private
+five-row failed queue, five exact audio-cleanup tombstones, ownership transfer
+at the existing protected pending-audio path, bounded policy cleanup, and
+explicit provider Retry whose success first commits normal accepted output.
+Implementation proceeds as separate checkpointable steps:
+
+1. C4.1 adds the strict failed values, journal, repository, limits, and
+   corruption/protection behavior.
+2. C4.2 adds sealed PendingRecording ownership transfer, exact audio inventory,
+   retention, Delete, and tombstone cleanup.
+3. C4.3 joins failed rows and retry audio to C3 policy cutover without another
+   generation change.
+4. C4.4 adds one durable, cancellable, explicit Retry and its exact
+   accepted-output success handoff.
+5. C4.5 integrates provider-free lifecycle recovery, public redacted app
+   boundaries, full regression evidence, and the final C4 QA record.
+
+No History toggle, Clear History action, first-use disclosure, Recording Cache,
+App Group publication, or keyboard dependency is exposed by C4.0 alone.
+The C4.0 contract review is recorded in
+`docs/qa/runs/ios-failed-history-contract-2026-07-11.md`.
+
 ### P3 — Native containing-app shell
 
 - implement Voice, Library, History, and Settings navigation;
@@ -1268,14 +1291,14 @@ or advances its generation. This checkpoint does not mutate Latest Result,
 bridge publication, provider work, or keyboard/App Group state. Its final gate
 record is `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`.
 
-The next P2 checkpoint implements the bounded failed History repository and
-retry-audio ownership under that same generation and cleanup path, then the
-independent recording cache repository, file transfer, retention, and
-reconciliation flow. The directional App Group bridge split remains later
-P2/P6 work and does not enter the keyboard early. Until failed rows and
-retry-only audio join the same policy generation and cleanup path, the shipping
-app does not expose a partial History toggle, Clear History action, or
-disclosure that promises those controls.
+The C4.0 contract for bounded failed History and retry audio is now frozen. The
+next P2 checkpoints implement C4.1 through C4.5 under the same History
+generation and cleanup path, then add the independent recording-cache
+repository, file transfer, retention, and reconciliation flow. The directional
+App Group bridge split remains later P2/P6 work and does not enter the keyboard
+early. Until failed rows and retry-only audio join the same policy generation
+and cleanup path, the shipping app does not expose a partial History toggle,
+Clear History action, or disclosure that promises those controls.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

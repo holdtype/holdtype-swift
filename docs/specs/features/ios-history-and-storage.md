@@ -185,13 +185,13 @@ A failed entry may store:
 - relative identifier for protected retry-only audio
 
 Every accepted and failed row belongs to the exact enabled policy generation
-captured and revalidated for its durable write. Reads expose only that generation
-while History is enabled and expose no rows while it is disabled. A future
-failed-row repository must bind retry-only audio to that exact row ownership so
-cutover cleanup can remove it without guessing a filename or deleting an
-in-flight pending attempt. A disabled policy never creates a failed row; an
-eligible recoverable failure remains under the explicit pending-recording
-recovery contract instead.
+captured and revalidated for its durable write. Reads expose only that
+generation while History is enabled and expose no rows while it is disabled.
+The exact failed-row, retry-only audio, tombstone, and policy-cutover contract
+lives in `ios-failed-history-and-retry-audio.md`. It binds audio to durable row
+ownership so cleanup never guesses a filename or deletes an in-flight pending
+attempt. A disabled policy never creates a failed row; an eligible recoverable
+failure remains under the explicit pending-recording recovery contract instead.
 
 The pending journal stores only the attempt ID, relative audio
 identifier, creation/update dates, processing phase, output intent, optional
@@ -205,8 +205,8 @@ genuinely new provider request, including Retry, replaces it with a new UUID.
 Provider retry resolves fresh settings and credentials.
 
 The runtime-only `VoiceAttemptStage` is not the journal `processing phase` or
-the failed row's durable `pipeline stage`. P2 defines versioned persistence
-values and explicit mappings for those records; persistence never encodes a
+the failed row's durable `pipeline stage`. The failed-History spec defines the
+versioned persistence values and explicit mappings; persistence never encodes a
 debug description, enum ordinal, or inferred case order. Runtime stage alone
 never makes a failure recoverable. Recovery also requires matching attempt
 identity, a valid protected artifact, an eligible failure category, output

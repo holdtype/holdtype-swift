@@ -41,6 +41,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS output actions | `features/ios-output-actions.md` | Latest result, Copy/Share, insertion eligibility, acknowledgement, recovery |
 | iOS accepted output delivery | `features/ios-accepted-output-delivery-record.md` | App-private accepted-text recovery, CAS, History handoff, expiry |
 | iOS accepted History foundation | `features/ios-accepted-history-foundation.md` | App-private History policy, accepted rows, strict FIFO outbox recovery, terminal-History proof protection, policy-generation cutover |
+| iOS failed History and retry audio | `features/ios-failed-history-and-retry-audio.md` | Bounded failed rows, PendingRecording ownership transfer, retry-only audio cleanup, explicit Retry, History cutover integration |
 | iOS usage estimate | `features/ios-usage-estimate.md` | Local successful-transcription estimate, 30-day summary/chart, pricing gaps, Reset |
 
 ## Source Hints
