@@ -29,7 +29,7 @@ struct IOSPendingRecordingStoreTests {
         #expect(store.storeIdentity.customMirror.children.isEmpty)
     }
 
-    @Test func publicStoresShareRootOwnerButKeepActorIdentitiesDistinct() throws {
+    @Test func publicStoresShareCanonicalRootOwnerAndStoreIdentity() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(
             "pending-root-identity-\(UUID().uuidString)",
             isDirectory: true
@@ -56,7 +56,7 @@ struct IOSPendingRecordingStoreTests {
             applicationSupportDirectoryURL: secondRoot
         )
 
-        #expect(first.storeIdentity != sameRoot.storeIdentity)
+        #expect(first.storeIdentity == sameRoot.storeIdentity)
         #expect(
             first.capabilityOwnerIdentity
                 == sameRoot.capabilityOwnerIdentity
@@ -121,7 +121,7 @@ struct IOSPendingRecordingStoreTests {
             applicationSupportDirectoryURL: alias
         )
 
-        #expect(canonical.storeIdentity != aliased.storeIdentity)
+        #expect(canonical.storeIdentity == aliased.storeIdentity)
         #expect(
             canonical.capabilityOwnerIdentity
                 == aliased.capabilityOwnerIdentity

@@ -1101,12 +1101,20 @@ handoff retain the exact opened audio descriptor; the public executor receives
 only bounded offset reads and never an app-private URL. Root replacement between
 outer validation and repository open writes no destination bytes. Final
 evidence lives in
-`docs/qa/runs/ios-failed-history-capability-foundation-2026-07-11.md`. C4.2B
-is the next checkpoint: row-first PendingRecording transfer, metadata-only
-journal retirement, exact absence proof, and provider-free relaunch
-reconciliation.
-C4.2C then adds exact audio inventory, retention, Delete, tombstone cleanup,
-and final C4.2 QA.
+`docs/qa/runs/ios-failed-history-capability-foundation-2026-07-11.md`.
+
+C4.2B is complete. The Pending store now validates and seals the exact journal
+plus descriptor-backed audio before policy confirmation, commits one row-first
+`pendingJournalRetirement` owner, retires only the exact Pending metadata, and
+requires a root-bound durable absence receipt before the exact transition to
+`ready`. Fresh-lease and relaunch recovery preserve exact source authority,
+perform no provider or audio-removal work, and fail closed for recreated
+Pending metadata. Ordinary Pending APIs cannot regain provider or removal
+authority after failed ownership commits. Final evidence lives in
+`docs/qa/runs/ios-failed-history-pending-transfer-2026-07-11.md`.
+
+C4.2C is the next checkpoint: exact audio inventory, retention, Delete,
+tombstone cleanup, and final C4.2 QA.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1326,12 +1334,11 @@ bridge publication, provider work, or keyboard/App Group state. Its final gate
 record is `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`.
 
 The C4.0 contract for bounded failed History and retry audio is frozen; C4.1
-strict values/journal/store and C4.2A physical-root gate, capability, exact
-mutation, and uncertainty foundations are complete. The next P2 checkpoint is
-C4.2B row-first PendingRecording ownership transfer, metadata-only journal
-retirement, exact absence proof, and provider-free relaunch reconciliation.
-C4.2C then completes protected-audio inventory, retention, Delete, and
-tombstone cleanup; C4.3 through C4.5 join policy
+strict values/journal/store, C4.2A physical-root gate/capability foundations,
+and C4.2B row-first PendingRecording ownership transfer with provider-free
+relaunch reconciliation are complete. The next P2 checkpoint is C4.2C:
+protected-audio inventory, deterministic retention, individual Delete, and
+exact tombstone cleanup. C4.3 through C4.5 then join policy
 cutover, explicit Retry, provider-free recovery, and the public redacted app
 boundary. The independent recording-cache and directional App Group bridge
 flows remain later work and do not enter the keyboard early. Until the full C4

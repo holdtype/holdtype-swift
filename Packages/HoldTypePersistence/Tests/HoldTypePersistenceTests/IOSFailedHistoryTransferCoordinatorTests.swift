@@ -48,6 +48,44 @@ struct IOSFailedHistoryTransferCoordinatorTests {
         #expect(stagedEnvelope.revision == 1)
         #expect(stagedEnvelope.entries.first?.ownershipState == .pendingJournalRetirement)
         #expect(try fixture.rawPendingRecording() == recording)
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await fixture.context.pendingRecordingStore.load()
+        }
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await fixture.context.pendingRecordingStore.discard(
+                expected: IOSPendingRecordingCASExpectation(
+                    recording: recording
+                )
+            )
+        }
+        #expect(try fixture.rawPendingRecording() == recording)
+        #expect(try fixture.audioIdentity(for: recording) == audioIdentityBefore)
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await coordinator.capture(
+                transcriptionModel: "gpt-4o-mini-transcribe",
+                transcriptionLanguageCode: "en",
+                durationMilliseconds: 1_000
+            )
+        }
+        #expect(
+            try await coordinator.recoverAcceptedHistory()
+                == .pendingLocalRecovery
+        )
+        #expect(
+            try await coordinator.recoverAcceptedHistoryOutbox()
+                == .pendingLocalRecovery
+        )
+        #expect(
+            try await coordinator.recoverHistoryPolicyCleanup()
+                == .pendingLocalRecovery
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.localRecoveryPending
+        ) {
+            _ = try await coordinator.setHistoryEnabled(false)
+        }
 
         let relaunchedRegistry =
             IOSAcceptedHistoryCoordinatorProcessContextRegistry()
@@ -120,6 +158,17 @@ struct IOSFailedHistoryTransferCoordinatorTests {
         let audioIdentityBefore = try present.audioIdentity(
             for: presentRecording
         )
+
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await present.context.pendingRecordingStore.load()
+        }
+        await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
+            _ = try await present.context.pendingRecordingStore.discard(
+                expected: IOSPendingRecordingCASExpectation(
+                    recording: presentRecording
+                )
+            )
+        }
 
         await #expect(throws: IOSPendingRecordingError.localRecoveryPending) {
             _ = try await present.makeCoordinator()
@@ -251,6 +300,7 @@ private final class FailedTransferCoordinatorFixture: @unchecked Sendable {
     func stagePendingJournalRetirement(
         for recording: IOSPendingRecording
     ) async throws {
+        let context = context
         try await context.operationGate.perform { lease in
             let source = try await context.pendingRecordingStore
                 .prepareFailedHistoryTransferSource(

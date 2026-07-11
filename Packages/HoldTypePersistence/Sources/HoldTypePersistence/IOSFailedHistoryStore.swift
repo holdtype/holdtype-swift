@@ -12,6 +12,10 @@ struct IOSFailedHistoryPendingRowAbsenceProofMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryTransferRecoveryInspectionMint: Sendable {
+    fileprivate init() {}
+}
+
 private final class IOSFailedHistoryPendingStoreIdentityBinding:
     @unchecked Sendable {
     private let lock = NSLock()
@@ -240,6 +244,10 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
     nonisolated let capabilityOwnerIdentity:
         IOSAcceptedHistoryCapabilityOwnerIdentity
     nonisolated let storeIdentity: IOSFailedHistoryStoreIdentity
+
+    nonisolated var failedStoreIdentity: IOSFailedHistoryStoreIdentity {
+        storeIdentity
+    }
     private let journal: any IOSFailedHistoryJournalStoring
     private let now: @Sendable () -> Date
     private let operationGateBinding: IOSPersistenceOperationGateBinding
@@ -426,15 +434,20 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
     }
 
     /// Proves that a retained pre-row preparation did not become a failed-row
-    /// owner. The old preparation lease must already be dead; only this fresh
-    /// store-minted proof may let the transfer state release its audio lease.
+    /// owner. The proof may use the exact still-active preparation lease after
+    /// a definitive failure, or a fresh lease after the old one expires.
     func provePendingJournalRetirementAppendAbsent(
         for preparation: IOSPendingFailedHistoryTransferPreparation,
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) throws -> IOSFailedHistoryPendingRowAbsenceProof {
         try requireActiveLease(operationLeaseAuthorization)
-        guard !preparation.operationLeaseAuthorization.provesActiveLease(),
+        let exactPreparationLease = preparation
+            .operationLeaseAuthorization
+            .provesSameActiveLease(as: operationLeaseAuthorization)
+        guard (exactPreparationLease
+                || !preparation.operationLeaseAuthorization
+                    .provesActiveLease()),
               uncertainMutationIntent == nil,
               transferMutationIntent == nil,
               !mutationInterlock.isBlocked else {
@@ -491,23 +504,56 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) throws -> IOSFailedHistoryPendingMetadataRetirementAuthority? {
+        switch try inspectTransferRecovery(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) {
+        case .retirePendingMetadata(let authority):
+            return authority
+        case .verifyTerminal:
+            return nil
+        }
+    }
+
+    /// Seals either the one row-derived retirement directive or the complete
+    /// non-PJR failed snapshot needed to distinguish terminal ready ownership
+    /// from an unrelated current Pending recording.
+    func inspectTransferRecovery(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryTransferRecoveryDirective {
         try requireActiveLease(operationLeaseAuthorization)
         try requireNoMutationUncertainty()
         let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
         let repositoryBinding = try requireProductionRepositoryBinding()
-        guard let source = try loadJournalSnapshot(
+        let source = try loadJournalSnapshot(
             repositoryBinding: repositoryBinding
-        ),
-        let row = source.envelope.entries.first(where: {
+        )
+        if let source,
+           let row = source.envelope.entries.first(where: {
             $0.ownershipState == .pendingJournalRetirement
-        }) else {
-            return nil
+           }) {
+            guard let authority =
+                    IOSFailedHistoryPendingMetadataRetirementAuthority(
+                        mint:
+                            IOSFailedHistoryMetadataRetirementAuthorityMint(),
+                        failedSource: source,
+                        row: row,
+                        origin: .relaunched,
+                        failedStoreIdentity: storeIdentity,
+                        expectedPendingStoreIdentity:
+                            pendingStoreIdentity,
+                        ownerIdentity: capabilityOwnerIdentity,
+                        repositoryBinding: repositoryBinding,
+                        operationLeaseAuthorization:
+                            operationLeaseAuthorization
+                    ) else {
+                throw IOSFailedHistoryError.invalidTransition
+            }
+            return .retirePendingMetadata(authority)
         }
-        guard let authority = IOSFailedHistoryPendingMetadataRetirementAuthority(
-            mint: IOSFailedHistoryMetadataRetirementAuthorityMint(),
+        guard let inspection = IOSFailedHistoryTransferRecoveryInspection(
+            mint: IOSFailedHistoryTransferRecoveryInspectionMint(),
             failedSource: source,
-            row: row,
-            origin: .relaunched,
             failedStoreIdentity: storeIdentity,
             expectedPendingStoreIdentity: pendingStoreIdentity,
             ownerIdentity: capabilityOwnerIdentity,
@@ -516,7 +562,70 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         ) else {
             throw IOSFailedHistoryError.invalidTransition
         }
-        return authority
+        return .verifyTerminal(inspection)
+    }
+
+    func hasPendingJournalRetirement(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> Bool {
+        try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
+        let envelope: IOSFailedHistoryEnvelope?
+        if let repositoryBinding = try currentRepositoryBinding() {
+            envelope = try loadJournalSnapshot(
+                repositoryBinding: repositoryBinding
+            )?.envelope
+        } else {
+            envelope = try journal.load()?.envelope
+        }
+        return envelope?.entries.contains(where: {
+            $0.ownershipState == .pendingJournalRetirement
+        }) == true
+    }
+
+    /// Reissues one retained process-local observation under a fresh lease
+    /// without weakening a committed exact Pending source into relaunch
+    /// matching authority.
+    func refreshPendingMetadataRetirementAuthority(
+        _ retained:
+            IOSFailedHistoryPendingMetadataRetirementAuthority,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryPendingMetadataRetirementAuthority {
+        try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
+        let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard retained.failedStoreIdentity == storeIdentity,
+              retained.expectedPendingStoreIdentity
+                == pendingStoreIdentity,
+              retained.ownerIdentity == capabilityOwnerIdentity,
+              retained.repositoryBinding == repositoryBinding,
+              retained.origin != .readyOutcomeConfirmation,
+              let current = try loadJournalSnapshot(
+                  repositoryBinding: repositoryBinding
+              ),
+              current == retained.failedSource,
+              current.envelope.entries.contains(retained.row),
+              let refreshed =
+                IOSFailedHistoryPendingMetadataRetirementAuthority(
+                    mint:
+                        IOSFailedHistoryMetadataRetirementAuthorityMint(),
+                    failedSource: current,
+                    row: retained.row,
+                    origin: retained.origin,
+                    failedStoreIdentity: storeIdentity,
+                    expectedPendingStoreIdentity:
+                        pendingStoreIdentity,
+                    ownerIdentity: capabilityOwnerIdentity,
+                    repositoryBinding: repositoryBinding,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                ) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        return refreshed
     }
 
     func commitReady(
@@ -676,6 +785,11 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
             }
             guard !rowCollision, !cleanupCollision else {
                 throw IOSFailedHistoryError.collision
+            }
+            guard !envelope.entries.contains(where: {
+                $0.ownershipState == .pendingJournalRetirement
+            }) else {
+                throw IOSFailedHistoryError.slotOccupied
             }
         }
         guard let proof = IOSFailedHistoryPendingOwnershipAbsenceProof(

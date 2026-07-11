@@ -255,12 +255,14 @@ public extension IOSAcceptedHistoryCoordinator {
     ) async throws -> IOSAcceptedHistoryAcceptanceResult {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
+        let failedHistoryStore = failedHistoryStore
         let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -274,12 +276,24 @@ public extension IOSAcceptedHistoryCoordinator {
                     throw IOSAcceptedHistoryCoordinatorError
                         .localRecoveryPending
                 }
+                guard await failedHistoryTransferState.current() == nil else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
                         .repositoryIdentityConflict
                 }
                 do {
+                    guard try await failedHistoryStore
+                        .hasPendingJournalRetirement(
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization
+                        ) == false else {
+                        throw IOSAcceptedHistoryCoordinatorError
+                            .localRecoveryPending
+                    }
                     guard await outboxWorkerState.current() == nil else {
                         throw IOSAcceptedOutputDeliveryError.commitUncertain
                     }
@@ -429,12 +443,14 @@ public extension IOSAcceptedHistoryCoordinator {
         async throws -> IOSAcceptedHistoryAcceptanceResolution? {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
+        let failedHistoryStore = failedHistoryStore
         let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -448,12 +464,22 @@ public extension IOSAcceptedHistoryCoordinator {
                     throw IOSAcceptedHistoryCoordinatorError
                         .localRecoveryPending
                 }
+                guard await failedHistoryTransferState.current() == nil else {
+                    return .pendingLocalRecovery
+                }
                 let repositoryBinding = repositoryRegistration?.revalidate()
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
                         .repositoryIdentityConflict
                 }
                 do {
+                    guard try await failedHistoryStore
+                        .hasPendingJournalRetirement(
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization
+                        ) == false else {
+                        return .pendingLocalRecovery
+                    }
                     guard await outboxWorkerState.current() == nil else {
                         return .pendingLocalRecovery
                     }

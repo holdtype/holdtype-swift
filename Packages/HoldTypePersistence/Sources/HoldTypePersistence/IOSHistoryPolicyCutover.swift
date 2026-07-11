@@ -154,6 +154,7 @@ public extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let cutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -162,7 +163,11 @@ public extension IOSAcceptedHistoryCoordinator {
 
         do {
             return try await operationGate.perform {
+                operationLeaseAuthorization in
                 guard !failedHistoryMutationInterlock.isBlocked else {
+                    return .pendingLocalRecovery
+                }
+                guard await failedHistoryTransferState.current() == nil else {
                     return .pendingLocalRecovery
                 }
                 let retainedAtEntry = await cutoverState.current()
@@ -179,6 +184,13 @@ public extension IOSAcceptedHistoryCoordinator {
                     }
                     throw IOSAcceptedHistoryCoordinatorError
                         .repositoryIdentityConflict
+                }
+                guard try await failedHistoryStore
+                    .hasPendingJournalRetirement(
+                        operationLeaseAuthorization:
+                            operationLeaseAuthorization
+                    ) == false else {
+                    return .pendingLocalRecovery
                 }
                 let hasAcceptanceWork = await acceptanceState.current() != nil
                 let hasPendingReplacementWork = await pendingReplacementState
@@ -314,6 +326,7 @@ private extension IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let cutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -322,7 +335,17 @@ private extension IOSAcceptedHistoryCoordinator {
 
         do {
             return try await operationGate.perform {
+                operationLeaseAuthorization in
                 let retainedAtEntry = await cutoverState.current()
+                if await failedHistoryTransferState.current() != nil {
+                    if retainedAtEntry?.ownerIdentity == ownerIdentity,
+                       retainedAtEntry?.command == command,
+                       retainedAtEntry?.phase.crossedLogicalBoundary == true {
+                        return .pendingLocalRecovery
+                    }
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
                 if failedHistoryMutationInterlock.isBlocked {
                     if retainedAtEntry?.ownerIdentity == ownerIdentity,
                        retainedAtEntry?.command == command,
@@ -345,6 +368,20 @@ private extension IOSAcceptedHistoryCoordinator {
                     }
                     throw IOSAcceptedHistoryCoordinatorError
                         .repositoryIdentityConflict
+                }
+
+                if try await failedHistoryStore
+                    .hasPendingJournalRetirement(
+                        operationLeaseAuthorization:
+                            operationLeaseAuthorization
+                    ) {
+                    if retainedAtEntry?.ownerIdentity == ownerIdentity,
+                       retainedAtEntry?.command == command,
+                       retainedAtEntry?.phase.crossedLogicalBoundary == true {
+                        return .pendingLocalRecovery
+                    }
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
                 }
 
                 do {

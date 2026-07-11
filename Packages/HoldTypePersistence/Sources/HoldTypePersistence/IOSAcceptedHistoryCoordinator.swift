@@ -99,6 +99,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         IOSAcceptedHistoryPendingReplacementOperationState
     let outboxWorkerState: IOSAcceptedHistoryOutboxWorkerOperationState
     let policyCutoverState: IOSHistoryPolicyCutoverOperationState
+    let failedHistoryTransferState:
+        IOSFailedHistoryTransferOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -143,6 +145,14 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             capabilityOwnerIdentity: capabilityOwnerIdentity,
             repositoryGuard: repositoryGuard
         )
+        let failedHistoryStore = IOSFailedHistoryStore(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            capabilityOwnerIdentity: capabilityOwnerIdentity,
+            expectedPendingStoreIdentity: pendingRecordingStoreIdentity,
+            repositoryGuard: repositoryGuard,
+            mutationInterlock: failedHistoryMutationInterlock
+        )
+        self.failedHistoryStore = failedHistoryStore
         let pendingRecordingStore = IOSPendingRecordingStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             capabilityOwnerIdentity: capabilityOwnerIdentity,
@@ -153,19 +163,14 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
                 pendingRecordingMediaValidationWorkerGate,
             repositoryGuard: repositoryGuard,
             failedHistoryMutationInterlock:
-                failedHistoryMutationInterlock
+                failedHistoryMutationInterlock,
+            failedOwnershipInspector: failedHistoryStore
         )
         self.pendingRecordingStore = pendingRecordingStore
         acceptedHistoryStore = IOSAcceptedHistoryStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             capabilityOwnerIdentity: capabilityOwnerIdentity,
             repositoryGuard: repositoryGuard
-        )
-        failedHistoryStore = IOSFailedHistoryStore(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            capabilityOwnerIdentity: capabilityOwnerIdentity,
-            repositoryGuard: repositoryGuard,
-            mutationInterlock: failedHistoryMutationInterlock
         )
         outboxStore = IOSAcceptedHistoryOutboxStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
@@ -187,11 +192,17 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
+        failedHistoryTransferState =
+            IOSFailedHistoryTransferOperationState()
         self.repositoryIdentityState = repositoryIdentityState
 
         let pendingGateBindingAccepted =
             pendingRecordingStore.bindOperationGateIdentity(
                 operationGate.identity
+            )
+        let pendingFailedBindingAccepted =
+            failedHistoryStore.bindExpectedPendingStoreIdentity(
+                pendingRecordingStoreIdentity
             )
         let failedGateBindingAccepted =
             failedHistoryStore.bindOperationGateIdentity(
@@ -202,6 +213,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         let deliveryGateBindingAccepted =
             deliveryStore.bindOperationGateIdentity(operationGate.identity)
         if !pendingGateBindingAccepted
+            || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted {
@@ -801,6 +813,8 @@ public actor IOSAcceptedHistoryCoordinator {
         IOSAcceptedHistoryPendingReplacementOperationState
     let outboxWorkerState: IOSAcceptedHistoryOutboxWorkerOperationState
     let policyCutoverState: IOSHistoryPolicyCutoverOperationState
+    let failedHistoryTransferState:
+        IOSFailedHistoryTransferOperationState
     let failedHistoryMutationInterlock: IOSFailedHistoryMutationInterlock
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
@@ -826,6 +840,7 @@ public actor IOSAcceptedHistoryCoordinator {
         pendingReplacementState = context.pendingReplacementState
         outboxWorkerState = context.outboxWorkerState
         policyCutoverState = context.policyCutoverState
+        failedHistoryTransferState = context.failedHistoryTransferState
         failedHistoryMutationInterlock =
             context.failedHistoryMutationInterlock
         ownerIdentity = context.ownerIdentity
@@ -853,6 +868,11 @@ public actor IOSAcceptedHistoryCoordinator {
         let operationGate = IOSPersistenceOperationGate()
         let pendingGateBindingAccepted = pendingRecordingStore?
             .bindOperationGateIdentity(operationGate.identity) ?? true
+        let pendingFailedBindingAccepted = pendingRecordingStore.map {
+            failedHistoryStore.bindExpectedPendingStoreIdentity(
+                $0.storeIdentity
+            )
+        } ?? true
         let failedGateBindingAccepted =
             failedHistoryStore.bindOperationGateIdentity(
                 operationGate.identity
@@ -874,12 +894,15 @@ public actor IOSAcceptedHistoryCoordinator {
             IOSAcceptedHistoryPendingReplacementOperationState()
         outboxWorkerState = IOSAcceptedHistoryOutboxWorkerOperationState()
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
+        failedHistoryTransferState =
+            IOSFailedHistoryTransferOperationState()
         failedHistoryMutationInterlock =
             failedHistoryStore.mutationInterlock
         ownerIdentity = capabilityOwnerIdentity
         repositoryIdentityState = identityState
         repositoryRegistration = nil
         if !pendingGateBindingAccepted
+            || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
@@ -893,6 +916,10 @@ public actor IOSAcceptedHistoryCoordinator {
             || (pendingRecordingStore.map {
                 $0.failedMutationInterlock
                     !== failedHistoryStore.mutationInterlock
+            } ?? false)
+            || (pendingRecordingStore.map {
+                $0.expectedFailedStoreIdentity
+                    != failedHistoryStore.storeIdentity
             } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
@@ -926,6 +953,9 @@ public actor IOSAcceptedHistoryCoordinator {
         policyCutoverState:
             IOSHistoryPolicyCutoverOperationState =
                 IOSHistoryPolicyCutoverOperationState(),
+        failedHistoryTransferState:
+            IOSFailedHistoryTransferOperationState =
+                IOSFailedHistoryTransferOperationState(),
         ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         repositoryIdentityState:
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState =
@@ -937,6 +967,11 @@ public actor IOSAcceptedHistoryCoordinator {
             ?? policyStore.capabilityOwnerIdentity
         let pendingGateBindingAccepted = pendingRecordingStore?
             .bindOperationGateIdentity(operationGate.identity) ?? true
+        let pendingFailedBindingAccepted = pendingRecordingStore.map {
+            failedHistoryStore.bindExpectedPendingStoreIdentity(
+                $0.storeIdentity
+            )
+        } ?? true
         let failedGateBindingAccepted =
             failedHistoryStore.bindOperationGateIdentity(
                 operationGate.identity
@@ -957,12 +992,14 @@ public actor IOSAcceptedHistoryCoordinator {
         self.pendingReplacementState = pendingReplacementState
         self.outboxWorkerState = outboxWorkerState
         self.policyCutoverState = policyCutoverState
+        self.failedHistoryTransferState = failedHistoryTransferState
         self.failedHistoryMutationInterlock =
             failedHistoryStore.mutationInterlock
         self.ownerIdentity = capabilityOwnerIdentity
         self.repositoryIdentityState = repositoryIdentityState
         self.repositoryRegistration = repositoryRegistration
         if !pendingGateBindingAccepted
+            || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
@@ -977,6 +1014,10 @@ public actor IOSAcceptedHistoryCoordinator {
             || (pendingRecordingStore.map {
                 $0.failedMutationInterlock
                     !== failedHistoryStore.mutationInterlock
+            } ?? false)
+            || (pendingRecordingStore.map {
+                $0.expectedFailedStoreIdentity
+                    != failedHistoryStore.storeIdentity
             } ?? false)
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
@@ -1009,6 +1050,7 @@ public actor IOSAcceptedHistoryCoordinator {
         let pendingReplacementState = pendingReplacementState
         let outboxWorkerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let repositoryIdentityState = repositoryIdentityState
@@ -1017,7 +1059,12 @@ public actor IOSAcceptedHistoryCoordinator {
 
         do {
             let capture = try await operationGate.perform {
+                operationLeaseAuthorization in
                 guard !failedHistoryMutationInterlock.isBlocked else {
+                    throw IOSAcceptedHistoryCoordinatorError
+                        .localRecoveryPending
+                }
+                guard await failedHistoryTransferState.current() == nil else {
                     throw IOSAcceptedHistoryCoordinatorError
                         .localRecoveryPending
                 }
@@ -1036,6 +1083,14 @@ public actor IOSAcceptedHistoryCoordinator {
                     throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
                 do {
+                    guard try await failedHistoryStore
+                        .hasPendingJournalRetirement(
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization
+                        ) == false else {
+                        throw IOSAcceptedHistoryCoordinatorError
+                            .localRecoveryPending
+                    }
                     do {
                         let recoveryRequired = await baselineRecoveryState.value()
                         let receipt: IOSHistoryPolicyReceipt

@@ -123,12 +123,14 @@ public extension IOSAcceptedHistoryCoordinator {
         async throws -> IOSAcceptedHistoryOutboxRecoveryResolution {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
+        let failedHistoryStore = failedHistoryStore
         let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
         let workerState = outboxWorkerState
         let policyCutoverState = policyCutoverState
+        let failedHistoryTransferState = failedHistoryTransferState
         let failedHistoryMutationInterlock =
             failedHistoryMutationInterlock
         let ownerIdentity = ownerIdentity
@@ -137,7 +139,11 @@ public extension IOSAcceptedHistoryCoordinator {
 
         do {
             return try await operationGate.perform {
+                operationLeaseAuthorization in
                 guard !failedHistoryMutationInterlock.isBlocked else {
+                    return .pendingLocalRecovery
+                }
+                guard await failedHistoryTransferState.current() == nil else {
                     return .pendingLocalRecovery
                 }
                 let repositoryBinding = repositoryRegistration?.revalidate()
@@ -150,6 +156,13 @@ public extension IOSAcceptedHistoryCoordinator {
                     IOSAcceptedHistoryOutboxRecoveryResolution
                         .pendingLocalRecovery
                 do {
+                    guard try await failedHistoryStore
+                        .hasPendingJournalRetirement(
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization
+                        ) == false else {
+                        return .pendingLocalRecovery
+                    }
                     guard await acceptanceState.current() == nil,
                           await pendingReplacementState.current() == nil,
                           await policyCutoverState.current() == nil,

@@ -309,7 +309,42 @@ struct IOSFailedHistoryTransferStoreTests {
         }
     }
 
-    @Test func definitiveAppendAbsenceProofRequiresFreshLeaseAndNoOwner()
+    @Test func freshObservationLeasePreservesCommittedPendingSource()
+        async throws {
+        let fixture = try FailedTransferStoreFixture()
+        let values = try await fixture.makeValues(index: 58)
+        let retained = try await fixture.gate.perform { lease in
+            let preparation = try #require(
+                fixture.preparation(values: values, lease: lease)
+            )
+            return try await fixture.store
+                .commitPendingJournalRetirement(preparation)
+        }
+
+        try await fixture.gate.perform { lease in
+            let refreshed = try await fixture.store
+                .refreshPendingMetadataRetirementAuthority(
+                    retained,
+                    operationLeaseAuthorization: lease
+                )
+            #expect(refreshed.origin == retained.origin)
+            #expect(
+                refreshed.origin == .committed(values.pendingSnapshot)
+            )
+            #expect(refreshed.failedSource == retained.failedSource)
+
+            let relaunched = try #require(
+                try await fixture.store
+                    .makeRelaunchedPendingMetadataRetirementAuthority(
+                        operationLeaseAuthorization: lease
+                    )
+            )
+            #expect(relaunched.origin == .relaunched)
+            #expect(relaunched.origin != refreshed.origin)
+        }
+    }
+
+    @Test func definitiveAppendAbsenceProofAcceptsExactOrFreshLeaseAndNoOwner()
         async throws {
         let fixture = try FailedTransferStoreFixture()
         let values = try await fixture.makeValues(index: 55)
@@ -329,13 +364,12 @@ struct IOSFailedHistoryTransferStoreTests {
             } catch let error as IOSFailedHistoryError {
                 #expect(error == .writeFailed)
             }
-            await #expect(throws: IOSFailedHistoryError.commitUncertain) {
-                _ = try await fixture.store
-                    .provePendingJournalRetirementAppendAbsent(
-                        for: preparation,
-                        operationLeaseAuthorization: lease
-                    )
-            }
+            let proof = try await fixture.store
+                .provePendingJournalRetirementAppendAbsent(
+                    for: preparation,
+                    operationLeaseAuthorization: lease
+                )
+            #expect(proof.preparation === preparation)
             return preparation
         }
 
