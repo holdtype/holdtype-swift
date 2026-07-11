@@ -803,6 +803,539 @@ struct IOSPendingRecordingAudioFileSystemTests {
         }
     }
 
+    @Test func cleanupRemovesOnlyTheExactTombstoneWithoutMediaDecode()
+        async throws {
+        let media = FakePendingRecordingMediaValidator(
+            durations: [1_500, 1_500, 1_500]
+        )
+        let fixture = try makeInventoryFixture(media: media)
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let row = try failedHistoryTestEntry(
+            index: 601,
+            durationMilliseconds: 1_500,
+            byteCount: 40
+        )
+        let target = try failedHistoryTestAudioCleanup(
+            index: 602,
+            byteCount: 32
+        )
+        let otherTombstone = try failedHistoryTestAudioCleanup(
+            index: 603,
+            byteCount: 24
+        )
+        for (relativeIdentifier, bytes) in [
+            (row.audioRelativeIdentifier, [UInt8](repeating: 0x51, count: 40)),
+            (target.audioRelativeIdentifier, [UInt8](repeating: 0x52, count: 32)),
+            (
+                otherTombstone.audioRelativeIdentifier,
+                [UInt8](repeating: 0x53, count: 24)
+            ),
+        ] {
+            fixture.adapter.installFinalAudio(
+                named: URL(fileURLWithPath: relativeIdentifier)
+                    .lastPathComponent,
+                bytes: bytes,
+                configured: true
+            )
+        }
+        let envelope = try IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [row],
+            audioCleanup: [target, otherTombstone]
+        )
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: envelope
+        ) { cleanupAuthorization, fileAuthorization in
+            let evidence = try await fixture.fileSystem
+                .reconcileProtectedAudioCleanup(using: fileAuthorization)
+            #expect(evidence.provesRemoval(of: cleanupAuthorization))
+            #expect(
+                !evidence.provesPreexistingAbsence(
+                    of: cleanupAuthorization
+                )
+            )
+        }
+
+        #expect(Set(fixture.adapter.pendingNames) == [
+            URL(fileURLWithPath: row.audioRelativeIdentifier)
+                .lastPathComponent,
+            URL(fileURLWithPath: otherTombstone.audioRelativeIdentifier)
+                .lastPathComponent,
+        ])
+        #expect(media.requestedTimeouts.count == 3)
+        #expect(fixture.adapter.events.filter {
+            $0.hasPrefix("unlink:")
+        }.count == 1)
+    }
+
+    @Test func cleanupProvesRelaunchStyleAbsenceAgainstExactRemainingSet()
+        async throws {
+        let media = FakePendingRecordingMediaValidator(
+            durations: [1_500, 1_500]
+        )
+        let fixture = try makeInventoryFixture(media: media)
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let row = try failedHistoryTestEntry(
+            index: 611,
+            durationMilliseconds: 1_500,
+            byteCount: 40
+        )
+        let target = try failedHistoryTestAudioCleanup(
+            index: 612,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: row.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x54, count: 40),
+            configured: true
+        )
+        let envelope = try IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [row],
+            audioCleanup: [target]
+        )
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: envelope
+        ) { cleanupAuthorization, fileAuthorization in
+            let evidence = try await fixture.fileSystem
+                .reconcileProtectedAudioCleanup(using: fileAuthorization)
+            #expect(
+                evidence.provesPreexistingAbsence(
+                    of: cleanupAuthorization
+                )
+            )
+            #expect(!evidence.provesRemoval(of: cleanupAuthorization))
+        }
+
+        #expect(media.requestedTimeouts.count == 2)
+        #expect(!fixture.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+        #expect(fixture.adapter.events.filter {
+            $0 == "fsync:directory"
+        }.count == 1)
+    }
+
+    @Test func cleanupRetainsExactRemovedIdentityAcrossFsyncUncertainty()
+        async throws {
+        let fixture = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let target = try failedHistoryTestAudioCleanup(
+            index: 621,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: target.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x55, count: 32),
+            configured: true
+        )
+        fixture.adapter.failNext("fsyncDirectory", errors: [EIO])
+        let envelope = try IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [],
+            audioCleanup: [target]
+        )
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: envelope
+        ) { cleanupAuthorization, fileAuthorization in
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError.removeFailed
+            ) {
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+            #expect(fixture.adapter.pendingNames.isEmpty)
+
+            let evidence = try await fixture.fileSystem
+                .reconcileProtectedAudioCleanup(using: fileAuthorization)
+            #expect(evidence.provesRemoval(of: cleanupAuthorization))
+        }
+
+        #expect(fixture.adapter.events.filter {
+            $0.hasPrefix("unlink:")
+        }.count == 1)
+        #expect(fixture.adapter.events.filter {
+            $0 == "fsync:directory"
+        }.count == 2)
+    }
+
+    @Test func cleanupCancellationKeepsDescriptorsUntilQueuedWorkFinishes()
+        async throws {
+        let media = BlockingSecondPendingRecordingMediaValidator()
+        let fixture = try makeInventoryFixture(media: media)
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let row = try failedHistoryTestEntry(
+            index: 625,
+            durationMilliseconds: 1_500,
+            byteCount: 40
+        )
+        let target = try failedHistoryTestAudioCleanup(
+            index: 626,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: row.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x65, count: 40),
+            configured: true
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: target.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x66, count: 32),
+            configured: true
+        )
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: IOSFailedHistoryEnvelope(
+                revision: 1,
+                entries: [row],
+                audioCleanup: [target]
+            )
+        ) { cleanupAuthorization, fileAuthorization in
+            let cleanupTask = Task {
+                try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+            #expect(media.waitUntilSecondValidationStarts())
+            let closeCount = fixture.adapter.events.filter {
+                $0 == "close"
+            }.count
+
+            cleanupTask.cancel()
+            #expect(
+                fixture.adapter.events.filter { $0 == "close" }.count
+                    == closeCount
+            )
+            media.resumeSecondValidation()
+
+            let evidence: IOSPendingRecordingProtectedAudioCleanupEvidence
+            do {
+                evidence = try await cleanupTask.value
+            } catch IOSPendingRecordingAudioFileSystemError
+                .operationCancelled {
+                evidence = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+            #expect(evidence.provesRemoval(of: cleanupAuthorization))
+            #expect(
+                fixture.adapter.waitUntilCloseCount(closeCount + 2)
+            )
+        }
+    }
+
+    @Test func cleanupRetainsIdentityWhenUnlinkReturnsEINTRAfterCommit()
+        async throws {
+        let fixture = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let target = try failedHistoryTestAudioCleanup(
+            index: 627,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: target.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x67, count: 32),
+            configured: true
+        )
+        fixture.adapter.failNextUnlinkAfterCommit(with: EINTR)
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: IOSFailedHistoryEnvelope(
+                revision: 1,
+                entries: [],
+                audioCleanup: [target]
+            )
+        ) { cleanupAuthorization, fileAuthorization in
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError.removeFailed
+            ) {
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+            #expect(fixture.adapter.pendingNames.isEmpty)
+
+            let evidence = try await fixture.fileSystem
+                .reconcileProtectedAudioCleanup(using: fileAuthorization)
+            #expect(evidence.provesRemoval(of: cleanupAuthorization))
+        }
+
+        // The retry proves ENOENT against the retained pre-unlink inode; it
+        // never issues a second unlink after the ambiguous EINTR result.
+        #expect(fixture.adapter.events.filter {
+            $0.hasPrefix("unlink:")
+        }.count == 1)
+    }
+
+    @Test func cleanupRejectsRecreatedPathAfterUnlinkUncertainty()
+        async throws {
+        let fixture = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let target = try failedHistoryTestAudioCleanup(
+            index: 631,
+            byteCount: 32
+        )
+        let targetName = URL(
+            fileURLWithPath: target.audioRelativeIdentifier
+        ).lastPathComponent
+        fixture.adapter.installFinalAudio(
+            named: targetName,
+            bytes: [UInt8](repeating: 0x56, count: 32),
+            configured: true
+        )
+        fixture.adapter.failNext("fsyncDirectory", errors: [EIO])
+        let envelope = try IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [],
+            audioCleanup: [target]
+        )
+
+        try await withCleanupAuthorization(
+            fixture: fixture,
+            envelope: envelope
+        ) { _, fileAuthorization in
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError.removeFailed
+            ) {
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+            fixture.adapter.installFinalAudio(
+                named: targetName,
+                bytes: [UInt8](repeating: 0x57, count: 32),
+                configured: true
+            )
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError.removeFailed
+            ) {
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+
+        #expect(fixture.adapter.pendingNames == [targetName])
+        #expect(fixture.adapter.events.filter {
+            $0.hasPrefix("unlink:")
+        }.count == 1)
+    }
+
+    @Test func cleanupRejectsUnknownMissingAndOverflowNamespaces()
+        async throws {
+        let unknown = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: unknown.rootURL) }
+        let unknownTarget = try failedHistoryTestAudioCleanup(
+            index: 641,
+            byteCount: 32
+        )
+        unknown.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: unknownTarget.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x58, count: 32),
+            configured: true
+        )
+        unknown.adapter.installFinalAudio(
+            named: ".recording-staging-v1-foreign.m4a",
+            bytes: [0x01],
+            configured: false
+        )
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        ) {
+            try await withCleanupAuthorization(
+                fixture: unknown,
+                envelope: IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [],
+                    audioCleanup: [unknownTarget]
+                )
+            ) { _, fileAuthorization in
+                _ = try await unknown.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+
+        let missing = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: missing.rootURL) }
+        let missingTarget = try failedHistoryTestAudioCleanup(
+            index: 642,
+            byteCount: 32
+        )
+        let missingRow = try failedHistoryTestEntry(
+            index: 643,
+            durationMilliseconds: 1_500,
+            byteCount: 40
+        )
+        missing.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: missingTarget.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x59, count: 32),
+            configured: true
+        )
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        ) {
+            try await withCleanupAuthorization(
+                fixture: missing,
+                envelope: IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [missingRow],
+                    audioCleanup: [missingTarget]
+                )
+            ) { _, fileAuthorization in
+                _ = try await missing.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+
+        let overflow = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: overflow.rootURL) }
+        let overflowTarget = try failedHistoryTestAudioCleanup(
+            index: 644,
+            byteCount: 32
+        )
+        overflow.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: overflowTarget.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x5A, count: 32),
+            configured: true
+        )
+        for index in 0..<11 {
+            overflow.adapter.installFinalAudio(
+                named: "foreign-cleanup-\(index).tmp",
+                bytes: [UInt8(index)],
+                configured: false
+            )
+        }
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        ) {
+            try await withCleanupAuthorization(
+                fixture: overflow,
+                envelope: IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [],
+                    audioCleanup: [overflowTarget]
+                )
+            ) { _, fileAuthorization in
+                _ = try await overflow.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+        #expect(!unknown.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+        #expect(!missing.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+        #expect(!overflow.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+    }
+
+    @Test func cleanupRejectsMismatchedPhysicalRootBeforeUnlink()
+        async throws {
+        let fixture = try makeInventoryFixture(rootIdentityMismatch: true)
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let target = try failedHistoryTestAudioCleanup(
+            index: 651,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: target.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x5B, count: 32),
+            configured: true
+        )
+
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .repositoryIdentityConflict
+        ) {
+            try await withCleanupAuthorization(
+                fixture: fixture,
+                envelope: IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [],
+                    audioCleanup: [target]
+                )
+            ) { _, fileAuthorization in
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+        #expect(!fixture.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+    }
+
+    @Test func cleanupRejectsTargetByteCountMismatchBeforeUnlink()
+        async throws {
+        let fixture = try makeInventoryFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let target = try failedHistoryTestAudioCleanup(
+            index: 652,
+            byteCount: 32
+        )
+        fixture.adapter.installFinalAudio(
+            named: URL(fileURLWithPath: target.audioRelativeIdentifier)
+                .lastPathComponent,
+            bytes: [UInt8](repeating: 0x5C, count: 31),
+            configured: true
+        )
+
+        await #expect(
+            throws: IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        ) {
+            try await withCleanupAuthorization(
+                fixture: fixture,
+                envelope: IOSFailedHistoryEnvelope(
+                    revision: 1,
+                    entries: [],
+                    audioCleanup: [target]
+                )
+            ) { _, fileAuthorization in
+                _ = try await fixture.fileSystem
+                    .reconcileProtectedAudioCleanup(
+                        using: fileAuthorization
+                    )
+            }
+        }
+        #expect(!fixture.adapter.events.contains(where: {
+            $0.hasPrefix("unlink:")
+        }))
+    }
+
     @Test func sealedInventoryRejectsUnknownStagingAndMissingExpectedFiles()
         async throws {
         let fixture = try makeInventoryFixture()
@@ -1295,6 +1828,44 @@ struct IOSPendingRecordingAudioFileSystemTests {
         let fileSystem: FoundationIOSPendingRecordingAudioFileSystem
     }
 
+    private func withCleanupAuthorization(
+        fixture: InventoryFixture,
+        envelope: IOSFailedHistoryEnvelope,
+        pendingSource: IOSPendingRecordingJournalMetadataSnapshot? = nil,
+        operation: @escaping @Sendable (
+            IOSFailedHistoryAudioCleanupAuthorization,
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+        ) async throws -> Void
+    ) async throws {
+        try await fixture.context.operationGate.perform { lease in
+            _ = try await fixture.context.failedHistoryStore
+                .mutateExactForTesting(
+                    envelope,
+                    operationLeaseAuthorization: lease
+                )
+            let cleanupAuthorization = try #require(
+                try await fixture.context.failedHistoryStore
+                    .prepareNextAudioCleanup(
+                        operationLeaseAuthorization: lease
+                    )
+            )
+            let inventory = try #require(
+                IOSProtectedAudioNamespaceInventory(
+                    testingFailedInventory:
+                        cleanupAuthorization.failedInventory,
+                    pendingSource: pendingSource
+                )
+            )
+            let fileAuthorization = try #require(
+                IOSPendingRecordingProtectedAudioCleanupAuthorization(
+                    testing: cleanupAuthorization,
+                    inventory: inventory
+                )
+            )
+            try await operation(cleanupAuthorization, fileAuthorization)
+        }
+    }
+
     private func makeInventoryFixture(
         sourceBytes: [UInt8] = [UInt8](repeating: 0x61, count: 64),
         media: any IOSPendingRecordingMediaValidating =
@@ -1639,6 +2210,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
         var sourceOpenFlags: Int32 = 0
         var transientPreadReplacementBytes: [UInt8]?
         var didUseTransientPreadReplacement = false
+        var unlinkCommittedFailure: Int32?
 
         init(
             sourceBytes: [UInt8],
@@ -1791,6 +2363,10 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
 
     func failNext(_ operation: String, errors: [Int32]) {
         lock.withLock { state.failures[operation] = errors }
+    }
+
+    func failNextUnlinkAfterCommit(with errorCode: Int32) {
+        lock.withLock { state.unlinkCommittedFailure = errorCode }
     }
 
     func createEmptyPendingNamespace() {
@@ -2262,6 +2838,20 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
     ) -> IOSPendingRecordingPOSIXResult<Void> {
         lock.withLock {
             state.events.append("unlink:\(name)")
+            if let failure = state.unlinkCommittedFailure {
+                state.unlinkCommittedFailure = nil
+                guard let directory = state.descriptors[
+                    directoryDescriptor
+                ]?.node,
+                let node = directory.children.removeValue(
+                    forKey: name
+                ) else {
+                    return .failure(ENOENT)
+                }
+                node.linkCount = 0
+                directory.version += 1
+                return .failure(failure)
+            }
             if let failure = state.popFailure("unlink") { return .failure(failure) }
             guard let directory = state.descriptors[directoryDescriptor]?.node,
                   let node = directory.children.removeValue(forKey: name) else {

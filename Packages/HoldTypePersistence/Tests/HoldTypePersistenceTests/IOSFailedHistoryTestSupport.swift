@@ -124,6 +124,8 @@ final class FailedHistoryFakeFileSystem:
 
     var file: IOSStrictProtectedRecordFile?
     var readError: IOSStrictProtectedRecordFileSystemError?
+    var readErrorAfterNextReplace:
+        IOSStrictProtectedRecordFileSystemError?
     var createFailure: Failure?
     var replaceFailure: Failure?
     var maintenanceError: IOSStrictProtectedRecordFileSystemError?
@@ -179,6 +181,10 @@ final class FailedHistoryFakeFileSystem:
             throw failure.error
         }
         install(data)
+        if let readErrorAfterNextReplace {
+            self.readErrorAfterNextReplace = nil
+            readError = readErrorAfterNextReplace
+        }
         return file!.revision
     }
 

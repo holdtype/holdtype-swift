@@ -624,6 +624,161 @@ struct IOSPendingRecordingStoreTests {
         }
     }
 
+    @Test func failedAudioCleanupMintsExactRemovedAndAbsentReceipts()
+        async throws {
+        for disposition in [
+            FakePendingRecordingAudioFileSystem.CleanupDisposition.removed,
+            .alreadyAbsent,
+        ] {
+            let setup = try PendingRowAudioValidationSetup()
+            defer { setup.removeFiles() }
+            let tombstone = try failedHistoryTestAudioCleanup(index: 241)
+            let journal = FakePendingRecordingJournal(
+                events: PendingStoreEventLog()
+            )
+            let events = PendingStoreEventLog()
+            let audio = FakePendingRecordingAudioFileSystem(events: events)
+            audio.cleanupDisposition = disposition
+            let store = setup.makePendingStore(
+                journal: journal,
+                audio: audio
+            )
+
+            try await setup.context.operationGate.perform { lease in
+                _ = try await setup.context.failedHistoryStore
+                    .mutateExactForTesting(
+                        IOSFailedHistoryEnvelope(
+                            revision: 1,
+                            entries: [],
+                            audioCleanup: [tombstone]
+                        ),
+                        operationLeaseAuthorization: lease
+                    )
+                let authorization = try #require(
+                    try await setup.context.failedHistoryStore
+                        .prepareNextAudioCleanup(
+                            operationLeaseAuthorization: lease
+                        )
+                )
+                let receipt = try await store
+                    .reconcileFailedHistoryAudioCleanup(
+                        using: authorization,
+                        operationLeaseAuthorization: lease
+                    )
+
+                #expect(receipt.authorization == authorization)
+                #expect(
+                    receipt.issuerStoreIdentity
+                        == setup.context.pendingRecordingStoreIdentity
+                )
+                switch (disposition, receipt.outcome) {
+                case (.removed, .removed(let evidence)):
+                    #expect(evidence.provesRemoval(of: authorization))
+                case (.alreadyAbsent, .alreadyAbsent(let evidence)):
+                    #expect(
+                        evidence.provesPreexistingAbsence(
+                            of: authorization
+                        )
+                    )
+                default:
+                    Issue.record("Unexpected cleanup receipt disposition")
+                }
+            }
+            #expect(events.values == ["audio.cleanup"])
+        }
+    }
+
+    @Test func failedAudioCleanupRejectsPendingSourceChangeAfterRemoval()
+        async throws {
+        let setup = try PendingRowAudioValidationSetup()
+        defer { setup.removeFiles() }
+        let tombstone = try failedHistoryTestAudioCleanup(index: 251)
+        let journal = FakePendingRecordingJournal(
+            events: PendingStoreEventLog()
+        )
+        journal.recording = try pendingRowAudioTestRecording(index: 252)
+        let audio = FakePendingRecordingAudioFileSystem(
+            events: PendingStoreEventLog()
+        )
+        let store = setup.makePendingStore(journal: journal, audio: audio)
+
+        try await setup.context.operationGate.perform { lease in
+            _ = try await setup.context.failedHistoryStore
+                .mutateExactForTesting(
+                    IOSFailedHistoryEnvelope(
+                        revision: 1,
+                        entries: [],
+                        audioCleanup: [tombstone]
+                    ),
+                    operationLeaseAuthorization: lease
+                )
+            let authorization = try #require(
+                try await setup.context.failedHistoryStore
+                    .prepareNextAudioCleanup(
+                        operationLeaseAuthorization: lease
+                    )
+            )
+            audio.onCleanup {
+                journal.recording = try? pendingRowAudioTestRecording(
+                    index: 253
+                )
+            }
+            await #expect(
+                throws: IOSPendingRecordingError.localRecoveryPending
+            ) {
+                _ = try await store.reconcileFailedHistoryAudioCleanup(
+                    using: authorization,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+    }
+
+    @Test func abandonedFailedAudioCleanupCannotReachFilesystem()
+        async throws {
+        let setup = try PendingRowAudioValidationSetup()
+        defer { setup.removeFiles() }
+        let tombstone = try failedHistoryTestAudioCleanup(index: 261)
+        let events = PendingStoreEventLog()
+        let journal = FakePendingRecordingJournal(events: events)
+        let audio = FakePendingRecordingAudioFileSystem(events: events)
+        let store = setup.makePendingStore(journal: journal, audio: audio)
+
+        try await setup.context.operationGate.perform { lease in
+            _ = try await setup.context.failedHistoryStore
+                .mutateExactForTesting(
+                    try IOSFailedHistoryEnvelope(
+                        revision: 1,
+                        entries: [],
+                        audioCleanup: [tombstone]
+                    ),
+                    operationLeaseAuthorization: lease
+                )
+            let authorization = try #require(
+                try await setup.context.failedHistoryStore
+                    .prepareNextAudioCleanup(
+                        operationLeaseAuthorization: lease
+                    )
+            )
+            try await setup.context.failedHistoryStore
+                .abandonPreparedAudioCleanup(
+                    using: authorization,
+                    operationLeaseAuthorization: lease
+                )
+
+            await #expect(
+                throws: IOSPendingRecordingError.localRecoveryPending
+            ) {
+                _ = try await store.reconcileFailedHistoryAudioCleanup(
+                    using: authorization,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+
+        #expect(events.values.filter { $0 == "audio.cleanup" }.isEmpty)
+    }
+
     @Test func journalFailurePreservesPublishedAudioAndReleasesItsCreatorLock() async {
         let fixture = StoreFixture()
         fixture.journal.createError = .journalWriteFailed
@@ -2092,6 +2247,11 @@ private final class FakePendingRecordingJournal:
 private final class FakePendingRecordingAudioFileSystem:
     IOSPendingRecordingAudioFileSystem,
     @unchecked Sendable {
+    enum CleanupDisposition: Sendable {
+        case removed
+        case alreadyAbsent
+    }
+
     private let lock = NSLock()
     private let events: PendingStoreEventLog
     private var storedPublished = false
@@ -2107,6 +2267,8 @@ private final class FakePendingRecordingAudioFileSystem:
     private var storedLeaseReadError: IOSPendingRecordingAudioFileSystemError?
     private var storedOnNextValidatedAudioAcquire:
         (@Sendable () -> Void)?
+    private var storedCleanupDisposition: CleanupDisposition = .removed
+    private var storedOnCleanup: (@Sendable () -> Void)?
 
     var published: Bool { lock.withLock { storedPublished } }
     var publishCallCount: Int { lock.withLock { storedPublishCallCount } }
@@ -2131,6 +2293,10 @@ private final class FakePendingRecordingAudioFileSystem:
         get { lock.withLock { storedLeaseReadError } }
         set { lock.withLock { storedLeaseReadError = newValue } }
     }
+    var cleanupDisposition: CleanupDisposition {
+        get { lock.withLock { storedCleanupDisposition } }
+        set { lock.withLock { storedCleanupDisposition = newValue } }
+    }
 
     func blockNextPublish(with barrier: PendingStorePublishBarrier) {
         lock.withLock { storedPublishBarrier = barrier }
@@ -2146,6 +2312,10 @@ private final class FakePendingRecordingAudioFileSystem:
         lock.withLock {
             storedOnNextValidatedAudioAcquire = operation
         }
+    }
+
+    func onCleanup(_ operation: @escaping @Sendable () -> Void) {
+        lock.withLock { storedOnCleanup = operation }
     }
 
     init(events: PendingStoreEventLog) {
@@ -2164,6 +2334,29 @@ private final class FakePendingRecordingAudioFileSystem:
     ) async throws {
         _ = inventory
         events.append("audio.inventory.validate")
+    }
+
+    func reconcileProtectedAudioCleanup(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) async throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        events.append("audio.cleanup")
+        let values = lock.withLock {
+            let operation = storedOnCleanup
+            storedOnCleanup = nil
+            return (storedCleanupDisposition, operation)
+        }
+        values.1?()
+        switch values.0 {
+        case .removed:
+            return IOSPendingRecordingProtectedAudioCleanupEvidence(
+                testingRemoved: authorization.cleanupAuthorization
+            )
+        case .alreadyAbsent:
+            return IOSPendingRecordingProtectedAudioCleanupEvidence(
+                testingAlreadyAbsent: authorization.cleanupAuthorization
+            )
+        }
     }
 
     func publishProtectedCopy(

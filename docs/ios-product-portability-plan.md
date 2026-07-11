@@ -1134,8 +1134,22 @@ also carries the already-held Pending descriptor through both namespace scans.
 Source-visible uncertainty requires fresh exact descriptor proof, while an
 exact visible outcome is confirmed without reopening the tombstoned file.
 Neither path unlinks audio, and coordinator tests preserve every inode and byte
-count across fresh, source-visible, and outcome-visible paths. C4.2C-3 is next:
-exact one-tombstone audio cleanup, tombstone retirement, and final C4.2 QA.
+count across fresh, source-visible, and outcome-visible paths.
+
+C4.2C-3 and C4.2 are complete. Ordinary lifecycle recovery selects and retires
+only one canonical cleanup head per call. Individual Delete uses a second fresh
+root-gate turn to clean only the tombstone minted from its exact durable
+logical-removal receipt, even when an older tombstone remains queued. The
+Pending filesystem binds pre-unlink identity and exact removed or
+already-absent evidence; the Failed store retires the tombstone only from that
+receipt and distinguishes source-visible CAS uncertainty from an already
+durable outcome. Independent cleanup and mutation interlocks prevent unrelated
+work, stale leases refresh only the retained semantic phase, and a definitive
+journal commit followed by transient completion-read failure completes without
+a second filesystem call or false uncertainty reconciliation. Final C4.2
+evidence lives in
+`docs/qa/runs/ios-failed-history-retention-delete-cleanup-2026-07-11.md`.
+C4.3 policy-cutover integration is next.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1358,11 +1372,14 @@ The C4.0 contract for bounded failed History and retry audio is frozen; C4.1
 strict values/journal/store, C4.2A physical-root gate/capability foundations,
 C4.2B row-first PendingRecording ownership transfer with provider-free
 relaunch reconciliation, C4.2C-1 sealed protected-audio inventory, and C4.2C-2
-deterministic sixth-row retention plus individual Delete are complete. The next
-P2 checkpoint is C4.2C-3: exact one-tombstone audio cleanup and tombstone
-retirement. C4.3 through C4.5 then join policy
-cutover, explicit Retry, provider-free recovery, and the public redacted app
-boundary. The independent recording-cache and directional App Group bridge
+deterministic sixth-row retention plus individual Delete, and C4.2C-3 exact
+one-tombstone cleanup plus retirement are complete. The final C4.2 gate record
+is
+`docs/qa/runs/ios-failed-history-retention-delete-cleanup-2026-07-11.md`.
+The next P2 checkpoint is C4.3: join failed rows and retry-audio ownership to
+the completed C3 policy cutover without another generation change. C4.4 and
+C4.5 then add explicit Retry, provider-free recovery, and the public redacted
+app boundary. The independent recording-cache and directional App Group bridge
 flows remain later work and do not enter the keyboard early. Until the full C4
 chain is complete, the shipping app does not expose a partial History toggle,
 Clear History action, or disclosure that promises those controls.

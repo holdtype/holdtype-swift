@@ -101,6 +101,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let policyCutoverState: IOSHistoryPolicyCutoverOperationState
     let failedHistoryTransferState:
         IOSFailedHistoryTransferOperationState
+    let failedHistoryAudioCleanupState:
+        IOSFailedHistoryAudioCleanupOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -194,6 +196,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
         failedHistoryTransferState =
             IOSFailedHistoryTransferOperationState()
+        failedHistoryAudioCleanupState =
+            IOSFailedHistoryAudioCleanupOperationState()
         self.repositoryIdentityState = repositoryIdentityState
 
         let pendingGateBindingAccepted =
@@ -815,6 +819,8 @@ public actor IOSAcceptedHistoryCoordinator {
     let policyCutoverState: IOSHistoryPolicyCutoverOperationState
     let failedHistoryTransferState:
         IOSFailedHistoryTransferOperationState
+    let failedHistoryAudioCleanupState:
+        IOSFailedHistoryAudioCleanupOperationState
     let failedHistoryMutationInterlock: IOSFailedHistoryMutationInterlock
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
@@ -841,6 +847,8 @@ public actor IOSAcceptedHistoryCoordinator {
         outboxWorkerState = context.outboxWorkerState
         policyCutoverState = context.policyCutoverState
         failedHistoryTransferState = context.failedHistoryTransferState
+        failedHistoryAudioCleanupState =
+            context.failedHistoryAudioCleanupState
         failedHistoryMutationInterlock =
             context.failedHistoryMutationInterlock
         ownerIdentity = context.ownerIdentity
@@ -896,6 +904,8 @@ public actor IOSAcceptedHistoryCoordinator {
         policyCutoverState = IOSHistoryPolicyCutoverOperationState()
         failedHistoryTransferState =
             IOSFailedHistoryTransferOperationState()
+        failedHistoryAudioCleanupState =
+            IOSFailedHistoryAudioCleanupOperationState()
         failedHistoryMutationInterlock =
             failedHistoryStore.mutationInterlock
         ownerIdentity = capabilityOwnerIdentity
@@ -956,6 +966,9 @@ public actor IOSAcceptedHistoryCoordinator {
         failedHistoryTransferState:
             IOSFailedHistoryTransferOperationState =
                 IOSFailedHistoryTransferOperationState(),
+        failedHistoryAudioCleanupState:
+            IOSFailedHistoryAudioCleanupOperationState =
+                IOSFailedHistoryAudioCleanupOperationState(),
         ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         repositoryIdentityState:
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState =
@@ -993,6 +1006,8 @@ public actor IOSAcceptedHistoryCoordinator {
         self.outboxWorkerState = outboxWorkerState
         self.policyCutoverState = policyCutoverState
         self.failedHistoryTransferState = failedHistoryTransferState
+        self.failedHistoryAudioCleanupState =
+            failedHistoryAudioCleanupState
         self.failedHistoryMutationInterlock =
             failedHistoryStore.mutationInterlock
         self.ownerIdentity = capabilityOwnerIdentity

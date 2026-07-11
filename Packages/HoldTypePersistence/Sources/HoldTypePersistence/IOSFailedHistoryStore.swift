@@ -28,6 +28,14 @@ struct IOSFailedHistoryTombstoneReceiptMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryAudioCleanupAuthorizationMint: Sendable {
+    fileprivate init() {}
+}
+
+struct IOSFailedHistoryAudioCleanupCompletionAuthorizationMint: Sendable {
+    fileprivate init() {}
+}
+
 private final class IOSFailedHistoryPendingStoreIdentityBinding:
     @unchecked Sendable {
     private let lock = NSLock()
@@ -81,17 +89,135 @@ extension IOSFailedHistoryReadyCommitUncertainty:
 }
 
 final class IOSFailedHistoryMutationInterlock: @unchecked Sendable {
-    private let lock = NSLock()
-    private var blocked = false
+    private struct CleanupBinding: Equatable {
+        let operationID: IOSFailedHistoryAudioCleanupOperationID
+        let failedStoreIdentity: IOSFailedHistoryStoreIdentity
+        let expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity
+        let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+        let repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding
 
-    var isBlocked: Bool { lock.withLock { blocked } }
+        init(_ authorization: IOSFailedHistoryAudioCleanupAuthorization) {
+            operationID = authorization.operationID
+            failedStoreIdentity = authorization.failedStoreIdentity
+            expectedPendingStoreIdentity =
+                authorization.expectedPendingStoreIdentity
+            ownerIdentity = authorization.ownerIdentity
+            repositoryBinding = authorization.repositoryBinding
+        }
+
+        init(
+            _ authorization:
+                IOSFailedHistoryAudioCleanupCompletionAuthorization
+        ) {
+            operationID = authorization.operationID
+            failedStoreIdentity = authorization.failedStoreIdentity
+            expectedPendingStoreIdentity =
+                authorization.expectedPendingStoreIdentity
+            ownerIdentity = authorization.ownerIdentity
+            repositoryBinding = authorization.repositoryBinding
+        }
+    }
+
+    private let lock = NSLock()
+    private var mutationBlocked = false
+    private var cleanupBinding: CleanupBinding?
+
+    var isBlocked: Bool {
+        lock.withLock { mutationBlocked || cleanupBinding != nil }
+    }
+
+    fileprivate var isMutationBlocked: Bool {
+        lock.withLock { mutationBlocked }
+    }
+
+    fileprivate var isCleanupBlocked: Bool {
+        lock.withLock { cleanupBinding != nil }
+    }
+
+    fileprivate func retainsAudioCleanup(
+        using authorization: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        lock.withLock { cleanupBinding == CleanupBinding(authorization) }
+    }
 
     fileprivate func retainUncertainty() {
-        lock.withLock { blocked = true }
+        lock.withLock { mutationBlocked = true }
     }
 
     fileprivate func clearUncertainty() {
-        lock.withLock { blocked = false }
+        lock.withLock { mutationBlocked = false }
+    }
+
+    fileprivate func retainAudioCleanup(
+        using authorization: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        let binding = CleanupBinding(authorization)
+        return lock.withLock {
+            guard cleanupBinding == nil || cleanupBinding == binding else {
+                return false
+            }
+            cleanupBinding = binding
+            return true
+        }
+    }
+
+    func hasRetainedAudioCleanup(
+        using authorization: IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) -> Bool {
+        guard operationLeaseAuthorization.provesActiveLease(),
+              authorization.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: operationLeaseAuthorization
+                ),
+              authorization.repositoryBinding.physicalRootIdentity != nil else {
+            return false
+        }
+        return lock.withLock {
+            cleanupBinding == CleanupBinding(authorization)
+        }
+    }
+
+    @discardableResult
+    func clearAudioCleanup(
+        using authorization:
+            IOSFailedHistoryAudioCleanupCompletionAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) -> Bool {
+        guard operationLeaseAuthorization.provesActiveLease(),
+              authorization.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: operationLeaseAuthorization
+                ),
+              authorization.repositoryBinding.physicalRootIdentity != nil else {
+            return false
+        }
+        return lock.withLock {
+            guard cleanupBinding == CleanupBinding(authorization) else {
+                return false
+            }
+            cleanupBinding = nil
+            return true
+        }
+    }
+
+    fileprivate func abandonAudioCleanup(
+        using authorization: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        guard authorization.operationLeaseAuthorization.provesActiveLease()
+        else {
+            return false
+        }
+        return lock.withLock {
+            guard cleanupBinding == CleanupBinding(authorization) else {
+                return false
+            }
+            cleanupBinding = nil
+            return true
+        }
     }
 }
 
@@ -156,6 +282,12 @@ private enum IOSFailedHistoryTransferMutationIntent: Sendable {
 private struct IOSFailedHistoryRowRemovalMutationIntent: Sendable {
     let authorization: IOSFailedHistoryRowAudioValidationAuthorization
     let outcome: IOSFailedHistoryEnvelope
+}
+
+private struct IOSFailedHistoryAudioCleanupMutationIntent: Sendable {
+    var authorization: IOSFailedHistoryAudioCleanupAuthorization
+    let outcome: IOSFailedHistoryEnvelope
+    var retirementReceipt: IOSFailedHistoryAudioCleanupReceipt?
 }
 
 struct IOSFailedHistoryMutationCapability: Equatable, Sendable {
@@ -281,6 +413,8 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         IOSFailedHistoryTransferMutationIntent?
     private var rowRemovalMutationIntent:
         IOSFailedHistoryRowRemovalMutationIntent?
+    private var audioCleanupMutationIntent:
+        IOSFailedHistoryAudioCleanupMutationIntent?
 
     init(
         applicationSupportDirectoryURL: URL,
@@ -505,6 +639,9 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
             IOSPersistenceOperationLeaseAuthorization
     ) throws -> IOSFailedHistoryRowAudioValidationAuthorization {
         try requireActiveLease(operationLeaseAuthorization)
+        guard !mutationInterlock.isCleanupBlocked else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
         let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
         let repositoryBinding = try requireProductionRepositoryBinding()
         guard retained.failedStoreIdentity == storeIdentity,
@@ -664,6 +801,7 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         let authorization = validatedAudio.authorization
         try requireActiveLease(authorization.operationLeaseAuthorization)
         guard authorization.purpose == .delete,
+              !mutationInterlock.isCleanupBlocked,
               uncertainMutationIntent == nil,
               transferMutationIntent == nil,
               rowRemovalMutationIntent == nil else {
@@ -749,11 +887,360 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         )
     }
 
+    /// Ordinary lifecycle cleanup may select only the canonical tombstone head.
+    /// The returned capability also retains the cross-turn cleanup interlock.
+    func prepareNextAudioCleanup(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryAudioCleanupAuthorization? {
+        try requireFreshAudioCleanupAdmission(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard let source = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        ), let tombstone = source.envelope.audioCleanup.first else {
+            return nil
+        }
+        let authorization = try audioCleanupAuthorization(
+            source: source,
+            tombstone: tombstone,
+            outcome: audioCleanupOutcome(
+                source: source,
+                tombstone: tombstone
+            ),
+            purpose: .nextHead,
+            operationID: IOSFailedHistoryAudioCleanupOperationID(),
+            pendingStoreIdentity: pendingStoreIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard mutationInterlock.retainAudioCleanup(using: authorization) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        return authorization
+    }
+
+    /// Explicit Delete may clean only the tombstone created by that exact
+    /// logical-removal receipt, even when it is not the lifecycle queue head.
+    func prepareAudioCleanup(
+        using receipt: IOSFailedHistoryTombstoneReceipt,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryAudioCleanupAuthorization {
+        try requireFreshAudioCleanupAdmission(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard receipt.failedStoreIdentity == storeIdentity,
+              receipt.expectedPendingStoreIdentity == pendingStoreIdentity,
+              receipt.ownerIdentity == capabilityOwnerIdentity,
+              receipt.repositoryBinding == repositoryBinding,
+              receipt.operationLeaseAuthorization.provesSameActiveLease(
+                as: operationLeaseAuthorization
+              ),
+              let source = try loadJournalSnapshot(
+                repositoryBinding: repositoryBinding
+              ), source.envelope == receipt.outcome,
+              source.envelope.audioCleanup.contains(receipt.tombstone) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        let authorization = try audioCleanupAuthorization(
+            source: source,
+            tombstone: receipt.tombstone,
+            outcome: audioCleanupOutcome(
+                source: source,
+                tombstone: receipt.tombstone
+            ),
+            purpose: .explicitDelete(receipt),
+            operationID: IOSFailedHistoryAudioCleanupOperationID(),
+            pendingStoreIdentity: pendingStoreIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard mutationInterlock.retainAudioCleanup(using: authorization) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        return authorization
+    }
+
+    /// Reissues only the exact retained cleanup capability. A visible source
+    /// requires a fresh filesystem receipt; a visible retirement outcome does
+    /// not authorize another audio observation.
+    func refreshAudioCleanupAuthorization(
+        _ retained: IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryAudioCleanupAuthorization? {
+        try requireActiveLease(operationLeaseAuthorization)
+        let retainedLeaseIsRefreshable = retained.operationLeaseAuthorization
+            .provesSameActiveLease(as: operationLeaseAuthorization)
+            || !retained.operationLeaseAuthorization.provesActiveLease()
+        guard retainedLeaseIsRefreshable,
+              mutationInterlock.retainsAudioCleanup(
+                using: retained
+              ) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let intent = audioCleanupMutationIntent
+        if let intent {
+            guard identifiesSameAudioCleanup(
+                    retained,
+                    intent.authorization
+                  ), intent.outcome == retained.outcome else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+            try requireMatchingAudioCleanupMutationUncertainty(intent)
+        } else {
+            guard !mutationInterlock.isMutationBlocked,
+                  uncertainMutationIntent == nil else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        }
+        let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard retained.failedStoreIdentity == storeIdentity,
+              retained.expectedPendingStoreIdentity == pendingStoreIdentity,
+              retained.ownerIdentity == capabilityOwnerIdentity,
+              retained.repositoryBinding == repositoryBinding else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let current = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        )
+        if current == retained.failedSource {
+            let refreshed = try audioCleanupAuthorization(
+                source: retained.failedSource,
+                tombstone: retained.tombstone,
+                outcome: retained.outcome,
+                purpose: retained.purpose,
+                operationID: retained.operationID,
+                pendingStoreIdentity: pendingStoreIdentity,
+                repositoryBinding: repositoryBinding,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
+            if intent != nil {
+                audioCleanupMutationIntent?.authorization = refreshed
+            }
+            return refreshed
+        }
+        guard intent?.retirementReceipt != nil,
+              current?.envelope == retained.outcome else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        return nil
+    }
+
+    /// Retires only the tombstone sealed by the Pending/filesystem receipt.
+    /// Cleanup state remains interlocked until the coordinator clears its exact
+    /// completed phase.
+    func commitAudioCleanup(
+        using receipt: IOSFailedHistoryAudioCleanupReceipt
+    ) throws {
+        let authorization = receipt.authorization
+        try requireActiveLease(authorization.operationLeaseAuthorization)
+        guard !mutationInterlock.isMutationBlocked,
+              mutationInterlock.hasRetainedAudioCleanup(
+                using: authorization,
+                operationLeaseAuthorization:
+                    authorization.operationLeaseAuthorization
+              ),
+              uncertainMutationIntent == nil else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        if let intent = audioCleanupMutationIntent {
+            guard identifiesSameAudioCleanup(
+                    authorization,
+                    intent.authorization
+                  ), intent.outcome == authorization.outcome else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        }
+        try validateAudioCleanupReceipt(receipt)
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        ) == authorization.failedSource else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        var intent = audioCleanupMutationIntent
+            ?? IOSFailedHistoryAudioCleanupMutationIntent(
+                authorization: authorization,
+                outcome: authorization.outcome,
+                retirementReceipt: nil
+            )
+        intent.authorization = authorization
+        intent.retirementReceipt = receipt
+        audioCleanupMutationIntent = intent
+        let capability = try reserveExactMutation(
+            authorization.outcome,
+            operationLeaseAuthorization:
+                authorization.operationLeaseAuthorization
+        )
+        guard capability.source == .existing(authorization.failedSource) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        _ = try commitExactMutation(capability)
+    }
+
+    /// Reconciles only this cleanup's exact failed-journal CAS uncertainty.
+    /// Source-visible state requires a fresh exact absence receipt; an exact
+    /// visible outcome is confirmed without touching protected audio.
+    func reconcileAudioCleanupCommit(
+        receipt: IOSFailedHistoryAudioCleanupReceipt?,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireActiveLease(operationLeaseAuthorization)
+        guard mutationInterlock.isMutationBlocked,
+              let uncertainMutationIntent,
+              var intent = audioCleanupMutationIntent,
+              mutationInterlock.retainsAudioCleanup(
+                using: intent.authorization
+              ),
+              intent.retirementReceipt != nil,
+              uncertainMutationIntent.outcome == intent.outcome else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        let current = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        )
+        if current == intent.authorization.failedSource {
+            guard let receipt,
+                  identifiesSameAudioCleanup(
+                    receipt.authorization,
+                    intent.authorization
+                  ), receipt.authorization.operationLeaseAuthorization
+                    .provesSameActiveLease(
+                        as: operationLeaseAuthorization
+                    ) else {
+                throw IOSFailedHistoryError.invalidTransition
+            }
+            try validateAudioCleanupReceipt(receipt)
+            intent.authorization = receipt.authorization
+            intent.retirementReceipt = receipt
+            audioCleanupMutationIntent = intent
+        } else {
+            guard receipt == nil,
+                  current?.envelope == intent.outcome else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        }
+        _ = try commitExactMutation(
+            reserveExactMutation(
+                intent.outcome,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
+        )
+    }
+
+    /// Confirms that the coordinator's exact cleanup phase is still retained.
+    func hasRetainedAudioCleanup(
+        matching retained: IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> Bool {
+        try requireActiveLease(operationLeaseAuthorization)
+        guard mutationInterlock.hasRetainedAudioCleanup(
+            using: retained,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            return false
+        }
+        guard let intent = audioCleanupMutationIntent else { return true }
+        return identifiesSameAudioCleanup(retained, intent.authorization)
+    }
+
+    /// Clears only the Store semantic phase after exact durable retirement.
+    /// The coordinator state remains responsible for clearing cleanupBlocked.
+    func completeAudioCleanup(
+        using retained: IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryAudioCleanupCompletionAuthorization {
+        try requireActiveLease(operationLeaseAuthorization)
+        let retainedLeaseIsRefreshable = retained.operationLeaseAuthorization
+            .provesSameActiveLease(as: operationLeaseAuthorization)
+            || !retained.operationLeaseAuthorization.provesActiveLease()
+        guard retainedLeaseIsRefreshable,
+              mutationInterlock.retainsAudioCleanup(
+                using: retained
+              ),
+              !mutationInterlock.isMutationBlocked,
+              uncertainMutationIntent == nil,
+              let intent = audioCleanupMutationIntent,
+              intent.retirementReceipt != nil,
+              identifiesSameAudioCleanup(retained, intent.authorization) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard retained.repositoryBinding == repositoryBinding,
+              let current = try loadJournalSnapshot(
+                repositoryBinding: repositoryBinding
+              ), current != intent.authorization.failedSource,
+              current.envelope == intent.outcome else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        guard let completion =
+                IOSFailedHistoryAudioCleanupCompletionAuthorization(
+                    mint:
+                        IOSFailedHistoryAudioCleanupCompletionAuthorizationMint(),
+                    operationID: intent.authorization.operationID,
+                    failedStoreIdentity: storeIdentity,
+                    expectedPendingStoreIdentity:
+                        intent.authorization.expectedPendingStoreIdentity,
+                    ownerIdentity: capabilityOwnerIdentity,
+                    repositoryBinding: repositoryBinding,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                ) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        audioCleanupMutationIntent = nil
+        return completion
+    }
+
+    /// Narrow rollback used only when coordinator state admission fails before
+    /// the cleanup authorization reaches Pending or the filesystem.
+    func abandonPreparedAudioCleanup(
+        using authorization: IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireActiveLease(operationLeaseAuthorization)
+        guard mutationInterlock.hasRetainedAudioCleanup(
+                using: authorization,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+              ),
+              !mutationInterlock.isMutationBlocked,
+              uncertainMutationIntent == nil,
+              audioCleanupMutationIntent == nil else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        ) == authorization.failedSource else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+        audioCleanupMutationIntent = nil
+        guard mutationInterlock.abandonAudioCleanup(
+            using: authorization
+        ) else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+    }
+
     func commitPendingJournalRetirement(
         _ preparation: IOSPendingFailedHistoryTransferPreparation
     ) async throws -> IOSFailedHistoryPendingMetadataRetirementAuthority {
         try requireActiveLease(preparation.operationLeaseAuthorization)
-        guard uncertainMutationIntent == nil,
+        guard !mutationInterlock.isCleanupBlocked,
+              uncertainMutationIntent == nil,
               transferMutationIntent == nil else {
             throw IOSFailedHistoryError.commitUncertain
         }
@@ -820,7 +1307,8 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
               authorization.operationLeaseAuthorization
                 .provesSameActiveLease(
                     as: preparation.operationLeaseAuthorization
-                ), uncertainMutationIntent == nil,
+                ), !mutationInterlock.isCleanupBlocked,
+              uncertainMutationIntent == nil,
               transferMutationIntent == nil,
               rowRemovalMutationIntent == nil else {
             throw IOSFailedHistoryError.commitUncertain
@@ -1198,6 +1686,9 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
     ) throws {
         let authorization = receipt.authority.operationLeaseAuthorization
         try requireActiveLease(authorization)
+        guard !mutationInterlock.isCleanupBlocked else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
         let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
         let repositoryBinding = try requireProductionRepositoryBinding()
         try validate(
@@ -1477,6 +1968,155 @@ private extension IOSFailedHistoryStore {
         let candidate: IOSFailedHistoryEntry
         let tombstone: IOSFailedHistoryAudioCleanup
         let outcome: IOSFailedHistoryEnvelope
+    }
+
+    func requireFreshAudioCleanupAdmission(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
+        guard transferMutationIntent == nil,
+              rowRemovalMutationIntent == nil,
+              audioCleanupMutationIntent == nil,
+              !mutationInterlock.isBlocked else {
+            throw IOSFailedHistoryError.commitUncertain
+        }
+    }
+
+    func audioCleanupOutcome(
+        source: IOSFailedHistoryJournalSnapshot,
+        tombstone: IOSFailedHistoryAudioCleanup
+    ) throws -> IOSFailedHistoryEnvelope {
+        guard let tombstoneIndex = source.envelope.audioCleanup.firstIndex(
+            of: tombstone
+        ) else {
+            throw IOSFailedHistoryError.invalidTransition
+        }
+        let nextRevision = source.envelope.revision
+            .addingReportingOverflow(1)
+        guard !nextRevision.overflow else {
+            throw IOSFailedHistoryError.revisionOverflow
+        }
+        var cleanup = source.envelope.audioCleanup
+        cleanup.remove(at: tombstoneIndex)
+        return try IOSFailedHistoryEnvelope(
+            revision: nextRevision.partialValue,
+            entries: source.envelope.entries,
+            audioCleanup: cleanup
+        )
+    }
+
+    func audioCleanupAuthorization(
+        source: IOSFailedHistoryJournalSnapshot,
+        tombstone: IOSFailedHistoryAudioCleanup,
+        outcome: IOSFailedHistoryEnvelope,
+        purpose: IOSFailedHistoryAudioCleanupPurpose,
+        operationID: IOSFailedHistoryAudioCleanupOperationID,
+        pendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryAudioCleanupAuthorization {
+        guard let failedInventory = IOSFailedHistoryProtectedAudioInventory(
+            mint: IOSFailedHistoryProtectedAudioInventoryMint(),
+            failedSource: source,
+            failedStoreIdentity: storeIdentity,
+            expectedPendingStoreIdentity: pendingStoreIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ), let authorization = IOSFailedHistoryAudioCleanupAuthorization(
+            mint: IOSFailedHistoryAudioCleanupAuthorizationMint(),
+            failedSource: source,
+            tombstone: tombstone,
+            outcome: outcome,
+            purpose: purpose,
+            operationID: operationID,
+            failedInventory: failedInventory,
+            failedStoreIdentity: storeIdentity,
+            expectedPendingStoreIdentity: pendingStoreIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            throw IOSFailedHistoryError.invalidTransition
+        }
+        return authorization
+    }
+
+    func validateAudioCleanupReceipt(
+        _ receipt: IOSFailedHistoryAudioCleanupReceipt
+    ) throws {
+        let authorization = receipt.authorization
+        try requireActiveLease(authorization.operationLeaseAuthorization)
+        let pendingStoreIdentity = try requireExpectedPendingStoreIdentity()
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard receipt.issuerStoreIdentity == pendingStoreIdentity,
+              authorization.failedStoreIdentity == storeIdentity,
+              authorization.expectedPendingStoreIdentity
+                == pendingStoreIdentity,
+              authorization.ownerIdentity == capabilityOwnerIdentity,
+              authorization.repositoryBinding == repositoryBinding,
+              authorization.failedInventory.failedSource
+                == authorization.failedSource,
+              authorization.failedInventory.failedStoreIdentity
+                == storeIdentity,
+              authorization.failedInventory.expectedPendingStoreIdentity
+                == pendingStoreIdentity,
+              authorization.failedInventory.ownerIdentity
+                == capabilityOwnerIdentity,
+              authorization.failedInventory.repositoryBinding
+                == repositoryBinding,
+              authorization.failedInventory.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: authorization.operationLeaseAuthorization
+                ) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        switch receipt.outcome {
+        case .removed(let evidence):
+            guard evidence.provesRemoval(of: authorization) else {
+                throw IOSFailedHistoryError.compareAndSwapFailed
+            }
+        case .alreadyAbsent(let evidence):
+            guard evidence.provesPreexistingAbsence(of: authorization) else {
+                throw IOSFailedHistoryError.compareAndSwapFailed
+            }
+        }
+    }
+
+    func requireMatchingAudioCleanupMutationUncertainty(
+        _ intent: IOSFailedHistoryAudioCleanupMutationIntent
+    ) throws {
+        if mutationInterlock.isMutationBlocked {
+            guard let uncertainMutationIntent,
+                  uncertainMutationIntent.outcome == intent.outcome,
+                  transferMutationIntent == nil,
+                  rowRemovalMutationIntent == nil else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        } else {
+            guard uncertainMutationIntent == nil else {
+                throw IOSFailedHistoryError.commitUncertain
+            }
+        }
+    }
+
+    func identifiesSameAudioCleanup(
+        _ lhs: IOSFailedHistoryAudioCleanupAuthorization,
+        _ rhs: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        lhs.failedSource == rhs.failedSource
+            && lhs.tombstone == rhs.tombstone
+            && lhs.outcome == rhs.outcome
+            && lhs.purpose == rhs.purpose
+            && lhs.operationID == rhs.operationID
+            && lhs.failedStoreIdentity == rhs.failedStoreIdentity
+            && lhs.expectedPendingStoreIdentity
+                == rhs.expectedPendingStoreIdentity
+            && lhs.ownerIdentity == rhs.ownerIdentity
+            && lhs.repositoryBinding == rhs.repositoryBinding
     }
 
     func rowRemovalOutcome(
@@ -2135,7 +2775,8 @@ private extension IOSFailedHistoryStore {
     }
 
     func requireNoMutationUncertainty() throws {
-        guard uncertainMutationIntent == nil else {
+        guard uncertainMutationIntent == nil,
+              !mutationInterlock.isCleanupBlocked else {
             throw IOSFailedHistoryError.commitUncertain
         }
     }

@@ -81,6 +81,111 @@ struct IOSPendingRecordingHeldAudioLeaseMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryAudioCleanupReceiptMint: Sendable {
+    fileprivate init() {}
+
+    #if DEBUG
+    init(testingToken: Void) { _ = testingToken }
+    #endif
+}
+
+struct IOSPendingRecordingProtectedAudioCleanupAuthorization:
+    Equatable,
+    Sendable {
+    let cleanupAuthorization: IOSFailedHistoryAudioCleanupAuthorization
+    let inventory: IOSProtectedAudioNamespaceInventory
+
+    fileprivate init?(
+        cleanupAuthorization:
+            IOSFailedHistoryAudioCleanupAuthorization,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) {
+        guard cleanupAuthorization.operationLeaseAuthorization
+                .provesActiveLease(),
+              cleanupAuthorization.failedInventory
+                == inventory.failedInventory,
+              cleanupAuthorization.failedStoreIdentity
+                == inventory.failedStoreIdentity,
+              cleanupAuthorization.expectedPendingStoreIdentity
+                == inventory.expectedPendingStoreIdentity,
+              cleanupAuthorization.ownerIdentity == inventory.ownerIdentity,
+              cleanupAuthorization.repositoryBinding
+                == inventory.repositoryBinding,
+              cleanupAuthorization.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: inventory.operationLeaseAuthorization
+                ),
+              inventory.artifacts.contains(where: { artifact in
+                  guard case .tombstone(
+                      let attemptID,
+                      let relativeIdentifier,
+                      let byteCount
+                  ) = artifact else {
+                      return false
+                  }
+                  return attemptID
+                          == cleanupAuthorization.tombstone.attemptID
+                      && relativeIdentifier
+                          == cleanupAuthorization.tombstone
+                              .audioRelativeIdentifier
+                      && byteCount
+                          == cleanupAuthorization.tombstone.byteCount
+              }) else {
+            return nil
+        }
+        self.cleanupAuthorization = cleanupAuthorization
+        self.inventory = inventory
+    }
+
+    #if DEBUG
+    init?(
+        testing cleanupAuthorization:
+            IOSFailedHistoryAudioCleanupAuthorization,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) {
+        self.init(
+            cleanupAuthorization: cleanupAuthorization,
+            inventory: inventory
+        )
+    }
+    #endif
+
+    func provesSameCleanup(
+        as other: IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) -> Bool {
+        cleanupAuthorization.operationID
+                == other.cleanupAuthorization.operationID
+            && cleanupAuthorization.failedSource
+                == other.cleanupAuthorization.failedSource
+            && cleanupAuthorization.tombstone
+                == other.cleanupAuthorization.tombstone
+            && cleanupAuthorization.outcome
+                == other.cleanupAuthorization.outcome
+            && cleanupAuthorization.purpose
+                == other.cleanupAuthorization.purpose
+            && cleanupAuthorization.failedStoreIdentity
+                == other.cleanupAuthorization.failedStoreIdentity
+            && cleanupAuthorization.expectedPendingStoreIdentity
+                == other.cleanupAuthorization.expectedPendingStoreIdentity
+            && cleanupAuthorization.ownerIdentity
+                == other.cleanupAuthorization.ownerIdentity
+            && cleanupAuthorization.repositoryBinding
+                == other.cleanupAuthorization.repositoryBinding
+            && inventory.pendingSource == other.inventory.pendingSource
+    }
+}
+
+extension IOSPendingRecordingProtectedAudioCleanupAuthorization:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSPendingRecordingProtectedAudioCleanupAuthorization(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 struct IOSPendingRecordingStoreIdentity: Equatable, Sendable {
     private let value = UUID()
 }
@@ -1200,9 +1305,121 @@ public actor IOSPendingRecordingStore {
         shouldReleaseAudio = false
         return validated
     }
+
+    func reconcileFailedHistoryAudioCleanup(
+        using authorization:
+            IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryAudioCleanupReceipt {
+        try requireFailedHistoryAudioCleanupAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let journalAuthorization =
+            IOSPendingRecordingMetadataRetirementAuthorization()
+        let pendingSource = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: journalAuthorization
+            )
+        }
+        guard let inventory = IOSProtectedAudioNamespaceInventory(
+            mint: IOSProtectedAudioNamespaceInventoryMint(),
+            failedInventory: authorization.failedInventory,
+            pendingSource: pendingSource
+        ) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        try requireProtectedAudioNamespaceInventoryAuthority(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard let fileAuthorization =
+                IOSPendingRecordingProtectedAudioCleanupAuthorization(
+                    cleanupAuthorization: authorization,
+                    inventory: inventory
+                ) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+
+        let evidence: IOSPendingRecordingProtectedAudioCleanupEvidence
+        do {
+            evidence = try await audioFileSystem
+                .reconcileProtectedAudioCleanup(using: fileAuthorization)
+        } catch {
+            throw mapAudioError(error, operation: .remove)
+        }
+
+        try requireFailedHistoryAudioCleanupAuthority(
+            authorization,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let finalPendingSource = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: journalAuthorization
+            )
+        }
+        guard finalPendingSource == pendingSource else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+
+        let outcome: IOSFailedHistoryAudioCleanupReceipt.Outcome
+        if evidence.provesRemoval(of: authorization) {
+            outcome = .removed(evidence: evidence)
+        } else if evidence.provesPreexistingAbsence(of: authorization) {
+            outcome = .alreadyAbsent(evidence: evidence)
+        } else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        guard let receipt = IOSFailedHistoryAudioCleanupReceipt(
+            mint: IOSFailedHistoryAudioCleanupReceiptMint(),
+            issuerStoreIdentity: storeIdentity,
+            authorization: authorization,
+            outcome: outcome
+        ) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        return receipt
+    }
 }
 
 private extension IOSPendingRecordingStore {
+    func requireFailedHistoryAudioCleanupAuthority(
+        _ authorization:
+            IOSFailedHistoryAudioCleanupAuthorization,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireProtectedAudioInventoryAuthority(
+            authorization.failedInventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              failedHistoryMutationInterlock.hasRetainedAudioCleanup(
+                  using: authorization,
+                  operationLeaseAuthorization:
+                    operationLeaseAuthorization
+              ),
+              authorization.failedStoreIdentity
+                == expectedFailedStoreIdentity,
+              authorization.expectedPendingStoreIdentity == storeIdentity,
+              authorization.ownerIdentity == capabilityOwnerIdentity,
+              authorization.failedSource
+                == authorization.failedInventory.failedSource,
+              authorization.repositoryBinding
+                == authorization.failedInventory.repositoryBinding,
+              authorization.operationLeaseAuthorization
+                .provesSameActiveLease(
+                    as: operationLeaseAuthorization
+                ),
+              authorization.failedSource.envelope.audioCleanup
+                .contains(authorization.tombstone),
+              !authorization.outcome.audioCleanup
+                .contains(authorization.tombstone) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+    }
+
     func requireHeldPendingAudioLease(
         _ heldAudioLease:
             (any IOSPendingRecordingPublishedAudioLease)?,

@@ -388,9 +388,11 @@ not safely removable, the new failure remains visible through
 `PendingRecording`; HoldType does not silently evict either attempt.
 
 Each ordinary lifecycle pass removes or confirms at most one cleanup audio file
-and retires at most its one tombstone. Explicit Delete may drive the same exact
-state machine to completion but does not gain broader deletion authority. Only
-a store-minted authorization for the exact canonical tombstone may remove or
+and retires at most its one canonical head tombstone. Explicit Delete may drive
+the same exact state machine for only the tombstone minted from that Delete's
+exact logical-removal receipt, even when an older unrelated tombstone is still
+queued; it never loops into or skips among other cleanup work. Only a
+store-minted authorization for that exact canonical tombstone may remove or
 confirm absence of its file. The tombstone retires only after a sealed
 post-synchronization outcome bound to the same failed-journal snapshot, root,
 active lease, directory identity, attempt, path, and byte count. A `removed`

@@ -24,6 +24,115 @@ enum IOSPendingRecordingAudioFileSystemError: Error, Equatable, Sendable {
     case removeFailed
 }
 
+/// Opaque descriptor-derived proof for one exact failed-History audio cleanup.
+/// It exposes neither the protected path nor physical filesystem identities.
+struct IOSPendingRecordingProtectedAudioCleanupEvidence: Equatable, Sendable {
+    fileprivate enum Disposition: Equatable, Sendable {
+        case removed
+        case alreadyAbsent
+    }
+
+    fileprivate struct PhysicalIdentity: Equatable, Sendable {
+        let device: dev_t
+        let inode: ino_t
+    }
+
+    fileprivate let authorization:
+        IOSFailedHistoryAudioCleanupAuthorization
+    fileprivate let pendingSource:
+        IOSPendingRecordingJournalMetadataSnapshot?
+    fileprivate let disposition: Disposition
+    fileprivate let directoryIdentity: PhysicalIdentity
+    fileprivate let removedFileIdentity: PhysicalIdentity?
+
+    fileprivate init(
+        authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        disposition: Disposition,
+        directoryIdentity: PhysicalIdentity,
+        removedFileIdentity: PhysicalIdentity?
+    ) {
+        self.authorization = authorization.cleanupAuthorization
+        pendingSource = authorization.inventory.pendingSource
+        self.disposition = disposition
+        self.directoryIdentity = directoryIdentity
+        self.removedFileIdentity = removedFileIdentity
+    }
+
+    func provesRemoval(
+        of authorization: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        authorization.operationLeaseAuthorization.provesActiveLease()
+            && self.authorization == authorization
+            && disposition == .removed
+            && removedFileIdentity != nil
+    }
+
+    func provesPreexistingAbsence(
+        of authorization: IOSFailedHistoryAudioCleanupAuthorization
+    ) -> Bool {
+        authorization.operationLeaseAuthorization.provesActiveLease()
+            && self.authorization == authorization
+            && disposition == .alreadyAbsent
+            && removedFileIdentity == nil
+    }
+
+    fileprivate func provesSameCleanup(
+        as authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) -> Bool {
+        let other = authorization.cleanupAuthorization
+        return self.authorization.operationID == other.operationID
+            && self.authorization.failedSource == other.failedSource
+            && self.authorization.tombstone == other.tombstone
+            && self.authorization.outcome == other.outcome
+            && self.authorization.purpose == other.purpose
+            && self.authorization.failedStoreIdentity
+                == other.failedStoreIdentity
+            && self.authorization.expectedPendingStoreIdentity
+                == other.expectedPendingStoreIdentity
+            && self.authorization.ownerIdentity == other.ownerIdentity
+            && self.authorization.repositoryBinding
+                == other.repositoryBinding
+            && pendingSource == authorization.inventory.pendingSource
+    }
+
+    #if DEBUG
+    init(
+        testingRemoved authorization:
+            IOSFailedHistoryAudioCleanupAuthorization
+    ) {
+        self.authorization = authorization
+        pendingSource = nil
+        disposition = .removed
+        directoryIdentity = PhysicalIdentity(device: 1, inode: 1)
+        removedFileIdentity = PhysicalIdentity(device: 1, inode: 2)
+    }
+
+    init(
+        testingAlreadyAbsent authorization:
+            IOSFailedHistoryAudioCleanupAuthorization
+    ) {
+        self.authorization = authorization
+        pendingSource = nil
+        disposition = .alreadyAbsent
+        directoryIdentity = PhysicalIdentity(device: 1, inode: 1)
+        removedFileIdentity = nil
+    }
+    #endif
+}
+
+extension IOSPendingRecordingProtectedAudioCleanupEvidence:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSPendingRecordingProtectedAudioCleanupEvidence(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 protocol IOSPendingRecordingPublishedAudioLease: AnyObject, Sendable {
     var relativeIdentifier: String { get }
     var audioArtifact: AudioRecordingArtifact { get }
@@ -49,6 +158,10 @@ protocol IOSPendingRecordingAudioFileSystem: Sendable {
         _ inventory: IOSProtectedAudioNamespaceInventory,
         holding audioLeases: [any IOSPendingRecordingPublishedAudioLease]
     ) async throws
+    func reconcileProtectedAudioCleanup(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) async throws -> IOSPendingRecordingProtectedAudioCleanupEvidence
 
     #if DEBUG
     func publishProtectedCopy(
@@ -867,6 +980,15 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     private let configuredExpectedRepositoryRoot:
         IOSPersistenceRepositoryRootIdentity?
     private let onRepositoryIdentityMismatch: @Sendable () -> Void
+    /// Accessed only by `queue`. A post-unlink failure keeps the exact opened
+    /// descriptors alive so same-process recovery cannot accept a recreated
+    /// pathname as the removed inode.
+    private var retainedProtectedAudioCleanup:
+        RetainedProtectedAudioCleanup?
+    /// A timeout can win the continuation race after queued work has already
+    /// produced evidence. Preserve that exact result for the matching retry.
+    private var lateProtectedAudioCleanupEvidence:
+        IOSPendingRecordingProtectedAudioCleanupEvidence?
 
     init(
         applicationSupportDirectoryURL: URL,
@@ -894,6 +1016,32 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         self.onRepositoryIdentityMismatch =
             onRepositoryIdentityMismatch
         self.queue = queue
+    }
+
+    deinit {
+        if let retainedProtectedAudioCleanup {
+            adapter.closeFile(retainedProtectedAudioCleanup.fileDescriptor)
+            adapter.closeFile(
+                retainedProtectedAudioCleanup.directory.descriptor
+            )
+        }
+    }
+
+    func reconcileProtectedAudioCleanup(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) async throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        try await runQueued(
+            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            onLateValue: { [self] evidence in
+                lateProtectedAudioCleanupEvidence = evidence
+            }
+        ) { control in
+            try self.reconcileProtectedAudioCleanupSynchronously(
+                using: authorization,
+                control: control
+            )
+        }
     }
 
     #if DEBUG
@@ -1280,6 +1428,27 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         let finish: @Sendable () -> Void
     }
 
+    struct OpenedProtectedAudioCleanupTarget {
+        let descriptor: Int32
+        let identity: FileIdentity
+        let name: String
+    }
+
+    struct RetainedProtectedAudioCleanup {
+        let authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+        let directory: DirectoryHandle
+        let fileDescriptor: Int32
+        let fileIdentity: FileIdentity
+        let targetExpectation: ProtectedAudioExpectation
+        let targetName: String
+    }
+
+    enum RetainedProtectedAudioLinkState: Equatable {
+        case present
+        case absent
+    }
+
     func protectedAudioExpectations(
         for inventory: IOSProtectedAudioNamespaceInventory
     ) throws -> [ProtectedAudioExpectation] {
@@ -1347,6 +1516,647 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
             throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
         }
         return expectations
+    }
+
+    func reconcileProtectedAudioCleanupSynchronously(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        control: PendingRecordingOperationControl
+    ) throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        try requireProtectedAudioCleanupAuthority(
+            authorization,
+            control: control
+        )
+
+        if retainedProtectedAudioCleanup != nil {
+            return try finishRetainedProtectedAudioCleanup(
+                using: authorization,
+                control: control
+            )
+        }
+        if lateProtectedAudioCleanupEvidence != nil {
+            return try reconcileLateProtectedAudioCleanupEvidence(
+                using: authorization,
+                control: control
+            )
+        }
+
+        let cleanup = try protectedAudioCleanupExpectations(
+            for: authorization
+        )
+        guard let directory = try openPendingDirectory(
+            createIfMissing: false,
+            expectedRepositoryRoot: authorization.inventory
+                .repositoryBinding.physicalRootIdentity,
+            control: control
+        ) else {
+            // An absent directory has no exact directory identity to bind to
+            // the cleanup receipt. Preserve the tombstone for later recovery.
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        var ownsDirectory = true
+        defer {
+            if ownsDirectory {
+                adapter.closeFile(directory.descriptor)
+            }
+        }
+
+        let allNames = try expectedProtectedAudioNames(
+            cleanup.all,
+            failure: .protectedAudioInvalid
+        )
+        let remainingNames = try expectedProtectedAudioNames(
+            cleanup.remaining,
+            failure: .protectedAudioInvalid
+        )
+        let observedNames = try protectedAudioFinalNames(
+            in: directory,
+            control: control
+        )
+        if observedNames == remainingNames {
+            return try provePreexistingProtectedAudioAbsence(
+                using: authorization,
+                cleanup: cleanup,
+                directory: directory,
+                control: control
+            )
+        }
+        guard observedNames == allNames else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+
+        let target = try openLockedProtectedAudioCleanupTarget(
+            cleanup.target,
+            in: directory,
+            control: control
+        )
+        var ownsTarget = true
+        defer {
+            if ownsTarget {
+                adapter.closeFile(target.descriptor)
+            }
+        }
+        let heldTarget = HeldProtectedAudioExpectation(
+            expectation: cleanup.target,
+            descriptor: target.descriptor,
+            identity: target.identity,
+            name: target.name
+        )
+        try validateProtectedAudioNamespace(
+            cleanup.all,
+            in: directory,
+            inventory: authorization.inventory,
+            control: control,
+            heldAudio: [heldTarget]
+        )
+        try validateHeldProtectedAudioExpectation(
+            heldTarget,
+            in: directory,
+            control: control
+        )
+        try requireProtectedAudioCleanupAuthority(
+            authorization,
+            control: control
+        )
+        try validatePendingDirectoryPath(directory, control: control)
+        retainedProtectedAudioCleanup = RetainedProtectedAudioCleanup(
+            authorization: authorization,
+            directory: directory,
+            fileDescriptor: target.descriptor,
+            fileIdentity: target.identity,
+            targetExpectation: cleanup.target,
+            targetName: target.name
+        )
+        ownsDirectory = false
+        ownsTarget = false
+        try attemptRetainedProtectedAudioUnlink(control: control)
+        return try finishRetainedProtectedAudioCleanup(
+            using: authorization,
+            control: control
+        )
+    }
+
+    func protectedAudioCleanupExpectations(
+        for authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization
+    ) throws -> (
+        all: [ProtectedAudioExpectation],
+        target: ProtectedAudioExpectation,
+        remaining: [ProtectedAudioExpectation]
+    ) {
+        let all = try protectedAudioExpectations(
+            for: authorization.inventory
+        )
+        let tombstone = authorization.cleanupAuthorization.tombstone
+        let candidates = all.filter {
+            $0.attemptID == tombstone.attemptID
+                && $0.relativeIdentifier
+                    == tombstone.audioRelativeIdentifier
+                && $0.durationMilliseconds == nil
+                && $0.byteCount == tombstone.byteCount
+        }
+        guard candidates.count == 1, let target = candidates.first else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        let remaining = all.filter { $0 != target }
+        guard remaining.count + 1 == all.count else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        return (all, target, remaining)
+    }
+
+    func requireProtectedAudioCleanupAuthority(
+        _ authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        control: PendingRecordingOperationControl
+    ) throws {
+        let cleanup = authorization.cleanupAuthorization
+        guard cleanup.operationLeaseAuthorization.provesActiveLease(),
+              cleanup.failedInventory
+                == authorization.inventory.failedInventory,
+              cleanup.failedSource
+                == authorization.inventory.failedInventory.failedSource,
+              cleanup.failedStoreIdentity
+                == authorization.inventory.failedStoreIdentity,
+              cleanup.expectedPendingStoreIdentity
+                == authorization.inventory.expectedPendingStoreIdentity,
+              cleanup.ownerIdentity == authorization.inventory.ownerIdentity,
+              cleanup.repositoryBinding
+                == authorization.inventory.repositoryBinding,
+              cleanup.operationLeaseAuthorization.provesSameActiveLease(
+                  as: authorization.inventory
+                      .operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        try requireInventoryAuthority(
+            authorization.inventory,
+            control: control
+        )
+        _ = try protectedAudioCleanupExpectations(for: authorization)
+    }
+
+    func expectedProtectedAudioNames(
+        _ expectations: [ProtectedAudioExpectation],
+        failure: IOSPendingRecordingAudioFileSystemError
+    ) throws -> Set<String> {
+        let names = try expectations.map { expectation in
+            guard let fileURL = IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: expectation.relativeIdentifier,
+                in: applicationSupportDirectoryURL
+            ) else {
+                throw failure
+            }
+            return fileURL.lastPathComponent
+        }
+        guard Set(names).count == names.count else { throw failure }
+        return Set(names)
+    }
+
+    func openLockedProtectedAudioCleanupTarget(
+        _ expectation: ProtectedAudioExpectation,
+        in directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> OpenedProtectedAudioCleanupTarget {
+        guard expectation.durationMilliseconds == nil,
+              let fileURL = IOSPendingRecordingStorageLocation.audioFileURL(
+                  forRelativeIdentifier: expectation.relativeIdentifier,
+                  in: applicationSupportDirectoryURL
+              ) else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        let name = fileURL.lastPathComponent
+        try validatePendingDirectoryPath(directory, control: control)
+        let pathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        if case .failure(let errorCode) = pathResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let pathStatus) = pathResult else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        let openResult = try call(control: control) {
+            adapter.openAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                mode: nil
+            )
+        }
+        if case .failure(let errorCode) = openResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let descriptor) = openResult else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        do {
+            let descriptorStatus = try status(
+                descriptor: descriptor,
+                control: control,
+                failure: .protectedAudioInvalid
+            )
+            let identity = FileIdentity(descriptorStatus)
+            guard isExactOwnedAudioStatus(
+                descriptorStatus,
+                effectiveUserID: directory.effectiveUserID,
+                expectedByteCount: expectation.byteCount
+            ),
+            isExactOwnedAudioStatus(
+                pathStatus,
+                effectiveUserID: directory.effectiveUserID,
+                expectedByteCount: expectation.byteCount
+            ),
+            FileSnapshot(descriptorStatus) == FileSnapshot(pathStatus) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            try validateExactConfiguration(
+                descriptor: descriptor,
+                control: control
+            )
+            try requireSuccess(
+                control: control,
+                failure: .protectedAudioInvalid
+            ) {
+                adapter.lock(
+                    fileDescriptor: descriptor,
+                    operation: LOCK_EX | LOCK_NB
+                )
+            }
+            try validateOwnedAudio(
+                descriptor: descriptor,
+                name: name,
+                directory: directory,
+                expectedIdentity: identity,
+                expectedByteCount: expectation.byteCount,
+                control: control
+            )
+            return OpenedProtectedAudioCleanupTarget(
+                descriptor: descriptor,
+                identity: identity,
+                name: name
+            )
+        } catch {
+            adapter.closeFile(descriptor)
+            throw error
+        }
+    }
+
+    func provePreexistingProtectedAudioAbsence(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        cleanup: (
+            all: [ProtectedAudioExpectation],
+            target: ProtectedAudioExpectation,
+            remaining: [ProtectedAudioExpectation]
+        ),
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        try validateProtectedAudioCleanupAbsence(
+            using: authorization,
+            target: cleanup.target,
+            remaining: cleanup.remaining,
+            directory: directory,
+            control: control
+        )
+        return IOSPendingRecordingProtectedAudioCleanupEvidence(
+            authorization: authorization,
+            disposition: .alreadyAbsent,
+            directoryIdentity: physicalIdentity(directory.identity),
+            removedFileIdentity: nil
+        )
+    }
+
+    func finishRetainedProtectedAudioCleanup(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        control: PendingRecordingOperationControl
+    ) throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        guard let retained = retainedProtectedAudioCleanup,
+              retained.authorization.provesSameCleanup(
+                  as: authorization
+              ) else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        try requireProtectedAudioCleanupAuthority(
+            authorization,
+            control: control
+        )
+        let cleanup = try protectedAudioCleanupExpectations(
+            for: authorization
+        )
+        guard cleanup.target == retained.targetExpectation else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        try validatePendingDirectoryPath(
+            retained.directory,
+            control: control
+        )
+        switch try retainedProtectedAudioLinkState(
+            retained,
+            control: control
+        ) {
+        case .present:
+            try attemptRetainedProtectedAudioUnlink(control: control)
+        case .absent:
+            break
+        }
+        let confirmedRetained = try requireRetainedProtectedAudioCleanup()
+        try validateUnlinkedProtectedAudioCleanupTarget(
+            confirmedRetained,
+            control: control
+        )
+        try validateProtectedAudioCleanupAbsence(
+            using: authorization,
+            target: cleanup.target,
+            remaining: cleanup.remaining,
+            directory: confirmedRetained.directory,
+            control: control
+        )
+        try validateUnlinkedProtectedAudioCleanupTarget(
+            confirmedRetained,
+            control: control
+        )
+        let evidence = IOSPendingRecordingProtectedAudioCleanupEvidence(
+            authorization: authorization,
+            disposition: .removed,
+            directoryIdentity: physicalIdentity(
+                confirmedRetained.directory.identity
+            ),
+            removedFileIdentity: physicalIdentity(
+                confirmedRetained.fileIdentity
+            )
+        )
+        retainedProtectedAudioCleanup = nil
+        adapter.closeFile(confirmedRetained.fileDescriptor)
+        adapter.closeFile(confirmedRetained.directory.descriptor)
+        return evidence
+    }
+
+    func reconcileLateProtectedAudioCleanupEvidence(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        control: PendingRecordingOperationControl
+    ) throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
+        guard let lateEvidence = lateProtectedAudioCleanupEvidence,
+              lateEvidence.provesSameCleanup(as: authorization) else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        try requireProtectedAudioCleanupAuthority(
+            authorization,
+            control: control
+        )
+        let cleanup = try protectedAudioCleanupExpectations(
+            for: authorization
+        )
+        guard let directory = try openPendingDirectory(
+            createIfMissing: false,
+            expectedRepositoryRoot: authorization.inventory
+                .repositoryBinding.physicalRootIdentity,
+            control: control
+        ) else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        defer { adapter.closeFile(directory.descriptor) }
+        guard physicalIdentity(directory.identity)
+                == lateEvidence.directoryIdentity else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        try validateProtectedAudioCleanupAbsence(
+            using: authorization,
+            target: cleanup.target,
+            remaining: cleanup.remaining,
+            directory: directory,
+            control: control
+        )
+        let evidence = IOSPendingRecordingProtectedAudioCleanupEvidence(
+            authorization: authorization,
+            disposition: lateEvidence.disposition,
+            directoryIdentity: lateEvidence.directoryIdentity,
+            removedFileIdentity: lateEvidence.removedFileIdentity
+        )
+        lateProtectedAudioCleanupEvidence = nil
+        return evidence
+    }
+
+    func validateProtectedAudioCleanupAbsence(
+        using authorization:
+            IOSPendingRecordingProtectedAudioCleanupAuthorization,
+        target: ProtectedAudioExpectation,
+        remaining: [ProtectedAudioExpectation],
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws {
+        guard let targetURL = IOSPendingRecordingStorageLocation.audioFileURL(
+            forRelativeIdentifier: target.relativeIdentifier,
+            in: applicationSupportDirectoryURL
+        ) else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+        let targetName = targetURL.lastPathComponent
+        try requireMissingAfterRemoval(
+            name: targetName,
+            directoryDescriptor: directory.descriptor,
+            control: control
+        )
+        try validateProtectedAudioNamespace(
+            remaining,
+            in: directory,
+            inventory: authorization.inventory,
+            control: control
+        )
+        try synchronize(
+            directory.descriptor,
+            control: control,
+            failure: .removeFailed
+        )
+        try requireMissingAfterRemoval(
+            name: targetName,
+            directoryDescriptor: directory.descriptor,
+            control: control
+        )
+        try validateProtectedAudioNamespace(
+            remaining,
+            in: directory,
+            inventory: authorization.inventory,
+            control: control
+        )
+        try requireMissingAfterRemoval(
+            name: targetName,
+            directoryDescriptor: directory.descriptor,
+            control: control
+        )
+        try requireProtectedAudioCleanupAuthority(
+            authorization,
+            control: control
+        )
+    }
+
+    func requireRetainedProtectedAudioCleanup()
+        throws -> RetainedProtectedAudioCleanup {
+        guard let retainedProtectedAudioCleanup else {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        return retainedProtectedAudioCleanup
+    }
+
+    func attemptRetainedProtectedAudioUnlink(
+        control: PendingRecordingOperationControl
+    ) throws {
+        let retained = try requireRetainedProtectedAudioCleanup()
+        try control.checkpoint()
+        try validatePendingDirectoryPath(
+            retained.directory,
+            control: control
+        )
+        guard try retainedProtectedAudioLinkState(
+            retained,
+            control: control
+        ) == .present else {
+            return
+        }
+
+        // Do not use the generic EINTR-retrying syscall wrapper here. POSIX
+        // does not give this workflow a conditional-unlink primitive, so any
+        // returned error can be boundary-ambiguous. The retained descriptor,
+        // directory, and pre-unlink identity stay authoritative for retry.
+        let result = adapter.unlinkAt(
+            directoryDescriptor: retained.directory.descriptor,
+            name: retained.targetName
+        )
+        switch result {
+        case .success:
+            return
+        case .failure(let errorCode) where isDataProtectionFailure(errorCode):
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        case .failure:
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+    }
+
+    func retainedProtectedAudioLinkState(
+        _ retained: RetainedProtectedAudioCleanup,
+        control: PendingRecordingOperationControl
+    ) throws -> RetainedProtectedAudioLinkState {
+        let descriptorStatus = try status(
+            descriptor: retained.fileDescriptor,
+            control: control,
+            failure: .removeFailed
+        )
+        guard descriptorStatus.st_mode & S_IFMT == S_IFREG,
+              descriptorStatus.st_uid
+                == retained.directory.effectiveUserID,
+              descriptorStatus.st_mode & mode_t(0o7777)
+                == mode_t(0o600),
+              descriptorStatus.st_size
+                == off_t(retained.targetExpectation.byteCount),
+              FileIdentity(descriptorStatus) == retained.fileIdentity else {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        do {
+            try validateExactConfiguration(
+                descriptor: retained.fileDescriptor,
+                control: control
+            )
+        } catch IOSPendingRecordingAudioFileSystemError
+            .dataProtectionUnavailable {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        } catch {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+
+        let pathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: retained.directory.descriptor,
+                name: retained.targetName,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        if case .failure(let errorCode) = pathResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        if descriptorStatus.st_nlink == 0,
+           case .failure(ENOENT) = pathResult {
+            return .absent
+        }
+        guard descriptorStatus.st_nlink == 1,
+              case .success(let pathStatus) = pathResult,
+              isExactOwnedAudioStatus(
+                  pathStatus,
+                  effectiveUserID: retained.directory.effectiveUserID,
+                  expectedByteCount:
+                    retained.targetExpectation.byteCount
+              ),
+              FileSnapshot(pathStatus) == FileSnapshot(descriptorStatus)
+        else {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        return .present
+    }
+
+    func validateUnlinkedProtectedAudioCleanupTarget(
+        _ retained: RetainedProtectedAudioCleanup,
+        control: PendingRecordingOperationControl
+    ) throws {
+        let status = try status(
+            descriptor: retained.fileDescriptor,
+            control: control,
+            failure: .removeFailed
+        )
+        guard status.st_mode & S_IFMT == S_IFREG,
+              status.st_uid == retained.directory.effectiveUserID,
+              status.st_nlink == 0,
+              status.st_mode & mode_t(0o7777) == mode_t(0o600),
+              status.st_size
+                == off_t(retained.targetExpectation.byteCount),
+              FileIdentity(status) == retained.fileIdentity else {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        do {
+            try validateExactConfiguration(
+                descriptor: retained.fileDescriptor,
+                control: control
+            )
+        } catch IOSPendingRecordingAudioFileSystemError
+            .dataProtectionUnavailable {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        } catch {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+    }
+
+    func physicalIdentity(
+        _ identity: FileIdentity
+    ) -> IOSPendingRecordingProtectedAudioCleanupEvidence.PhysicalIdentity {
+        IOSPendingRecordingProtectedAudioCleanupEvidence.PhysicalIdentity(
+            device: identity.device,
+            inode: identity.inode
+        )
     }
 
     func requireInventoryAuthority(

@@ -256,7 +256,7 @@ struct IOSFailedHistoryTransferCoordinatorTests {
         )
     }
 
-    @Test func individualDeleteQueuesOnlySelectedTombstoneAndPreservesAudio()
+    @Test func individualDeleteCleansOnlySelectedAudioAndTombstone()
         async throws {
         let fixture = try FailedTransferCoordinatorFixture()
         let coordinator = fixture.makeCoordinator()
@@ -279,7 +279,6 @@ struct IOSFailedHistoryTransferCoordinatorTests {
                 failure: .recoverableNetworkFailure
             ) == .transferred
         )
-        let audioIdentity = try fixture.audioIdentity(for: selected)
         let before = try #require(
             try await fixture.context.failedHistoryStore.load()
         )
@@ -291,17 +290,17 @@ struct IOSFailedHistoryTransferCoordinatorTests {
         let after = try #require(
             try await fixture.context.failedHistoryStore.load()
         )
-        #expect(after.revision == before.revision + 1)
+        #expect(after.revision == before.revision + 2)
         #expect(!after.entries.contains(where: {
             $0.attemptID == selected.attemptID
         }))
         #expect(after.entries.contains(where: {
             $0.attemptID == retained.attemptID
         }))
-        #expect(after.audioCleanup.count == 1)
-        #expect(after.audioCleanup.first == receipt.tombstone)
+        #expect(after.audioCleanup.isEmpty)
         #expect(receipt.tombstone.attemptID == selected.attemptID)
-        #expect(try fixture.audioIdentity(for: selected) == audioIdentity)
+        #expect(!fixture.audioExists(for: selected))
+        #expect(fixture.audioExists(for: retained))
     }
 
     @Test func retentionUncertaintyReconcilesBothVisibleStatesAcrossCalls()
@@ -415,7 +414,7 @@ struct IOSFailedHistoryTransferCoordinatorTests {
         }
     }
 
-    @Test func deleteImmediatelyReconcilesBothVisibleStatesAndPreservesAudio()
+    @Test func deleteImmediatelyReconcilesBothVisibleStatesAndCleansAudio()
         async throws {
         for outcomeVisible in [false, true] {
             let fixture = try FailedTransferCoordinatorFixture(
@@ -443,9 +442,8 @@ struct IOSFailedHistoryTransferCoordinatorTests {
                     failure: .recoverableNetworkFailure
                 ) == .transferred
             )
-            let recordings = [selected, retained]
-            let audioIdentities = try fixture.audioIdentities(
-                for: recordings
+            let retainedAudioIdentity = try fixture.audioIdentity(
+                for: retained
             )
             let before = try #require(
                 try await fixture.failedHistoryStore.load()
@@ -472,9 +470,9 @@ struct IOSFailedHistoryTransferCoordinatorTests {
             let final = try #require(
                 try await fixture.failedHistoryStore.load()
             )
-            #expect(final.revision == before.revision + 1)
+            #expect(final.revision == before.revision + 2)
             #expect(final.entries == expectedRows)
-            #expect(final.audioCleanup == [receipt.tombstone])
+            #expect(final.audioCleanup.isEmpty)
             #expect(receipt.tombstone.attemptID == selectedRow.attemptID)
             #expect(
                 receipt.tombstone.policyGeneration
@@ -487,9 +485,10 @@ struct IOSFailedHistoryTransferCoordinatorTests {
             #expect(receipt.tombstone.byteCount == selectedRow.byteCount)
             #expect(!fixture.context.failedHistoryMutationInterlock.isBlocked)
             #expect(try fixture.rawPendingRecording() == nil)
+            #expect(!fixture.audioExists(for: selected))
             #expect(
-                try fixture.audioIdentities(for: recordings)
-                    == audioIdentities
+                try fixture.audioIdentity(for: retained)
+                    == retainedAudioIdentity
             )
         }
     }
@@ -591,6 +590,8 @@ private final class FailedTransferCoordinatorFixture: @unchecked Sendable {
             outboxWorkerState: context.outboxWorkerState,
             policyCutoverState: context.policyCutoverState,
             failedHistoryTransferState: context.failedHistoryTransferState,
+            failedHistoryAudioCleanupState:
+                context.failedHistoryAudioCleanupState,
             ownerIdentity: context.ownerIdentity,
             repositoryIdentityState: context.repositoryIdentityState,
             repositoryRegistration:
@@ -719,6 +720,16 @@ private final class FailedTransferCoordinatorFixture: @unchecked Sendable {
                 (attributes[.size] as? NSNumber)?.uint64Value
             )
         )
+    }
+
+    func audioExists(for recording: IOSPendingRecording) -> Bool {
+        guard let url = IOSPendingRecordingStorageLocation.audioFileURL(
+            forRelativeIdentifier: recording.audioRelativeIdentifier,
+            in: applicationSupportDirectoryURL
+        ) else {
+            return false
+        }
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     func audioIdentities(

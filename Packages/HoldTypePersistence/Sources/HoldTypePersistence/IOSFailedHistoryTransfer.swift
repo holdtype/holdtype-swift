@@ -1182,6 +1182,7 @@ extension IOSAcceptedHistoryCoordinator {
         let deliveryStore = deliveryStore
         let operationGate = operationGate
         let transferState = failedHistoryTransferState
+        let cleanupState = failedHistoryAudioCleanupState
         let baselineRecoveryState = baselineRecoveryState
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
@@ -1203,6 +1204,7 @@ extension IOSAcceptedHistoryCoordinator {
                           await pendingReplacementState.current() == nil,
                           await outboxWorkerState.current() == nil,
                           await policyCutoverState.current() == nil,
+                          await cleanupState.current() == nil,
                           await deliveryStore
                             .hasUncertainAcceptanceForHistoryCoordinator()
                             == false,
@@ -1336,6 +1338,7 @@ extension IOSAcceptedHistoryCoordinator {
         let failedHistoryStore = failedHistoryStore
         let deliveryStore = deliveryStore
         let transferState = failedHistoryTransferState
+        let cleanupState = failedHistoryAudioCleanupState
         let baselineRecoveryState = baselineRecoveryState
         let acceptanceState = acceptanceState
         let pendingReplacementState = pendingReplacementState
@@ -1357,6 +1360,7 @@ extension IOSAcceptedHistoryCoordinator {
                           await pendingReplacementState.current() == nil,
                           await outboxWorkerState.current() == nil,
                           await policyCutoverState.current() == nil,
+                          await cleanupState.current() == nil,
                           await deliveryStore
                             .hasUncertainAcceptanceForHistoryCoordinator()
                             == false,
