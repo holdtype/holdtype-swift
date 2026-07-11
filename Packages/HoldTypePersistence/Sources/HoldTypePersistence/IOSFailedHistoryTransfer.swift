@@ -104,6 +104,210 @@ extension IOSFailedHistoryPendingMatchIdentity:
     var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
+/// Descriptor-backed, process-local preparation retained only across the
+/// failed-row commit. Equality is intentionally not an authority mechanism.
+final class IOSPendingFailedHistoryTransferPreparation: @unchecked Sendable {
+    let pendingSnapshot: IOSPendingRecordingJournalMetadataSnapshot
+    let intendedRow: IOSFailedHistoryEntry
+    let pendingStoreIdentity: IOSPendingRecordingStoreIdentity
+    let failedStoreIdentity: IOSFailedHistoryStoreIdentity
+    let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let operationLeaseAuthorization:
+        IOSPersistenceOperationLeaseAuthorization
+    let policyReceipt: IOSHistoryPolicyReceipt
+
+    private let audioLease: any IOSPendingRecordingPublishedAudioLease
+    private let releaseLock = NSLock()
+    private var didReleaseAudioLease = false
+
+    init(
+        pendingSnapshot: IOSPendingRecordingJournalMetadataSnapshot,
+        intendedRow: IOSFailedHistoryEntry,
+        audioLease: any IOSPendingRecordingPublishedAudioLease,
+        pendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        failedStoreIdentity: IOSFailedHistoryStoreIdentity,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        repositoryBinding:
+            IOSAcceptedHistoryCoordinatorRepositoryBinding?,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization,
+        policyReceipt: IOSHistoryPolicyReceipt
+    ) {
+        self.pendingSnapshot = pendingSnapshot
+        self.intendedRow = intendedRow
+        self.audioLease = audioLease
+        self.pendingStoreIdentity = pendingStoreIdentity
+        self.failedStoreIdentity = failedStoreIdentity
+        self.ownerIdentity = ownerIdentity
+        self.repositoryBinding = repositoryBinding
+        self.operationLeaseAuthorization = operationLeaseAuthorization
+        self.policyReceipt = policyReceipt
+    }
+
+    deinit {
+        releaseAudioLease()
+    }
+
+    var audioMetadataMatchesPendingSnapshot: Bool {
+        let recording = pendingSnapshot.recording
+        return audioLease.relativeIdentifier
+                == recording.audioRelativeIdentifier
+            && audioLease.durationMilliseconds
+                == recording.durationMilliseconds
+            && audioLease.audioArtifact.byteCount == recording.byteCount
+    }
+
+    func revalidateAudio() async throws -> AudioRecordingArtifact {
+        try await audioLease.revalidate()
+    }
+
+    func releaseAudioLease() {
+        let shouldRelease = releaseLock.withLock {
+            guard !didReleaseAudioLease else { return false }
+            didReleaseAudioLease = true
+            return true
+        }
+        if shouldRelease {
+            audioLease.release()
+        }
+    }
+}
+
+extension IOSPendingFailedHistoryTransferPreparation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSPendingFailedHistoryTransferPreparation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// Failed-store authority for removing only the redundant Pending metadata.
+/// A committed origin retains the exact pre-row Pending physical snapshot;
+/// relaunch intentionally does not invent one.
+struct IOSFailedHistoryPendingMetadataRetirementAuthority:
+    Equatable,
+    Sendable {
+    enum Origin: Equatable, Sendable {
+        case committed(IOSPendingRecordingJournalMetadataSnapshot)
+        case relaunched
+    }
+
+    let failedSource: IOSFailedHistoryJournalSnapshot
+    let row: IOSFailedHistoryEntry
+    let origin: Origin
+    let failedStoreIdentity: IOSFailedHistoryStoreIdentity
+    let expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity
+    let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let operationLeaseAuthorization:
+        IOSPersistenceOperationLeaseAuthorization
+}
+
+extension IOSFailedHistoryPendingMetadataRetirementAuthority:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryPendingMetadataRetirementAuthority(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// Pending-store proof that the one canonical journal path is durably absent.
+/// The low-level evidence remains opaque and path-typed.
+struct IOSPendingRecordingMetadataAbsenceReceipt: Equatable, Sendable {
+    enum Outcome: Equatable, Sendable {
+        case removed(
+            source: IOSPendingRecordingJournalMetadataSnapshot,
+            evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence
+        )
+        case alreadyAbsent(
+            evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence
+        )
+    }
+
+    let issuerStoreIdentity: IOSPendingRecordingStoreIdentity
+    let authority: IOSFailedHistoryPendingMetadataRetirementAuthority
+    let outcome: Outcome
+
+    var evidence: IOSPendingRecordingJournalMetadataAbsenceEvidence {
+        switch outcome {
+        case .removed(_, let evidence), .alreadyAbsent(let evidence):
+            evidence
+        }
+    }
+}
+
+extension IOSPendingRecordingMetadataAbsenceReceipt:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSPendingRecordingMetadataAbsenceReceipt(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// Immediate proof used by ordinary Pending APIs before they may regain
+/// provider or audio-removal authority.
+struct IOSFailedHistoryPendingOwnershipKey: Equatable, Sendable {
+    let attemptID: UUID
+    let audioRelativeIdentifier: String
+
+    init(recording: IOSPendingRecording) {
+        attemptID = recording.attemptID
+        audioRelativeIdentifier = recording.audioRelativeIdentifier
+    }
+}
+
+extension IOSFailedHistoryPendingOwnershipKey:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryPendingOwnershipKey(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+struct IOSFailedHistoryPendingOwnershipAbsenceProof: Equatable, Sendable {
+    let failedStoreIdentity: IOSFailedHistoryStoreIdentity
+    let expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity
+    let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    let pendingKey: IOSFailedHistoryPendingOwnershipKey
+    let failedSource: IOSFailedHistoryJournalSnapshot?
+    let repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding?
+    let operationLeaseAuthorization:
+        IOSPersistenceOperationLeaseAuthorization
+}
+
+extension IOSFailedHistoryPendingOwnershipAbsenceProof:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSFailedHistoryPendingOwnershipAbsenceProof(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+protocol IOSPendingRecordingFailedOwnershipInspecting: Sendable {
+    func provePendingOwnershipAbsent(
+        for pendingKey: IOSFailedHistoryPendingOwnershipKey,
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryPendingOwnershipAbsenceProof
+}
+
 struct IOSFailedHistoryTransferFailure: Equatable, Sendable {
     let category: IOSFailedHistoryFailureCategory
     let pipelineStage: IOSFailedHistoryPipelineStage
