@@ -994,6 +994,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
         enum Kind: Equatable { case directory, file }
 
         let kind: Kind
+        let device: dev_t
         let inode: ino_t
         var mode: mode_t
         var owner: uid_t
@@ -1007,12 +1008,14 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
 
         init(
             kind: Kind,
+            device: dev_t,
             inode: ino_t,
             mode: mode_t,
             owner: uid_t,
             bytes: [UInt8] = []
         ) {
             self.kind = kind
+            self.device = device
             self.inode = inode
             self.mode = mode
             self.owner = owner
@@ -1037,6 +1040,8 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
 
     private final class State {
         let effectiveUserID: uid_t = 501
+        let device: dev_t
+        let applicationSupportPath: String
         var nextDescriptor: Int32 = 10
         var nextInode: ino_t = 100
         var descriptors: [Int32: Descriptor] = [:]
@@ -1058,10 +1063,18 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
         var transientPreadReplacementBytes: [UInt8]?
         var didUseTransientPreadReplacement = false
 
-        init(sourceBytes: [UInt8]) {
+        init(
+            sourceBytes: [UInt8],
+            applicationSupportPath: String,
+            applicationSupportDevice: dev_t,
+            applicationSupportInode: ino_t
+        ) {
             let owner = uid_t(501)
+            device = applicationSupportDevice
+            self.applicationSupportPath = applicationSupportPath
             sourcePathNode = Node(
                 kind: .file,
+                device: applicationSupportDevice,
                 inode: 1,
                 mode: S_IFREG | mode_t(0o600),
                 owner: owner,
@@ -1069,7 +1082,8 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
             )
             applicationSupportNode = Node(
                 kind: .directory,
-                inode: 2,
+                device: applicationSupportDevice,
+                inode: applicationSupportInode,
                 mode: S_IFDIR | mode_t(0o700),
                 owner: owner
             )
@@ -1083,6 +1097,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
             defer { nextInode += 1 }
             return Node(
                 kind: kind,
+                device: device,
                 inode: nextInode,
                 mode: mode,
                 owner: effectiveUserID,
@@ -1129,8 +1144,18 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
     private let lock = NSCondition()
     private let state: State
 
-    init(sourceBytes: [UInt8]) {
-        state = State(sourceBytes: sourceBytes)
+    init(
+        sourceBytes: [UInt8],
+        applicationSupportPath: String = "/ApplicationSupport",
+        applicationSupportDevice: dev_t = 1,
+        applicationSupportInode: ino_t = 2
+    ) {
+        state = State(
+            sourceBytes: sourceBytes,
+            applicationSupportPath: applicationSupportPath,
+            applicationSupportDevice: applicationSupportDevice,
+            applicationSupportInode: applicationSupportInode
+        )
     }
 
     var events: [String] { lock.withLock { state.events } }
@@ -1271,7 +1296,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
             case "/source.m4a":
                 state.sourceOpenFlags = flags
                 node = state.sourcePathNode
-            case "/ApplicationSupport":
+            case state.applicationSupportPath:
                 node = state.applicationSupportNode
             default:
                 return .failure(ENOENT)
@@ -1355,7 +1380,10 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
             switch path {
             case "/source.m4a":
                 return .success(Self.makeStatus(state.sourcePathNode))
-            case "/ApplicationSupport/HoldType/Recordings/Pending":
+            case state.applicationSupportPath:
+                return .success(Self.makeStatus(state.applicationSupportNode))
+            case state.applicationSupportPath
+                + "/HoldType/Recordings/Pending":
                 guard let pending = state.pendingDirectory(create: false) else {
                     return .failure(ENOENT)
                 }
@@ -1725,7 +1753,7 @@ private final class SimulatedPendingRecordingPOSIXAdapter:
 
     private static func makeStatus(_ node: Node) -> stat {
         var value = stat()
-        value.st_dev = dev_t(1)
+        value.st_dev = node.device
         value.st_ino = node.inode
         value.st_mode = node.mode
         value.st_nlink = node.linkCount

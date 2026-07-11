@@ -40,6 +40,10 @@ protocol IOSPendingRecordingPublishedAudioLease: AnyObject, Sendable {
 protocol IOSPendingRecordingAudioFileSystem: Sendable {
     func requireEmptyNamespace() async throws
 
+    func validateProtectedAudioNamespace(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws
+
     func publishProtectedCopy(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
@@ -52,6 +56,13 @@ protocol IOSPendingRecordingAudioFileSystem: Sendable {
         format: IOSPendingRecordingAudioFormat,
         durationMilliseconds: Int64,
         expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease
+    func publishProtectedCopy(
+        from source: AudioRecordingArtifact,
+        attemptID: UUID,
+        format: IOSPendingRecordingAudioFormat,
+        durationMilliseconds: Int64,
+        inventory: IOSFailedHistoryProtectedAudioInventory
     ) async throws -> any IOSPendingRecordingPublishedAudioLease
 
     func validatePublishedAudio(
@@ -81,6 +92,13 @@ protocol IOSPendingRecordingAudioFileSystem: Sendable {
 }
 
 extension IOSPendingRecordingAudioFileSystem {
+    func validateProtectedAudioNamespace(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws {
+        _ = inventory
+        throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+    }
+
     func publishProtectedCopy(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
@@ -95,6 +113,21 @@ extension IOSPendingRecordingAudioFileSystem {
             format: format,
             durationMilliseconds: durationMilliseconds
         )
+    }
+
+    func publishProtectedCopy(
+        from source: AudioRecordingArtifact,
+        attemptID: UUID,
+        format: IOSPendingRecordingAudioFormat,
+        durationMilliseconds: Int64,
+        inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        _ = source
+        _ = attemptID
+        _ = format
+        _ = durationMilliseconds
+        _ = inventory
+        throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
     }
 
     func removePublishedAudioIfPresent(
@@ -808,6 +841,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     static let maximumAudioByteCount: Int64 = 25_000_000
     static let maximumTransferByteCount = 64 * 1_024
     static let maximumInterruptedRetryCount = 8
+    static let maximumProtectedAudioFinalCount = 11
     static let copyDeadlineNanoseconds: UInt64 = 10_000_000_000
     static let mediaValidationDeadlineNanoseconds: UInt64 = 2_000_000_000
     static let maximumDurationDeltaMilliseconds: Int64 = 250
@@ -879,6 +913,45 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         }
     }
 
+    func validateProtectedAudioNamespace(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws {
+        try await runQueued(
+            deadlineNanoseconds: Self.copyDeadlineNanoseconds
+        ) { control in
+            let expectations = try self.protectedAudioExpectations(
+                for: inventory
+            )
+            try self.requireInventoryAuthority(
+                inventory,
+                control: control
+            )
+            guard let directory = try self.openPendingDirectory(
+                createIfMissing: false,
+                expectedRepositoryRoot:
+                    inventory.repositoryBinding.physicalRootIdentity,
+                control: control
+            ) else {
+                guard expectations.isEmpty else {
+                    throw IOSPendingRecordingAudioFileSystemError
+                        .protectedAudioMissing
+                }
+                try self.requireInventoryAuthority(
+                    inventory,
+                    control: control
+                )
+                return
+            }
+            defer { self.adapter.closeFile(directory.descriptor) }
+            try self.validateProtectedAudioNamespace(
+                expectations,
+                in: directory,
+                inventory: inventory,
+                control: control
+            )
+        }
+    }
+
     func publishProtectedCopy(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
@@ -911,6 +984,31 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
                 format: format,
                 durationMilliseconds: durationMilliseconds,
                 expectedRepositoryRoot: expectedRepositoryRoot,
+                inventory: nil,
+                control: control
+            )
+        }
+    }
+
+    func publishProtectedCopy(
+        from source: AudioRecordingArtifact,
+        attemptID: UUID,
+        format: IOSPendingRecordingAudioFormat,
+        durationMilliseconds: Int64,
+        inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        try await runQueued(
+            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            onLateValue: { $0.release() }
+        ) { control in
+            try self.publishProtectedCopySynchronously(
+                from: source,
+                attemptID: attemptID,
+                format: format,
+                durationMilliseconds: durationMilliseconds,
+                expectedRepositoryRoot:
+                    inventory.repositoryBinding.physicalRootIdentity,
+                inventory: inventory,
                 control: control
             )
         }
@@ -1060,12 +1158,424 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         let artifact: AudioRecordingArtifact
     }
 
+    struct ProtectedAudioExpectation: Equatable, Sendable {
+        let attemptID: UUID
+        let relativeIdentifier: String
+        let durationMilliseconds: Int64?
+        let byteCount: Int64
+    }
+
+    struct HeldProtectedAudioExpectation {
+        let expectation: ProtectedAudioExpectation
+        let descriptor: Int32
+        let identity: FileIdentity
+        let name: String
+    }
+
+    func protectedAudioExpectations(
+        for inventory: IOSFailedHistoryProtectedAudioInventory
+    ) throws -> [ProtectedAudioExpectation] {
+        guard inventory.artifacts.count
+                <= Self.maximumProtectedAudioFinalCount else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        let expectations = inventory.artifacts.map { artifact in
+            switch artifact {
+            case .row(
+                let attemptID,
+                let relativeIdentifier,
+                let durationMilliseconds,
+                let byteCount
+            ):
+                ProtectedAudioExpectation(
+                    attemptID: attemptID,
+                    relativeIdentifier: relativeIdentifier,
+                    durationMilliseconds: durationMilliseconds,
+                    byteCount: byteCount
+                )
+            case .tombstone(
+                let attemptID,
+                let relativeIdentifier,
+                let byteCount
+            ):
+                ProtectedAudioExpectation(
+                    attemptID: attemptID,
+                    relativeIdentifier: relativeIdentifier,
+                    durationMilliseconds: nil,
+                    byteCount: byteCount
+                )
+            }
+        }
+        let attemptIDs = expectations.map(\.attemptID)
+        let relativeIdentifiers = expectations.map(\.relativeIdentifier)
+        guard Set(attemptIDs).count == expectations.count,
+              Set(relativeIdentifiers).count == expectations.count,
+              expectations.allSatisfy({ expectation in
+                  guard expectation.byteCount > 0,
+                        expectation.byteCount < Self.maximumAudioByteCount,
+                        let parsed = IOSPendingRecordingStorageLocation
+                            .parseRelativeAudioIdentifier(
+                                expectation.relativeIdentifier
+                            ),
+                        parsed.attemptID == expectation.attemptID,
+                        let fileURL = IOSPendingRecordingStorageLocation
+                            .audioFileURL(
+                                forRelativeIdentifier:
+                                    expectation.relativeIdentifier,
+                                in: applicationSupportDirectoryURL
+                            ),
+                        expectation.relativeIdentifier
+                            == expectedRelativeIdentifier(
+                                attemptID: expectation.attemptID,
+                                fileExtension: fileURL.pathExtension
+                            ) else {
+                      return false
+                  }
+                  guard let duration = expectation.durationMilliseconds else {
+                      return true
+                  }
+                  return duration > 0 && duration < 300_000
+              }) else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        return expectations
+    }
+
+    func requireInventoryAuthority(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        control: PendingRecordingOperationControl
+    ) throws {
+        try control.checkpoint()
+        guard inventory.operationLeaseAuthorization.provesActiveLease() else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        guard let expectedRoot = inventory.repositoryBinding
+                .physicalRootIdentity else {
+            onRepositoryIdentityMismatch()
+            throw IOSPendingRecordingAudioFileSystemError
+                .repositoryIdentityConflict
+        }
+        let result = try call(control: control) {
+            adapter.statusAtPath(applicationSupportDirectoryURL.path)
+        }
+        if case .failure(let errorCode) = result,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let status) = result,
+              status.st_mode & S_IFMT == S_IFDIR,
+              expectedRoot.matches(status) else {
+            onRepositoryIdentityMismatch()
+            throw IOSPendingRecordingAudioFileSystemError
+                .repositoryIdentityConflict
+        }
+        guard inventory.operationLeaseAuthorization.provesActiveLease() else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+    }
+
+    func validateProtectedAudioNamespace(
+        _ expectations: [ProtectedAudioExpectation],
+        in directory: DirectoryHandle,
+        inventory: IOSFailedHistoryProtectedAudioInventory,
+        control: PendingRecordingOperationControl,
+        heldAudio: HeldProtectedAudioExpectation? = nil
+    ) throws {
+        guard expectations.count <= Self.maximumProtectedAudioFinalCount else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        try requireInventoryAuthority(inventory, control: control)
+        try validatePendingDirectoryPath(directory, control: control)
+        let expectedNames = try Set(expectations.map { expectation in
+            guard let fileURL = IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: expectation.relativeIdentifier,
+                in: applicationSupportDirectoryURL
+            ) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            return fileURL.lastPathComponent
+        })
+        guard expectedNames.count == expectations.count,
+              try protectedAudioFinalNames(
+                  in: directory,
+                  control: control
+              ) == expectedNames else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        for expectation in expectations {
+            if let heldAudio, heldAudio.expectation == expectation {
+                try validateHeldProtectedAudioExpectation(
+                    heldAudio,
+                    in: directory,
+                    control: control
+                )
+            } else {
+                try validateProtectedAudioExpectation(
+                    expectation,
+                    in: directory,
+                    control: control
+                )
+            }
+        }
+        guard try protectedAudioFinalNames(
+            in: directory,
+            control: control
+        ) == expectedNames else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        try validatePendingDirectoryPath(directory, control: control)
+        try requireInventoryAuthority(inventory, control: control)
+    }
+
+    func protectedAudioFinalNames(
+        in directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> Set<String> {
+        try validatePendingDirectoryPath(directory, control: control)
+        let duplicateResult = try call(control: control) {
+            adapter.openAt(
+                directoryDescriptor: directory.descriptor,
+                name: ".",
+                flags: O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW,
+                mode: nil
+            )
+        }
+        if case .failure(let errorCode) = duplicateResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let duplicateDescriptor) = duplicateResult else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        var ownsDuplicateDescriptor = true
+        defer {
+            if ownsDuplicateDescriptor {
+                adapter.closeFile(duplicateDescriptor)
+            }
+        }
+        let streamResult = try call(control: control) {
+            adapter.openDirectoryStream(fileDescriptor: duplicateDescriptor)
+        }
+        if case .failure(let errorCode) = streamResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let stream) = streamResult else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        ownsDuplicateDescriptor = false
+        defer { adapter.closeDirectoryStream(stream) }
+
+        var names = Set<String>()
+        var finalCount = 0
+        while true {
+            let entryResult = try call(control: control) {
+                adapter.nextDirectoryEntry(stream: stream)
+            }
+            if case .failure(let errorCode) = entryResult,
+               isDataProtectionFailure(errorCode) {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .dataProtectionUnavailable
+            }
+            guard case .success(let entry) = entryResult else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .namespaceUnavailable
+            }
+            guard let entry else { break }
+            switch entry {
+            case .name("."), .name(".."):
+                continue
+            case .name(let name):
+                finalCount += 1
+                guard finalCount <= Self.maximumProtectedAudioFinalCount,
+                      names.insert(name).inserted else {
+                    throw IOSPendingRecordingAudioFileSystemError
+                        .namespaceNotEmpty
+                }
+            case .invalidName:
+                throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+            }
+        }
+        try validatePendingDirectoryPath(directory, control: control)
+        return names
+    }
+
+    func validateProtectedAudioExpectation(
+        _ expectation: ProtectedAudioExpectation,
+        in directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws {
+        guard let fileURL = IOSPendingRecordingStorageLocation.audioFileURL(
+            forRelativeIdentifier: expectation.relativeIdentifier,
+            in: applicationSupportDirectoryURL
+        ) else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        try validatePendingDirectoryPath(directory, control: control)
+        let name = fileURL.lastPathComponent
+        let pathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        if case .failure(let errorCode) = pathResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let pathStatus) = pathResult else {
+            if case .failure(ENOENT) = pathResult {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioMissing
+            }
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let openResult = try call(control: control) {
+            adapter.openAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                mode: nil
+            )
+        }
+        if case .failure(let errorCode) = openResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let descriptor) = openResult else {
+            if case .failure(ENOENT) = openResult {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioMissing
+            }
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        defer { adapter.closeFile(descriptor) }
+
+        let descriptorStatus = try status(
+            descriptor: descriptor,
+            control: control,
+            failure: .protectedAudioInvalid
+        )
+        guard isExactOwnedAudioStatus(
+            descriptorStatus,
+            effectiveUserID: directory.effectiveUserID,
+            expectedByteCount: expectation.byteCount
+        ), isExactOwnedAudioStatus(
+            pathStatus,
+            effectiveUserID: directory.effectiveUserID,
+            expectedByteCount: expectation.byteCount
+        ), FileSnapshot(descriptorStatus) == FileSnapshot(pathStatus) else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        try validateExactConfiguration(descriptor: descriptor, control: control)
+        try requireSuccess(control: control, failure: .protectedAudioInvalid) {
+            adapter.lock(
+                fileDescriptor: descriptor,
+                operation: LOCK_EX | LOCK_NB
+            )
+        }
+        if let expectedDuration = expectation.durationMilliseconds {
+            guard let format = IOSPendingRecordingAudioFormat(
+                sourceURL: fileURL
+            ) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            let duration = try validatedMediaDuration(
+                forFileDescriptor: descriptor,
+                byteCount: expectation.byteCount,
+                format: format
+            )
+            try validateMediaDuration(
+                duration,
+                expectedDuration: expectedDuration
+            )
+        }
+        let finalDescriptorStatus = try status(
+            descriptor: descriptor,
+            control: control,
+            failure: .protectedAudioInvalid
+        )
+        let finalPathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        if case .failure(let errorCode) = finalPathResult,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(let finalPathStatus) = finalPathResult,
+              FileSnapshot(finalDescriptorStatus)
+                == FileSnapshot(descriptorStatus),
+              FileSnapshot(finalPathStatus) == FileSnapshot(descriptorStatus)
+        else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        try validateExactConfiguration(descriptor: descriptor, control: control)
+        try validatePendingDirectoryPath(directory, control: control)
+    }
+
+    func validateHeldProtectedAudioExpectation(
+        _ held: HeldProtectedAudioExpectation,
+        in directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws {
+        try validateOwnedAudio(
+            descriptor: held.descriptor,
+            name: held.name,
+            directory: directory,
+            expectedIdentity: held.identity,
+            expectedByteCount: held.expectation.byteCount,
+            control: control
+        )
+        if let expectedDuration = held.expectation.durationMilliseconds {
+            guard let fileURL = IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: held.expectation.relativeIdentifier,
+                in: applicationSupportDirectoryURL
+            ), let format = IOSPendingRecordingAudioFormat(
+                sourceURL: fileURL
+            ) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            let duration = try validatedMediaDuration(
+                forFileDescriptor: held.descriptor,
+                byteCount: held.expectation.byteCount,
+                format: format
+            )
+            try validateMediaDuration(
+                duration,
+                expectedDuration: expectedDuration
+            )
+        }
+        try validateOwnedAudio(
+            descriptor: held.descriptor,
+            name: held.name,
+            directory: directory,
+            expectedIdentity: held.identity,
+            expectedByteCount: held.expectation.byteCount,
+            control: control
+        )
+    }
+
     func publishProtectedCopySynchronously(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
         format: IOSPendingRecordingAudioFormat,
         durationMilliseconds: Int64,
         expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?,
+        inventory: IOSFailedHistoryProtectedAudioInventory?,
         control: PendingRecordingOperationControl
     ) throws -> any IOSPendingRecordingPublishedAudioLease {
         guard durationMilliseconds > 0, durationMilliseconds < 300_000,
@@ -1074,6 +1584,16 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
               source.byteCount < Self.maximumAudioByteCount,
               source.fileURL.pathExtension == fileExtension(for: format) else {
             throw IOSPendingRecordingAudioFileSystemError.invalidSource
+        }
+
+        let inventoryExpectations: [ProtectedAudioExpectation]
+        if let inventory {
+            inventoryExpectations = try protectedAudioExpectations(
+                for: inventory
+            )
+            try requireInventoryAuthority(inventory, control: control)
+        } else {
+            inventoryExpectations = []
         }
 
         let sourceDescriptor = try openValidatedSource(
@@ -1094,6 +1614,14 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
             if !directoryIsOwnedByLease {
                 adapter.closeFile(directory.descriptor)
             }
+        }
+        if let inventory {
+            try validateProtectedAudioNamespace(
+                inventoryExpectations,
+                in: directory,
+                inventory: inventory,
+                control: control
+            )
         }
 
         let relativeIdentifier =
@@ -1214,6 +1742,9 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
             expectedByteCount: source.byteCount,
             control: control
         )
+        if let inventory {
+            try requireInventoryAuthority(inventory, control: control)
+        }
         try publish(
             temporaryName: temporaryName,
             finalName: finalName,
@@ -1242,6 +1773,34 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
             expectedByteCount: source.byteCount,
             control: control
         )
+        if let inventory {
+            let publishedExpectation = ProtectedAudioExpectation(
+                attemptID: attemptID,
+                relativeIdentifier: relativeIdentifier,
+                durationMilliseconds: durationMilliseconds,
+                byteCount: source.byteCount
+            )
+            try validateProtectedAudioNamespace(
+                inventoryExpectations + [publishedExpectation],
+                in: directory,
+                inventory: inventory,
+                control: control,
+                heldAudio: HeldProtectedAudioExpectation(
+                    expectation: publishedExpectation,
+                    descriptor: temporaryDescriptor,
+                    identity: temporaryIdentity,
+                    name: finalName
+                )
+            )
+            try validateOwnedAudio(
+                descriptor: temporaryDescriptor,
+                name: finalName,
+                directory: directory,
+                expectedIdentity: temporaryIdentity,
+                expectedByteCount: source.byteCount,
+                control: control
+            )
+        }
 
         descriptorIsOwnedByLease = true
         directoryIsOwnedByLease = true

@@ -25,6 +25,12 @@ struct IOSFailedHistoryStoreTests {
             IOSFailedHistoryMutationCapability.self
         )
         requireFailedHistorySendable(IOSFailedHistoryMutationReceipt.self)
+        requireFailedHistorySendable(
+            IOSFailedHistoryProtectedAudioInventory.self
+        )
+        requireFailedHistorySendable(
+            IOSFailedHistoryProtectedAudioInventory.Artifact.self
+        )
     }
 
     @Test func missingLoadIsNilAndDoesNotCreateStorage() async throws {
@@ -32,6 +38,150 @@ struct IOSFailedHistoryStoreTests {
         #expect(try await fixture.store.load() == nil)
         #expect(fixture.fileSystem.file == nil)
         #expect(fixture.fileSystem.events == ["load"])
+    }
+
+    @Test func protectedAudioInventorySealsCanonicalRowsAndTombstones()
+        async throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "failed-audio-inventory-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let context = registry.context(for: root)
+        let row = try failedHistoryTestEntry(
+            index: 30,
+            ownershipState: .pendingJournalRetirement
+        )
+        let tombstone = try failedHistoryTestAudioCleanup(index: 31)
+        let envelope = try IOSFailedHistoryEnvelope(
+            revision: 1,
+            entries: [row],
+            audioCleanup: [tombstone]
+        )
+
+        try await context.operationGate.perform { lease in
+            _ = try await context.failedHistoryStore
+                .mutateExactForTesting(
+                    envelope,
+                    operationLeaseAuthorization: lease
+                )
+            let inventory = try await context.failedHistoryStore
+                .sealProtectedAudioInventory(
+                    expectedPendingStoreIdentity:
+                        context.pendingRecordingStoreIdentity,
+                    operationLeaseAuthorization: lease
+                )
+
+            #expect(inventory.failedSource?.envelope == envelope)
+            #expect(inventory.hasPendingJournalRetirement)
+            #expect(
+                inventory.artifacts == [
+                    .row(
+                        attemptID: row.attemptID,
+                        relativeIdentifier: row.audioRelativeIdentifier,
+                        durationMilliseconds: row.durationMilliseconds,
+                        byteCount: row.byteCount
+                    ),
+                    .tombstone(
+                        attemptID: tombstone.attemptID,
+                        relativeIdentifier:
+                            tombstone.audioRelativeIdentifier,
+                        byteCount: tombstone.byteCount
+                    ),
+                ]
+            )
+            #expect(
+                String(describing: inventory)
+                    == "IOSFailedHistoryProtectedAudioInventory(redacted)"
+            )
+            #expect(inventory.customMirror.children.isEmpty)
+            #expect(
+                String(describing: inventory.artifacts[0])
+                    == "IOSFailedHistoryProtectedAudioInventory.Artifact(redacted)"
+            )
+            try await context.failedHistoryStore
+                .revalidateProtectedAudioInventory(
+                    inventory,
+                    operationLeaseAuthorization: lease
+                )
+        }
+    }
+
+    @Test func protectedAudioInventoryRejectsForeignStaleAndChangedState()
+        async throws {
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "failed-audio-inventory-revalidation-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let context = registry.context(for: root)
+
+        let inventory = try await context.operationGate.perform { lease in
+            await #expect(
+                throws: IOSFailedHistoryError.compareAndSwapFailed
+            ) {
+                _ = try await context.failedHistoryStore
+                    .sealProtectedAudioInventory(
+                        expectedPendingStoreIdentity:
+                            IOSPendingRecordingStoreIdentity(),
+                        operationLeaseAuthorization: lease
+                    )
+            }
+            return try await context.failedHistoryStore
+                .sealProtectedAudioInventory(
+                    expectedPendingStoreIdentity:
+                        context.pendingRecordingStoreIdentity,
+                    operationLeaseAuthorization: lease
+                )
+        }
+
+        await #expect(throws: IOSFailedHistoryError.compareAndSwapFailed) {
+            try await context.failedHistoryStore
+                .revalidateProtectedAudioInventory(
+                    inventory,
+                    operationLeaseAuthorization:
+                        inventory.operationLeaseAuthorization
+                )
+        }
+
+        try await context.operationGate.perform { lease in
+            let current = try await context.failedHistoryStore
+                .sealProtectedAudioInventory(
+                    expectedPendingStoreIdentity:
+                        context.pendingRecordingStoreIdentity,
+                    operationLeaseAuthorization: lease
+                )
+            _ = try await context.failedHistoryStore
+                .mutateExactForTesting(
+                    IOSFailedHistoryEnvelope(
+                        revision: 1,
+                        entries: [try failedHistoryTestEntry(index: 32)],
+                        audioCleanup: []
+                    ),
+                    operationLeaseAuthorization: lease
+                )
+            await #expect(
+                throws: IOSFailedHistoryError.compareAndSwapFailed
+            ) {
+                try await context.failedHistoryStore
+                    .revalidateProtectedAudioInventory(
+                        current,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
     }
 
     @Test func guardedBaselineRequiresProvenMissingOrEmptyState() async throws {

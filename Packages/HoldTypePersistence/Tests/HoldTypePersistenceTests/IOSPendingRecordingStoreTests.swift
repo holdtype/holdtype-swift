@@ -206,6 +206,115 @@ struct IOSPendingRecordingStoreTests {
         #expect(fixture.audio.published)
     }
 
+    @Test func productionPrepareUsesSealedFailedInventoryInsteadOfEmptyNamespace()
+        async throws {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "pending-inventory-prepare-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent(
+            "ApplicationSupport",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let context = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+            .context(for: root)
+        let events = PendingStoreEventLog()
+        let journal = FakePendingRecordingJournal(events: events)
+        let audio = FakePendingRecordingAudioFileSystem(events: events)
+        let store = IOSPendingRecordingStore(
+            journal: journal,
+            audioFileSystem: audio,
+            operationGate: context.operationGate,
+            liveOwnerRegistry: context.pendingRecordingLiveOwnerRegistry,
+            capabilityOwnerIdentity: context.ownerIdentity,
+            storeIdentity: context.pendingRecordingStoreIdentity,
+            repositoryGuard: context.repositoryGuard,
+            failedHistoryMutationInterlock:
+                context.failedHistoryMutationInterlock,
+            failedOwnershipInspector: context.failedHistoryStore,
+            now: { Date(timeIntervalSince1970: 1_752_150_896.789) }
+        )
+        let preparation = try IOSPendingRecordingPreparation(
+            attemptID: UUID(
+                uuidString: "01234567-89AB-CDEF-8123-456789ABCDEF"
+            )!,
+            sourceArtifact: AudioRecordingArtifact(
+                fileURL: URL(fileURLWithPath: "/runtime/source.m4a"),
+                duration: 1.5,
+                byteCount: 12
+            ),
+            initialState: .readyForTranscription,
+            outputIntent: .translate,
+            transcriptionConfiguration: TranscriptionConfiguration(
+                model: "initial-model",
+                language: .english,
+                freeformPrompt: "not durable"
+            )
+        )
+
+        let recording = try await store.prepare(preparation)
+
+        #expect(journal.recording == recording)
+        #expect(audio.published)
+        #expect(
+            events.values == [
+                "audio.inventory.validate",
+                "audio.inventory.publish",
+                "audio.lease.revalidate",
+                "journal.create",
+                "audio.lease.revalidate",
+                "audio.lease.release",
+            ]
+        )
+        #expect(!events.values.contains("audio.namespace.empty"))
+        #expect(!events.values.contains("audio.publish"))
+    }
+
+    @Test func productionEmptyLoadValidatesExactFailedInventory() async throws {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "pending-inventory-load-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let root = parent.appendingPathComponent(
+            "ApplicationSupport",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: parent) }
+        let context = IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+            .context(for: root)
+        let events = PendingStoreEventLog()
+        let store = IOSPendingRecordingStore(
+            journal: FakePendingRecordingJournal(events: events),
+            audioFileSystem: FakePendingRecordingAudioFileSystem(
+                events: events
+            ),
+            operationGate: context.operationGate,
+            liveOwnerRegistry: context.pendingRecordingLiveOwnerRegistry,
+            capabilityOwnerIdentity: context.ownerIdentity,
+            storeIdentity: context.pendingRecordingStoreIdentity,
+            repositoryGuard: context.repositoryGuard,
+            failedHistoryMutationInterlock:
+                context.failedHistoryMutationInterlock,
+            failedOwnershipInspector: context.failedHistoryStore,
+            now: { Date(timeIntervalSince1970: 1_752_150_896.789) }
+        )
+
+        #expect(try await store.load() == nil)
+        #expect(events.values == ["audio.inventory.validate"])
+        #expect(!events.values.contains("audio.namespace.empty"))
+    }
+
     @Test func journalFailurePreservesPublishedAudioAndReleasesItsCreatorLock() async {
         let fixture = StoreFixture()
         fixture.journal.createError = .journalWriteFailed
@@ -1497,6 +1606,13 @@ private final class FakePendingRecordingAudioFileSystem:
         }
     }
 
+    func validateProtectedAudioNamespace(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws {
+        _ = inventory
+        events.append("audio.inventory.validate")
+    }
+
     func publishProtectedCopy(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
@@ -1530,6 +1646,44 @@ private final class FakePendingRecordingAudioFileSystem:
                 guard let self else {
                     return
                 }
+                self.lock.withLock { self.storedLeaseReleaseCount += 1 }
+            }
+        )
+    }
+
+    func publishProtectedCopy(
+        from source: AudioRecordingArtifact,
+        attemptID: UUID,
+        format: IOSPendingRecordingAudioFormat,
+        durationMilliseconds: Int64,
+        inventory: IOSFailedHistoryProtectedAudioInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        _ = inventory
+        events.append("audio.inventory.publish")
+        let barrier = lock.withLock { () -> PendingStorePublishBarrier? in
+            defer { storedPublishBarrier = nil }
+            return storedPublishBarrier
+        }
+        barrier?.block()
+        lock.withLock {
+            storedPublished = true
+            storedPublishCallCount += 1
+        }
+        let relative = IOSPendingRecordingStorageLocation.relativeAudioIdentifier(
+            for: attemptID,
+            format: format
+        )
+        return FakePendingRecordingAudioLease(
+            relativeIdentifier: relative,
+            artifact: AudioRecordingArtifact(
+                fileURL: URL(fileURLWithPath: "/protected/recording.m4a"),
+                duration: TimeInterval(durationMilliseconds) / 1_000,
+                byteCount: source.byteCount
+            ),
+            durationMilliseconds: durationMilliseconds,
+            events: events,
+            onRelease: { [weak self] in
+                guard let self else { return }
                 self.lock.withLock { self.storedLeaseReleaseCount += 1 }
             }
         )

@@ -795,12 +795,46 @@ extension IOSFailedHistoryPendingOwnershipAbsenceProof:
 protocol IOSPendingRecordingFailedOwnershipInspecting: Sendable {
     var failedStoreIdentity: IOSFailedHistoryStoreIdentity { get }
 
+    func sealProtectedAudioInventory(
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryProtectedAudioInventory
+
+    func revalidateProtectedAudioInventory(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws
+
     func provePendingOwnershipAbsent(
         for pendingKey: IOSFailedHistoryPendingOwnershipKey,
         expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) async throws -> IOSFailedHistoryPendingOwnershipAbsenceProof
+}
+
+extension IOSPendingRecordingFailedOwnershipInspecting {
+    func sealProtectedAudioInventory(
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryProtectedAudioInventory {
+        _ = expectedPendingStoreIdentity
+        _ = operationLeaseAuthorization
+        throw IOSFailedHistoryError.compareAndSwapFailed
+    }
+
+    func revalidateProtectedAudioInventory(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        _ = inventory
+        _ = operationLeaseAuthorization
+        throw IOSFailedHistoryError.compareAndSwapFailed
+    }
 }
 
 struct IOSFailedHistoryTransferRecoveryInspection: Equatable, Sendable {

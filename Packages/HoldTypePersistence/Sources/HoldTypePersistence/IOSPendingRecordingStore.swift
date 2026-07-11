@@ -1095,25 +1095,71 @@ private extension IOSPendingRecordingStore {
             )
             throw IOSPendingRecordingError.pendingSlotOccupied
         }
-        do {
-            try await audioFileSystem.requireEmptyNamespace()
-        } catch {
-            throw mapAudioError(error, operation: .inspect)
+
+        let protectedAudioInventory:
+            IOSFailedHistoryProtectedAudioInventory?
+        #if DEBUG
+        if bypassFailedOwnershipInspectionForTesting {
+            protectedAudioInventory = nil
+            do {
+                try await audioFileSystem.requireEmptyNamespace()
+            } catch {
+                throw mapAudioError(error, operation: .inspect)
+            }
+        } else {
+            let inventory = try await sealProtectedAudioInventory(
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
+            protectedAudioInventory = inventory
+            try requireNoPendingJournalRetirement(
+                in: inventory
+            )
+            try await validateProtectedAudioNamespace(
+                inventory,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
         }
+        #else
+        let inventory = try await sealProtectedAudioInventory(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        protectedAudioInventory = inventory
+        try requireNoPendingJournalRetirement(in: inventory)
+        try await validateProtectedAudioNamespace(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        #endif
 
         let lease: any IOSPendingRecordingPublishedAudioLease
         do {
-            lease = try await performRepositoryBoundary { expectedRoot in
-                try await audioFileSystem.publishProtectedCopy(
+            if let protectedAudioInventory {
+                lease = try await audioFileSystem.publishProtectedCopy(
                     from: preparation.sourceArtifact,
                     attemptID: preparation.attemptID,
                     format: preparation.audioFormat,
                     durationMilliseconds: preparation.durationMilliseconds,
-                    expectedRepositoryRoot: expectedRoot
+                    inventory: protectedAudioInventory
                 )
+                try await revalidateProtectedAudioInventory(
+                    protectedAudioInventory,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+            } else {
+                lease = try await performRepositoryBoundary { expectedRoot in
+                    try await audioFileSystem.publishProtectedCopy(
+                        from: preparation.sourceArtifact,
+                        attemptID: preparation.attemptID,
+                        format: preparation.audioFormat,
+                        durationMilliseconds:
+                            preparation.durationMilliseconds,
+                        expectedRepositoryRoot: expectedRoot
+                    )
+                }
             }
-        } catch IOSPendingRecordingError.repositoryIdentityConflict {
-            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch let error as IOSPendingRecordingError {
+            throw error
         } catch {
             throw mapAudioError(error, operation: .publish)
         }
@@ -1139,6 +1185,12 @@ private extension IOSPendingRecordingStore {
         } catch {
             throw mapAudioError(error, operation: .validate)
         }
+        if let protectedAudioInventory {
+            try await revalidateProtectedAudioInventory(
+                protectedAudioInventory,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
+        }
         do {
             try performRepositoryBoundary { expectedRoot in
                 try journal.create(
@@ -1150,6 +1202,12 @@ private extension IOSPendingRecordingStore {
             throw error
         } catch {
             throw IOSPendingRecordingError.journalWriteFailed
+        }
+        if let protectedAudioInventory {
+            try await revalidateProtectedAudioInventory(
+                protectedAudioInventory,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
         }
         do {
             _ = try await lease.revalidate()
@@ -1164,10 +1222,39 @@ private extension IOSPendingRecordingStore {
             IOSPersistenceOperationLeaseAuthorization
     ) async throws -> IOSPendingRecordingObservation? {
         guard let recording = try journal.load() else {
+            #if DEBUG
+            if bypassFailedOwnershipInspectionForTesting {
+                do {
+                    try await audioFileSystem.requireEmptyNamespace()
+                    return nil
+                } catch {
+                    throw mapAudioError(error, operation: .inspect)
+                }
+            }
+            #endif
+
+            let protectedAudioInventory =
+                try await sealProtectedAudioInventory(
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+            try requireNoPendingJournalRetirement(
+                in: protectedAudioInventory
+            )
             do {
-                try await audioFileSystem.requireEmptyNamespace()
+                try await audioFileSystem.validateProtectedAudioNamespace(
+                    protectedAudioInventory
+                )
+                try await revalidateProtectedAudioInventory(
+                    protectedAudioInventory,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
                 return nil
             } catch {
+                if let error = error as? IOSPendingRecordingError {
+                    throw error
+                }
                 throw mapAudioError(error, operation: .inspect)
             }
         }
@@ -1552,6 +1639,115 @@ private extension IOSPendingRecordingStore {
         }
         try requireExpectation(expected, matches: current)
         return current
+    }
+
+    func sealProtectedAudioInventory(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSFailedHistoryProtectedAudioInventory {
+        guard operationGateBinding.proves(operationLeaseAuthorization) else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        let inventory: IOSFailedHistoryProtectedAudioInventory
+        do {
+            inventory = try await failedOwnershipInspector
+                .sealProtectedAudioInventory(
+                    expectedPendingStoreIdentity: storeIdentity,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+        } catch IOSFailedHistoryError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        try requireProtectedAudioInventoryAuthority(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        return inventory
+    }
+
+    func revalidateProtectedAudioInventory(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        try requireProtectedAudioInventoryAuthority(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        do {
+            try await failedOwnershipInspector
+                .revalidateProtectedAudioInventory(
+                    inventory,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+        } catch IOSFailedHistoryError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        try requireProtectedAudioInventoryAuthority(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    func validateProtectedAudioNamespace(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        do {
+            try await audioFileSystem.validateProtectedAudioNamespace(
+                inventory
+            )
+        } catch {
+            throw mapAudioError(error, operation: .inspect)
+        }
+        try await revalidateProtectedAudioInventory(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    func requireNoPendingJournalRetirement(
+        in inventory: IOSFailedHistoryProtectedAudioInventory
+    ) throws {
+        guard !inventory.hasPendingJournalRetirement else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+    }
+
+    func requireProtectedAudioInventoryAuthority(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              inventory.failedStoreIdentity == expectedFailedStoreIdentity,
+              inventory.expectedPendingStoreIdentity == storeIdentity,
+              inventory.ownerIdentity == capabilityOwnerIdentity,
+              inventory.operationLeaseAuthorization.provesSameActiveLease(
+                  as: operationLeaseAuthorization
+              ),
+              let repositoryGuard else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        do {
+            let current = try repositoryGuard.revalidate(
+                expectedBinding: inventory.repositoryBinding
+            )
+            guard current == inventory.repositoryBinding else {
+                throw IOSPendingRecordingError.repositoryIdentityConflict
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        }
     }
 
     func requireExpectation(

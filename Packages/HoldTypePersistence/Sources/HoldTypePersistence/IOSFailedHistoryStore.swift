@@ -16,6 +16,10 @@ struct IOSFailedHistoryTransferRecoveryInspectionMint: Sendable {
     fileprivate init() {}
 }
 
+struct IOSFailedHistoryProtectedAudioInventoryMint: Sendable {
+    fileprivate init() {}
+}
+
 private final class IOSFailedHistoryPendingStoreIdentityBinding:
     @unchecked Sendable {
     private let lock = NSLock()
@@ -331,6 +335,64 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
         _ identity: IOSPendingRecordingStoreIdentity
     ) -> Bool {
         pendingStoreIdentityBinding.bind(identity)
+    }
+
+    func sealProtectedAudioInventory(
+        expectedPendingStoreIdentity: IOSPendingRecordingStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSFailedHistoryProtectedAudioInventory {
+        try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
+        guard transferMutationIntent == nil,
+              !mutationInterlock.isBlocked,
+              try requireExpectedPendingStoreIdentity()
+                == expectedPendingStoreIdentity else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        let source = try loadJournalSnapshot(
+            repositoryBinding: repositoryBinding
+        )
+        guard let inventory = IOSFailedHistoryProtectedAudioInventory(
+            mint: IOSFailedHistoryProtectedAudioInventoryMint(),
+            failedSource: source,
+            failedStoreIdentity: storeIdentity,
+            expectedPendingStoreIdentity: expectedPendingStoreIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            repositoryBinding: repositoryBinding,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        return inventory
+    }
+
+    func revalidateProtectedAudioInventory(
+        _ inventory: IOSFailedHistoryProtectedAudioInventory,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws {
+        try requireActiveLease(operationLeaseAuthorization)
+        try requireNoMutationUncertainty()
+        guard transferMutationIntent == nil,
+              !mutationInterlock.isBlocked,
+              inventory.failedStoreIdentity == storeIdentity,
+              inventory.ownerIdentity == capabilityOwnerIdentity,
+              inventory.operationLeaseAuthorization.provesSameActiveLease(
+                  as: operationLeaseAuthorization
+              ),
+              try requireExpectedPendingStoreIdentity()
+                == inventory.expectedPendingStoreIdentity else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
+        let repositoryBinding = try requireProductionRepositoryBinding()
+        guard inventory.repositoryBinding == repositoryBinding,
+              try loadJournalSnapshot(
+                  repositoryBinding: repositoryBinding
+              ) == inventory.failedSource else {
+            throw IOSFailedHistoryError.compareAndSwapFailed
+        }
     }
 
     func commitPendingJournalRetirement(
