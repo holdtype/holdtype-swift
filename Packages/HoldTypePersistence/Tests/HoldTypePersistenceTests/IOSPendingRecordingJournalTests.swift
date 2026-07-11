@@ -350,6 +350,344 @@ struct IOSPendingRecordingJournalTests {
         )
     }
 
+    @Test func metadataRetirementReturnsRootBoundDurableAbsenceEvidence() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let repository = FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let recording = try fixtureRecording()
+            try repository.create(recording)
+            let snapshot = try #require(
+                try repository.loadMetadataSnapshot()
+            )
+
+            let removed = try repository.removeMetadata(
+                expected: snapshot,
+                expectedRepositoryRoot: nil
+            )
+
+            #expect(snapshot.recording == recording)
+            #expect(removed.provesRemoval(of: snapshot))
+            #expect(!removed.provesPreexistingAbsence)
+            #expect(try repository.loadMetadataSnapshot() == nil)
+            #expect(
+                snapshot.description
+                    == "IOSPendingRecordingJournalMetadataSnapshot(redacted)"
+            )
+            #expect(snapshot.debugDescription == snapshot.description)
+            #expect(snapshot.customMirror.children.isEmpty)
+            #expect(
+                removed.description
+                    == "IOSPendingRecordingJournalMetadataAbsenceEvidence(redacted)"
+            )
+            #expect(removed.debugDescription == removed.description)
+            #expect(removed.customMirror.children.isEmpty)
+            switch removed {
+            case .removed(let details):
+                #expect(
+                    details.description
+                        == "IOSPendingRecordingJournalMetadataAbsenceEvidence.Removed(redacted)"
+                )
+                #expect(details.debugDescription == details.description)
+                #expect(details.customMirror.children.isEmpty)
+            case .alreadyAbsent:
+                Issue.record("Expected removed metadata evidence")
+            }
+
+            let alreadyAbsent = try repository.proveMetadataAbsent(
+                expectedRepositoryRoot: nil
+            )
+
+            #expect(alreadyAbsent.provesPreexistingAbsence)
+            #expect(!alreadyAbsent.provesRemoval(of: snapshot))
+            #expect(alreadyAbsent.binding == removed.binding)
+            #expect(
+                alreadyAbsent.description
+                    == "IOSPendingRecordingJournalMetadataAbsenceEvidence(redacted)"
+            )
+            #expect(alreadyAbsent.debugDescription == alreadyAbsent.description)
+            #expect(alreadyAbsent.customMirror.children.isEmpty)
+            switch alreadyAbsent {
+            case .removed:
+                Issue.record("Expected already-absent metadata evidence")
+            case .alreadyAbsent(let details):
+                #expect(
+                    details.description
+                        == "IOSPendingRecordingJournalMetadataAbsenceEvidence.AlreadyAbsent(redacted)"
+                )
+                #expect(details.debugDescription == details.description)
+                #expect(details.customMirror.children.isEmpty)
+            }
+            #expect(
+                removed.binding.description
+                    == "IOSPendingRecordingJournalMetadataAbsenceEvidence.Binding(redacted)"
+            )
+            #expect(
+                removed.binding.debugDescription
+                    == removed.binding.description
+            )
+            #expect(removed.binding.customMirror.children.isEmpty)
+            #expect(
+                removed.binding.journalDirectory.description
+                    == "IOSPendingRecordingJournalDirectoryIdentity(redacted)"
+            )
+            #expect(
+                removed.binding.journalDirectory.debugDescription
+                    == removed.binding.journalDirectory.description
+            )
+            #expect(
+                removed.binding.journalDirectory.customMirror.children.isEmpty
+            )
+            let applicationSupportIdentity = try #require(
+                journalTestFileIdentity(directoryURL)
+            )
+            let journalDirectoryIdentity = try #require(
+                journalTestFileIdentity(
+                    directoryURL.appendingPathComponent(
+                        IOSPendingRecordingStorageLocation.rootDirectoryName,
+                        isDirectory: true
+                    )
+                )
+            )
+            #expect(
+                removed.binding.repositoryRoot.device
+                    == applicationSupportIdentity.device
+            )
+            #expect(
+                removed.binding.repositoryRoot.inode
+                    == applicationSupportIdentity.inode
+            )
+            #expect(
+                removed.binding.journalDirectory.device
+                    == journalDirectoryIdentity.device
+            )
+            #expect(
+                removed.binding.journalDirectory.inode
+                    == journalDirectoryIdentity.inode
+            )
+        }
+    }
+
+    @Test func metadataRetirementRejectsChangedRevisionWithSameBytes() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let repository = FoundationIOSPendingRecordingJournalRepository(
+                fileSystem: fileSystem
+            )
+            let recording = try fixtureRecording()
+            try repository.create(recording)
+            let snapshot = try #require(
+                try repository.loadMetadataSnapshot()
+            )
+            let originalFile = try #require(
+                try fileSystem.readFileIfPresent()
+            )
+            _ = try fileSystem.replaceFile(
+                with: originalFile.data,
+                expected: originalFile.revision
+            )
+
+            try expectError(.compareAndSwapFailed) {
+                _ = try repository.removeMetadata(
+                    expected: snapshot,
+                    expectedRepositoryRoot: nil
+                )
+            }
+
+            #expect(try repository.loadMetadataSnapshot()?.recording == recording)
+        }
+    }
+
+    @Test func metadataUnlinkThenSyncFailureIsCommitUncertain() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let writer = FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let recording = try fixtureRecording()
+            try writer.create(recording)
+            let snapshot = try #require(
+                try writer.loadMetadataSnapshot()
+            )
+            let journalURL = journalTestFileURL(directoryURL)
+            let failingRepository = FoundationIOSPendingRecordingJournalRepository(
+                fileSystem: FoundationIOSPendingRecordingJournalFileSystem(
+                    applicationSupportDirectoryURL: directoryURL,
+                    directorySynchronizationOperation: { _ in .failure(EIO) }
+                )
+            )
+
+            try expectError(.journalCommitUncertain) {
+                _ = try failingRepository.removeMetadata(
+                    expected: snapshot,
+                    expectedRepositoryRoot: nil
+                )
+            }
+
+            #expect(!FileManager.default.fileExists(atPath: journalURL.path))
+        }
+    }
+
+    @Test func metadataRecreatedAfterUnlinkCannotMintRemovalProof() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let writer = FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let recording = try fixtureRecording()
+            let bytes = try IOSPendingRecordingJournalWireCodec.encode(recording)
+            try writer.create(recording)
+            let snapshot = try #require(
+                try writer.loadMetadataSnapshot()
+            )
+            let journalURL = journalTestFileURL(directoryURL)
+            let recreatingRepository =
+                FoundationIOSPendingRecordingJournalRepository(
+                    fileSystem:
+                        FoundationIOSPendingRecordingJournalFileSystem(
+                            applicationSupportDirectoryURL: directoryURL,
+                            beforeMetadataAbsenceFinalCheck: {
+                                _ = FileManager.default.createFile(
+                                    atPath: journalURL.path,
+                                    contents: bytes,
+                                    attributes: [.posixPermissions: 0o600]
+                                )
+                            }
+                        )
+                )
+
+            try expectError(.journalCommitUncertain) {
+                _ = try recreatingRepository.removeMetadata(
+                    expected: snapshot,
+                    expectedRepositoryRoot: nil
+                )
+            }
+
+            #expect(FileManager.default.fileExists(atPath: journalURL.path))
+        }
+    }
+
+    @Test func metadataRecreatedDuringAbsenceProofFailsClosed() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let writer = FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let recording = try fixtureRecording()
+            try writer.create(recording)
+            let snapshot = try #require(
+                try writer.loadMetadataSnapshot()
+            )
+            _ = try writer.removeMetadata(
+                expected: snapshot,
+                expectedRepositoryRoot: nil
+            )
+            let journalURL = journalTestFileURL(directoryURL)
+            let corruptBytes = Data("recreated".utf8)
+            let provingRepository = FoundationIOSPendingRecordingJournalRepository(
+                fileSystem: FoundationIOSPendingRecordingJournalFileSystem(
+                    applicationSupportDirectoryURL: directoryURL,
+                    beforeMetadataAbsenceFinalCheck: {
+                        _ = FileManager.default.createFile(
+                            atPath: journalURL.path,
+                            contents: corruptBytes,
+                            attributes: [.posixPermissions: 0o600]
+                        )
+                    }
+                )
+            )
+
+            try expectError(.compareAndSwapFailed) {
+                _ = try provingRepository.proveMetadataAbsent(
+                    expectedRepositoryRoot: nil
+                )
+            }
+
+            #expect(try Data(contentsOf: journalURL) == corruptBytes)
+        }
+    }
+
+    @Test func metadataRetirementMapsProtectedDataAndRootMismatch() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let writer = FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let recording = try fixtureRecording()
+            try writer.create(recording)
+            let snapshot = try #require(
+                try writer.loadMetadataSnapshot()
+            )
+            let protectedRepository =
+                FoundationIOSPendingRecordingJournalRepository(
+                    fileSystem:
+                        FoundationIOSPendingRecordingJournalFileSystem(
+                            applicationSupportDirectoryURL: directoryURL,
+                            beforeRepositoryRootOpen: {
+                                throw IOSPendingRecordingJournalFileSystemError
+                                    .protectedDataUnavailable
+                            }
+                        )
+                )
+            try expectError(.dataProtectionUnavailable) {
+                _ = try protectedRepository.removeMetadata(
+                    expected: snapshot,
+                    expectedRepositoryRoot: nil
+                )
+            }
+
+            let physicalRoot = try #require(
+                journalTestFileIdentity(directoryURL)
+            )
+            let wrongRoot = IOSPersistenceRepositoryRootIdentity(
+                device: physicalRoot.device,
+                inode: physicalRoot.inode ^ ino_t(1)
+            )
+            try expectError(.repositoryIdentityConflict) {
+                _ = try writer.removeMetadata(
+                    expected: snapshot,
+                    expectedRepositoryRoot: wrongRoot
+                )
+            }
+
+            _ = try writer.removeMetadata(
+                expected: snapshot,
+                expectedRepositoryRoot: nil
+            )
+            try expectError(.dataProtectionUnavailable) {
+                _ = try protectedRepository.proveMetadataAbsent(
+                    expectedRepositoryRoot: nil
+                )
+            }
+            try expectError(.repositoryIdentityConflict) {
+                _ = try writer.proveMetadataAbsent(
+                    expectedRepositoryRoot: wrongRoot
+                )
+            }
+        }
+    }
+
+    @Test func corruptMetadataCannotBeReportedAsAlreadyAbsent() throws {
+        try withTemporaryJournalDirectory { directoryURL in
+            let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
+                applicationSupportDirectoryURL: directoryURL
+            )
+            let corruptBytes = Data("not-json".utf8)
+            _ = try fileSystem.createFile(with: corruptBytes)
+            let repository = FoundationIOSPendingRecordingJournalRepository(
+                fileSystem: fileSystem
+            )
+
+            try expectError(.compareAndSwapFailed) {
+                _ = try repository.proveMetadataAbsent(
+                    expectedRepositoryRoot: nil
+                )
+            }
+            try expectError(.journalMalformed) {
+                _ = try repository.loadMetadataSnapshot()
+            }
+            #expect(try fileSystem.readFileIfPresent()?.data == corruptBytes)
+        }
+    }
+
     @Test func liveFileSystemRoundTripsProtectedBytesAndEnforcesRevision() throws {
         try withTemporaryJournalDirectory { directoryURL in
             let fileSystem = FoundationIOSPendingRecordingJournalFileSystem(
@@ -899,6 +1237,36 @@ private func withTemporaryJournalDirectory<Result>(
     )
     defer { try? FileManager.default.removeItem(at: directoryURL) }
     return try await operation(directoryURL)
+}
+
+private struct JournalTestFileIdentity {
+    let device: dev_t
+    let inode: ino_t
+}
+
+private func journalTestFileIdentity(_ url: URL) -> JournalTestFileIdentity? {
+    var status = stat()
+    let didRead = url.withUnsafeFileSystemRepresentation { path in
+        guard let path else { return false }
+        return Darwin.lstat(path, &status) == 0
+    }
+    guard didRead else { return nil }
+    return JournalTestFileIdentity(
+        device: status.st_dev,
+        inode: status.st_ino
+    )
+}
+
+private func journalTestFileURL(_ applicationSupportDirectoryURL: URL) -> URL {
+    applicationSupportDirectoryURL
+        .appendingPathComponent(
+            IOSPendingRecordingStorageLocation.rootDirectoryName,
+            isDirectory: true
+        )
+        .appendingPathComponent(
+            IOSPendingRecordingStorageLocation.journalFileName,
+            isDirectory: false
+        )
 }
 
 private func fixtureRecording(
