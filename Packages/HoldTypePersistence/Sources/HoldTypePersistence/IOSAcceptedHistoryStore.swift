@@ -41,7 +41,7 @@ fileprivate struct IOSAcceptedHistoryCandidate: Equatable, Sendable {
     ) throws {
         let record = delivery.record
         guard let marker = record.historyWrite,
-              marker.state == .pending,
+              marker.state.isPendingDecision,
               policy.state.historyEnabled,
               marker.policyGeneration == policy.state.policyGeneration,
               let acceptedText = record.acceptedText else {
@@ -110,7 +110,7 @@ fileprivate struct IOSAcceptedHistoryCandidate: Equatable, Sendable {
     ) throws -> IOSAcceptedHistoryEntry {
         let record = delivery.record
         guard let marker = record.historyWrite,
-              marker.state == .pending,
+              marker.state.isPendingDecision,
               let acceptedText = record.acceptedText else {
             throw IOSAcceptedHistoryError.stalePolicyGeneration
         }
@@ -185,6 +185,7 @@ enum IOSAcceptedHistoryRetentionDecision: Equatable, Sendable {
 fileprivate enum IOSAcceptedHistoryReceiptOutcome: Equatable, Sendable {
     case retained(IOSAcceptedHistoryEntry)
     case notRetained
+    case preparedNotRetained
 }
 
 struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
@@ -196,24 +197,34 @@ struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
     var decision: IOSAcceptedHistoryRetentionDecision {
         switch outcome {
         case .retained: .retained
-        case .notRetained: .notRetained
+        case .notRetained, .preparedNotRetained: .notRetained
         }
     }
 
     func provesDecision(
         for delivery: IOSAcceptedOutputDeliveryAuthorization
     ) -> Bool {
-        capabilityOwnerIdentity == delivery.capabilityOwnerIdentity
-            && snapshotMatchesOutcome
-            && candidate.matches(delivery: delivery)
+        guard capabilityOwnerIdentity == delivery.capabilityOwnerIdentity,
+              snapshotMatchesOutcome,
+              candidate.matches(delivery: delivery) else {
+            return false
+        }
+        if case .preparedNotRetained = outcome {
+            return delivery.record.historyWrite?.state
+                == .pendingReplacement
+        }
+        return true
     }
 
     func provesDecision(
         for outbox: IOSAcceptedHistoryOutboxReceipt
     ) -> Bool {
-        capabilityOwnerIdentity == outbox.capabilityOwnerIdentity
+        guard case .preparedNotRetained = outcome else {
+            return capabilityOwnerIdentity == outbox.capabilityOwnerIdentity
             && snapshotMatchesOutcome
             && candidate.matches(outbox: outbox)
+        }
+        return false
     }
 
     func provesMembership(
@@ -243,7 +254,7 @@ struct IOSAcceptedHistoryRowReceipt: Equatable, Sendable {
             return retained.hasSameImmutableBytes(as: candidate.entry)
                 && deliveryMatches == [retained]
                 && transcriptMatches == [retained]
-        case .notRetained:
+        case .notRetained, .preparedNotRetained:
             return deliveryMatches.isEmpty && transcriptMatches.isEmpty
         }
     }
@@ -274,10 +285,16 @@ actor IOSAcceptedHistoryStore {
         let requiresLiveSource: Bool
     }
 
+    private enum ReceiptMode: Equatable, Sendable {
+        case durableDecision
+        case preparedNotRetained
+    }
+
     private struct UncertainIntent: Equatable, Sendable {
         let source: Source
         let candidate: IOSAcceptedHistoryCandidate
         let outcome: Outcome
+        let receiptMode: ReceiptMode
     }
 
     private struct UncertainPruneIntent: Equatable, Sendable {
@@ -348,6 +365,27 @@ actor IOSAcceptedHistoryStore {
             policy: policy
         )
         return try decideUpsert(candidate)
+    }
+
+    /// For store-minted replacement replay, an absent capacity loser is not a
+    /// standalone durable History mutation. Its sealed receipt becomes durable
+    /// only with the matching delivery-marker CAS, eliminating a crash gap in
+    /// which a later capacity change could reinterpret an earlier decision.
+    func decideReplayableReplacement(
+        delivery: IOSAcceptedOutputDeliveryAuthorization,
+        policy: IOSHistoryPolicyReceipt
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        try requireOwners(delivery, policy)
+        guard delivery.record.historyWrite?.state
+                == .pendingReplacement else {
+            throw IOSAcceptedHistoryError.compareAndSwapFailed
+        }
+        try requireNoPruneUncertainty()
+        let candidate = try IOSAcceptedHistoryCandidate(
+            delivery: delivery,
+            policy: policy
+        )
+        return try decideReplayableReplacement(candidate)
     }
 
     func decideUpsert(
@@ -592,6 +630,83 @@ private extension IOSAcceptedHistoryStore {
         }
     }
 
+    private func decideReplayableReplacement(
+        _ candidate: IOSAcceptedHistoryCandidate
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let current = try journal.load()
+
+        if let uncertainIntent {
+            return try reconcileDecision(
+                uncertainIntent,
+                candidate: candidate,
+                current: current
+            )
+        }
+
+        if let current {
+            let next = try outcome(candidate, from: current.envelope)
+            try requireLiveSourceIfNeeded(next, candidate: candidate)
+            if next.retainedEntry == nil {
+                return try preparedNotRetainedReceipt(
+                    candidate: candidate,
+                    snapshot: current,
+                    outcome: next
+                )
+            }
+            return try publish(
+                next,
+                source: .existing(current),
+                candidate: candidate
+            )
+        }
+
+        let initial = try initialOutcome(candidate)
+        try requireLiveSourceIfNeeded(initial, candidate: candidate)
+        do {
+            return try publish(
+                initial,
+                source: .missing,
+                candidate: candidate
+            )
+        } catch IOSAcceptedHistoryError.slotOccupied {
+            guard let raced = try journal.load() else {
+                throw IOSAcceptedHistoryError.compareAndSwapFailed
+            }
+            let next = try outcome(candidate, from: raced.envelope)
+            try requireLiveSourceIfNeeded(next, candidate: candidate)
+            if next.retainedEntry == nil {
+                return try preparedNotRetainedReceipt(
+                    candidate: candidate,
+                    snapshot: raced,
+                    outcome: next
+                )
+            }
+            return try publish(
+                next,
+                source: .existing(raced),
+                candidate: candidate
+            )
+        }
+    }
+
+    private func preparedNotRetainedReceipt(
+        candidate: IOSAcceptedHistoryCandidate,
+        snapshot: IOSAcceptedHistoryJournalSnapshot,
+        outcome: Outcome
+    ) throws -> IOSAcceptedHistoryRowReceipt {
+        let identicalSourceConfirmation = Outcome(
+            envelope: snapshot.envelope,
+            retainedEntry: nil,
+            requiresLiveSource: outcome.requiresLiveSource
+        )
+        return try publish(
+            identicalSourceConfirmation,
+            source: .existing(snapshot),
+            candidate: candidate,
+            receiptMode: .preparedNotRetained
+        )
+    }
+
     private func confirmMembership(
         _ candidate: IOSAcceptedHistoryCandidate
     ) throws -> IOSAcceptedHistoryRowReceipt {
@@ -811,12 +926,14 @@ private extension IOSAcceptedHistoryStore {
     private func publish(
         _ outcome: Outcome,
         source: Source,
-        candidate: IOSAcceptedHistoryCandidate
+        candidate: IOSAcceptedHistoryCandidate,
+        receiptMode: ReceiptMode = .durableDecision
     ) throws -> IOSAcceptedHistoryRowReceipt {
         let intent = UncertainIntent(
             source: source,
             candidate: candidate,
-            outcome: outcome
+            outcome: outcome,
+            receiptMode: receiptMode
         )
         do {
             let snapshot: IOSAcceptedHistoryJournalSnapshot = switch source {
@@ -842,7 +959,10 @@ private extension IOSAcceptedHistoryStore {
                 if let retained = outcome.retainedEntry {
                     .retained(retained)
                 } else {
-                    .notRetained
+                    switch receiptMode {
+                    case .durableDecision: .notRetained
+                    case .preparedNotRetained: .preparedNotRetained
+                    }
                 }
             let receipt = IOSAcceptedHistoryRowReceipt(
                 candidate: candidate,
@@ -883,7 +1003,8 @@ private extension IOSAcceptedHistoryStore {
             return try publish(
                 intent.outcome,
                 source: .existing(current),
-                candidate: candidate
+                candidate: candidate,
+                receiptMode: intent.receiptMode
             )
         }
 
@@ -907,7 +1028,8 @@ private extension IOSAcceptedHistoryStore {
             return try publish(
                 intent.outcome,
                 source: .missing,
-                candidate: candidate
+                candidate: candidate,
+                receiptMode: intent.receiptMode
             )
         case .existing:
             guard let current else {
@@ -917,7 +1039,8 @@ private extension IOSAcceptedHistoryStore {
             return try publish(
                 intent.outcome,
                 source: .existing(current),
-                candidate: candidate
+                candidate: candidate,
+                receiptMode: intent.receiptMode
             )
         }
     }
@@ -948,14 +1071,16 @@ private extension IOSAcceptedHistoryStore {
             _ = try publish(
                 intent.outcome,
                 source: .existing(current),
-                candidate: candidate
+                candidate: candidate,
+                receiptMode: intent.receiptMode
             )
             throw IOSAcceptedHistoryError.compareAndSwapFailed
         }
         return try publish(
             intent.outcome,
             source: .existing(current),
-            candidate: candidate
+            candidate: candidate,
+            receiptMode: intent.receiptMode
         )
     }
 

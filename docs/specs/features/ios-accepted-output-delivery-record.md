@@ -74,9 +74,9 @@ Strict construction and decode reject impossible cross-field combinations.
 Publication generation is only `0` or `1`; `confirmedInserted` and
 `submittedUnverified` require generation `1`; and `discarded` requires null
 text, false insertion preference, and null History state. History state moves
-only `pending -> committed` or
-`pending -> cancelled`; the mutation API rejects a stale callback that tries to
-recreate pending work. Insertion terminal states are writable only by the
+only from `pending` or `pendingReplacement` to `committed` or `cancelled`; the
+mutation API rejects a stale callback that tries to recreate unresolved work.
+Insertion terminal states are writable only by the
 matching generation-1 acknowledgement transition, never by a general save API.
 
 ## Strict Version-1 Wire Contract
@@ -151,7 +151,7 @@ cleanup does not create another logical value. The full encoded file is at most
 `historyWrite` is either `null` when History was disabled at acceptance, or an
 object containing exactly:
 
-- `state`: `pending`, `committed`, or `cancelled`;
+- `state`: `pending`, `pendingReplacement`, `committed`, or `cancelled`;
 - `policyGeneration`: signed 64-bit History policy generation in
   `1...Int64.max`;
 - `transcriptionModel`: trimmed non-empty resolved model name, at most 256
@@ -163,12 +163,28 @@ object containing exactly:
 The parent record supplies delivery ID, transcript ID, accepted text, creation
 time, and output intent for an idempotent accepted-History write. A Boolean
 marker is forbidden because it cannot reconstruct that row after pending audio
-metadata has moved or been removed. A result accepted while History is enabled
-commits with `state: pending` already present; no crash gap exists between
-delivery commit and History ownership. A successful idempotent History upsert
-changes only state to `committed`; a stale/disabled policy changes only state to
-`cancelled`. The metadata remains for accepted-result collision checks until
-the whole delivery is discarded. Neither terminal state can return to pending.
+metadata has moved or been removed. A normal result accepted while History is
+enabled commits with `state: pending` already present; no crash gap exists
+between delivery commit and History ownership. Only the delivery store may mint
+`state: pendingReplacement`, and only in the intended record of a proof-bound
+atomic replacement after the old pending payload is durable in outbox. That
+exact wire value is crash-surviving authority to replay the new delivery's
+idempotent absent-row decision after process loss. Caller preparations may
+contain only `pending` or `null`; they cannot forge `pendingReplacement`. A
+successful idempotent History decision changes either unresolved state only to
+`committed`; a stale/disabled policy changes it only to `cancelled`. The
+metadata remains for accepted-result collision checks until the whole delivery
+is discarded. Neither terminal state can return to an unresolved state, and
+the two unresolved states never transition into each other.
+
+An older binary does not understand `pendingReplacement` and therefore
+preserves that version-1 file as unreadable instead of mutating it. Because the
+older decoder cannot reach normal expiry or removal, this downgrade wedge is
+not bounded by the 24-hour delivery lifetime; it can remain until the app is
+upgraded again, uninstalled, or a future explicit recovery path understands the
+marker. Releases that can write `pendingReplacement` therefore have a
+no-downgrade policy. A sidecar is not used because it cannot be committed
+atomically with replacement and would weaken crash recovery.
 
 All identifiers, accepted text bytes, output intent, created/expiry dates,
 captured insertion preference, and History metadata are
@@ -327,11 +343,15 @@ returning or throwing.
 
 The accepted-result sequence is:
 
-1. commit the version-1 record in `pending` state, including a structured
-   `historyWrite` object in `pending` state when History was enabled;
-2. make an idempotent History upsert by `deliveryID` while that state is
-   pending;
-3. CAS its nested state to `committed` after that upsert is durable;
+1. commit the version-1 record in `pending` delivery state, including a
+   structured `historyWrite` object in `pending` for normal acceptance or
+   store-minted `pendingReplacement` for a proof-bound atomic replacement;
+2. make an idempotent History decision by `deliveryID` while that nested state
+   is unresolved;
+3. CAS its nested state to `committed` after that row decision is durable, or,
+   for replacement-only capacity rejection, after an identical accepted-row
+   source rewrite returns a prepared-not-retained receipt; only this terminal
+   marker seals that prepared outcome;
 4. commit the stable version-1 publication generation `1` before creating any
    matching short-lived output projection;
 5. publish a sanitized bridge snapshot no later than ten minutes from
@@ -339,12 +359,42 @@ The accepted-result sequence is:
 6. remove or transfer pending recording ownership only after its canonical
    destinations are durable.
 
-A History failure leaves the structured pending state durable, presents a bounded
-non-blocking local error, and allows output to continue. Retry performs only
-the idempotent local History upsert; it never repeats transcription or other
-provider work. The retry applies only while its captured policy generation is
-still valid. Clear History or a later disabled generation cannot resurrect a
-row.
+A History failure leaves the structured unresolved state durable, presents a
+bounded non-blocking local error, and allows output to continue. Retry performs
+only the matching idempotent local History decision; it never repeats
+transcription or other provider work. The retry applies only while its captured
+policy generation is still valid. Clear History or a later disabled generation
+cannot resurrect a row.
+
+Before an exact pending payload moves to outbox, the delivery store atomically
+mints an opaque process-local transfer reservation bound to the exact confirmed
+delivery authorization and physical revision, capability owner, issuing
+delivery-store identity, matching policy generation, and a monotonic deadline.
+Production assembly binds the outbox to that same delivery-store identity; a
+mismatched pair is rejected before repository I/O. The first outbox use before
+the deadline claims the reservation for exactly one outbox-store identity.
+Another outbox store, a consumed reservation, or a released reservation is
+invalid. A first claim after the deadline fails before outbox I/O. A claim made
+while live may retry after the deadline only to confirm an already-visible
+exact transfer; invisible intent is cleared and expires. Outbox transfer and
+the proof-bound replacement require that claimed reservation and its exact
+store-bound receipt. Successful replacement consumes the reservation;
+definitive pre-replacement expiry or conflict releases it, while local commit
+uncertainty retains it for exact retry. After mint, the transfer reservation
+supersedes the policy receipt for these phases; the policy receipt is no longer
+retained as independent authority.
+C1 implements only mutually exclusive in-memory reservations in the same
+delivery-store actor: a pending-History transfer reservation and a bridge
+publication reservation cannot coexist. It does not implement the actual
+generation `0 -> 1` commit or an App Group write. P6 must obtain and consume the
+exact bridge reservation from the exact owner-bound delivery authorization
+created by the mandatory identical durability-confirmation rewrite, as part of
+that ordered commit-and-publication flow. An expectation or caller assertion is
+not publication authority; the reservation is not a caller-side preflight and
+does not itself perform either mutation. While either reservation is active,
+the authorized snapshot is frozen: every non-consuming delivery mutation,
+including a History-marker transition, fails before delivery-journal I/O. Only
+that reservation's owning consume/release path may advance the slot.
 
 The canonical History setting and generation live in the strict app-private
 `HoldType/ios-history-policy.json` record rather than the general settings file.
@@ -381,7 +431,7 @@ entries may be pruned. Otherwise transfer fails closed and never evicts a live
 retry.
 
 Before replacement, Clear Latest, explicit discard, or non-retention cleanup
-can remove a record whose History state is pending, the app durably transfers
+can remove a record whose History state is unresolved, the app durably transfers
 its metadata and reconstructible payload to the outbox with revision CAS. Until
 the outbox checkpoint exists and confirms transfer, the operation returns
 `historyTransferRequired` and leaves the delivery unchanged. Expiry is the
@@ -493,7 +543,8 @@ legitimately unlocked.
 
 ## Current Checkpoint Verification
 
-Deterministic tests must cover:
+The implemented delivery and accepted-History checkpoints must keep
+deterministic coverage for:
 
 - exact encode/decode keys, canonical UUID/date/enum values, duplicate and
   unknown keys, wrong types, unsupported versions, bounded depth, and exact
@@ -505,9 +556,18 @@ Deterministic tests must cover:
   values outside the version-1 `0...1` range;
 - expiry immediately before/at/after the deadline, rollback and forward jumps,
   no sliding TTL, explicit-clear exception, and direct expired removal;
-- History pending-state creation, committed/cancelled transitions, transition
-  uncertainty, immutable metadata, and fail-closed `historyTransferRequired`
-  behavior before the outbox checkpoint;
+- ordinary `pending` and store-minted `pendingReplacement`, caller inability to
+  forge the replacement marker, committed/cancelled transitions, immutable
+  metadata, exact retained uncertainty phases, and provider-free recovery;
+- prepared replacement capacity rejection: identical source rewrite with the
+  logical envelope, logical revision, and stale rows unchanged, uncertainty
+  retry in the prepared mode, and sealing only by the exact terminal marker;
+- fail-closed `historyTransferRequired`, exact outbox transfer, delivery/outbox
+  store pairing, one-outbox lease claim, consume/release revocation, monotonic
+  expiry before I/O, and visible-versus-invisible post-expiry uncertainty;
+- exact owner-bound bridge authorization, transfer/bridge mutual exclusion, and
+  snapshot freeze without claiming that C1 performs generation `0 -> 1` or an
+  App Group write;
 - atomic replacement keeps old bytes on every pre-rename failure and keeps new
   bytes visible but unauthorized on every post-rename uncertain outcome;
 - first-process authorization performs the identical durability-confirmation
@@ -525,12 +585,19 @@ Deterministic tests must cover:
   the production bridge checkpoint can commit the matching projection;
 - redaction canaries through values, errors, reflection, and storage errors.
 
+Release evidence for any build that can write `pendingReplacement` must also
+enforce the no-downgrade policy above. Compatibility with an older binary is
+not certified by the 24-hour lifetime because that binary cannot parse the
+marker to reach expiry cleanup.
+
 ## Downstream Conformance Verification
 
 The checkpoint owning each deferred component must add the remaining tests:
 
-- History policy generation, idempotent upsert, outbox bounds/transfer and every
-  crash point around row, policy, marker, and outbox commits;
+- FIFO outbox-worker ordering and every crash point around its row, policy,
+  marker, and outbox-removal commits;
+- policy-cutover cleanup, stale-generation cancellation/removal, and the later
+  bounded failed-History, retry-audio, and Recording Cache repositories;
 - bridge expiry clamping, refresh with a stable eligibility epoch, revocation,
   stale writer revisions, and delayed truthful acknowledgements;
 - extension at-most-once behavior for restart, eviction, claimed and
@@ -551,10 +618,13 @@ physical-device gate.
 
 ## Deferred
 
-This checkpoint does not implement the separate History policy, accepted-row,
-and outbox foundation defined by `ios-accepted-history-foundation.md`, the App
-Group production bridge, extension claim ledger, acknowledgement channel, or
-UI. Until each owning checkpoint lands, record operations that require it fail
-closed instead of pretending the dependency exists. Their implementations must
-retain the identities, ordering, failure states, size limits, and privacy
-boundary above.
+The app-private History policy, accepted-row, and outbox foundation defined by
+`ios-accepted-history-foundation.md` now exists through normal acceptance,
+provider-free relaunch recovery, and exact pending-delivery transfer with atomic
+replacement. The FIFO outbox worker, policy-cutover cleanup, bounded failed
+History, retry-audio ownership, and Recording Cache remain separate checkpoints.
+The App Group production bridge, extension claim ledger, acknowledgement
+channel, and UI are also deferred. Until each remaining owning checkpoint
+lands, operations that require it fail closed instead of pretending the
+dependency exists. Their implementations must retain the identities, ordering,
+failure states, size limits, and privacy boundary above.

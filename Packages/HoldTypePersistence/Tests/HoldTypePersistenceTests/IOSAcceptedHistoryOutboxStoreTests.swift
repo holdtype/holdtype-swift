@@ -44,7 +44,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: false
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            _ = try await membership.store.transfer(
+            _ = try await membership.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -138,7 +138,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         ) {
-            _ = try await localFixture.store.transfer(
+            _ = try await localFixture.store.transferForTesting(
                 delivery: foreignCapabilities.delivery,
                 policy: localCapabilities.policy
             )
@@ -146,7 +146,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         ) {
-            _ = try await localFixture.store.transfer(
+            _ = try await localFixture.store.transferForTesting(
                 delivery: localCapabilities.delivery,
                 policy: foreignPolicy
             )
@@ -217,7 +217,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         fixture.journal.resetEvents()
         let capabilities = try await outboxCapabilities(index: 1)
 
-        let receipt = try await fixture.store.transfer(
+        let receipt = try await fixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -268,14 +268,14 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.clockRollbackAmbiguous
         ) {
-            try await rollbackFixture.store.transfer(
+            try await rollbackFixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
         }
 
         let liveFixture = OutboxStoreFixture(now: createdAt)
-        _ = try await liveFixture.store.transfer(
+        _ = try await liveFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -284,7 +284,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             now: createdAt.addingTimeInterval(86_400)
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.expired) {
-            try await expiredFixture.store.transfer(
+            try await expiredFixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
@@ -293,7 +293,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         let submillisecondCreatedAtFixture = OutboxStoreFixture(
             now: createdAt.addingTimeInterval(-0.0004)
         )
-        _ = try await submillisecondCreatedAtFixture.store.transfer(
+        _ = try await submillisecondCreatedAtFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -302,7 +302,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             now: createdAt.addingTimeInterval(86_400 - 0.0004)
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.expired) {
-            try await submillisecondExpiryFixture.store.transfer(
+            try await submillisecondExpiryFixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
@@ -327,7 +327,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         ) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: disabled
             )
@@ -339,11 +339,25 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         ) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: wrongGeneration
             )
         }
+        let replayable = try outboxDeliveryAuthorization(
+            index: 22,
+            generation: 2,
+            historyState: .pendingReplacement
+        )
+        let replayReceipt = try await fixture.store.transferForTesting(
+            delivery: replayable,
+            policy: capabilities.policy
+        )
+        #expect(
+            replayReceipt.provesMembershipForDeliveryRemoval(
+                for: replayable
+            )
+        )
         let terminal = try outboxDeliveryAuthorization(
             index: 21,
             generation: 2,
@@ -352,7 +366,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         ) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: terminal,
                 policy: capabilities.policy
             )
@@ -380,7 +394,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             )
         )
 
-        let receipt = try await fixture.store.transfer(
+        let receipt = try await fixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -416,7 +430,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             )
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.collision) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
@@ -439,7 +453,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             )
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.collision) {
-            try await transcriptFixture.store.transfer(
+            try await transcriptFixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -476,7 +490,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             createdAt: now.addingTimeInterval(-10)
         )
 
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: candidate.delivery,
             policy: candidate.policy
         )
@@ -509,7 +523,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         ) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -537,7 +551,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         )
 
         await #expect(throws: IOSAcceptedHistoryOutboxError.capacityExceeded) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -570,7 +584,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         )
 
         await #expect(throws: IOSAcceptedHistoryOutboxError.capacityExceeded) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -606,7 +620,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         )
 
         await #expect(throws: IOSAcceptedHistoryOutboxError.capacityExceeded) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -638,7 +652,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.clockRollbackAmbiguous
         ) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: candidate.delivery,
                 policy: candidate.policy
             )
@@ -691,7 +705,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
                 entries: [entry]
             )
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: duplicate.delivery,
             policy: duplicate.policy
         )
@@ -701,7 +715,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             createdAt: now.addingTimeInterval(-5)
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.revisionOverflow) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: other.delivery,
                 policy: other.policy
             )
@@ -718,19 +732,19 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: true
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: first.delivery,
                 policy: first.policy
             )
         }
         let other = try await outboxCapabilities(index: 431, createdAt: now)
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: other.delivery,
                 policy: other.policy
             )
         }
-        let receipt = try await fixture.store.transfer(
+        let receipt = try await fixture.store.transferForTesting(
             delivery: first.delivery,
             policy: first.policy
         )
@@ -752,14 +766,14 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: false
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: first.delivery,
                 policy: first.policy
             )
         }
         let other = try await outboxCapabilities(index: 436, createdAt: now)
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: other.delivery,
                 policy: other.policy
             )
@@ -771,7 +785,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         #expect(fixture.journal.currentEnvelope?.revision == 1)
         #expect(fixture.journal.currentEnvelope?.entries.isEmpty == true)
 
-        let receipt = try await fixture.store.transfer(
+        let receipt = try await fixture.store.transferForTesting(
             delivery: first.delivery,
             policy: first.policy
         )
@@ -793,7 +807,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: false
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
@@ -820,14 +834,14 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: false
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await createFixture.store.transfer(
+            try await createFixture.store.transferForTesting(
                 delivery: createCapabilities.delivery,
                 policy: createCapabilities.policy
             )
         }
         createFixture.clock.set(now.addingTimeInterval(86_400))
         await #expect(throws: IOSAcceptedHistoryOutboxError.expired) {
-            try await createFixture.store.transfer(
+            try await createFixture.store.transferForTesting(
                 delivery: createCapabilities.delivery,
                 policy: createCapabilities.policy
             )
@@ -840,7 +854,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 446,
             createdAt: now.addingTimeInterval(86_400)
         )
-        let nextReceipt = try await createFixture.store.transfer(
+        let nextReceipt = try await createFixture.store.transferForTesting(
             delivery: nextCapabilities.delivery,
             policy: nextCapabilities.policy
         )
@@ -863,7 +877,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: false
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await replaceFixture.store.transfer(
+            try await replaceFixture.store.transferForTesting(
                 delivery: replaceCapabilities.delivery,
                 policy: replaceCapabilities.policy
             )
@@ -872,7 +886,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         await #expect(
             throws: IOSAcceptedHistoryOutboxError.clockRollbackAmbiguous
         ) {
-            try await replaceFixture.store.transfer(
+            try await replaceFixture.store.transferForTesting(
                 delivery: replaceCapabilities.delivery,
                 policy: replaceCapabilities.policy
             )
@@ -885,7 +899,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         )
 
         replaceFixture.clock.set(now)
-        let recovered = try await replaceFixture.store.transfer(
+        let recovered = try await replaceFixture.store.transferForTesting(
             delivery: replaceCapabilities.delivery,
             policy: replaceCapabilities.policy
         )
@@ -913,7 +927,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
                 commitBeforeThrowing: true
             )
             await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-                try await fixture.store.transfer(
+                try await fixture.store.transferForTesting(
                     delivery: capabilities.delivery,
                     policy: capabilities.policy
                 )
@@ -940,7 +954,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 444,
             createdAt: now
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -984,7 +998,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 445,
             createdAt: now.addingTimeInterval(86_400)
         )
-        _ = try await fixture.makeStore().transfer(
+        _ = try await fixture.makeStore().transferForTesting(
             delivery: other.delivery,
             policy: other.policy
         )
@@ -1004,7 +1018,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 447,
             createdAt: now
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -1015,7 +1029,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             commitBeforeThrowing: true
         )
         await #expect(throws: IOSAcceptedHistoryOutboxError.commitUncertain) {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: capabilities.delivery,
                 policy: capabilities.policy
             )
@@ -1048,13 +1062,13 @@ struct IOSAcceptedHistoryOutboxStoreTests {
         let first = try await outboxCapabilities(index: 440, createdAt: now)
         let second = try await outboxCapabilities(index: 441, createdAt: now)
         let firstTask = Task {
-            try await fixture.store.transfer(
+            try await fixture.store.transferForTesting(
                 delivery: first.delivery,
                 policy: first.policy
             )
         }
         let secondTask = Task {
-            try await fixture.makeStore().transfer(
+            try await fixture.makeStore().transferForTesting(
                 delivery: second.delivery,
                 policy: second.policy
             )
@@ -1066,7 +1080,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             return false
         }.count == 1)
         let loser = if case .failure = firstResult { first } else { second }
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: loser.delivery,
             policy: loser.policy
         )
@@ -1251,15 +1265,15 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 471,
             createdAt: now.addingTimeInterval(-10)
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: target.delivery,
             policy: target.policy
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: firstOther.delivery,
             policy: firstOther.policy
         )
-        _ = try await fixture.store.transfer(
+        _ = try await fixture.store.transferForTesting(
             delivery: secondOther.delivery,
             policy: secondOther.policy
         )
@@ -1331,7 +1345,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             index: 474,
             createdAt: now
         )
-        _ = try await staleFixture.store.transfer(
+        _ = try await staleFixture.store.transferForTesting(
             delivery: other.delivery,
             policy: other.policy
         )
@@ -1458,7 +1472,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
                 await #expect(
                     throws: IOSAcceptedHistoryOutboxError.commitUncertain
                 ) {
-                    _ = try await fixture.store.transfer(
+                    _ = try await fixture.store.transferForTesting(
                         delivery: other.delivery,
                         policy: other.policy
                     )
@@ -1547,7 +1561,7 @@ struct IOSAcceptedHistoryOutboxStoreTests {
             createdAt: now,
             capabilityOwnerIdentity: capabilityOwnerIdentity
         )
-        _ = try await store.transfer(
+        _ = try await store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -1646,7 +1660,7 @@ private func outboxMembershipReceipt(
     capabilities: OutboxCapabilities,
     origin: OutboxMembershipOrigin = .delivery
 ) async throws -> IOSAcceptedHistoryOutboxReceipt {
-    let deliveryReceipt = try await fixture.store.transfer(
+    let deliveryReceipt = try await fixture.store.transferForTesting(
         delivery: capabilities.delivery,
         policy: capabilities.policy
     )

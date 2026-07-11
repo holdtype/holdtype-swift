@@ -80,6 +80,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let deliveryStore: IOSAcceptedOutputDeliveryStore
     let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
     let acceptanceState: IOSAcceptedHistoryAcceptanceOperationState
+    let pendingReplacementState:
+        IOSAcceptedHistoryPendingReplacementOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -87,6 +89,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     init(applicationSupportDirectoryURL: URL) {
         let capabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         self.applicationSupportDirectoryURL = applicationSupportDirectoryURL
         ownerIdentity = capabilityOwnerIdentity
         policyStore = IOSHistoryPolicyStore(
@@ -99,14 +102,18 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         )
         outboxStore = IOSAcceptedHistoryOutboxStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            deliveryStoreIdentity: deliveryStoreIdentity,
             capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         deliveryStore = IOSAcceptedOutputDeliveryStore(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            storeIdentity: deliveryStoreIdentity,
             capabilityOwnerIdentity: capabilityOwnerIdentity
         )
         baselineRecoveryState = IOSAcceptedHistoryBaselineRecoveryState()
         acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
+        pendingReplacementState =
+            IOSAcceptedHistoryPendingReplacementOperationState()
         repositoryIdentityState =
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
     }
@@ -567,11 +574,13 @@ public actor IOSAcceptedHistoryCoordinator {
 
     let policyStore: IOSHistoryPolicyStore
     let acceptedHistoryStore: IOSAcceptedHistoryStore
-    private let outboxStore: IOSAcceptedHistoryOutboxStore
+    let outboxStore: IOSAcceptedHistoryOutboxStore
     let deliveryStore: IOSAcceptedOutputDeliveryStore
     let operationGate: IOSPersistenceOperationGate
     private let baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState
     let acceptanceState: IOSAcceptedHistoryAcceptanceOperationState
+    let pendingReplacementState:
+        IOSAcceptedHistoryPendingReplacementOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -589,6 +598,7 @@ public actor IOSAcceptedHistoryCoordinator {
         operationGate = Self.processOperationGate
         baselineRecoveryState = context.baselineRecoveryState
         acceptanceState = context.acceptanceState
+        pendingReplacementState = context.pendingReplacementState
         ownerIdentity = context.ownerIdentity
         repositoryIdentityState = context.repositoryIdentityState
         repositoryRegistration =
@@ -616,6 +626,8 @@ public actor IOSAcceptedHistoryCoordinator {
         operationGate = Self.processOperationGate
         baselineRecoveryState = IOSAcceptedHistoryBaselineRecoveryState()
         acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
+        pendingReplacementState =
+            IOSAcceptedHistoryPendingReplacementOperationState()
         ownerIdentity = capabilityOwnerIdentity
         repositoryIdentityState = identityState
         repositoryRegistration = nil
@@ -623,7 +635,9 @@ public actor IOSAcceptedHistoryCoordinator {
                 != capabilityOwnerIdentity
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
-                != capabilityOwnerIdentity {
+                != capabilityOwnerIdentity
+            || outboxStore.deliveryStoreIdentity
+                != deliveryStore.storeIdentity {
             identityState.markConflicted()
         }
     }
@@ -638,6 +652,9 @@ public actor IOSAcceptedHistoryCoordinator {
             IOSAcceptedHistoryBaselineRecoveryState(),
         acceptanceState: IOSAcceptedHistoryAcceptanceOperationState =
             IOSAcceptedHistoryAcceptanceOperationState(),
+        pendingReplacementState:
+            IOSAcceptedHistoryPendingReplacementOperationState =
+                IOSAcceptedHistoryPendingReplacementOperationState(),
         ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity? = nil,
         repositoryIdentityState:
             IOSAcceptedHistoryCoordinatorRepositoryIdentityState =
@@ -654,6 +671,7 @@ public actor IOSAcceptedHistoryCoordinator {
         self.operationGate = operationGate
         self.baselineRecoveryState = baselineRecoveryState
         self.acceptanceState = acceptanceState
+        self.pendingReplacementState = pendingReplacementState
         self.ownerIdentity = capabilityOwnerIdentity
         self.repositoryIdentityState = repositoryIdentityState
         self.repositoryRegistration = repositoryRegistration
@@ -662,7 +680,9 @@ public actor IOSAcceptedHistoryCoordinator {
                 != capabilityOwnerIdentity
             || outboxStore.capabilityOwnerIdentity != capabilityOwnerIdentity
             || deliveryStore.capabilityOwnerIdentity
-                != capabilityOwnerIdentity {
+                != capabilityOwnerIdentity
+            || outboxStore.deliveryStoreIdentity
+                != deliveryStore.storeIdentity {
             repositoryIdentityState.markConflicted()
         }
     }
@@ -683,6 +703,7 @@ public actor IOSAcceptedHistoryCoordinator {
         let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let baselineRecoveryState = baselineRecoveryState
+        let pendingReplacementState = pendingReplacementState
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
         let ownerIdentity = ownerIdentity
@@ -693,6 +714,9 @@ public actor IOSAcceptedHistoryCoordinator {
                 guard !repositoryIdentityState.isConflicted else {
                     throw IOSAcceptedHistoryCoordinatorError
                         .repositoryIdentityConflict
+                }
+                guard await pendingReplacementState.current() == nil else {
+                    throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
                 do {
                     do {

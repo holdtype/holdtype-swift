@@ -36,6 +36,7 @@ struct IOSAcceptedOutputDeliveryJournalTests {
     @Test func everyHistoryStateAndExplicitNullRoundTrips() throws {
         for state in [
             IOSAcceptedOutputHistoryWriteState.pending,
+            .pendingReplacement,
             .committed,
             .cancelled,
         ] {
@@ -47,10 +48,23 @@ struct IOSAcceptedOutputDeliveryJournalTests {
                 durationMilliseconds: nil
             )
             let record = try journalRecord(historyWrite: history)
-            let decoded = try IOSAcceptedOutputDeliveryWireCodec.decode(
-                IOSAcceptedOutputDeliveryWireCodec.encode(record)
-            )
+            let encoded = try IOSAcceptedOutputDeliveryWireCodec.encode(record)
+            let decoded = try IOSAcceptedOutputDeliveryWireCodec.decode(encoded)
             #expect(decoded.historyWrite == history)
+            let object = try #require(
+                JSONSerialization.jsonObject(with: encoded)
+                    as? [String: Any]
+            )
+            let historyObject = try #require(
+                object["historyWrite"] as? [String: Any]
+            )
+            let expectedState = switch state {
+            case .pending: "pending"
+            case .pendingReplacement: "pendingReplacement"
+            case .committed: "committed"
+            case .cancelled: "cancelled"
+            }
+            #expect(historyObject["state"] as? String == expectedState)
         }
 
         let noHistory = try journalRecord(historyWrite: nil)

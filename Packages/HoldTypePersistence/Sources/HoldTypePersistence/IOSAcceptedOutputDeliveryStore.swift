@@ -15,8 +15,216 @@ enum IOSAcceptedOutputDeliveryAcceptanceProvenance: Equatable, Sendable {
     case preexisting
 }
 
-private struct IOSAcceptedOutputDeliveryStoreIdentity: Equatable, Sendable {
+struct IOSAcceptedOutputDeliveryStoreIdentity: Equatable, Sendable {
     private let value = UUID()
+}
+
+enum IOSAcceptedOutputPendingHistoryTransferClaimResult: Equatable {
+    case claimed
+    case claimedExpired
+    case expired
+    case invalid
+}
+
+private final class IOSAcceptedOutputPendingHistoryTransferLease:
+    @unchecked Sendable {
+    private enum State: Equatable {
+        case active
+        case claimed(IOSAcceptedHistoryOutboxStoreIdentity)
+        case consumed
+        case released
+    }
+
+    private let lock = NSLock()
+    private let monotonicExpiryNanoseconds: UInt64
+    private let monotonicNowNanoseconds: @Sendable () -> UInt64
+    private var state = State.active
+
+    init(
+        monotonicExpiryNanoseconds: UInt64,
+        monotonicNowNanoseconds: @escaping @Sendable () -> UInt64
+    ) {
+        self.monotonicExpiryNanoseconds = monotonicExpiryNanoseconds
+        self.monotonicNowNanoseconds = monotonicNowNanoseconds
+    }
+
+    func claim(
+        for outboxStoreIdentity: IOSAcceptedHistoryOutboxStoreIdentity
+    ) -> IOSAcceptedOutputPendingHistoryTransferClaimResult {
+        lock.withLock {
+            switch state {
+            case .active:
+                guard monotonicNowNanoseconds()
+                        < monotonicExpiryNanoseconds else {
+                    return .expired
+                }
+                state = .claimed(outboxStoreIdentity)
+                return .claimed
+            case .claimed(let existing) where existing == outboxStoreIdentity:
+                return monotonicNowNanoseconds()
+                    < monotonicExpiryNanoseconds
+                    ? .claimed
+                    : .claimedExpired
+            case .claimed, .consumed, .released:
+                return .invalid
+            }
+        }
+    }
+
+    func permits(
+        outboxStoreIdentity: IOSAcceptedHistoryOutboxStoreIdentity?
+    ) -> Bool {
+        lock.withLock {
+            switch (state, outboxStoreIdentity) {
+            case (.active, .none): true
+            case (.claimed(let expected), .some(let supplied)):
+                expected == supplied
+            case (.active, .some), (.claimed, .none), (.consumed, _),
+                 (.released, _):
+                false
+            }
+        }
+    }
+
+    func consume() {
+        lock.withLock {
+            switch state {
+            case .active, .claimed:
+                state = .consumed
+            case .consumed, .released:
+                break
+            }
+        }
+    }
+
+    func release() {
+        lock.withLock {
+            switch state {
+            case .active, .claimed:
+                state = .released
+            case .consumed, .released:
+                break
+            }
+        }
+    }
+}
+
+struct IOSAcceptedOutputPendingHistoryTransferReservation:
+    Sendable {
+    fileprivate let authorization: IOSAcceptedOutputDeliveryAuthorization
+    fileprivate let policyGeneration: Int64
+    fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+    fileprivate let reservationID: UUID
+    private let lease: IOSAcceptedOutputPendingHistoryTransferLease
+
+    var capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity {
+        authorization.capabilityOwnerIdentity
+    }
+
+    var deliveryAuthorization: IOSAcceptedOutputDeliveryAuthorization {
+        authorization
+    }
+
+    var confirmedPolicyGeneration: Int64 {
+        policyGeneration
+    }
+
+    func claimForOutbox(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        policyGeneration: Int64,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity,
+        deliveryStoreIdentity: IOSAcceptedOutputDeliveryStoreIdentity,
+        outboxStoreIdentity: IOSAcceptedHistoryOutboxStoreIdentity
+    ) -> IOSAcceptedOutputPendingHistoryTransferClaimResult {
+        guard self.authorization == authorization,
+              self.policyGeneration == policyGeneration,
+              capabilityOwnerIdentity == ownerIdentity,
+              storeIdentity == deliveryStoreIdentity else {
+            return .invalid
+        }
+        return lease.claim(for: outboxStoreIdentity)
+    }
+
+    func matches(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        policyGeneration: Int64,
+        ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    ) -> Bool {
+        self.authorization == authorization
+            && self.policyGeneration == policyGeneration
+            && capabilityOwnerIdentity == ownerIdentity
+    }
+
+    func permitsOwnershipProof(
+        from outboxStoreIdentity: IOSAcceptedHistoryOutboxStoreIdentity?
+    ) -> Bool {
+        lease.permits(outboxStoreIdentity: outboxStoreIdentity)
+    }
+
+    fileprivate func consume() {
+        lease.consume()
+    }
+
+    fileprivate func release() {
+        lease.release()
+    }
+
+    fileprivate init(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        policyGeneration: Int64,
+        storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity,
+        monotonicExpiryNanoseconds: UInt64,
+        monotonicNowNanoseconds: @escaping @Sendable () -> UInt64
+    ) {
+        self.authorization = authorization
+        self.policyGeneration = policyGeneration
+        self.storeIdentity = storeIdentity
+        reservationID = UUID()
+        lease = IOSAcceptedOutputPendingHistoryTransferLease(
+            monotonicExpiryNanoseconds: monotonicExpiryNanoseconds,
+            monotonicNowNanoseconds: monotonicNowNanoseconds
+        )
+    }
+}
+
+extension IOSAcceptedOutputPendingHistoryTransferReservation: Equatable {
+    static func == (
+        lhs: IOSAcceptedOutputPendingHistoryTransferReservation,
+        rhs: IOSAcceptedOutputPendingHistoryTransferReservation
+    ) -> Bool {
+        lhs.authorization == rhs.authorization
+            && lhs.policyGeneration == rhs.policyGeneration
+            && lhs.storeIdentity == rhs.storeIdentity
+            && lhs.reservationID == rhs.reservationID
+    }
+}
+
+extension IOSAcceptedOutputPendingHistoryTransferReservation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputPendingHistoryTransferReservation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+struct IOSAcceptedOutputBridgePublicationReservation: Equatable, Sendable {
+    fileprivate let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    fileprivate let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+    fileprivate let reservationID: UUID
+}
+
+extension IOSAcceptedOutputBridgePublicationReservation:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedOutputBridgePublicationReservation(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSAcceptedOutputDeliveryStoreIdentity:
@@ -202,7 +410,7 @@ public actor IOSAcceptedOutputDeliveryStore {
                 return receipt.provesDecision(for: authorization)
             case .cancel(let authorization, let receipt):
                 guard let marker = authorization.record.historyWrite,
-                      marker.state == .pending else {
+                      marker.state.isPendingDecision else {
                     return false
                 }
                 return receipt.state.policyGeneration > marker.policyGeneration
@@ -217,8 +425,13 @@ public actor IOSAcceptedOutputDeliveryStore {
 
     private struct PendingHistoryReplacementOperation: Equatable, Sendable {
         let preparation: IOSAcceptedOutputDeliveryPreparation
-        let authorization: IOSAcceptedOutputDeliveryAuthorization
+        let reservation:
+            IOSAcceptedOutputPendingHistoryTransferReservation
         let ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
+
+        var authorization: IOSAcceptedOutputDeliveryAuthorization {
+            reservation.authorization
+        }
     }
 
     private struct UncertainPendingHistoryReplacement: Equatable, Sendable {
@@ -260,7 +473,7 @@ public actor IOSAcceptedOutputDeliveryStore {
     }
 
     private let journal: any IOSAcceptedOutputDeliveryJournalStoring
-    private let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+    nonisolated let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
     private let now: @Sendable () -> Date
     private let monotonicNowNanoseconds: @Sendable () -> UInt64
 
@@ -272,9 +485,15 @@ public actor IOSAcceptedOutputDeliveryStore {
         UncertainPendingHistoryReplacement?
     private var uncertainPendingHistoryClear: UncertainPendingHistoryClear?
     private var uncertainAcceptanceIntent: UncertainAcceptanceIntent?
+    private var pendingHistoryTransferReservation:
+        IOSAcceptedOutputPendingHistoryTransferReservation?
+    private var pendingBridgePublicationReservation:
+        IOSAcceptedOutputBridgePublicationReservation?
 
     init(
         applicationSupportDirectoryURL: URL,
+        storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity =
+            IOSAcceptedOutputDeliveryStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
@@ -283,7 +502,7 @@ public actor IOSAcceptedOutputDeliveryStore {
         )
         now = { Date() }
         monotonicNowNanoseconds = { DispatchTime.now().uptimeNanoseconds }
-        storeIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
+        self.storeIdentity = storeIdentity
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
@@ -293,11 +512,13 @@ public actor IOSAcceptedOutputDeliveryStore {
         monotonicNowNanoseconds: @escaping @Sendable () -> UInt64 = {
             DispatchTime.now().uptimeNanoseconds
         },
+        storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity =
+            IOSAcceptedOutputDeliveryStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
         self.journal = journal
-        storeIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
+        self.storeIdentity = storeIdentity
         self.now = now
         self.monotonicNowNanoseconds = monotonicNowNanoseconds
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
@@ -328,18 +549,25 @@ public actor IOSAcceptedOutputDeliveryStore {
 
     func replacePendingHistory(
         with preparation: IOSAcceptedOutputDeliveryPreparation,
-        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        reservation: IOSAcceptedOutputPendingHistoryTransferReservation,
         ownershipProof: IOSAcceptedOutputHistoryOwnershipProof
     ) throws -> IOSAcceptedOutputDeliveryRecord {
         try requirePreparationOwner(preparation)
+        let authorization = reservation.authorization
         guard authorization.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              reservation.storeIdentity == storeIdentity,
+              pendingHistoryTransferReservation == reservation,
               ownershipProof.capabilityOwnerIdentity
-                == capabilityOwnerIdentity else {
+                == capabilityOwnerIdentity,
+              ownershipProof.provesOwnership(
+                  for: authorization,
+                  under: reservation
+              ) else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
         let operation = PendingHistoryReplacementOperation(
             preparation: preparation,
-            authorization: authorization,
+            reservation: reservation,
             ownershipProof: ownershipProof
         )
         if let uncertainPendingHistoryReplacement {
@@ -348,11 +576,25 @@ public actor IOSAcceptedOutputDeliveryStore {
                 operation: operation
             )
         }
-        try requireNoUncertainHistoryMutation()
-        return try performAccept(
-            preparation,
-            pendingHistoryReplacement: operation
-        ).record
+        try requireNoUncertainHistoryMutation(allowing: reservation)
+        do {
+            return try performAccept(
+                preparation,
+                pendingHistoryReplacement: operation
+            ).record
+        } catch IOSAcceptedOutputDeliveryError.expired {
+            clearPendingHistoryTransferReservation(reservation)
+            throw IOSAcceptedOutputDeliveryError.expired
+        } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
+            clearPendingHistoryTransferReservation(reservation)
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        } catch IOSAcceptedOutputDeliveryError.identityCollision {
+            clearPendingHistoryTransferReservation(reservation)
+            throw IOSAcceptedOutputDeliveryError.identityCollision
+        } catch IOSAcceptedOutputDeliveryError.bridgeRevocationRequired {
+            clearPendingHistoryTransferReservation(reservation)
+            throw IOSAcceptedOutputDeliveryError.bridgeRevocationRequired
+        }
     }
 
     public func load() throws -> IOSAcceptedOutputDeliveryObservation? {
@@ -380,10 +622,118 @@ public actor IOSAcceptedOutputDeliveryStore {
         let authorization = try confirmActiveHistoryRecovery(
             expected: expected
         )
-        guard authorization.record.historyWrite?.state == .pending else {
+        guard authorization.record.historyWrite?.state.isPendingDecision
+                == true else {
             throw IOSAcceptedOutputDeliveryError.invalidTransition
         }
         return authorization
+    }
+
+    /// Atomically blocks a future bridge publication before the coordinator
+    /// crosses the outbox await boundary for this exact delivery.
+    func reservePendingHistoryTransfer(
+        authorization: IOSAcceptedOutputDeliveryAuthorization,
+        policyReceipt: IOSHistoryPolicyReceipt
+    ) throws -> IOSAcceptedOutputPendingHistoryTransferReservation {
+        guard authorization.capabilityOwnerIdentity == capabilityOwnerIdentity,
+              policyReceipt.capabilityOwnerIdentity
+                == capabilityOwnerIdentity,
+              let marker = authorization.record.historyWrite,
+              marker.state.isPendingDecision,
+              policyReceipt.state.historyEnabled,
+              policyReceipt.state.policyGeneration
+                == marker.policyGeneration else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        if let reservation = pendingHistoryTransferReservation {
+            guard reservation.authorization == authorization,
+                  reservation.policyGeneration
+                    == policyReceipt.state.policyGeneration,
+                  reservation.storeIdentity == storeIdentity else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            return reservation
+        }
+        try requireNoUncertainHistoryMutation()
+        let current = try requireCurrentSnapshot()
+        guard current == authorization.snapshot,
+              current.record.historyWrite?.state.isPendingDecision == true else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireActive(current.record)
+        try requireBridgeRevoked(current.record)
+        guard let monotonicDeadline = monotonicDeadlines[
+            current.record.deliveryID
+        ], monotonicDeadline.expiresAt == current.record.expiresAt else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+        let reservation = IOSAcceptedOutputPendingHistoryTransferReservation(
+            authorization: authorization,
+            policyGeneration: policyReceipt.state.policyGeneration,
+            storeIdentity: storeIdentity,
+            monotonicExpiryNanoseconds: monotonicDeadline.uptimeNanoseconds,
+            monotonicNowNanoseconds: monotonicNowNanoseconds
+        )
+        pendingHistoryTransferReservation = reservation
+        return reservation
+    }
+
+    func releasePendingHistoryTransfer(
+        _ reservation: IOSAcceptedOutputPendingHistoryTransferReservation
+    ) throws {
+        guard reservation.storeIdentity == storeIdentity,
+              pendingHistoryTransferReservation == reservation,
+              uncertainPendingHistoryReplacement == nil else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        reservation.release()
+        pendingHistoryTransferReservation = nil
+    }
+
+    /// Mutually excludes the future generation-one bridge commit and App Group
+    /// write from pending-History transfer. Process loss safely drops the
+    /// reservation because generation zero remains the only durable state.
+    func reserveBridgePublication(
+        authorization: IOSAcceptedOutputDeliveryAuthorization
+    ) throws -> IOSAcceptedOutputBridgePublicationReservation {
+        guard authorization.capabilityOwnerIdentity
+                == capabilityOwnerIdentity else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        if let reservation = pendingBridgePublicationReservation {
+            guard authorization.snapshot == reservation.snapshot,
+                  reservation.storeIdentity == storeIdentity else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            return reservation
+        }
+        try requireNoUncertainHistoryMutation()
+        let snapshot = try requireCurrentSnapshot()
+        guard snapshot == authorization.snapshot else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireActive(snapshot.record)
+        guard snapshot.record.deliveryState != .discarded,
+              snapshot.record.publicationGeneration == 0 else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        let reservation = IOSAcceptedOutputBridgePublicationReservation(
+            snapshot: snapshot,
+            storeIdentity: storeIdentity,
+            reservationID: UUID()
+        )
+        pendingBridgePublicationReservation = reservation
+        return reservation
+    }
+
+    func releaseBridgePublication(
+        _ reservation: IOSAcceptedOutputBridgePublicationReservation
+    ) throws {
+        guard reservation.storeIdentity == storeIdentity,
+              pendingBridgePublicationReservation == reservation else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        pendingBridgePublicationReservation = nil
     }
 
     /// Reconstructs physical delivery authority without interpreting the
@@ -504,7 +854,7 @@ public actor IOSAcceptedOutputDeliveryStore {
             break
         }
 
-        if snapshot.record.historyWrite?.state == .pending {
+        if snapshot.record.historyWrite?.state.isPendingDecision == true {
             throw IOSAcceptedOutputDeliveryError.historyTransferRequired
         }
 
@@ -584,7 +934,7 @@ public actor IOSAcceptedOutputDeliveryStore {
         }
 
         guard snapshot == authorization.snapshot,
-              snapshot.record.historyWrite?.state == .pending else {
+              snapshot.record.historyWrite?.state.isPendingDecision == true else {
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
         try requireBridgeRevoked(snapshot.record)
@@ -750,7 +1100,8 @@ private extension IOSAcceptedOutputDeliveryStore {
             .canonicalDate(from: now())
         let newRecord = try makeInitialRecord(
             preparation,
-            createdAt: timestamp
+            createdAt: timestamp,
+            marksReplayableReplacement: pendingHistoryReplacement != nil
         )
 
         guard let current = try journal.load() else {
@@ -817,7 +1168,7 @@ private extension IOSAcceptedOutputDeliveryStore {
 
         try requireBridgeRevoked(current.record)
         if currentTemporalState == .active,
-           current.record.historyWrite?.state == .pending {
+           current.record.historyWrite?.state.isPendingDecision == true {
             guard pendingHistoryReplacement != nil else {
                 throw IOSAcceptedOutputDeliveryError.historyTransferRequired
             }
@@ -1030,6 +1381,9 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
         guard let current = try journal.load() else {
             uncertainPendingHistoryReplacement = nil
+            clearPendingHistoryTransferReservation(
+                intent.operation.reservation
+            )
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
 
@@ -1047,8 +1401,11 @@ private extension IOSAcceptedOutputDeliveryStore {
               operation.ownershipProof.provesOwnership(
                   for: operation.authorization
               ),
-              current.record.historyWrite?.state == .pending else {
+              current.record.historyWrite?.state.isPendingDecision == true else {
             uncertainPendingHistoryReplacement = nil
+            clearPendingHistoryTransferReservation(
+                intent.operation.reservation
+            )
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
         switch temporalState(for: intent.intended) {
@@ -1058,6 +1415,9 @@ private extension IOSAcceptedOutputDeliveryStore {
             throw IOSAcceptedOutputDeliveryError.clockRollbackAmbiguous
         case .expired:
             uncertainPendingHistoryReplacement = nil
+            clearPendingHistoryTransferReservation(
+                intent.operation.reservation
+            )
             throw IOSAcceptedOutputDeliveryError.expired
         }
         try requireBridgeRevoked(current.record)
@@ -1096,11 +1456,30 @@ private extension IOSAcceptedOutputDeliveryStore {
                 expected: snapshot
             )
             uncertainPendingHistoryReplacement = nil
+            if pendingHistoryTransferReservation
+                == intent.operation.reservation {
+                intent.operation.reservation.consume()
+                pendingHistoryTransferReservation = nil
+            }
             confirmedAuthorizationFileRevision = nil
             return committed
         } catch IOSAcceptedOutputDeliveryError.commitUncertain {
             uncertainPendingHistoryReplacement = intent
             throw IOSAcceptedOutputDeliveryError.commitUncertain
+        } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
+            guard uncertainPendingHistoryReplacement == nil else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+    }
+
+    private func clearPendingHistoryTransferReservation(
+        _ reservation: IOSAcceptedOutputPendingHistoryTransferReservation
+    ) {
+        if pendingHistoryTransferReservation == reservation {
+            reservation.release()
+            pendingHistoryTransferReservation = nil
         }
     }
 
@@ -1277,7 +1656,7 @@ private extension IOSAcceptedOutputDeliveryStore {
               operation.ownershipProof.provesOwnership(
                   for: operation.authorization
               ),
-              current.record.historyWrite?.state == .pending else {
+              current.record.historyWrite?.state.isPendingDecision == true else {
             uncertainPendingHistoryClear = nil
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
@@ -1355,7 +1734,9 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
         try requireNoUncertainAcceptance()
         guard uncertainPendingHistoryReplacement == nil,
-              uncertainPendingHistoryClear == nil else {
+              uncertainPendingHistoryClear == nil,
+              pendingHistoryTransferReservation == nil,
+              pendingBridgePublicationReservation == nil else {
             throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
         let current = try journal.load()
@@ -1379,7 +1760,7 @@ private extension IOSAcceptedOutputDeliveryStore {
         if current == authorization.snapshot {
             try requireActive(current.record)
             guard let historyWrite = current.record.historyWrite,
-                  historyWrite.state == .pending else {
+                  historyWrite.state.isPendingDecision else {
                 throw IOSAcceptedOutputDeliveryError.invalidTransition
             }
             let intended = try record(
@@ -1432,7 +1813,7 @@ private extension IOSAcceptedOutputDeliveryStore {
         }
 
         guard current == operation.authorization.snapshot,
-              current.record.historyWrite?.state == .pending else {
+              current.record.historyWrite?.state.isPendingDecision == true else {
             uncertainHistoryTransition = nil
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
@@ -1464,6 +1845,11 @@ private extension IOSAcceptedOutputDeliveryStore {
         } catch IOSAcceptedOutputDeliveryError.commitUncertain {
             uncertainHistoryTransition = intent
             throw IOSAcceptedOutputDeliveryError.commitUncertain
+        } catch IOSAcceptedOutputDeliveryError.compareAndSwapFailed {
+            guard uncertainHistoryTransition == nil else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
     }
 
@@ -1472,10 +1858,36 @@ private extension IOSAcceptedOutputDeliveryStore {
         try requireNoUncertainAcceptance()
     }
 
+    func requireNoUncertainHistoryMutation(
+        allowing reservation:
+            IOSAcceptedOutputPendingHistoryTransferReservation
+    ) throws {
+        try requireNoUncertainHistoryMutationExceptAcceptance(
+            allowing: reservation
+        )
+        try requireNoUncertainAcceptance()
+    }
+
     func requireNoUncertainHistoryMutationExceptAcceptance() throws {
+        guard pendingHistoryTransferReservation == nil,
+              pendingBridgePublicationReservation == nil else {
+            throw IOSAcceptedOutputDeliveryError.commitUncertain
+        }
+        try requireNoUncertainHistoryMutationExceptAcceptance(
+            allowing: nil
+        )
+    }
+
+    func requireNoUncertainHistoryMutationExceptAcceptance(
+        allowing reservation:
+            IOSAcceptedOutputPendingHistoryTransferReservation?
+    ) throws {
         guard uncertainHistoryTransition == nil,
               uncertainPendingHistoryReplacement == nil,
-              uncertainPendingHistoryClear == nil else {
+              uncertainPendingHistoryClear == nil,
+              pendingHistoryTransferReservation == nil
+                || pendingHistoryTransferReservation == reservation,
+              pendingBridgePublicationReservation == nil else {
             throw IOSAcceptedOutputDeliveryError.commitUncertain
         }
     }
@@ -1488,7 +1900,8 @@ private extension IOSAcceptedOutputDeliveryStore {
 
     func makeInitialRecord(
         _ preparation: IOSAcceptedOutputDeliveryPreparation,
-        createdAt: Date
+        createdAt: Date,
+        marksReplayableReplacement: Bool = false
     ) throws -> IOSAcceptedOutputDeliveryRecord {
         let createdMilliseconds = try IOSAcceptedOutputDeliveryTimestampCodec
             .milliseconds(from: createdAt)
@@ -1502,6 +1915,12 @@ private extension IOSAcceptedOutputDeliveryStore {
             timeIntervalSince1970: Double(expiry.partialValue) / 1_000
         )
         do {
+            let historyWrite = if marksReplayableReplacement,
+                                  let marker = preparation.historyWrite {
+                try marker.replacingState(.pendingReplacement)
+            } else {
+                preparation.historyWrite
+            }
             return try IOSAcceptedOutputDeliveryRecord(
                 revision: 1,
                 deliveryID: preparation.deliveryID,
@@ -1518,7 +1937,7 @@ private extension IOSAcceptedOutputDeliveryStore {
                     preparation.automaticInsertionPreferenceEnabled,
                 keepLatestResult: preparation.keepLatestResult,
                 publicationGeneration: 0,
-                historyWrite: preparation.historyWrite
+                historyWrite: historyWrite
             )
         } catch {
             throw IOSAcceptedOutputDeliveryError.invalidPreparation

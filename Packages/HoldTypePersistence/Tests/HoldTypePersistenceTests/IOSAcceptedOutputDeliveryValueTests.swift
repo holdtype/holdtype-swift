@@ -108,9 +108,16 @@ struct IOSAcceptedOutputDeliveryValueTests {
             )
         }
 
-        let committed = try history.replacingState(.committed)
-        #expect(throws: IOSAcceptedOutputDeliveryError.invalidPreparation) {
-            try makePreparation(historyWrite: committed)
+        for state in [
+            IOSAcceptedOutputHistoryWriteState.pendingReplacement,
+            .committed,
+            .cancelled,
+        ] {
+            #expect(throws: IOSAcceptedOutputDeliveryError.invalidPreparation) {
+                try makePreparation(
+                    historyWrite: history.replacingState(state)
+                )
+            }
         }
     }
 

@@ -45,6 +45,10 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(first.deliveryStore === sameRoot.deliveryStore)
         #expect(first.baselineRecoveryState === sameRoot.baselineRecoveryState)
         #expect(first.acceptanceState === sameRoot.acceptanceState)
+        #expect(
+            first.pendingReplacementState
+                === sameRoot.pendingReplacementState
+        )
         #expect(first.ownerIdentity == sameRoot.ownerIdentity)
         #expect(first !== differentRoot)
         #expect(first.ownerIdentity != differentRoot.ownerIdentity)
@@ -1130,6 +1134,55 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(first.delivery.loadCount == firstDeliveryLoads)
     }
 
+    @Test func mismatchedDeliveryStoreIdentityPoisonsCoordinatorBeforeIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let foreignDeliveryJournal = CoordinatorDeliveryJournal(
+            events: fixture.events
+        )
+        let mismatchedDeliveryStore = IOSAcceptedOutputDeliveryStore(
+            journal: foreignDeliveryJournal,
+            now: { [clock = fixture.clock] in clock.now },
+            monotonicNowNanoseconds: {
+                [clock = fixture.clock] in clock.uptimeNanoseconds
+            },
+            capabilityOwnerIdentity: fixture.ownerIdentity
+        )
+        let identityState =
+            IOSAcceptedHistoryCoordinatorRepositoryIdentityState()
+        let coordinator = IOSAcceptedHistoryCoordinator(
+            policyStore: fixture.policyStore,
+            acceptedHistoryStore: fixture.acceptedHistoryStore,
+            outboxStore: fixture.outboxStore,
+            deliveryStore: mismatchedDeliveryStore,
+            operationGate: IOSPersistenceOperationGate(),
+            ownerIdentity: fixture.ownerIdentity,
+            repositoryIdentityState: identityState
+        )
+        let counts = (
+            fixture.policy.loadCount,
+            fixture.accepted.loadCount,
+            fixture.outbox.loadCount,
+            foreignDeliveryJournal.loadCount
+        )
+
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.repositoryIdentityConflict
+        ) {
+            _ = try await coordinator.capture(
+                transcriptionModel: "model",
+                transcriptionLanguageCode: nil,
+                durationMilliseconds: nil
+            )
+        }
+        #expect(identityState.isConflicted)
+        #expect(fixture.policy.loadCount == counts.0)
+        #expect(fixture.accepted.loadCount == counts.1)
+        #expect(fixture.outbox.loadCount == counts.2)
+        #expect(foreignDeliveryJournal.loadCount == counts.3)
+    }
+
     @Test func deliveryFailureBeforeBoundaryRemainsTypedAndRetryable() async throws {
         let fixture = CoordinatorFixture()
         fixture.policy.install(.baseline)
@@ -2208,6 +2261,1009 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(context.repositoryIdentityState.isConflicted)
         #expect(fixture.delivery.currentRecord?.deliveryID == newer.deliveryID)
     }
+
+    @Test func pendingReplacementTransfersOldDeliveryBeforeFreshAcceptance()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old accepted text"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "fresh replacement text"
+        )
+        let eventOffset = fixture.events.events.count
+
+        let result = try await coordinator.accept(replacement)
+
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(
+            fixture.delivery.currentRecord?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .committed
+        )
+        #expect(fixture.outbox.currentEnvelope?.entries.count == 1)
+        #expect(
+            fixture.outbox.currentEnvelope?.entries.first?.deliveryID
+                == old.deliveryID
+        )
+        #expect(
+            fixture.outbox.currentEnvelope?.entries.first?.acceptedText
+                == old.acceptedText
+        )
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(await fixture.pendingReplacementState.current() == nil)
+
+        let events = Array(fixture.events.events.dropFirst(eventOffset))
+        let outboxIndex = try #require(
+            events.firstIndex(of: "outbox.create")
+        )
+        let replacementIndex = try #require(
+            events.indices.first(where: {
+                $0 > outboxIndex && events[$0] == "delivery.replace"
+            })
+        )
+        let rowIndex = try #require(
+            events.indices.first(where: {
+                $0 > replacementIndex && events[$0] == "accepted.create"
+            })
+        )
+        #expect(outboxIndex < replacementIndex)
+        #expect(replacementIndex < rowIndex)
+    }
+
+    @Test func stalePendingReplacementCancelsOldMarkerWithoutOutbox()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "stale old text"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        fixture.policy.install(
+            try IOSHistoryPolicyState(
+                revision: 2,
+                historyEnabled: true,
+                policyGeneration: 2
+            )
+        )
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "current generation text"
+        )
+
+        let result = try await coordinator.accept(replacement)
+
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(result.deliveryRecord.historyWrite?.policyGeneration == 2)
+        #expect(fixture.outbox.currentEnvelope == nil)
+        #expect(fixture.outbox.createCount == 0)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+    }
+
+    @Test func outboxTransferUncertaintyRetainsExactReplacementWork()
+        async throws {
+        for commitBeforeThrowing in [false, true] {
+            let fixture = CoordinatorFixture()
+            fixture.policy.install(.baseline)
+            let coordinator = fixture.coordinator()
+            let old = try await coordinatorPreparation(
+                using: coordinator,
+                text: "old uncertain transfer"
+            )
+            _ = try await fixture.deliveryStore.accept(old)
+            let replacement = try await coordinatorPreparation(
+                using: coordinator,
+                text: "new uncertain transfer"
+            )
+            let different = try await coordinatorPreparation(
+                using: coordinator,
+                text: "must not steal transfer"
+            )
+            fixture.outbox.failNextCreate(
+                with: .commitUncertain,
+                commitBeforeThrowing: commitBeforeThrowing
+            )
+
+            await #expect(
+                throws: IOSAcceptedHistoryOutboxError.commitUncertain
+            ) {
+                _ = try await coordinator.accept(replacement)
+            }
+            let deliveryLoads = fixture.delivery.loadCount
+            let policyLoads = fixture.policy.loadCount
+            let outboxLoads = fixture.outbox.loadCount
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                _ = try await fixture.coordinator().accept(different)
+            }
+            #expect(fixture.delivery.loadCount == deliveryLoads)
+            #expect(fixture.policy.loadCount == policyLoads)
+            #expect(fixture.outbox.loadCount == outboxLoads)
+
+            let result = try await fixture.coordinator().accept(replacement)
+            #expect(result.resolution == .committed)
+            #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+            #expect(fixture.outbox.currentEnvelope?.entries.count == 1)
+            #expect(
+                fixture.outbox.currentEnvelope?.entries.first?.deliveryID
+                    == old.deliveryID
+            )
+            #expect(await fixture.pendingReplacementState.current() == nil)
+        }
+    }
+
+    @Test func outboxTransferConfirmationCASRetainsReservedPhase()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old visible outbox transfer"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "replacement after outbox confirmation"
+        )
+        fixture.outbox.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        let retained = try #require(
+            await fixture.pendingReplacementState.current()
+        )
+        guard case .transferReserved = retained.phase else {
+            Issue.record("Expected the exact transfer-reserved phase")
+            return
+        }
+        fixture.outbox.failReplace(
+            onCall: fixture.outbox.replaceCount + 1,
+            with: .compareAndSwapFailed,
+            commitBeforeThrowing: false
+        )
+
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        #expect(
+            await fixture.pendingReplacementState.current() == retained
+        )
+
+        let result = try await coordinator.accept(replacement)
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(
+            fixture.outbox.currentEnvelope?.entries.first?.deliveryID
+                == old.deliveryID
+        )
+        #expect(await fixture.pendingReplacementState.current() == nil)
+    }
+
+    @Test func deliveryReplacementUncertaintyPreservesFreshProvenance()
+        async throws {
+        for commitBeforeThrowing in [false, true] {
+            let fixture = CoordinatorFixture()
+            fixture.policy.install(.baseline)
+            let coordinator = fixture.coordinator()
+            let old = try await coordinatorPreparation(
+                using: coordinator,
+                text: "old replacement uncertainty"
+            )
+            _ = try await fixture.deliveryStore.accept(old)
+            let replacement = try await coordinatorPreparation(
+                using: coordinator,
+                text: "new replacement uncertainty"
+            )
+            let different = try await coordinatorPreparation(
+                using: coordinator,
+                text: "cannot steal replacement"
+            )
+            fixture.delivery.failReplace(
+                onCall: fixture.delivery.replaceCount + 2,
+                with: .commitUncertain,
+                commitBeforeThrowing: commitBeforeThrowing
+            )
+
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                _ = try await coordinator.accept(replacement)
+            }
+            #expect(fixture.outbox.currentEnvelope?.entries.count == 1)
+            let deliveryLoads = fixture.delivery.loadCount
+            let policyLoads = fixture.policy.loadCount
+            let outboxLoads = fixture.outbox.loadCount
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                _ = try await fixture.coordinator().accept(different)
+            }
+            #expect(fixture.delivery.loadCount == deliveryLoads)
+            #expect(fixture.policy.loadCount == policyLoads)
+            #expect(fixture.outbox.loadCount == outboxLoads)
+
+            let result = try await fixture.coordinator().accept(replacement)
+            #expect(result.resolution == .committed)
+            #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+            #expect(
+                fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                    == replacement.deliveryID
+            )
+            #expect(await fixture.pendingReplacementState.current() == nil)
+        }
+    }
+
+    @Test func pendingReplacementConfirmationCASRetainsTransferredPhase()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old visible delivery replacement"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "replacement after delivery confirmation"
+        )
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 2,
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        let retained = try #require(
+            await fixture.pendingReplacementState.current()
+        )
+        guard case .outboxTransferred = retained.phase else {
+            Issue.record("Expected the exact outbox-transferred phase")
+            return
+        }
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 1,
+            with: .compareAndSwapFailed,
+            commitBeforeThrowing: false
+        )
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        #expect(
+            await fixture.pendingReplacementState.current() == retained
+        )
+
+        let result = try await coordinator.accept(replacement)
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .committed
+        )
+        #expect(await fixture.pendingReplacementState.current() == nil)
+    }
+
+    @Test func cancellationConfirmationCASRetainsInvalidationPhase()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old visible cancellation"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "replacement after cancellation confirmation"
+        )
+        fixture.policy.install(
+            try IOSHistoryPolicyState(
+                revision: 2,
+                historyEnabled: false,
+                policyGeneration: 2
+            )
+        )
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 2,
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        let retained = try #require(
+            await fixture.pendingReplacementState.current()
+        )
+        guard case .invalidationConfirmed = retained.phase else {
+            Issue.record("Expected the exact invalidation-confirmed phase")
+            return
+        }
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 1,
+            with: .compareAndSwapFailed,
+            commitBeforeThrowing: false
+        )
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        #expect(
+            await fixture.pendingReplacementState.current() == retained
+        )
+
+        let result = try await coordinator.accept(replacement)
+        #expect(result.resolution == .cancelled)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .cancelled
+        )
+        #expect(await fixture.pendingReplacementState.current() == nil)
+    }
+
+    @Test func visibleReplacementSurvivesProcessLossAndReplaysAbsentRow()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old before visible replacement"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "replacement visible before process loss"
+        )
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 2,
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+
+        await #expect(throws: IOSAcceptedOutputDeliveryError.commitUncertain) {
+            _ = try await coordinator.accept(replacement)
+        }
+        #expect(
+            fixture.delivery.currentRecord?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state
+                == .pendingReplacement
+        )
+        #expect(fixture.accepted.currentEnvelope == nil)
+        let rowCreates = fixture.accepted.createCount
+
+        let resolution = try await fixture.relaunchedCoordinator()
+            .recoverAcceptedHistory()
+
+        #expect(resolution == .committed)
+        #expect(fixture.accepted.createCount == rowCreates + 1)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .committed
+        )
+    }
+
+    @Test func replacementCapacityLossIsSealedOnlyByTerminalMarker()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old before capacity loss"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+
+        let createdAt = fixture.clock.now
+        let entries = try (0..<20).map { index in
+            try IOSAcceptedHistoryEntry(
+                deliveryID: #require(
+                    UUID(
+                        uuidString: String(
+                            format:
+                                "00000000-0000-0000-0000-%012X",
+                            index + 1
+                        )
+                    )
+                ),
+                transcriptID: #require(
+                    UUID(
+                        uuidString: String(
+                            format:
+                                "10000000-0000-0000-0000-%012X",
+                            index + 1
+                        )
+                    )
+                ),
+                acceptedText: "newer stable row \(index)",
+                outputIntent: .standard,
+                createdAt: createdAt,
+                policyGeneration: 1,
+                transcriptionModel: "whisper-1",
+                transcriptionLanguageCode: "en",
+                durationMilliseconds: 1_250,
+                cachedAudioRelativeIdentifier: nil
+            )
+        }
+        fixture.accepted.install(
+            try IOSAcceptedHistoryEnvelope(
+                revision: 9,
+                entries: IOSAcceptedHistoryValidation.sorted(entries)
+            )
+        )
+        let capture = try await coordinator.capture(
+            transcriptionModel: "whisper-1",
+            transcriptionLanguageCode: "en",
+            durationMilliseconds: 1_250
+        )
+        let replacementDeliveryID = try #require(
+            UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")
+        )
+        let replacement = try IOSAcceptedOutputDeliveryPreparation(
+            deliveryID: replacementDeliveryID,
+            sessionID: UUID(),
+            attemptID: UUID(),
+            transcriptID: UUID(),
+            rawAcceptedText: "capacity loser replacement",
+            outputIntent: .standard,
+            automaticInsertionPreferenceEnabled: true,
+            keepLatestResult: true,
+            historyCapture: capture
+        )
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 4,
+            with: .commitUncertain,
+            commitBeforeThrowing: true
+        )
+        let acceptedReplaces = fixture.accepted.replaceCount
+
+        let result = try await coordinator.accept(replacement)
+
+        #expect(result.resolution == .pendingLocalRecovery)
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .committed
+        )
+        #expect(fixture.accepted.replaceCount == acceptedReplaces + 1)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries
+                .contains(where: { $0.deliveryID == replacementDeliveryID })
+                == false
+        )
+
+        fixture.accepted.install(
+            try IOSAcceptedHistoryEnvelope(
+                revision: 10,
+                entries: Array(
+                    IOSAcceptedHistoryValidation.sorted(entries).dropLast()
+                )
+            )
+        )
+        let rowWritesBeforeRecovery = (
+            fixture.accepted.createCount,
+            fixture.accepted.replaceCount
+        )
+
+        #expect(
+            try await fixture.relaunchedCoordinator()
+                .recoverAcceptedHistory() == .committed
+        )
+        #expect(fixture.accepted.createCount == rowWritesBeforeRecovery.0)
+        #expect(fixture.accepted.replaceCount == rowWritesBeforeRecovery.1)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries
+                .contains(where: { $0.deliveryID == replacementDeliveryID })
+                == false
+        )
+    }
+
+    @Test func retainedReplacementBypassesTerminalAndDiscardedOldSlots()
+        async throws {
+        let variants: [(IOSAcceptedOutputHistoryWriteState?, Bool)] = [
+            (.committed, false),
+            (.cancelled, false),
+            (nil, false),
+            (nil, true),
+        ]
+        for (markerState, discarded) in variants {
+            let fixture = CoordinatorFixture()
+            fixture.policy.install(.baseline)
+            let coordinator = fixture.coordinator()
+            let old = try await coordinatorPreparation(
+                using: coordinator,
+                text: "terminal old"
+            )
+            let accepted = try await fixture.deliveryStore.accept(old)
+            let marker = try markerState.map {
+                try #require(accepted.historyWrite).replacingState($0)
+            }
+            fixture.delivery.install(
+                try IOSAcceptedOutputDeliveryRecord(
+                    revision: accepted.revision + 1,
+                    deliveryID: accepted.deliveryID,
+                    sessionID: accepted.sessionID,
+                    attemptID: accepted.attemptID,
+                    transcriptID: accepted.transcriptID,
+                    acceptedText: discarded ? nil : accepted.acceptedText,
+                    outputIntent: accepted.outputIntent,
+                    createdAt: accepted.createdAt,
+                    updatedAt: accepted.updatedAt,
+                    expiresAt: accepted.expiresAt,
+                    deliveryState: discarded ? .discarded : .pending,
+                    automaticInsertionPreferenceEnabled: discarded
+                        ? false
+                        : accepted.automaticInsertionPreferenceEnabled,
+                    keepLatestResult: accepted.keepLatestResult,
+                    publicationGeneration: 0,
+                    historyWrite: discarded ? nil : marker
+                )
+            )
+            let replacement = try await coordinatorPreparation(
+                using: coordinator,
+                text: "replacement after terminal old"
+            )
+            await fixture.pendingReplacementState.store(
+                IOSAcceptedHistoryPendingReplacementWork(
+                    ownerIdentity: fixture.ownerIdentity,
+                    preparation: replacement,
+                    phase: .observingCurrentDelivery
+                )
+            )
+            let outboxCreates = fixture.outbox.createCount
+            let outboxReplaces = fixture.outbox.replaceCount
+
+            let resolution = try await coordinator.recoverAcceptedHistory()
+
+            #expect(resolution == .committed)
+            #expect(
+                fixture.delivery.currentRecord?.deliveryID
+                    == replacement.deliveryID
+            )
+            #expect(fixture.outbox.createCount == outboxCreates)
+            #expect(fixture.outbox.replaceCount == outboxReplaces)
+            #expect(await fixture.pendingReplacementState.current() == nil)
+        }
+    }
+
+    @Test func retainedReplacementRecognizesAlreadyCurrentReplayableDelivery()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "already current replacement"
+        )
+        let accepted = try await fixture.deliveryStore.accept(replacement)
+        let replayableMarker = try #require(accepted.historyWrite)
+            .replacingState(.pendingReplacement)
+        fixture.delivery.install(
+            try IOSAcceptedOutputDeliveryRecord(
+                revision: accepted.revision,
+                deliveryID: accepted.deliveryID,
+                sessionID: accepted.sessionID,
+                attemptID: accepted.attemptID,
+                transcriptID: accepted.transcriptID,
+                acceptedText: accepted.acceptedText,
+                outputIntent: accepted.outputIntent,
+                createdAt: accepted.createdAt,
+                updatedAt: accepted.updatedAt,
+                expiresAt: accepted.expiresAt,
+                deliveryState: accepted.deliveryState,
+                automaticInsertionPreferenceEnabled:
+                    accepted.automaticInsertionPreferenceEnabled,
+                keepLatestResult: accepted.keepLatestResult,
+                publicationGeneration: accepted.publicationGeneration,
+                historyWrite: replayableMarker
+            )
+        )
+        await fixture.pendingReplacementState.store(
+            IOSAcceptedHistoryPendingReplacementWork(
+                ownerIdentity: fixture.ownerIdentity,
+                preparation: replacement,
+                phase: .observingCurrentDelivery
+            )
+        )
+
+        #expect(try await coordinator.recoverAcceptedHistory() == .committed)
+        #expect(fixture.outbox.currentEnvelope == nil)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(
+            fixture.delivery.currentRecord?.historyWrite?.state == .committed
+        )
+    }
+
+    @Test func foreignRetainedReplacementIsClearedBeforeAnyStoreIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let preparation = try await coordinatorPreparation(
+            using: coordinator,
+            text: "foreign retained replacement"
+        )
+        await fixture.pendingReplacementState.store(
+            IOSAcceptedHistoryPendingReplacementWork(
+                ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity(),
+                preparation: preparation,
+                phase: .observingCurrentDelivery
+            )
+        )
+        let counts = (
+            fixture.policy.loadCount,
+            fixture.policy.createCount,
+            fixture.policy.replaceCount,
+            fixture.accepted.loadCount,
+            fixture.accepted.createCount,
+            fixture.accepted.replaceCount,
+            fixture.outbox.loadCount,
+            fixture.outbox.createCount,
+            fixture.outbox.replaceCount,
+            fixture.delivery.loadCount,
+            fixture.delivery.createCount,
+            fixture.delivery.replaceCount,
+            fixture.delivery.removeCount,
+            fixture.events.events
+        )
+
+        #expect(
+            try await coordinator.recoverAcceptedHistory()
+                == .pendingLocalRecovery
+        )
+        #expect(fixture.policy.loadCount == counts.0)
+        #expect(fixture.policy.createCount == counts.1)
+        #expect(fixture.policy.replaceCount == counts.2)
+        #expect(fixture.accepted.loadCount == counts.3)
+        #expect(fixture.accepted.createCount == counts.4)
+        #expect(fixture.accepted.replaceCount == counts.5)
+        #expect(fixture.outbox.loadCount == counts.6)
+        #expect(fixture.outbox.createCount == counts.7)
+        #expect(fixture.outbox.replaceCount == counts.8)
+        #expect(fixture.delivery.loadCount == counts.9)
+        #expect(fixture.delivery.createCount == counts.10)
+        #expect(fixture.delivery.replaceCount == counts.11)
+        #expect(fixture.delivery.removeCount == counts.12)
+        #expect(fixture.events.events == counts.13)
+        #expect(await fixture.pendingReplacementState.current() == nil)
+    }
+
+    @Test func retainedReplacementWorkAndPhaseRedactAcceptedText()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let preparation = try await coordinatorPreparation(
+            using: fixture.coordinator(),
+            text: "PENDING-REPLACEMENT-WORK-SECRET"
+        )
+        let phase = IOSAcceptedHistoryPendingReplacementPhase
+            .observingCurrentDelivery
+        let work = IOSAcceptedHistoryPendingReplacementWork(
+            ownerIdentity: fixture.ownerIdentity,
+            preparation: preparation,
+            phase: phase
+        )
+
+        let rendered = String(describing: phase)
+            + String(reflecting: phase)
+            + String(describing: Mirror(reflecting: phase))
+            + String(describing: work)
+            + String(reflecting: work)
+            + String(describing: Mirror(reflecting: work))
+        #expect(rendered.contains("redacted"))
+        #expect(!rendered.contains("PENDING-REPLACEMENT-WORK-SECRET"))
+        #expect(phase.customMirror.children.isEmpty)
+        #expect(work.customMirror.children.isEmpty)
+    }
+
+    @Test func foreignRetainedPhaseCapabilitiesFailBeforeAnyStoreIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let preparation = try await coordinatorPreparation(
+            using: coordinator,
+            text: "local replacement preparation"
+        )
+
+        let foreign = CoordinatorFixture()
+        foreign.policy.install(.baseline)
+        let foreignCoordinator = foreign.coordinator()
+        let foreignOld = try await coordinatorPreparation(
+            using: foreignCoordinator,
+            text: "foreign pending delivery"
+        )
+        let foreignRecord = try await foreign.deliveryStore.accept(foreignOld)
+        let foreignAuthorization = try await foreign.deliveryStore
+            .authorizePendingHistoryWrite(
+                expected: IOSAcceptedOutputDeliveryExpectation(
+                    record: foreignRecord
+                )
+            )
+        let foreignState = try #require(try await foreign.policyStore.load())
+        let foreignPolicy = try await foreign.policyStore.confirm(
+            expected: IOSHistoryPolicyExpectation(state: foreignState)
+        )
+        let foreignReservation = try await foreign.deliveryStore
+            .reservePendingHistoryTransfer(
+                authorization: foreignAuthorization,
+                policyReceipt: foreignPolicy
+            )
+        let foreignOutbox = try await foreign.outboxStore.transfer(
+            reservation: foreignReservation
+        )
+        let foreignInvalidState = try IOSHistoryPolicyState(
+            revision: 2,
+            historyEnabled: false,
+            policyGeneration: 2
+        )
+        foreign.policy.install(foreignInvalidState)
+        let foreignInvalidation = try await foreign.policyStore.confirm(
+            expected: IOSHistoryPolicyExpectation(
+                state: foreignInvalidState
+            )
+        )
+        let phases: [IOSAcceptedHistoryPendingReplacementPhase] = [
+            .deliveryAuthorized(foreignAuthorization),
+            .policyConfirmed(foreignAuthorization, foreignPolicy),
+            .transferReserved(foreignReservation),
+            .outboxTransferred(foreignReservation, foreignOutbox),
+            .invalidationConfirmed(
+                foreignAuthorization,
+                foreignInvalidation
+            ),
+        ]
+        let counts = (
+            fixture.policy.loadCount,
+            fixture.policy.createCount,
+            fixture.policy.replaceCount,
+            fixture.accepted.loadCount,
+            fixture.accepted.createCount,
+            fixture.accepted.replaceCount,
+            fixture.outbox.loadCount,
+            fixture.outbox.createCount,
+            fixture.outbox.replaceCount,
+            fixture.delivery.loadCount,
+            fixture.delivery.createCount,
+            fixture.delivery.replaceCount,
+            fixture.delivery.removeCount,
+            fixture.events.events
+        )
+
+        for phase in phases {
+            await fixture.pendingReplacementState.store(
+                IOSAcceptedHistoryPendingReplacementWork(
+                    ownerIdentity: fixture.ownerIdentity,
+                    preparation: preparation,
+                    phase: phase
+                )
+            )
+            #expect(
+                try await coordinator.recoverAcceptedHistory()
+                    == .pendingLocalRecovery
+            )
+            #expect(await fixture.pendingReplacementState.current() == nil)
+        }
+
+        #expect(fixture.policy.loadCount == counts.0)
+        #expect(fixture.policy.createCount == counts.1)
+        #expect(fixture.policy.replaceCount == counts.2)
+        #expect(fixture.accepted.loadCount == counts.3)
+        #expect(fixture.accepted.createCount == counts.4)
+        #expect(fixture.accepted.replaceCount == counts.5)
+        #expect(fixture.outbox.loadCount == counts.6)
+        #expect(fixture.outbox.createCount == counts.7)
+        #expect(fixture.outbox.replaceCount == counts.8)
+        #expect(fixture.delivery.loadCount == counts.9)
+        #expect(fixture.delivery.createCount == counts.10)
+        #expect(fixture.delivery.replaceCount == counts.11)
+        #expect(fixture.delivery.removeCount == counts.12)
+        #expect(fixture.events.events == counts.13)
+    }
+
+    @Test func expiryDuringInvisibleTransferUsesAtomicDeliveryReplacement()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old expiring transfer"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "replacement after expiry"
+        )
+        fixture.outbox.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+
+        fixture.clock.advance(seconds: 86_400)
+        let result = try await fixture.coordinator().accept(replacement)
+
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(fixture.delivery.createCount == 1)
+        #expect(fixture.delivery.removeCount == 0)
+        #expect(fixture.outbox.currentEnvelope == nil)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+    }
+
+    @Test func providerFreeRecoveryFinishesRetainedPendingReplacement()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old retained for recovery"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "provider-free replacement"
+        )
+        fixture.outbox.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+
+        let resolution = try await fixture.coordinator()
+            .recoverAcceptedHistory()
+
+        #expect(resolution == .committed)
+        #expect(
+            fixture.delivery.currentRecord?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+        #expect(await fixture.pendingReplacementState.current() == nil)
+    }
+
+    @Test func processLossRefreshesOutboxProofBeforeFreshReplacement()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(
+            using: coordinator,
+            text: "old process-loss transfer"
+        )
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "new process-loss transfer"
+        )
+        fixture.delivery.failReplace(
+            onCall: fixture.delivery.replaceCount + 2,
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        #expect(fixture.outbox.currentEnvelope?.revision == 1)
+        #expect(
+            fixture.delivery.currentRecord?.deliveryID == old.deliveryID
+        )
+
+        let relaunched = fixture.relaunchedCoordinator()
+        let rebuilt = try await rebuiltPreparation(
+            using: relaunched,
+            matching: replacement
+        )
+        let result = try await relaunched.accept(rebuilt)
+
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.deliveryID == replacement.deliveryID)
+        #expect(fixture.outbox.currentEnvelope?.revision == 1)
+        #expect(fixture.outbox.replaceCount >= 1)
+        #expect(
+            fixture.accepted.currentEnvelope?.entries.first?.deliveryID
+                == replacement.deliveryID
+        )
+    }
+
+    @Test func captureCannotRewritePolicyDuringRetainedReplacementPhase()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let old = try await coordinatorPreparation(using: coordinator)
+        _ = try await fixture.deliveryStore.accept(old)
+        let replacement = try await coordinatorPreparation(
+            using: coordinator,
+            text: "retained replacement"
+        )
+        fixture.outbox.failNextCreate(
+            with: .commitUncertain,
+            commitBeforeThrowing: false
+        )
+        await #expect(
+            throws: IOSAcceptedHistoryOutboxError.commitUncertain
+        ) {
+            _ = try await coordinator.accept(replacement)
+        }
+        let policyLoads = fixture.policy.loadCount
+        let policyReplaces = fixture.policy.replaceCount
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.commitUncertain
+        ) {
+            _ = try await fixture.coordinator().capture(
+                transcriptionModel: "model",
+                transcriptionLanguageCode: nil,
+                durationMilliseconds: nil
+            )
+        }
+        #expect(fixture.policy.loadCount == policyLoads)
+        #expect(fixture.policy.replaceCount == policyReplaces)
+    }
 }
 
 private func coordinatorPreparation(
@@ -2265,6 +3321,8 @@ private final class CoordinatorFixture: @unchecked Sendable {
     let gate: IOSPersistenceOperationGate
     let recoveryState = IOSAcceptedHistoryBaselineRecoveryState()
     let acceptanceState = IOSAcceptedHistoryAcceptanceOperationState()
+    let pendingReplacementState =
+        IOSAcceptedHistoryPendingReplacementOperationState()
     let ownerIdentity = IOSAcceptedHistoryCoordinatorOwnerIdentity()
     let clock: CoordinatorClock
     let policyStore: IOSHistoryPolicyStore
@@ -2285,6 +3343,7 @@ private final class CoordinatorFixture: @unchecked Sendable {
             IOSAcceptedHistoryCoordinatorRepositoryRegistration? = nil
     ) {
         let clock = CoordinatorClock()
+        let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         self.gate = gate
         self.clock = clock
         self.repositoryIdentityState = repositoryIdentityState
@@ -2304,12 +3363,15 @@ private final class CoordinatorFixture: @unchecked Sendable {
         )
         outboxStore = IOSAcceptedHistoryOutboxStore(
             journal: outbox,
+            now: { clock.now },
+            deliveryStoreIdentity: deliveryStoreIdentity,
             capabilityOwnerIdentity: ownerIdentity
         )
         deliveryStore = IOSAcceptedOutputDeliveryStore(
             journal: delivery,
             now: { clock.now },
             monotonicNowNanoseconds: { clock.uptimeNanoseconds },
+            storeIdentity: deliveryStoreIdentity,
             capabilityOwnerIdentity: ownerIdentity
         )
     }
@@ -2323,6 +3385,7 @@ private final class CoordinatorFixture: @unchecked Sendable {
             operationGate: gate,
             baselineRecoveryState: recoveryState,
             acceptanceState: acceptanceState,
+            pendingReplacementState: pendingReplacementState,
             ownerIdentity: ownerIdentity,
             repositoryIdentityState: repositoryIdentityState,
             repositoryRegistration: repositoryRegistration
@@ -2332,6 +3395,7 @@ private final class CoordinatorFixture: @unchecked Sendable {
     func relaunchedCoordinator() -> IOSAcceptedHistoryCoordinator {
         let capabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
+        let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         return IOSAcceptedHistoryCoordinator(
             policyStore: IOSHistoryPolicyStore(
                 journal: policy,
@@ -2344,6 +3408,8 @@ private final class CoordinatorFixture: @unchecked Sendable {
             ),
             outboxStore: IOSAcceptedHistoryOutboxStore(
                 journal: outbox,
+                now: { [clock] in clock.now },
+                deliveryStoreIdentity: deliveryStoreIdentity,
                 capabilityOwnerIdentity: capabilityOwnerIdentity
             ),
             deliveryStore: IOSAcceptedOutputDeliveryStore(
@@ -2352,10 +3418,13 @@ private final class CoordinatorFixture: @unchecked Sendable {
                 monotonicNowNanoseconds: { [clock] in
                     clock.uptimeNanoseconds
                 },
+                storeIdentity: deliveryStoreIdentity,
                 capabilityOwnerIdentity: capabilityOwnerIdentity
             ),
             operationGate: gate,
             acceptanceState: IOSAcceptedHistoryAcceptanceOperationState(),
+            pendingReplacementState:
+                IOSAcceptedHistoryPendingReplacementOperationState(),
             ownerIdentity: capabilityOwnerIdentity,
             repositoryIdentityState: repositoryIdentityState,
             repositoryRegistration: repositoryRegistration
@@ -2733,14 +3802,29 @@ private final class CoordinatorAcceptedJournal:
 private final class CoordinatorOutboxJournal:
     IOSAcceptedHistoryOutboxJournalStoring,
     @unchecked Sendable {
+    private struct Failure {
+        let error: IOSAcceptedHistoryOutboxError
+        let commitBeforeThrowing: Bool
+    }
+
     private let lock = NSLock()
     private let events: CoordinatorEventRecorder
     private var snapshot: IOSAcceptedHistoryOutboxJournalSnapshot?
     private var nextRevisionToken: UInt64 = 1
     private var storedLoadCount = 0
+    private var storedCreateCount = 0
+    private var storedReplaceCount = 0
+    private var loadFailure: IOSAcceptedHistoryOutboxError?
+    private var createFailure: Failure?
+    private var replaceFailures: [Int: Failure] = [:]
 
     init(events: CoordinatorEventRecorder) { self.events = events }
     var loadCount: Int { lock.withLock { storedLoadCount } }
+    var createCount: Int { lock.withLock { storedCreateCount } }
+    var replaceCount: Int { lock.withLock { storedReplaceCount } }
+    var currentEnvelope: IOSAcceptedHistoryOutboxEnvelope? {
+        lock.withLock { snapshot?.envelope }
+    }
 
     func install(_ envelope: IOSAcceptedHistoryOutboxEnvelope) {
         lock.withLock {
@@ -2751,10 +3835,43 @@ private final class CoordinatorOutboxJournal:
         }
     }
 
-    func load() throws -> IOSAcceptedHistoryOutboxJournalSnapshot? {
+    func failNextLoad(with error: IOSAcceptedHistoryOutboxError) {
+        lock.withLock { loadFailure = error }
+    }
+
+    func failNextCreate(
+        with error: IOSAcceptedHistoryOutboxError,
+        commitBeforeThrowing: Bool
+    ) {
         lock.withLock {
+            createFailure = Failure(
+                error: error,
+                commitBeforeThrowing: commitBeforeThrowing
+            )
+        }
+    }
+
+    func failReplace(
+        onCall call: Int,
+        with error: IOSAcceptedHistoryOutboxError,
+        commitBeforeThrowing: Bool
+    ) {
+        lock.withLock {
+            replaceFailures[call] = Failure(
+                error: error,
+                commitBeforeThrowing: commitBeforeThrowing
+            )
+        }
+    }
+
+    func load() throws -> IOSAcceptedHistoryOutboxJournalSnapshot? {
+        try lock.withLock {
             storedLoadCount += 1
             events.append("outbox.load")
+            if let loadFailure {
+                self.loadFailure = nil
+                throw loadFailure
+            }
             return snapshot
         }
     }
@@ -2763,7 +3880,22 @@ private final class CoordinatorOutboxJournal:
         _ envelope: IOSAcceptedHistoryOutboxEnvelope,
         authorization: IOSAcceptedHistoryOutboxJournalMutationAuthorization
     ) throws -> IOSAcceptedHistoryOutboxJournalSnapshot {
-        throw IOSAcceptedHistoryOutboxError.writeFailed
+        _ = authorization
+        return try lock.withLock {
+            storedCreateCount += 1
+            events.append("outbox.create")
+            guard snapshot == nil else {
+                throw IOSAcceptedHistoryOutboxError.slotOccupied
+            }
+            let created = makeSnapshotLocked(envelope)
+            if let failure = createFailure {
+                createFailure = nil
+                if failure.commitBeforeThrowing { snapshot = created }
+                throw failure.error
+            }
+            snapshot = created
+            return created
+        }
     }
 
     func replace(
@@ -2771,7 +3903,23 @@ private final class CoordinatorOutboxJournal:
         expected: IOSAcceptedHistoryOutboxJournalSnapshot,
         authorization: IOSAcceptedHistoryOutboxJournalMutationAuthorization
     ) throws -> IOSAcceptedHistoryOutboxJournalSnapshot {
-        throw IOSAcceptedHistoryOutboxError.writeFailed
+        _ = authorization
+        return try lock.withLock {
+            storedReplaceCount += 1
+            events.append("outbox.replace")
+            guard snapshot == expected else {
+                throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+            }
+            let replacement = makeSnapshotLocked(envelope)
+            if let failure = replaceFailures.removeValue(
+                forKey: storedReplaceCount
+            ) {
+                if failure.commitBeforeThrowing { snapshot = replacement }
+                throw failure.error
+            }
+            snapshot = replacement
+            return replacement
+        }
     }
 
     func performStagingMaintenance(
@@ -2782,6 +3930,15 @@ private final class CoordinatorOutboxJournal:
         defer { nextRevisionToken += 1 }
         return IOSStrictProtectedRecordFileRevision(
             testingToken: nextRevisionToken
+        )
+    }
+
+    private func makeSnapshotLocked(
+        _ envelope: IOSAcceptedHistoryOutboxEnvelope
+    ) -> IOSAcceptedHistoryOutboxJournalSnapshot {
+        IOSAcceptedHistoryOutboxJournalSnapshot(
+            envelope: envelope,
+            fileRevision: revisionLocked()
         )
     }
 }

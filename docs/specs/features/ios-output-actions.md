@@ -130,16 +130,18 @@ behavior remain platform-owned.
   dismisses/discards it, or the 24-hour safety cap expires.
 - The protected pending/latest delivery record is the mandatory pre-handoff
   recovery and commits before any short-lived keyboard snapshot. When History
-  is enabled, the app also attempts its accepted row before publication. A
-  History append failure does not suppress an otherwise durable result: output
-  may continue with a visible non-blocking History error and a structured
-  History-write object on the delivery record. It retains the captured History
-  policy generation and accepted-row metadata while its state moves only from
-  `pending` to `committed` or `cancelled`; it is not a Boolean or a disappearing
+  is enabled, normal acceptance stores `historyWrite.state: pending` and also
+  attempts its accepted row before publication. A History append failure does
+  not suppress an otherwise durable result: output may continue with a visible
+  non-blocking History error and the structured History-write object on the
+  delivery record. In the narrow proof-bound replacement path, only the
+  delivery store may mint `pendingReplacement` after the old pending payload is
+  durable in outbox; callers cannot request or construct it. Both unresolved
+  states retain the captured policy generation and accepted-row metadata and
+  move only to `committed` or `cancelled`; neither is a Boolean or disappearing
   marker. Before Clear Latest, replacement, or non-retention could remove a
-  delivery with pending History work, the app must durably move that work to
-  the bounded History outbox. Until that outbox exists, such removal fails
-  closed.
+  delivery with unresolved History work, the app must durably transfer exact
+  ownership to the bounded History outbox or fail closed.
   The app retries only local metadata persistence, never provider work. If the
   mandatory delivery record fails, no accepted text is published and the
   journaled attempt remains recoverable. The exact contract is frozen in

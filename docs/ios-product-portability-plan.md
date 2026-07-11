@@ -987,15 +987,39 @@ History metadata, and the 24-hour recovery owner remain outside App Group and
 the keyboard. Publication generation cannot advance until the later production
 bridge checkpoint owns the matching projection and revocation protocol.
 
-The accepted-History foundation is now complete through normal acceptance and
-provider-free relaunch recovery. One root-scoped process capability owner binds
-the policy, accepted rows, outbox, delivery record, coordinator, and every
-opaque receipt before repository I/O. Normal acceptance crosses the provider
-replay boundary at durable delivery, then preserves exact policy, row, marker,
-and expiry phases through local uncertainty. Relaunch recovery never recreates
-an absent row from caller data, and expiry seals one bridge-revoked observation
-through bounded abandonment without resampling time or returning to History
-work. Policy cutover, pending-delivery transfer, the FIFO outbox worker, and
+The accepted-History foundation is implemented through the C1 slice: normal
+acceptance, provider-free relaunch recovery, and exact pending-delivery transfer
+before a new accepted result replaces the delivery slot. One root-scoped
+process capability owner binds the policy, accepted rows, outbox, delivery
+record, coordinator, and every opaque receipt before repository I/O. Normal
+acceptance crosses the provider replay boundary at durable delivery, then
+preserves exact policy, row, marker, and expiry phases through local
+uncertainty. Ordinary relaunch recovery never recreates an absent row from
+caller data; only a store-minted `pendingReplacement` marker may replay the new
+atomic replacement's idempotent row decision. A replacement-only capacity
+rejection performs an identical accepted-row source rewrite with the logical
+envelope, revision, and stale rows unchanged; only the exact terminal delivery
+marker makes that prepared not-retained outcome durable.
+
+Expiry seals one bridge-revoked observation through bounded abandonment without
+resampling time or returning to History work. A current-generation old payload
+is durably copied to outbox under an exact delivery-store reservation before its
+delivery is atomically replaced. The monotonic lease is bound to the production
+delivery/outbox pair, claimable by one outbox store, and consumed or released by
+the replacement path. A stale marker is cancelled with exact policy authority,
+duplicate transfer after process loss refreshes the delivery-bound proof, and
+expiry returns to atomic slot replacement without an unlink/create gap. After
+the transfer reservation is minted it supersedes the policy receipt for the
+remaining transfer and replacement phases. C1 adds only mutual exclusion and
+snapshot freeze between that reservation and a future bridge-publication
+reservation; the actual generation `0 -> 1` commit and App Group publication
+remain P6 work and must consume the bridge reservation minted from exact
+owner-bound delivery authorization. Because an older binary cannot parse
+`pendingReplacement` to reach expiry cleanup, a release that writes it is
+no-downgrade until a compatible recovery path exists. Final C1 gate evidence
+and verdict live in
+`docs/qa/runs/ios-accepted-history-transfer-2026-07-11.md`. Policy cutover, the
+FIFO outbox worker, and
 stale-generation cleanup remain the next local durability checkpoint. No
 History record, receipt, text, App Group state, or keyboard dependency is
 introduced by this foundation.
@@ -1167,7 +1191,7 @@ actions, or production typing settings are implemented.
 | Keyboard | Simulator composition; physical device for Full Access, secure fields, host opt-out, switching, eviction |
 | Accessibility | Accessibility Inspector plus manual VoiceOver, Voice Control, Switch Control, Full Keyboard Access |
 | Privacy | Xcode privacy report, App Privacy Report, log/bundle redaction fixtures |
-| Release | TestFlight on current iPhone/iPad hardware, memory, battery, network, Low Power Mode, App Review checklist |
+| Release | TestFlight on current iPhone/iPad hardware, memory, battery, network, Low Power Mode, App Review checklist, and an explicit no-downgrade/forward-only compatibility gate for every persisted wire value an older binary cannot decode or clean up |
 
 Every physical pass belongs in `docs/qa/runs/` with device, OS, host app,
 permission state, Full Access state, expected result, actual result, and gate
@@ -1200,14 +1224,13 @@ usage state, audio, History metadata, or scratch paths into App Group or the
 keyboard.
 
 The next P2 checkpoint finishes the containing-app-only accepted-History
-durability chain: transfer an exact pending delivery into the strict outbox
-before replacement, drain one snapshot-bound entry at a time through the FIFO
-worker, and make Clear/Disable/Enable policy cutover the logical success
+durability chain: drain one snapshot-bound entry at a time through the FIFO
+worker, then make Clear/Disable/Enable policy cutover the logical success
 boundary followed by conservative stale-generation cleanup. Preserve the
 existing root-scoped capability graph, exact retained phases, provider-free
-recovery, no-live-entry eviction rule, and every crash-reconciliation boundary.
-This work must not publish History rows or metadata to App Group or the
-keyboard.
+recovery and replacement, no-live-entry eviction rule, and every
+crash-reconciliation boundary. This work must not publish History rows or
+metadata to App Group or the keyboard.
 
 After that accepted-History chain is verified, implement the bounded failed
 History repository and retry-audio ownership, then the independent recording

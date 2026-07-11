@@ -326,8 +326,23 @@ host app, state, expected result, actual result, and go/no-go decision.
   completed P2 checkpoint: its strict 24-hour recovery record, identity/state
   contract, History-write marker, CAS, and uncertainty handling remain outside
   the keyboard. The accepted-History policy/repository/outbox foundation is
-  also complete through normal acceptance and provider-free relaunch recovery;
-  pending-delivery transfer, the FIFO outbox worker, and cutover cleanup finish
+  implemented through the C1 slice: normal acceptance, provider-free relaunch
+  recovery, and reservation-guarded exact outbox transfer before atomic
+  pending-delivery replacement. Its store-bound monotonic lease is claimable by
+  only the paired outbox and is consumed or released by the replacement path.
+  A replacement-only capacity rejection preserves the exact accepted-row
+  envelope through an identical rewrite and becomes durable only when the exact
+  terminal delivery marker seals it. The store-minted replay marker preserves
+  authority to repeat that replacement row decision after process loss without
+  exposing payload to App Group. C1 makes the transfer and future
+  bridge-publication reservations mutually exclusive and freezes the exact
+  authorized snapshot; P6 still owns and must consume the bridge reservation
+  for the actual generation `0 -> 1` commit and App Group publication. Because
+  an older binary cannot parse `pendingReplacement` to reach expiry cleanup,
+  any release that writes it is no-downgrade until a compatible recovery path
+  exists. Final C1 gate evidence and verdict live in
+  `docs/qa/runs/ios-accepted-history-transfer-2026-07-11.md`. The FIFO outbox
+  worker and cutover cleanup finish
   that P2 chain next. Bounded failed History and the independent recording cache
   follow. All remain outside the keyboard until the directional bridge contract
   is implemented behind the physical M0 gates. The

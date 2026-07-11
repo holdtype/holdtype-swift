@@ -10,8 +10,19 @@ public enum IOSAcceptedOutputDeliveryState: Equatable, Sendable {
 
 public enum IOSAcceptedOutputHistoryWriteState: Equatable, Sendable {
     case pending
+    case pendingReplacement
     case committed
     case cancelled
+}
+
+extension IOSAcceptedOutputHistoryWriteState {
+    var isPendingDecision: Bool {
+        self == .pending || self == .pendingReplacement
+    }
+
+    var mayReplayAbsentHistoryRow: Bool {
+        self == .pendingReplacement
+    }
 }
 
 public struct IOSAcceptedOutputHistoryWrite: Sendable {
@@ -106,8 +117,7 @@ public struct IOSAcceptedOutputDeliveryPreparation: Sendable {
     ) throws {
         guard let acceptedText = IOSAcceptedOutputDeliveryValidation
             .normalizedAcceptedText(rawAcceptedText),
-              historyWrite?.state != .committed,
-              historyWrite?.state != .cancelled else {
+              historyWrite?.state == .pending || historyWrite == nil else {
             throw IOSAcceptedOutputDeliveryError.invalidPreparation
         }
 
@@ -137,8 +147,8 @@ public struct IOSAcceptedOutputDeliveryPreparation: Sendable {
     ) throws {
         guard let acceptedText = IOSAcceptedOutputDeliveryValidation
             .normalizedAcceptedText(rawAcceptedText),
-              historyCapture.historyWrite?.state != .committed,
-              historyCapture.historyWrite?.state != .cancelled else {
+              historyCapture.historyWrite?.state == .pending
+                || historyCapture.historyWrite == nil else {
             throw IOSAcceptedOutputDeliveryError.invalidPreparation
         }
 
@@ -409,6 +419,11 @@ struct IOSAcceptedOutputHistoryOwnershipProof: Equatable, Sendable {
         }
     }
 
+    var outboxStoreIdentity: IOSAcceptedHistoryOutboxStoreIdentity? {
+        guard case .outbox(let receipt) = evidence else { return nil }
+        return receipt.storeIdentity
+    }
+
     init(retainedRowReceipt: IOSAcceptedHistoryRowReceipt) {
         evidence = .retainedRow(retainedRowReceipt)
     }
@@ -425,6 +440,25 @@ struct IOSAcceptedOutputHistoryOwnershipProof: Equatable, Sendable {
             receipt.provesMembership(for: delivery)
         case .outbox(let receipt):
             receipt.provesMembershipForDeliveryRemoval(for: delivery)
+        }
+    }
+
+    func provesOwnership(
+        for delivery: IOSAcceptedOutputDeliveryAuthorization,
+        under reservation:
+            IOSAcceptedOutputPendingHistoryTransferReservation
+    ) -> Bool {
+        switch evidence {
+        case .retainedRow(let receipt):
+            return receipt.provesMembership(for: delivery)
+                && reservation.permitsOwnershipProof(
+                    from: nil
+                )
+        case .outbox(let receipt):
+            return receipt.provesMembershipForDeliveryRemoval(for: delivery)
+                && reservation.permitsOwnershipProof(
+                    from: receipt.storeIdentity
+                )
         }
     }
 }

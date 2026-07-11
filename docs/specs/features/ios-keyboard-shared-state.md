@@ -65,6 +65,19 @@ accepted output is anchored by the app-private `deliveryID`, session, attempt,
 transcript, and durable publication generation defined by
 `ios-accepted-output-delivery-record.md`. The source document ID remains only a
 conservative target guard; it is not the globally unique delivery identity.
+C1 provides only mutually exclusive in-memory delivery-store reservations for
+pending-History transfer and future bridge publication. It does not grant
+generation-1 authority, perform the private generation `0 -> 1` transition, or
+write the App Group projection. P6 must make the production writer obtain and
+consume the exact bridge reservation from the owner-bound delivery
+authorization created by the mandatory identical durability-confirmation
+rewrite, inside that actual ordered transition and publication. An expectation
+or caller assertion is not authority, and the reservation is not a caller-side
+preflight. Because the bridge and transfer reservations cannot coexist, their
+future ownership paths cannot win concurrently. Either active reservation
+freezes the exact authorized delivery snapshot until its owning consume or
+release path finishes; unrelated marker or delivery mutation fails before
+delivery-journal I/O.
 
 Production command envelopes expire no later than the active Quick Session
 deadline. An accepted-result snapshot expires 10 minutes after it becomes

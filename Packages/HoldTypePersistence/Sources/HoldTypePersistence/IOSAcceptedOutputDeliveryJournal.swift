@@ -400,6 +400,7 @@ enum IOSAcceptedOutputDeliveryWireCodec {
     ) throws -> IOSAcceptedOutputHistoryWriteState {
         switch value {
         case "pending": .pending
+        case "pendingReplacement": .pendingReplacement
         case "committed": .committed
         case "cancelled": .cancelled
         default: throw IOSAcceptedOutputDeliveryError.invalidRecord
@@ -566,6 +567,7 @@ private struct IOSAcceptedOutputDeliveryWireV1: Encodable {
         init(_ marker: IOSAcceptedOutputHistoryWrite) {
             state = switch marker.state {
             case .pending: "pending"
+            case .pendingReplacement: "pendingReplacement"
             case .committed: "committed"
             case .cancelled: "cancelled"
             }

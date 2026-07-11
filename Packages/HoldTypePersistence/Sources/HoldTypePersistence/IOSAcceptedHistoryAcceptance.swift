@@ -126,12 +126,14 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
         IOSAcceptedHistoryAcceptancePhase
     )
     case relaunched(IOSAcceptedHistoryAcceptancePhase)
+    case replayableReplacement(IOSAcceptedHistoryAcceptancePhase)
 
     var phase: IOSAcceptedHistoryAcceptancePhase {
         switch self {
         case .fresh(_, let phase),
              .preexisting(_, let phase),
-             .relaunched(let phase):
+             .relaunched(let phase),
+             .replayableReplacement(let phase):
             phase
         }
     }
@@ -141,7 +143,7 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
         case .fresh(let preparation, _),
              .preexisting(let preparation, _):
             preparation
-        case .relaunched:
+        case .relaunched, .replayableReplacement:
             nil
         }
     }
@@ -149,6 +151,23 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
     var freshPreparation: IOSAcceptedOutputDeliveryPreparation? {
         guard case .fresh(let preparation, _) = self else { return nil }
         return preparation
+    }
+
+    var mayInsertAbsentHistoryRow: Bool {
+        switch self {
+        case .fresh, .replayableReplacement:
+            true
+        case .preexisting, .relaunched:
+            false
+        }
+    }
+
+    func mayResume(
+        with preparation: IOSAcceptedOutputDeliveryPreparation
+    ) -> Bool {
+        if acceptedPreparation == preparation { return true }
+        guard case .replayableReplacement = self else { return false }
+        return phase.deliveryRecord.hasSameAcceptance(as: preparation)
     }
 
     func replacingPhase(
@@ -159,6 +178,7 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
         case .preexisting(let preparation, _):
             .preexisting(preparation, phase)
         case .relaunched: .relaunched(phase)
+        case .replayableReplacement: .replayableReplacement(phase)
         }
     }
 }
@@ -214,8 +234,10 @@ public extension IOSAcceptedHistoryCoordinator {
     ) async throws -> IOSAcceptedHistoryAcceptanceResult {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
+        let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let acceptanceState = acceptanceState
+        let pendingReplacementState = pendingReplacementState
         let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
@@ -228,13 +250,16 @@ public extension IOSAcceptedHistoryCoordinator {
                         .repositoryIdentityConflict
                 }
                 do {
-                    try Self.validate(
+                    try Self.validateHistoryPreparation(
                         preparation: preparation,
                         ownerIdentity: ownerIdentity
                     )
                     let result: IOSAcceptedHistoryAcceptanceResult
                     if let retained = await acceptanceState.current() {
-                        guard retained.acceptedPreparation == preparation else {
+                        guard await pendingReplacementState.current() == nil else {
+                            throw IOSAcceptedOutputDeliveryError.commitUncertain
+                        }
+                        guard retained.mayResume(with: preparation) else {
                             throw IOSAcceptedOutputDeliveryError.commitUncertain
                         }
                         result = await Self.resume(
@@ -245,8 +270,49 @@ public extension IOSAcceptedHistoryCoordinator {
                             acceptanceState: acceptanceState
                         ).result
                     } else {
-                        let acceptance = try await deliveryStore
-                            .acceptForHistoryCoordinator(preparation)
+                        let acceptance: IOSAcceptedOutputDeliveryAcceptance
+                        if let replacement = await pendingReplacementState
+                            .current() {
+                            guard replacement.preparation == preparation else {
+                                throw IOSAcceptedOutputDeliveryError
+                                    .commitUncertain
+                            }
+                            acceptance = try await Self
+                                .resumePendingReplacement(
+                                    replacement,
+                                    policyStore: policyStore,
+                                    outboxStore: outboxStore,
+                                    deliveryStore: deliveryStore,
+                                    replacementState: pendingReplacementState,
+                                    ownerIdentity: ownerIdentity
+                                )
+                        } else {
+                            do {
+                                acceptance = try await deliveryStore
+                                    .acceptForHistoryCoordinator(preparation)
+                            } catch IOSAcceptedOutputDeliveryError
+                                .historyTransferRequired {
+                                let replacement =
+                                    IOSAcceptedHistoryPendingReplacementWork(
+                                        ownerIdentity: ownerIdentity,
+                                        preparation: preparation,
+                                        phase: .observingCurrentDelivery
+                                    )
+                                await pendingReplacementState.store(
+                                    replacement
+                                )
+                                acceptance = try await Self
+                                    .resumePendingReplacement(
+                                        replacement,
+                                        policyStore: policyStore,
+                                        outboxStore: outboxStore,
+                                        deliveryStore: deliveryStore,
+                                        replacementState:
+                                            pendingReplacementState,
+                                        ownerIdentity: ownerIdentity
+                                    )
+                            }
+                        }
                         let record = acceptance.record
                         if let resolution = Self.terminalResolution(
                             for: record
@@ -256,19 +322,10 @@ public extension IOSAcceptedHistoryCoordinator {
                                 resolution: resolution
                             )
                         } else {
-                            let work: IOSAcceptedHistoryAcceptanceWork =
-                                switch acceptance.provenance {
-                                case .freshCurrentProcess:
-                                    .fresh(
-                                        preparation,
-                                        .deliveryAccepted(record)
-                                    )
-                                case .preexisting:
-                                    .preexisting(
-                                        preparation,
-                                        .deliveryAccepted(record)
-                                    )
-                                }
+                            let work = Self.acceptanceWork(
+                                for: acceptance,
+                                preparation: preparation
+                            )
                             await acceptanceState.store(work)
                             result = await Self.resume(
                                 work,
@@ -313,14 +370,18 @@ public extension IOSAcceptedHistoryCoordinator {
         }
     }
 
-    /// Reconciles only local durable state. It never calls a provider and
-    /// never recreates an accepted-History row that is absent after relaunch.
+    /// Reconciles only local durable state. It never calls a provider. An
+    /// absent row is replayable after relaunch only for the store-minted
+    /// proof-bound pending-replacement marker.
     func recoverAcceptedHistory()
         async throws -> IOSAcceptedHistoryAcceptanceResolution? {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
+        let outboxStore = outboxStore
         let deliveryStore = deliveryStore
         let acceptanceState = acceptanceState
+        let pendingReplacementState = pendingReplacementState
+        let ownerIdentity = ownerIdentity
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
@@ -333,7 +394,52 @@ public extension IOSAcceptedHistoryCoordinator {
                 }
                 do {
                     let outcome: IOSAcceptedHistoryRecoveryOutcome
-                    if let retained = await acceptanceState.current() {
+                    if let replacement = await pendingReplacementState
+                        .current() {
+                        do {
+                            let acceptance = try await Self
+                                .resumePendingReplacement(
+                                    replacement,
+                                    policyStore: policyStore,
+                                    outboxStore: outboxStore,
+                                    deliveryStore: deliveryStore,
+                                    replacementState: pendingReplacementState,
+                                    ownerIdentity: ownerIdentity
+                                )
+                            if let terminal = Self.terminalResolution(
+                                for: acceptance.record
+                            ) {
+                                outcome = IOSAcceptedHistoryRecoveryOutcome(
+                                    resolution: terminal,
+                                    observedDelivery: true
+                                )
+                            } else {
+                                let work = Self.acceptanceWork(
+                                    for: acceptance,
+                                    preparation: replacement.preparation
+                                )
+                                await acceptanceState.store(work)
+                                let resumed = await Self.resume(
+                                    work,
+                                    policyStore: policyStore,
+                                    acceptedHistoryStore: acceptedHistoryStore,
+                                    deliveryStore: deliveryStore,
+                                    acceptanceState: acceptanceState
+                                )
+                                outcome = IOSAcceptedHistoryRecoveryOutcome(
+                                    resolution: resumed.didAbandon
+                                        ? nil
+                                        : resumed.result.resolution,
+                                    observedDelivery: true
+                                )
+                            }
+                        } catch {
+                            outcome = IOSAcceptedHistoryRecoveryOutcome(
+                                resolution: .pendingLocalRecovery,
+                                observedDelivery: true
+                            )
+                        }
+                    } else if let retained = await acceptanceState.current() {
                         let resumeOutcome = await Self.resume(
                             retained,
                             policyStore: policyStore,
@@ -403,8 +509,8 @@ public extension IOSAcceptedHistoryCoordinator {
     }
 }
 
-private extension IOSAcceptedHistoryCoordinator {
-    static func validate(
+extension IOSAcceptedHistoryCoordinator {
+    static func validateHistoryPreparation(
         preparation: IOSAcceptedOutputDeliveryPreparation,
         ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     ) throws {
@@ -422,6 +528,27 @@ private extension IOSAcceptedHistoryCoordinator {
                     == capture.policyReceipt.state.policyGeneration else {
                 throw IOSAcceptedOutputDeliveryError.invalidPreparation
             }
+        }
+    }
+}
+
+private extension IOSAcceptedHistoryCoordinator {
+    static func acceptanceWork(
+        for acceptance: IOSAcceptedOutputDeliveryAcceptance,
+        preparation: IOSAcceptedOutputDeliveryPreparation
+    ) -> IOSAcceptedHistoryAcceptanceWork {
+        let phase = IOSAcceptedHistoryAcceptancePhase.deliveryAccepted(
+            acceptance.record
+        )
+        switch acceptance.provenance {
+        case .freshCurrentProcess:
+            return .fresh(preparation, phase)
+        case .preexisting:
+            if acceptance.record.historyWrite?.state
+                .mayReplayAbsentHistoryRow == true {
+                return .replayableReplacement(phase)
+            }
+            return .preexisting(preparation, phase)
         }
     }
 
@@ -443,7 +570,7 @@ private extension IOSAcceptedHistoryCoordinator {
             return .notRequested
         }
         return switch historyWrite.state {
-        case .pending: nil
+        case .pending, .pendingReplacement: nil
         case .committed: .committed
         case .cancelled: .cancelled
         }
@@ -519,7 +646,14 @@ private extension IOSAcceptedHistoryCoordinator {
             case .policyConfirmed(let authorization, let policyReceipt):
                 do {
                     let rowReceipt: IOSAcceptedHistoryRowReceipt
-                    if work.freshPreparation != nil {
+                    if authorization.record.historyWrite?.state
+                        == .pendingReplacement {
+                        rowReceipt = try await acceptedHistoryStore
+                            .decideReplayableReplacement(
+                                delivery: authorization,
+                                policy: policyReceipt
+                            )
+                    } else if work.mayInsertAbsentHistoryRow {
                         rowReceipt = try await acceptedHistoryStore.decideUpsert(
                             delivery: authorization,
                             policy: policyReceipt
@@ -740,9 +874,15 @@ private extension IOSAcceptedHistoryCoordinator {
                     observedDelivery: true
                 )
             }
-            let work = IOSAcceptedHistoryAcceptanceWork.relaunched(
-                .deliveryAuthorized(authorization)
-            )
+            let work: IOSAcceptedHistoryAcceptanceWork =
+                if authorization.record.historyWrite?.state
+                    .mayReplayAbsentHistoryRow == true {
+                    .replayableReplacement(
+                        .deliveryAuthorized(authorization)
+                    )
+                } else {
+                    .relaunched(.deliveryAuthorized(authorization))
+                }
             await acceptanceState.store(work)
             let resumeOutcome = await resume(
                 work,
@@ -776,7 +916,7 @@ private extension IOSAcceptedHistoryCoordinator {
         _ authorization: IOSAcceptedOutputDeliveryAuthorization
     ) throws -> Int64 {
         guard let marker = authorization.record.historyWrite,
-              marker.state == .pending else {
+              marker.state.isPendingDecision else {
             throw IOSAcceptedOutputDeliveryError.invalidTransition
         }
         return marker.policyGeneration

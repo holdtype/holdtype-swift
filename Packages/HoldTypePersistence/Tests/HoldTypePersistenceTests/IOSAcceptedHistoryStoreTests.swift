@@ -147,7 +147,7 @@ struct IOSAcceptedHistoryStoreTests {
         }
 
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let outbox = try await outboxFixture.store.transfer(
+        let outbox = try await outboxFixture.store.transferForTesting(
             delivery: enabled.delivery,
             policy: enabled.policy
         )
@@ -163,6 +163,19 @@ struct IOSAcceptedHistoryStoreTests {
                 policy: wrongGeneration
             )
         }
+
+        let replayable = try acceptedHistoryDeliveryAuthorization(
+            index: 3,
+            generation: 2,
+            historyState: .pendingReplacement
+        )
+        let replayFixture = AcceptedHistoryStoreFixture()
+        let replayReceipt = try await replayFixture.store.decideUpsert(
+            delivery: replayable,
+            policy: enabled.policy
+        )
+        #expect(replayReceipt.decision == .retained)
+        #expect(replayReceipt.provesDecision(for: replayable))
 
         let terminal = try acceptedHistoryDeliveryAuthorization(
             index: 2,
@@ -221,7 +234,7 @@ struct IOSAcceptedHistoryStoreTests {
         let foreignOutboxFixture = AcceptedHistoryOutboxStoreFixture(
             capabilityOwnerIdentity: foreignOwner
         )
-        let foreignOutbox = try await foreignOutboxFixture.store.transfer(
+        let foreignOutbox = try await foreignOutboxFixture.store.transferForTesting(
             delivery: foreign.delivery,
             policy: foreign.policy
         )
@@ -246,7 +259,7 @@ struct IOSAcceptedHistoryStoreTests {
         let fixture = AcceptedHistoryStoreFixture()
         let capabilities = try await historyCapabilities(index: 2)
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let outbox = try await outboxFixture.store.transfer(
+        let outbox = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -271,7 +284,7 @@ struct IOSAcceptedHistoryStoreTests {
         let fixture = AcceptedHistoryStoreFixture()
         let capabilities = try await historyCapabilities(index: 3)
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let original = try await outboxFixture.store.transfer(
+        let original = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -294,7 +307,7 @@ struct IOSAcceptedHistoryStoreTests {
     @Test func observationOriginOutboxReceiptDrivesRelaunchWithoutDelivery() async throws {
         let capabilities = try await historyCapabilities(index: 4)
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        _ = try await outboxFixture.store.transfer(
+        _ = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -337,7 +350,7 @@ struct IOSAcceptedHistoryStoreTests {
             acceptedText: "é"
         )
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let composedOutbox = try await outboxFixture.store.transfer(
+        let composedOutbox = try await outboxFixture.store.transferForTesting(
             delivery: composed.delivery,
             policy: composed.policy
         )
@@ -494,7 +507,7 @@ struct IOSAcceptedHistoryStoreTests {
             )
         )
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let outbox = try await outboxFixture.store.transfer(
+        let outbox = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -545,7 +558,7 @@ struct IOSAcceptedHistoryStoreTests {
             )
         )
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let outbox = try await outboxFixture.store.transfer(
+        let outbox = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )
@@ -602,7 +615,7 @@ struct IOSAcceptedHistoryStoreTests {
         #expect(oldDecision.provesDecision(for: oldCandidate.delivery))
         #expect(!oldDecision.provesMembership(for: oldCandidate.delivery))
         let oldOutboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let oldOutbox = try await oldOutboxFixture.store.transfer(
+        let oldOutbox = try await oldOutboxFixture.store.transferForTesting(
             delivery: oldCandidate.delivery,
             policy: oldCandidate.policy
         )
@@ -628,6 +641,123 @@ struct IOSAcceptedHistoryStoreTests {
             fixture.journal.currentEnvelope?.entries.first?.deliveryID
                 == newCandidate.delivery.record.deliveryID
         )
+    }
+
+    @Test func replayableReplacementPreparesCapacityLossWithIdenticalRewrite()
+        async throws {
+        let baseDate = acceptedHistoryStoreDate()
+        let existing = try (0..<20).map { offset in
+            try acceptedHistoryStoredEntry(
+                index: 2_000 + offset,
+                createdAt: baseDate.addingTimeInterval(Double(-offset))
+            )
+        }
+        let fixture = AcceptedHistoryStoreFixture()
+        fixture.journal.install(
+            try IOSAcceptedHistoryEnvelope(revision: 9, entries: existing)
+        )
+        let replayable = try acceptedHistoryDeliveryAuthorization(
+            index: 2_100,
+            generation: 1,
+            createdAt: baseDate.addingTimeInterval(-100),
+            historyState: .pendingReplacement
+        )
+        let ordinary = try acceptedHistoryDeliveryAuthorization(
+            index: 2_100,
+            generation: 1,
+            createdAt: baseDate.addingTimeInterval(-100),
+            historyState: .pending
+        )
+        let policy = try await historyPolicyReceipt(
+            generation: 1,
+            enabled: true
+        )
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transferForTesting(
+            delivery: ordinary,
+            policy: policy
+        )
+
+        let receipt = try await fixture.store.decideReplayableReplacement(
+            delivery: replayable,
+            policy: policy
+        )
+
+        #expect(receipt.decision == .notRetained)
+        #expect(receipt.provesDecision(for: replayable))
+        #expect(!receipt.provesMembership(for: replayable))
+        #expect(!receipt.provesDecision(for: ordinary))
+        #expect(!receipt.provesDecision(for: outbox))
+        #expect(fixture.journal.currentEnvelope?.revision == 9)
+        #expect(fixture.journal.currentEnvelope?.entries == existing)
+        #expect(fixture.journal.events == ["load", "replace:9"])
+    }
+
+    @Test func replayableCapacityLossKeepsPreparedProofAcrossUncertainty()
+        async throws {
+        let baseDate = acceptedHistoryStoreDate()
+        let existing = try (0..<20).map { offset in
+            try acceptedHistoryStoredEntry(
+                index: 2_200 + offset,
+                createdAt: baseDate.addingTimeInterval(Double(-offset))
+            )
+        }
+        let replayable = try acceptedHistoryDeliveryAuthorization(
+            index: 2_300,
+            generation: 1,
+            createdAt: baseDate.addingTimeInterval(-100),
+            historyState: .pendingReplacement
+        )
+        let ordinary = try acceptedHistoryDeliveryAuthorization(
+            index: 2_300,
+            generation: 1,
+            createdAt: baseDate.addingTimeInterval(-100),
+            historyState: .pending
+        )
+        let policy = try await historyPolicyReceipt(
+            generation: 1,
+            enabled: true
+        )
+        let outboxFixture = AcceptedHistoryOutboxStoreFixture()
+        let outbox = try await outboxFixture.store.transferForTesting(
+            delivery: ordinary,
+            policy: policy
+        )
+
+        for visible in [false, true] {
+            let fixture = AcceptedHistoryStoreFixture()
+            fixture.journal.install(
+                try IOSAcceptedHistoryEnvelope(revision: 11, entries: existing)
+            )
+            fixture.journal.failNextReplace(
+                with: .commitUncertain,
+                commitBeforeThrowing: visible
+            )
+            await #expect(throws: IOSAcceptedHistoryError.commitUncertain) {
+                _ = try await fixture.store.decideReplayableReplacement(
+                    delivery: replayable,
+                    policy: policy
+                )
+            }
+
+            let receipt = try await fixture.store
+                .decideReplayableReplacement(
+                    delivery: replayable,
+                    policy: policy
+                )
+
+            #expect(receipt.decision == .notRetained)
+            #expect(receipt.provesDecision(for: replayable))
+            #expect(!receipt.provesDecision(for: ordinary))
+            #expect(!receipt.provesDecision(for: outbox))
+            #expect(fixture.journal.currentEnvelope?.revision == 11)
+            #expect(fixture.journal.currentEnvelope?.entries == existing)
+            #expect(
+                fixture.journal.events.filter { event in
+                    event.hasPrefix("replace:")
+                }.count == 2
+            )
+        }
     }
 
     @Test func equalTimestampUsesCanonicalDeliveryIdentifierOrder() async throws {
@@ -742,6 +872,57 @@ struct IOSAcceptedHistoryStoreTests {
             policy: candidate.policy
         )
         #expect(receipt.decision == .notRetained)
+        #expect(fixture.journal.currentEnvelope == source)
+        #expect(fixture.journal.events.suffix(2) == ["load", "replace:9"])
+    }
+
+    @Test func replayableCapacityLossDoesNotPruneStaleSourceRows() async throws {
+        let exact = try exactLimitAcceptedHistoryEnvelope(revision: 9)
+        let sourceEntries = try exact.entries.enumerated().map { offset, entry in
+            try IOSAcceptedHistoryEntry(
+                deliveryID: entry.deliveryID,
+                transcriptID: entry.transcriptID,
+                acceptedText: entry.acceptedText,
+                outputIntent: entry.outputIntent,
+                createdAt: entry.createdAt,
+                policyGeneration: offset == exact.entries.indices.last ? 1 : 2,
+                transcriptionModel: entry.transcriptionModel,
+                transcriptionLanguageCode: entry.transcriptionLanguageCode,
+                durationMilliseconds: entry.durationMilliseconds,
+                cachedAudioRelativeIdentifier:
+                    entry.cachedAudioRelativeIdentifier
+            )
+        }
+        let source = try IOSAcceptedHistoryEnvelope(
+            revision: exact.revision,
+            entries: sourceEntries
+        )
+        #expect(
+            try IOSAcceptedHistoryWireCodec.encode(source).count
+                == IOSAcceptedHistoryJournal.maximumByteCount
+        )
+        let stale = try #require(source.entries.last)
+        let fixture = AcceptedHistoryStoreFixture()
+        fixture.journal.install(source)
+        let replayable = try acceptedHistoryDeliveryAuthorization(
+            index: 798,
+            generation: 2,
+            acceptedText: stale.acceptedText,
+            createdAt: acceptedHistoryStoreDate().addingTimeInterval(-1_000),
+            historyState: .pendingReplacement
+        )
+        let policy = try await historyPolicyReceipt(
+            generation: 2,
+            enabled: true
+        )
+
+        let receipt = try await fixture.store.decideReplayableReplacement(
+            delivery: replayable,
+            policy: policy
+        )
+
+        #expect(receipt.decision == .notRetained)
+        #expect(receipt.provesDecision(for: replayable))
         #expect(fixture.journal.currentEnvelope == source)
         #expect(fixture.journal.events.suffix(2) == ["load", "replace:9"])
     }
@@ -1095,7 +1276,7 @@ struct IOSAcceptedHistoryStoreTests {
     @Test func outboxMembershipConfirmationNeverInsertsAnAbsentCandidate() async throws {
         let capabilities = try await historyCapabilities(index: 531)
         let outboxFixture = AcceptedHistoryOutboxStoreFixture()
-        let outbox = try await outboxFixture.store.transfer(
+        let outbox = try await outboxFixture.store.transferForTesting(
             delivery: capabilities.delivery,
             policy: capabilities.policy
         )

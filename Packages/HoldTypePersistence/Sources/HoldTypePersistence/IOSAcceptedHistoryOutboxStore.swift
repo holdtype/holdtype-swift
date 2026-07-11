@@ -1,5 +1,20 @@
 import Foundation
 
+struct IOSAcceptedHistoryOutboxStoreIdentity: Equatable, Sendable {
+    private let value = UUID()
+}
+
+extension IOSAcceptedHistoryOutboxStoreIdentity:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSAcceptedHistoryOutboxStoreIdentity(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 struct IOSAcceptedHistoryOutboxGuardedBaselineEvidence: Sendable {
     let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
@@ -32,7 +47,7 @@ fileprivate struct IOSAcceptedHistoryOutboxCandidate: Equatable, Sendable {
     init(delivery: IOSAcceptedOutputDeliveryAuthorization) throws {
         let record = delivery.record
         guard let marker = record.historyWrite,
-              marker.state == .pending,
+              marker.state.isPendingDecision,
               let acceptedText = record.acceptedText else {
             throw IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         }
@@ -49,7 +64,7 @@ fileprivate struct IOSAcceptedHistoryOutboxCandidate: Equatable, Sendable {
     ) throws -> IOSAcceptedHistoryOutboxEntry {
         let record = delivery.record
         guard let marker = record.historyWrite,
-              marker.state == .pending,
+              marker.state.isPendingDecision,
               let acceptedText = record.acceptedText else {
             throw IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         }
@@ -99,6 +114,7 @@ struct IOSAcceptedHistoryOutboxReceipt: Equatable, Sendable {
     fileprivate let origin: IOSAcceptedHistoryOutboxReceiptOrigin
     fileprivate let entry: IOSAcceptedHistoryOutboxEntry
     fileprivate let snapshot: IOSAcceptedHistoryOutboxJournalSnapshot
+    let storeIdentity: IOSAcceptedHistoryOutboxStoreIdentity
     let capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
 
     func provesMembershipForDeliveryRemoval(
@@ -188,6 +204,9 @@ extension IOSAcceptedHistoryOutboxObservation: CustomStringConvertible,
 actor IOSAcceptedHistoryOutboxStore {
     nonisolated let capabilityOwnerIdentity:
         IOSAcceptedHistoryCapabilityOwnerIdentity
+    nonisolated let deliveryStoreIdentity:
+        IOSAcceptedOutputDeliveryStoreIdentity
+    nonisolated let storeIdentity: IOSAcceptedHistoryOutboxStoreIdentity
     private enum Source: Equatable, Sendable {
         case missing
         case existing(IOSAcceptedHistoryOutboxJournalSnapshot)
@@ -277,6 +296,8 @@ actor IOSAcceptedHistoryOutboxStore {
 
     init(
         applicationSupportDirectoryURL: URL,
+        deliveryStoreIdentity: IOSAcceptedOutputDeliveryStoreIdentity =
+            IOSAcceptedOutputDeliveryStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
@@ -284,17 +305,23 @@ actor IOSAcceptedHistoryOutboxStore {
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
         now = { Date() }
+        self.deliveryStoreIdentity = deliveryStoreIdentity
+        storeIdentity = IOSAcceptedHistoryOutboxStoreIdentity()
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
     init(
         journal: any IOSAcceptedHistoryOutboxJournalStoring,
         now: @escaping @Sendable () -> Date = { Date() },
+        deliveryStoreIdentity: IOSAcceptedOutputDeliveryStoreIdentity =
+            IOSAcceptedOutputDeliveryStoreIdentity(),
         capabilityOwnerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
     ) {
         self.journal = journal
         self.now = now
+        self.deliveryStoreIdentity = deliveryStoreIdentity
+        storeIdentity = IOSAcceptedHistoryOutboxStoreIdentity()
         self.capabilityOwnerIdentity = capabilityOwnerIdentity
     }
 
@@ -333,11 +360,25 @@ actor IOSAcceptedHistoryOutboxStore {
     }
 
     func transfer(
-        delivery: IOSAcceptedOutputDeliveryAuthorization,
-        policy: IOSHistoryPolicyReceipt
+        reservation: IOSAcceptedOutputPendingHistoryTransferReservation
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
-        guard delivery.capabilityOwnerIdentity == capabilityOwnerIdentity,
-              policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+        let delivery = reservation.deliveryAuthorization
+        guard delivery.capabilityOwnerIdentity == capabilityOwnerIdentity else {
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+        let claim = reservation.claimForOutbox(
+            authorization: delivery,
+            policyGeneration: reservation.confirmedPolicyGeneration,
+            ownerIdentity: capabilityOwnerIdentity,
+            deliveryStoreIdentity: deliveryStoreIdentity,
+            outboxStoreIdentity: storeIdentity
+        )
+        switch claim {
+        case .claimed, .claimedExpired:
+            break
+        case .expired:
+            throw IOSAcceptedHistoryOutboxError.expired
+        case .invalid:
             throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         }
         guard uncertainIntent?.operation.isRetirement != true else {
@@ -346,9 +387,8 @@ actor IOSAcceptedHistoryOutboxStore {
         let candidate = try IOSAcceptedHistoryOutboxCandidate(
             delivery: delivery
         )
-        guard policy.state.historyEnabled,
-              candidate.entry.policyGeneration
-                == policy.state.policyGeneration else {
+        guard candidate.entry.policyGeneration
+                == reservation.confirmedPolicyGeneration else {
             throw IOSAcceptedHistoryOutboxError.stalePolicyGeneration
         }
         let current = try journal.load()
@@ -357,7 +397,23 @@ actor IOSAcceptedHistoryOutboxStore {
             return try reconcileTransfer(
                 uncertainIntent,
                 candidate: candidate,
-                current: current
+                current: current,
+                monotonicExpired: claim == .claimedExpired
+            )
+        }
+
+        if claim == .claimedExpired {
+            guard let current,
+                  (try? exactMembership(
+                      of: candidate,
+                      in: current.envelope
+                  )) != nil else {
+                throw IOSAcceptedHistoryOutboxError.expired
+            }
+            return try publish(
+                Outcome(envelope: current.envelope),
+                source: .existing(current),
+                operation: .transfer(candidate)
             )
         }
 
@@ -368,7 +424,7 @@ actor IOSAcceptedHistoryOutboxStore {
             let outcome = try outcome(
                 candidate,
                 from: current.envelope,
-                policyGeneration: policy.state.policyGeneration,
+                policyGeneration: reservation.confirmedPolicyGeneration,
                 now: temporalSnapshot
             )
             return try publish(
@@ -393,7 +449,7 @@ actor IOSAcceptedHistoryOutboxStore {
                 outcome(
                     candidate,
                     from: raced.envelope,
-                    policyGeneration: policy.state.policyGeneration,
+                    policyGeneration: reservation.confirmedPolicyGeneration,
                     now: temporalSnapshot
                 ),
                 source: .existing(raced),
@@ -657,6 +713,11 @@ private extension IOSAcceptedHistoryOutboxStore {
         } catch IOSAcceptedHistoryOutboxError.commitUncertain {
             uncertainIntent = intent
             throw IOSAcceptedHistoryOutboxError.commitUncertain
+        } catch IOSAcceptedHistoryOutboxError.compareAndSwapFailed {
+            guard uncertainIntent == nil else {
+                throw IOSAcceptedHistoryOutboxError.commitUncertain
+            }
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         }
     }
 
@@ -863,18 +924,25 @@ private extension IOSAcceptedHistoryOutboxStore {
                 origin: operation.receiptOrigin,
                 entry: operation.entry,
                 snapshot: snapshot,
+                storeIdentity: storeIdentity,
                 capabilityOwnerIdentity: capabilityOwnerIdentity
             )
         } catch IOSAcceptedHistoryOutboxError.commitUncertain {
             uncertainIntent = intent
             throw IOSAcceptedHistoryOutboxError.commitUncertain
+        } catch IOSAcceptedHistoryOutboxError.compareAndSwapFailed {
+            guard uncertainIntent == nil else {
+                throw IOSAcceptedHistoryOutboxError.commitUncertain
+            }
+            throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
         }
     }
 
     private func reconcileTransfer(
         _ intent: UncertainIntent,
         candidate: IOSAcceptedHistoryOutboxCandidate,
-        current: IOSAcceptedHistoryOutboxJournalSnapshot?
+        current: IOSAcceptedHistoryOutboxJournalSnapshot?,
+        monotonicExpired: Bool
     ) throws -> IOSAcceptedHistoryOutboxReceipt {
         guard case .transfer(let intendedCandidate) = intent.operation,
               candidate == intendedCandidate else {
@@ -898,6 +966,11 @@ private extension IOSAcceptedHistoryOutboxStore {
         guard sourceStillCurrent else {
             uncertainIntent = nil
             throw IOSAcceptedHistoryOutboxError.compareAndSwapFailed
+        }
+
+        if monotonicExpired {
+            uncertainIntent = nil
+            throw IOSAcceptedHistoryOutboxError.expired
         }
 
         let temporalSnapshot = try currentTime()

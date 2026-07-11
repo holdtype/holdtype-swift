@@ -253,6 +253,9 @@ cannot release the gate before that transaction finishes exactly once.
 
 - policy receipt: current enabled generation or durable invalidation;
 - row receipt: durable accepted-row retention decision and optional membership;
+  the replacement-only prepared-not-retained variant is not independently
+  durable and proves a decision only for the exact `pendingReplacement`
+  delivery whose terminal marker will seal it;
 - outbox receipt: exact durable membership of one reconstructible entry.
 
 An outbox receipt obtained from transfer or delivery-based confirmation remains
@@ -295,10 +298,14 @@ marker commit retries that operation without another policy branch.
 
 Delivery acceptance also seals whether the record was freshly committed by
 the current process or was already present. That provenance survives visible
-and invisible commit uncertainty. A preexisting pending record always follows
-relaunch recovery even if a new current-owner capture reconstructs the same
-IDs and bytes; it may confirm exact row membership but never upserts an absent
-row. A freshly committed record alone may run the normal row decision.
+and invisible commit uncertainty. An ordinary preexisting `pending` record
+always follows relaunch recovery even if a new current-owner capture
+reconstructs the same IDs and bytes; it may confirm exact row membership but
+never upserts an absent row. A freshly committed record may run the normal row
+decision. The one deliberate exception is store-minted
+`pendingReplacement`: it proves that atomic replacement committed before any
+row decision, so strict relaunch recovery may run the replacement-only
+`decideReplayableReplacement` decision.
 
 Repository-binding finalization runs on success and every error. A conflict
 before delivery acceptance remains thrown. A conflict discovered after the
@@ -315,9 +322,10 @@ authorization: strict load yields an opaque snapshot-bound observation, and
 confirmation succeeds only while that exact snapshot still contains the
 byte-identical entry.
 
-Delivery `historyWrite` moves `pending -> committed` only with a matching row
-receipt and `pending -> cancelled` only with a matching policy-invalidation
-receipt. Neither terminal state returns to pending.
+Delivery `historyWrite` moves either unresolved state (`pending` or
+`pendingReplacement`) to `committed` only with a matching row receipt and to
+`cancelled` only with a matching policy-invalidation receipt. Neither terminal
+state returns to an unresolved state.
 
 Normal accepted-History order is:
 
@@ -326,6 +334,19 @@ Normal accepted-History order is:
 3. make the idempotent row decision;
 4. revalidate policy;
 5. commit the marker with the row receipt.
+
+For a store-minted `pendingReplacement`, capacity rejection is a deliberately
+narrow exception to the ordinary durable-row-receipt rule. The row store makes
+an identical source rewrite, preserving the exact logical envelope, logical
+revision, all entries, and therefore every stale row, then returns a
+prepared-not-retained receipt bound to that replacement delivery. The rewrite
+makes commit uncertainty observable and retryable but is not a standalone
+durable retention decision. Only the exact
+terminal delivery-marker CAS seals the not-retained outcome. Process loss
+before that marker makes recovery evaluate the idempotent replacement row
+decision again; process loss after the marker observes the terminal marker and
+does no row work. Visible and invisible rewrite uncertainty retain the prepared
+receipt mode for exact same-process retry.
 
 If policy changes before step 5, the row is hidden and later removed; the
 pending marker is cancelled with the invalidation receipt. A marker already
@@ -337,19 +358,23 @@ supply receipts. Missing delivery means no work and returns nil.
 An active record is strictly loaded and identically rewritten before any local
 decision. A null marker returns `notRequested`; cancelled is terminal. A
 committed marker is terminal proof of a durable retained-or-not-retained row
-decision after the generic delivery rewrite. The coordinator may identically
-confirm an exact row when present, never inserts an absent row, and exact
-absence remains committed. A pending marker under the still-enabled matching
-generation confirms membership only: present membership may finish the marker,
-while an absent row remains `pendingLocalRecovery` for later outbox/worker
-handling.
+decision after the generic delivery rewrite. For ordinary `pending`, the
+coordinator may identically confirm an exact row when present, never inserts an
+absent row, and exact absence remains committed. That marker under the
+still-enabled matching generation confirms membership only: present membership
+may finish it, while an absent row remains `pendingLocalRecovery` for later
+outbox/worker handling. A `pendingReplacement` marker is the narrow exception:
+after strict reload and identical delivery confirmation, recovery may repeat
+`decideReplayableReplacement`; its idempotent retained-or-not-retained receipt
+then completes the marker.
 A strictly newer confirmed policy cancels a pending marker with that exact
 invalidation receipt. Expired delivery is identically confirmed and removed as
 bounded abandonment without row or marker work; successful removal returns nil
 because no delivery remains, while removal failure returns
 `pendingLocalRecovery`. Clock rollback performs no mutation and returns
-`pendingLocalRecovery`. Process-retained fresh acceptance phase may
-resume its exact `decideUpsert`; relaunched recovery never does.
+`pendingLocalRecovery`. Process-retained fresh acceptance phase may resume its
+exact ordinary row decision; relaunched recovery may run only the distinct
+replacement decision for `pendingReplacement`.
 Retained row or marker uncertainty is replayed with its exact capability before
 expiry or rollback branching. A visible intended row or terminal marker may be
 identically confirmed after expiry; an invisible row or marker intent is first
@@ -377,6 +402,64 @@ outbox entry first. Delivery removal requires opaque proof of exact outbox
 membership or exact accepted-row membership. Failed/uncertain transfer leaves
 delivery unchanged with `historyTransferRequired`. Duplicate ownership in
 delivery and outbox after a crash is idempotent.
+Replacement is part of normal coordinator acceptance rather than a public raw
+store flow. It first finishes any retained row, marker, or expiry work, then
+confirms the old delivery, confirms the current policy, and either transfers an
+enabled current-generation payload or cancels a stale marker with a strictly
+newer policy receipt. For the matching branch, the delivery store mints an
+opaque process-local reservation after policy confirmation and before the first
+outbox read or write. It is bound to the exact authorization, physical
+revision, capability owner, issuing delivery-store identity, policy generation,
+and a monotonic deadline derived while that delivery is active. Production
+assembly injects the same delivery-store identity into the paired outbox; a
+mismatched delivery/outbox pair is a permanent coordinator conflict before
+repository I/O.
+
+The first outbox use before the deadline atomically claims the lease for that
+one outbox-store identity. Another outbox store, a consumed reservation, or a
+released reservation is invalid. A first claim after the deadline fails before
+outbox I/O. A claim made while live may retry after the deadline only to confirm
+an already-visible exact transfer; if the intended transfer is invisible, its
+uncertain intent is cleared and the attempt expires. The atomic replacement
+consumes the claimed reservation together with the exact outbox receipt;
+definitive pre-replacement expiry or conflict releases it. Once minted, the
+transfer reservation supersedes the policy receipt for the transfer and
+replacement phases; those phases do not retain the policy receipt as separate
+authority.
+
+C1 also provides a mutually exclusive in-memory bridge-publication reservation
+from the same delivery-store actor. It requires the exact owner-bound delivery
+authorization produced by the mandatory identical durability-confirmation
+rewrite, not an expectation or caller assertion. If that bridge reservation
+already exists, transfer reservation fails before outbox mutation; if transfer
+reservation wins first, bridge reservation fails closed. C1 performs neither
+the generation `0 -> 1` commit nor the App Group write. P6 must consume the
+exact bridge reservation inside that actual ordered publication flow rather
+than treating it as a caller-side preflight. Either active reservation freezes
+the authorized delivery snapshot and blocks every non-consuming delivery
+mutation, including a History terminal transition, before delivery-journal
+I/O. The newly committed delivery carries store-minted `pendingReplacement`,
+so its normal row decision survives a crash even when the replacement rename
+became visible before the caller observed it.
+
+Transfer and replacement uncertainty retain the owner-bound exact preparation,
+authorization, reservation, outbox receipt when already obtained, and physical
+revisions in the root process context. The policy receipt is retained only
+before reservation mint; after mint the reservation supersedes it. Every
+retained phase validates its work, capture, and capability owner before storage
+I/O; invalid injected work is cleared fail-closed. Different accepted work
+cannot take over that phase.
+Provider-free recovery may finish it. After process loss, the coordinator
+re-authorizes the old delivery and identically confirms duplicate outbox
+membership before replacing it; IDs or caller assertions are never proof. If
+the replacement itself was already visible, `pendingReplacement` reconstructs
+fresh row-decision authority without the lost process state.
+If the old delivery reaches expiry before replacement, the coordinator returns
+to ordinary atomic acceptance, which replaces the expired slot without an
+unlink/create gap and without creating a new outbox entry. A transfer already
+confirmed before expiry remains harmless stale/expired outbox work for the
+worker. All failures before the new delivery commit remain typed local errors;
+after that durable boundary, existing pending-local-recovery semantics apply.
 For an active pending marker, that proof is checked inside the delivery store
 and cannot be replaced by a Boolean or caller-side assertion. Exact delivery
 expiry remains the bounded abandonment exception: expired pending work is
@@ -418,6 +501,9 @@ sync failure; guarded baseline and first `2/2`; Clear/toggle/overflow races;
 row ordering, collisions, retention and cache-link one-way mutation; outbox
 ordering, capacity, expiry and no live eviction; every crash point in normal
 write, transfer, worker and cleanup; stale receipts/two actors/process loss;
+replacement capacity rejection sealed only by the exact terminal marker;
+delivery-store binding, one-outbox lease claiming, consume/release revocation,
+and monotonic transfer expiry; exact bridge authorization and snapshot freeze;
 corrupt/future preservation; no migration/provider replay; redaction; complete
 strict-concurrency package tests; full macOS and iOS simulator suites; and no
 Persistence/History linkage in the keyboard. Signed-device QA owns effective

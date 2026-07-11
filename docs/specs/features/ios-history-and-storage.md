@@ -400,13 +400,18 @@ identity without deleting the only valid artifact.
 - On success, HoldType first commits the mandatory protected accepted-output
   delivery record. When History is on, it then attempts the accepted History
   row before publishing output. If that append fails, the delivery record keeps
-  a structured History-write object containing a `pending` state, captured
-  policy generation, and the accepted row's model, language, and duration
-  metadata. A successful append retains that metadata and moves the state to
-  `committed`; invalidated policy moves it to `cancelled`.
+  a structured History-write object containing the normal `pending` state,
+  captured policy generation, and the accepted row's model, language, and
+  duration metadata. Only proof-bound atomic replacement may store-mint
+  `pendingReplacement`, and only after the old pending payload is outbox-owned;
+  that marker lets relaunch recovery replay the new delivery's idempotent row
+  decision. Callers cannot mint it. A successful row decision retains the
+  metadata and moves either unresolved state to `committed`; invalidated policy
+  moves it to `cancelled`.
   Output continues with a visible non-blocking History error, and a later app
-  lifecycle retries only that local append. Clear History or a later disabled
-  policy generation must not resurrect an old row. Before delivery-record
+  lifecycle retries only that local row decision. Clear History or a later
+  disabled policy generation must not resurrect an old row. Before
+  delivery-record
   replacement, explicit clear, or Keep Latest cleanup could lose outstanding
   pending work, it moves to the bounded History outbox defined by
   `ios-accepted-history-foundation.md`; until that durable transfer exists,
