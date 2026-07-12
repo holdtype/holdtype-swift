@@ -235,6 +235,53 @@ microphone activity or losing completed recordings.
   candidate without production composition or UI. P4D-3 remains the first
   milestone that binds those adapters into the process Voice workflow.
 
+### P4D-3 Production Composition
+
+- The containing-app composition constructs exactly one process-lifetime Voice
+  workflow, `IOSForegroundVoiceController`, permission adapter, audio-session
+  adapter, feedback adapter, finalization owner, and recorder factory. Every
+  scene receives that same controller and workflow identity. The controller is
+  still constructed when secure credentials are unavailable: provider-free
+  observation, Recover Recording, and confirmed Discard remain available,
+  while Start or Retry that requires OpenAI routes to its owning setup state.
+- One process scene registry tracks opaque scene identities and aggregate
+  foreground-active state. Start binds consent and microphone-prompt
+  presentation to the initiating active scene. That ownership is never
+  transferred; if the initiating scene disappears before either decision
+  finishes, arming ends and late completions cannot activate audio or start a
+  provider.
+- Production Start follows the frozen preflight order above without parallel
+  lookahead. After an allowed microphone request returns, and again after the
+  start cue, the workflow revalidates the current attempt token, initiating
+  scene, aggregate foreground state, durable storage owner, Settings and
+  Library snapshot, consent, credential generation, permission, and input route
+  before retained capture begins.
+- Aggregate scene inactivity is tolerated only while the current initiating
+  scene owns an expected system microphone-permission sheet. Audio activation
+  waits until that scene is active again. Any other last-active-scene loss uses
+  the one idempotent stop owner, rejects late callbacks, and follows the frozen
+  partial-capture matrix. Interruption end, media reset, scene reactivation,
+  and permission completion never auto-resume or create another attempt.
+- Process-launch recovery is provider-free and ordered: first reconcile the
+  capture-source namespace, then run the existing containing-app lifecycle
+  recovery, then derive one combined source-and-Pending observation before
+  Start can be offered. A later foreground opportunity repeats only the bounded
+  reconciliation allowed by those owners. It never reads Keychain, requests
+  permission, activates audio, constructs a provider request, or automatically
+  retries retained work.
+- The workflow depends on one process-owned History-playback arbitration
+  protocol. Until History playback UI exists, production supplies an explicit
+  no-active-playback implementation. The preflight still performs the same
+  stop-and-deactivate handoff through that boundary before recording-session
+  activation, so later History playback cannot bypass or reorder the contract.
+- P4 boundary haptics are always enabled. Audible start and success cues follow
+  the existing Voice & Recording cue preference; P4D-3 adds no haptic setting.
+- After aggregate foreground loss, bounded local finalization may protect the
+  exact stopped source or Pending checkpoint, and already-dispatched work may
+  finish only as iOS permits, but no new provider dispatch may begin. P4D-3
+  adds no Voice UI, Quick Session, background-audio mode, App Group
+  publication, keyboard command, or keyboard dependency.
+
 ### P4 Foreground Lifecycle
 
 - P4 declares no audio background mode and does not expose Quick Session. One-
@@ -710,9 +757,23 @@ session as inactive, and must not label setup-dependent behavior as ready.
 
 ## Verification mapping
 
+- Verify that composition creates one Voice controller/workflow and one set of
+  platform-adapter owners, injects the same identities into two scenes, and
+  remains passive on construction even when credentials are unavailable.
+- With two scenes, verify aggregate activation, loss of one active scene,
+  last-active-scene stop, initiating-scene disappearance, the exact
+  permission-sheet inactivity exception, no prompt transfer, and no automatic
+  resume after permission, interruption, reset, or foreground return.
 - Unit-test preflight ordering, state transitions, duplicate actions, tail
   cancellation, timer separation, journaling-before-provider, late-result
   rejection, and bounded cancellation with fakes and clocks.
+- Verify every preflight short circuit and both post-permission revalidation
+  points, including History-playback stop before audio activation and no new
+  provider dispatch after aggregate foreground loss.
+- Verify passive launch ordering as capture-source reconciliation, existing
+  containing-app lifecycle recovery, and combined source/Pending observation;
+  prove it performs no Keychain, permission, audio, provider, App Group, or
+  keyboard work.
 - Test every action in every phase, including Stop Voice Session during ready,
   listening, Finish-triggered finalizing, and processing, with valid/invalid
   partial artifacts and no accidental provider cancellation.
