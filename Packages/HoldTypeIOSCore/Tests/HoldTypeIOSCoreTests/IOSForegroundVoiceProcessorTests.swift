@@ -447,6 +447,43 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(calls.events == ["transcription", "usage"])
     }
 
+    @Test func readyRetryRejectsInvalidCurrentConfigurationWithoutMutation()
+        async throws {
+        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        defer { fixture.removeFiles() }
+        var settings = fixture.settings
+        settings.transcriptionConfiguration = TranscriptionConfiguration(
+            language: .custom,
+            customLanguageCode: "invalid-language"
+        )
+        let calls = ProcessorCallLog()
+        let progress = ProcessorProgressCapture()
+        let processor = fixture.makeProcessor(
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "must not launch"
+                },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { _, _ in "unexpected" }
+            ),
+            calls: calls
+        )
+
+        #expect(
+            await processor.process(
+                fixture.request(mode: .retry, settings: settings),
+                progress: { progress.record($0) }
+            ) == .notStarted(.invalidConfiguration)
+        )
+        #expect(calls.events.isEmpty)
+        #expect(progress.stages.isEmpty)
+        #expect(
+            try await fixture.persistenceOwner.load()?.recording
+                == fixture.pending
+        )
+    }
+
     @Test func initialProcessingKeepsThePreparedCompactConfiguration()
         async throws {
         let fixture = try await ProcessorFixture(outputIntent: .standard)
@@ -669,6 +706,69 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(persistence.acceptanceCallCount == 1)
         #expect(initialProgress.stages == [.transcription, .postProcessing])
         #expect(retryProgress.stages == [.postProcessing, .outputDelivery])
+    }
+
+    @Test func cancellingFinalTextRetryKeepsSavingResultCheckpoint()
+        async throws {
+        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let persistence = FailingOnceForegroundPersistence(
+            base: fixture.persistenceOwner,
+            failure: .outputDelivery
+        )
+        let processor = fixture.makeProcessor(
+            persistence: persistence,
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Retained accepted output"
+                },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { _, _ in "unexpected" }
+            ),
+            calls: calls
+        )
+
+        #expect(
+            await processor.process(fixture.request())
+                == .localRecoveryPending(
+                    failure: .localPersistence,
+                    stage: .postProcessing,
+                    disposition: .savingResult
+                )
+        )
+        #expect(calls.events == ["transcription", "usage"])
+        #expect(persistence.outputDeliveryCallCount == 1)
+
+        let cancelledProgress = ProcessorProgressCapture(
+            cancellingAt: .postProcessing
+        )
+        let cancelledRetry = Task {
+            await processor.retryLocalRecovery(
+                progress: { cancelledProgress.record($0) }
+            )
+        }
+        #expect(
+            await cancelledRetry.value == .localRecoveryPending(
+                failure: .cancelled,
+                stage: .postProcessing,
+                disposition: .savingResult
+            )
+        )
+        #expect(cancelledProgress.stages == [.postProcessing])
+        #expect(calls.events == ["transcription", "usage"])
+        #expect(persistence.outputDeliveryCallCount == 1)
+
+        let retryProgress = ProcessorProgressCapture()
+        let record = try await processor.retryLocalRecovery(
+            progress: { retryProgress.record($0) }
+        ).requireReady()
+        #expect(record.acceptedText == "Retained accepted output")
+        #expect(retryProgress.stages == [.postProcessing, .outputDelivery])
+        #expect(calls.events == ["transcription", "usage"])
+        #expect(persistence.outputDeliveryCallCount == 2)
+        #expect(persistence.acceptanceCallCount == 1)
     }
 
     @Test func acceptanceFailureRetriesOnlyTheLocalCheckpoint()
@@ -902,6 +1002,105 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(persistence.beginCallCount == 1)
         #expect(calls.events.isEmpty)
         #expect(progress.stages.isEmpty)
+    }
+
+    @Test func retainedBeginningWaitsForDurableDispatchBeforeProgress()
+        async throws {
+        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let persistence = FailingOnceForegroundPersistence(
+            base: fixture.persistenceOwner,
+            failure: .beginBeforeCommit
+        )
+        let firstProgress = ProcessorProgressCapture()
+        let retryProgress = ProcessorProgressCapture()
+        let processor = fixture.makeProcessor(
+            persistence: persistence,
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Retained beginning"
+                },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { _, _ in "unexpected" }
+            ),
+            calls: calls
+        )
+
+        #expect(
+            await processor.process(
+                fixture.request(),
+                progress: { firstProgress.record($0) }
+            ) == .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .transcription,
+                disposition: .processingCheckpoint
+            )
+        )
+        #expect(firstProgress.stages.isEmpty)
+        #expect(calls.events.isEmpty)
+        #expect(persistence.beginCallCount == 1)
+
+        let record = try await processor.retryLocalRecovery(
+            progress: { retryProgress.record($0) }
+        ).requireReady()
+        #expect(record.acceptedText == "Retained beginning")
+        #expect(
+            retryProgress.stages
+                == [.transcription, .postProcessing, .outputDelivery]
+        )
+        #expect(calls.events == ["transcription", "usage"])
+        #expect(persistence.beginCallCount == 2)
+    }
+
+    @Test func cancelledDurableAdmissionEmitsNoProgressOrProviderCall()
+        async throws {
+        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let suspension = ProcessorAdmissionSuspension()
+        let persistence = FailingOnceForegroundPersistence(
+            base: fixture.persistenceOwner,
+            failure: .suspendBeginAfterCommit,
+            suspension: suspension
+        )
+        let progress = ProcessorProgressCapture()
+        let processor = fixture.makeProcessor(
+            persistence: persistence,
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "must not launch"
+                },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { _, _ in "unexpected" }
+            ),
+            calls: calls
+        )
+        let processing = Task {
+            await processor.process(
+                fixture.request(),
+                progress: { progress.record($0) }
+            )
+        }
+        await suspension.waitUntilSuspended()
+
+        processing.cancel()
+        await suspension.release()
+
+        guard case .awaitingRecovery(
+            let recovered,
+            failure: .cancelled,
+            stage: .transcription
+        ) = await processing.value else {
+            Issue.record("Expected cancelled durable admission recovery.")
+            return
+        }
+        #expect(recovered.phase == .awaitingRecovery)
+        #expect(progress.stages.isEmpty)
+        #expect(calls.events.isEmpty)
+        #expect(try await fixture.persistenceOwner.load()?.recording == recovered)
     }
 
     @Test func activeProcessorReportsBusyWithoutClaimingLocalRecovery()
@@ -1271,11 +1470,42 @@ private final class ProcessorFixture: @unchecked Sendable {
     }
 }
 
+private actor ProcessorAdmissionSuspension {
+    private var isSuspended = false
+    private var suspendedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func suspend() async {
+        isSuspended = true
+        let waiters = suspendedWaiters
+        suspendedWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation { continuation in
+            releaseContinuation = continuation
+        }
+    }
+
+    func waitUntilSuspended() async {
+        if isSuspended { return }
+        await withCheckedContinuation { continuation in
+            suspendedWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        let continuation = releaseContinuation
+        releaseContinuation = nil
+        continuation?.resume()
+    }
+}
+
 private final class FailingOnceForegroundPersistence:
     IOSForegroundVoicePersisting,
     @unchecked Sendable {
     enum Failure: Equatable {
+        case beginBeforeCommit
         case beginAfterCommit
+        case suspendBeginAfterCommit
         case postProcessing
         case postProcessingAfterCommit
         case outputDelivery
@@ -1287,6 +1517,7 @@ private final class FailingOnceForegroundPersistence:
     }
 
     private let base: IOSForegroundVoicePersistenceOwner
+    private let suspension: ProcessorAdmissionSuspension?
     private let lock = NSLock()
     private var remainingFailure: Failure?
     private var storedBeginCallCount = 0
@@ -1295,8 +1526,13 @@ private final class FailingOnceForegroundPersistence:
     private var storedAwaitingRecoveryCallCount = 0
     private var storedAcceptanceCallCount = 0
 
-    init(base: IOSForegroundVoicePersistenceOwner, failure: Failure) {
+    init(
+        base: IOSForegroundVoicePersistenceOwner,
+        failure: Failure,
+        suspension: ProcessorAdmissionSuspension? = nil
+    ) {
         self.base = base
+        self.suspension = suspension
         remainingFailure = failure
     }
 
@@ -1324,12 +1560,18 @@ private final class FailingOnceForegroundPersistence:
         transcriptionID: UUID
     ) async throws -> IOSForegroundVoiceTranscriptionDispatch {
         lock.withLock { storedBeginCallCount += 1 }
+        if takeFailure(.beginBeforeCommit) {
+            throw ProcessorFixtureError.injectedFailure
+        }
         let result = try await base.beginTranscription(
             expected: expected,
             transcriptionID: transcriptionID
         )
         if takeFailure(.beginAfterCommit) {
             throw ProcessorFixtureError.injectedFailure
+        }
+        if takeFailure(.suspendBeginAfterCommit) {
+            await suspension?.suspend()
         }
         return result
     }

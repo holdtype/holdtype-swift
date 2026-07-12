@@ -314,6 +314,16 @@ public actor IOSForegroundVoiceProcessor {
 
         let recording = dispatch.recording
         retainedWork = .transcribing(context, recording)
+        guard activeOperationID == operationID,
+              !Task.isCancelled else {
+            return await recover(
+                context: context,
+                recording: recording,
+                failure: .cancelled,
+                stage: .transcription,
+                operationID: operationID
+            )
+        }
         await reportProgress(.transcription, operationID: operationID)
         guard activeOperationID == operationID,
               !Task.isCancelled else {
@@ -886,21 +896,19 @@ public actor IOSForegroundVoiceProcessor {
         recording: IOSPendingRecording,
         operationID: UUID
     ) async -> IOSForegroundVoiceProcessingResolution {
-        guard !Task.isCancelled else {
-            return await recover(
-                context: providerFree,
-                recording: recording,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
         let work = IOSForegroundVoiceRetainedWork.finalText(
             providerFree,
             recording,
             text
         )
         retainedWork = work
+        guard !Task.isCancelled else {
+            return localRecovery(
+                retaining: work,
+                failure: .cancelled,
+                stage: .postProcessing
+            )
+        }
         return await resume(work, operationID: operationID)
     }
 
@@ -917,12 +925,10 @@ public actor IOSForegroundVoiceProcessor {
         )
         retainedWork = current
         guard !Task.isCancelled else {
-            return await recover(
-                context: context,
-                recording: recording,
+            return localRecovery(
+                retaining: current,
                 failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
+                stage: .postProcessing
             )
         }
         let outputDelivery: IOSPendingRecording
@@ -1299,18 +1305,11 @@ public actor IOSForegroundVoiceProcessor {
             )
         }
         if current == source {
-            if Task.isCancelled {
-                return await recover(
-                    context: context,
-                    recording: current,
-                    failure: .cancelled,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            }
             return localRecovery(
                 retaining: sourceWork,
-                failure: .localPersistence,
+                failure: Task.isCancelled
+                    ? .cancelled
+                    : .localPersistence,
                 stage: .postProcessing
             )
         }
