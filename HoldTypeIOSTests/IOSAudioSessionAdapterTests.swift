@@ -296,6 +296,71 @@ struct IOSAudioSessionAdapterTests {
         )
     }
 
+    @Test func productionBridgePreservesCrossThreadFIFOAndRejectsStaleGeneration()
+        async throws {
+        let system = AudioSessionSystemFixture()
+        let staleEvents = AudioSessionEventCapture()
+        let currentEvents = AudioSessionEventCapture()
+        let diagnostics = AudioSessionDiagnosticCapture()
+        let adapter = IOSAudioSessionAdapter(
+            system: system,
+            diagnose: diagnostics.record
+        )
+
+        _ = adapter.observeEvents(
+            for: IOSAudioSessionAttemptToken(),
+            receive: staleEvents.record
+        )
+        let staleBridge = IOSAudioSessionNotificationBridge(
+            receive: system.eventHandler(at: 0)
+        )
+
+        let currentToken = IOSAudioSessionAttemptToken()
+        let currentSubscription = adapter.observeEvents(
+            for: currentToken,
+            receive: currentEvents.record
+        )
+        let currentBridge = IOSAudioSessionNotificationBridge(
+            receive: system.eventHandler(at: 1)
+        )
+        let staleBurst: [IOSAudioSessionSystemEvent] = [
+            .mediaServicesLost,
+            .interruptionBegan,
+            .mediaServicesReset,
+        ]
+        let currentBurst: [IOSAudioSessionSystemEvent] = [
+            .interruptionBegan,
+            .mediaServicesLost,
+            .interruptionEnded,
+            .mediaServicesReset,
+        ]
+
+        sendCrossThreadBurst(staleBurst, to: staleBridge)
+        sendCrossThreadBurst(currentBurst, to: currentBridge)
+        try await audioSessionEventually {
+            currentEvents.values.count == currentBurst.count
+                && diagnostics.values.filter {
+                    $0 == .staleCallbackIgnored
+                }.count == staleBurst.count
+        }
+
+        #expect(staleEvents.values.isEmpty)
+        #expect(
+            currentEvents.values.map(\.event) == [
+                .interruptionBegan,
+                .mediaServicesLost,
+                .interruptionEnded,
+                .mediaServicesReset,
+            ]
+        )
+        #expect(
+            currentEvents.values.allSatisfy {
+                $0.attemptToken == currentToken
+                    && $0.generation == currentSubscription.generation
+            }
+        )
+    }
+
     @Test func productionNotificationDecoderDropsResumeAdviceAndRawPayloads() {
         let interruptionBegan = Notification(
             name: AVAudioSession.interruptionNotification,
@@ -473,6 +538,12 @@ private final class AudioSessionSystemFixture: IOSAudioSessionSystem {
         let resolvedIndex = index ?? eventHandlers.count - 1
         eventHandlers[resolvedIndex](event)
     }
+
+    func eventHandler(
+        at index: Int
+    ) -> @MainActor @Sendable (IOSAudioSessionSystemEvent) -> Void {
+        eventHandlers[index]
+    }
 }
 
 @MainActor
@@ -539,4 +610,39 @@ private func audioSessionState(
         sampleRate: sampleRate,
         inputNumberOfChannels: channels
     )
+}
+
+private func sendCrossThreadBurst(
+    _ events: [IOSAudioSessionSystemEvent],
+    to bridge: IOSAudioSessionNotificationBridge
+) {
+    let gates = (0...events.count).map { _ in
+        DispatchSemaphore(value: 0)
+    }
+    let group = DispatchGroup()
+    gates[0].signal()
+
+    for (index, event) in events.enumerated() {
+        group.enter()
+        DispatchQueue.global(qos: .userInteractive)
+            .async {
+                gates[index].wait()
+                bridge.send(event)
+                gates[index + 1].signal()
+                group.leave()
+            }
+    }
+
+    group.wait()
+}
+
+@MainActor
+private func audioSessionEventually(
+    _ predicate: @escaping @MainActor @Sendable () -> Bool
+) async throws {
+    for _ in 0..<100 {
+        if predicate() { return }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    Issue.record("Timed out waiting for audio-session delivery.")
 }

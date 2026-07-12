@@ -590,10 +590,13 @@ private struct NotificationRegistration {
     let object: AnyObject
 }
 
-private final class IOSAudioSessionNotificationBridge: @unchecked Sendable {
+final class IOSAudioSessionNotificationBridge: @unchecked Sendable {
     private let receive: @MainActor @Sendable (
         IOSAudioSessionSystemEvent
     ) -> Void
+    private let lock = NSLock()
+    private var pendingEvents: [IOSAudioSessionSystemEvent] = []
+    private var drainIsScheduled = false
 
     init(
         receive: @escaping @MainActor @Sendable (
@@ -604,8 +607,33 @@ private final class IOSAudioSessionNotificationBridge: @unchecked Sendable {
     }
 
     func send(_ event: IOSAudioSessionSystemEvent) {
-        Task { @MainActor [receive] in
+        let shouldScheduleDrain = lock.withLock {
+            pendingEvents.append(event)
+            guard !drainIsScheduled else { return false }
+            drainIsScheduled = true
+            return true
+        }
+        guard shouldScheduleDrain else { return }
+
+        Task { @MainActor [self] in
+            drainPendingEvents()
+        }
+    }
+
+    @MainActor
+    private func drainPendingEvents() {
+        while let event = takeNextEvent() {
             receive(event)
+        }
+    }
+
+    private func takeNextEvent() -> IOSAudioSessionSystemEvent? {
+        lock.withLock {
+            guard !pendingEvents.isEmpty else {
+                drainIsScheduled = false
+                return nil
+            }
+            return pendingEvents.removeFirst()
         }
     }
 }
