@@ -61,13 +61,47 @@ model-based correction on.
   search/replace pairs. They are empty by default.
 - Replacement rule search text is matched literally, not as a regular
   expression. The replacement text is inserted exactly as configured.
-- Replacement rules with an empty search value must be ignored.
+- Replacement rules with empty or whitespace-only search must be ignored.
 - On iOS, Replacement Rules is a searchable Library list with UUID detail
   editors and explicit Save. Add, per-row enablement, confirmed delete, and
   reorder are separate atomic actions. Reorder is unavailable while the list
   is filtered. A new rule requires non-whitespace Search before its first Save;
   an existing empty-search row remains visible, editable, and preservable as
-  inactive.
+  inactive. A new rule is enabled and appended after the current last rule on
+  its first Save. An identical Search value is valid and is not a duplicate.
+- The Library summary reports the durable rule count and effective active
+  count: `0 rules` when empty, otherwise `N rules · M active`. A rule is active
+  only when it is enabled and has non-whitespace Search. The list preserves
+  durable order and shows Search, Replacement, and one clear `Active`, `Off`,
+  or `Inactive — empty search` status. Empty Search never renders as an
+  unexplained blank row. Empty Replacement is a valid visible value and is
+  explained as removing matched text; whitespace-only Replacement remains
+  distinct and is labeled as containing only whitespace. Duplicate Search
+  values remain separate UUID-addressed rows. Status priority is exact:
+  empty/whitespace-only Search is Inactive regardless of the saved enablement
+  preference; otherwise a disabled row is Off and an enabled row is Active.
+- Search filters both raw Search and Replacement values without changing their
+  order or merging duplicates. Only a non-whitespace ephemeral query activates
+  filtering, and matching is case-insensitive without mutating either stored
+  field. Starting an active search leaves list edit mode, hides reorder
+  affordances, and cannot reorder a filtered subset. Clearing search restores
+  the complete durable order.
+- Reorder is available through native list editing and equivalent VoiceOver
+  move actions. Each move submits one expected complete UUID sequence and one
+  requested sequence containing exactly the same IDs. Any optimistic ordering
+  state contains only UUIDs, uses the latest durable row fields, and rolls back
+  to durable order after failure or conflict.
+- The detail draft owns only raw Search and Replacement text. Enabled state
+  remains a separate list action. Editing does not trim, case-fold, deduplicate,
+  autocorrect, capitalize, or otherwise rewrite either field. Both fields are
+  multiline and preserve leading/trailing whitespace and newlines. Per-field
+  UIKit rewriting traits such as smart quotes, smart dashes, inline completion,
+  and Writing Tools are disabled. System-wide keyboard shortcuts that UIKit
+  does not expose per field remain system-owned; HoldType stores their resulting
+  string without another normalization pass. An existing
+  blank Search may be saved, and an empty Replacement may be saved for both new
+  and existing rules. Confirmed Delete is available from the list and existing
+  detail; deleting a dirty detail draft discards it only after confirmation.
 - Built-in emoji command replacement is governed by
   `voice-emoji-commands.md`. When enabled, it runs after local typography
   cleanup and before user replacement rules.
@@ -155,6 +189,10 @@ cancellation remain platform-adapter concerns.
   still applied in order.
 - Replacement rule matching ignores source-text capitalization, so one rule can
   replace uppercase, lowercase, and mixed-case instances.
+- Empty Replacement removes each literal match. If the complete processed value
+  becomes empty or whitespace-only, accepted-transcript normalization retains
+  the previous non-empty fallback; otherwise that normalization trims only the
+  final accepted value's outer whitespace and newlines.
 
 ## Route / state / data implications
 
@@ -174,8 +212,9 @@ Neither repository uses `UserDefaults` or the App Group.
 
 Library persistence preserves replacement-rule identifiers, enabled state,
 search and replacement strings, duplicates, and array order. It does not trim,
-case-fold, deduplicate, reorder, or silently remove an empty-search row. An
-empty search is ignored only when the local replacement pipeline executes.
+case-fold, deduplicate, reorder, or silently remove an empty-search row. Empty
+or whitespace-only search is ignored only when the local replacement pipeline
+executes.
 Edit/delete use the UUID plus the expected full row, enablement uses the UUID
 plus its expected prior Boolean, and reorder uses expected and requested full
 UUID sequences. A stale or missing target never recreates or mutates another
@@ -193,7 +232,7 @@ usage-estimate spec before the Billing section may claim correction costs.
 ## Verification mapping
 
 - App settings tests should cover defaults, prompt reset, persistence, ignored
-  empty replacement rules, and resolved correction model fallback.
+  empty/whitespace-only Search rules, and resolved correction model fallback.
 - Local cleanup tests should cover dash normalization, quote normalization,
   ellipsis normalization, non-breaking space normalization, ordered
   case-insensitive replacement rules, and empty-output fallback.

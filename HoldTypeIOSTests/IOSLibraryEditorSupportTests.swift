@@ -404,6 +404,218 @@ struct IOSLibraryEditorSupportTests {
         #expect(!content.replacementRules[0].isEnabled)
     }
 
+    @Test func replacementCRUDUsesUUIDFullRowCASAndAllowsDuplicateSearch() {
+        let first = TextReplacementRule(
+            id: UUID(),
+            search: "same",
+            replacement: "one"
+        )
+        let second = TextReplacementRule(
+            id: UUID(),
+            search: "same",
+            replacement: "two"
+        )
+        var content = IOSLibraryContent(replacementRules: [first, second])
+
+        let added = TextReplacementRule(
+            id: UUID(),
+            search: "  same  ",
+            replacement: ""
+        )
+        let addReceipt = IOSLibraryMutation.replacementRules(
+            .add(added)
+        ).apply(to: &content)
+        #expect(addReceipt.disposition == .committed)
+        #expect(content.replacementRules == [first, second, added])
+
+        let retryReceipt = IOSLibraryMutation.replacementRules(
+            .add(added)
+        ).apply(to: &content)
+        #expect(retryReceipt.disposition == .unchanged)
+
+        var collidingID = added
+        collidingID.replacement = "different"
+        let collisionReceipt = IOSLibraryMutation.replacementRules(
+            .add(collidingID)
+        ).apply(to: &content)
+        #expect(collisionReceipt.disposition == .conflict)
+
+        var wrongID = first
+        wrongID.id = UUID()
+        let invalidUpdate = IOSLibraryMutation.replacementRules(
+            .update(expected: first, requested: wrongID)
+        ).apply(to: &content)
+        #expect(invalidUpdate.disposition == .invalid)
+
+        var staleExpected = first
+        staleExpected.replacement = "stale"
+        var requested = first
+        requested.search = "updated"
+        let staleUpdate = IOSLibraryMutation.replacementRules(
+            .update(expected: staleExpected, requested: requested)
+        ).apply(to: &content)
+        #expect(staleUpdate.disposition == .conflict)
+        #expect(content.replacementRules[0] == first)
+
+        let missing = TextReplacementRule(
+            id: UUID(),
+            search: "missing",
+            replacement: "row"
+        )
+        let missingDelete = IOSLibraryMutation.replacementRules(
+            .remove(expected: missing)
+        ).apply(to: &content)
+        #expect(missingDelete.disposition == .targetMissing)
+
+        let staleDelete = IOSLibraryMutation.replacementRules(
+            .remove(expected: staleExpected)
+        ).apply(to: &content)
+        #expect(staleDelete.disposition == .conflict)
+
+        let exactDelete = IOSLibraryMutation.replacementRules(
+            .remove(expected: second)
+        ).apply(to: &content)
+        #expect(exactDelete.disposition == .committed)
+        #expect(content.replacementRules.map(\.id) == [first.id, added.id])
+    }
+
+    @Test func replacementReorderValidatesFullSetAndPreservesLatestFields() {
+        let first = TextReplacementRule(
+            id: UUID(),
+            search: "one",
+            replacement: "1"
+        )
+        let second = TextReplacementRule(
+            id: UUID(),
+            search: "two",
+            replacement: "latest field",
+            isEnabled: false
+        )
+        let third = TextReplacementRule(
+            id: UUID(),
+            search: "three",
+            replacement: "3"
+        )
+        var content = IOSLibraryContent(
+            replacementRules: [first, second, third]
+        )
+
+        let committed = IOSLibraryMutation.replacementRules(
+            .reorder(
+                expected: [first.id, second.id, third.id],
+                requested: [third.id, first.id, second.id]
+            )
+        ).apply(to: &content)
+        #expect(committed.disposition == .committed)
+        #expect(content.replacementRules.map(\.id) == [third.id, first.id, second.id])
+        #expect(content.replacementRules[2] == second)
+
+        let unchanged = IOSLibraryMutation.replacementRules(
+            .reorder(
+                expected: [third.id, first.id, second.id],
+                requested: [third.id, first.id, second.id]
+            )
+        ).apply(to: &content)
+        #expect(unchanged.disposition == .unchanged)
+
+        for invalidRequested in [
+            [third.id, first.id, first.id],
+            [third.id, first.id],
+            [third.id, first.id, UUID()],
+        ] {
+            let invalid = IOSLibraryMutation.replacementRules(
+                .reorder(
+                    expected: [third.id, first.id, second.id],
+                    requested: invalidRequested
+                )
+            ).apply(to: &content)
+            #expect(invalid.disposition == .invalid)
+        }
+
+        content.replacementRules.append(
+            TextReplacementRule(search: "new", replacement: "row")
+        )
+        let sequenceConflict = IOSLibraryMutation.replacementRules(
+            .reorder(
+                expected: [third.id, first.id, second.id],
+                requested: [first.id, second.id, third.id]
+            )
+        ).apply(to: &content)
+        #expect(sequenceConflict.disposition == .conflict)
+    }
+
+    @Test func replacementNoncommitsDoNotWriteAndFieldEditCommutesWithReorder()
+        async throws {
+        let first = TextReplacementRule(
+            id: UUID(),
+            search: "one",
+            replacement: "1"
+        )
+        let second = TextReplacementRule(
+            id: UUID(),
+            search: "two",
+            replacement: "2"
+        )
+        let initial = IOSLibraryContent(replacementRules: [first, second])
+        let repository = IOSLibraryMutationRepository(value: initial)
+        let owner = IOSLibraryStateOwner(
+            load: { try await repository.load() },
+            commit: { try await repository.commit($0) }
+        )
+
+        let invalid = try await owner.apply(
+            .replacementRules(
+                .add(TextReplacementRule(search: " ", replacement: "x"))
+            )
+        )
+        #expect(invalid.receipt.disposition == .invalid)
+        #expect(await repository.commitCount() == 0)
+
+        let unchanged = try await owner.apply(
+            .replacementRules(.add(first))
+        )
+        #expect(unchanged.receipt.disposition == .unchanged)
+        #expect(await repository.commitCount() == 0)
+
+        var collision = first
+        collision.replacement = "collision"
+        let conflict = try await owner.apply(
+            .replacementRules(.add(collision))
+        )
+        #expect(conflict.receipt.disposition == .conflict)
+        #expect(await repository.commitCount() == 0)
+
+        let editedFirst = TextReplacementRule(
+            id: first.id,
+            search: first.search,
+            replacement: "edited",
+            isEnabled: first.isEnabled
+        )
+        async let edit = owner.apply(
+            .replacementRules(
+                .update(expected: first, requested: editedFirst)
+            )
+        )
+        async let reorder = owner.apply(
+            .replacementRules(
+                .reorder(
+                    expected: [first.id, second.id],
+                    requested: [second.id, first.id]
+                )
+            )
+        )
+        let completions = try await [edit, reorder]
+        #expect(
+            completions.allSatisfy {
+                $0.receipt.disposition == .committed
+            }
+        )
+        #expect(await repository.commitCount() == 2)
+        let durable = try #require(owner.state.durableValue)
+        #expect(durable.replacementRules.map(\.id) == [second.id, first.id])
+        #expect(durable.replacementRules[1].replacement == "edited")
+    }
+
     @Test func ownerSkipsRepositoryWritesForClosedNonCommitDispositions()
         async throws {
         let repository = IOSLibraryMutationRepository()
@@ -542,11 +754,15 @@ private enum IOSLibraryMutationRepositoryError: Error {
 }
 
 private actor IOSLibraryMutationRepository {
-    private var value = IOSLibraryContent.defaults
+    private var value: IOSLibraryContent
     private var failures: [Bool]
     private var commits = 0
 
-    init(commitFailures: [Bool] = []) {
+    init(
+        value: IOSLibraryContent = .defaults,
+        commitFailures: [Bool] = []
+    ) {
+        self.value = value
         failures = commitFailures
     }
 
@@ -565,10 +781,8 @@ private actor IOSLibraryMutationRepository {
                 isEnabled: candidate.emojiCommandsConfiguration.isEnabled,
                 enabledBuiltInSetIDs: candidate
                     .emojiCommandsConfiguration.enabledBuiltInSetIDs,
-                customCommands: EmojiCommandsConfiguration
-                    .normalizedCustomCommands(
-                        candidate.emojiCommandsConfiguration.customCommands
-                    )
+                customCommands: candidate.emojiCommandsConfiguration
+                    .customCommands.map(\.normalizedForStorage)
             ),
             replacementRules: candidate.replacementRules
         )

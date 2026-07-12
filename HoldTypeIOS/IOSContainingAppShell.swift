@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct IOSContainingAppShell: View {
     @SceneStorage("ios.containing-app.selected-destination")
@@ -209,11 +210,29 @@ struct IOSContainingAppShell: View {
             applyDestination(destination)
         case .confirmDiscard(let destination):
             pendingDestination = destination
-            showsEditorDiscardConfirmation = true
+            dismissActiveTextInput()
+            Task { @MainActor in
+                await Task.yield()
+                guard pendingDestination == destination else { return }
+                showsEditorDiscardConfirmation = true
+            }
         case .blockedByEditorOperation:
             pendingDestination = nil
-            showsEditorOperationAlert = true
+            dismissActiveTextInput()
+            Task { @MainActor in
+                await Task.yield()
+                showsEditorOperationAlert = true
+            }
         }
+    }
+
+    private func dismissActiveTextInput() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 
     private func applyPendingDestination() {

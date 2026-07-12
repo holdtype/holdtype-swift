@@ -66,6 +66,25 @@ struct IOSLibraryHomeView: View {
                     hasBlockingSceneOperation:
                         $hasBlockingLibraryOperation
                 )
+            case .replacementRules:
+                IOSReplacementRulesView(
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
+            case .newReplacementRule(let id):
+                IOSReplacementRuleEditorView(
+                    mode: .add(id),
+                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor,
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
+            case .replacementRule(let id):
+                IOSReplacementRuleEditorView(
+                    mode: .edit(id),
+                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor,
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
             }
         }
         .accessibilityIdentifier(
@@ -128,13 +147,17 @@ struct IOSLibrarySummaryList: View {
                         .rowAccessibilityIdentifier
                 )
 
-                LabeledContent(
-                    "Replacement rules",
-                    value: countLabel(
-                        content.replacementRules.count,
-                        singular: "rule",
-                        plural: "rules"
+                NavigationLink(value: IOSLibraryRoute.replacementRules) {
+                    IOSLibraryDestinationLabel(
+                        destination: .replacementRules,
+                        summary: IOSReplacementRulesPresentation.summary(
+                            content.replacementRules
+                        )
                     )
+                }
+                .accessibilityIdentifier(
+                    IOSLibraryDestination.replacementRules
+                        .rowAccessibilityIdentifier
                 )
             }
 

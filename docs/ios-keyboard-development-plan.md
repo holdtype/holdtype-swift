@@ -1,8 +1,8 @@
 # HoldType iOS Keyboard Development Plan
 
-Status: active feasibility work; canonical roadmap P3 is in progress with its
-containing-app state-owner prerequisite and native shell complete; started
-2026-07-09 and updated 2026-07-12.
+Status: active feasibility work; canonical roadmap P3 is complete through the
+native Replacement Rules Library editor. P4, the app-only foreground voice
+vertical slice, is next; started 2026-07-09 and updated 2026-07-12.
 
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
@@ -404,8 +404,17 @@ host app, state, expected result, actual result, and go/no-go decision.
   searchable six-language catalog, retry-stable UUID custom CRUD, concurrent
   change recovery, and blocking Save/Delete navigation. App Group bytes and
   the Release keyboard binary remain unchanged. Evidence lives in
-  `docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`. Replacement
-  Rules is the next P3 slice. The independent recording cache
+  `docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`. P3.5C completes
+  the native Replacement Rules route: searchable ordered rows, exact multiline
+  Search and Replacement drafts, explicit Add/Edit Save, Boolean toggles,
+  confirmed delete, and native plus VoiceOver reorder backed by complete
+  UUID-sequence compare-and-swap. Concurrent changes, failed persistence, and
+  retry-stable add identity fail closed without replacing newer durable truth.
+  App Group bytes and the Release keyboard binary remain unchanged. Evidence
+  lives in
+  `docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`. P3 is complete;
+  P4's app-only foreground voice vertical slice is next. The independent
+  recording cache
   and directional bridge remain later milestones behind the physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain

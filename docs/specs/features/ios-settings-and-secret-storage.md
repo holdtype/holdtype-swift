@@ -653,7 +653,11 @@ result after the operation returns.
   general-Settings draft is dirty requires the same confirmation before the
   detail can be replaced. Until the choice is made, the same editor and draft
   remain visible; Keep Editing or dismissal retains them, while confirmed
-  discard clears the Settings route and enters the requested destination. A
+  discard clears the Settings route and enters the requested destination.
+  Before presenting this blocking choice, the containing app resigns active
+  text input so the entire prompt remains reachable above the software or
+  custom keyboard; this changes neither the draft nor its focus-independent
+  validation state. A
   failed write keeps the scene-local draft visibly
   marked `Not Saved`, while shared summaries and provider snapshots remain on
   the last durable value. The warning remains visible in a persistent bottom
@@ -726,11 +730,20 @@ result after the operation returns.
 - Replacement search, replacement, enabled state, duplicates, UUID, and order
   remain raw durable values. Empty or whitespace-only search is stored but
   visibly inactive for an existing row; a new-rule draft requires non-whitespace
-  search before its first Save. Empty replacement is allowed. Reorder uses an
-  expected complete UUID sequence and a requested sequence containing the same
-  IDs. A concurrent insert, delete, or reorder conflicts without writing;
-  editing another row's fields does not. Reorder is unavailable while search
-  filters the list.
+  search before its first Save. A new row is enabled and appended at the end;
+  duplicate search text is valid. Empty replacement is allowed. A same-row
+  field or enablement change conflicts with stale detail Save/Delete because
+  they use full-row CAS; confirmed Replace Latest uses the fresh full row and
+  preserves its latest enablement. A row toggle changes only its expected
+  Boolean and preserves concurrent search/replacement edits.
+- Replacement reorder uses an expected complete UUID sequence and a requested
+  sequence containing the same IDs. A concurrent insert, delete, or reorder
+  conflicts without writing. Field or enablement changes on any row preserve
+  the sequence and are retained by reorder; reorder also does not block a
+  full-row edit whose expected row is still current. Reorder is unavailable
+  while search filters the list. Conflict shows content-free `Changed
+  Elsewhere`; persistence failure shows `Not Saved`, restores durable order,
+  and never leaves a partially saved sequence.
 - Item-detail drafts use explicit Save. A clean draft adopts newer durable row
   truth. A dirty draft changed elsewhere remains local and reports `Changed
   Elsewhere`; Replace Latest requires a separate confirmation and a fresh

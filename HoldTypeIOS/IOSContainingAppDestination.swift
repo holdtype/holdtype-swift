@@ -99,6 +99,9 @@ enum IOSLibraryRoute: Hashable {
     case builtInEmojiCommand(IOSBuiltInEmojiCommandReference)
     case newCustomEmojiCommand(UUID)
     case customEmojiCommand(UUID)
+    case replacementRules
+    case newReplacementRule(UUID)
+    case replacementRule(UUID)
 }
 
 enum IOSSecureProviderAvailability: Equatable, Sendable {

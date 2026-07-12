@@ -1,9 +1,9 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap; P0, P1, and P2 complete; P3 is in
-progress through the native shell, OpenAI and general Settings editors, typed
-Library mutation foundation, Dictionary, and Voice Emoji Commands. Replacement
-Rules is the next P3 checkpoint; updated 2026-07-12.
+Status: active implementation roadmap; P0, P1, P2, and P3 are complete. The
+native containing app now includes its state owners, shell, Settings editors,
+Dictionary, Voice Emoji Commands, and Replacement Rules. P4, the app-only
+foreground voice vertical slice, is next; updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1296,6 +1296,18 @@ content-free logs, reflection redaction, readable legacy-collision preservation,
 and unchanged Release keyboard isolation. Final evidence lives in
 `docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`.
 
+P3.5C and P3 are now complete. The native Replacement Rules route provides a
+searchable ordered list, UUID detail editors, raw multiline Search and
+Replacement drafts, explicit Save, Boolean enablement, confirmed delete, and
+native plus VoiceOver reorder. Full-row, Boolean, and complete-sequence
+compare-and-swap, retry-stable add identity, three-way completion
+reconciliation, and fail-closed external-change handling preserve current
+durable truth. Runtime evidence covers relaunch persistence, iPhone and iPad
+navigation guards, exact input, Dynamic Type, dark appearance, unchanged App
+Group bytes, content-free logs, and unchanged Release keyboard isolation.
+Final evidence lives in
+`docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`.
+
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
 The C4.0 contract review is recorded in
@@ -1304,13 +1316,12 @@ The C4.0 contract review is recorded in
 ### P3 — Native containing-app shell
 
 State-owner prerequisite, native shell, secure OpenAI editor, non-secret
-general Settings editors, P3.5A Library/Dictionary foundation, and P3.5B Voice
-Emoji Commands are complete.
-Exactly one
+general Settings editors, and all three Library routes—Dictionary, Voice Emoji
+Commands, and Replacement Rules—are complete. Exactly one
 composition-owned Settings owner, Library owner, and credential presentation
 owner provide shared process truth. Editor drafts are scene-local and
-ephemeral. Remaining P3 Library work is Replacement Rules inside that shell; it
-must not create scene-local repositories.
+ephemeral. Replacement Rules reuse the process-owned Library repository and
+introduce no scene-local repository.
 
 - implement Voice, Library, History, and Settings navigation;
 - implement setup status, public system-settings routes, practice field, and
@@ -1324,8 +1335,9 @@ must not create scene-local repositories.
 - support iPhone compact layout and iPad split layout from the start, without
   claiming production iPad keyboard support.
 
-Exit: all P4-owned configuration is editable and restorable, future controls
-are absent rather than inert, and no voice provider flow is required yet.
+Exit: achieved. All P4-owned configuration is editable and restorable, future
+controls are absent rather than inert, and no voice provider flow is required
+yet.
 
 ### P4 — App-only voice vertical slice
 
@@ -1562,24 +1574,29 @@ protected Retry scratch materialization, bounded process-loss scavenging,
 ordinary public-symbol boundary, and unchanged keyboard binary isolation are
 verified in
 `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
-P3 is in progress. Its state owners, native iPhone tab and iPad split shell,
+P3 is complete. Its state owners, native iPhone tab and iPad split shell,
 app-only OpenAI editor, four general Settings editors, typed Library mutation
-foundation, native Dictionary route, and Voice Emoji Commands are complete.
-Navigation restoration,
-exact owner
-identity, blocking root-storage failure, payload-free revisioned credential
-status, scene-local redacted retry draft, automation-disabled Keychain access,
-truthful saved-state presentation, Dynamic Type, dark appearance, and keyboard
-isolation are verified. The next slice exposes Replacement Rules inside
-Library.
-The independent recording-cache and directional App Group bridge flows remain
-later work and do not enter the keyboard early. Final evidence lives in
+foundation, Dictionary, Voice Emoji Commands, and Replacement Rules are
+implemented and verified. Navigation restoration, exact owner identity,
+blocking root-storage failure, payload-free credential state, scene-local
+redacted drafts, automation-disabled Keychain access, truthful saved-state
+presentation, Dynamic Type, dark appearance, and keyboard isolation remain
+intact.
+
+The next slice is P4: an explicit-action, foreground-only voice attempt from
+microphone permission and `AVAudioSession` through protected recording, bounded
+provider and local processing, accepted result, and Copy/Share. It does not add
+an audio background mode or Quick Session. The independent recording-cache and
+directional App Group bridge flows remain later work.
+
+Final P3 evidence lives in
 `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`,
-`docs/qa/runs/ios-containing-app-shell-2026-07-12.md`, and
+`docs/qa/runs/ios-containing-app-shell-2026-07-12.md`,
 `docs/qa/runs/ios-openai-credential-settings-2026-07-12.md`,
-`docs/qa/runs/ios-general-settings-editors-2026-07-12.md`, and
-`docs/qa/runs/ios-library-dictionary-2026-07-12.md`, and
-`docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`.
+`docs/qa/runs/ios-general-settings-editors-2026-07-12.md`,
+`docs/qa/runs/ios-library-dictionary-2026-07-12.md`,
+`docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`, and
+`docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

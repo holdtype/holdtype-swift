@@ -120,6 +120,19 @@ struct TranscriptTextPostProcessorTests {
         #expect(processor.process("a", configuration: orderedConfiguration) == "c")
     }
 
+    @Test func duplicateSearchRulesRemainDistinctAndBothRunInOrder() {
+        let configuration = TranscriptPostProcessingConfiguration(
+            localTextCleanupEnabled: false,
+            emojiCommands: EmojiCommandsConfiguration(isEnabled: false),
+            textReplacementRules: [
+                TextReplacementRule(search: "a", replacement: "aa"),
+                TextReplacementRule(search: "a", replacement: "b"),
+            ]
+        )
+
+        #expect(processor.process("a", configuration: configuration) == "bb")
+    }
+
     @Test func emptyProcessedOutputFallsBackWithoutInventingText() {
         let configuration = TranscriptPostProcessingConfiguration(
             localTextCleanupEnabled: false,
