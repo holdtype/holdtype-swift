@@ -32,6 +32,52 @@ three explicit data lifecycles.
   the last 10 recordings; unlimited retention requires an explicit choice.
 - No history, recordings, or settings sync through iCloud or another service.
 
+### P4 App-Only Pending Ownership
+
+- P4 uses the existing protected `PendingRecording` contract without enabling
+  the P5 History product. It does not create or mutate History policy, accepted
+  rows, failed rows, outbox entries, retry-audio ownership, recording-cache
+  metadata, or first-use History disclosure state. The History destination
+  remains unavailable for P4 attempts.
+- P4 app-only acceptance is a named Persistence-owned mode, not a caller-supplied
+  optional History bypass. It creates the mandatory accepted-output record with
+  `historyWrite: null` without reading, disabling, or otherwise changing the
+  canonical History policy. P5 does not retroactively backfill these results.
+- Normal completion follows this order: protected audio and initial journal
+  commit; fresh transcription ID commit; one-shot provider execution;
+  `postProcessing`; exact `outputDelivery` transition; mandatory accepted-output
+  commit with `historyWrite: null`; exact destination verification; protected
+  audio removal; then journal retirement.
+- In P4, accepted text is the durable destination because History and Recording
+  Cache integration are absent. Audio is removed before journal retirement.
+  Failure or uncertainty preserves the journal and blocks Clear or replacement
+  from deleting the only accepted-destination proof.
+- A recoverable provider, timeout, cancellation, or eligible pre-delivery
+  failure first retires or cancels dispatch authority, then durably moves the
+  exact attempt to `awaitingRecovery` with a null transcription ID. Only after
+  that commit may Voice offer Retry or Discard.
+- Any unresolved app-only acceptance checkpoint—delivery commit or replacement,
+  destination confirmation, Pending-audio removal, or journal retirement—keeps
+  the exact owner in `outputDelivery` and offers idempotent `Retry Saving Result`
+  from the last confirmed checkpoint with the same accepted bytes and
+  identities. A named P4 recovery operation may move `outputDelivery` to
+  `awaitingRecovery` in the current process only after the canonical delivery
+  store proves that the intended destination and every related reservation are
+  absent and no commit uncertainty remains. It retires the accepted-delivery
+  intent, clears the transcription ID durably, and never repeats provider work
+  automatically. A matching destination, later retirement failure, or ambiguous
+  store keeps `Saving Result` blocked on local completion instead.
+- Retry is explicit. It preserves attempt ID, protected audio, creation time,
+  duration, byte count, and output intent; resolves current Settings, Library,
+  consent, and credential again; commits a fresh transcription ID; and creates
+  one new one-shot provider authorization. Relaunch never uploads automatically.
+- Discard requires the current attempt and phase expectation, removes protected
+  audio before the journal, and reports success only after both are absent.
+  Failure preserves the journal and recovery surface. It never deletes an
+  unrelated accepted result.
+- One unresolved Pending attempt blocks another recording or provider chain
+  until it succeeds, is explicitly discarded, or is safely reconciled.
+
 ## Scope
 
 - accepted transcript history
@@ -307,8 +353,15 @@ restart provider work; the unresolved live owner continues to block Retry and
 Discard until the local transition is reconciled. Explicit Retry
 moves `awaitingRecovery` to `transcribing` with a fresh ID and current compact
 configuration identifiers. Same-phase calls are idempotent only when all
-identity-bearing inputs match. Other skips, backwards transitions, and a
-phase/ID mismatch fail without rewriting the journal. The runtime-only
+identity-bearing inputs match. P4 has one additional store-authorized current-
+process transition from `outputDelivery` to `awaitingRecovery`: the app-only
+delivery coordinator must first retire the exact accepted-delivery intent and
+prove through the canonical delivery store that no matching destination,
+reservation, commit uncertainty, or live output mutation remains. It then
+clears the transcription ID durably and returns the exact updated Pending owner.
+No caller assertion or generic phase API may request this exception. Other
+skips, backwards transitions, and a phase/ID mismatch fail without rewriting
+the journal. The runtime-only
 `VoiceAttemptStage` and its declaration order never define these values.
 
 After process loss, a valid `transcribing`, `postProcessing`, or unresolved

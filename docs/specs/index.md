@@ -36,6 +36,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS voice/audio | `features/ios-voice-session-and-audio.md` | Foreground recording, Quick Session, audio lifecycle, journaling, M0C |
 | iOS history/storage | `features/ios-history-and-storage.md` | Durable local history, failed retry, pending journal, recording cache |
 | iOS privacy | `features/ios-privacy-and-permissions.md` | Microphone, provider and Quick Session consent, Full Access, privacy manifests |
+| iOS provider consent | `features/ios-provider-consent-record.md` | Strict app-private consent record, CAS, withdrawal, provider-stage authorization |
 | iOS diagnostics | `features/ios-diagnostics.md` | Redacted runtime events, app-owned diagnostics, explicit local export |
 | iOS keyboard settings | `features/ios-keyboard-settings-snapshot.md` | One-way non-secret preference snapshot, fallback, M0B read gate |
 | iOS output actions | `features/ios-output-actions.md` | Latest result, Copy/Share, insertion eligibility, acknowledgement, recovery |

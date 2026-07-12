@@ -177,8 +177,8 @@ clear exception during clock rollback retains the prior `updatedAt`; expiry
 cleanup does not create another logical value. The full encoded file is at most
 1,048,576 bytes.
 
-`historyWrite` is either `null` when History was disabled at acceptance, or an
-object containing exactly:
+`historyWrite` is either `null` when no accepted-History write was authorized
+at acceptance, or an object containing exactly:
 
 - `state`: `pending`, `pendingReplacement`, `committed`, or `cancelled`;
 - `policyGeneration`: signed 64-bit History policy generation in
@@ -214,6 +214,30 @@ upgraded again, uninstalled, or a future explicit recovery path understands the
 marker. Releases that can write `pendingReplacement` therefore have a
 no-downgrade policy. A sidecar is not used because it cannot be committed
 atomically with replacement and would weaken crash recovery.
+
+P4 adds one named app-only no-History acceptance mode. Its containing-app
+coordinator creates `historyWrite: null` without reading, creating, disabling,
+or mutating History policy. This mode is not a generic caller-supplied optional
+capture and cannot be selected by failed-History Retry, P5 acceptance, or the
+keyboard. It creates no History disclosure, row, outbox, or cleanup work, and
+P5 never retroactively backfills its result. Therefore `historyWrite: null`
+means that no accepted-History write was authorized at acceptance: either
+canonical History was disabled or this exact P4 app-only mode applied.
+
+A publication-generation-0 record has never entered the production accepted-
+result bridge. Exact P4 Clear or atomic replacement of a generation-0,
+`historyWrite: null` record requires no bridge tombstone or History-outbox
+transfer only while the canonical store also proves that no publication or
+History-transfer reservation exists. This exception cannot clear or replace a
+generation-1, reservation-owned, commit-uncertain, corrupt, or future-version
+record. P4 replacement is one atomic old-to-new record replacement; it never
+unlinks the old result before the new durable destination is confirmed.
+
+P4 may retire an exact ordinary `PendingRecording.outputDelivery` owner only
+after the committed record matches attempt ID, the Pending transcription ID,
+output intent, and applicable metadata. Protected audio is removed before the
+Pending journal. Clear or replacement cannot remove that destination proof
+while the exact Pending owner still depends on it.
 
 All identifiers, accepted text bytes, output intent, created/expiry dates,
 captured insertion preference, and History metadata are
@@ -375,7 +399,48 @@ returning or throwing.
 
 ## Commit, History, And Publication Ordering
 
-The accepted-result sequence is:
+P4 app-only acceptance has this separate normative sequence:
+
+1. the exact Pending owner is already durably in `outputDelivery` with its
+   transcription ID;
+2. the Persistence-owned P4 coordinator commits or atomically replaces one
+   version-1 `pending` delivery with the same attempt/transcript/intent identity,
+   `historyWrite: null`, automatic insertion false, and publication generation
+   `0`;
+3. the coordinator reloads or durability-confirms the exact record and proves
+   that no History-transfer or publication reservation exists;
+4. under the same canonical operation gate, it removes the exact protected
+   Pending audio, revalidates the same accepted destination, and retires the
+   exact Pending journal;
+5. only then does the Voice owner publish `resultReady` from the confirmed
+   delivery record. It performs no History decision, generation-1 transition,
+   App Group write, insertion claim, or acknowledgement.
+
+If any step 2 through 4 is unresolved, the Pending owner remains in
+`outputDelivery` and the UI presents `Saving Result` with `Retry Saving Result`;
+it does not repeat provider work. Retry resumes from the last durably confirmed
+checkpoint with the same delivery/session/attempt/transcript identity and
+accepted bytes: it may reconcile or repeat the exact delivery commit, confirm
+the destination, remove the exact Pending audio, or retire the exact journal.
+Already completed checkpoints are revalidated and not recreated. A commit-
+uncertain result first reloads and compares the exact intended bytes: an exact
+match continues at step 3, a proven unchanged prior record may retry the same
+atomic replacement, and ambiguity remains blocked.
+
+Only when delivery commit or replacement never produced a destination may the
+coordinator prove that no intended destination or reservation exists and offer
+an explicit recovery transition. That action retires the delivery intent, moves
+the exact Pending owner to `awaitingRecovery` with a null transcription ID, and
+then offers provider Retry or Discard. It requires explicit action in the live
+process and cannot remove a matching accepted destination. A failure in audio
+removal, destination revalidation, or journal retirement after the destination
+is durable stays in `Saving Result`; it cannot fall back to provider Retry.
+After proven process loss, the existing provider-free launch recovery may
+resume exact destination retirement or perform no-destination normalization as
+applicable. No path automatically repeats provider work.
+
+P5 History-integrated acceptance and the later production bridge use this
+sequence:
 
 1. commit the version-1 record in `pending` delivery state, including a
    structured `historyWrite` object in `pending` for normal acceptance or
@@ -520,6 +585,15 @@ and finally unlink the record and synchronize the directory. A failure at any
 step preserves the more conservative recoverable or tombstoned state. During a
 detected clock rollback, explicit user clear remains available and retains the
 prior `updatedAt`; other mutations fail closed.
+
+Clear has two visible boundaries. A failure before a discarded tombstone is
+confirmed preserves the active text and its actions. A confirmed tombstone is
+the logical Clear boundary: the UI removes the result and may show only a
+content-free cleanup-pending status while physical unlink/synchronization is
+retried. It never displays text from that tombstone. If the tombstone commit is
+uncertain, the store first reloads and compares the exact intended bytes; an
+exact tombstone completes logical Clear, an exact prior active record remains
+visible, and any other ambiguity stays blocked without guessing.
 
 A new result never destroys the only durable accepted payload between two file
 commits. The app first revokes the old bridge and transfers any pending History

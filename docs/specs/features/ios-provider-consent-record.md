@@ -1,0 +1,174 @@
+# iOS Provider Consent Record
+
+## Goal
+
+Make OpenAI-processing consent a strict, app-private, revisioned authority so a
+stale scene or provider stage cannot dispatch after withdrawal or a disclosure
+change.
+
+## Scope
+
+- exact app-private provider-consent record;
+- process-owned observation and compare-and-swap mutation;
+- provider-stage authorization and late-result rejection;
+- explicit review, acceptance, withdrawal, and unreadable-record reset;
+- storage durability, privacy, and redaction.
+
+## Non-goals
+
+- legal privacy-policy wording;
+- API-key storage or validation;
+- microphone authorization;
+- Quick Session consent;
+- general settings, History, App Group, keyboard, analytics, or cloud sync.
+
+## Version-1 Record
+
+The canonical relative path is
+`HoldType/ios-openai-provider-consent.json` beneath the containing app's
+Application Support directory. The strict UTF-8 JSON object contains exactly:
+
+1. `schemaVersion`: integer `1`;
+2. `epochID`: lowercase canonical UUID string;
+3. `revision`: signed integer in `1...Int64.max`;
+4. `disclosureVersion`: signed integer in `1...Int64.max`;
+5. `state`: exactly `accepted` or `withdrawn`;
+6. `decisionAt`: canonical UTC timestamp with millisecond precision.
+
+The current P4 `disclosureVersion` is integer `1`. It describes foreground
+app-only transcription, optional correction/translation, protected Pending
+recovery, app-private Latest Result, and no History or Recording Cache product.
+Enabling P5 History/retention or materially changing provider, transmitted data,
+or purpose requires a later disclosure version and renewed acceptance.
+
+The timestamp uses exactly `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`, a proleptic Gregorian
+calendar, four calendar-year digits, and no leap second. The complete file is at
+most 4,096 bytes. It contains no optional, omitted, null, nested, array, or
+additional value.
+
+The decoder accepts only strict UTF-8 JSON without a byte-order mark, duplicate
+or canonically equivalent keys, unknown or missing keys, numeric aliases,
+non-canonical UUID/date values, unsupported states, or unsupported schema.
+Malformed and future-version bytes are preserved byte-for-byte and are never
+interpreted as absence, withdrawal, or acceptance.
+
+A missing file means no consent decision. It returns a stable absent observation
+without creating defaults. `accepted` authorizes only the exact current
+disclosure version. An older accepted disclosure requires review again;
+`withdrawn`, future, corrupt, unavailable, or commit-uncertain state is not
+consent.
+
+## Process Ownership And Presentation
+
+- The containing-app composition owns one provider-consent coordinator for the
+  canonical physical repository root. Every scene and provider stage uses that
+  same identity; views and services never create fallback stores or retain a
+  Boolean authorization.
+- A public observation is one content-free state: not reviewed, review required,
+  accepted current disclosure, withdrawn, local data unavailable, or mutation
+  not saved. It may show the decision date intentionally on Privacy &
+  Permissions but exposes no repository path, raw bytes, UUID, revision, or
+  system error.
+- Loading or observing the record is passive. It performs no Keychain,
+  microphone, audio-session, provider, clipboard, App Group, or keyboard work.
+- Runtime values, errors, expectations, authorizations, and coordinator state
+  have redacted descriptions, debug output, reflection, logs, and diagnostics.
+
+## Mutation And Compare-And-Swap
+
+- Each observation carries one opaque expectation: exact absence or the current
+  readable epoch ID plus revision. Acceptance and withdrawal require that
+  expectation and fail without writing when it is stale.
+- The first readable decision mints a fresh epoch ID and starts at revision `1`.
+  Each later committed decision in that epoch increments revision exactly once.
+  The composite epoch/revision authority is never reused; overflow fails closed.
+  Repeating an already-current accepted disclosure or already-withdrawn state is
+  an exact no-op.
+- Withdrawal closes the process provider gate before it waits for its repository
+  lease. It wins over every earlier authorization. A queued or late Accept made
+  from an older expectation cannot overwrite it; re-acceptance requires a fresh
+  post-withdrawal observation and an explicit new decision.
+- A successful mutation publishes the exact canonical value returned by the
+  repository. The coordinator never synthesizes a success from its request or
+  increments presentation state before durable confirmation.
+- A failure before publish preserves the previous file. If a repository result
+  is commit-uncertain, the coordinator reloads and compares the exact intended
+  epoch ID, revision, state, version, and date. An exact match becomes committed
+  only after the required directory durability barrier is repeated successfully;
+  an exact prior value remains prior truth, and any other result stays
+  unavailable. It never guesses authority.
+- An ordinary load preserves corrupt or future bytes. Privacy & Permissions may
+  offer `Reset Unreadable Consent Data` only after explicit confirmation. Reset
+  first closes the process gate and invalidates every process authorization,
+  then removes only the exact observed unreadable record. Failure or identity
+  uncertainty preserves it and remains blocked. Successful reset establishes a
+  new absent state; a later acceptance mints a fresh epoch ID and starts at
+  revision `1`. No authorization from the prior epoch can survive in the
+  process, and the composite revision authority is not reused.
+
+## Provider Authorization Gate
+
+- Durable acceptance creates only local eligibility. The process coordinator
+  mints an opaque authorization bound to the exact repository epoch ID,
+  revision, and current disclosure version. It contains no key, prompt,
+  content, provider configuration, or user-facing copy.
+- Transcription, correction, and translation each validate that authorization
+  immediately before dispatch. Validation also requires that the process gate
+  is open and the same accepted decision remains current.
+- Provider response handling revalidates the same authorization before it can
+  advance Pending state or create accepted output. Withdrawal, reset, a newer
+  decision, disclosure-version change, repository unavailability, or process-
+  gate closure makes matching late output ineligible.
+- Provider acceptance does not replace microphone or credential preflight. All
+  three gates must independently succeed in their specified order.
+- A request already received by OpenAI cannot be recalled. Withdrawal cancels
+  supported local tasks, retires their dispatch authority, and rejects later
+  local results without claiming remote deletion.
+
+## Storage And Durability
+
+- The record uses the protected atomic metadata-file boundary defined by
+  `ios-settings-and-secret-storage.md` for app-private regular-file validation,
+  bounded reads, owner-only temporary publication, Complete Data Protection
+  before the first byte, synchronized contents, identity validation, and atomic
+  replace. Unlike ordinary settings metadata, consent requires the containing
+  directory durability barrier after every rename or unlink.
+- Acceptance, withdrawal, and reset report success only after the exact intended
+  bytes or absence are revalidated and the containing directory synchronization
+  succeeds. A post-rename or post-unlink failure is `commitUncertain`; it does
+  not mint provider authorization, reopen the process gate, or confirm the
+  user-visible decision. Reconciliation reloads exact bytes/absence and repeats
+  the required directory barrier before resolving the operation.
+- It remains eligible for system-managed app backup like other user decisions;
+  it is not CloudKit or iCloud Drive state. A restored decision never implies a
+  restored `ThisDeviceOnly` API key, microphone permission, or provider
+  readiness.
+- The record never enters UserDefaults, Keychain, App Group, keyboard storage,
+  History, usage, diagnostics export, provider requests, or source control.
+- Production construction does not accept an alternate path from a scene,
+  preview, provider service, or runtime request. Test repositories remain
+  isolated and cannot mint production authority.
+
+## Invariants
+
+- No provider request without a current durable accepted decision and a matching
+  live authorization.
+- No stale Accept can overwrite a later Withdrawal.
+- No old provider stage or late result can reuse an epoch/revision authority.
+- No passive status read grants consent or starts dependent work.
+- No malformed, future, inaccessible, or ambiguous file is treated as consent.
+- Reset is explicit, fail-closed, and cannot delete an unobserved replacement.
+
+## Verification Mapping
+
+- Test strict v1 encode/decode, exact path, byte limit, dates, UUIDs, duplicate
+  keys, unexpected fields, corrupt/future preservation, missing baseline, Data
+  Protection request, backup eligibility, and atomic replacement failure.
+- Test absent-to-accept, accept no-op, withdrawal, re-acceptance, stale CAS,
+  multi-scene queued Accept versus Withdrawal, overflow, fresh epoch IDs,
+  commit-uncertain reconciliation, confirmed reset, and reset identity races.
+- Test stage dispatch and response validation for Transcription, Correction,
+  and Translation across withdrawal, reset, disclosure update, another scene,
+  cancellation, and non-cooperative late completion.
+- Test public state, errors, reflection, logs, and diagnostics with forbidden
+  canaries. No normal test uses a real API key, microphone, or live OpenAI call.

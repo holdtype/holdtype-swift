@@ -86,7 +86,13 @@ agreement that:
 - HoldType does not copy the key into the extension, App Group, logs, or a
   HoldType server;
 - ordinary keystrokes and surrounding host-field text are not sent;
-- local history and recording retention follow the selected settings.
+- in P4, completed audio is protected locally before the request and remains
+  only until accepted-output cleanup or explicit Pending Retry/Discard; accepted
+  text is the app-private Latest Result until confirmed Clear, atomic
+  replacement, or its 24-hour safety expiry;
+- P4 does not add accepted or failed History rows or Recording Cache. Enabling
+  those P5 retention paths is a disclosure change that requires the then-current
+  consent version before provider work continues.
 
 Declining provider consent leaves local settings and typing available and
 prevents provider requests. Consent can be reviewed later from Privacy &
@@ -105,6 +111,50 @@ again.
 HoldType stores the consent contract version and acceptance date locally. A
 material change to provider, transmitted data categories, or purpose requires
 renewed consent before the changed request path runs.
+
+### P4 Provider-Consent Record And Gate
+
+- The exact path, wire format, CAS, durability, reset, and authorization contract
+  lives in `ios-provider-consent-record.md`. Provider consent contains only
+  schema version, unique repository epoch, positive revision, disclosure-
+  contract version, `accepted` or `withdrawn` state, and canonical decision date.
+  It contains no content, key metadata, configuration, provider response, or
+  device/scene identity.
+- Missing, withdrawn, older-contract, corrupt, future-version, unavailable, or
+  commit-uncertain data is not consent. It blocks provider dispatch and
+  microphone activation for a new P4 attempt. Corrupt or unsupported data is
+  preserved; Privacy & Permissions offers an explicit confirmed reset followed
+  by review of the current disclosure rather than treating it as declined or
+  accepted.
+- The record is separate from `ios-app-settings.json`, Keychain, App Group, the
+  keyboard, History, diagnostics, and provider payloads. It is never logged or
+  reflected with a path or raw persistence error.
+- One process-owned consent owner serializes review, acceptance, withdrawal,
+  reset, and voice-preflight observations across scenes. Every mutation requires
+  the exact observed epoch and revision; each committed decision increments the
+  revision, and an explicit unreadable-data reset requires a fresh epoch. A
+  scene-local Boolean or a previously rendered status never authorizes provider
+  work.
+- Acceptance commits the current disclosure version, epoch, and revision before
+  P4 may resolve the credential, request microphone permission, activate audio,
+  or continue the same explicit Start action. A stale queued Accept cannot
+  overwrite a later confirmed Withdrawal.
+- Every provider stage, including transcription, correction, and translation,
+  validates the same current accepted consent epoch and revision immediately
+  before dispatch. A stage holding older authority cannot dispatch, and a result
+  that returns after withdrawal, reset, or supersession cannot become accepted
+  output.
+- Withdrawal first closes the process-wide dispatch gate and invalidates the
+  accepted revision, then atomically persists `withdrawn`. The UI does not claim
+  completion until persistence is confirmed. If persistence fails, the process
+  stays fail-closed and shows a retryable local error; it does not restore the
+  old in-memory authorization merely because old durable bytes may survive.
+- After the gate closes, arming ends; active capture stops without upload; a
+  valid partial or completed local artifact becomes `awaitingRecovery`; and an
+  active provider task is cancelled through its normal authorization-retirement
+  path. Matching late output is rejected. Already committed accepted output
+  remains available, and Retry stays blocked until the current disclosure is
+  explicitly accepted again.
 
 ## Quick Session consent
 
@@ -188,9 +238,10 @@ Before routing the user to enable Full Access, HoldType states:
 
 ## Edge cases and failure policy
 
-- If microphone permission is revoked during capture, recording stops, the
-  current attempt becomes recoverable only if a valid completed artifact was
-  journaled, and setup shows the denied state.
+- If microphone permission is revoked during capture, recording stops. A valid
+  partial that can be finalized and durably journaled becomes explicit
+  recovery; an invalid or unprotected partial is removed. Setup then shows the
+  denied state and nothing uploads automatically.
 - If Full Access is revoked, extension writes stop, stale acknowledgements are
   ignored, ordinary typing remains available, and voice falls back to explicit
   app actions or read-only insertion.

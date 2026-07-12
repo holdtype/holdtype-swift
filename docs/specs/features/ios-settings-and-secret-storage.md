@@ -47,6 +47,16 @@ and the OpenAI API key.
   event-driven status observation; neither action reads Keychain. Keychain
   remains untouched until an explicit key mutation or `Check Saved Key`
   action.
+- P4 adds a native Privacy & Permissions destination for provider-consent
+  review, acceptance, withdrawal, microphone status, and public System Settings
+  recovery. Opening it may read the app-private consent metadata and public
+  microphone authorization status, but never starts capture, requests
+  permission, reads Keychain, or contacts a provider.
+- Provider consent is not a general app setting. Its strict revisioned record
+  and process owner follow `ios-provider-consent-record.md` and
+  `ios-privacy-and-permissions.md`; no consent value, date, or mutation marker
+  enters `ios-app-settings.json`, Library, App Group, SceneStorage, or the
+  keyboard settings snapshot.
 
 ## Default configuration
 
@@ -294,23 +304,24 @@ result after the operation returns.
 - Settings and Library data do not use CloudKit, iCloud Drive, or any other
   cross-device synchronization service.
 - User-authored preferences, dictionary entries, emoji commands, and
-  replacement rules are eligible for system-managed device backup so they can
-  be restored with the app. Their backup protection follows the user's system
-  backup configuration; HoldType does not claim or require that the backup is
-  encrypted. Transient bridge files, latest/pending delivery records,
-  recoverable audio, recording cache, runtime logs, and the API key follow
-  their own explicit backup policies and are not inferred from this rule.
+  replacement rules, plus the provider-consent decision, are eligible for
+  system-managed device backup so they can be restored with the app. Their
+  backup protection follows the user's system backup configuration; HoldType
+  does not claim or require that the backup is encrypted. Transient bridge
+  files, latest/pending delivery records, recoverable audio, recording cache,
+  runtime logs, and the API key follow their own explicit backup policies and
+  are not inferred from this rule.
 
 ### Protected atomic metadata files
 
-- The general settings record, Library record, and credential-presence marker
-  share one app-private metadata-file boundary. It accepts only regular files
-  and rejects symbolic links, directories, and special files without following
-  them.
+- The general settings record, Library record, credential-presence marker, and
+  provider-consent record share one app-private metadata-file boundary. It
+  accepts only regular files and rejects symbolic links, directories, and
+  special files without following them.
 - Reads are bounded before allocation and while bytes are loaded. The marker is
-  limited to 16 KiB and the settings and Library records to 1 MiB each; the
-  exact limit is valid, while one byte more is rejected without changing the
-  source.
+  limited to 16 KiB, provider consent to 4 KiB, and the settings and Library
+  records to 1 MiB each; the exact limit is valid, while one byte more is
+  rejected without changing the source.
 - A read uses one pinned regular-file identity and accepts bytes only when its
   size and modification/change timestamps remain stable through the complete
   read. A save stops before publish if the durable destination changes, even
@@ -337,18 +348,23 @@ result after the operation returns.
   process interposing between the final path check and `rename` or `unlink`.
   HoldType does not claim kernel-level conditional-unlink hardening against
   that out-of-scope interposer.
-- No failing step follows a successful atomic rename or removal. A committed
-  mutation is reported as successful even if the best-effort directory sync
-  cannot be completed, so callers never receive a failure after the durable
-  destination has already changed.
+- For general settings, Library, and the credential-presence marker, no failing
+  step follows a successful atomic rename or removal. Their mutation is reported
+  as successful even if the best-effort directory sync cannot be completed, so
+  callers never receive a failure after the destination already changed.
+  Provider consent reuses the same validation, owner-only temporary file,
+  Complete-protection, and atomic-publication mechanics but deliberately has a
+  stricter logical boundary: its containing directory synchronization is
+  required, and post-rename or post-unlink uncertainty follows the fail-closed
+  reconciliation contract in `ios-provider-consent-record.md`.
 
 ### Bounded JSON structural validation
 
 - Before Foundation turns JSON objects into dictionaries, the credential
-  marker, general settings, and Library decoders run one shared structural pass
-  over the complete source. It accepts strict UTF-8 JSON and JSON whitespace;
-  a byte-order mark, invalid UTF-8, malformed token, trailing value, or
-  truncated document is corrupt input.
+  marker, provider-consent, general-settings, and Library decoders run one
+  shared structural pass over the complete source. It accepts strict UTF-8 JSON
+  and JSON whitespace; a byte-order mark, invalid UTF-8, malformed token,
+  trailing value, or truncated document is corrupt input.
 - Object-member identity matches Swift `String` equality over the decoded UTF-8
   scalars, because the repositories consume Swift dictionaries. Literal and
   escaped spellings plus canonically equivalent Unicode names are duplicates;

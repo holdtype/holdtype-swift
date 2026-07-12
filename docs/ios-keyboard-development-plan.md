@@ -1,8 +1,8 @@
 # HoldType iOS Keyboard Development Plan
 
-Status: active feasibility work; canonical roadmap P3 is complete through the
-native Replacement Rules Library editor. P4, the app-only foreground voice
-vertical slice, is next; started 2026-07-09 and updated 2026-07-12.
+Status: active feasibility work; canonical roadmap P3 is complete and P4 is in
+progress. Its app-only foreground voice contract is frozen; the Persistence
+transaction foundation is next. Started 2026-07-09 and updated 2026-07-12.
 
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
@@ -413,8 +413,10 @@ host app, state, expected result, actual result, and go/no-go decision.
   App Group bytes and the Release keyboard binary remain unchanged. Evidence
   lives in
   `docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`. P3 is complete;
-  P4's app-only foreground voice vertical slice is next. The independent
-  recording cache
+  P4A now freezes the app-only foreground voice, consent, Pending, descriptor-
+  reader, accepted-delivery, output-action, multi-scene, and lifecycle
+  contracts in `docs/qa/runs/ios-p4-contract-freeze-2026-07-12.md`. P4B's
+  Persistence transaction closure is next. The independent recording cache
   and directional bridge remain later milestones behind the physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain

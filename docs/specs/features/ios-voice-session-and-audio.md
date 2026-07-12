@@ -60,6 +60,44 @@ microphone activity or losing completed recordings.
   handoff returns, so a local persistence failure cannot trigger provider work
   or destroy the only completed artifact.
 
+### P4 Foreground Preflight And Ownership
+
+- The process owns exactly one foreground voice state across every iPhone and
+  iPad scene. A scene may observe and control that owner, but it never creates a
+  recorder, provider pipeline, pending-recording store, or recovery slot.
+- A new one-shot preflight starts only from an explicit Voice action while the
+  process-local owner is inactive. Durable preflight separately proves whether
+  a Pending attempt already owns recovery.
+- The explicit P4 preflight runs in this order:
+  1. atomically acquire the process-local Start admission and reject concurrent
+     voice/provider work without disturbing its current owner;
+  2. require at least one foreground-active HoldType scene; the initiating
+     scene owns any consent or permission presentation;
+  3. open and reconcile the canonical app-private storage boundary; a valid,
+     unreadable, corrupt, future-version, or commit-uncertain pending slot blocks
+     a second capture and presents its owning recovery action;
+  4. capture one current durable Settings and Library snapshot and validate the
+     requested Standard or Translate intent before any credential operation;
+  5. verify the current provider-consent contract and, when absent, obtain an
+     explicit durable acceptance before continuing;
+  6. resolve one credential generation through the process-owned voice
+     preflight; missing, locked, or rejected credentials route to OpenAI setup;
+  7. read microphone authorization and request it only when it is not determined;
+  8. stop active History playback and deactivate its playback session, then
+     configure and activate the foreground recording session, finish any
+     enabled start cue, and begin retaining the utterance.
+- Failure or cancellation at one step prevents every later step. In particular,
+  concurrent work does not disturb its current owner, blocked storage or
+  configuration does not inspect consent or read Keychain, missing consent does
+  not read Keychain or request microphone access, and denied microphone access
+  does not activate audio or create a recording.
+- Accepting the provider disclosure is an explicit continuation of the same
+  user-started flow. Declining or dismissing it returns to inactive without a
+  microphone prompt, file, or provider request.
+- Preflight performs no connectivity probe and contacts no provider. Offline or
+  transport failure is handled only after a completed artifact is protected and
+  journaled.
+
 ## Audio-session behavior
 
 - The containing app owns `AVAudioSession` configuration, activation, and
@@ -74,6 +112,37 @@ microphone activity or losing completed recordings.
   duplicates the current one.
 - Deactivation occurs when capture ends, is cancelled, expires, fails, or is no
   longer needed for local playback/cues.
+
+### P4 Foreground Lifecycle
+
+- P4 declares no audio background mode and does not expose Quick Session. One-
+  shot recording is foreground-only even when more than one app scene exists.
+- Losing one scene does not interrupt voice work while another HoldType scene
+  remains foreground-active. When the last foreground-active scene resigns:
+  - an expected microphone-permission prompt may temporarily make the app
+    inactive during arming, but audio activation waits until an initiating scene
+    is active again;
+  - any other aggregate scene loss during arming cancels the start cue, stops
+    any recorder or audio I/O already being prepared, deactivates
+    `AVAudioSession`, retires the attempt token, rejects late callbacks, and
+    returns inactive without retained capture or provider work;
+  - listening or a still-cancellable tail stops immediately; a valid partial is
+    protected as `awaitingRecovery` and is never uploaded automatically, while
+    an invalid partial is removed;
+  - already-stopped finalization may use only bounded system-granted execution
+    to finish protecting local audio, but it never starts a new provider dispatch
+    after the app is no longer foreground-active;
+  - an already-journaled processing task deactivates audio and may finish only
+    while iOS permits its bounded foreground transport. Suspension or process
+    loss preserves explicit Retry-or-Discard recovery and never causes an
+    automatic replay.
+- Returning to foreground reconciles durable truth and presents Retry or
+  Discard. It never restarts capture or provider work automatically.
+- Interruption, input-route loss or change, media-services reset, microphone
+  revocation, and input mute use the same visible stop-and-recover policy during
+  retained capture. An output-only route notification does not fail an attempt
+  when the active input remains unchanged and usable. Media-services reset
+  rebuilds audio objects only for a later explicit Start.
 
 ## Quick Session hypothesis
 
@@ -128,6 +197,45 @@ The containing app presents every action that applies to its current phase.
 After M0C, the keyboard may send the same explicitly named action only while a
 matching Quick Session/attempt is published and Full Access is live. Without
 Full Access, none of these extension-to-app commands is available.
+
+### P4 Voice Action Matrix
+
+- Inactive with no pending recovery presents `Start Dictation`. Translate stays
+  visible; an invalid Translation route is unavailable and opens its owning
+  Settings destination instead of beginning arming.
+- Arming presents progress and `Cancel Start`. Repeated Start is ignored. A
+  system permission sheet may finish its own interaction, but a cancelled
+  attempt never activates audio afterward.
+- Listening presents elapsed time, `Done`, and `Cancel Utterance`. During the
+  configured tail, Done is disabled or ignored and Cancel remains available
+  until retained capture stops.
+- Finalizing presents one non-interactive finishing state. Once protected
+  finalization has begun, neither Done nor capture cancellation can create a
+  second outcome.
+- Processing before accepted text presents the current understandable provider
+  stage and `Cancel Processing`. The action is unavailable before the pending
+  journal and dispatch identity are durable.
+- After accepted text exists, unresolved delivery commit, replacement,
+  destination confirmation, Pending-audio removal, or journal retirement
+  presents `Saving Result` and `Retry Saving Result`. Provider work is already
+  complete, so Cancel Processing is unavailable and Retry Saving resumes the
+  last local checkpoint without repeating it. `Recover Recording` appears only
+  when the coordinator proves that no accepted destination or ambiguous mutation
+  exists; that explicit action moves the exact Pending owner to Retry-or-Discard
+  without another provider request. Once a destination exists, local retirement
+  failure can retry only the exact remaining cleanup checkpoints.
+- Recoverable pending audio presents `Retry` and confirmed `Discard`. A new
+  Start remains unavailable until one of those actions reaches a durable result.
+- Result-ready presents selectable final text, Copy, Share, Use in Practice,
+  and confirmed Clear under `ios-output-actions.md`. A prior valid latest result
+  may remain visible while a later attempt runs and is replaced only by a newer
+  accepted result or explicit Clear.
+- P4 never presents `ready`, Quick Session `expired`, or `Stop Voice Session`;
+  those states and actions remain behind P6/M0C.
+- Every action is at-most-once for its current phase and identity. Repeated taps,
+  stale callbacks, another scene, or a late provider completion cannot create a
+  parallel recording, duplicate request, second accepted output, or discard a
+  newer attempt.
 
 ## Provider handoff
 

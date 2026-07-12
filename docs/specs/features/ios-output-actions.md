@@ -119,6 +119,44 @@ behavior remain platform-owned.
   rows, receipts, or cleanup status. Clear History is not a keyboard command and
   never writes an App Group snapshot.
 
+### P4 App-Only Delivery
+
+- P4 commits the mandatory app-private accepted-output record before presenting
+  `resultReady`. The record remains `pending`, has publication generation `0`,
+  carries `historyWrite: null`, and captures automatic-insertion preference as
+  false regardless of the saved future preference. P4 does not mutate that
+  saved preference.
+- P4 performs no App Group publication, insertion claim, acknowledgement,
+  accepted-History write, failed-History write, or History-outbox operation.
+  Successful normal or Retry output ends at app-owned result presentation.
+- Voice presents the exact accepted text as selectable content with explicit
+  `Copy`, `Share`, `Use in Practice`, and `Clear Latest Result`. It never labels
+  Clear as `Cancel Delivery and Clear Latest`, because keyboard delivery does
+  not exist in this milestone.
+- Copy writes the exact accepted text only after the tap. P4 Share contains only
+  that text. Failure or cancellation changes no delivery state and removes no
+  recovery owner.
+- Use in Practice replaces only HoldType's app-owned practice-field draft with
+  the exact accepted text. It does not touch the clipboard, write outside
+  HoldType, acknowledge insertion, or consume the accepted result.
+- Clear Latest Result is confirmed. Before clearing, P4 proves that the exact
+  `PendingRecording.outputDelivery` owner no longer depends on this delivery.
+  An exact generation-0, never-published, `historyWrite: null` record requires
+  no bridge or outbox operation. A failure before a confirmed discarded
+  tombstone keeps the result visible. Once that tombstone is durably confirmed,
+  the UI clears the text even if physical unlink is still cleanup-pending; it
+  never reconstructs text from a tombstone. Commit uncertainty first reconciles
+  the intended tombstone bytes and shows a retryable local error until the
+  logical state is known.
+- Keep Latest Result off never bypasses the mandatory record or removes text
+  while the current app-only result or recovery decision is unresolved. With no
+  P4 insertion acknowledgement, the result remains recoverable until confirmed
+  Clear, atomic replacement by a newer accepted result, or the 24-hour safety
+  expiry. P4 does not expose a control for changing this preference.
+- Replacing an existing P4 latest result is one fail-closed atomic old-to-new
+  delivery operation. It never clears the previous record first and never
+  presents the new result until its durable replacement is confirmed.
+
 ## Latest And Pending Result Lifetime
 
 - Before any keyboard publication or other output handoff, the containing app

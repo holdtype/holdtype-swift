@@ -2,8 +2,9 @@
 
 Status: active implementation roadmap; P0, P1, P2, and P3 are complete. The
 native containing app now includes its state owners, shell, Settings editors,
-Dictionary, Voice Emoji Commands, and Replacement Rules. P4, the app-only
-foreground voice vertical slice, is next; updated 2026-07-12.
+Dictionary, Voice Emoji Commands, and Replacement Rules. P4 is in progress: its
+app-only foreground voice contract is frozen and the Persistence transaction
+foundation is next; updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1308,6 +1309,15 @@ Group bytes, content-free logs, and unchanged Release keyboard isolation.
 Final evidence lives in
 `docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`.
 
+P4A contract freeze is complete. It defines one process-owned foreground voice
+owner, exact multi-scene preflight and lifecycle behavior, current version-1
+provider consent with epoch/revision CAS, direct bounded Pending-audio reads
+without a URL handoff, app-only accepted delivery with `historyWrite: null`,
+same-process `Saving Result` recovery, explicit Copy/Share/Use in Practice, and
+no History, App Group publication, background-audio mode, Quick Session, or
+external-app insertion. Final evidence lives in
+`docs/qa/runs/ios-p4-contract-freeze-2026-07-12.md`.
+
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
 The C4.0 contract review is recorded in
@@ -1583,11 +1593,13 @@ redacted drafts, automation-disabled Keychain access, truthful saved-state
 presentation, Dynamic Type, dark appearance, and keyboard isolation remain
 intact.
 
-The next slice is P4: an explicit-action, foreground-only voice attempt from
-microphone permission and `AVAudioSession` through protected recording, bounded
-provider and local processing, accepted result, and Copy/Share. It does not add
-an audio background mode or Quick Session. The independent recording-cache and
-directional App Group bridge flows remain later work.
+P4 is now in progress. P4A freezes the explicit-action, foreground-only flow
+from consent and microphone permission through protected recording, bounded
+provider/local processing, accepted result, and Copy/Share. P4B next closes the
+canonical Persistence transaction for app-only acceptance, exact Pending
+retirement, load/Clear, and `Saving Result` recovery before audio or UI is built.
+No P4 slice adds an audio background mode or Quick Session. The independent
+recording-cache and directional App Group bridge flows remain later work.
 
 Final P3 evidence lives in
 `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`,
@@ -1596,7 +1608,8 @@ Final P3 evidence lives in
 `docs/qa/runs/ios-general-settings-editors-2026-07-12.md`,
 `docs/qa/runs/ios-library-dictionary-2026-07-12.md`,
 `docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`, and
-`docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`.
+`docs/qa/runs/ios-library-replacement-rules-2026-07-12.md`. P4A contract
+evidence lives in `docs/qa/runs/ios-p4-contract-freeze-2026-07-12.md`.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

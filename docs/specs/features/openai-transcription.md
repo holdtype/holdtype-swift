@@ -177,12 +177,13 @@ This spec covers:
   current safe transcription settings. It must not reuse stored API keys,
   provider payloads, prompts, nearby active-text context, or custom dictionary
   text from the failed attempt.
-- Try Again from the frontmost recovery prompt or menu recovery block should
-  behave like a resumed dictation attempt for output delivery: when automatic
+- On macOS, Try Again from the frontmost recovery prompt or menu recovery block
+  behaves like a resumed dictation attempt for output delivery: when automatic
   insertion is enabled, a successful retry should insert the recovered
   transcript into the current active app. If insertion fails, the recovered
   transcript should remain available through Last Result when that setting is
-  enabled.
+  enabled. P4 iOS Retry ends at app-owned accepted-result presentation and never
+  inserts into whichever external app happens to be active.
 - A Try Again action must not be dropped silently while the app is finishing a
   short recording, transcription, or failure-presentation state transition. If
   the retry cannot start immediately, the app should run it after the current
@@ -254,6 +255,37 @@ semantics. File validation, MIME selection, multipart construction, in-memory
 response reading, transport, timeout, and real cancellation remain platform-
 adapter concerns. Multipart audio preparation is file-backed and bounded; the
 runtime request value still does not own its scratch-file lifecycle.
+
+### iOS Pending-Recording Audio Request
+
+- The URL-based `AudioTranscriptionRequest` remains the macOS compatibility
+  boundary. P4 iOS provider work uses a separate reader-based request supplied
+  only inside the one-shot `IOSPendingTranscriptionHandoff.execute` operation.
+- The iOS request exposes only validated format, duration, byte count, resolved
+  model, optional language, frozen prompt composition, and bounded offset reads.
+  It exposes no URL, path, `FileHandle`, raw descriptor, attempt identity, or
+  durable storage identifier.
+- Multipart preparation reads directly from that reader into the existing
+  protected multipart scratch body in chunks no larger than 64 KiB. It validates
+  positive size below 25,000,000 bytes, exact declared-byte completion, empty
+  EOF at the declared boundary, overflow-safe body size, and the existing form-
+  field order.
+- The adapter never materializes or reopens an equivalent source-audio path.
+  Its private multipart scratch path is an upload-body implementation detail,
+  not a source-audio handoff, and contains no attempt or source identity.
+- One 60-second deadline covers reader consumption, multipart preparation,
+  upload, any approved redirect replay, and response parsing. Cancellation
+  invalidates the one-shot reader, cancels the transport task, rejects late
+  completion, and returns without waiting indefinitely for a blocked read or
+  cleanup operation.
+- Explicit P4 Retry receives a fresh one-shot reader authorization with a fresh
+  transcription ID, current safe Settings and Library values, current consent
+  and credential, fresh prompt composition, fresh multipart boundary, and fresh
+  scratch body. It never reuses a prior URL request, prompt, credential, body,
+  or provider result.
+- The OpenAI package owns only a neutral bounded-reader contract; it does not
+  import Persistence. The iOS containing-app adapter binds the Pending reader
+  to that contract for the duration of one execution and cannot retain it.
 
 ## Invariants
 

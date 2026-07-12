@@ -128,6 +128,32 @@ The app guides setup in this order:
   distinct. Repeated actions must not create parallel recordings or duplicate
   provider work.
 
+### P4 Shared Voice Presentation
+
+- The composition root owns one process-lifetime foreground voice owner, audio
+  coordinator, provider pipeline, and pending-attempt owner. Every scene renders
+  that same shared phase, stage, setup state, terminal outcome, latest result,
+  and recovery availability.
+- Only presentation ownership is scene-local. The scene that begins arming owns
+  its provider-consent sheet and microphone permission continuation. Another
+  scene shows that setup is continuing in another window and cannot present a
+  competing prompt or manufacture a second attempt.
+- If the initiating scene becomes unavailable before consent or permission is
+  decided, arming ends without capture, audio activation, or provider work;
+  prompt ownership is never silently transferred.
+- A second scene may invoke an action that is currently valid for the shared
+  owner, including Cancel Start, Cancel Utterance, Cancel Processing, Retry, or
+  Discard. Destructive actions still require confirmation and all actions use
+  the same attempt identity and at-most-once gate.
+- P4 Voice exposes only foreground Start, arming, listening, finalizing,
+  processing, result, and Pending Retry-or-Discard surfaces. Quick Session,
+  background microphone state, keyboard commands, external-app insertion, and
+  automatic return remain absent.
+- Result actions are selectable final text, Copy, Share, Use in Practice, and
+  confirmed Clear. Use in Practice replaces only the invoking scene's
+  app-owned practice draft; it does not copy the text into another scene or
+  change the process-owned accepted result.
+
 ## Quick Session Gate
 
 - Quick Session is hidden or clearly unavailable until the M0B prerequisites
