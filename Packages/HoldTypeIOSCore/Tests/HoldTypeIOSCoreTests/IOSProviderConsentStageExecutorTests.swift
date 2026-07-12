@@ -144,6 +144,81 @@ struct IOSProviderConsentStageExecutorTests {
         await execution.value
     }
 
+    @Test func consumedSuccessWinsCallerCancellationExactlyOnce() async {
+        let postConsumptionBarrier = PostConsumptionBarrier()
+        let gate = ProviderConsentStageGateFake(
+            postConsumptionBarrier: postConsumptionBarrier
+        )
+        let providerCalls = LockedCounter()
+        let execution = Task {
+            let outcome: IOSProviderConsentStageOutcome<String, TestFailure> =
+                await IOSProviderConsentStageExecutionEngine.execute(
+                    gate: gate,
+                    authorization: ProviderConsentStageAuthorization(),
+                    stage: .transcription,
+                    operation: {
+                        providerCalls.increment()
+                        return "consumed transcript"
+                    },
+                    normalizeFailure: { _ in .provider }
+                )
+            return outcome
+        }
+
+        await postConsumptionBarrier.waitUntilReached()
+        #expect(gate.consumeOperationCount == 1)
+
+        execution.cancel()
+        #expect(execution.isCancelled)
+        await postConsumptionBarrier.release()
+
+        #expect(await execution.value == .success("consumed transcript"))
+        #expect(providerCalls.value == 1)
+        #expect(gate.finishCallCount == 1)
+        #expect(gate.consumeCallCount == 1)
+        #expect(gate.consumeOperationCount == 1)
+    }
+
+    @Test func consumedFailureWinsCallerCancellationExactlyOnce() async {
+        let postConsumptionBarrier = PostConsumptionBarrier()
+        let gate = ProviderConsentStageGateFake(
+            postConsumptionBarrier: postConsumptionBarrier
+        )
+        let providerCalls = LockedCounter()
+        let normalizedFailures = LockedCounter()
+        let execution = Task {
+            let outcome: IOSProviderConsentStageOutcome<Int, TestFailure> =
+                await IOSProviderConsentStageExecutionEngine.execute(
+                    gate: gate,
+                    authorization: ProviderConsentStageAuthorization(),
+                    stage: .translation,
+                    operation: {
+                        providerCalls.increment()
+                        throw CanaryProviderError(payload: "provider detail")
+                    },
+                    normalizeFailure: { _ in
+                        normalizedFailures.increment()
+                        return .provider
+                    }
+                )
+            return outcome
+        }
+
+        await postConsumptionBarrier.waitUntilReached()
+        #expect(gate.consumeOperationCount == 1)
+
+        execution.cancel()
+        #expect(execution.isCancelled)
+        await postConsumptionBarrier.release()
+
+        #expect(await execution.value == .failure(.provider))
+        #expect(providerCalls.value == 1)
+        #expect(normalizedFailures.value == 1)
+        #expect(gate.finishCallCount == 1)
+        #expect(gate.consumeCallCount == 1)
+        #expect(gate.consumeOperationCount == 1)
+    }
+
     @Test func thrownProviderErrorIsNormalizedBeforeConsumption() async {
         let gate = ProviderConsentStageGateFake()
         let normalizedFailures = LockedCounter()
@@ -254,6 +329,7 @@ private final class ProviderConsentStageGateFake:
     private let lock = NSLock()
     private let launchBehavior: LaunchBehavior
     private let resultBehavior: ResultBehavior
+    private let postConsumptionBarrier: PostConsumptionBarrier?
     private var dispatchState: DispatchState?
     private var resultState: ResultState?
     private var storedRegisterCallCount = 0
@@ -269,10 +345,12 @@ private final class ProviderConsentStageGateFake:
 
     init(
         launchBehavior: LaunchBehavior = .launch,
-        resultBehavior: ResultBehavior = .consume
+        resultBehavior: ResultBehavior = .consume,
+        postConsumptionBarrier: PostConsumptionBarrier? = nil
     ) {
         self.launchBehavior = launchBehavior
         self.resultBehavior = resultBehavior
+        self.postConsumptionBarrier = postConsumptionBarrier
     }
 
     var registerCallCount: Int {
@@ -417,6 +495,7 @@ private final class ProviderConsentStageGateFake:
                     resultState = nil
                 }
             }
+            await postConsumptionBarrier?.reachAndWait()
             return value
         } catch {
             lock.withLock { consuming = false }
@@ -450,6 +529,36 @@ private final class ProviderConsentStageGateFake:
             return values
         }
         cancellations.forEach { $0() }
+    }
+}
+
+private actor PostConsumptionBarrier {
+    private var reached = false
+    private var released = false
+    private var reachWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func reachAndWait() async {
+        reached = true
+        reachWaiters.forEach { $0.resume() }
+        reachWaiters.removeAll(keepingCapacity: false)
+        guard !released else { return }
+        await withCheckedContinuation { continuation in
+            releaseWaiters.append(continuation)
+        }
+    }
+
+    func waitUntilReached() async {
+        guard !reached else { return }
+        await withCheckedContinuation { continuation in
+            reachWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        released = true
+        releaseWaiters.forEach { $0.resume() }
+        releaseWaiters.removeAll(keepingCapacity: false)
     }
 }
 
