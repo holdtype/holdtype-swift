@@ -310,6 +310,7 @@
   },
   "footer": {
     "description": "إملاء أصلي لنظام {brand.macOS}. الشيفرة المصدرية متاحة بموجب {license.fsl11}، مع ترخيص {license.mit} مستقبلي.",
+    "twitterLink": "تابع @potapenko على {brand.twitter}",
     "patreonLink": "ادعم {brand.holdType} على {brand.patreon}",
     "sourceLink": "راجع الشيفرة المصدرية على {brand.github}"
   },

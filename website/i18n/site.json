@@ -55,6 +55,11 @@
       "translate": false,
       "direction": "ltr"
     },
+    "brand.twitter": {
+      "value": "Twitter",
+      "translate": false,
+      "direction": "ltr"
+    },
     "brand.patreon": {
       "value": "Patreon",
       "translate": false,
@@ -223,6 +228,9 @@
     },
     "sourceRepository": {
       "href": "https://github.com/holdtype/holdtype-swift"
+    },
+    "twitter": {
+      "href": "https://x.com/potapenko"
     },
     "patreon": {
       "href": "https://www.patreon.com/c/playphraseme"

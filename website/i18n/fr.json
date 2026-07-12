@@ -310,6 +310,7 @@
   },
   "footer": {
     "description": "Dictée native pour {brand.macOS}. Code source disponible sous {license.fsl11}, avec un passage futur à la licence {license.mit}.",
+    "twitterLink": "Suivre @potapenko sur {brand.twitter}",
     "patreonLink": "Soutenir {brand.holdType} sur {brand.patreon}",
     "sourceLink": "Consulter le code source sur {brand.github}"
   },

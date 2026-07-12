@@ -52,7 +52,8 @@ class PageProbe(HTMLParser):
         elif tag == "a" and "data-locale-link" in attributes:
             self.language_links.append(attributes)
         elif tag == "a" and (
-            "header-patreon-link" in (attributes.get("class") or "").split()
+            "header-twitter-link" in (attributes.get("class") or "").split()
+            or "header-patreon-link" in (attributes.get("class") or "").split()
             or "header-github-link" in (attributes.get("class") or "").split()
         ):
             self.header_social_links.append(attributes)
@@ -161,6 +162,7 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertEqual(
                     [link["href"] for link in probe.header_social_links],
                     [
+                        "https://x.com/potapenko",
                         "https://www.patreon.com/c/playphraseme",
                         "https://github.com/holdtype/holdtype-swift",
                     ],
