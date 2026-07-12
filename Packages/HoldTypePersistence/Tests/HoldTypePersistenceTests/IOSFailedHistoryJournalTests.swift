@@ -66,9 +66,11 @@ struct IOSFailedHistoryJournalTests {
             "deliveryID",
             "sessionID",
             "transcriptID",
+            "keepLatestResult",
             "state",
         ])
         #expect(retry["state"] as? String == "acceptingOutput")
+        #expect(retry["keepLatestResult"] as? Bool == true)
 
         let tombstones = try #require(
             root["audioCleanup"] as? [[String: Any]]
@@ -241,6 +243,7 @@ struct IOSFailedHistoryJournalTests {
             transcriptID: UUID(
                 uuidString: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee5"
             )!,
+            keepLatestResult: false,
             state: .reserved
         )
         let rowAttemptID = UUID(
@@ -286,6 +289,14 @@ struct IOSFailedHistoryJournalTests {
             canonical.replacingOccurrences(
                 of: "\"retryCount\":1",
                 with: "\"retryCount\":2147483648"
+            ),
+            canonical.replacingOccurrences(
+                of: "\"keepLatestResult\":false,",
+                with: ""
+            ),
+            canonical.replacingOccurrences(
+                of: "\"keepLatestResult\":false",
+                with: "\"keepLatestResult\":1"
             ),
             canonical.replacingOccurrences(
                 of: "\"retryID\":\"\(retryID)\"",

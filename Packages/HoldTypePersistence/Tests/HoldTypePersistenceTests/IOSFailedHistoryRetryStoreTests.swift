@@ -23,6 +23,7 @@ struct IOSFailedHistoryRetryStoreTests {
                         model: " fresh-model ",
                         language: .french
                     ),
+                    keepLatestResult: false,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )
@@ -35,6 +36,7 @@ struct IOSFailedHistoryRetryStoreTests {
             let operation = authorization.retryOperation
             #expect(operation.state == .reserved)
             #expect(operation.createdAt == fixture.now)
+            #expect(operation.keepLatestResult == false)
             #expect(Set([
                 operation.retryID,
                 operation.transcriptionID,
@@ -77,6 +79,9 @@ struct IOSFailedHistoryRetryStoreTests {
             #expect(
                 dispatchAuthorization.retryOperation.retryID
                     == reservationReceipt.retryOperation.retryID
+            )
+            #expect(
+                dispatchAuthorization.retryOperation.keepLatestResult == false
             )
             #expect(
                 dispatchAuthorization.dispatchedRow.updatedAt
@@ -134,6 +139,7 @@ struct IOSFailedHistoryRetryStoreTests {
                 _ = try await fixture.store.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: enabled,
                     operationLeaseAuthorization: lease
                 )
@@ -152,6 +158,7 @@ struct IOSFailedHistoryRetryStoreTests {
                 _ = try await fixture.store.prepareRetryReservation(
                     attemptID: overflow.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: enabled,
                     operationLeaseAuthorization: lease
                 )
@@ -165,6 +172,7 @@ struct IOSFailedHistoryRetryStoreTests {
                 _ = try await fixture.store.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: enabled,
                     operationLeaseAuthorization: lease
                 )
@@ -180,6 +188,7 @@ struct IOSFailedHistoryRetryStoreTests {
                         language: .custom,
                         customLanguageCode: "invalid"
                     ),
+                    keepLatestResult: true,
                     using: enabled,
                     operationLeaseAuthorization: lease
                 )
@@ -193,6 +202,7 @@ struct IOSFailedHistoryRetryStoreTests {
                 _ = try await fixture.store.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: disabled,
                     operationLeaseAuthorization: lease
                 )
@@ -215,6 +225,7 @@ struct IOSFailedHistoryRetryStoreTests {
                 _ = try await fixture.store.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: foreignPolicy,
                     operationLeaseAuthorization: lease
                 )
@@ -244,6 +255,7 @@ struct IOSFailedHistoryRetryStoreTests {
                         try await fixture.store.prepareRetryReservation(
                             attemptID: row.attemptID,
                             transcriptionConfiguration: .defaults,
+                            keepLatestResult: true,
                             using: policy,
                             operationLeaseAuthorization: lease
                         )
@@ -257,12 +269,24 @@ struct IOSFailedHistoryRetryStoreTests {
                     )
                 }
             }
+            await #expect(throws: IOSFailedHistoryError.commitUncertain) {
+                try await fixture.gate.perform { lease in
+                    _ = try await fixture.store.prepareRetryReservation(
+                        attemptID: row.attemptID,
+                        transcriptionConfiguration: .defaults,
+                        keepLatestResult: false,
+                        using: policy,
+                        operationLeaseAuthorization: lease
+                    )
+                }
+            }
 
             let recovered = try await fixture.gate.perform { lease in
                 let preparation = try await fixture.store
                     .prepareRetryReservation(
                         attemptID: row.attemptID,
                         transcriptionConfiguration: .defaults,
+                        keepLatestResult: true,
                         using: policy,
                         operationLeaseAuthorization: lease
                     )
@@ -467,6 +491,7 @@ struct IOSFailedHistoryRetryStoreTests {
                                 .prepareRetryReservation(
                                     attemptID: row.attemptID,
                                     transcriptionConfiguration: .defaults,
+                                    keepLatestResult: true,
                                     using: policy,
                                     operationLeaseAuthorization: lease
                                 )
@@ -854,6 +879,7 @@ private final class RetryStoreFixture: @unchecked Sendable {
                         model: "retry-model",
                         language: .german
                     ),
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )
@@ -881,6 +907,7 @@ private final class RetryStoreFixture: @unchecked Sendable {
                         model: "retry-model",
                         language: .german
                     ),
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )

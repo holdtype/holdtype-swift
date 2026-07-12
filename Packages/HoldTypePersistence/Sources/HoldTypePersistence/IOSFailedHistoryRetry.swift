@@ -571,6 +571,7 @@ fileprivate extension IOSFailedHistoryRetryOperation {
             && deliveryID == other.deliveryID
             && sessionID == other.sessionID
             && transcriptID == other.transcriptID
+            && keepLatestResult == other.keepLatestResult
     }
 }
 

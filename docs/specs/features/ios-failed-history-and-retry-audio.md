@@ -547,6 +547,7 @@ preallocates and freezes exactly:
 - `deliveryID`
 - `sessionID`
 - `transcriptID`
+- `keepLatestResult`
 - `state`
 
 Its stable states are `reserved`, `providerDispatched`, and
@@ -554,7 +555,10 @@ Its stable states are `reserved`, `providerDispatched`, and
 translation text, provider payload, or host-field identity. The row's model and
 language update to the fresh configuration captured for this retry before
 dispatch; Translation-specific current configuration remains transient because
-provider work never resumes automatically after process loss.
+provider work never resumes automatically after process loss. The durable
+`keepLatestResult` value is frozen from the same pre-reservation setup snapshot;
+after relaunch, a matching accepted delivery must carry that exact value rather
+than supplying or reconstructing a newer preference.
 
 The identifiers have two deliberately distinct roles. `transcriptionID` is the
 provider-request and Usage identity. `transcriptID` is the final accepted-output
@@ -596,8 +600,8 @@ reserved slot; cancellation or failure releases it by clearing the operation.
 The durable transitions are ordered:
 
 1. `nil -> reserved` advances the retry count once, stores the fresh model and
-   language, freezes all six operation fields, and updates `updatedAt` to the
-   canonical reservation time;
+   language, freezes every operation identifier plus Keep Latest Result and
+   state, and updates `updatedAt` to the canonical reservation time;
 2. `reserved -> providerDispatched` commits before the one-shot provider task
    may launch and preserves the retry count, failure fields, and `updatedAt`;
 3. the provider runs outside the root gate while the stable live-owner
@@ -657,6 +661,19 @@ On process loss, lifecycle recovery never resumes `reserved` or
 operation locally and keeps the row available for a new explicit Retry with new
 identities. The ended minting lease alone is never sufficient evidence while
 the original stable live-owner registration still exists.
+
+Every newly created production process context starts its shared failed/delivery
+interlock in `recoveryScanRequired`, which blocks ordinary PendingRecording,
+delivery, and failed work before its first storage effect. Under the root
+operation gate, only a strict failed-root inspection may replace that state:
+confirmed absence of any retry operation opens ordinary work; `reserved` or
+`providerDispatched` enters exact process-loss cancellation ownership; and
+`acceptingOutput` installs its exact recovery relation before the delivery slot
+is read. Corrupt, future, unavailable, rollback-ambiguous, foreign-root, or
+uncertain failed state leaves the barrier closed. Creating a coordinator or
+waiting for an ended lease is not recovery evidence. A canonical recovery time
+earlier than the failed row's `updatedAt` or retry operation's `createdAt` is
+rollback-ambiguous and cannot cancel or complete that operation.
 
 For `acceptingOutput`, recovery classifies the exact accepted-output slot under
 the failed/delivery interlock:
@@ -808,6 +825,27 @@ A release that writes `retryOperation` is no-downgrade to a binary that does
 not enforce this delivery protection. Downgrade cannot be used as a cleanup or
 recovery path.
 
+Standalone lifecycle recovery may drain one exact `acceptingOutput` relation
+through its bounded provider-free delivery, History, and row-to-tombstone
+steps in one call. It never processes a second failed row, unlinks audio, or
+starts provider work. It returns pending without storage mutation while any
+policy-cutover owner is retained; the owning cutover path alone may advance
+that phase. A durably confirmed policy no-op releases its cutover ownership
+without touching retry bytes, so a later standalone lifecycle pass can recover
+the retry under the unchanged generation. Policy cutover keeps its stricter
+existing bound: each call performs at most one durable failed-domain action and
+a later call continues under the already committed policy generation. Either
+entrypoint returns pending whenever exact progress cannot be proved.
+
+A relaunch reservation may be rebound to a new root-gate lease only with the
+exact same policy state or a strictly newer policy generation. A different
+enabled value at the same generation and every lower generation fail closed.
+Before a state-changing Clear, Disable, or Enable commits N+1, the coordinator
+strictly validates the failed root against the captured N receipt. A row or
+tombstone that already claims N+1 is preserved and rejects the command before
+either policy or failed bytes change; it is never reinterpreted as current work
+merely because the command would advance to that generation.
+
 Usage bookkeeping remains independent. After successful audio transcription,
 the coordinator makes one idempotent recording attempt under the retry's
 `transcriptionID`; a duplicate is success. Translation consumes only the
@@ -836,7 +874,9 @@ boundary:
 4. **C4.4D — recovery and integration:** process loss in every durable state,
    wholly unrelated predecessor versus partial collision, policy-cutover
    continuation, retained uncertainty, relaunch tests, and full regression
-   evidence.
+   evidence for the internal recovery boundary. C4.5 repeats the regression
+   after lifecycle and public-boundary integration and owns the final C4
+   verdict.
 
 ## Coordination And Isolation
 

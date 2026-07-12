@@ -174,6 +174,7 @@ struct IOSFailedHistoryValueTests {
                 deliveryID: failedHistoryTestUUID(namespace: 0x21, index: 1),
                 sessionID: failedHistoryTestUUID(namespace: 0x22, index: 1),
                 transcriptID: failedHistoryTestUUID(namespace: 0x23, index: 1),
+                keepLatestResult: true,
                 state: .reserved
             )
         }

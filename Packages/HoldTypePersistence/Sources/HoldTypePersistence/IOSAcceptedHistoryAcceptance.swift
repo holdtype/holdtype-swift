@@ -127,7 +127,7 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
     )
     case failedRetry(
         IOSAcceptedOutputDeliveryPreparation,
-        IOSFailedHistoryRetryAcceptingOutputReceipt,
+        IOSFailedHistoryRetryDeliveryRelationReceipt,
         IOSAcceptedHistoryAcceptancePhase
     )
     case relaunched(IOSAcceptedHistoryAcceptancePhase)
@@ -183,7 +183,7 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
     }
 
     var failedRetryReceipt:
-        IOSFailedHistoryRetryAcceptingOutputReceipt? {
+        IOSFailedHistoryRetryDeliveryRelationReceipt? {
         guard case .failedRetry(_, let receipt, _) = self else {
             return nil
         }
@@ -191,11 +191,11 @@ enum IOSAcceptedHistoryAcceptanceWork: Equatable, Sendable {
     }
 
     func refreshingFailedRetryReceipt(
-        _ receipt: IOSFailedHistoryRetryAcceptingOutputReceipt
+        _ receipt: IOSFailedHistoryRetryDeliveryRelationReceipt
     ) -> Self? {
         guard case .failedRetry(let preparation, let current, let phase) = self,
               current.relationKey == receipt.relationKey,
-              preparation == receipt.frozenSlotProof.preparation else {
+              preparation == receipt.preparation else {
             return nil
         }
         return .failedRetry(preparation, receipt, phase)
@@ -758,10 +758,12 @@ extension IOSAcceptedHistoryCoordinator {
                     operationLeaseAuthorization
             )
         let result: IOSAcceptedHistoryAcceptanceResult
+        let relationReceipt = IOSFailedHistoryRetryDeliveryRelationReceipt
+            .live(acceptingOutputReceipt)
 
         if let retainedWork = await acceptanceState.current() {
             guard let retained = retainedWork.refreshingFailedRetryReceipt(
-                acceptingOutputReceipt
+                relationReceipt
             ), retained.mayResume(with: preparation),
                   await pendingReplacementState.current() == nil else {
                 throw IOSAcceptedOutputDeliveryError.commitUncertain
@@ -852,7 +854,7 @@ extension IOSAcceptedHistoryCoordinator {
             } else {
                 let work = IOSAcceptedHistoryAcceptanceWork.failedRetry(
                     preparation,
-                    acceptingOutputReceipt,
+                    relationReceipt,
                     .deliveryAccepted(acceptance.record)
                 )
                 await acceptanceState.store(work)
@@ -868,6 +870,101 @@ extension IOSAcceptedHistoryCoordinator {
                 ).result
             }
         }
+        if result.resolution != .pendingLocalRecovery {
+            await acceptanceState.clear()
+        }
+        return result
+    }
+
+    static func recoverFailedRetryRelationWithinLease(
+        relation: IOSFailedHistoryRetryRecoveredRelation,
+        policyStore: IOSHistoryPolicyStore,
+        acceptedHistoryStore: IOSAcceptedHistoryStore,
+        deliveryStore: IOSAcceptedOutputDeliveryStore,
+        acceptanceState: IOSAcceptedHistoryAcceptanceOperationState,
+        pendingReplacementState:
+            IOSAcceptedHistoryPendingReplacementOperationState,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization,
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
+    ) async throws -> IOSAcceptedHistoryAcceptanceResult {
+        let preparation = relation.preparation
+        guard relation.ownerIdentity == ownerIdentity,
+              relation.operationLeaseAuthorization.provesSameActiveLease(
+                as: operationLeaseAuthorization
+              ),
+              preparation.historyWrite?.state == .pending,
+              preparation.historyCapture == nil,
+              await pendingReplacementState.current() == nil else {
+            throw IOSAcceptedOutputDeliveryError.invalidPreparation
+        }
+        let permit = try await deliveryStore
+            .authorizeFailedRetryDeliveryPermit(
+                recoveredRelation: relation,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        let relationReceipt = IOSFailedHistoryRetryDeliveryRelationReceipt
+            .relaunched(relation)
+        let record = relation.deliveryAuthorization.record
+        if let terminal = terminalResolution(for: record) {
+            if let retained = await acceptanceState.current() {
+                guard let refreshed = retained.refreshingFailedRetryReceipt(
+                    relationReceipt
+                ), refreshed.mayResume(with: preparation) else {
+                    throw IOSAcceptedOutputDeliveryError.commitUncertain
+                }
+                await acceptanceState.store(refreshed)
+                let resumed = await resume(
+                    refreshed,
+                    policyStore: policyStore,
+                    acceptedHistoryStore: acceptedHistoryStore,
+                    deliveryStore: deliveryStore,
+                    acceptanceState: acceptanceState,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization,
+                    failedRetryPermit: permit
+                ).result
+                if resumed.resolution != .pendingLocalRecovery {
+                    await acceptanceState.clear()
+                }
+                return resumed
+            }
+            await acceptanceState.clear()
+            return IOSAcceptedHistoryAcceptanceResult(
+                deliveryRecord: record,
+                resolution: terminal
+            )
+        }
+        guard record.historyWrite?.state == .pending else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+
+        let work: IOSAcceptedHistoryAcceptanceWork
+        if let retained = await acceptanceState.current() {
+            guard let refreshed = retained.refreshingFailedRetryReceipt(
+                relationReceipt
+            ), refreshed.mayResume(with: preparation) else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            work = refreshed
+        } else {
+            work = .failedRetry(
+                preparation,
+                relationReceipt,
+                .deliveryAccepted(record)
+            )
+        }
+        await acceptanceState.store(work)
+        let result = await resume(
+            work,
+            policyStore: policyStore,
+            acceptedHistoryStore: acceptedHistoryStore,
+            deliveryStore: deliveryStore,
+            acceptanceState: acceptanceState,
+            operationLeaseAuthorization: operationLeaseAuthorization,
+            failedRetryPermit: permit
+        ).result
         if result.resolution != .pendingLocalRecovery {
             await acceptanceState.clear()
         }
@@ -924,7 +1021,10 @@ private extension IOSAcceptedHistoryCoordinator {
                     )
                 )
             }
-            if record.failedRetryIdentityMatchCount(with: preparation) > 0 {
+            if !record.isWhollyUnrelatedToFailedRetry(
+                row: acceptingOutputReceipt.row,
+                operation: acceptingOutputReceipt.retryOperation
+            ) {
                 throw IOSAcceptedOutputDeliveryError.identityCollision
             }
             guard record.deliveryState != .discarded,
@@ -1138,7 +1238,7 @@ private extension IOSAcceptedHistoryCoordinator {
         case (.none, .none):
             break
         case (.some(let receipt), .some(let permit))
-            where receipt == permit.acceptingOutputReceipt
+            where receipt == permit.relationReceipt
                 && permit.provesActiveRelation():
             break
         case (.none, .some), (.some, .none), (.some, .some):
@@ -1219,7 +1319,7 @@ private extension IOSAcceptedHistoryCoordinator {
                             )
                     } else if let failedRetryReceipt = work.failedRetryReceipt {
                         guard let failedRetryPermit,
-                              failedRetryPermit.acceptingOutputReceipt
+                              failedRetryPermit.relationReceipt
                                 == failedRetryReceipt else {
                             throw IOSAcceptedHistoryError.compareAndSwapFailed
                         }

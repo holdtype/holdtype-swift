@@ -294,6 +294,7 @@ final class IOSFailedHistoryRetryAudioSource: @unchecked Sendable {
             && lhs.deliveryID == rhs.deliveryID
             && lhs.sessionID == rhs.sessionID
             && lhs.transcriptID == rhs.transcriptID
+            && lhs.keepLatestResult == rhs.keepLatestResult
     }
 }
 

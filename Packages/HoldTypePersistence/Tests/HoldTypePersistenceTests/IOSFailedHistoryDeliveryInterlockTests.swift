@@ -9,7 +9,7 @@ struct IOSFailedHistoryDeliveryInterlockTests {
         let fixture = try FailedRetryDeliveryInterlockFixture()
         let completion = try await fixture.prepareProviderCompletion()
 
-        try await fixture.context.operationGate.perform { lease in
+        _ = try await fixture.context.operationGate.perform { lease in
             let frozen = try await fixture.freezeAcceptingRelation(
                 completion,
                 operationLeaseAuthorization: lease
@@ -54,6 +54,49 @@ struct IOSFailedHistoryDeliveryInterlockTests {
         }
     }
 
+    @Test func liveFreezeRejectsCrossFieldRetryIdentityCollision()
+        async throws {
+        let fixture = try FailedRetryDeliveryInterlockFixture()
+        let completion = try await fixture.prepareProviderCompletion()
+        let operation = completion.dispatchReceipt.retryOperation
+        let collision = try IOSAcceptedOutputDeliveryPreparation(
+            deliveryID: operation.sessionID,
+            sessionID: UUID(),
+            attemptID: UUID(),
+            transcriptID: UUID(),
+            rawAcceptedText: "cross-field predecessor",
+            outputIntent: .standard,
+            automaticInsertionPreferenceEnabled: false,
+            keepLatestResult: true,
+            historyWrite: nil
+        )
+        let durableCollision = try await fixture.context.deliveryStore.accept(
+            collision
+        )
+
+        _ = try await fixture.context.operationGate.perform { lease in
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.identityCollision
+            ) {
+                _ = try await fixture.freezeAcceptingRelation(
+                    completion,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+
+        guard case .active(let visible)? = try await fixture.context
+            .deliveryStore.load() else {
+            Issue.record("Expected collision delivery to remain unchanged")
+            return
+        }
+        #expect(visible == durableCollision)
+        #expect(
+            !fixture.context.failedHistoryMutationInterlock
+                .hasRetryDeliveryProtection
+        )
+    }
+
     @Test func acceptingRelationBlocksOrdinaryDeliveryMutations()
         async throws {
         let fixture = try FailedRetryDeliveryInterlockFixture()
@@ -81,8 +124,11 @@ struct IOSFailedHistoryDeliveryInterlockTests {
                 }
             }
 
-            let observed = try await fixture.context.deliveryStore.load()
-            #expect(observed == .active(predecessor.record))
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.commitUncertain
+            ) {
+                _ = try await fixture.context.deliveryStore.load()
+            }
             #expect(
                 relation.receipt.frozenSlotProof.frozenSlot
                     == .existing(predecessor.snapshot)

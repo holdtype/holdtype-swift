@@ -383,22 +383,21 @@ actor IOSAcceptedHistoryStore {
         deliveryPermit: IOSFailedHistoryRetryDeliveryPermit
     ) throws -> IOSAcceptedHistoryRowReceipt {
         try requireOwners(delivery, policy)
-        let acceptingOutputReceipt = deliveryPermit.acceptingOutputReceipt
-        let preparation = acceptingOutputReceipt.frozenSlotProof.preparation
+        let relationReceipt = deliveryPermit.relationReceipt
+        let preparation = relationReceipt.preparation
         guard deliveryPermit.provesActiveRelation(),
-              acceptingOutputReceipt.ownerIdentity
+              relationReceipt.ownerIdentity
                 == capabilityOwnerIdentity,
-              acceptingOutputReceipt.repositoryBinding.physicalRootIdentity
+              relationReceipt.repositoryBinding.physicalRootIdentity
                 != nil,
               delivery.storeIdentity
-                == acceptingOutputReceipt.deliveryStoreIdentity,
+                == relationReceipt.deliveryStoreIdentity,
               delivery.record.hasExactFailedRetryAcceptance(
                 as: preparation,
-                retryID: acceptingOutputReceipt.retryOperation.retryID
+                retryID: relationReceipt.retryOperation.retryID
               ),
               delivery.record.historyWrite?.state == .pending,
-              policy.state
-                == preparation.historyCapture?.policyReceipt.state else {
+              policy.state == relationReceipt.policyReceipt.state else {
             throw IOSAcceptedHistoryError.compareAndSwapFailed
         }
         try requireNoPruneUncertainty()

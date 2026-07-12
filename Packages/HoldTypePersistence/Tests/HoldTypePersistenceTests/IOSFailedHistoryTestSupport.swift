@@ -25,7 +25,8 @@ func failedHistoryTestUUID(
 func failedHistoryTestRetryOperation(
     index: Int = 1,
     createdAt: Date? = nil,
-    state: IOSFailedHistoryRetryOperationState = .reserved
+    state: IOSFailedHistoryRetryOperationState = .reserved,
+    keepLatestResult: Bool = true
 ) throws -> IOSFailedHistoryRetryOperation {
     try IOSFailedHistoryRetryOperation(
         retryID: failedHistoryTestUUID(namespace: 0x10, index: index),
@@ -36,6 +37,7 @@ func failedHistoryTestRetryOperation(
         deliveryID: failedHistoryTestUUID(namespace: 0x12, index: index),
         sessionID: failedHistoryTestUUID(namespace: 0x13, index: index),
         transcriptID: failedHistoryTestUUID(namespace: 0x14, index: index),
+        keepLatestResult: keepLatestResult,
         state: state
     )
 }

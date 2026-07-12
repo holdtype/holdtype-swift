@@ -570,6 +570,7 @@ private enum IOSFailedHistoryRetryAcceptanceValidation {
               preparation.transcriptID == operation.transcriptID,
               preparation.outputIntent == row.outputIntent,
               !preparation.automaticInsertionPreferenceEnabled,
+              preparation.keepLatestResult == operation.keepLatestResult,
               let historyWrite = preparation.historyWrite,
               historyWrite.state == .pending,
               historyWrite.policyGeneration == row.policyGeneration,
@@ -631,6 +632,7 @@ private enum IOSFailedHistoryRetryAcceptanceValidation {
             && source.deliveryID == target.deliveryID
             && source.sessionID == target.sessionID
             && source.transcriptID == target.transcriptID
+            && source.keepLatestResult == target.keepLatestResult
             && target.state == targetState
     }
 

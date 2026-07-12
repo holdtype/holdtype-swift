@@ -130,7 +130,8 @@ extension IOSAcceptedHistoryCoordinator {
         case (.none, .none):
             break
         case (.some(let receipt), .some(let permit))
-            where receipt == permit.acceptingOutputReceipt
+            where IOSFailedHistoryRetryDeliveryRelationReceipt.live(receipt)
+                == permit.relationReceipt
                 && permit.provesActiveRelation():
             break
         case (.none, .some), (.some, .none), (.some, .some):
@@ -167,7 +168,12 @@ extension IOSAcceptedHistoryCoordinator {
                 }
 
             case .observingCurrentDelivery:
-                guard let observation = try await deliveryStore.load() else {
+                guard let observation = try await deliveryStore
+                    .loadForPendingHistoryReplacement(
+                        operationLeaseAuthorization:
+                            operationLeaseAuthorization,
+                        failedRetryPermit: failedRetryPermit
+                    ) else {
                     work = work.replacingPhase(.acceptingReplacement)
                     await replacementState.store(work)
                     continue

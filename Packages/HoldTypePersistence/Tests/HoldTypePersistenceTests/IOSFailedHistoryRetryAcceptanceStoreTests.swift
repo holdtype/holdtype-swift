@@ -889,6 +889,7 @@ private final class RetryAcceptanceStoreFixture: @unchecked Sendable {
                         model: "retry-acceptance-model",
                         language: .german
                     ),
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )

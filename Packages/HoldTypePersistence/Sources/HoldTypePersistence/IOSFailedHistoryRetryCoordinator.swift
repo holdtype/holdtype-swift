@@ -857,7 +857,9 @@ private actor IOSFailedHistoryRetryCancellationRelay:
     ) async throws -> AcceptanceProgress {
         guard let transcript = providerAcceptanceTranscript,
               let claim = providerAcceptanceClaim,
-              let setup = providerAcceptanceSetup else {
+              let setup = providerAcceptanceSetup,
+              setup.keepLatestResult
+                == dispatchReceipt.retryOperation.keepLatestResult else {
             throw IOSFailedHistoryError.invalidTransition
         }
         let operationGate = operationGate
@@ -908,7 +910,8 @@ private actor IOSFailedHistoryRetryCancellationRelay:
                     rawAcceptedText: transcript.text,
                     outputIntent: dispatchReceipt.row.outputIntent,
                     automaticInsertionPreferenceEnabled: false,
-                    keepLatestResult: setup.keepLatestResult,
+                    keepLatestResult:
+                        dispatchReceipt.retryOperation.keepLatestResult,
                     historyCapture: capture
                 )
 
@@ -1262,6 +1265,7 @@ extension IOSAcceptedHistoryCoordinator {
                             attemptID: attemptID,
                             transcriptionConfiguration:
                                 transcriptionConfiguration,
+                            keepLatestResult: setup.keepLatestResult,
                             using: policyReceipt,
                             operationLeaseAuthorization: lease
                         )
@@ -1288,6 +1292,7 @@ extension IOSAcceptedHistoryCoordinator {
                             attemptID: attemptID,
                             transcriptionConfiguration:
                                 transcriptionConfiguration,
+                            keepLatestResult: setup.keepLatestResult,
                             policyReceipt: policyReceipt,
                             failedStore: failedStore,
                             operationLeaseAuthorization: lease
@@ -1471,6 +1476,7 @@ extension IOSAcceptedHistoryCoordinator {
         audioSource: IOSFailedHistoryRetryAudioSource,
         attemptID: UUID,
         transcriptionConfiguration: TranscriptionConfiguration,
+        keepLatestResult: Bool,
         policyReceipt: IOSHistoryPolicyReceipt,
         failedStore: IOSFailedHistoryStore,
         operationLeaseAuthorization:
@@ -1485,6 +1491,7 @@ extension IOSAcceptedHistoryCoordinator {
             let retained = try await failedStore.prepareRetryReservation(
                 attemptID: attemptID,
                 transcriptionConfiguration: transcriptionConfiguration,
+                keepLatestResult: keepLatestResult,
                 using: policyReceipt,
                 operationLeaseAuthorization: operationLeaseAuthorization
             )

@@ -191,6 +191,56 @@ struct IOSAcceptedOutputDeliveryValueTests {
         }
     }
 
+    @Test func failedRetryRelaunchRequiresDurableKeepLatestPreference() throws {
+        let operation = try failedHistoryTestRetryOperation(
+            state: .acceptingOutput,
+            keepLatestResult: false
+        )
+        let row = try failedHistoryTestEntry(
+            retryCount: 1,
+            retryOperation: operation
+        )
+        let historyWrite = try IOSAcceptedOutputHistoryWrite(
+            policyGeneration: row.policyGeneration,
+            transcriptionModel: row.transcriptionModel,
+            transcriptionLanguageCode: row.transcriptionLanguageCode,
+            durationMilliseconds: row.durationMilliseconds
+        )
+        let preparation = try IOSAcceptedOutputDeliveryPreparation(
+            deliveryID: operation.deliveryID,
+            sessionID: operation.sessionID,
+            attemptID: row.attemptID,
+            transcriptID: operation.transcriptID,
+            rawAcceptedText: "accepted retry text",
+            outputIntent: row.outputIntent,
+            automaticInsertionPreferenceEnabled: false,
+            keepLatestResult: false,
+            historyWrite: historyWrite
+        )
+        let exact = try makeRecord(
+            from: preparation,
+            failedRetryID: operation.retryID
+        )
+        let mismatched = try makeRecord(
+            from: preparation,
+            keepLatestResult: true,
+            failedRetryID: operation.retryID
+        )
+
+        #expect(
+            exact.hasExactFailedRetryRecoveryAcceptance(
+                row: row,
+                operation: operation
+            )
+        )
+        #expect(
+            !mismatched.hasExactFailedRetryRecoveryAcceptance(
+                row: row,
+                operation: operation
+            )
+        )
+    }
+
     @Test func publicPreparationConsumesOpaqueHistoryCaptureAndRedactsIt() async throws {
         let state = try IOSHistoryPolicyState(
             revision: 1,

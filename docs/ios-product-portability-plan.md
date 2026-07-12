@@ -1199,7 +1199,20 @@ inline. Commit uncertainty, relaunch-safe capabilities, predecessor lineage,
 and concurrent acceptance are fail-closed and provider-free. Final evidence
 lives in
 `docs/qa/runs/ios-failed-history-retry-accepted-output-handoff-2026-07-12.md`.
-C4.4D process-loss recovery is next.
+C4.4D is complete. Every new production context now starts behind a strict
+failed-Retry recovery scan; process loss in `reserved`, `providerDispatched`,
+and `acceptingOutput` is reconciled without provider replay. Relaunch matching
+requires exact Retry provenance, all identities, durable Keep Latest, History
+metadata, temporal validity, and root-bound interlock authority. Partial or
+cross-field collisions, corrupt/future/unavailable storage, retained policy
+ownership, same-generation policy equivocation, and commit uncertainty fail
+closed. Policy commands also reject a failed row or tombstone that pre-claims
+generation N+1 before either policy or failed bytes change. Policy cleanup
+keeps its one-action bound and confirmed no-ops release ownership for later
+lifecycle recovery without generation N+2. Final evidence lives in
+`docs/qa/runs/ios-failed-history-retry-process-loss-recovery-2026-07-12.md`.
+C4.5 is next: containing-app lifecycle wiring and the public redacted app
+boundary.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1446,8 +1459,13 @@ interlock, strict Retry provenance, exact accepted-output and terminal-History
 handoff, post-expiry local completion, and row-to-cleanup success are verified
 in
 `docs/qa/runs/ios-failed-history-retry-accepted-output-handoff-2026-07-12.md`.
-C4.4D next completes process-loss recovery; C4.5 adds provider-free lifecycle
-recovery and the public redacted app boundary. The
+C4.4D is complete: cold-start recovery barriers, all three durable Retry-state
+relaunch paths, exact tagged-delivery reconstruction, durable Keep Latest,
+temporal rollback handling, policy-cutover continuation, and fresh production
+context recovery are verified in
+`docs/qa/runs/ios-failed-history-retry-process-loss-recovery-2026-07-12.md`.
+C4.5 next adds provider-free containing-app lifecycle recovery and the public
+redacted app boundary. The
 independent recording-cache and directional App Group bridge flows remain later
 work and do not enter the keyboard early. Until
 the full C4 chain is complete, the shipping app does not expose a partial

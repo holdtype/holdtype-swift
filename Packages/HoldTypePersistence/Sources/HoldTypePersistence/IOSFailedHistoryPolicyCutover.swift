@@ -790,6 +790,9 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         case cancellationReserved(
             IOSFailedHistoryRetryCancellationReservation
         )
+        case relaunchReserved(
+            IOSFailedHistoryRetryRelaunchReservation
+        )
     }
 
     nonisolated let identity =
@@ -822,14 +825,16 @@ actor IOSFailedHistoryRetryLiveOwnerState {
         switch phase {
         case .recoveryGuard, .provider:
             return true
-        case .idle, .cancellationReserved:
+        case .idle, .cancellationReserved, .relaunchReserved:
             return false
         }
     }
 
     func hasCancellationReservation() -> Bool {
-        if case .cancellationReserved = phase { return true }
-        return false
+        switch phase {
+        case .cancellationReserved, .relaunchReserved: true
+        case .idle, .recoveryGuard, .provider: false
+        }
     }
 
     func registerLiveOwner(
@@ -1192,6 +1197,8 @@ actor IOSFailedHistoryRetryLiveOwnerState {
                 return nil
             }
             reservationID = retained.reservationID
+        case .relaunchReserved:
+            return nil
         }
         guard let reservation =
                 IOSFailedHistoryRetryCancellationReservation(
@@ -1231,6 +1238,82 @@ actor IOSFailedHistoryRetryLiveOwnerState {
               retained.identifiesSameReservation(
                 as: completion.reservation
               ) else {
+            return false
+        }
+        phase = .idle
+        return true
+    }
+
+    func reserveRelaunchRecovery(
+        of inspection: IOSFailedHistoryRetryRelaunchInspection,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) -> IOSFailedHistoryRetryRelaunchReservation? {
+        let reservationID: IOSFailedHistoryRetryRelaunchReservationID
+        switch phase {
+        case .idle:
+            guard retainedProviderCancellationClaim == nil,
+                  retainedProviderCompletionClaim == nil,
+                  retainedProviderTerminalOwner == nil else {
+                return nil
+            }
+            reservationID = IOSFailedHistoryRetryRelaunchReservationID()
+        case .relaunchReserved(let retained):
+            guard !retained.operationLeaseAuthorization.provesActiveLease(),
+                  retained.inspection.identifiesSameRecovery(
+                    as: inspection
+                  ) else {
+                return nil
+            }
+            reservationID = retained.reservationID
+        case .recoveryGuard, .provider, .cancellationReserved:
+            return nil
+        }
+        guard let reservation = IOSFailedHistoryRetryRelaunchReservation(
+            mint: IOSFailedHistoryRetryRelaunchReservationMint(),
+            reservationID: reservationID,
+            inspection: inspection,
+            stateIdentity: identity,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) else {
+            return nil
+        }
+        phase = .relaunchReserved(reservation)
+        return reservation
+    }
+
+    @discardableResult
+    func consumeRelaunchRecovery(
+        using receipt: IOSFailedHistoryRetryRecoveredClearReceipt
+    ) -> Bool {
+        consumeRelaunchReservation(
+            receipt.authorization.reservation,
+            operationLeaseAuthorization:
+                receipt.operationLeaseAuthorization
+        )
+    }
+
+    @discardableResult
+    func consumeRelaunchRecovery(
+        using receipt: IOSFailedHistoryRetryRecoveredSuccessReceipt
+    ) -> Bool {
+        consumeRelaunchReservation(
+            receipt.authorization.terminalProof.relation
+                .acceptingInspection.reservation,
+            operationLeaseAuthorization:
+                receipt.operationLeaseAuthorization
+        )
+    }
+
+    private func consumeRelaunchReservation(
+        _ reservation: IOSFailedHistoryRetryRelaunchReservation,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) -> Bool {
+        guard operationLeaseAuthorization.provesActiveLease(),
+              reservation.stateIdentity == identity,
+              case .relaunchReserved(let retained) = phase,
+              retained.identifiesSameReservation(as: reservation) else {
             return false
         }
         phase = .idle

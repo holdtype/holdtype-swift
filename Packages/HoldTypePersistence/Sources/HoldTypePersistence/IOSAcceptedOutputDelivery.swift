@@ -335,6 +335,60 @@ public struct IOSAcceptedOutputDeliveryRecord: Sendable {
         return count
     }
 
+    func isWhollyUnrelatedToFailedRetry(
+        row: IOSFailedHistoryEntry,
+        operation: IOSFailedHistoryRetryOperation
+    ) -> Bool {
+        guard failedRetryID != operation.retryID else { return false }
+        let current: Set<UUID> = [
+            deliveryID,
+            sessionID,
+            attemptID,
+            transcriptID,
+        ]
+        let retry: Set<UUID> = [
+            operation.deliveryID,
+            operation.sessionID,
+            row.attemptID,
+            operation.transcriptID,
+        ]
+        return current.isDisjoint(with: retry)
+    }
+
+    func hasExactFailedRetryRecoveryAcceptance(
+        row: IOSFailedHistoryEntry,
+        operation: IOSFailedHistoryRetryOperation
+    ) -> Bool {
+        guard operation.state == .acceptingOutput,
+              deliveryID == operation.deliveryID,
+              sessionID == operation.sessionID,
+              attemptID == row.attemptID,
+              transcriptID == operation.transcriptID,
+              failedRetryID == operation.retryID,
+              deliveryState == .pending,
+              publicationGeneration == 0,
+              acceptedText.map(
+                IOSAcceptedOutputDeliveryValidation.isStoredAcceptedText
+              ) == true,
+              outputIntent == row.outputIntent,
+              !automaticInsertionPreferenceEnabled,
+              keepLatestResult == operation.keepLatestResult,
+              let historyWrite,
+              historyWrite.state != .pendingReplacement,
+              historyWrite.policyGeneration == row.policyGeneration,
+              IOSAcceptedOutputDeliveryValidation.bytesEqual(
+                historyWrite.transcriptionModel,
+                row.transcriptionModel
+              ),
+              historyWrite.transcriptionLanguageCode
+                == row.transcriptionLanguageCode,
+              historyWrite.durationMilliseconds
+                == row.durationMilliseconds else {
+            return false
+        }
+        return true
+    }
+
     func hasExactFailedRetryAcceptance(
         as preparation: IOSAcceptedOutputDeliveryPreparation,
         retryID: UUID

@@ -62,6 +62,7 @@ struct IOSFailedHistoryRetryOperation: Equatable, Sendable {
     let deliveryID: UUID
     let sessionID: UUID
     let transcriptID: UUID
+    let keepLatestResult: Bool
     let state: IOSFailedHistoryRetryOperationState
 
     init(
@@ -71,6 +72,7 @@ struct IOSFailedHistoryRetryOperation: Equatable, Sendable {
         deliveryID: UUID,
         sessionID: UUID,
         transcriptID: UUID,
+        keepLatestResult: Bool,
         state: IOSFailedHistoryRetryOperationState
     ) throws {
         let identifiers = [
@@ -93,6 +95,7 @@ struct IOSFailedHistoryRetryOperation: Equatable, Sendable {
         self.deliveryID = deliveryID
         self.sessionID = sessionID
         self.transcriptID = transcriptID
+        self.keepLatestResult = keepLatestResult
         self.state = state
     }
 }

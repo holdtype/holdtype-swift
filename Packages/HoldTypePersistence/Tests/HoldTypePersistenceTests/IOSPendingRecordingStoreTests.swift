@@ -90,6 +90,7 @@ struct IOSPendingRecordingStoreTests {
         let store = IOSPendingRecordingStore(
             applicationSupportDirectoryURL: root
         )
+        try await clearProductionRetryRecoveryBarrier(at: root)
 
         try FileManager.default.removeItem(at: root)
         try FileManager.default.createDirectory(
@@ -122,6 +123,7 @@ struct IOSPendingRecordingStoreTests {
         )
         defer { try? FileManager.default.removeItem(at: parent) }
 
+        try await clearProductionRetryRecoveryBarrier(at: root)
         let canonical = IOSPendingRecordingStore(
             applicationSupportDirectoryURL: root
         )
@@ -1738,6 +1740,7 @@ struct IOSPendingRecordingStoreTests {
         try FoundationIOSPendingRecordingJournalRepository(
             applicationSupportDirectoryURL: directoryURL
         ).create(recording)
+        try await clearProductionRetryRecoveryBarrier(at: directoryURL)
         let capture = PublicDestinationProofCapture()
         let store = IOSPendingRecordingStore(
             applicationSupportDirectoryURL: directoryURL,
@@ -1961,6 +1964,16 @@ struct IOSPendingRecordingStoreTests {
         #expect(orphan.events.values.isEmpty)
         #expect(orphan.audio.published)
     }
+}
+
+private func clearProductionRetryRecoveryBarrier(at root: URL) async throws {
+    let coordinator = IOSAcceptedHistoryCoordinator(
+        applicationSupportDirectoryURL: root
+    )
+    #expect(
+        try await coordinator.recoverInterruptedFailedHistoryRetry()
+            == .noWork
+    )
 }
 
 private final class PendingRowAudioValidationSetup: @unchecked Sendable {

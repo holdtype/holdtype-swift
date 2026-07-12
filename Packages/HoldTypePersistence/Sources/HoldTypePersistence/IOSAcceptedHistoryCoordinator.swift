@@ -110,7 +110,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
 
     init(
         applicationSupportDirectoryURL: URL,
-        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding
+        repositoryBinding: IOSAcceptedHistoryCoordinatorRepositoryBinding,
+        retryRecoveryScanRequired: Bool
     ) {
         let capabilityOwnerIdentity =
             IOSAcceptedHistoryCapabilityOwnerIdentity()
@@ -122,7 +123,9 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         let pendingRecordingMediaValidationWorkerGate =
             AudioToolboxMediaValidationWorkerGate()
         let failedHistoryMutationInterlock =
-            IOSFailedHistoryMutationInterlock()
+            IOSFailedHistoryMutationInterlock(
+                retryRecoveryScanRequired: retryRecoveryScanRequired
+            )
         let failedHistoryRetryState =
             IOSFailedHistoryRetryLiveOwnerState()
         let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
@@ -154,6 +157,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             capabilityOwnerIdentity: capabilityOwnerIdentity,
             expectedPendingStoreIdentity: pendingRecordingStoreIdentity,
+            expectedDeliveryStoreIdentity: deliveryStoreIdentity,
             retryLiveOwnerState: failedHistoryRetryState,
             repositoryGuard: repositoryGuard,
             mutationInterlock: failedHistoryMutationInterlock
@@ -224,6 +228,10 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             failedHistoryStore.bindRetryLiveOwnerStateIdentity(
                 failedHistoryRetryState.identity
             )
+        let failedDeliveryBindingAccepted =
+            failedHistoryStore.bindExpectedDeliveryStoreIdentity(
+                deliveryStoreIdentity
+            )
         let retryProviderBindingAccepted = repositoryBinding
             .physicalRootIdentity.map {
                 failedHistoryRetryState.bindProviderRegistration(
@@ -244,6 +252,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !failedRetryStateBindingAccepted
+            || !failedDeliveryBindingAccepted
             || !retryProviderBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
@@ -281,7 +290,11 @@ extension IOSAcceptedHistoryCoordinatorRepositoryBinding:
 final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
     @unchecked Sendable {
     static let shared =
-        IOSAcceptedHistoryCoordinatorProcessContextRegistry()
+        IOSAcceptedHistoryCoordinatorProcessContextRegistry(
+            retryRecoveryScanRequiredOnContextCreation: true
+        )
+
+    private let retryRecoveryScanRequiredOnContextCreation: Bool
 
     private struct PhysicalRootKey: Hashable {
         let device: dev_t
@@ -323,6 +336,13 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
         [PhysicalRootKey: IOSAcceptedHistoryCoordinatorProcessContext] = [:]
     private var conflictedPhysicalRoots: Set<PhysicalRootKey> = []
     private var registeredInputRoots: [RegisteredInputRoot] = []
+
+    init(
+        retryRecoveryScanRequiredOnContextCreation: Bool = false
+    ) {
+        self.retryRecoveryScanRequiredOnContextCreation =
+            retryRecoveryScanRequiredOnContextCreation
+    }
 
     func context(
         for applicationSupportDirectoryURL: URL
@@ -371,7 +391,9 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
             }
             let context = IOSAcceptedHistoryCoordinatorProcessContext(
                 applicationSupportDirectoryURL: resolution.resolvedRoot,
-                repositoryBinding: resolution.binding
+                repositoryBinding: resolution.binding,
+                retryRecoveryScanRequired:
+                    retryRecoveryScanRequiredOnContextCreation
             )
             let canonicalRegistration =
                 IOSAcceptedHistoryCoordinatorRepositoryRegistration(
@@ -920,6 +942,10 @@ public actor IOSAcceptedHistoryCoordinator {
             failedHistoryStore.bindRetryLiveOwnerStateIdentity(
                 failedHistoryRetryState.identity
             )
+        let failedDeliveryBindingAccepted =
+            failedHistoryStore.bindExpectedDeliveryStoreIdentity(
+                deliveryStore.storeIdentity
+            )
         let outboxGateBindingAccepted =
             outboxStore.bindOperationGateIdentity(operationGate.identity)
         let deliveryGateBindingAccepted =
@@ -955,6 +981,7 @@ public actor IOSAcceptedHistoryCoordinator {
             || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !failedRetryStateBindingAccepted
+            || !failedDeliveryBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
             || !deliveryFailedInterlockBindingAccepted
@@ -1043,6 +1070,10 @@ public actor IOSAcceptedHistoryCoordinator {
             failedHistoryStore.bindRetryLiveOwnerStateIdentity(
                 failedHistoryRetryState.identity
             )
+        let failedDeliveryBindingAccepted =
+            failedHistoryStore.bindExpectedDeliveryStoreIdentity(
+                deliveryStore.storeIdentity
+            )
         let outboxGateBindingAccepted =
             outboxStore.bindOperationGateIdentity(operationGate.identity)
         let deliveryGateBindingAccepted =
@@ -1076,6 +1107,7 @@ public actor IOSAcceptedHistoryCoordinator {
             || !pendingFailedBindingAccepted
             || !failedGateBindingAccepted
             || !failedRetryStateBindingAccepted
+            || !failedDeliveryBindingAccepted
             || !outboxGateBindingAccepted
             || !deliveryGateBindingAccepted
             || !deliveryFailedInterlockBindingAccepted

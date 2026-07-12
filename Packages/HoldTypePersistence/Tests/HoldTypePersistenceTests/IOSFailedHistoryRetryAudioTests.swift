@@ -116,6 +116,7 @@ struct IOSFailedHistoryRetryAudioTests {
                 try await fixture.failedStore.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )
@@ -176,6 +177,7 @@ struct IOSFailedHistoryRetryAudioTests {
                 try await fixture.failedStore.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )
@@ -207,6 +209,7 @@ struct IOSFailedHistoryRetryAudioTests {
                 try await fixture.failedStore.prepareRetryReservation(
                     attemptID: row.attemptID,
                     transcriptionConfiguration: .defaults,
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )
@@ -386,6 +389,7 @@ private final class RetryAudioFixture: @unchecked Sendable {
                     try await self.failedStore.prepareRetryReservation(
                         attemptID: row.attemptID,
                         transcriptionConfiguration: .defaults,
+                        keepLatestResult: true,
                         using: policy,
                         operationLeaseAuthorization: lease
                     )

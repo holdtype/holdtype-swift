@@ -419,6 +419,7 @@ private final class RetryOutcomeStoreFixture: @unchecked Sendable {
                         model: "retry-model",
                         language: .german
                     ),
+                    keepLatestResult: true,
                     using: policy,
                     operationLeaseAuthorization: lease
                 )

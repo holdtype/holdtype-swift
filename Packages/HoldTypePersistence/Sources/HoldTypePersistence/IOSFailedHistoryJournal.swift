@@ -225,6 +225,7 @@ enum IOSFailedHistoryWireCodec {
         "deliveryID",
         "sessionID",
         "transcriptID",
+        "keepLatestResult",
         "state",
     ]
     private static let audioCleanupFields: Set<String> = [
@@ -404,6 +405,7 @@ enum IOSFailedHistoryWireCodec {
             deliveryID: canonicalUUID(try reader.string("deliveryID")),
             sessionID: canonicalUUID(try reader.string("sessionID")),
             transcriptID: canonicalUUID(try reader.string("transcriptID")),
+            keepLatestResult: try reader.boolean("keepLatestResult"),
             state: state
         )
     }
@@ -467,6 +469,14 @@ private struct IOSFailedHistoryObjectReader {
             throw IOSFailedHistoryError.invalidRecord
         }
         return value
+    }
+
+    func boolean(_ key: String) throws -> Bool {
+        guard let value = object[key] as? NSNumber,
+              CFGetTypeID(value) == CFBooleanGetTypeID() else {
+            throw IOSFailedHistoryError.invalidRecord
+        }
+        return value.boolValue
     }
 
     func integer64(_ key: String) throws -> Int64 {
@@ -612,6 +622,7 @@ private struct IOSFailedHistoryWireV1: Encodable {
         let deliveryID: String
         let sessionID: String
         let transcriptID: String
+        let keepLatestResult: Bool
         let state: String
 
         init(_ operation: IOSFailedHistoryRetryOperation) throws {
@@ -633,6 +644,7 @@ private struct IOSFailedHistoryWireV1: Encodable {
             transcriptID = IOSFailedHistoryValidation.canonicalIdentifier(
                 operation.transcriptID
             )
+            keepLatestResult = operation.keepLatestResult
             state = operation.state.rawValue
         }
     }

@@ -127,12 +127,35 @@ struct IOSHistoryPolicyCutoverWork: Equatable, Sendable {
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let command: IOSHistoryPolicyCutoverCommand?
     let phase: IOSHistoryPolicyCutoverPhase
+    let policyChanged: Bool?
+
+    init(
+        ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity,
+        command: IOSHistoryPolicyCutoverCommand?,
+        phase: IOSHistoryPolicyCutoverPhase,
+        policyChanged: Bool? = nil
+    ) {
+        self.ownerIdentity = ownerIdentity
+        self.command = command
+        self.phase = phase
+        self.policyChanged = policyChanged
+    }
 
     func replacingPhase(_ phase: IOSHistoryPolicyCutoverPhase) -> Self {
         Self(
             ownerIdentity: ownerIdentity,
             command: command,
-            phase: phase
+            phase: phase,
+            policyChanged: policyChanged
+        )
+    }
+
+    func recordingPolicyChange(_ changed: Bool) -> Self {
+        Self(
+            ownerIdentity: ownerIdentity,
+            command: command,
+            phase: phase,
+            policyChanged: changed
         )
     }
 }
@@ -222,7 +245,11 @@ public extension IOSAcceptedHistoryCoordinator {
                     .current() != nil
                 let hasFailedAudioCleanupState = await
                     failedHistoryAudioCleanupState.current() != nil
-                if failedHistoryMutationInterlock.isBlocked
+                if (failedHistoryMutationInterlock.isBlocked
+                    && !failedHistoryMutationInterlock
+                        .requiresRetryRecoveryScan
+                    && !failedHistoryMutationInterlock
+                        .hasRetryDeliveryRelation)
                     || hasFailedTransferState
                     || hasFailedAudioCleanupState {
                     guard mayResumeFailedHistory else {
@@ -246,12 +273,21 @@ public extension IOSAcceptedHistoryCoordinator {
                 let hasAcceptanceWork = await acceptanceState.current() != nil
                 let hasPendingReplacementWork = await pendingReplacementState
                     .current() != nil
+                let hasResumableFailedRetryAcceptance = await Self
+                    .hasResumableFailedRetryAcceptance(
+                        acceptanceState: acceptanceState,
+                        deliveryStore: deliveryStore,
+                        failedHistoryMutationInterlock:
+                            failedHistoryMutationInterlock
+                    )
 
                 let disposition: IOSHistoryPolicyCleanupDisposition
                 if let retained = await cutoverState.current() {
                     if retained.ownerIdentity != ownerIdentity {
                         disposition = .pendingLocalRecovery
-                    } else if hasAcceptanceWork
+                    } else if (hasAcceptanceWork
+                        && !(mayResumeFailedHistory
+                            && hasResumableFailedRetryAcceptance))
                         || hasPendingReplacementWork
                         || (!retained.phase.crossedLogicalBoundary
                             && retained.command != nil) {
@@ -267,6 +303,9 @@ public extension IOSAcceptedHistoryCoordinator {
                                 outboxStore: outboxStore,
                                 deliveryStore: deliveryStore,
                                 baselineRecoveryState: baselineRecoveryState,
+                                acceptanceState: acceptanceState,
+                                pendingReplacementState:
+                                    pendingReplacementState,
                                 workerState: workerState,
                                 failedHistoryTransferState:
                                     failedHistoryTransferState,
@@ -287,7 +326,9 @@ public extension IOSAcceptedHistoryCoordinator {
                             disposition = .pendingLocalRecovery
                         }
                     }
-                } else if hasAcceptanceWork || hasPendingReplacementWork {
+                } else if (hasAcceptanceWork
+                    && !hasResumableFailedRetryAcceptance)
+                    || hasPendingReplacementWork {
                     disposition = .pendingLocalRecovery
                 } else if await workerState.current() != nil {
                     if await deliveryStore
@@ -312,7 +353,8 @@ public extension IOSAcceptedHistoryCoordinator {
                         }
                     }
                 } else if await deliveryStore
-                    .hasRetainedHistoryWorkForPolicyCutover() {
+                    .hasRetainedHistoryWorkForPolicyCutover()
+                    && !hasResumableFailedRetryAcceptance {
                     disposition = .pendingLocalRecovery
                 } else {
                     let initial = IOSHistoryPolicyCutoverWork(
@@ -331,6 +373,9 @@ public extension IOSAcceptedHistoryCoordinator {
                             outboxStore: outboxStore,
                             deliveryStore: deliveryStore,
                             baselineRecoveryState: baselineRecoveryState,
+                            acceptanceState: acceptanceState,
+                            pendingReplacementState:
+                                pendingReplacementState,
                             workerState: workerState,
                             failedHistoryTransferState:
                                 failedHistoryTransferState,
@@ -431,7 +476,11 @@ private extension IOSAcceptedHistoryCoordinator {
                     failedHistoryAudioCleanupState.current() != nil
                 if (hasFailedTransferState
                     || hasFailedAudioCleanupState
-                    || failedHistoryMutationInterlock.isBlocked)
+                    || (failedHistoryMutationInterlock.isBlocked
+                        && !failedHistoryMutationInterlock
+                            .requiresRetryRecoveryScan
+                        && !failedHistoryMutationInterlock
+                            .hasRetryDeliveryRelation))
                     && !mayResumeFailedHistory {
                     if retainedAtEntry?.ownerIdentity == ownerIdentity,
                        retainedAtEntry?.command == command,
@@ -458,6 +507,13 @@ private extension IOSAcceptedHistoryCoordinator {
 
                 do {
                 let work: IOSHistoryPolicyCutoverWork
+                let hasResumableFailedRetryAcceptance = await Self
+                    .hasResumableFailedRetryAcceptance(
+                        acceptanceState: acceptanceState,
+                        deliveryStore: deliveryStore,
+                        failedHistoryMutationInterlock:
+                            failedHistoryMutationInterlock
+                    )
                 if let retained = await cutoverState.current() {
                     let hasDeliveryWork = await deliveryStore
                         .hasRetainedHistoryWorkForPolicyCutover()
@@ -471,7 +527,11 @@ private extension IOSAcceptedHistoryCoordinator {
                         .current() != nil
                     let hasWorkerWork = await workerState.current() != nil
                     if retained.phase.crossedLogicalBoundary {
-                        if hasAcceptanceWork || hasPendingReplacementWork {
+                        if (hasAcceptanceWork
+                            && !(retained.phase
+                                .isFailedHistoryReconciliation
+                                && hasResumableFailedRetryAcceptance))
+                            || hasPendingReplacementWork {
                             return .pendingLocalRecovery
                         }
                         switch retained.phase {
@@ -483,8 +543,13 @@ private extension IOSAcceptedHistoryCoordinator {
                             if hasWorkerWork {
                                 return .pendingLocalRecovery
                             }
-                        case .reconcilingFailedHistory,
-                             .recoveringFailedTransfer,
+                        case .reconcilingFailedHistory:
+                            if hasWorkerWork
+                                || (hasDeliveryWork
+                                    && !hasResumableFailedRetryAcceptance) {
+                                return .pendingLocalRecovery
+                            }
+                        case .recoveringFailedTransfer,
                              .inspectingProcessLostFailedRetry,
                              .cancellingProcessLostFailedRetry,
                              .completingProcessLostFailedRetry,
@@ -532,6 +597,8 @@ private extension IOSAcceptedHistoryCoordinator {
                     outboxStore: outboxStore,
                     deliveryStore: deliveryStore,
                     baselineRecoveryState: baselineRecoveryState,
+                    acceptanceState: acceptanceState,
+                    pendingReplacementState: pendingReplacementState,
                     workerState: workerState,
                     failedHistoryTransferState: failedHistoryTransferState,
                     failedHistoryAudioCleanupState:
@@ -608,6 +675,28 @@ private extension IOSAcceptedHistoryCoordinator {
         }
     }
 
+    static func hasResumableFailedRetryAcceptance(
+        acceptanceState: IOSAcceptedHistoryAcceptanceOperationState,
+        deliveryStore: IOSAcceptedOutputDeliveryStore,
+        failedHistoryMutationInterlock:
+            IOSFailedHistoryMutationInterlock
+    ) async -> Bool {
+        guard let relationReceipt = await acceptanceState.current()?
+                .failedRetryReceipt,
+              failedHistoryMutationInterlock.retainsRetryDeliveryRelation(
+                relationReceipt.relationKey
+              ) else {
+            return false
+        }
+        guard await deliveryStore
+                .hasRetainedHistoryWorkForPolicyCutover() else {
+            return true
+        }
+        return await deliveryStore.hasOnlyRetainedFailedRetryHistoryWork(
+            for: relationReceipt
+        )
+    }
+
     static func resumePolicyCutoverWork(
         _ initialWork: IOSHistoryPolicyCutoverWork,
         policyStore: IOSHistoryPolicyStore,
@@ -617,6 +706,9 @@ private extension IOSAcceptedHistoryCoordinator {
         outboxStore: IOSAcceptedHistoryOutboxStore,
         deliveryStore: IOSAcceptedOutputDeliveryStore,
         baselineRecoveryState: IOSAcceptedHistoryBaselineRecoveryState,
+        acceptanceState: IOSAcceptedHistoryAcceptanceOperationState,
+        pendingReplacementState:
+            IOSAcceptedHistoryPendingReplacementOperationState,
         workerState: IOSAcceptedHistoryOutboxWorkerOperationState,
         failedHistoryTransferState: IOSFailedHistoryTransferOperationState,
         failedHistoryAudioCleanupState:
@@ -650,12 +742,51 @@ private extension IOSAcceptedHistoryCoordinator {
 
             switch work.phase {
             case .establishingPolicy:
+                let hasResumableFailedRetryAcceptance = await
+                    hasResumableFailedRetryAcceptance(
+                        acceptanceState: acceptanceState,
+                        deliveryStore: deliveryStore,
+                        failedHistoryMutationInterlock:
+                            failedHistoryMutationInterlock
+                    )
                 if await deliveryStore
-                    .hasRetainedHistoryWorkForPolicyCutover() {
-                    guard work.command == nil else {
-                        throw IOSHistoryPolicyError.commitUncertain
-                    }
+                    .hasRetainedHistoryWorkForPolicyCutover()
+                    && !hasResumableFailedRetryAcceptance {
                     return .pendingLocalRecovery
+                }
+                if work.command == nil,
+                   failedHistoryMutationInterlock.requiresRetryRecoveryScan
+                    || failedHistoryMutationInterlock
+                        .hasRetryDeliveryRelation {
+                    let recoveryPolicy: IOSHistoryPolicyReceipt?
+                    if let current = try await policyStore.load() {
+                        recoveryPolicy = try await policyStore.confirm(
+                            expected: IOSHistoryPolicyExpectation(
+                                state: current
+                            )
+                        )
+                    } else {
+                        recoveryPolicy = nil
+                    }
+                    let recovery = await
+                        recoverInterruptedFailedHistoryRetryWithinLease(
+                            policyReceipt: recoveryPolicy,
+                            policyStore: policyStore,
+                            acceptedHistoryStore: acceptedHistoryStore,
+                            failedStore: failedHistoryStore,
+                            deliveryStore: deliveryStore,
+                            retryState: failedHistoryRetryState,
+                            acceptanceState: acceptanceState,
+                            pendingReplacementState:
+                                pendingReplacementState,
+                            ownerIdentity: ownerIdentity,
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization,
+                            stopAfterHistoryTransition: true
+                        )
+                    guard recovery == .noWork else {
+                        return .pendingLocalRecovery
+                    }
                 }
                 do {
                     let receipt = try await confirmedPolicyReceipt(
@@ -711,14 +842,29 @@ private extension IOSAcceptedHistoryCoordinator {
                     throw IOSHistoryPolicyError.commitUncertain
                 }
                 do {
+                    _ = try await failedHistoryStore
+                        .loadPolicyFilteredEntries(
+                            using: receipt,
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization
+                        )
+                } catch {
+                    await cutoverState.clear()
+                    throw error
+                }
+                do {
                     let committed = try await applyPolicyCommand(
                         command,
                         policyStore: policyStore,
                         receipt: receipt
                     )
-                    work = work.replacingPhase(
-                        .reconcilingFailedHistory(committed)
-                    )
+                    work = work
+                        .recordingPolicyChange(
+                            committed.state != receipt.state
+                        )
+                        .replacingPhase(
+                            .reconcilingFailedHistory(committed)
+                        )
                     await cutoverState.store(work)
                     do {
                         try requireStablePolicyRepository(
@@ -758,6 +904,8 @@ private extension IOSAcceptedHistoryCoordinator {
                     pendingRecordingStore: pendingRecordingStore,
                     outboxStore: outboxStore,
                     deliveryStore: deliveryStore,
+                    acceptanceState: acceptanceState,
+                    pendingReplacementState: pendingReplacementState,
                     workerState: workerState,
                     failedHistoryTransferState: failedHistoryTransferState,
                     failedHistoryAudioCleanupState:
@@ -838,6 +986,9 @@ private extension IOSAcceptedHistoryCoordinator {
         pendingRecordingStore: IOSPendingRecordingStore?,
         outboxStore: IOSAcceptedHistoryOutboxStore,
         deliveryStore: IOSAcceptedOutputDeliveryStore,
+        acceptanceState: IOSAcceptedHistoryAcceptanceOperationState,
+        pendingReplacementState:
+            IOSAcceptedHistoryPendingReplacementOperationState,
         workerState: IOSAcceptedHistoryOutboxWorkerOperationState,
         failedHistoryTransferState: IOSFailedHistoryTransferOperationState,
         failedHistoryAudioCleanupState:
@@ -883,6 +1034,33 @@ private extension IOSAcceptedHistoryCoordinator {
                       await failedHistoryTransferState.current() == nil,
                       await failedHistoryAudioCleanupState.current() == nil else {
                     return .pendingLocalRecovery
+                }
+                if failedHistoryMutationInterlock.requiresRetryRecoveryScan
+                    || failedHistoryMutationInterlock
+                        .hasRetryDeliveryRelation {
+                    guard work.policyChanged != false else {
+                        await cutoverState.clear()
+                        return .pendingLocalRecovery
+                    }
+                    let recovery = await
+                        recoverInterruptedFailedHistoryRetryWithinLease(
+                            policyReceipt: receipt,
+                            policyStore: policyStore,
+                            acceptedHistoryStore: acceptedHistoryStore,
+                            failedStore: failedHistoryStore,
+                            deliveryStore: deliveryStore,
+                            retryState: failedHistoryRetryState,
+                            acceptanceState: acceptanceState,
+                            pendingReplacementState:
+                                pendingReplacementState,
+                            ownerIdentity: ownerIdentity,
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization,
+                            stopAfterHistoryTransition: true
+                        )
+                    guard recovery == .noWork else {
+                        return .pendingLocalRecovery
+                    }
                 }
                 do {
                     switch try await failedHistoryStore
