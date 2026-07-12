@@ -909,9 +909,14 @@ Post-boundary cleanup trouble remains provider-free pending work and never
 resurrects the item.
 
 Explicit Retry is exposed only by a process-owned containing-app service whose
-session factory freshly resolves current settings, Library content, the
-requested output intent, and the app's canonical credential coordinator before
-the first durable Retry write. The action accepts no caller-provided
+session factory resolves individually durable Settings and Library snapshots
+through the exact composition-owned state owners, then resolves the requested
+output intent and the app's canonical credential coordinator before the first
+durable Retry write. It waits behind an in-flight owner mutation, consumes the
+new canonical value only after successful save, and falls back to the previous
+durable value after a failed save. It does not claim cross-file atomicity for
+the independently durable Settings and Library pair. The action accepts no
+caller-provided
 `credentialEligible` flag, path, row, configuration snapshot, or provider
 capability. A ready session binds one transient resolved credential to a fixed
 provider adapter and the validated current configuration; it is non-Codable,

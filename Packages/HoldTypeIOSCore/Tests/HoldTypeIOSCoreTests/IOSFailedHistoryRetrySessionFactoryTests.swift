@@ -10,21 +10,15 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         async throws {
         let root = try retryFactoryTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let settingsRepository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: root
-        )
-        let libraryRepository = IOSLibraryRepository(
-            applicationSupportDirectoryURL: root
-        )
         var initialSettings = IOSAppSettings.defaults
         initialSettings.transcriptionConfiguration = TranscriptionConfiguration(
             model: "first-model",
             language: .english,
             freeformPrompt: "first prompt"
         )
-        try await settingsRepository.save(initialSettings)
-        try await libraryRepository.save(
-            IOSLibraryContent(
+        let configurationStore = RetryFactoryConfigurationStore(
+            settings: initialSettings,
+            library: IOSLibraryContent(
                 customDictionary: CustomDictionary(entries: ["HoldType"])
             )
         )
@@ -40,7 +34,8 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         )
         let providerBuilder = RetryFactoryProviderBuilder()
         let factory = IOSFailedHistoryRetrySessionFactory(
-            applicationSupportDirectoryURL: root,
+            loadSettings: { await configurationStore.loadSettings() },
+            loadLibrary: { await configurationStore.loadLibrary() },
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -73,9 +68,9 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         updatedSettings.translationConfiguration = TranslationConfiguration(
             targetLanguage: .english
         )
-        try await settingsRepository.save(updatedSettings)
-        try await libraryRepository.save(
-            IOSLibraryContent(
+        await configurationStore.replace(
+            settings: updatedSettings,
+            library: IOSLibraryContent(
                 customDictionary: CustomDictionary(entries: ["VibeType"])
             )
         )
@@ -119,7 +114,8 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         )
         let providerBuilder = RetryFactoryProviderBuilder()
         let factory = IOSFailedHistoryRetrySessionFactory(
-            applicationSupportDirectoryURL: root,
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -143,7 +139,8 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             )
         )
         let invalidTranslationFactory = IOSFailedHistoryRetrySessionFactory(
-            applicationSupportDirectoryURL: root,
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
             credentialCoordinator: configuredCoordinator,
             providerBuilder: providerBuilder
         )
@@ -154,6 +151,56 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             Issue.record("Expected Translation setup before Retry.")
             return
         }
+        #expect(await providerBuilder.resolvedKeys().isEmpty)
+    }
+
+    @Test func configurationLoadFailureStopsBeforeCredentialOrProvider()
+        async throws {
+        let root = try retryFactoryTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let keyStore = RetryFactoryAPIKeyStore(
+            storedKey: "sk-never-resolved"
+        )
+        let credentialCoordinator = IOSOpenAICredentialCoordinator(
+            keychainStorage: keyStore,
+            markerRepository: CredentialPresenceMarkerRepository(
+                fileURL: IOSCredentialPresenceMarkerStorageLocation.fileURL(
+                    in: root
+                )
+            )
+        )
+        let providerBuilder = RetryFactoryProviderBuilder()
+        let settingsFailure = IOSFailedHistoryRetrySessionFactory(
+            loadSettings: {
+                throw RetryFactoryConfigurationLoadError.scripted
+            },
+            loadLibrary: {
+                Issue.record("Library must not load after Settings failure.")
+                return .defaults
+            },
+            credentialCoordinator: credentialCoordinator,
+            providerBuilder: providerBuilder
+        )
+        let libraryFailure = IOSFailedHistoryRetrySessionFactory(
+            loadSettings: { .defaults },
+            loadLibrary: {
+                throw RetryFactoryConfigurationLoadError.scripted
+            },
+            credentialCoordinator: credentialCoordinator,
+            providerBuilder: providerBuilder
+        )
+
+        guard case .temporarilyUnavailable = await settingsFailure
+            .makeFailedHistoryRetrySession(for: .standard) else {
+            Issue.record("Expected Settings load failure to stay local.")
+            return
+        }
+        guard case .temporarilyUnavailable = await libraryFailure
+            .makeFailedHistoryRetrySession(for: .standard) else {
+            Issue.record("Expected Library load failure to stay local.")
+            return
+        }
+        #expect(await keyStore.loadCallCount() == 0)
         #expect(await providerBuilder.resolvedKeys().isEmpty)
     }
 
@@ -200,14 +247,6 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         async throws {
         let root = try retryFactoryTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let settingsRepository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: root
-        )
-        let libraryRepository = IOSLibraryRepository(
-            applicationSupportDirectoryURL: root
-        )
-        try await settingsRepository.save(.defaults)
-        try await libraryRepository.save(.defaults)
         let keyStore = RetryFactoryAPIKeyStore(storedKey: "sk-provider-build")
         let credentialCoordinator = IOSOpenAICredentialCoordinator(
             keychainStorage: keyStore,
@@ -219,7 +258,8 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         )
         let providerBuilder = RetryFactorySuspendingProviderBuilder()
         let factory = IOSFailedHistoryRetrySessionFactory(
-            applicationSupportDirectoryURL: root,
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -314,6 +354,31 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         )
         await expectProviderRejected(credentialCoordinator)
     }
+}
+
+private actor RetryFactoryConfigurationStore {
+    private var settings: IOSAppSettings
+    private var library: IOSLibraryContent
+
+    init(settings: IOSAppSettings, library: IOSLibraryContent) {
+        self.settings = settings
+        self.library = library
+    }
+
+    func loadSettings() -> IOSAppSettings { settings }
+    func loadLibrary() -> IOSLibraryContent { library }
+
+    func replace(
+        settings: IOSAppSettings,
+        library: IOSLibraryContent
+    ) {
+        self.settings = settings
+        self.library = library
+    }
+}
+
+private enum RetryFactoryConfigurationLoadError: Error {
+    case scripted
 }
 
 private actor RetryFactoryAPIKeyStore: OpenAIAPIKeyStoring {

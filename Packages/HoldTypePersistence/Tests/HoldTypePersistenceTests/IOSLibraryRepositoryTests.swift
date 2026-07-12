@@ -30,6 +30,12 @@ struct IOSLibraryRepositoryTests {
         requireSendable(IOSLibraryContent.self)
         #expect(((content as Any) is any Encodable) == false)
         #expect(((content as Any) is any Decodable) == false)
+        let canary = IOSLibraryContent(
+            customDictionary: CustomDictionary(entries: ["PRIVATE-CANARY"])
+        )
+        #expect(!String(describing: canary).contains("PRIVATE-CANARY"))
+        #expect(!String(reflecting: canary).contains("PRIVATE-CANARY"))
+        #expect(canary.customMirror.children.isEmpty)
     }
 
     @Test func storageLocationUsesStableAppPrivateRelativePath() {
@@ -50,7 +56,7 @@ struct IOSLibraryRepositoryTests {
         let fileSystem = IOSLibraryFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
 
-        try await repository.save(fixtureContent())
+        let committed = try await repository.save(fixtureContent())
 
         let expectedJSON = [
             #"{"dictionary":{"entries":["HoldType","Alpha,Beta","Line\nBreak"]},"#,
@@ -69,6 +75,7 @@ struct IOSLibraryRepositoryTests {
         #expect(fileSystem.data == Data(expectedJSON.utf8))
 
         let loaded = try await repository.load()
+        #expect(committed == loaded)
         #expect(
             loaded.customDictionary.entries == [
                 "HoldType", "Alpha,Beta", "Line\nBreak",
@@ -975,7 +982,7 @@ struct IOSLibraryRepositoryTests {
             for index in 0..<24 {
                 group.addTask {
                     if index.isMultiple(of: 2) {
-                        try? await repository.save(.defaults)
+                        _ = try? await repository.save(.defaults)
                     } else {
                         _ = try? await repository.load()
                     }

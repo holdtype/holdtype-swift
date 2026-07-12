@@ -13,13 +13,16 @@ public actor IOSFailedHistoryService {
     @_spi(HoldTypeIOSCore)
     public init(
         applicationSupportDirectoryURL: URL,
+        loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
+        loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
         credentialCoordinator: IOSOpenAICredentialCoordinator?
     ) {
         let retrySessionProvider:
             any IOSFailedHistoryRetrySessionProviding
         if let credentialCoordinator {
             retrySessionProvider = IOSFailedHistoryRetrySessionFactory(
-                applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+                loadSettings: loadSettings,
+                loadLibrary: loadLibrary,
                 credentialCoordinator: credentialCoordinator,
                 providerBuilder: IOSOpenAIFailedHistoryRetryProviderBuilder()
             )
@@ -35,11 +38,14 @@ public actor IOSFailedHistoryService {
 
     init(
         applicationSupportDirectoryURL: URL,
+        loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
+        loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
         credentialCoordinator: IOSOpenAICredentialCoordinator,
         providerBuilder: any IOSFailedHistoryRetryProviderBuilding
     ) {
         let sessionFactory = IOSFailedHistoryRetrySessionFactory(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            loadSettings: loadSettings,
+            loadLibrary: loadLibrary,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )

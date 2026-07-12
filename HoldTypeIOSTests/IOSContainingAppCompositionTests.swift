@@ -16,6 +16,8 @@ struct IOSContainingAppCompositionTests {
         var retryScratchScheduleCount = 0
         var capturedCredentialCoordinator:
             IOSOpenAICredentialCoordinator?
+        var capturedSettingsStateOwner: IOSAppSettingsStateOwner?
+        var capturedLibraryStateOwner: IOSLibraryStateOwner?
 
         let composition = IOSContainingAppComposition(
             factories: IOSContainingAppComposition.Factories(
@@ -39,6 +41,22 @@ struct IOSContainingAppCompositionTests {
                         applicationSupportDirectoryURL: resolvedRoot
                     )
                 },
+                makeSettingsStateOwner: { resolvedRoot in
+                    events.append("settings")
+                    let owner = IOSAppSettingsStateOwner(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                    capturedSettingsStateOwner = owner
+                    return owner
+                },
+                makeLibraryStateOwner: { resolvedRoot in
+                    events.append("library")
+                    let owner = IOSLibraryStateOwner(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                    capturedLibraryStateOwner = owner
+                    return owner
+                },
                 makeCredentialCoordinator: {
                     resolvedRoot,
                     accessGroup in
@@ -54,6 +72,8 @@ struct IOSContainingAppCompositionTests {
                 },
                 makeFailedHistoryService: {
                     resolvedRoot,
+                    settingsStateOwner,
+                    libraryStateOwner,
                     credentialCoordinator in
                     events.append("failed-history")
                     #expect(resolvedRoot == root)
@@ -61,8 +81,24 @@ struct IOSContainingAppCompositionTests {
                         credentialCoordinator
                             === capturedCredentialCoordinator
                     )
+                    #expect(
+                        settingsStateOwner
+                            === capturedSettingsStateOwner
+                    )
+                    #expect(
+                        libraryStateOwner
+                            === capturedLibraryStateOwner
+                    )
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
+                        loadSettings: {
+                            try await settingsStateOwner
+                                .confirmedValueForProviderAction()
+                        },
+                        loadLibrary: {
+                            try await libraryStateOwner
+                                .confirmedValueForProviderAction()
+                        },
                         credentialCoordinator: credentialCoordinator
                     )
                 }
@@ -86,6 +122,8 @@ struct IOSContainingAppCompositionTests {
         #expect(
             events == [
                 "root",
+                "settings",
+                "library",
                 "history",
                 "access-group",
                 "credential",
@@ -97,12 +135,40 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.availability == .ready)
         #expect(composition.historyCoordinator != nil)
         #expect(
+            composition.settingsStateOwner
+                === capturedSettingsStateOwner
+        )
+        #expect(
+            composition.libraryStateOwner
+                === capturedLibraryStateOwner
+        )
+        #expect(composition.settingsStateOwner?.state == .notLoaded)
+        #expect(composition.libraryStateOwner?.state == .notLoaded)
+        #expect(
             composition.credentialCoordinator
                 === capturedCredentialCoordinator
         )
         #expect(composition.failedHistoryService != nil)
         #expect(firstScene.composition === composition)
         #expect(secondScene.composition === composition)
+        #expect(
+            firstScene.composition.settingsStateOwner
+                === secondScene.composition.settingsStateOwner
+        )
+        #expect(
+            firstScene.composition.libraryStateOwner
+                === secondScene.composition.libraryStateOwner
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSAppSettingsStorageLocation.fileURL(in: root).path
+            )
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSLibraryStorageLocation.fileURL(in: root).path
+            )
+        )
 
         await composition.lifecycleScheduler.waitUntilIdle()
         let markerURL = IOSCredentialPresenceMarkerStorageLocation.fileURL(
@@ -127,14 +193,36 @@ struct IOSContainingAppCompositionTests {
                         applicationSupportDirectoryURL: $0
                     )
                 },
+                makeSettingsStateOwner: {
+                    IOSAppSettingsStateOwner(
+                        applicationSupportDirectoryURL: $0
+                    )
+                },
+                makeLibraryStateOwner: {
+                    IOSLibraryStateOwner(
+                        applicationSupportDirectoryURL: $0
+                    )
+                },
                 makeCredentialCoordinator: { _, _ in
                     credentialFactoryCalls += 1
                     throw CompositionFixtureError.unexpectedFactoryCall
                 },
-                makeFailedHistoryService: { resolvedRoot, coordinator in
+                makeFailedHistoryService: {
+                    resolvedRoot,
+                    settingsStateOwner,
+                    libraryStateOwner,
+                    coordinator in
                     serviceCredentialWasNil = coordinator == nil
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
+                        loadSettings: {
+                            try await settingsStateOwner
+                                .confirmedValueForProviderAction()
+                        },
+                        loadLibrary: {
+                            try await libraryStateOwner
+                                .confirmedValueForProviderAction()
+                        },
                         credentialCoordinator: coordinator
                     )
                 }
@@ -146,6 +234,10 @@ struct IOSContainingAppCompositionTests {
         await composition.lifecycleScheduler.waitUntilIdle()
         #expect(composition.availability == .credentialUnavailable)
         #expect(composition.historyCoordinator != nil)
+        #expect(composition.settingsStateOwner != nil)
+        #expect(composition.libraryStateOwner != nil)
+        #expect(composition.settingsStateOwner?.state == .notLoaded)
+        #expect(composition.libraryStateOwner?.state == .notLoaded)
         #expect(composition.credentialCoordinator == nil)
         #expect(composition.failedHistoryService != nil)
         #expect(credentialFactoryCalls == 0)
@@ -179,6 +271,16 @@ struct IOSContainingAppCompositionTests {
                         applicationSupportDirectoryURL: $0
                     )
                 },
+                makeSettingsStateOwner: {
+                    IOSAppSettingsStateOwner(
+                        applicationSupportDirectoryURL: $0
+                    )
+                },
+                makeLibraryStateOwner: {
+                    IOSLibraryStateOwner(
+                        applicationSupportDirectoryURL: $0
+                    )
+                },
                 makeCredentialCoordinator: { resolvedRoot, accessGroup in
                     credentialFactoryCalls += 1
                     return try IOSOpenAICredentialCoordinator(
@@ -186,10 +288,22 @@ struct IOSContainingAppCompositionTests {
                         applicationIdentifierAccessGroup: accessGroup
                     )
                 },
-                makeFailedHistoryService: { resolvedRoot, coordinator in
+                makeFailedHistoryService: {
+                    resolvedRoot,
+                    settingsStateOwner,
+                    libraryStateOwner,
+                    coordinator in
                     serviceCredentialWasNil = coordinator == nil
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
+                        loadSettings: {
+                            try await settingsStateOwner
+                                .confirmedValueForProviderAction()
+                        },
+                        loadLibrary: {
+                            try await libraryStateOwner
+                                .confirmedValueForProviderAction()
+                        },
                         credentialCoordinator: coordinator
                     )
                 }
@@ -203,6 +317,10 @@ struct IOSContainingAppCompositionTests {
         #expect(serviceCredentialWasNil)
         #expect(composition.availability == .credentialUnavailable)
         #expect(composition.historyCoordinator != nil)
+        #expect(composition.settingsStateOwner != nil)
+        #expect(composition.libraryStateOwner != nil)
+        #expect(composition.settingsStateOwner?.state == .notLoaded)
+        #expect(composition.libraryStateOwner?.state == .notLoaded)
         #expect(composition.credentialCoordinator == nil)
         let service = try #require(composition.failedHistoryService)
         #expect(await service.loadFailedHistory() == .available([]))
@@ -217,6 +335,8 @@ struct IOSContainingAppCompositionTests {
     @Test func storageRootFailureKeepsAppLaunchableAndRecoveryPending()
         async {
         var historyFactoryCalls = 0
+        var settingsFactoryCalls = 0
+        var libraryFactoryCalls = 0
         var credentialFactoryCalls = 0
         var serviceFactoryCalls = 0
         var providerScheduleCount = 0
@@ -235,11 +355,19 @@ struct IOSContainingAppCompositionTests {
                     historyFactoryCalls += 1
                     preconditionFailure("History must not be constructed.")
                 },
+                makeSettingsStateOwner: { _ in
+                    settingsFactoryCalls += 1
+                    preconditionFailure("Settings must not be constructed.")
+                },
+                makeLibraryStateOwner: { _ in
+                    libraryFactoryCalls += 1
+                    preconditionFailure("Library must not be constructed.")
+                },
                 makeCredentialCoordinator: { _, _ in
                     credentialFactoryCalls += 1
                     throw CompositionFixtureError.unexpectedFactoryCall
                 },
-                makeFailedHistoryService: { _, _ in
+                makeFailedHistoryService: { _, _, _, _ in
                     serviceFactoryCalls += 1
                     preconditionFailure("Service must not be constructed.")
                 }
@@ -259,6 +387,8 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.availability == .storageUnavailable)
         #expect(composition.applicationSupportDirectoryURL == nil)
         #expect(composition.historyCoordinator == nil)
+        #expect(composition.settingsStateOwner == nil)
+        #expect(composition.libraryStateOwner == nil)
         #expect(composition.credentialCoordinator == nil)
         #expect(composition.failedHistoryService == nil)
         #expect(
@@ -266,6 +396,8 @@ struct IOSContainingAppCompositionTests {
                 == .pendingLocalRecovery
         )
         #expect(historyFactoryCalls == 0)
+        #expect(settingsFactoryCalls == 0)
+        #expect(libraryFactoryCalls == 0)
         #expect(credentialFactoryCalls == 0)
         #expect(serviceFactoryCalls == 0)
         #expect(providerScheduleCount == 1)
@@ -284,6 +416,8 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.availability == .injected)
         #expect(app.composition.applicationSupportDirectoryURL == nil)
         #expect(app.composition.historyCoordinator == nil)
+        #expect(app.composition.settingsStateOwner == nil)
+        #expect(app.composition.libraryStateOwner == nil)
         #expect(app.composition.credentialCoordinator == nil)
         #expect(app.composition.failedHistoryService == nil)
         #expect(app.composition.lifecycleScheduler.latestDisposition == .complete)

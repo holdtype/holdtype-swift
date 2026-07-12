@@ -21,12 +21,20 @@ final class IOSContainingAppComposition {
         let makeHistoryCoordinator: @MainActor (
             URL
         ) -> IOSAcceptedHistoryCoordinator
+        let makeSettingsStateOwner: @MainActor (
+            URL
+        ) -> IOSAppSettingsStateOwner
+        let makeLibraryStateOwner: @MainActor (
+            URL
+        ) -> IOSLibraryStateOwner
         let makeCredentialCoordinator: @MainActor (
             URL,
             String
         ) throws -> IOSOpenAICredentialCoordinator
         let makeFailedHistoryService: @MainActor (
             URL,
+            IOSAppSettingsStateOwner,
+            IOSLibraryStateOwner,
             IOSOpenAICredentialCoordinator?
         ) -> IOSFailedHistoryService
 
@@ -50,6 +58,18 @@ final class IOSContainingAppComposition {
                         applicationSupportDirectoryURL
                 )
             },
+            makeSettingsStateOwner: { applicationSupportDirectoryURL in
+                IOSAppSettingsStateOwner(
+                    applicationSupportDirectoryURL:
+                        applicationSupportDirectoryURL
+                )
+            },
+            makeLibraryStateOwner: { applicationSupportDirectoryURL in
+                IOSLibraryStateOwner(
+                    applicationSupportDirectoryURL:
+                        applicationSupportDirectoryURL
+                )
+            },
             makeCredentialCoordinator: {
                 applicationSupportDirectoryURL,
                 applicationIdentifierAccessGroup in
@@ -62,10 +82,20 @@ final class IOSContainingAppComposition {
             },
             makeFailedHistoryService: {
                 applicationSupportDirectoryURL,
+                settingsStateOwner,
+                libraryStateOwner,
                 credentialCoordinator in
                 IOSFailedHistoryService(
                     applicationSupportDirectoryURL:
                         applicationSupportDirectoryURL,
+                    loadSettings: {
+                        try await settingsStateOwner
+                            .confirmedValueForProviderAction()
+                    },
+                    loadLibrary: {
+                        try await libraryStateOwner
+                            .confirmedValueForProviderAction()
+                    },
                     credentialCoordinator: credentialCoordinator
                 )
             }
@@ -74,6 +104,8 @@ final class IOSContainingAppComposition {
 
     let applicationSupportDirectoryURL: URL?
     let historyCoordinator: IOSAcceptedHistoryCoordinator?
+    let settingsStateOwner: IOSAppSettingsStateOwner?
+    let libraryStateOwner: IOSLibraryStateOwner?
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
     let failedHistoryService: IOSFailedHistoryService?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
@@ -96,6 +128,8 @@ final class IOSContainingAppComposition {
         } catch {
             self.applicationSupportDirectoryURL = nil
             historyCoordinator = nil
+            settingsStateOwner = nil
+            libraryStateOwner = nil
             credentialCoordinator = nil
             failedHistoryService = nil
             availability = .storageUnavailable
@@ -113,6 +147,14 @@ final class IOSContainingAppComposition {
 
         self.applicationSupportDirectoryURL =
             applicationSupportDirectoryURL
+        let settingsStateOwner = factories.makeSettingsStateOwner(
+            applicationSupportDirectoryURL
+        )
+        self.settingsStateOwner = settingsStateOwner
+        let libraryStateOwner = factories.makeLibraryStateOwner(
+            applicationSupportDirectoryURL
+        )
+        self.libraryStateOwner = libraryStateOwner
         let historyCoordinator = factories.makeHistoryCoordinator(
             applicationSupportDirectoryURL
         )
@@ -131,6 +173,8 @@ final class IOSContainingAppComposition {
         self.credentialCoordinator = credentialCoordinator
         failedHistoryService = factories.makeFailedHistoryService(
             applicationSupportDirectoryURL,
+            settingsStateOwner,
+            libraryStateOwner,
             credentialCoordinator
         )
         availability = credentialCoordinator == nil
@@ -160,6 +204,8 @@ final class IOSContainingAppComposition {
     ) {
         applicationSupportDirectoryURL = nil
         historyCoordinator = nil
+        settingsStateOwner = nil
+        libraryStateOwner = nil
         credentialCoordinator = nil
         failedHistoryService = nil
         availability = .injected

@@ -1,6 +1,8 @@
 # HoldType iOS Keyboard Development Plan
 
-Status: active feasibility work, started 2026-07-09.
+Status: active feasibility work; canonical roadmap P3 is in progress with its
+containing-app state-owner prerequisite complete; started 2026-07-09 and
+updated 2026-07-12.
 
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
@@ -372,9 +374,14 @@ host app, state, expected result, actual result, and go/no-go decision.
   `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
   Public-symbol and binary checks confirm that none of this provider,
   persistence, History, Keychain, or scratch machinery entered the keyboard.
-  P3 may now build the native containing-app state owners and editors; the
-  independent recording cache and directional bridge remain later milestones
-  behind the physical M0 gates.
+  P3.1 is complete: the native containing app now has one composition-owned
+  Settings state owner and one Library state owner shared across scenes and
+  failed-History Retry, with FIFO mutation, canonical commit, rollback, and
+  ordered observable publication verified in
+  `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`. The next P3
+  slice is the iPhone/iPad shell and the P4-owned editors. The independent
+  recording cache and directional bridge remain later milestones behind the
+  physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain
   separate. The containing-app output handoff is now narrowed to accepted text

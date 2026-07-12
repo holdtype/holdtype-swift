@@ -416,17 +416,68 @@ without discarding a successfully resolved runtime credential or absence.
   1 MiB, requests Complete protection before the first content write, and
   keeps the final Library record eligible for system-managed device backup. A
   failed replacement preserves the previous durable bytes.
-- Before P3 exposes any editor, the one process-owned failed-History service is
-  the sole Settings and Library reader and transitively owns exactly one
-  repository actor for each record. P3 must lift those repositories behind one
-  composition-owned Settings state owner and one Library state owner before
-  the first editor is shown, then share those same owners with Retry across
-  every scene. Separate scene-local repository instances and read-then-save
-  mutations outside those state owners are unsupported because one actor
-  serializes only its own method calls, not a transaction split across actors
-  or calls.
+- The process has exactly one composition-owned Settings state owner and one
+  Library state owner before any editor is exposed. Failed-History Retry is a
+  consumer of those exact owners rather than an owner of separate repositories.
+  Every scene shares them. Separate scene-local repository instances and
+  read-then-save mutations outside those state owners are unsupported because
+  one actor serializes only its own method calls, not a transaction split
+  across actors or calls.
 - Simulator verification may prove only that Complete protection was requested.
   Effective protection remains a signed physical-device gate.
+
+### P3 process-owned Settings and Library state
+
+- After the canonical storage root resolves, the containing-app composition
+  constructs exactly one Settings state owner and one Library state owner for
+  the process, before creating scene content or the failed-History service. If
+  root resolution fails, both owners remain unavailable and defaults are not
+  presented as durable state. State-owner construction is passive: it creates
+  no settings or Library file, performs no load or save, reads no Keychain
+  item, and contacts no provider.
+- Each owner exposes one app-private snapshot with exactly four semantic
+  states: `notLoaded`, `ready(value)`, `loadFailed`, or
+  `saveFailed(lastDurableValue)`. A missing canonical file loads as
+  `ready(defaults)` without writing. A read or decode failure exposes no
+  substitute value and preserves the source bytes. Snapshot descriptions,
+  debug descriptions, reflection, and failures are redacted; the associated
+  runtime value itself remains app-private and non-Codable rather than
+  redacted.
+- The first load, every mutation, and every failed-History Retry value
+  resolution are serialized as whole owner transactions, including suspension
+  at repository I/O. A mutation that starts before initial load first resolves
+  the durable value inside that same transaction, then applies one
+  read-modify-save operation. Scene code never performs a separate read and
+  later full-value save. Each transaction publishes its resulting observable
+  snapshot on `MainActor` before releasing the FIFO lease, so a later
+  transaction cannot make progress and then be visually overwritten by an
+  older continuation.
+- A candidate value is not published as ready until its atomic repository save
+  succeeds. The commit returns the exact canonical runtime value encoded by
+  the repository, so Library normalization can never leave the owner
+  presenting an optimistic pre-normalization candidate. If save fails, the
+  candidate is discarded, the owner reports a typed redacted write failure,
+  and its snapshot becomes
+  `saveFailed(lastDurableValue)`. The next mutation starts from that last
+  durable value; a later successful save clears the failure state.
+- Owners expose serialized read-modify-save changes, not a public replacement
+  of an entire stale draft. An editor commits its semantic field or collection
+  change against the latest durable value after acquiring the owner
+  transaction.
+- Failed-History Retry receives these exact two owner identities from the
+  composition root. It waits behind an in-flight mutation and resolves the
+  newly durable value after success or the previous durable value after a
+  failed save. It never creates another Settings or Library repository and
+  never consumes an optimistic editor value.
+- Settings and Library remain independent records in this checkpoint. Retry
+  freezes one individually durable Settings value and then one individually
+  durable Library value; P3 does not claim a cross-file atomic revision. A
+  later feature that requires both records from one logical instant must add
+  an explicit pair coordinator rather than infer atomicity from the two owners.
+- Every iPhone and iPad scene receives the same two owner identities. A scene
+  may observe or mutate through them but cannot construct a replacement owner
+  or repository. Storage-root failure leaves both owners unavailable rather
+  than presenting defaults as durable state.
 
 ### Credential-presence marker v1
 
@@ -486,8 +537,9 @@ without discarding a successfully resolved runtime credential or absence.
 ## Migrations
 
 - Every persisted schema has an explicit version and deterministic migration.
-- Corrupt or unsupported data produces a visible local error and safe defaults;
-  it does not silently overwrite the source before recovery is decided.
+- Corrupt or unsupported data produces a visible local error and no editable
+  substitute value; defaults become durable runtime state only when the
+  canonical file is missing. A failed load never overwrites the source.
 - Extracting shared domain types must preserve current macOS defaults and keys
   through the macOS compatibility facade.
 - iOS migrations never import macOS Keychain items, absolute sandbox paths, or

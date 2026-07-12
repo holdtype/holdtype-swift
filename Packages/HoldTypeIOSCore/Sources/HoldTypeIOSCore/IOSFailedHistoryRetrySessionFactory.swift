@@ -22,23 +22,6 @@ actor IOSFailedHistoryRetrySessionFactory:
     private let providerBuilder: any IOSFailedHistoryRetryProviderBuilding
 
     init(
-        applicationSupportDirectoryURL: URL,
-        credentialCoordinator: IOSOpenAICredentialCoordinator,
-        providerBuilder: any IOSFailedHistoryRetryProviderBuilding
-    ) {
-        let settingsRepository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
-        )
-        let libraryRepository = IOSLibraryRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
-        )
-        loadSettings = { try await settingsRepository.load() }
-        loadLibrary = { try await libraryRepository.load() }
-        self.credentialCoordinator = credentialCoordinator
-        self.providerBuilder = providerBuilder
-    }
-
-    init(
         loadSettings: @escaping SettingsLoader,
         loadLibrary: @escaping LibraryLoader,
         credentialCoordinator: IOSOpenAICredentialCoordinator,

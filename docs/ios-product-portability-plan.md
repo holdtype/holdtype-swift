@@ -1,6 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap; P0, P1, and P2 complete; P3 is next;
+Status: active implementation roadmap; P0, P1, and P2 complete; P3 is in
+progress, with its state-owner prerequisite complete and native shell next;
 updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
@@ -936,8 +937,9 @@ replacement rules at `HoldType/ios-library.json`. Its runtime value is
 non-Codable, missing known groups default without rewriting, invalid or future
 source bytes are preserved, duplicate identifiers and unusable command rows
 fail with redacted errors, and Library data remains outside App Group and the
-keyboard snapshot. One process-wide Library state owner must serve every scene
-so read-modify-write work is not split across repository actors. The
+keyboard snapshot. One process-wide Library state owner now serves every scene
+and failed-History Retry, paired with one process-wide Settings state owner, so
+read-modify-write work is not split across repository actors. The
 Persistence package passes its normal and strict-concurrency suites; macOS and
 the full iOS simulator suite cover stable paths, canonical round trips,
 normalization, strict shapes, exact limits, rollback, backup policy, and the
@@ -1229,12 +1231,26 @@ simulator tests, 441 macOS tests, public-symbol checks, and keyboard binary
 isolation pass without a live provider or key. Final evidence lives in
 `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
 
+The P3.1 state-owner prerequisite is now complete. Composition constructs one
+passive `@Observable` Settings owner and one Library owner after root
+resolution, shares their exact identities across scenes and failed-History
+Retry, serializes whole read-modify-save transactions across suspension,
+publishes on `MainActor` before FIFO lease release, and rolls failed saves back
+to the last durable value. Library commits publish the exact canonical value
+returned by Persistence. Final evidence lives in
+`docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`.
+
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
 The C4.0 contract review is recorded in
 `docs/qa/runs/ios-failed-history-contract-2026-07-11.md`.
 
 ### P3 — Native containing-app shell
+
+State-owner prerequisite: complete. Exactly one composition-owned Settings
+owner and one Library owner now provide the shared process state used by every
+scene and failed-History Retry. Remaining P3 work starts with the native shell
+and consumes those owners; it must not create scene-local repositories.
 
 - implement Voice, Library, History, and Settings navigation;
 - implement setup status, public system-settings routes, practice field, and
@@ -1486,12 +1502,16 @@ protected Retry scratch materialization, bounded process-loss scavenging,
 ordinary public-symbol boundary, and unchanged keyboard binary isolation are
 verified in
 `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
-The next slice is P3. Its first checkpoint must lift the existing Settings and
-Library repositories behind exactly one composition-owned state owner each,
-share those owners with failed-History Retry and every scene, and prove
-load/default/error, serialized read-modify-save, and durable-value rollback
-before any editor is exposed. The independent recording-cache and directional
-App Group bridge flows remain later work and do not enter the keyboard early.
+P3 is in progress. Its first checkpoint is complete: the existing Settings and
+Library repositories now sit behind exactly one composition-owned state owner
+each, shared with failed-History Retry and every scene, with verified
+load/default/error, FIFO read-modify-save, canonical commit, ordered observable
+publication, and durable-value rollback. The next slice builds the native
+iPhone tab shell and iPad split shell, installs these owner identities at the
+SwiftUI root, and then exposes only the P4-owned settings and Library editors.
+The independent recording-cache and directional App Group bridge flows remain
+later work and do not enter the keyboard early. Final P3.1 evidence lives in
+`docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

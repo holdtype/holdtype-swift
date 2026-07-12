@@ -17,6 +17,14 @@ struct IOSAppSettingsRepositoryTests {
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
         #expect(((settings as Any) is any Decodable) == false)
+        let canary = IOSAppSettings(
+            transcriptionConfiguration: TranscriptionConfiguration(
+                freeformPrompt: "PRIVATE-CANARY"
+            )
+        )
+        #expect(!String(describing: canary).contains("PRIVATE-CANARY"))
+        #expect(!String(reflecting: canary).contains("PRIVATE-CANARY"))
+        #expect(canary.customMirror.children.isEmpty)
     }
 
     @Test func storageLocationUsesTheStableAppPrivateRelativePath() {

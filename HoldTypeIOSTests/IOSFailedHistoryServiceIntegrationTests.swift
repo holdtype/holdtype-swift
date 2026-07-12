@@ -4,7 +4,9 @@ import HoldTypeDomain
 import HoldTypeOpenAI
 @_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 import Testing
+@testable import HoldTypeIOS
 
+@MainActor
 struct IOSFailedHistoryServiceIntegrationTests {
     @Test func fixedServiceRetriesCurrentAppStateWithoutLiveNetwork()
         async throws {
@@ -30,6 +32,14 @@ struct IOSFailedHistoryServiceIntegrationTests {
                 == "HoldType Integration"
         )
         #expect(await fixture.keyStore.loadCallCount() == 0)
+        guard case .ready = fixture.settingsStateOwner.state else {
+            Issue.record("Expected one ready Settings state owner.")
+            return
+        }
+        guard case .ready = fixture.libraryStateOwner.state else {
+            Issue.record("Expected one ready Library state owner.")
+            return
+        }
         guard case .active(let delivery)? = try await fixture.context
                 .deliveryStore.load() else {
             Issue.record("Expected accepted Retry delivery.")
@@ -68,11 +78,14 @@ struct IOSFailedHistoryServiceIntegrationTests {
     }
 }
 
+@MainActor
 private struct FailedHistoryServiceIntegrationFixture {
     let root: URL
     let attemptID: UUID
     let context: IOSAcceptedHistoryCoordinatorProcessContext
     let service: IOSFailedHistoryService
+    let settingsStateOwner: IOSAppSettingsStateOwner
+    let libraryStateOwner: IOSLibraryStateOwner
     let provider: FailedHistoryServiceProvider
     let keyStore: FailedHistoryServiceKeyStore
 
@@ -95,8 +108,8 @@ private struct FailedHistoryServiceIntegrationFixture {
             try await settingsRepository.save(
                 IOSAppSettings(
                     transcriptionConfiguration: TranscriptionConfiguration(
-                        model: "current-retry-model",
-                        language: .english
+                        model: "stale-retry-model",
+                        language: .french
                     )
                 )
             )
@@ -106,9 +119,23 @@ private struct FailedHistoryServiceIntegrationFixture {
             try await libraryRepository.save(
                 IOSLibraryContent(
                     customDictionary: CustomDictionary(
-                        entries: ["HoldType Integration"]
+                        entries: ["Stale Integration"]
                     )
                 )
+            )
+            let settingsStore = FailedHistoryServiceStateStore(
+                value: IOSAppSettings.defaults
+            )
+            let libraryStore = FailedHistoryServiceStateStore(
+                value: IOSLibraryContent.defaults
+            )
+            let settingsStateOwner = IOSAppSettingsStateOwner(
+                load: { await settingsStore.load() },
+                commit: { await settingsStore.commit($0) }
+            )
+            let libraryStateOwner = IOSLibraryStateOwner(
+                load: { await libraryStore.load() },
+                commit: { await libraryStore.commit($0) }
             )
             let keyStore = FailedHistoryServiceKeyStore()
             let credentialCoordinator = IOSOpenAICredentialCoordinator(
@@ -124,11 +151,31 @@ private struct FailedHistoryServiceIntegrationFixture {
             let provider = FailedHistoryServiceProvider(mode: providerMode)
             let service = IOSFailedHistoryService(
                 applicationSupportDirectoryURL: root,
+                loadSettings: {
+                    try await settingsStateOwner
+                        .confirmedValueForProviderAction()
+                },
+                loadLibrary: {
+                    try await libraryStateOwner
+                        .confirmedValueForProviderAction()
+                },
                 credentialCoordinator: credentialCoordinator,
                 providerBuilder: FailedHistoryServiceProviderBuilder(
                     provider: provider
                 )
             )
+            try await settingsStateOwner.update { settings in
+                settings.transcriptionConfiguration =
+                    TranscriptionConfiguration(
+                        model: "current-retry-model",
+                        language: .english
+                    )
+            }
+            try await libraryStateOwner.update { library in
+                library.customDictionary = CustomDictionary(
+                    entries: ["HoldType Integration"]
+                )
+            }
             let context = IOSAcceptedHistoryCoordinatorProcessContextRegistry
                 .shared.context(for: root)
             let lifecycleCoordinator = IOSAcceptedHistoryCoordinator(
@@ -146,6 +193,8 @@ private struct FailedHistoryServiceIntegrationFixture {
                 attemptID: attemptID,
                 context: context,
                 service: service,
+                settingsStateOwner: settingsStateOwner,
+                libraryStateOwner: libraryStateOwner,
                 provider: provider,
                 keyStore: keyStore
             )
@@ -220,6 +269,21 @@ private struct FailedHistoryServiceProviderBuilder:
     ) async -> any IOSFailedHistoryRetryProviderExecuting {
         _ = credential
         return provider
+    }
+}
+
+private actor FailedHistoryServiceStateStore<Value: Sendable> {
+    private var value: Value
+
+    init(value: Value) {
+        self.value = value
+    }
+
+    func load() -> Value { value }
+
+    func commit(_ candidate: Value) -> Value {
+        value = candidate
+        return candidate
     }
 }
 

@@ -21,6 +21,8 @@ struct IOSFailedHistoryServiceTests {
         )
         let service = IOSFailedHistoryService(
             applicationSupportDirectoryURL: root,
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
             credentialCoordinator: credentialCoordinator
         )
 
@@ -37,6 +39,8 @@ struct IOSFailedHistoryServiceTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let service = IOSFailedHistoryService(
             applicationSupportDirectoryURL: root,
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
             credentialCoordinator: nil
         )
 

@@ -77,16 +77,18 @@ public actor IOSLibraryRepository {
         )
     }
 
-    public func save(_ content: IOSLibraryContent) throws {
-        let data = try IOSLibraryWireCodec.encode(content)
-        guard data.count <= Self.filePolicy.maximumByteCount else {
+    @discardableResult
+    public func save(_ content: IOSLibraryContent) throws
+        -> IOSLibraryContent {
+        let encoding = try IOSLibraryWireCodec.encode(content)
+        guard encoding.data.count <= Self.filePolicy.maximumByteCount else {
             throw IOSLibraryRepositoryError.encodedDataTooLarge
         }
 
         do {
             try fileSystem.replaceFileAtomically(
                 at: fileURL,
-                with: data,
+                with: encoding.data,
                 policy: Self.filePolicy
             )
         } catch ProtectedAtomicMetadataFileSystemError.sizeLimitExceeded {
@@ -94,7 +96,13 @@ public actor IOSLibraryRepository {
         } catch {
             throw IOSLibraryRepositoryError.writeFailed
         }
+        return encoding.content
     }
+}
+
+private struct IOSLibraryCanonicalEncoding {
+    let content: IOSLibraryContent
+    let data: Data
 }
 
 private enum IOSLibraryWireCodec {
@@ -116,13 +124,19 @@ private enum IOSLibraryWireCodec {
         "id", "search", "replacement", "isEnabled",
     ]
 
-    static func encode(_ content: IOSLibraryContent) throws -> Data {
+    static func encode(_ content: IOSLibraryContent) throws
+        -> IOSLibraryCanonicalEncoding {
         let canonicalContent = try canonicalized(content)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
 
         do {
-            return try encoder.encode(IOSLibraryWireV1(content: canonicalContent))
+            return IOSLibraryCanonicalEncoding(
+                content: canonicalContent,
+                data: try encoder.encode(
+                    IOSLibraryWireV1(content: canonicalContent)
+                )
+            )
         } catch {
             throw IOSLibraryRepositoryError.encodingFailed
         }

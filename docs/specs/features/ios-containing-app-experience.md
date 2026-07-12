@@ -205,6 +205,13 @@ The app guides setup in this order:
   and one failed-History service. The service installs its fixed provider
   adapter internally; scenes and views receive no provider/session factory and
   cannot select a different marker path or credential cache.
+- After its canonical storage root resolves, the composition root also retains
+  exactly one observable Settings state owner and one observable Library state
+  owner. Every iPhone and iPad scene and failed-History Retry uses those same
+  identities. Owner construction is passive; a Settings or Library load error
+  remains local to that editor/configuration path and does not hide unrelated
+  History or diagnostics. If the root itself is unavailable, neither owner is
+  constructed and the app does not present defaults as durable configuration.
 - Construction schedules one provider-free launch opportunity before History,
   pending-recording, or accepted-delivery consumers can leave their local
   unavailable state. It also schedules the process-once, provider-free cleanup

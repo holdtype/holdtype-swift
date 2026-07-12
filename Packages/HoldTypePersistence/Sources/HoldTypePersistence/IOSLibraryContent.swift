@@ -18,3 +18,11 @@ public struct IOSLibraryContent: Equatable, Sendable {
         self.replacementRules = replacementRules
     }
 }
+
+extension IOSLibraryContent: CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String { "IOSLibraryContent(redacted)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
+}

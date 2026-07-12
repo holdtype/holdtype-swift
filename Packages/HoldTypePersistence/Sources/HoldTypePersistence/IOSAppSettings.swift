@@ -27,3 +27,11 @@ public struct IOSAppSettings: Equatable, Sendable {
         self.voiceSessionPreferences = voiceSessionPreferences
     }
 }
+
+extension IOSAppSettings: CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String { "IOSAppSettings(redacted)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
+}
