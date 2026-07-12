@@ -130,6 +130,9 @@ struct IOSCaptureTransferAudioFileSystemTests {
         uuidString: "01234567-89AB-CDEF-0123-456789ABCDEF"
     )!
     private let audioBytes = [UInt8](repeating: 0x5A, count: 96)
+    private var stagingName: String {
+        ".capture-transfer-v1-\(attemptID.uuidString.lowercased()).wav"
+    }
 
     @Test func descriptorSourcePublishesTransferBoundPendingAudio()
         async throws {
@@ -297,7 +300,341 @@ struct IOSCaptureTransferAudioFileSystemTests {
         #expect(fixture.operationFinished.value == 2)
     }
 
-    private func makeFixture() throws -> CaptureTransferFixture {
+    @Test func zeroBytePrefixResidueIsRemovedAndCopyRestarts() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: [],
+            audioMarker: nil,
+            transferBinding: nil
+        )
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            let published = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { published.release() }
+            #expect(fixture.adapter.pendingNames == [
+                "recording-v1-01234567-89ab-cdef-0123-456789abcdef.wav",
+            ])
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+        }
+    }
+
+    @Test func incompleteBoundStagingIsRemovedAndRecopied() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        let binding = IOSForegroundVoiceCaptureSourceWireCodec.transferBinding(
+            try #require(fixture.source.transferBinding)
+        )
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: Array(audioBytes.prefix(12)),
+            audioMarker: Array("v1".utf8),
+            transferBinding: binding
+        )
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            let published = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { published.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+            #expect(
+                fixture.adapter.events.filter { $0.hasPrefix("pread:") }
+                    .count > 0
+            )
+        }
+    }
+
+    @Test func completeBoundStagingPublishesWithoutRecopy() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        let binding = IOSForegroundVoiceCaptureSourceWireCodec.transferBinding(
+            try #require(fixture.source.transferBinding)
+        )
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: audioBytes,
+            audioMarker: Array("v1".utf8),
+            transferBinding: binding
+        )
+        fixture.adapter.resetEvents()
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            let published = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { published.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+            #expect(!fixture.adapter.events.contains {
+                $0.hasPrefix("pread:")
+            })
+        }
+    }
+
+    @Test func unexpectedApplicationMarkerBlocksAndPreservesStaging()
+        async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: [],
+            audioMarker: nil,
+            transferBinding: nil,
+            unexpectedApplicationMarker: true
+        )
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            ) {
+                _ = try await fixture.fileSystem
+                    .publishOrRecoverCaptureTransfer(
+                        from: fixture.source,
+                        inventory: inventory
+                    )
+            }
+            #expect(fixture.adapter.pendingNames == [stagingName])
+        }
+    }
+
+    @Test func normalDonePreservesIncompleteStagingButRecoveryRecopies()
+        async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        let binding = IOSForegroundVoiceCaptureSourceWireCodec.transferBinding(
+            try #require(fixture.source.transferBinding)
+        )
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: Array(audioBytes.prefix(12)),
+            audioMarker: Array("v1".utf8),
+            transferBinding: binding
+        )
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            await #expect(
+                throws: IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            ) {
+                _ = try await fixture.fileSystem
+                    .publishOrRecoverCaptureTransfer(
+                        from: source(fixture.source, mode: .normalDone),
+                        inventory: inventory
+                    )
+            }
+            #expect(fixture.adapter.pendingNames == [stagingName])
+
+            let recovered = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { recovered.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+        }
+    }
+
+    @Test func publishFailureClosesDestinationLeaseForSameProcessRetry()
+        async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        fixture.adapter.failNext("publish", errors: [EIO])
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            await #expect(throws: (any Error).self) {
+                _ = try await fixture.fileSystem
+                    .publishOrRecoverCaptureTransfer(
+                        from: fixture.source,
+                        inventory: inventory
+                    )
+            }
+            let recovered = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { recovered.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+        }
+    }
+
+    @Test func finalDirectorySyncFailureClosesLeaseForFinalAdoptionRetry()
+        async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        fixture.adapter.createEmptyPendingNamespace()
+        fixture.adapter.failNext("fsyncDirectory", errors: [EIO])
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            await #expect(throws: (any Error).self) {
+                _ = try await fixture.fileSystem
+                    .publishOrRecoverCaptureTransfer(
+                        from: fixture.source,
+                        inventory: inventory
+                    )
+            }
+            #expect(fixture.adapter.pendingNames == [
+                "recording-v1-01234567-89ab-cdef-0123-456789abcdef.wav",
+            ])
+            let recovered = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { recovered.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+        }
+    }
+
+    @Test func stagingRemovalFailureClosesLeaseForRecoveryRetry()
+        async throws {
+        let fixture = try makeFixture()
+        defer { fixture.close() }
+        let binding = IOSForegroundVoiceCaptureSourceWireCodec.transferBinding(
+            try #require(fixture.source.transferBinding)
+        )
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: Array(audioBytes.prefix(12)),
+            audioMarker: Array("v1".utf8),
+            transferBinding: binding
+        )
+        fixture.adapter.failNext("unlink", errors: [EIO])
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            await #expect(throws: (any Error).self) {
+                _ = try await fixture.fileSystem
+                    .publishOrRecoverCaptureTransfer(
+                        from: fixture.source,
+                        inventory: inventory
+                    )
+            }
+            #expect(fixture.adapter.pendingNames == [stagingName])
+            let recovered = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { recovered.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+        }
+    }
+
+    @Test func mediaInvalidBoundStagingIsRemovedOnlyByRecovery()
+        async throws {
+        let validator = ScriptedCaptureTransferMediaValidator(results: [
+            .failure(
+                IOSPendingRecordingAudioFileSystemError.mediaValidationFailed
+            ),
+            .success(1_500),
+        ])
+        let fixture = try makeFixture(mediaValidator: validator)
+        defer { fixture.close() }
+        let binding = IOSForegroundVoiceCaptureSourceWireCodec.transferBinding(
+            try #require(fixture.source.transferBinding)
+        )
+        fixture.adapter.installCaptureTransferStaging(
+            named: stagingName,
+            bytes: audioBytes,
+            audioMarker: Array("v1".utf8),
+            transferBinding: binding
+        )
+
+        try await fixture.context.operationGate.perform { lease in
+            let inventory = IOSProtectedAudioNamespaceInventory(
+                testingRepositoryBinding: fixture.context.repositoryBinding,
+                operationLeaseAuthorization: lease,
+                artifacts: []
+            )
+            let recovered = try await fixture.fileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: fixture.source,
+                    inventory: inventory
+                )
+            defer { recovered.release() }
+            #expect(fixture.adapter.publishedBytes == audioBytes)
+            #expect(fixture.adapter.events.contains {
+                $0.hasPrefix("pread:")
+            })
+            #expect(validator.callCount == 2)
+        }
+    }
+
+    private func source(
+        _ source: IOSPendingRecordingCaptureTransferSource,
+        mode: IOSPendingRecordingCaptureTransferMode
+    ) -> IOSPendingRecordingCaptureTransferSource {
+        IOSPendingRecordingCaptureTransferSource(
+            fileDescriptor: source.fileDescriptor,
+            attemptID: source.attemptID,
+            outputIntent: source.outputIntent,
+            format: source.format,
+            creationMilliseconds: source.creationMilliseconds,
+            device: source.device,
+            inode: source.inode,
+            generation: source.generation,
+            durationMilliseconds: source.durationMilliseconds,
+            byteCount: source.byteCount,
+            modificationSeconds: source.modificationSeconds,
+            modificationNanoseconds: source.modificationNanoseconds,
+            mode: mode,
+            onOperationFinished: source.onOperationFinished
+        )
+    }
+
+    private func makeFixture(
+        mediaValidator: (any IOSPendingRecordingMediaValidating)? = nil
+    ) throws -> CaptureTransferFixture {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "holdtype-capture-transfer-\(UUID().uuidString)",
@@ -419,9 +756,10 @@ struct IOSCaptureTransferAudioFileSystemTests {
             let fileSystem = FoundationIOSPendingRecordingAudioFileSystem(
                 applicationSupportDirectoryURL: rootURL,
                 adapter: adapter,
-                mediaValidator: ConstantCaptureTransferMediaValidator(
-                    durationMilliseconds: 1_500
-                ),
+                mediaValidator: mediaValidator
+                    ?? ConstantCaptureTransferMediaValidator(
+                        durationMilliseconds: 1_500
+                    ),
                 monotonicClock: { 1 },
                 expectedRepositoryRoot:
                     context.repositoryBinding.physicalRootIdentity,
@@ -584,6 +922,37 @@ private final class ConstantCaptureTransferMediaValidator:
         _ = format
         _ = timeoutNanoseconds
         return durationMilliseconds
+    }
+}
+
+private final class ScriptedCaptureTransferMediaValidator:
+    IOSPendingRecordingMediaValidating,
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [Result<Int64, Error>]
+    private var storedCallCount = 0
+
+    init(results: [Result<Int64, Error>]) { self.results = results }
+    var callCount: Int { lock.withLock { storedCallCount } }
+
+    func durationMilliseconds(
+        forFileDescriptor fileDescriptor: Int32,
+        byteCount: Int64,
+        format: IOSPendingRecordingAudioFormat,
+        timeoutNanoseconds: UInt64
+    ) throws -> Int64 {
+        _ = fileDescriptor
+        _ = byteCount
+        _ = format
+        _ = timeoutNanoseconds
+        return try lock.withLock {
+            storedCallCount += 1
+            guard !results.isEmpty else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .mediaValidationFailed
+            }
+            return try results.removeFirst().get()
+        }
     }
 }
 

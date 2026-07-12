@@ -208,6 +208,82 @@ protocol IOSPendingRecordingPublishedAudioLease: AnyObject, Sendable {
     func release()
 }
 
+enum IOSPendingRecordingCaptureTransferMode: Equatable, Sendable {
+    case normalDone
+    case explicitRecovery
+    case passiveReconciliation
+}
+
+struct IOSPendingRecordingCaptureTransferSource: Sendable {
+    let fileDescriptor: Int32
+    let attemptID: UUID
+    let outputIntent: DictationOutputIntent
+    let format: IOSPendingRecordingAudioFormat
+    let creationMilliseconds: UInt64
+    let device: UInt64
+    let inode: UInt64
+    let generation: UInt32
+    let durationMilliseconds: Int64
+    let byteCount: Int64
+    let modificationSeconds: Int64
+    let modificationNanoseconds: UInt32
+    let mode: IOSPendingRecordingCaptureTransferMode
+    let onOperationFinished: @Sendable () -> Void
+
+    init(
+        fileDescriptor: Int32,
+        attemptID: UUID,
+        outputIntent: DictationOutputIntent,
+        format: IOSPendingRecordingAudioFormat,
+        creationMilliseconds: UInt64,
+        device: UInt64,
+        inode: UInt64,
+        generation: UInt32,
+        durationMilliseconds: Int64,
+        byteCount: Int64,
+        modificationSeconds: Int64,
+        modificationNanoseconds: UInt32,
+        mode: IOSPendingRecordingCaptureTransferMode = .explicitRecovery,
+        onOperationFinished: @escaping @Sendable () -> Void
+    ) {
+        self.fileDescriptor = fileDescriptor
+        self.attemptID = attemptID
+        self.outputIntent = outputIntent
+        self.format = format
+        self.creationMilliseconds = creationMilliseconds
+        self.device = device
+        self.inode = inode
+        self.generation = generation
+        self.durationMilliseconds = durationMilliseconds
+        self.byteCount = byteCount
+        self.modificationSeconds = modificationSeconds
+        self.modificationNanoseconds = modificationNanoseconds
+        self.mode = mode
+        self.onOperationFinished = onOperationFinished
+    }
+
+    var transferBinding: IOSForegroundVoiceCaptureTransferBinding? {
+        guard durationMilliseconds >= 300,
+              durationMilliseconds < 300_000,
+              durationMilliseconds <= Int64(UInt32.max),
+              byteCount > 0,
+              byteCount < FoundationIOSPendingRecordingAudioFileSystem
+                .maximumAudioByteCount else {
+            return nil
+        }
+        return IOSForegroundVoiceCaptureTransferBinding(
+            attemptID: attemptID,
+            sourceDevice: device,
+            sourceInode: inode,
+            sourceGeneration: generation,
+            outputIntent: outputIntent,
+            format: format,
+            durationMilliseconds: UInt32(durationMilliseconds),
+            byteCount: UInt64(byteCount)
+        )
+    }
+}
+
 protocol IOSPendingRecordingAudioFileSystem: Sendable {
     #if DEBUG
     func requireEmptyNamespace() async throws
@@ -250,6 +326,10 @@ protocol IOSPendingRecordingAudioFileSystem: Sendable {
         expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) async throws -> any IOSPendingRecordingPublishedAudioLease
     #endif
+    func publishOrRecoverCaptureTransfer(
+        from source: IOSPendingRecordingCaptureTransferSource,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease
     func publishProtectedCopy(
         from source: AudioRecordingArtifact,
         attemptID: UUID,
@@ -285,6 +365,15 @@ protocol IOSPendingRecordingAudioFileSystem: Sendable {
 }
 
 extension IOSPendingRecordingAudioFileSystem {
+    func publishOrRecoverCaptureTransfer(
+        from source: IOSPendingRecordingCaptureTransferSource,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        defer { source.onOperationFinished() }
+        _ = inventory
+        throw IOSPendingRecordingAudioFileSystemError.invalidSource
+    }
+
     func reconcilePendingAudioRemoval(
         using authorization:
             IOSPendingRecordingAcceptedOutputAudioRemovalAuthorization
@@ -407,6 +496,10 @@ protocol IOSPendingRecordingPOSIXAdapter: Sendable {
         name: String,
         maximumByteCount: Int
     ) -> IOSPendingRecordingPOSIXResult<[UInt8]>
+    func extendedAttributeNames(
+        fileDescriptor: Int32,
+        maximumByteCount: Int
+    ) -> IOSPendingRecordingPOSIXResult<[String]>
     func removeExtendedAttribute(
         fileDescriptor: Int32,
         name: String
@@ -431,6 +524,13 @@ protocol IOSPendingRecordingPOSIXAdapter: Sendable {
 }
 
 extension IOSPendingRecordingPOSIXAdapter {
+    func extendedAttributeNames(
+        fileDescriptor: Int32,
+        maximumByteCount: Int
+    ) -> IOSPendingRecordingPOSIXResult<[String]> {
+        .failure(ENOTSUP)
+    }
+
     func removeExtendedAttribute(
         fileDescriptor: Int32,
         name: String
@@ -614,6 +714,41 @@ struct DarwinIOSPendingRecordingPOSIXAdapter: IOSPendingRecordingPOSIXAdapter {
         }
         guard result >= 0 else { return .failure(errno) }
         return .success(Array(bytes.prefix(result)))
+    }
+
+    func extendedAttributeNames(
+        fileDescriptor: Int32,
+        maximumByteCount: Int
+    ) -> IOSPendingRecordingPOSIXResult<[String]> {
+        var bytes = [UInt8](repeating: 0, count: maximumByteCount)
+        let result = bytes.withUnsafeMutableBytes {
+            Darwin.flistxattr(
+                fileDescriptor,
+                $0.baseAddress?.assumingMemoryBound(to: CChar.self),
+                $0.count,
+                0
+            )
+        }
+        guard result >= 0 else { return .failure(errno) }
+        guard result <= maximumByteCount else { return .failure(ERANGE) }
+        let payload = bytes.prefix(result)
+        guard payload.isEmpty || payload.last == 0 else {
+            return .failure(EINVAL)
+        }
+        var names: [String] = []
+        var start = payload.startIndex
+        for index in payload.indices where payload[index] == 0 {
+            guard index > start,
+                  let name = String(
+                    bytes: payload[start..<index],
+                    encoding: .utf8
+                  ) else {
+                return .failure(EINVAL)
+            }
+            names.append(name)
+            start = payload.index(after: index)
+        }
+        return .success(names)
     }
 
     func removeExtendedAttribute(
@@ -1068,6 +1203,9 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     private static let audioMarkerName =
         "com.holdtype.ios.pending-recording-audio"
     private static let audioMarkerValue = Array("v1".utf8)
+    private static let captureTransferAttributeName =
+        "com.holdtype.ios.capture-source-transfer"
+    private static let maximumExtendedAttributeNameBytes = 4 * 1_024
     static let completeProtectionClass: Int32 = 1
     static let backupExclusionAttributeName =
         "com.apple.metadata:com_apple_backup_excludeItem"
@@ -1086,6 +1224,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     fileprivate let adapter: any IOSPendingRecordingPOSIXAdapter
     private let mediaValidator: any IOSPendingRecordingMediaValidating
     private let monotonicClock: @Sendable () -> UInt64?
+    private let operationDeadlineNanoseconds: UInt64
     private let queue: DispatchQueue
     private let configuredExpectedRepositoryRoot:
         IOSPersistenceRepositoryRootIdentity?
@@ -1121,6 +1260,9 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         monotonicClock: @escaping @Sendable () -> UInt64? = {
             systemPendingRecordingMonotonicNanoseconds()
         },
+        operationDeadlineNanoseconds: UInt64 =
+            FoundationIOSPendingRecordingAudioFileSystem
+                .copyDeadlineNanoseconds,
         expectedRepositoryRoot:
             IOSPersistenceRepositoryRootIdentity? = nil,
         onRepositoryIdentityMismatch:
@@ -1136,6 +1278,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         self.adapter = adapter
         self.mediaValidator = mediaValidator
         self.monotonicClock = monotonicClock
+        self.operationDeadlineNanoseconds = operationDeadlineNanoseconds
         configuredExpectedRepositoryRoot = expectedRepositoryRoot
         self.onRepositoryIdentityMismatch =
             onRepositoryIdentityMismatch
@@ -1172,7 +1315,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
             IOSPendingRecordingProtectedAudioCleanupAuthorization
     ) async throws -> IOSPendingRecordingProtectedAudioCleanupEvidence {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onLateValue: { [self] evidence in
                 lateProtectedAudioCleanupEvidence = evidence
             }
@@ -1190,7 +1333,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
     ) async throws
         -> IOSPendingRecordingAcceptedOutputAudioAbsenceEvidence {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onLateValue: { [self] evidence in
                 lateAcceptedOutputAudioRemovalEvidence = evidence
             }
@@ -1212,7 +1355,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
 
     #if DEBUG
     func requireEmptyNamespace() async throws {
-        try await runQueued(deadlineNanoseconds: Self.copyDeadlineNanoseconds) { control in
+        try await runQueued(deadlineNanoseconds: operationDeadlineNanoseconds) { control in
             guard let directory = try self.openPendingDirectory(
                 createIfMissing: false,
                 control: control
@@ -1229,7 +1372,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         _ inventory: IOSProtectedAudioNamespaceInventory
     ) async throws {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds
+            deadlineNanoseconds: operationDeadlineNanoseconds
         ) { control in
             let expectations = try self.protectedAudioExpectations(
                 for: inventory
@@ -1300,7 +1443,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         let activeHeldOperations = heldOperations
 
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onOperationFinished: {
                 activeHeldOperations.forEach { $0.finish() }
             }
@@ -1386,7 +1529,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) async throws -> any IOSPendingRecordingPublishedAudioLease {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onLateValue: { $0.release() }
         ) { control in
             try self.publishProtectedCopySynchronously(
@@ -1410,7 +1553,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         inventory: IOSProtectedAudioNamespaceInventory
     ) async throws -> any IOSPendingRecordingPublishedAudioLease {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onLateValue: { $0.release() }
         ) { control in
             try self.publishProtectedCopySynchronously(
@@ -1420,6 +1563,23 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
                 durationMilliseconds: durationMilliseconds,
                 expectedRepositoryRoot:
                     inventory.repositoryBinding.physicalRootIdentity,
+                inventory: inventory,
+                control: control
+            )
+        }
+    }
+
+    func publishOrRecoverCaptureTransfer(
+        from source: IOSPendingRecordingCaptureTransferSource,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws -> any IOSPendingRecordingPublishedAudioLease {
+        try await runQueued(
+            deadlineNanoseconds: operationDeadlineNanoseconds,
+            onLateValue: { $0.release() },
+            onOperationFinished: source.onOperationFinished
+        ) { control in
+            try self.publishOrRecoverCaptureTransferSynchronously(
+                from: source,
                 inventory: inventory,
                 control: control
             )
@@ -1449,7 +1609,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         byteCount: Int64
     ) async throws -> any IOSPendingRecordingPublishedAudioLease {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onLateValue: { $0.release() }
         ) { control in
             let opened = try self.openValidatedPublishedAudio(
@@ -1491,7 +1651,7 @@ final class FoundationIOSPendingRecordingAudioFileSystem:
         expectedByteCount: Int64,
         expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
     ) async throws -> Bool {
-        try await runQueued(deadlineNanoseconds: Self.copyDeadlineNanoseconds) { control in
+        try await runQueued(deadlineNanoseconds: operationDeadlineNanoseconds) { control in
             try self.removePublishedAudioSynchronously(
                 relativeIdentifier: relativeIdentifier,
                 attemptID: attemptID,
@@ -1582,6 +1742,17 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         let descriptor: Int32
         let identity: FileIdentity
         let name: String
+    }
+
+    enum CaptureStagingDisposition {
+        case publishable(
+            descriptor: Int32,
+            identity: FileIdentity
+        )
+        case removable(
+            descriptor: Int32,
+            identity: FileIdentity
+        )
     }
 
     struct HeldProtectedAudioLeaseOperation: @unchecked Sendable {
@@ -2912,6 +3083,792 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         )
     }
 
+    func publishOrRecoverCaptureTransferSynchronously(
+        from source: IOSPendingRecordingCaptureTransferSource,
+        inventory: IOSProtectedAudioNamespaceInventory,
+        control: PendingRecordingOperationControl
+    ) throws -> any IOSPendingRecordingPublishedAudioLease {
+        guard let binding = source.transferBinding else {
+            throw IOSPendingRecordingAudioFileSystemError.invalidSource
+        }
+        let bindingBytes = IOSForegroundVoiceCaptureSourceWireCodec
+            .transferBinding(binding)
+        try requireInventoryAuthority(inventory, control: control)
+        try validateCaptureTransferSource(source, control: control)
+        let expectations = try protectedAudioExpectations(for: inventory)
+        let relativeIdentifier = IOSPendingRecordingStorageLocation
+            .relativeAudioIdentifier(
+                for: source.attemptID,
+                format: source.format
+            )
+        let baseline = expectations.filter {
+            $0.relativeIdentifier != relativeIdentifier
+        }
+        try validateCapturePendingJournal(
+            inventory.pendingSource?.recording,
+            source: source,
+            relativeIdentifier: relativeIdentifier
+        )
+        guard let finalURL = IOSPendingRecordingStorageLocation.audioFileURL(
+            forRelativeIdentifier: relativeIdentifier,
+            in: applicationSupportDirectoryURL
+        ) else {
+            throw IOSPendingRecordingAudioFileSystemError.invalidSource
+        }
+        let finalName = finalURL.lastPathComponent
+        let stagingName = [
+            ".capture-transfer-v1-",
+            source.attemptID.uuidString.lowercased(),
+            ".",
+            fileExtension(for: source.format),
+        ].joined()
+        guard let directory = try openPendingDirectory(
+            createIfMissing: true,
+            expectedRepositoryRoot:
+                inventory.repositoryBinding.physicalRootIdentity,
+            control: control
+        ) else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceUnavailable
+        }
+        var directoryOwnedByLease = false
+        defer {
+            if !directoryOwnedByLease {
+                adapter.closeFile(directory.descriptor)
+            }
+        }
+        try requireSuccess(control: control, failure: .namespaceUnavailable) {
+            adapter.lock(
+                fileDescriptor: directory.descriptor,
+                operation: LOCK_EX | LOCK_NB
+            )
+        }
+        try validateCaptureTransferBaseline(
+            baseline,
+            allowing: [stagingName, finalName],
+            in: directory,
+            inventory: inventory,
+            control: control
+        )
+        let names = try protectedAudioFinalNames(
+            in: directory,
+            control: control
+        )
+        let baselineNames = try Set(baseline.map { expectation in
+            guard let URL = IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: expectation.relativeIdentifier,
+                in: applicationSupportDirectoryURL
+            ) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            return URL.lastPathComponent
+        })
+        let targetNames = names.subtracting(baselineNames)
+        var openedFile: (descriptor: Int32, identity: FileIdentity)?
+        var fileOwnedByLease = false
+        defer {
+            if !fileOwnedByLease, let openedFile {
+                adapter.closeFile(openedFile.descriptor)
+            }
+        }
+        switch targetNames {
+        case []:
+            let created = try createCaptureTransferStaging(
+                name: stagingName,
+                source: source,
+                bindingBytes: bindingBytes,
+                directory: directory,
+                inventory: inventory,
+                control: control
+            )
+            openedFile = created
+            try publish(
+                temporaryName: stagingName,
+                finalName: finalName,
+                directory: directory,
+                control: control
+            )
+            try synchronize(
+                directory.descriptor,
+                control: control,
+                failure: .synchronizationFailed
+            )
+        case [finalName]:
+            openedFile = try openValidatedCaptureTransfer(
+                name: finalName,
+                source: source,
+                bindingBytes: bindingBytes,
+                directory: directory,
+                control: control
+            )
+        case [stagingName]:
+            let staging = try inspectCaptureTransferStaging(
+                name: stagingName,
+                source: source,
+                bindingBytes: bindingBytes,
+                directory: directory,
+                control: control
+            )
+            switch staging {
+            case let .publishable(descriptor, identity):
+                openedFile = (descriptor, identity)
+                try publish(
+                    temporaryName: stagingName,
+                    finalName: finalName,
+                    directory: directory,
+                    control: control
+                )
+                try synchronize(
+                    directory.descriptor,
+                    control: control,
+                    failure: .synchronizationFailed
+                )
+            case let .removable(descriptor, identity):
+                openedFile = (descriptor, identity)
+                guard source.mode == .explicitRecovery else {
+                    throw IOSPendingRecordingAudioFileSystemError
+                        .protectedAudioInvalid
+                }
+                try removeCaptureTransferStaging(
+                    descriptor: descriptor,
+                    identity: identity,
+                    name: stagingName,
+                    directory: directory,
+                    control: control
+                )
+                adapter.closeFile(descriptor)
+                openedFile = nil
+                let created = try createCaptureTransferStaging(
+                    name: stagingName,
+                    source: source,
+                    bindingBytes: bindingBytes,
+                    directory: directory,
+                    inventory: inventory,
+                    control: control
+                )
+                openedFile = created
+                try publish(
+                    temporaryName: stagingName,
+                    finalName: finalName,
+                    directory: directory,
+                    control: control
+                )
+                try synchronize(
+                    directory.descriptor,
+                    control: control,
+                    failure: .synchronizationFailed
+                )
+            }
+        default:
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        guard let openedFile else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let fileDescriptor = openedFile.descriptor
+        let fileIdentity = openedFile.identity
+        try validateCaptureTransferSource(source, control: control)
+        try validateOwnedAudio(
+            descriptor: fileDescriptor,
+            name: finalName,
+            directory: directory,
+            expectedIdentity: fileIdentity,
+            expectedByteCount: source.byteCount,
+            control: control
+        )
+        try validateCaptureTransferAttributeIfRequired(
+            descriptor: fileDescriptor,
+            expectedValue: bindingBytes,
+            control: control
+        )
+        try validateCaptureTransferBaseline(
+            baseline,
+            allowing: [finalName],
+            in: directory,
+            inventory: inventory,
+            control: control
+        )
+        let finalNames = try protectedAudioFinalNames(
+            in: directory,
+            control: control
+        )
+        guard finalNames == baselineNames.union([finalName]) else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        try requireInventoryAuthority(inventory, control: control)
+        directoryOwnedByLease = true
+        fileOwnedByLease = true
+        return POSIXIOSPendingRecordingPublishedAudioLease(
+            fileSystem: self,
+            relativeIdentifier: relativeIdentifier,
+            fileURL: finalURL,
+            directoryDescriptor: directory.descriptor,
+            fileDescriptor: fileDescriptor,
+            identity: fileIdentity,
+            byteCount: source.byteCount,
+            durationMilliseconds: source.durationMilliseconds,
+            expectedCaptureTransferBinding: bindingBytes
+        )
+    }
+
+    func validateCapturePendingJournal(
+        _ recording: IOSPendingRecording?,
+        source: IOSPendingRecordingCaptureTransferSource,
+        relativeIdentifier: String
+    ) throws {
+        guard let recording else { return }
+        let createdAt = Date(
+            timeIntervalSince1970:
+                Double(source.creationMilliseconds) / 1_000
+        )
+        guard recording.attemptID == source.attemptID,
+              recording.audioRelativeIdentifier == relativeIdentifier,
+              recording.createdAt == createdAt,
+              recording.outputIntent == source.outputIntent,
+              recording.audioFormat == source.format,
+              recording.transcriptionID == nil,
+              recording.durationMilliseconds == source.durationMilliseconds,
+              recording.byteCount == source.byteCount,
+              recording.phase == .readyForTranscription
+                || recording.phase == .awaitingRecovery else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
+        }
+    }
+
+    func validateCaptureTransferBaseline(
+        _ expectations: [ProtectedAudioExpectation],
+        allowing allowedNames: Set<String>,
+        in directory: DirectoryHandle,
+        inventory: IOSProtectedAudioNamespaceInventory,
+        control: PendingRecordingOperationControl
+    ) throws {
+        try requireInventoryAuthority(inventory, control: control)
+        let names = try protectedAudioFinalNames(
+            in: directory,
+            control: control
+        )
+        let expectedNames = try Set(expectations.map { expectation in
+            guard let URL = IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: expectation.relativeIdentifier,
+                in: applicationSupportDirectoryURL
+            ) else {
+                throw IOSPendingRecordingAudioFileSystemError
+                    .protectedAudioInvalid
+            }
+            return URL.lastPathComponent
+        })
+        guard names.subtracting(expectedNames).isSubset(of: allowedNames),
+              expectedNames.isSubset(of: names) else {
+            throw IOSPendingRecordingAudioFileSystemError.namespaceNotEmpty
+        }
+        for expectation in expectations {
+            try validateProtectedAudioExpectation(
+                expectation,
+                in: directory,
+                control: control
+            )
+        }
+        try validatePendingDirectoryPath(directory, control: control)
+        try requireInventoryAuthority(inventory, control: control)
+    }
+
+    func validateCaptureTransferSource(
+        _ source: IOSPendingRecordingCaptureTransferSource,
+        control: PendingRecordingOperationControl
+    ) throws {
+        guard source.modificationNanoseconds < 1_000_000_000,
+              source.creationMilliseconds
+                <= IOSForegroundVoiceCaptureSourceWireCodec
+                    .latestCreationMilliseconds,
+              let binding = source.transferBinding else {
+            throw IOSPendingRecordingAudioFileSystemError.invalidSource
+        }
+        let status = try self.status(
+            descriptor: source.fileDescriptor,
+            control: control,
+            failure: .sourceChanged
+        )
+        let userID = try readEffectiveUserID(control: control)
+        guard status.st_mode & S_IFMT == S_IFREG,
+              status.st_mode & mode_t(0o7777) == mode_t(0o600),
+              status.st_uid == userID,
+              status.st_nlink == 1,
+              status.st_size == off_t(source.byteCount),
+              UInt64(exactly: status.st_dev) == source.device,
+              UInt64(exactly: status.st_ino) == source.inode,
+              UInt32(status.st_gen) == source.generation,
+              Int64(status.st_mtimespec.tv_sec)
+                == source.modificationSeconds,
+              UInt32(status.st_mtimespec.tv_nsec)
+                == source.modificationNanoseconds else {
+            throw IOSPendingRecordingAudioFileSystemError.sourceChanged
+        }
+        let identity = IOSForegroundVoiceCaptureIdentity(
+            attemptID: source.attemptID,
+            outputIntent: source.outputIntent,
+            format: source.format,
+            creationMilliseconds: source.creationMilliseconds,
+            device: source.device,
+            inode: source.inode,
+            generation: source.generation
+        )
+        let completion = IOSForegroundVoiceCaptureCompletion(
+            durationMilliseconds: binding.durationMilliseconds,
+            byteCount: binding.byteCount,
+            modificationSeconds: source.modificationSeconds,
+            modificationNanoseconds: source.modificationNanoseconds
+        )
+        try requireExactAttribute(
+            descriptor: source.fileDescriptor,
+            name: IOSForegroundVoiceCaptureSourceFileSystem.sourceMarkerName,
+            expected: IOSForegroundVoiceCaptureSourceFileSystem.markerValue,
+            control: control,
+            failure: .sourceChanged
+        )
+        try requireExactAttribute(
+            descriptor: source.fileDescriptor,
+            name: IOSForegroundVoiceCaptureSourceFileSystem.identityName,
+            expected: IOSForegroundVoiceCaptureSourceWireCodec.identity(identity),
+            control: control,
+            failure: .sourceChanged
+        )
+        try requireExactAttribute(
+            descriptor: source.fileDescriptor,
+            name: IOSForegroundVoiceCaptureSourceFileSystem.completionName,
+            expected: IOSForegroundVoiceCaptureSourceWireCodec
+                .completion(completion),
+            control: control,
+            failure: .sourceChanged
+        )
+        try requireExactAttribute(
+            descriptor: source.fileDescriptor,
+            name: IOSForegroundVoiceCaptureSourceFileSystem.phaseName,
+            expected: IOSForegroundVoiceCaptureSourceWireCodec
+                .phase(.preparingPending),
+            control: control,
+            failure: .sourceChanged
+        )
+        let protection = try call(control: control) {
+            adapter.protectionClass(fileDescriptor: source.fileDescriptor)
+        }
+        guard case .success(Self.completeProtectionClass) = protection else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        try requireExactAttribute(
+            descriptor: source.fileDescriptor,
+            name: Self.backupExclusionAttributeName,
+            expected: Self.backupExclusionAttributeValue,
+            control: control,
+            failure: .dataProtectionUnavailable
+        )
+    }
+
+    func createCaptureTransferStaging(
+        name: String,
+        source: IOSPendingRecordingCaptureTransferSource,
+        bindingBytes: [UInt8],
+        directory: DirectoryHandle,
+        inventory: IOSProtectedAudioNamespaceInventory,
+        control: PendingRecordingOperationControl
+    ) throws -> (Int32, FileIdentity) {
+        let descriptor = try createExclusiveTemporaryFile(
+            named: name,
+            in: directory,
+            control: control
+        )
+        var keepDescriptor = false
+        defer { if !keepDescriptor { adapter.closeFile(descriptor) } }
+        let identity = try statusSnapshot(
+            descriptor: descriptor,
+            control: control,
+            failure: .writeFailed
+        ).identity
+        try configureTemporaryFile(
+            descriptor: descriptor,
+            name: name,
+            directory: directory,
+            expectedIdentity: identity,
+            control: control
+        )
+        try requireSuccess(control: control, failure: .writeFailed) {
+            adapter.setExtendedAttribute(
+                fileDescriptor: descriptor,
+                name: Self.captureTransferAttributeName,
+                value: bindingBytes,
+                flags: XATTR_CREATE
+            )
+        }
+        try synchronize(
+            descriptor,
+            control: control,
+            failure: .synchronizationFailed
+        )
+        try validateOwnedAudio(
+            descriptor: descriptor,
+            name: name,
+            directory: directory,
+            expectedIdentity: identity,
+            expectedByteCount: 0,
+            control: control
+        )
+        try validateCaptureTransferAttributeIfRequired(
+            descriptor: descriptor,
+            expectedValue: bindingBytes,
+            control: control
+        )
+        try requireInventoryAuthority(inventory, control: control)
+        try validateCaptureTransferSource(source, control: control)
+        try copyCaptureSource(
+            source: source,
+            destinationDescriptor: descriptor,
+            control: control
+        )
+        try validateCaptureTransferSource(source, control: control)
+        try validateOwnedAudio(
+            descriptor: descriptor,
+            name: name,
+            directory: directory,
+            expectedIdentity: identity,
+            expectedByteCount: source.byteCount,
+            control: control
+        )
+        try validateCaptureTransferAttributeIfRequired(
+            descriptor: descriptor,
+            expectedValue: bindingBytes,
+            control: control
+        )
+        try synchronize(
+            descriptor,
+            control: control,
+            failure: .synchronizationFailed
+        )
+        let duration = try validatedMediaDuration(
+            forFileDescriptor: descriptor,
+            byteCount: source.byteCount,
+            format: source.format
+        )
+        try validateMediaDuration(
+            duration,
+            expectedDuration: source.durationMilliseconds
+        )
+        try requireInventoryAuthority(inventory, control: control)
+        try validateCaptureTransferSource(source, control: control)
+        keepDescriptor = true
+        return (descriptor, identity)
+    }
+
+    func copyCaptureSource(
+        source: IOSPendingRecordingCaptureTransferSource,
+        destinationDescriptor: Int32,
+        control: PendingRecordingOperationControl
+    ) throws {
+        var buffer = [UInt8](
+            repeating: 0,
+            count: Self.maximumTransferByteCount
+        )
+        var offset: Int64 = 0
+        while offset < source.byteCount {
+            let requested = min(
+                buffer.count,
+                Int(source.byteCount - offset)
+            )
+            let readCount = try buffer.withUnsafeMutableBytes { bytes in
+                try transferCount(control: control, failure: .sourceChanged) {
+                    adapter.readAt(
+                        fileDescriptor: source.fileDescriptor,
+                        buffer: bytes.baseAddress!,
+                        byteCount: requested,
+                        offset: offset
+                    )
+                }
+            }
+            guard readCount > 0, readCount <= requested else {
+                throw IOSPendingRecordingAudioFileSystemError.sourceChanged
+            }
+            var written = 0
+            while written < readCount {
+                let count = try buffer.withUnsafeBytes { bytes in
+                    try transferCount(control: control, failure: .writeFailed) {
+                        adapter.write(
+                            fileDescriptor: destinationDescriptor,
+                            buffer: bytes.baseAddress!.advanced(by: written),
+                            byteCount: readCount - written
+                        )
+                    }
+                }
+                guard count > 0, count <= readCount - written else {
+                    throw IOSPendingRecordingAudioFileSystemError.writeFailed
+                }
+                written += count
+            }
+            offset += Int64(readCount)
+        }
+        var extraByte: UInt8 = 0
+        let extra = try withUnsafeMutableBytes(of: &extraByte) { bytes in
+            try transferCount(control: control, failure: .sourceChanged) {
+                adapter.readAt(
+                    fileDescriptor: source.fileDescriptor,
+                    buffer: bytes.baseAddress!,
+                    byteCount: 1,
+                    offset: offset
+                )
+            }
+        }
+        guard extra == 0 else {
+            throw IOSPendingRecordingAudioFileSystemError.sourceChanged
+        }
+    }
+
+    func inspectCaptureTransferStaging(
+        name: String,
+        source: IOSPendingRecordingCaptureTransferSource,
+        bindingBytes: [UInt8],
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> CaptureStagingDisposition {
+        let descriptor = try openCaptureTransferFile(
+            name: name,
+            directory: directory,
+            control: control
+        )
+        var keepDescriptor = false
+        defer { if !keepDescriptor { adapter.closeFile(descriptor) } }
+        let status = try self.status(
+            descriptor: descriptor,
+            control: control,
+            failure: .protectedAudioInvalid
+        )
+        let pathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard case .success(let pathStatus) = pathResult,
+              status.st_mode & S_IFMT == S_IFREG,
+              status.st_mode & mode_t(0o7777) == mode_t(0o600),
+              status.st_uid == directory.effectiveUserID,
+              status.st_nlink == 1,
+              status.st_size >= 0,
+              status.st_size < off_t(Self.maximumAudioByteCount),
+              FileSnapshot(status) == FileSnapshot(pathStatus) else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let identity = FileIdentity(status)
+        let namesResult = try call(control: control) {
+            adapter.extendedAttributeNames(
+                fileDescriptor: descriptor,
+                maximumByteCount: Self.maximumExtendedAttributeNameBytes
+            )
+        }
+        guard case .success(let attributeNames) = namesResult else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let appNames = Set(attributeNames.filter {
+            $0.hasPrefix("com.holdtype.ios.")
+        })
+        let allowed = Set([
+            Self.audioMarkerName,
+            Self.captureTransferAttributeName,
+        ])
+        guard appNames.isSubset(of: allowed) else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        let hasAudioMarker = appNames.contains(Self.audioMarkerName)
+        let hasBinding = appNames.contains(Self.captureTransferAttributeName)
+        if hasAudioMarker {
+            try requireExactAttribute(
+                descriptor: descriptor,
+                name: Self.audioMarkerName,
+                expected: Self.audioMarkerValue,
+                control: control,
+                failure: .protectedAudioInvalid
+            )
+        }
+        if hasBinding {
+            try requireExactAttribute(
+                descriptor: descriptor,
+                name: Self.captureTransferAttributeName,
+                expected: bindingBytes,
+                control: control,
+                failure: .protectedAudioInvalid
+            )
+        }
+        if status.st_size == 0, !hasAudioMarker || !hasBinding {
+            keepDescriptor = true
+            return .removable(descriptor: descriptor, identity: identity)
+        }
+        guard hasAudioMarker, hasBinding else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        try validateExactConfiguration(descriptor: descriptor, control: control)
+        if status.st_size == off_t(source.byteCount) {
+            do {
+                let duration = try validatedMediaDuration(
+                    forFileDescriptor: descriptor,
+                    byteCount: source.byteCount,
+                    format: source.format
+                )
+                try validateMediaDuration(
+                    duration,
+                    expectedDuration: source.durationMilliseconds
+                )
+            } catch IOSPendingRecordingAudioFileSystemError
+                .mediaValidationFailed {
+                keepDescriptor = true
+                return .removable(descriptor: descriptor, identity: identity)
+            }
+            keepDescriptor = true
+            return .publishable(descriptor: descriptor, identity: identity)
+        }
+        keepDescriptor = true
+        return .removable(descriptor: descriptor, identity: identity)
+    }
+
+    func openValidatedCaptureTransfer(
+        name: String,
+        source: IOSPendingRecordingCaptureTransferSource,
+        bindingBytes: [UInt8],
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> (Int32, FileIdentity) {
+        let descriptor = try openCaptureTransferFile(
+            name: name,
+            directory: directory,
+            control: control
+        )
+        var keepDescriptor = false
+        defer { if !keepDescriptor { adapter.closeFile(descriptor) } }
+        let identity = try statusSnapshot(
+            descriptor: descriptor,
+            control: control,
+            failure: .protectedAudioInvalid
+        ).identity
+        try validateOwnedAudio(
+            descriptor: descriptor,
+            name: name,
+            directory: directory,
+            expectedIdentity: identity,
+            expectedByteCount: source.byteCount,
+            control: control
+        )
+        try validateCaptureTransferAttributeIfRequired(
+            descriptor: descriptor,
+            expectedValue: bindingBytes,
+            control: control
+        )
+        let duration = try validatedMediaDuration(
+            forFileDescriptor: descriptor,
+            byteCount: source.byteCount,
+            format: source.format
+        )
+        try validateMediaDuration(
+            duration,
+            expectedDuration: source.durationMilliseconds
+        )
+        keepDescriptor = true
+        return (descriptor, identity)
+    }
+
+    func openCaptureTransferFile(
+        name: String,
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws -> Int32 {
+        let result = try call(control: control) {
+            adapter.openAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: O_RDWR | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                mode: nil
+            )
+        }
+        guard case .success(let descriptor) = result else {
+            throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+        do {
+            try requireSuccess(control: control, failure: .protectedAudioInvalid) {
+                adapter.lock(
+                    fileDescriptor: descriptor,
+                    operation: LOCK_EX | LOCK_NB
+                )
+            }
+            return descriptor
+        } catch {
+            adapter.closeFile(descriptor)
+            throw error
+        }
+    }
+
+    func removeCaptureTransferStaging(
+        descriptor: Int32,
+        identity: FileIdentity,
+        name: String,
+        directory: DirectoryHandle,
+        control: PendingRecordingOperationControl
+    ) throws {
+        let descriptorStatus = try status(
+            descriptor: descriptor,
+            control: control,
+            failure: .removeFailed
+        )
+        let pathResult = try call(control: control) {
+            adapter.statusAt(
+                directoryDescriptor: directory.descriptor,
+                name: name,
+                flags: AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard case .success(let pathStatus) = pathResult,
+              FileIdentity(descriptorStatus) == identity,
+              FileIdentity(pathStatus) == identity else {
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        let unlinkResult = adapter.unlinkAt(
+            directoryDescriptor: directory.descriptor,
+            name: name
+        )
+        let finalStatus = try status(
+            descriptor: descriptor,
+            control: control,
+            failure: .removeFailed
+        )
+        guard finalStatus.st_nlink == 0 else {
+            _ = unlinkResult
+            throw IOSPendingRecordingAudioFileSystemError.removeFailed
+        }
+        try synchronize(
+            directory.descriptor,
+            control: control,
+            failure: .removeFailed
+        )
+    }
+
+    func requireExactAttribute(
+        descriptor: Int32,
+        name: String,
+        expected: [UInt8],
+        control: PendingRecordingOperationControl,
+        failure: IOSPendingRecordingAudioFileSystemError
+    ) throws {
+        let result = try call(control: control) {
+            adapter.extendedAttribute(
+                fileDescriptor: descriptor,
+                name: name,
+                maximumByteCount: expected.count + 1
+            )
+        }
+        if case .failure(let errorCode) = result,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(expected) = result else { throw failure }
+    }
+
     func openValidatedSource(
         _ source: AudioRecordingArtifact,
         control: PendingRecordingOperationControl
@@ -3493,6 +4450,30 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         }
         guard case .success(Self.backupExclusionAttributeValue) = backupResult else {
             throw IOSPendingRecordingAudioFileSystemError.protectedAudioInvalid
+        }
+    }
+
+    func validateCaptureTransferAttributeIfRequired(
+        descriptor: Int32,
+        expectedValue: [UInt8]?,
+        control: PendingRecordingOperationControl
+    ) throws {
+        guard let expectedValue else { return }
+        let result = try call(control: control) {
+            adapter.extendedAttribute(
+                fileDescriptor: descriptor,
+                name: Self.captureTransferAttributeName,
+                maximumByteCount: expectedValue.count + 1
+            )
+        }
+        if case .failure(let errorCode) = result,
+           isDataProtectionFailure(errorCode) {
+            throw IOSPendingRecordingAudioFileSystemError
+                .dataProtectionUnavailable
+        }
+        guard case .success(expectedValue) = result else {
+            throw IOSPendingRecordingAudioFileSystemError
+                .protectedAudioInvalid
         }
     }
 
@@ -4315,10 +5296,11 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         format: IOSPendingRecordingAudioFormat,
         byteCount: Int64,
         durationMilliseconds: Int64,
+        expectedCaptureTransferBinding: [UInt8]?,
         onOperationFinished: @escaping @Sendable () -> Void
     ) async throws -> AudioRecordingArtifact {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onOperationFinished: onOperationFinished
         ) { control in
             guard IOSPendingRecordingStorageLocation.audioFileURL(
@@ -4346,6 +5328,11 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
                 expectedByteCount: byteCount,
                 control: control
             )
+            try self.validateCaptureTransferAttributeIfRequired(
+                descriptor: fileDescriptor,
+                expectedValue: expectedCaptureTransferBinding,
+                control: control
+            )
             try control.checkpoint()
             let mediaDuration = try self.validatedMediaDuration(
                 forFileDescriptor: fileDescriptor,
@@ -4364,6 +5351,11 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
                 expectedByteCount: byteCount,
                 control: control
             )
+            try self.validateCaptureTransferAttributeIfRequired(
+                descriptor: fileDescriptor,
+                expectedValue: expectedCaptureTransferBinding,
+                control: control
+            )
             return AudioRecordingArtifact(
                 fileURL: fileURL,
                 duration: TimeInterval(durationMilliseconds) / 1_000,
@@ -4379,12 +5371,13 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
         fileDescriptor: Int32,
         identity: FileIdentity,
         byteCount: Int64,
+        expectedCaptureTransferBinding: [UInt8]?,
         offset: Int64,
         maximumByteCount: Int,
         onOperationFinished: @escaping @Sendable () -> Void
     ) async throws -> Data {
         try await runQueued(
-            deadlineNanoseconds: Self.copyDeadlineNanoseconds,
+            deadlineNanoseconds: operationDeadlineNanoseconds,
             onOperationFinished: onOperationFinished
         ) { control in
             guard offset >= 0,
@@ -4453,6 +5446,11 @@ fileprivate extension FoundationIOSPendingRecordingAudioFileSystem {
                 directory: directory,
                 expectedIdentity: identity,
                 expectedByteCount: byteCount,
+                control: control
+            )
+            try self.validateCaptureTransferAttributeIfRequired(
+                descriptor: fileDescriptor,
+                expectedValue: expectedCaptureTransferBinding,
                 control: control
             )
             return data
@@ -4804,6 +5802,7 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
     private let format: IOSPendingRecordingAudioFormat
     private let identity: FoundationIOSPendingRecordingAudioFileSystem.FileIdentity
     private let byteCount: Int64
+    private let expectedCaptureTransferBinding: [UInt8]?
     private let lock = NSLock()
     private var state: State
 
@@ -4815,7 +5814,8 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
         fileDescriptor: Int32,
         identity: FoundationIOSPendingRecordingAudioFileSystem.FileIdentity,
         byteCount: Int64,
-        durationMilliseconds: Int64
+        durationMilliseconds: Int64,
+        expectedCaptureTransferBinding: [UInt8]? = nil
     ) {
         self.fileSystem = fileSystem
         self.relativeIdentifier = relativeIdentifier
@@ -4828,6 +5828,7 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
         self.format = format
         self.identity = identity
         self.byteCount = byteCount
+        self.expectedCaptureTransferBinding = expectedCaptureTransferBinding
         self.durationMilliseconds = durationMilliseconds
         audioArtifact = AudioRecordingArtifact(
             fileURL: fileURL,
@@ -4851,6 +5852,7 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
             format: format,
             byteCount: byteCount,
             durationMilliseconds: durationMilliseconds,
+            expectedCaptureTransferBinding: expectedCaptureTransferBinding,
             onOperationFinished: { [self] in finishOperation() }
         )
     }
@@ -4867,6 +5869,7 @@ private final class POSIXIOSPendingRecordingPublishedAudioLease:
             fileDescriptor: descriptors.1,
             identity: identity,
             byteCount: byteCount,
+            expectedCaptureTransferBinding: expectedCaptureTransferBinding,
             offset: offset,
             maximumByteCount: maximumByteCount,
             onOperationFinished: { [self] in finishOperation() }

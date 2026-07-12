@@ -3,10 +3,11 @@
 Status: active implementation roadmap; P0, P1, P2, and P3 are complete. The
 native containing app now includes its state owners, shell, Settings editors,
 Dictionary, Voice Emoji Commands, and Replacement Rules. P4A, P4B, P4C,
-P4D-0, and P4D-1 are complete: the app-only foreground contract, Persistence
+P4D-0, P4D-1, and P4D-2A are complete: the app-only foreground contract, Persistence
 transaction, reader-based OpenAI, consent-gated processing, foreground
-audio/storage contracts, and shared payload-free Voice orchestration are in
-place. P4D-2 AVFoundation and system adapters are next; updated 2026-07-12.
+audio/storage contracts, shared payload-free Voice orchestration, and the
+descriptor-bound completed-capture transfer into canonical Pending ownership
+are in place. P4D-2C physical-device validation is next; updated 2026-07-13.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1361,14 +1362,17 @@ private identifiers. P4D-1 adds no audio object, permission request, UI,
 composition wiring, plist entry, background behavior, App Group publication,
 or keyboard dependency. P4D-2B now supplies the containing-app permission,
 foreground audio-session, recorder, feedback, and bounded-finalization
-adapters; P4D-2A2 and P4D-2C keep their separate storage and physical-device
-gates. P4D-1 evidence lives in
+adapters; P4D-2A2 now supplies the completed-source storage handoff, while
+P4D-2C keeps its separate physical-device gate. P4D-1 evidence lives in
 `docs/qa/runs/ios-p4d-shared-voice-controller-2026-07-12.md`.
 
 P4D-2 proceeds in three bounded checkpoints. P4D-2A owns the
 descriptor-bound capture-source owner and its Pending handoff in Persistence.
-Its completed-source-to-Pending P4D-2A2 handoff remains a separate in-progress
-checkpoint.
+P4D-2A is complete: the source owner retains exact descriptor identity through
+completion, and P4D-2A2 transfers the opaque completed source into canonical
+Pending ownership with exact crash recovery, journal confirmation, passive
+reconciliation, and cleanup-pending reporting. Final P4D-2A2 evidence lives in
+`docs/qa/runs/ios-p4d2-capture-transfer-2026-07-13.md`.
 
 P4D-2B code is complete. The containing-app target now has fake-backed
 permission, audio-session, serialized route-event, cue/haptic,
@@ -1387,7 +1391,7 @@ matrix. Simulator tests and Release builds do not approve it. A failed device
 gate selects a descriptor-backed AudioToolbox/AVAudioEngine writer and does not
 weaken the storage contract.
 
-P4D-2B completion does not make P4D-2 or P4 release-ready. P4D-2A2, P4D-2C,
+P4D-2A and P4D-2B completion do not make P4D-2 or P4 release-ready. P4D-2C,
 P4D-3 composition, Voice UI, and the remaining product gates retain their own
 exit criteria.
 

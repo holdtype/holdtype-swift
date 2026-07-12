@@ -35,6 +35,17 @@ struct IOSForegroundVoiceCaptureCompletion: Equatable, Sendable {
     let modificationNanoseconds: UInt32
 }
 
+struct IOSForegroundVoiceCaptureTransferBinding: Equatable, Sendable {
+    let attemptID: UUID
+    let sourceDevice: UInt64
+    let sourceInode: UInt64
+    let sourceGeneration: UInt32
+    let outputIntent: DictationOutputIntent
+    let format: IOSPendingRecordingAudioFormat
+    let durationMilliseconds: UInt32
+    let byteCount: UInt64
+}
+
 enum IOSForegroundVoiceCaptureSourceWireCodec {
     static let latestCreationMilliseconds: UInt64 = 253_402_300_799_999
 
@@ -143,6 +154,54 @@ enum IOSForegroundVoiceCaptureSourceWireCodec {
             byteCount: byteCount,
             modificationSeconds: Int64(bitPattern: modificationBits),
             modificationNanoseconds: modificationNanoseconds
+        )
+    }
+
+    static func transferBinding(
+        _ value: IOSForegroundVoiceCaptureTransferBinding
+    ) -> [UInt8] {
+        var bytes: [UInt8] = [1]
+        bytes.append(contentsOf: uuidBytes(value.attemptID))
+        bytes.appendBigEndian(value.sourceDevice)
+        bytes.appendBigEndian(value.sourceInode)
+        bytes.appendBigEndian(value.sourceGeneration)
+        bytes.append(outputIntentByte(value.outputIntent))
+        bytes.append(formatByte(value.format))
+        bytes.appendBigEndian(value.durationMilliseconds)
+        bytes.appendBigEndian(value.byteCount)
+        precondition(bytes.count == 51)
+        return bytes
+    }
+
+    static func decodeTransferBinding(
+        _ bytes: [UInt8]
+    ) -> IOSForegroundVoiceCaptureTransferBinding? {
+        guard bytes.count == 51, bytes[0] == 1 else { return nil }
+        var reader = CaptureWireReader(bytes: bytes, offset: 1)
+        guard let attemptID = reader.readUUID(),
+              let sourceDevice: UInt64 = reader.readBigEndian(),
+              let sourceInode: UInt64 = reader.readBigEndian(),
+              let sourceGeneration: UInt32 = reader.readBigEndian(),
+              let outputIntent = reader.readOutputIntent(),
+              let format = reader.readFormat(),
+              let durationMilliseconds: UInt32 = reader.readBigEndian(),
+              let byteCount: UInt64 = reader.readBigEndian(),
+              durationMilliseconds >= 300,
+              durationMilliseconds < 300_000,
+              byteCount > 0,
+              byteCount < 25_000_000,
+              reader.isAtEnd else {
+            return nil
+        }
+        return IOSForegroundVoiceCaptureTransferBinding(
+            attemptID: attemptID,
+            sourceDevice: sourceDevice,
+            sourceInode: sourceInode,
+            sourceGeneration: sourceGeneration,
+            outputIntent: outputIntent,
+            format: format,
+            durationMilliseconds: durationMilliseconds,
+            byteCount: byteCount
         )
     }
 

@@ -33,6 +33,12 @@ public enum IOSForegroundVoiceCaptureFinalizationResult: Sendable {
 }
 
 @_spi(HoldTypeIOSCore)
+public enum IOSForegroundVoiceCaptureRecoveryResult: Equatable, Sendable {
+    case pending(IOSPendingRecording)
+    case discarded(IOSForegroundVoiceCaptureInvalidReason)
+}
+
+@_spi(HoldTypeIOSCore)
 public enum IOSForegroundVoiceCaptureRecoveryStatus: Equatable, Sendable {
     case empty
     case recordingInProgress
@@ -41,8 +47,14 @@ public enum IOSForegroundVoiceCaptureRecoveryStatus: Equatable, Sendable {
     case finalizingNeedsRecovery
     case completedNeedsPendingHandoff
     case preparingPendingNeedsRecovery
+    case transferredCleanupPending
     case cleanupPerformed
     case blockedUnknown
+}
+
+enum IOSForegroundVoiceCaptureRetirementResult: Equatable, Sendable {
+    case removed
+    case durableTransferredCleanupPending
 }
 
 @_spi(HoldTypeIOSCore)
@@ -51,17 +63,81 @@ public struct IOSForegroundVoiceCaptureRecoveryObservation: Equatable, Sendable 
     public let examinedEntryCount: Int
     public let removedEntryCount: Int
     public let removedLogicalByteCount: Int64
+    public let recoveryCapability: IOSForegroundVoiceCaptureRecoveryCapability?
 
     init(
         status: IOSForegroundVoiceCaptureRecoveryStatus,
         examinedEntryCount: Int,
         removedEntryCount: Int,
-        removedLogicalByteCount: Int64
+        removedLogicalByteCount: Int64,
+        recoveryCapability: IOSForegroundVoiceCaptureRecoveryCapability? = nil
     ) {
         self.status = status
         self.examinedEntryCount = examinedEntryCount
         self.removedEntryCount = removedEntryCount
         self.removedLogicalByteCount = removedLogicalByteCount
+        self.recoveryCapability = recoveryCapability
+    }
+}
+
+@_spi(HoldTypeIOSCore)
+public struct IOSForegroundVoiceCaptureRecoveryCapability: Equatable,
+    @unchecked Sendable {
+    fileprivate let fileSystem: IOSForegroundVoiceCaptureSourceFileSystem
+    fileprivate let identity: IOSForegroundVoiceCaptureIdentity
+    fileprivate let finalName: String
+    fileprivate let observedPhase: IOSForegroundVoiceCaptureSourcePhase
+    fileprivate let completion: IOSForegroundVoiceCaptureCompletion?
+
+    public static func == (
+        lhs: IOSForegroundVoiceCaptureRecoveryCapability,
+        rhs: IOSForegroundVoiceCaptureRecoveryCapability
+    ) -> Bool {
+        lhs.fileSystem === rhs.fileSystem
+            && lhs.identity == rhs.identity
+            && lhs.finalName == rhs.finalName
+            && lhs.observedPhase == rhs.observedPhase
+            && lhs.completion == rhs.completion
+    }
+
+    var attemptID: UUID { identity.attemptID }
+    var isPreparingPending: Bool { observedPhase == .preparingPending }
+
+    func matchesPendingOwner(_ recording: IOSPendingRecording) -> Bool {
+        let createdAt = Date(
+            timeIntervalSince1970:
+                Double(identity.creationMilliseconds) / 1_000
+        )
+        guard recording.attemptID == identity.attemptID,
+              recording.audioRelativeIdentifier
+                == IOSPendingRecordingStorageLocation.relativeAudioIdentifier(
+                    for: identity.attemptID,
+                    format: identity.format
+                ),
+              recording.createdAt == createdAt,
+              recording.outputIntent == identity.outputIntent,
+              recording.audioFormat == identity.format,
+              recording.transcriptionID == nil,
+              recording.phase == .readyForTranscription
+                || recording.phase == .awaitingRecovery else {
+            return false
+        }
+        guard let completion else { return true }
+        return recording.durationMilliseconds
+                == Int64(completion.durationMilliseconds)
+            && recording.byteCount == Int64(completion.byteCount)
+    }
+
+    func recover(
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws -> IOSForegroundVoiceCaptureFinalizationResult {
+        try await fileSystem.recoverCapture(self, inventory: inventory)
+    }
+
+    func discard(
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws {
+        try await fileSystem.discardCapture(self, inventory: inventory)
     }
 }
 
@@ -149,6 +225,7 @@ public actor IOSForegroundVoiceCaptureSourceOwner {
         }
         return await fileSystem.reconcileAtLaunch()
     }
+
 }
 
 @_spi(HoldTypeIOSCore)
@@ -179,13 +256,15 @@ public final class IOSForegroundVoiceCaptureSourceLease: @unchecked Sendable {
         identity: IOSForegroundVoiceCaptureIdentity,
         finalName: String,
         directoryDescriptor: Int32,
-        fileDescriptor: Int32
+        fileDescriptor: Int32,
+        phase: IOSForegroundVoiceCaptureSourcePhase = .active
     ) {
         self.fileSystem = fileSystem
         self.recordingURL = recordingURL
         self.identity = identity
         self.finalName = finalName
         state = State(
+            phase: phase,
             directoryDescriptor: directoryDescriptor,
             fileDescriptor: fileDescriptor
         )
@@ -292,6 +371,64 @@ public final class IOSForegroundVoiceCaptureSourceLease: @unchecked Sendable {
         close(descriptors)
     }
 
+    func beginPendingTransferSource(
+        inventory: IOSProtectedAudioNamespaceInventory,
+        mode: IOSPendingRecordingCaptureTransferMode
+    ) async throws
+        -> IOSPendingRecordingCaptureTransferSource {
+        let handles = try beginOperation(
+            allowedPhases: [.completed, .preparingPending]
+        )
+        do {
+            let snapshot = try await fileSystem.beginPendingTransfer(
+                handles: handles,
+                identity: identity,
+                finalName: finalName,
+                expectedRepositoryRoot:
+                    inventory.repositoryBinding.physicalRootIdentity
+            )
+            lock.withLock { state.phase = .preparingPending }
+            let release = CaptureSourceOperationRelease { [self] in
+                finishOperation()
+            }
+            return IOSPendingRecordingCaptureTransferSource(
+                fileDescriptor: handles.fileDescriptor,
+                attemptID: identity.attemptID,
+                outputIntent: identity.outputIntent,
+                format: identity.format,
+                creationMilliseconds: identity.creationMilliseconds,
+                device: identity.device,
+                inode: identity.inode,
+                generation: identity.generation,
+                durationMilliseconds: Int64(snapshot.durationMilliseconds),
+                byteCount: Int64(snapshot.byteCount),
+                modificationSeconds: snapshot.modificationSeconds,
+                modificationNanoseconds: snapshot.modificationNanoseconds,
+                mode: mode,
+                onOperationFinished: { release.finish() }
+            )
+        } catch {
+            finishOperation()
+            throw error
+        }
+    }
+
+    func markTransferredAndRetire() async throws
+        -> IOSForegroundVoiceCaptureRetirementResult {
+        let handles = try beginOperation(allowedPhases: [.preparingPending])
+        defer { finishOperation() }
+        let result = try await fileSystem.markTransferredAndRetire(
+            handles: handles,
+            identity: identity,
+            finalName: finalName
+        )
+        lock.withLock {
+            state.phase = .transferred
+            state.releaseRequested = true
+        }
+        return result
+    }
+
     private func beginOperation(
         allowedPhases: Set<IOSForegroundVoiceCaptureSourcePhase>
     ) throws -> BorrowedHandles {
@@ -345,8 +482,32 @@ public final class IOSForegroundVoiceCaptureSourceLease: @unchecked Sendable {
 
 @_spi(HoldTypeIOSCore)
 public final class IOSForegroundVoiceCompletedCapture: @unchecked Sendable {
-    private let lease: IOSForegroundVoiceCaptureSourceLease
+    fileprivate let lease: IOSForegroundVoiceCaptureSourceLease
     fileprivate let completion: IOSForegroundVoiceCaptureCompletion
+
+    var attemptID: UUID { lease.identity.attemptID }
+
+    func matchesPendingOwner(_ recording: IOSPendingRecording) -> Bool {
+        let identity = lease.identity
+        return recording.attemptID == identity.attemptID
+            && recording.audioRelativeIdentifier
+                == IOSPendingRecordingStorageLocation.relativeAudioIdentifier(
+                    for: identity.attemptID,
+                    format: identity.format
+                )
+            && recording.createdAt == Date(
+                timeIntervalSince1970:
+                    Double(identity.creationMilliseconds) / 1_000
+            )
+            && recording.outputIntent == identity.outputIntent
+            && recording.audioFormat == identity.format
+            && recording.transcriptionID == nil
+            && (recording.phase == .readyForTranscription
+                || recording.phase == .awaitingRecovery)
+            && recording.durationMilliseconds
+                == Int64(completion.durationMilliseconds)
+            && recording.byteCount == Int64(completion.byteCount)
+    }
 
     public var durationMilliseconds: Int64 {
         Int64(completion.durationMilliseconds)
@@ -365,6 +526,41 @@ public final class IOSForegroundVoiceCompletedCapture: @unchecked Sendable {
     }
 
     public func release() { lease.release() }
+
+    func beginPendingTransferSource(
+        inventory: IOSProtectedAudioNamespaceInventory,
+        mode: IOSPendingRecordingCaptureTransferMode
+    ) async throws
+        -> IOSPendingRecordingCaptureTransferSource {
+        try await lease.beginPendingTransferSource(
+            inventory: inventory,
+            mode: mode
+        )
+    }
+
+    func markTransferredAndRetire() async throws
+        -> IOSForegroundVoiceCaptureRetirementResult {
+        try await lease.markTransferredAndRetire()
+    }
+}
+
+private final class CaptureSourceOperationRelease: @unchecked Sendable {
+    private let lock = NSLock()
+    private var operation: (@Sendable () -> Void)?
+
+    init(_ operation: @escaping @Sendable () -> Void) {
+        self.operation = operation
+    }
+
+    func finish() {
+        let operation = lock.withLock { () -> (@Sendable () -> Void)? in
+            defer { self.operation = nil }
+            return self.operation
+        }
+        operation?()
+    }
+
+    deinit { finish() }
 }
 
 extension IOSForegroundVoiceCaptureSourceError: CustomStringConvertible,
@@ -496,6 +692,123 @@ final class IOSForegroundVoiceCaptureSourceFileSystem: @unchecked Sendable {
                 expectedIdentity: identity,
                 finalName: finalName,
                 allowedPhases: [.active]
+            )
+        }
+    }
+
+    func beginPendingTransfer(
+        handles: IOSForegroundVoiceCaptureSourceLease.BorrowedHandles,
+        identity: IOSForegroundVoiceCaptureIdentity,
+        finalName: String,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) async throws -> IOSForegroundVoiceCaptureCompletion {
+        try await perform {
+            try self.validateRepositoryRoot(expectedRepositoryRoot)
+            let creatorDescriptor = try self.require(
+                self.adapter.openAt(
+                    directoryDescriptor: handles.directoryDescriptor,
+                    name: ".",
+                    flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
+                    mode: nil
+                ),
+                error: .namespaceUnavailable
+            )
+            defer { self.adapter.closeFile(creatorDescriptor) }
+            try self.requireVoid(
+                self.adapter.lock(
+                    fileDescriptor: creatorDescriptor,
+                    operation: LOCK_EX | LOCK_NB
+                ),
+                error: .sourceConflict
+            )
+            let validated = try self.validateSource(
+                handles: handles,
+                expectedIdentity: identity,
+                finalName: finalName,
+                allowedPhases: [.completed, .preparingPending]
+            )
+            guard let completion = validated.completion else {
+                throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+            }
+            if validated.phase == .completed {
+                try self.replacePhase(
+                    .preparingPending,
+                    fileDescriptor: handles.fileDescriptor
+                )
+            }
+            let preparing = try self.validateSource(
+                handles: handles,
+                expectedIdentity: identity,
+                finalName: finalName,
+                allowedPhases: [.preparingPending]
+            )
+            guard preparing.completion == completion else {
+                throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+            }
+            return completion
+        }
+    }
+
+    func markTransferredAndRetire(
+        handles: IOSForegroundVoiceCaptureSourceLease.BorrowedHandles,
+        identity: IOSForegroundVoiceCaptureIdentity,
+        finalName: String
+    ) async throws -> IOSForegroundVoiceCaptureRetirementResult {
+        try await perform {
+            _ = try self.validateSource(
+                handles: handles,
+                expectedIdentity: identity,
+                finalName: finalName,
+                allowedPhases: [.preparingPending]
+            )
+            try self.replacePhase(
+                .transferred,
+                fileDescriptor: handles.fileDescriptor
+            )
+            _ = try self.validateSource(
+                handles: handles,
+                expectedIdentity: identity,
+                finalName: finalName,
+                allowedPhases: [.transferred]
+            )
+            do {
+                try self.removePinnedSource(
+                    handles: handles,
+                    finalName: finalName
+                )
+                return .removed
+            } catch IOSForegroundVoiceCaptureSourceError.cleanupUncertain {
+                // Durable transferred state authorizes bounded launch cleanup.
+                // Pending ownership is already complete and must not be rolled
+                // back merely because source unlink durability is uncertain.
+                return .durableTransferredCleanupPending
+            }
+        }
+    }
+
+    func recoverCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws -> IOSForegroundVoiceCaptureFinalizationResult {
+        try await perform {
+            try self.validateRepositoryRoot(
+                inventory.repositoryBinding.physicalRootIdentity
+            )
+            return try self.performRecoverCapture(capability)
+        }
+    }
+
+    func discardCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) async throws {
+        try await perform {
+            try self.validateRepositoryRoot(
+                inventory.repositoryBinding.physicalRootIdentity
+            )
+            try self.performDiscardCapture(
+                capability,
+                inventory: inventory
             )
         }
     }
@@ -753,6 +1066,178 @@ final class IOSForegroundVoiceCaptureSourceFileSystem: @unchecked Sendable {
             directoryDescriptor: namespace.descriptor,
             fileDescriptor: fileDescriptor
         )
+    }
+
+    private func performRecoverCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability
+    ) throws -> IOSForegroundVoiceCaptureFinalizationResult {
+        guard capability.fileSystem === self,
+              [.active, .finalizing, .completed, .preparingPending]
+                .contains(capability.observedPhase) else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        let namespace = try openCaptureNamespace(createIfMissing: false)
+        var keepNamespace = false
+        defer {
+            if !keepNamespace { adapter.closeFile(namespace.descriptor) }
+        }
+        let creatorDescriptor = try require(
+            adapter.openAt(
+                directoryDescriptor: namespace.descriptor,
+                name: ".",
+                flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
+                mode: nil
+            ),
+            error: .namespaceUnavailable
+        )
+        defer { adapter.closeFile(creatorDescriptor) }
+        try requireVoid(
+            adapter.lock(
+                fileDescriptor: creatorDescriptor,
+                operation: LOCK_EX | LOCK_NB
+            ),
+            error: .sourceConflict
+        )
+        guard let scanStart = monotonicClock(),
+              try directoryNames(
+                  descriptor: namespace.descriptor,
+                  startNanoseconds: scanStart
+              ) == [capability.finalName] else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        guard let fileDescriptor = try openLockedSource(
+            namespaceDescriptor: namespace.descriptor,
+            name: capability.finalName
+        ) else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceConflict
+        }
+        var keepFile = false
+        defer { if !keepFile { adapter.closeFile(fileDescriptor) } }
+        let handles = IOSForegroundVoiceCaptureSourceLease.BorrowedHandles(
+            directoryDescriptor: namespace.descriptor,
+            fileDescriptor: fileDescriptor
+        )
+        var validated = try validateSource(
+            handles: handles,
+            expectedIdentity: capability.identity,
+            finalName: capability.finalName,
+            allowedPhases: [capability.observedPhase]
+        )
+        guard validated.completion == capability.completion else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        if validated.phase == .active {
+            try replacePhase(.finalizing, fileDescriptor: fileDescriptor)
+            validated = try validateSource(
+                handles: handles,
+                expectedIdentity: capability.identity,
+                finalName: capability.finalName,
+                allowedPhases: [.finalizing]
+            )
+        }
+        let completion: IOSForegroundVoiceCaptureCompletion
+        if validated.phase == .finalizing {
+            switch try performCompleteAfterRecorderClose(
+                handles: handles,
+                identity: capability.identity,
+                finalName: capability.finalName
+            ) {
+            case let .completed(value):
+                completion = value
+            case let .discarded(reason):
+                return .discarded(reason)
+            }
+        } else {
+            guard let value = validated.completion else {
+                throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+            }
+            completion = value
+        }
+        let phase: IOSForegroundVoiceCaptureSourcePhase =
+            validated.phase == .preparingPending
+                ? .preparingPending
+                : .completed
+        let lease = IOSForegroundVoiceCaptureSourceLease(
+            fileSystem: self,
+            recordingURL: namespace.URL.appendingPathComponent(
+                capability.finalName,
+                isDirectory: false
+            ),
+            identity: capability.identity,
+            finalName: capability.finalName,
+            directoryDescriptor: namespace.descriptor,
+            fileDescriptor: fileDescriptor,
+            phase: phase
+        )
+        keepFile = true
+        keepNamespace = true
+        return .completed(
+            IOSForegroundVoiceCompletedCapture(
+                lease: lease,
+                completion: completion
+            )
+        )
+    }
+
+    private func performDiscardCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        inventory: IOSProtectedAudioNamespaceInventory
+    ) throws {
+        guard capability.fileSystem === self,
+              inventory.operationLeaseAuthorization.provesActiveLease(),
+              inventory.pendingSource == nil,
+              [.active, .finalizing, .completed, .preparingPending]
+                .contains(capability.observedPhase) else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        let namespace = try openCaptureNamespace(createIfMissing: false)
+        defer { adapter.closeFile(namespace.descriptor) }
+        let creatorDescriptor = try require(
+            adapter.openAt(
+                directoryDescriptor: namespace.descriptor,
+                name: ".",
+                flags: O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC,
+                mode: nil
+            ),
+            error: .namespaceUnavailable
+        )
+        defer { adapter.closeFile(creatorDescriptor) }
+        try requireVoid(
+            adapter.lock(
+                fileDescriptor: creatorDescriptor,
+                operation: LOCK_EX | LOCK_NB
+            ),
+            error: .sourceConflict
+        )
+        guard let scanStart = monotonicClock(),
+              try directoryNames(
+                  descriptor: namespace.descriptor,
+                  startNanoseconds: scanStart
+              ) == [capability.finalName] else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        guard let fileDescriptor = try openLockedSource(
+            namespaceDescriptor: namespace.descriptor,
+            name: capability.finalName
+        ) else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceConflict
+        }
+        defer { adapter.closeFile(fileDescriptor) }
+        let handles = IOSForegroundVoiceCaptureSourceLease.BorrowedHandles(
+            directoryDescriptor: namespace.descriptor,
+            fileDescriptor: fileDescriptor
+        )
+        let validated = try validateSource(
+            handles: handles,
+            expectedIdentity: capability.identity,
+            finalName: capability.finalName,
+            allowedPhases: [capability.observedPhase]
+        )
+        guard validated.completion == capability.completion else {
+            throw IOSForegroundVoiceCaptureSourceError.sourceChanged
+        }
+        try replacePhase(.discarding, fileDescriptor: fileDescriptor)
+        try removePinnedSource(handles: handles, finalName: capability.finalName)
     }
 
     private func performCompleteAfterRecorderClose(
@@ -1188,10 +1673,21 @@ final class IOSForegroundVoiceCaptureSourceFileSystem: @unchecked Sendable {
             return observation(.blockedUnknown, examined: examinedCount)
         }
         try checkReconciliationDeadline(start)
+        let recoveryCapability = IOSForegroundVoiceCaptureRecoveryCapability(
+            fileSystem: self,
+            identity: identity,
+            finalName: names[0],
+            observedPhase: validated.phase,
+            completion: validated.completion
+        )
         switch validated.phase {
         case .active:
             if validated.status.st_size > 0 {
-                return observation(.activeNeedsRecovery, examined: examinedCount)
+                return observation(
+                    .activeNeedsRecovery,
+                    examined: examinedCount,
+                    recoveryCapability: recoveryCapability
+                )
             }
             if isAbandonedZeroByteSource(validated) {
                 try checkReconciliationDeadline(start)
@@ -1210,13 +1706,29 @@ final class IOSForegroundVoiceCaptureSourceFileSystem: @unchecked Sendable {
                     bytes: 0
                 )
             }
-            return observation(.emptyActiveNeedsDiscard, examined: examinedCount)
+            return observation(
+                .emptyActiveNeedsDiscard,
+                examined: examinedCount,
+                recoveryCapability: recoveryCapability
+            )
         case .finalizing:
-            return observation(.finalizingNeedsRecovery, examined: examinedCount)
+            return observation(
+                .finalizingNeedsRecovery,
+                examined: examinedCount,
+                recoveryCapability: recoveryCapability
+            )
         case .completed:
-            return observation(.completedNeedsPendingHandoff, examined: examinedCount)
+            return observation(
+                .completedNeedsPendingHandoff,
+                examined: examinedCount,
+                recoveryCapability: recoveryCapability
+            )
         case .preparingPending:
-            return observation(.preparingPendingNeedsRecovery, examined: examinedCount)
+            return observation(
+                .preparingPendingNeedsRecovery,
+                examined: examinedCount,
+                recoveryCapability: recoveryCapability
+            )
         case .discarding, .transferred:
             let byteCount = max(0, Int64(validated.status.st_size))
             guard byteCount <= Self.maximumRemovalByteCount else {
@@ -1893,14 +2405,32 @@ final class IOSForegroundVoiceCaptureSourceFileSystem: @unchecked Sendable {
         _ status: IOSForegroundVoiceCaptureRecoveryStatus,
         examined: Int = 0,
         removed: Int = 0,
-        bytes: Int64 = 0
+        bytes: Int64 = 0,
+        recoveryCapability: IOSForegroundVoiceCaptureRecoveryCapability? = nil
     ) -> IOSForegroundVoiceCaptureRecoveryObservation {
         IOSForegroundVoiceCaptureRecoveryObservation(
             status: status,
             examinedEntryCount: examined,
             removedEntryCount: min(removed, Self.maximumRemovalCount),
-            removedLogicalByteCount: min(bytes, Self.maximumRemovalByteCount)
+            removedLogicalByteCount: min(bytes, Self.maximumRemovalByteCount),
+            recoveryCapability: recoveryCapability
         )
+    }
+
+    private func validateRepositoryRoot(
+        _ expectedRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws {
+        guard let expectedRoot else {
+            throw IOSForegroundVoiceCaptureSourceError.namespaceUnavailable
+        }
+        let status = try require(
+            adapter.statusAtPath(applicationSupportDirectoryURL.path),
+            error: .namespaceUnavailable
+        )
+        guard status.st_mode & S_IFMT == S_IFDIR,
+              expectedRoot.matches(status) else {
+            throw IOSForegroundVoiceCaptureSourceError.namespaceUnavailable
+        }
     }
 
     private func require<Value>(

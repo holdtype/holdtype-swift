@@ -1129,6 +1129,79 @@ public actor IOSPendingRecordingStore {
         }
     }
 
+    func prepareCompletedCapture(
+        _ capture: IOSForegroundVoiceCompletedCapture,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSPendingRecording {
+        try await performExclusiveOperation { [self] authorization in
+            try await performCaptureHandoff(
+                capture,
+                initialState: .readyForTranscription,
+                transcriptionConfiguration: transcriptionConfiguration,
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+
+    func recoverCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSForegroundVoiceCaptureRecoveryResult {
+        try await performExclusiveOperation { [self] authorization in
+            try await performRecoverCapture(
+                capability,
+                transcriptionConfiguration: transcriptionConfiguration,
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+
+    func discardCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability
+    ) async throws {
+        try await performExclusiveOperation { [self] authorization in
+            try await performDiscardCapture(
+                capability,
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+
+    func reconcileCaptureSourcesAtLaunch(
+        owner: IOSForegroundVoiceCaptureSourceOwner
+    ) async -> IOSForegroundVoiceCaptureRecoveryObservation {
+        do {
+            return try await performExclusiveOperation { [self] authorization in
+                await performCaptureSourceLaunchReconciliation(
+                    owner: owner,
+                    operationLeaseAuthorization: authorization
+                )
+            }
+        } catch {
+            return IOSForegroundVoiceCaptureRecoveryObservation(
+                status: .blockedUnknown,
+                examinedEntryCount: 0,
+                removedEntryCount: 0,
+                removedLogicalByteCount: 0
+            )
+        }
+    }
+
+    #if DEBUG
+    /// Exact crash-window seam: publish/adopt capture-bound audio while leaving
+    /// the source in preparing state and the journal untouched.
+    func publishCaptureAudioOnlyForTesting(
+        _ capture: IOSForegroundVoiceCompletedCapture
+    ) async throws -> IOSPendingRecordingCaptureTransferSource {
+        try await performExclusiveOperation { [self] authorization in
+            try await performCaptureAudioOnlyForTesting(
+                capture,
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+    #endif
+
     public func load() async throws -> IOSPendingRecordingObservation? {
         try await performExclusiveOperation { [self] authorization in
             try await performLoad(
@@ -2953,6 +3026,399 @@ private extension IOSPendingRecordingStore {
             throw mapAudioError(error, operation: .validate)
         }
         return recording
+    }
+
+    func performCaptureHandoff(
+        _ capture: IOSForegroundVoiceCompletedCapture,
+        initialState: IOSPendingRecordingInitialState,
+        transcriptionConfiguration: TranscriptionConfiguration,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSPendingRecording {
+        let metadataAuthorization =
+            IOSPendingRecordingMetadataRetirementAuthorization()
+        let existingSnapshot = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: metadataAuthorization
+            )
+        }
+        if let recording = existingSnapshot?.recording {
+            guard recording.attemptID == capture.attemptID else {
+                throw IOSPendingRecordingError.pendingSlotOccupied
+            }
+            guard capture.matchesPendingOwner(recording) else {
+                throw IOSPendingRecordingError.localRecoveryPending
+            }
+        } else {
+            try validateCaptureTranscriptionConfiguration(
+                transcriptionConfiguration
+            )
+        }
+        let inventory = try await sealProtectedAudioNamespaceInventory(
+            pendingSource: existingSnapshot,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let source = try await capture.beginPendingTransferSource(
+            inventory: inventory,
+            mode: initialState == .readyForTranscription
+                ? .normalDone
+                : .explicitRecovery
+        )
+        let audioLease: any IOSPendingRecordingPublishedAudioLease
+        do {
+            audioLease = try await audioFileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: source,
+                    inventory: inventory
+                )
+        } catch let error as IOSPendingRecordingError {
+            throw error
+        } catch {
+            throw mapAudioError(error, operation: .publish)
+        }
+        defer { audioLease.release() }
+        try await revalidateFailedProtectedAudioInventory(
+            inventory.failedInventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        do {
+            _ = try await audioLease.revalidate()
+        } catch {
+            throw mapAudioError(error, operation: .validate)
+        }
+
+        let recording: IOSPendingRecording
+        if let existing = existingSnapshot?.recording {
+            guard existing.attemptID == source.attemptID,
+                  existing.audioRelativeIdentifier
+                    == audioLease.relativeIdentifier,
+                  existing.outputIntent == source.outputIntent,
+                  existing.audioFormat == source.format,
+                  existing.transcriptionID == nil,
+                  existing.durationMilliseconds
+                    == source.durationMilliseconds,
+                  existing.byteCount == source.byteCount,
+                  existing.phase == .readyForTranscription
+                    || existing.phase == .awaitingRecovery else {
+                throw IOSPendingRecordingError.localRecoveryPending
+            }
+            recording = existing
+            do {
+                try confirmJournalDurability(existing)
+            } catch let error as IOSPendingRecordingError {
+                throw error
+            } catch {
+                throw IOSPendingRecordingError.journalWriteFailed
+            }
+        } else {
+            let createdAt = try IOSPendingRecordingTimestampCodec
+                .canonicalDate(
+                    from: Date(
+                        timeIntervalSince1970:
+                            Double(source.creationMilliseconds) / 1_000
+                    )
+                )
+            let updatedAt = try canonicalNow(after: createdAt)
+            recording = try IOSPendingRecording(
+                attemptID: source.attemptID,
+                audioRelativeIdentifier: audioLease.relativeIdentifier,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                phase: initialState.phase,
+                outputIntent: source.outputIntent,
+                transcriptionID: nil,
+                transcriptionModel:
+                    transcriptionConfiguration.resolvedModel,
+                transcriptionLanguageCode:
+                    transcriptionConfiguration.resolvedLanguageCode,
+                durationMilliseconds: audioLease.durationMilliseconds,
+                byteCount: audioLease.audioArtifact.byteCount
+            )
+            do {
+                try performRepositoryBoundary { expectedRoot in
+                    try journal.create(
+                        recording,
+                        expectedRepositoryRoot: expectedRoot
+                    )
+                }
+            } catch let error as IOSPendingRecordingError {
+                throw error
+            } catch {
+                throw IOSPendingRecordingError.journalWriteFailed
+            }
+            do {
+                try confirmJournalDurability(recording)
+            } catch let error as IOSPendingRecordingError {
+                throw error
+            } catch {
+                throw IOSPendingRecordingError.journalWriteFailed
+            }
+        }
+
+        do {
+            _ = try await audioLease.revalidate()
+        } catch {
+            throw mapAudioError(error, operation: .validate)
+        }
+        let confirmedSnapshot = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: metadataAuthorization
+            )
+        }
+        guard confirmedSnapshot?.recording == recording else {
+            throw IOSPendingRecordingError.localRecoveryPending
+        }
+        let confirmedInventory =
+            try await sealProtectedAudioNamespaceInventory(
+                pendingSource: confirmedSnapshot,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        do {
+            try await audioFileSystem.validateProtectedAudioNamespace(
+                confirmedInventory,
+                holding: [audioLease]
+            )
+        } catch {
+            throw mapAudioError(error, operation: .inspect)
+        }
+        try await revalidateProtectedAudioNamespaceInventory(
+            confirmedInventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        do {
+            _ = try await audioLease.revalidate()
+        } catch {
+            throw mapAudioError(error, operation: .validate)
+        }
+        _ = try await capture.markTransferredAndRetire()
+        return recording
+    }
+
+    #if DEBUG
+    func performCaptureAudioOnlyForTesting(
+        _ capture: IOSForegroundVoiceCompletedCapture,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSPendingRecordingCaptureTransferSource {
+        let inventory = try await sealProtectedAudioNamespaceInventory(
+            pendingSource: nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let source = try await capture.beginPendingTransferSource(
+            inventory: inventory,
+            mode: .normalDone
+        )
+        let audioLease: any IOSPendingRecordingPublishedAudioLease
+        do {
+            audioLease = try await audioFileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: source,
+                    inventory: inventory
+                )
+        } catch {
+            throw mapAudioError(error, operation: .publish)
+        }
+        audioLease.release()
+        return source
+    }
+    #endif
+
+    func performRecoverCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        transcriptionConfiguration: TranscriptionConfiguration,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSForegroundVoiceCaptureRecoveryResult {
+        let metadataAuthorization =
+            IOSPendingRecordingMetadataRetirementAuthorization()
+        let snapshot = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: metadataAuthorization
+            )
+        }
+        if let recording = snapshot?.recording {
+            guard recording.attemptID == capability.attemptID else {
+                throw IOSPendingRecordingError.pendingSlotOccupied
+            }
+            guard capability.matchesPendingOwner(recording) else {
+                throw IOSPendingRecordingError.localRecoveryPending
+            }
+        }
+        let inventory = try await sealProtectedAudioNamespaceInventory(
+            pendingSource: snapshot,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        if !capability.isPreparingPending {
+            guard snapshot == nil else {
+                throw IOSPendingRecordingError.localRecoveryPending
+            }
+            try await validateProtectedAudioNamespace(
+                inventory,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+        }
+        switch try await capability.recover(inventory: inventory) {
+        case let .completed(capture):
+            return .pending(
+                try await performCaptureHandoff(
+                    capture,
+                    initialState: .awaitingRecovery,
+                    transcriptionConfiguration: transcriptionConfiguration,
+                    operationLeaseAuthorization: operationLeaseAuthorization
+                )
+            )
+        case let .discarded(reason):
+            return .discarded(reason)
+        }
+    }
+
+    func validateCaptureTranscriptionConfiguration(
+        _ configuration: TranscriptionConfiguration
+    ) throws {
+        guard !configuration.customLanguageCodeValidation.isInvalid,
+              IOSPendingRecordingValidation.isValidModel(
+                  configuration.resolvedModel
+              ),
+              IOSPendingRecordingValidation.isValidLanguageCode(
+                  configuration.resolvedLanguageCode
+              ) else {
+            throw IOSPendingRecordingError.invalidTranscriptionConfiguration
+        }
+    }
+
+    func performCaptureSourceLaunchReconciliation(
+        owner: IOSForegroundVoiceCaptureSourceOwner,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async -> IOSForegroundVoiceCaptureRecoveryObservation {
+        let observation = await owner.reconcileCaptureSourcesAtLaunch()
+        guard observation.status == .preparingPendingNeedsRecovery,
+              let capability = observation.recoveryCapability else {
+            return observation
+        }
+        do {
+            let metadataAuthorization =
+                IOSPendingRecordingMetadataRetirementAuthorization()
+            guard let snapshot = try performRepositoryBoundary({ _ in
+                try journal.loadMetadataSnapshot(
+                    authorization: metadataAuthorization
+                )
+            }), snapshot.recording.attemptID == capability.attemptID else {
+                return observation
+            }
+            let inventory = try await sealProtectedAudioNamespaceInventory(
+                pendingSource: snapshot,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+            // Passive launch may retire only a destination already proven
+            // complete. It must never use this path to create or repair audio.
+            try await validateProtectedAudioNamespace(
+                inventory,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+            let capture: IOSForegroundVoiceCompletedCapture
+            switch try await capability.recover(inventory: inventory) {
+            case let .completed(value):
+                capture = value
+            case .discarded:
+                return observation
+            }
+            let source = try await capture.beginPendingTransferSource(
+                inventory: inventory,
+                mode: .passiveReconciliation
+            )
+            let audioLease = try await audioFileSystem
+                .publishOrRecoverCaptureTransfer(
+                    from: source,
+                    inventory: inventory
+                )
+            defer { audioLease.release() }
+            _ = try await audioLease.revalidate()
+            try confirmJournalDurability(snapshot.recording)
+            let confirmedSnapshot = try performRepositoryBoundary { _ in
+                try journal.loadMetadataSnapshot(
+                    authorization: metadataAuthorization
+                )
+            }
+            guard confirmedSnapshot?.recording == snapshot.recording else {
+                return observation
+            }
+            let confirmedInventory =
+                try await sealProtectedAudioNamespaceInventory(
+                    pendingSource: confirmedSnapshot,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+            try await audioFileSystem.validateProtectedAudioNamespace(
+                confirmedInventory,
+                holding: [audioLease]
+            )
+            try await revalidateProtectedAudioNamespaceInventory(
+                confirmedInventory,
+                operationLeaseAuthorization:
+                    operationLeaseAuthorization
+            )
+            _ = try await audioLease.revalidate()
+            let retirement = try await capture.markTransferredAndRetire()
+            guard retirement == .removed else {
+                return IOSForegroundVoiceCaptureRecoveryObservation(
+                    status: .transferredCleanupPending,
+                    examinedEntryCount: observation.examinedEntryCount,
+                    removedEntryCount: observation.removedEntryCount,
+                    removedLogicalByteCount:
+                        observation.removedLogicalByteCount
+                )
+            }
+            let removedBytes = observation.removedLogicalByteCount
+                .addingReportingOverflow(source.byteCount)
+            return IOSForegroundVoiceCaptureRecoveryObservation(
+                status: .cleanupPerformed,
+                examinedEntryCount: observation.examinedEntryCount,
+                removedEntryCount: min(
+                    16,
+                    observation.removedEntryCount + 1
+                ),
+                removedLogicalByteCount: removedBytes.overflow
+                    ? 200_000_000
+                    : min(200_000_000, removedBytes.partialValue)
+            )
+        } catch {
+            return observation
+        }
+    }
+
+    func performDiscardCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        let metadataAuthorization =
+            IOSPendingRecordingMetadataRetirementAuthorization()
+        let snapshot = try performRepositoryBoundary { _ in
+            try journal.loadMetadataSnapshot(
+                authorization: metadataAuthorization
+            )
+        }
+        guard snapshot == nil else {
+            throw IOSPendingRecordingError.pendingSlotOccupied
+        }
+        let inventory = try await sealProtectedAudioNamespaceInventory(
+            pendingSource: nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try await validateProtectedAudioNamespace(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try await capability.discard(inventory: inventory)
+        try await revalidateProtectedAudioNamespaceInventory(
+            inventory,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
     }
 
     func performLoad(

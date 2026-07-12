@@ -92,13 +92,45 @@ public struct IOSForegroundVoicePersistenceOwner: Sendable {
                 removedLogicalByteCount: 0
             )
         }
-        return await captureSourceOwner.reconcileCaptureSourcesAtLaunch()
+        return await pendingRecordingStore.reconcileCaptureSourcesAtLaunch(
+            owner: captureSourceOwner
+        )
     }
 
+    #if DEBUG
+    /// Legacy fixture-only path. Production Voice code cannot compile against
+    /// ordinary path-based preparation.
     public func prepare(
         _ preparation: IOSPendingRecordingPreparation
     ) async throws -> IOSPendingRecording {
         try await pendingRecordingStore.prepare(preparation)
+    }
+    #endif
+
+    public func prepareCompletedCapture(
+        _ capture: IOSForegroundVoiceCompletedCapture,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSPendingRecording {
+        try await pendingRecordingStore.prepareCompletedCapture(
+            capture,
+            transcriptionConfiguration: transcriptionConfiguration
+        )
+    }
+
+    public func recoverCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSForegroundVoiceCaptureRecoveryResult {
+        try await pendingRecordingStore.recoverCapture(
+            capability,
+            transcriptionConfiguration: transcriptionConfiguration
+        )
+    }
+
+    public func discardCapture(
+        _ capability: IOSForegroundVoiceCaptureRecoveryCapability
+    ) async throws {
+        try await pendingRecordingStore.discardCapture(capability)
     }
 
     public func load() async throws -> IOSPendingRecordingObservation? {

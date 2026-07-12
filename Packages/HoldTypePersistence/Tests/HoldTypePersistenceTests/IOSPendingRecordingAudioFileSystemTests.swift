@@ -3019,6 +3019,92 @@ final class SimulatedPendingRecordingPOSIXAdapter:
         }
     }
 
+    func installCaptureTransferStaging(
+        named name: String,
+        bytes: [UInt8],
+        audioMarker: [UInt8]?,
+        transferBinding: [UInt8]?,
+        unexpectedApplicationMarker: Bool = false
+    ) {
+        lock.withLock {
+            let pending = state.pendingDirectory(create: true)!
+            let node = state.makeNode(
+                kind: .file,
+                mode: S_IFREG | mode_t(0o600),
+                bytes: bytes
+            )
+            node.protectionClass = 1
+            node.extendedAttributes[
+                "com.apple.metadata:com_apple_backup_excludeItem"
+            ] = Self.backupExclusionValue
+            node.extendedAttributes[
+                "com.holdtype.ios.pending-recording-audio"
+            ] = audioMarker
+            node.extendedAttributes[
+                "com.holdtype.ios.capture-source-transfer"
+            ] = transferBinding
+            if unexpectedApplicationMarker {
+                node.extendedAttributes["com.holdtype.ios.unexpected"] = [1]
+            }
+            pending.children[name] = node
+        }
+    }
+
+    func removePendingArtifact(named name: String) {
+        lock.withLock {
+            _ = state.pendingDirectory(create: false)?
+                .children.removeValue(forKey: name)
+        }
+    }
+
+    func setPendingArtifactAttribute(
+        named artifactName: String,
+        attributeName: String,
+        value: [UInt8]?
+    ) {
+        lock.withLock {
+            guard let node = state.pendingDirectory(create: false)?
+                .children[artifactName] else { return }
+            node.extendedAttributes[attributeName] = value
+            node.version += 1
+        }
+    }
+
+    func pendingArtifactAttribute(
+        named artifactName: String,
+        attributeName: String
+    ) -> [UInt8]? {
+        lock.withLock {
+            state.pendingDirectory(create: false)?
+                .children[artifactName]?
+                .extendedAttributes[attributeName]
+        }
+    }
+
+    func pendingArtifactBytes(named artifactName: String) -> [UInt8]? {
+        lock.withLock {
+            state.pendingDirectory(create: false)?
+                .children[artifactName]?
+                .bytes
+        }
+    }
+
+    func movePublishedPendingToCaptureStaging(
+        stagingName: String,
+        retainingByteCount: Int
+    ) {
+        lock.withLock {
+            guard let pending = state.pendingDirectory(create: false),
+                  let entry = pending.children.first(where: {
+                      $0.key.hasPrefix("recording-v1-")
+                  }) else { return }
+            pending.children.removeValue(forKey: entry.key)
+            entry.value.bytes = Array(entry.value.bytes.prefix(retainingByteCount))
+            entry.value.version += 1
+            pending.children[stagingName] = entry.value
+        }
+    }
+
     func effectiveUserID() -> IOSPendingRecordingPOSIXResult<uid_t> {
         lock.withLock {
             state.events.append("geteuid")
@@ -3379,6 +3465,22 @@ final class SimulatedPendingRecordingPOSIXAdapter:
             }
             guard value.count <= maximumByteCount else { return .failure(ERANGE) }
             return .success(value)
+        }
+    }
+
+    func extendedAttributeNames(
+        fileDescriptor: Int32,
+        maximumByteCount: Int
+    ) -> IOSPendingRecordingPOSIXResult<[String]> {
+        lock.withLock {
+            state.events.append("listxattr")
+            guard let node = state.descriptors[fileDescriptor]?.node else {
+                return .failure(EBADF)
+            }
+            let names = node.extendedAttributes.keys.sorted()
+            let byteCount = names.reduce(0) { $0 + $1.utf8.count + 1 }
+            guard byteCount <= maximumByteCount else { return .failure(ERANGE) }
+            return .success(names)
         }
     }
 
