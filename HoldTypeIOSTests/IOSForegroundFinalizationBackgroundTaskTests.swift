@@ -1,183 +1,210 @@
-import Foundation
 import Testing
 @testable import HoldTypeIOS
 
 @MainActor
 struct IOSForegroundFinalizationBackgroundTaskTests {
-    @Test func completionUsesOneNamedAssertionAndEndsItExactlyOnce()
-        async {
+    @Test func finishEndsOneNamedAssertionExactlyOnce() async throws {
         let system = BackgroundTaskFake()
-        let timeout = FinalizationLatch()
+        let timeout = FinalizationWatchdogLatch()
         let adapter = makeAdapter(system: system, timeout: timeout)
+        let expirations = FinalizationExpirationRecorder()
 
-        let result = await adapter.perform {}
-
-        #expect(result == .completed)
+        let lease = try #require(adapter.begin {
+            expirations.append($0)
+        })
+        try await finalizationEventually {
+            await timeout.requestedDurations() == [.seconds(10)]
+        }
+        #expect(adapter.hasActiveFinalization)
         #expect(system.beginNames == [
             IOSForegroundFinalizationBackgroundTask.assertionName
         ])
+
+        adapter.finish(lease)
+        adapter.finish(lease)
+        #expect(!adapter.hasActiveFinalization)
         #expect(system.ended == [.init(rawValue: 1)])
-        #expect(
-            IOSForegroundFinalizationBackgroundTask.maximumDuration
-                == .seconds(10)
-        )
+        #expect(expirations.values.isEmpty)
         await timeout.open()
     }
 
-    @Test func deniedAssertionStillRunsBoundedForegroundWork() async {
+    @Test func unavailableAssertionStillOwnsTheTenSecondWatchdog()
+        async throws {
         let system = BackgroundTaskFake(grantsAssertion: false)
-        let timeout = FinalizationLatch()
+        let timeout = FinalizationWatchdogLatch()
         let adapter = makeAdapter(system: system, timeout: timeout)
-        let work = FinalizationWorkRecorder()
+        let expirations = FinalizationExpirationRecorder()
 
-        let result = await adapter.perform {
-            await work.record()
-        }
-
-        #expect(result == .completed)
-        let didRun = await work.didRun()
-        #expect(didRun)
-        #expect(system.beginNames.count == 1)
-        #expect(system.ended.isEmpty)
-        await timeout.open()
-    }
-
-    @Test func systemExpirationWinsAndLateWorkCannotEndTwice()
-        async throws {
-        let system = BackgroundTaskFake()
-        let timeout = FinalizationLatch()
-        let work = FinalizationLatch()
-        let adapter = makeAdapter(system: system, timeout: timeout)
-
-        async let pending = adapter.perform {
-            try await work.sleep(for: .seconds(99))
-        }
-        try await finalizationEventually {
-            guard system.expiration != nil else { return false }
-            return await work.requestedDurations().count == 1
-        }
-        system.expire()
-        let result = await pending
-        #expect(result == .expired)
-        #expect(system.ended == [.init(rawValue: 1)])
-
-        await work.open()
-        await timeout.open()
-        await Task.yield()
-        #expect(system.ended == [.init(rawValue: 1)])
-    }
-
-    @Test func tenSecondWatchdogWinsAndCancelsSuspendedWork()
-        async throws {
-        let system = BackgroundTaskFake()
-        let timeout = FinalizationLatch()
-        let work = FinalizationLatch()
-        let adapter = makeAdapter(system: system, timeout: timeout)
-
-        async let pending = adapter.perform {
-            try await work.sleep(for: .seconds(99))
-        }
+        let lease = try #require(adapter.begin {
+            expirations.append($0)
+        })
         try await finalizationEventually {
             await timeout.requestedDurations() == [.seconds(10)]
         }
         await timeout.open()
-        let result = await pending
-        #expect(result == .timedOut)
-        #expect(system.ended == [.init(rawValue: 1)])
-        await work.open()
-    }
-
-    @Test func callerCancellationAndOperationFailureAreTyped()
-        async throws {
-        let cancellationSystem = BackgroundTaskFake()
-        let cancellationTimeout = FinalizationLatch()
-        let work = FinalizationLatch()
-        let cancellationAdapter = makeAdapter(
-            system: cancellationSystem,
-            timeout: cancellationTimeout
-        )
-        let task = Task { @MainActor in
-            await cancellationAdapter.perform {
-                try await work.sleep(for: .seconds(99))
-            }
-        }
         try await finalizationEventually {
-            await work.requestedDurations().count == 1
+            expirations.values == [.tenSecondWatchdog]
         }
-        task.cancel()
-        let cancellationResult = await task.value
-        #expect(cancellationResult == .cancelled)
-        #expect(cancellationSystem.ended == [.init(rawValue: 1)])
-        await work.open()
-        await cancellationTimeout.open()
+        #expect(system.ended.isEmpty)
+        #expect(adapter.hasActiveFinalization)
 
-        let failureSystem = BackgroundTaskFake()
-        let failureTimeout = FinalizationLatch()
-        let failureAdapter = makeAdapter(
-            system: failureSystem,
-            timeout: failureTimeout
-        )
-        let failureResult = await failureAdapter.perform {
-            throw FinalizationTestError.expected
-        }
-        #expect(failureResult == .failed)
-        #expect(failureSystem.ended == [.init(rawValue: 1)])
-        await failureTimeout.open()
+        adapter.finish(lease)
+        #expect(!adapter.hasActiveFinalization)
     }
 
-    @Test func concurrentCallIsBusyAndCannotAcquireASecondAssertion()
-        async throws {
+    @Test func systemExpirationCleansUpSynchronouslyAndStaysBusy()
+        throws {
         let system = BackgroundTaskFake()
-        let timeout = FinalizationLatch()
-        let work = FinalizationLatch()
+        let timeout = FinalizationWatchdogLatch()
         let adapter = makeAdapter(system: system, timeout: timeout)
-
-        async let first = adapter.perform {
-            try await work.sleep(for: .seconds(99))
-        }
-        try await finalizationEventually {
-            await work.requestedDurations().count == 1
-        }
-        let competing = await adapter.perform {}
-        #expect(competing == .busy)
-        #expect(system.beginNames.count == 1)
+        let expirations = FinalizationExpirationRecorder()
+        let lease = try #require(adapter.begin {
+            expirations.append($0)
+        })
 
         system.expire()
-        let result = await first
-        #expect(result == .expired)
-        await work.open()
+        #expect(expirations.values == [.systemExpiration])
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(adapter.hasActiveFinalization)
+        #expect(adapter.begin(onExpiration: { _ in }) == nil)
+
+        adapter.finish(lease)
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(!adapter.hasActiveFinalization)
+    }
+
+    @Test func synchronousBeginExpirationStartsNoWatchdogAndEndsOnce()
+        throws {
+        let system = BackgroundTaskFake(expiresSynchronously: true)
+        let timeout = FinalizationWatchdogLatch()
+        let adapter = makeAdapter(system: system, timeout: timeout)
+        let expirations = FinalizationExpirationRecorder()
+
+        let lease = try #require(adapter.begin {
+            expirations.append($0)
+        })
+        #expect(expirations.values == [.systemExpiration])
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(adapter.hasActiveFinalization)
+
+        adapter.finish(lease)
+        #expect(system.ended == [.init(rawValue: 1)])
+    }
+
+    @Test func liveIdentityDeliversAnExpirationRequestedBeforeAssignment() {
+        let identity = IOSLiveBackgroundTaskIdentity()
+        let identifiers = FinalizationIdentifierRecorder()
+
+        identity.requestExpiration { identifiers.append($0) }
+        #expect(identifiers.values.isEmpty)
+        identity.assign(.init(rawValue: 9)) { identifiers.append($0) }
+        identity.requestExpiration { identifiers.append($0) }
+
+        #expect(identifiers.values == [.init(rawValue: 9)])
+    }
+
+    @Test func expirationCallbackCanReenterWithoutDoubleEndOrResurrection()
+        throws {
+        let system = BackgroundTaskFake()
+        let timeout = FinalizationWatchdogLatch()
+        let adapter = makeAdapter(system: system, timeout: timeout)
+        let reentrant = FinalizationReentrantFinisher(adapter: adapter)
+        let lease = try #require(adapter.begin {
+            reentrant.handle($0)
+        })
+        reentrant.lease = lease
+
+        system.expire()
+
+        #expect(reentrant.reasons == [.systemExpiration])
+        #expect(reentrant.competingLease == nil)
+        #expect(system.beginNames.count == 1)
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(!adapter.hasActiveFinalization)
+    }
+
+    @Test func watchdogCancelsOnceAndWaitsForWorkflowQuiescence()
+        async throws {
+        let system = BackgroundTaskFake()
+        let timeout = FinalizationWatchdogLatch()
+        let adapter = makeAdapter(system: system, timeout: timeout)
+        let expirations = FinalizationExpirationRecorder()
+        let lease = try #require(adapter.begin {
+            expirations.append($0)
+        })
+
+        try await finalizationEventually {
+            await timeout.requestedDurations() == [.seconds(10)]
+        }
         await timeout.open()
+        try await finalizationEventually {
+            expirations.values == [.tenSecondWatchdog]
+        }
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(adapter.begin(onExpiration: { _ in }) == nil)
+
+        adapter.finish(lease)
+        let nextLease = adapter.begin(onExpiration: { _ in })
+        let next = try #require(nextLease)
+        #expect(system.beginNames.count == 2)
+        adapter.finish(next)
+    }
+
+    @Test func callerCancellationIsSynchronousAndLeaseBound() throws {
+        let system = BackgroundTaskFake()
+        let timeout = FinalizationWatchdogLatch()
+        let adapter = makeAdapter(system: system, timeout: timeout)
+        let firstExpirations = FinalizationExpirationRecorder()
+        let lease = try #require(adapter.begin {
+            firstExpirations.append($0)
+        })
+
+        adapter.cancel(lease)
+        adapter.cancel(lease)
+        #expect(firstExpirations.values == [.cancelled])
+        #expect(system.ended == [.init(rawValue: 1)])
+        #expect(adapter.hasActiveFinalization)
+
+        adapter.finish(.init(token: lease.token &+ 1))
+        #expect(adapter.hasActiveFinalization)
+        adapter.finish(lease)
+        #expect(!adapter.hasActiveFinalization)
     }
 
     @Test func diagnosticsAndReflectionAreRedacted() {
         let system = BackgroundTaskFake()
-        let timeout = FinalizationLatch()
+        let timeout = FinalizationWatchdogLatch()
         let adapter = makeAdapter(system: system, timeout: timeout)
         let identifier = IOSForegroundBackgroundTaskIdentifier(rawValue: 42)
+        let lease = IOSForegroundFinalizationBackgroundLease(token: 43)
 
         for value in [
             String(describing: identifier),
             String(reflecting: identifier),
             String(describing: system.client),
             String(reflecting: system.client),
+            String(describing: lease),
+            String(reflecting: lease),
             String(describing:
-                IOSForegroundFinalizationBackgroundDisposition.expired),
+                IOSForegroundFinalizationExpirationReason.systemExpiration),
             String(reflecting:
-                IOSForegroundFinalizationBackgroundDisposition.expired),
+                IOSForegroundFinalizationExpirationReason.systemExpiration),
             String(describing: adapter),
             String(reflecting: adapter),
         ] {
             #expect(value.contains("<redacted>"))
             #expect(!value.contains("42"))
+            #expect(!value.contains("43"))
         }
         #expect(Mirror(reflecting: identifier).children.isEmpty)
+        #expect(Mirror(reflecting: lease).children.isEmpty)
         #expect(Mirror(reflecting: system.client).children.isEmpty)
         #expect(Mirror(reflecting: adapter).children.isEmpty)
     }
 
     private func makeAdapter(
         system: BackgroundTaskFake,
-        timeout: FinalizationLatch
+        timeout: FinalizationWatchdogLatch
     ) -> IOSForegroundFinalizationBackgroundTask {
         IOSForegroundFinalizationBackgroundTask(
             client: system.client,
@@ -191,12 +218,18 @@ struct IOSForegroundFinalizationBackgroundTaskTests {
 @MainActor
 private final class BackgroundTaskFake {
     let grantsAssertion: Bool
+    let expiresSynchronously: Bool
     private(set) var beginNames: [String] = []
     private(set) var ended: [IOSForegroundBackgroundTaskIdentifier] = []
     private(set) var expiration: (@MainActor @Sendable () -> Void)?
+    private var nextRawValue = 0
 
-    init(grantsAssertion: Bool = true) {
+    init(
+        grantsAssertion: Bool = true,
+        expiresSynchronously: Bool = false
+    ) {
         self.grantsAssertion = grantsAssertion
+        self.expiresSynchronously = expiresSynchronously
     }
 
     var client: IOSForegroundBackgroundTaskClient {
@@ -204,9 +237,16 @@ private final class BackgroundTaskFake {
             begin: { [weak self] name, expiration in
                 guard let self else { return nil }
                 beginNames.append(name)
-                self.expiration = expiration
                 guard grantsAssertion else { return nil }
-                return IOSForegroundBackgroundTaskIdentifier(rawValue: 1)
+                nextRawValue += 1
+                let identifier = IOSForegroundBackgroundTaskIdentifier(
+                    rawValue: nextRawValue
+                )
+                self.expiration = { expiration(identifier) }
+                if expiresSynchronously {
+                    expiration(identifier)
+                }
+                return identifier
             },
             end: { [weak self] identifier in
                 self?.ended.append(identifier)
@@ -219,7 +259,50 @@ private final class BackgroundTaskFake {
     }
 }
 
-private actor FinalizationLatch {
+@MainActor
+private final class FinalizationExpirationRecorder {
+    private(set) var values: [
+        IOSForegroundFinalizationExpirationReason
+    ] = []
+
+    func append(_ value: IOSForegroundFinalizationExpirationReason) {
+        values.append(value)
+    }
+}
+
+@MainActor
+private final class FinalizationIdentifierRecorder {
+    private(set) var values: [IOSForegroundBackgroundTaskIdentifier] = []
+
+    func append(_ value: IOSForegroundBackgroundTaskIdentifier) {
+        values.append(value)
+    }
+}
+
+@MainActor
+private final class FinalizationReentrantFinisher {
+    let adapter: IOSForegroundFinalizationBackgroundTask
+    var lease: IOSForegroundFinalizationBackgroundLease?
+    private(set) var reasons: [
+        IOSForegroundFinalizationExpirationReason
+    ] = []
+    private(set) var competingLease:
+        IOSForegroundFinalizationBackgroundLease?
+
+    init(adapter: IOSForegroundFinalizationBackgroundTask) {
+        self.adapter = adapter
+    }
+
+    func handle(_ reason: IOSForegroundFinalizationExpirationReason) {
+        reasons.append(reason)
+        guard let lease else { return }
+        adapter.cancel(lease)
+        competingLease = adapter.begin(onExpiration: { _ in })
+        adapter.finish(lease)
+    }
+}
+
+private actor FinalizationWatchdogLatch {
     private var durations: [Duration] = []
     private var isOpen = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -251,17 +334,6 @@ private actor FinalizationLatch {
     }
 }
 
-private actor FinalizationWorkRecorder {
-    private var ran = false
-
-    func record() { ran = true }
-    func didRun() -> Bool { ran }
-}
-
-private enum FinalizationTestError: Error {
-    case expected
-}
-
 @MainActor
 private func finalizationEventually(
     _ predicate: @escaping @MainActor @Sendable () async -> Bool
@@ -270,5 +342,5 @@ private func finalizationEventually(
         if await predicate() { return }
         try await Task.sleep(for: .milliseconds(10))
     }
-    Issue.record("Timed out waiting for finalization adapter state.")
+    Issue.record("Timed out waiting for finalization background state.")
 }
