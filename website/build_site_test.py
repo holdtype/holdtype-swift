@@ -158,6 +158,7 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertEqual(
                     [link["href"] for link in probe.header_social_links],
                     [
+                        "https://x.com/potapenko",
                         "https://www.patreon.com/c/playphraseme",
                         "https://github.com/holdtype/holdtype-swift",
                     ],

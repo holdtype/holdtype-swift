@@ -311,6 +311,7 @@
   },
   "footer": {
     "description": "Native {brand.macOS} dictation. Source-available under {license.fsl11} with an {license.mit} future license.",
+    "twitterLink": "Follow @potapenko on {brand.twitter}",
     "patreonLink": "Support {brand.holdType} on {brand.patreon}",
     "sourceLink": "Inspect the source on {brand.github}"
   },
