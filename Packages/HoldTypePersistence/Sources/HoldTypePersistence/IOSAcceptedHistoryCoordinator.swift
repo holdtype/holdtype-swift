@@ -104,6 +104,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
     let failedHistoryAudioCleanupState:
         IOSFailedHistoryAudioCleanupOperationState
     let failedHistoryRetryState: IOSFailedHistoryRetryLiveOwnerState
+    let foregroundVoicePersistenceState:
+        IOSForegroundVoicePersistenceOperationState
     let ownerIdentity: IOSAcceptedHistoryCoordinatorOwnerIdentity
     let repositoryIdentityState:
         IOSAcceptedHistoryCoordinatorRepositoryIdentityState
@@ -128,6 +130,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
             )
         let failedHistoryRetryState =
             IOSFailedHistoryRetryLiveOwnerState()
+        let foregroundVoicePersistenceState =
+            IOSForegroundVoicePersistenceOperationState()
         let deliveryStoreIdentity = IOSAcceptedOutputDeliveryStoreIdentity()
         let outboxStoreIdentity = IOSAcceptedHistoryOutboxStoreIdentity()
         let repositoryIdentityState =
@@ -210,6 +214,8 @@ final class IOSAcceptedHistoryCoordinatorProcessContext: Sendable {
         failedHistoryAudioCleanupState =
             IOSFailedHistoryAudioCleanupOperationState()
         self.failedHistoryRetryState = failedHistoryRetryState
+        self.foregroundVoicePersistenceState =
+            foregroundVoicePersistenceState
         self.repositoryIdentityState = repositoryIdentityState
 
         let pendingGateBindingAccepted =

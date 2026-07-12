@@ -2292,6 +2292,244 @@ public actor IOSAcceptedOutputDeliveryStore {
         guard try journal.loadOpaque() != nil else { return .alreadyAbsent }
         throw IOSAcceptedOutputDeliveryError.bridgeRevocationRequired
     }
+
+    func acceptForegroundVoiceOutput(
+        _ preparation: IOSAcceptedOutputDeliveryPreparation,
+        pendingRecording: IOSPendingRecording,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              preparation.historyWrite == nil,
+              preparation.historyCapture == nil,
+              !preparation.automaticInsertionPreferenceEnabled,
+              preparation.attemptID == pendingRecording.attemptID,
+              preparation.transcriptID
+                == pendingRecording.transcriptionID,
+              preparation.outputIntent == pendingRecording.outputIntent,
+              pendingRecording.phase == .outputDelivery else {
+            throw IOSAcceptedOutputDeliveryError.invalidPreparation
+        }
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        if let uncertainAcceptanceIntent {
+            guard uncertainAcceptanceIntent.preparation == preparation else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+        } else {
+            try requireNoUncertainHistoryMutation()
+            if let current = try journal.load(),
+               !current.record.hasSameAcceptance(as: preparation) {
+                guard current.record.isForegroundVoiceAppOnlyRecord else {
+                    throw IOSAcceptedOutputDeliveryError.invalidTransition
+                }
+            }
+        }
+
+        let accepted = try acceptForHistoryCoordinator(
+            preparation,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ).record
+        guard accepted.isExactForegroundVoiceDestination(
+            for: pendingRecording
+        ) else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        return accepted
+    }
+
+    func confirmForegroundVoiceDestination(
+        expected: IOSAcceptedOutputDeliveryExpectation,
+        pendingRecording: IOSPendingRecording,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSForegroundVoiceAcceptedDestinationAuthorization {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              pendingRecording.phase == .outputDelivery else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireNoUncertainHistoryMutation()
+        let current = try requireSnapshot(expected: expected)
+        guard current.record.isExactForegroundVoiceDestination(
+            for: pendingRecording
+        ) else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        let confirmed = try confirmIdentical(current)
+        guard confirmed.record.isExactForegroundVoiceDestination(
+            for: pendingRecording
+        ) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        return IOSForegroundVoiceAcceptedDestinationAuthorization(
+            record: confirmed.record,
+            snapshot: confirmed,
+            storeIdentity: storeIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    func loadForegroundVoiceLatestResult(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSAcceptedOutputDeliveryObservation? {
+        guard operationGateBinding.proves(operationLeaseAuthorization) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireNoUncertainHistoryMutation()
+        guard let current = try journal.load() else { return nil }
+        guard current.record.isForegroundVoiceAppOnlyRecord else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        return observation(for: current.record)
+    }
+
+    func clearForegroundVoiceLatestResult(
+        expected: IOSAcceptedOutputDeliveryExpectation,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSForegroundVoiceClearResult {
+        guard operationGateBinding.proves(operationLeaseAuthorization) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireNoUncertainHistoryMutation()
+        if let current = try journal.load() {
+            guard current.record.isForegroundVoiceAppOnlyRecord else {
+                throw IOSAcceptedOutputDeliveryError.invalidTransition
+            }
+        }
+
+        do {
+            return try mapForegroundVoiceClearResult(
+                clear(expected: expected)
+            )
+        } catch IOSAcceptedOutputDeliveryError.commitUncertain {
+            do {
+                return try mapForegroundVoiceClearResult(
+                    clear(expected: expected)
+                )
+            } catch {
+                if try hasConfirmedForegroundVoiceTombstone(
+                    after: expected
+                ) {
+                    return .clearedCleanupPending
+                }
+                throw error
+            }
+        } catch {
+            if try hasConfirmedForegroundVoiceTombstone(after: expected) {
+                return .clearedCleanupPending
+            }
+            throw error
+        }
+    }
+
+    func proveForegroundVoiceDestinationAbsent(
+        preparation: IOSAcceptedOutputDeliveryPreparation,
+        pendingRecording: IOSPendingRecording,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSForegroundVoiceNoDestinationAuthorization {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              preparation.historyWrite == nil,
+              preparation.historyCapture == nil,
+              !preparation.automaticInsertionPreferenceEnabled,
+              pendingRecording.phase == .outputDelivery,
+              preparation.attemptID == pendingRecording.attemptID,
+              preparation.transcriptID
+                == pendingRecording.transcriptionID,
+              preparation.outputIntent == pendingRecording.outputIntent else {
+            throw IOSAcceptedOutputDeliveryError.invalidPreparation
+        }
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        try requireNoUncertainHistoryMutationExceptAcceptance()
+
+        if let intent = uncertainAcceptanceIntent {
+            guard intent.preparation == preparation else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            let current = try journal.load()
+            if current?.record == intent.intended {
+                throw IOSAcceptedOutputDeliveryError.invalidTransition
+            }
+            let sourceStillCurrent: Bool = switch (intent.source, current) {
+            case (.missing, .none):
+                true
+            case (.existing(let source), .some(let current)):
+                source == current
+            default:
+                false
+            }
+            guard sourceStillCurrent else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            clearAcceptanceIntent(keeping: current)
+        }
+
+        try requireNoUncertainHistoryMutation()
+        if let current = try journal.load() {
+            if current.record.hasSameAcceptance(as: preparation) {
+                throw IOSAcceptedOutputDeliveryError.invalidTransition
+            }
+            guard !current.record.collides(with: preparation) else {
+                throw IOSAcceptedOutputDeliveryError.identityCollision
+            }
+        }
+
+        return IOSForegroundVoiceNoDestinationAuthorization(
+            preparation: preparation,
+            pendingRecording: pendingRecording,
+            storeIdentity: storeIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    private func mapForegroundVoiceClearResult(
+        _ result: IOSAcceptedOutputDeliveryRemovalResult
+    ) -> IOSForegroundVoiceClearResult {
+        switch result {
+        case .removed:
+            .cleared
+        case .alreadyAbsent:
+            .alreadyAbsent
+        }
+    }
+
+    private func hasConfirmedForegroundVoiceTombstone(
+        after expected: IOSAcceptedOutputDeliveryExpectation
+    ) throws -> Bool {
+        guard let current = try journal.load(),
+              current.record.isForegroundVoiceAppOnlyRecord,
+              current.record.deliveryState == .discarded,
+              isImmediateRetry(
+                  current.record,
+                  after: expected,
+                  allowsDiscardedProvenanceClear: true
+              ) else {
+            return false
+        }
+        _ = try confirmIdentical(current)
+        return true
+    }
 }
 
 private extension IOSAcceptedOutputDeliveryStore {

@@ -825,6 +825,213 @@ public actor IOSPendingRecordingStore {
         )
     }
 
+    func removeForegroundVoiceAcceptedOutputAudio(
+        expected: IOSPendingRecording,
+        destinationAuthorization:
+            IOSForegroundVoiceAcceptedDestinationAuthorization,
+        deliveryStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSForegroundVoicePendingAudioRemovalAuthorization {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              expected.phase == .outputDelivery,
+              destinationAuthorization.provesDestination(
+                  for: expected,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        let current = try performRepositoryBoundary { _ in
+            try journal.load()
+        }
+        if let current {
+            guard current == expected else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+            try retireForegroundVoiceDispatch(for: current)
+        } else {
+            guard let transcriptionID = expected.transcriptionID,
+                  activeDispatchIdentity == nil,
+                  liveOwnerRegistry.isRetired(
+                      attemptID: expected.attemptID,
+                      transcriptionID: transcriptionID
+                  ) else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+        }
+        try await requireFailedOwnershipAbsent(
+            for: expected,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+
+        do {
+            _ = try await performRepositoryBoundary { expectedRoot in
+                try await audioFileSystem.removePublishedAudioIfPresent(
+                    relativeIdentifier: expected.audioRelativeIdentifier,
+                    attemptID: expected.attemptID,
+                    expectedByteCount: expected.byteCount,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw mapAudioError(error, operation: .remove)
+        }
+        if let current {
+            guard try requireCurrent(
+                expected: IOSPendingRecordingCASExpectation(
+                    recording: current
+                )
+            ) == current else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+        } else {
+            guard try performRepositoryBoundary({ _ in
+                try journal.load()
+            }) == nil else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+        }
+        return IOSForegroundVoicePendingAudioRemovalAuthorization(
+            recording: expected,
+            storeIdentity: storeIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    func retireForegroundVoiceAcceptedOutputJournal(
+        expected: IOSPendingRecording,
+        destinationAuthorization:
+            IOSForegroundVoiceAcceptedDestinationAuthorization,
+        audioRemovalAuthorization:
+            IOSForegroundVoicePendingAudioRemovalAuthorization,
+        deliveryStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              expected.phase == .outputDelivery,
+              destinationAuthorization.provesDestination(
+                  for: expected,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ),
+              audioRemovalAuthorization.provesRemoval(
+                  for: expected,
+                  storeIdentity: storeIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ),
+              activeDispatchIdentity == nil,
+              let transcriptionID = expected.transcriptionID,
+              liveOwnerRegistry.isRetired(
+                  attemptID: expected.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        try await requireFailedOwnershipAbsent(
+            for: expected,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard let current = try performRepositoryBoundary({ _ in
+            try journal.load()
+        }) else {
+            liveOwnerRegistry.clearRetired(attemptID: expected.attemptID)
+            return
+        }
+        guard current == expected else {
+            throw IOSPendingRecordingError.compareAndSwapFailed
+        }
+        do {
+            _ = try performRepositoryBoundary { expectedRoot in
+                try journal.remove(
+                    expected: current,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch let error as IOSPendingRecordingError {
+            throw error
+        } catch {
+            throw IOSPendingRecordingError.journalRemoveFailed
+        }
+        liveOwnerRegistry.clearRetired(attemptID: expected.attemptID)
+    }
+
+    func moveForegroundVoiceOutputToRecovery(
+        expectedSource: IOSPendingRecording,
+        absenceAuthorization:
+            IOSForegroundVoiceNoDestinationAuthorization,
+        deliveryStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSPendingRecording {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              absenceAuthorization.provesAbsence(
+                  for: expectedSource,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ),
+              let current = try performRepositoryBoundary({ _ in
+                  try journal.load()
+              }) else {
+            throw IOSPendingRecordingError.compareAndSwapFailed
+        }
+        if isForegroundVoiceRecovery(
+            current,
+            derivedFrom: expectedSource
+        ) {
+            try confirmJournalDurability(current)
+            return current
+        }
+        guard current == expectedSource,
+              current.phase == .outputDelivery,
+              absenceAuthorization.provesAbsence(
+                  for: current,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        try await requireFailedOwnershipAbsent(
+            for: current,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        _ = try await validatedAudio(for: current)
+        try retireForegroundVoiceDispatch(for: current)
+
+        let updated = try replacing(
+            current,
+            phase: .awaitingRecovery,
+            transcriptionID: nil,
+            transcriptionModel: current.transcriptionModel,
+            transcriptionLanguageCode: current.transcriptionLanguageCode
+        )
+        try performRepositoryBoundary { expectedRoot in
+            try journal.replace(
+                updated,
+                expected: current,
+                expectedRepositoryRoot: expectedRoot
+            )
+        }
+        return updated
+    }
+
     public func discard(
         expected: IOSPendingRecordingCASExpectation
     ) async throws -> IOSPendingRecordingDiscardResult {
@@ -2349,6 +2556,55 @@ private extension IOSPendingRecordingStore {
         activeDispatchAuthorization?.retireAndCancel()
         activeDispatchAuthorization = nil
         self.activeDispatchIdentity = nil
+    }
+
+    private func retireForegroundVoiceDispatch(
+        for recording: IOSPendingRecording
+    ) throws {
+        guard let transcriptionID = recording.transcriptionID else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        let expectedIdentity = ActiveDispatchIdentity(
+            attemptID: recording.attemptID,
+            transcriptionID: transcriptionID
+        )
+        if activeDispatchIdentity == expectedIdentity {
+            liveOwnerRegistry.retire(
+                attemptID: recording.attemptID,
+                transcriptionID: transcriptionID
+            )
+            activeDispatchAuthorization?.retireAndCancel()
+            activeDispatchAuthorization = nil
+            activeDispatchIdentity = nil
+            return
+        }
+        guard activeDispatchIdentity == nil,
+              liveOwnerRegistry.isRetired(
+                  attemptID: recording.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+    }
+
+    private func isForegroundVoiceRecovery(
+        _ candidate: IOSPendingRecording,
+        derivedFrom source: IOSPendingRecording
+    ) -> Bool {
+        candidate.attemptID == source.attemptID
+            && candidate.audioRelativeIdentifier
+                == source.audioRelativeIdentifier
+            && candidate.createdAt == source.createdAt
+            && candidate.updatedAt >= source.updatedAt
+            && candidate.phase == .awaitingRecovery
+            && candidate.outputIntent == source.outputIntent
+            && candidate.transcriptionID == nil
+            && candidate.transcriptionModel == source.transcriptionModel
+            && candidate.transcriptionLanguageCode
+                == source.transcriptionLanguageCode
+            && candidate.durationMilliseconds
+                == source.durationMilliseconds
+            && candidate.byteCount == source.byteCount
     }
 
     func performRecoverAfterProcessLoss(
