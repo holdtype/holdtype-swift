@@ -20,9 +20,11 @@ Milestone: P2 C4.4C accepted-output handoff and terminal success
 - Preserve the existing strict version-1 accepted-delivery wire while adding a
   strict version-2 form for store-authorized failed-Retry provenance only.
 
-C4.4D still owns provider-free process-loss recovery across every interrupted
-C4.4 phase. C4.5 still owns containing-app lifecycle wiring and the public
-redacted app boundary.
+At this checkpoint C4.4D still owned provider-free process-loss recovery across
+every interrupted C4.4 phase, and C4.5 still owned containing-app lifecycle
+wiring plus the public redacted app boundary. Both are now complete; final C4
+evidence lives in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.
 
 ## Automated Evidence
 
@@ -128,6 +130,8 @@ ownership, strict v1/v2 provenance, post-expiry local completion, Store
 uncertainty, terminal History, audio-cleanup reservation, privacy, and
 independent review.
 
-The next checkpoint is C4.4D: recover every durable interrupted Retry phase
-after process loss without provider replay, caller-reconstructed text, or
-cross-store authority widening.
+The historical next checkpoint was C4.4D: recover every durable interrupted
+Retry phase after process loss without provider replay, caller-reconstructed
+text, or cross-store authority widening. C4.4D and C4.5 are now complete;
+final C4 evidence lives in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.

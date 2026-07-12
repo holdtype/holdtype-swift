@@ -3,6 +3,15 @@ import Testing
 @testable import HoldTypePersistence
 
 struct CredentialPresenceMarkerTests {
+    @Test func productionStorageLocationIsStableAndAppPrivate() {
+        let base = URL(fileURLWithPath: "/Library/Application Support")
+
+        #expect(
+            IOSCredentialPresenceMarkerStorageLocation.fileURL(in: base).path
+                == "/Library/Application Support/HoldType/ios-openai-credential-presence.json"
+        )
+    }
+
     @Test func runtimeValueAllowsOnlyValidStateAndMutationCombinations() throws {
         let date = try fixtureDate()
 

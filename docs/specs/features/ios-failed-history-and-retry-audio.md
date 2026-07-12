@@ -878,6 +878,142 @@ boundary:
    after lifecycle and public-boundary integration and owns the final C4
    verdict.
 
+### C4.5 Containing-App Boundary
+
+C4.5 exposes one containing-app-only facade over the completed failed-History
+store. Its failed-row identifier is opaque and non-Codable. A read returns
+either a bounded current-generation list or `pendingLocalRecovery`; it never
+turns corrupt, future, unavailable, conflicted, uncertain, or unresolved
+logical Retry/policy state into an optimistic empty list. Post-policy physical
+cleanup may remain pending while the already committed logical read is empty,
+as required by the Clear and Disable contract. That exception requires a
+retained post-boundary cutover receipt whose owner and logical state match the
+freshly confirmed durable policy, a valid failed journal with no unresolved
+row ownership, and no current-generation row; old-generation audio is not
+presented as usable while
+that exact cleanup continues. Each item contains only its
+opaque row ID, compact failure category and pipeline stage, retry count, output
+intent, model, optional language, creation and update dates, duration, and a
+coarse audio-availability value. A non-empty `available` result is reported
+only after the app-private protected-audio namespace passes its bounded
+structural check. Outside the proved post-policy logical-empty exception, an
+unresolved audio check makes the whole read pending rather than guessing which
+file is usable. The model does not prove provider readiness and Retry repeats
+the exact descriptor-backed media validation.
+
+Delete accepts only an opaque identifier previously issued by this facade.
+Its public result is `complete` or `pendingLocalRecovery`; it exposes no
+tombstone, path, receipt, revision, or cleanup capability. `complete` includes
+an already unavailable row and the durable row-to-tombstone success boundary.
+Post-boundary cleanup trouble remains provider-free pending work and never
+resurrects the item.
+
+Explicit Retry is exposed only by a process-owned containing-app service whose
+session factory freshly resolves current settings, Library content, the
+requested output intent, and the app's canonical credential coordinator before
+the first durable Retry write. The action accepts no caller-provided
+`credentialEligible` flag, path, row, configuration snapshot, or provider
+capability. A ready session binds one transient resolved credential to a fixed
+provider adapter and the validated current configuration; it is non-Codable,
+redacted, and cannot be reconstructed from failed-row storage. Standard Retry
+passes no Translation configuration. Translation Retry requires a currently
+valid Translation route. Both compose the current prompt with no Nearby Text,
+freeze current correction and local-processing inputs, and force automatic
+insertion off.
+
+Within the failed-History action surface, only row DTOs and redacted
+load/Delete/Retry results are ordinary public API. The separate lifecycle
+opportunity and complete-or-pending result are also ordinary public,
+payload-free values. The configuration, ready session, provider protocol,
+request and text outcome, injectable factory seam, and Persistence facade
+initializer are restricted to the IOSCore integration SPI and are absent from
+the ordinary public symbol graph. IOSCore exposes one fixed process-owned
+service; its production constructor is integration SPI rather than an ordinary
+view/scene API. App code outside the composition root cannot construct another
+service or supply its own readiness flag, configuration, provider, credential
+generation, or session.
+
+Transcription Retry creates its one legacy URL-based provider copy only inside
+the dedicated `holdtype-ios-failed-history-retry-v1` temporary namespace. The
+namespace is owner-only and exactly marked. Before the first non-empty audio
+write, the same open file descriptor must prove mode `0600`, Complete file
+protection, backup exclusion, the exact retry-audio marker, a single link, and
+an exclusive advisory lock. The provider copy stays locked through the request;
+normal and cancellation cleanup retain the directory and file descriptors and
+remove only when the final descriptor and path identities still match. A
+replacement, symlink, hard link, changed mode, marker, protection, size, or
+identity fails closed and is preserved. Darwin has no compare-and-unlink
+primitive, so the descriptor and path are rechecked immediately before the
+descriptor-relative `unlinkat`; no caller receives this narrow cleanup
+authority.
+
+Containing-app startup schedules one provider-free, process-once orphan pass;
+the keyboard never schedules or links it. The pass does not create or repair a
+missing, symlinked, unmarked, or invalid namespace. It inspects at most 128
+entries, removes at most 16 files, accounts at most 200 MB, runs for less than
+500 ms, and accepts only an exact marked retry filename at least one hour old,
+smaller than the provider limit, owner-only, single-linked, unchanged, and not
+locked by a live request. Young, active, malformed, unknown, unmarked, linked,
+foreign, or raced entries are preserved. It never scans or removes a durable
+PendingRecording or failed-History source recording.
+
+The public Retry result is limited to accepted, recoverable failure,
+cancelled, setup required with its semantic owning destination, unavailable,
+or pending local recovery. It carries no transcript, credential, provider
+payload, status code, path, durable identifier, receipt, or capability.
+Missing or invalid setup returns before reservation and leaves the row and
+retry count unchanged. Cancellation after reservation uses the existing exact
+retirement path; late provider output remains unauthorized. Accepted output
+enters the normal accepted-output recovery path and is never inserted into an
+arbitrary field by this service. Cancellation before any reservation returns
+`cancelled` and leaves the row and retry count unchanged. Once exact Retry
+success is committed, a later History-policy `cancelled` or `notRequested`
+outcome still reports public Retry `accepted`; public `cancelled` is reserved
+for user/task cancellation. A credential rejection at Transcription,
+Correction, or Translation records only the exact resolved process credential
+generation; the next preflight routes to OpenAI setup, while a late rejection
+from an older generation cannot poison a replacement key.
+
+The containing app owns one lifecycle-recovery scheduler for the whole
+process, not one per scene or view. App construction schedules one launch
+opportunity before History, pending-recording, or delivery consumers may
+operate. The initial SwiftUI `active` observation is part of that launch and
+does not schedule a duplicate pass. A later genuine inactive/background to
+active transition schedules at most one foreground opportunity. Concurrent or
+multi-scene notifications coalesce while a pass is in flight. A pending launch
+opportunity remains classified as launch work on a later lifecycle trigger
+until it completes.
+
+Each lifecycle opportunity is bounded and provider-free:
+
+1. on launch with no retained History-policy cutover, run one strict
+   standalone failed-Retry cold scan and stop if it performs or retains work;
+   a retained cutover bypasses this standalone scan so its owning cleanup can
+   resume;
+2. on launch only, check whether the one process-lost
+   `PendingRecording.outputDelivery` has an exact non-discarded ordinary
+   accepted destination, and retire that Pending audio and journal before any
+   generic expiry or discard can remove the proof;
+3. run one canonical History-policy cleanup pass; that pass owns or resumes
+   any retained cutover and performs its embedded strict failed-Retry scan,
+   while preserving the existing one-failed-action bound;
+4. stop immediately on pending, corruption, unavailable protected data,
+   retained ownership, or uncertainty;
+5. after History cleanup is complete, run one accepted-output/History recovery
+   pass and stop if it remains pending;
+6. on a launch opportunity only, observe any remaining PendingRecording slot
+   and convert one process-lost provider phase to explicit recovery; ordinary
+   foreground opportunities never manufacture process-loss authority.
+
+There is no automatic second pass, timer, polling loop, detached task,
+`BGTaskScheduler` job, or promise of background completion. A later ordinary
+lifecycle opportunity or explicit user action may try again. Passive recovery
+does not read Keychain, request microphone or another permission, construct a
+Retry provider session, contact OpenAI, accept new provider output, publish to
+App Group, or insert text. Its public result is only `complete` or
+`pendingLocalRecovery`; descriptions and reflection reveal no sub-operation or
+row state.
+
 ## Coordination And Isolation
 
 - Failed transfer, Delete, retention, cleanup, Retry, accepted-output success,
@@ -969,6 +1105,10 @@ boundary:
   insertion off, preserved category and stage for cancel or unmappable
   outcomes, non-authoritative Usage failure, and no automatic provider call
   after process loss.
+- Test Retry scratch protection and exact markers on the first-write file
+  descriptor, lock retention, cleanup cancellation and replacement races, and
+  bounded startup orphan selection. Preserve fresh, active, malformed,
+  unmarked, symlinked, hard-linked, foreign, and final-check-changed entries.
 - Test that a matching `acceptingOutput` delivery blocks replacement, Clear
   Latest, expiry, bridge publication, and every other generic delivery mutation
   across process loss. Cover a missing slot, a wholly unrelated frozen

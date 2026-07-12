@@ -23,7 +23,7 @@ enum IOSFailedHistoryError: Error, Equatable, Sendable {
     case maintenanceFailed
 }
 
-enum IOSFailedHistoryFailureCategory: String, CaseIterable, Equatable,
+public enum IOSFailedHistoryFailureCategory: String, CaseIterable, Equatable,
     Sendable {
     case credentialRejected
     case networkUnavailable
@@ -37,7 +37,7 @@ enum IOSFailedHistoryFailureCategory: String, CaseIterable, Equatable,
     case echoRejected
 }
 
-enum IOSFailedHistoryPipelineStage: String, CaseIterable, Equatable,
+public enum IOSFailedHistoryPipelineStage: String, CaseIterable, Equatable,
     Sendable {
     case transcription
     case translation
@@ -411,19 +411,25 @@ extension IOSFailedHistoryError: CustomStringConvertible,
 extension IOSFailedHistoryFailureCategory: CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String {
+    public var description: String {
         "IOSFailedHistoryFailureCategory(redacted)"
     }
-    var debugDescription: String { description }
-    var customMirror: Mirror { IOSFailedHistoryRedaction.mirror(of: self) }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror {
+        IOSFailedHistoryRedaction.mirror(of: self)
+    }
 }
 
 extension IOSFailedHistoryPipelineStage: CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { "IOSFailedHistoryPipelineStage(redacted)" }
-    var debugDescription: String { description }
-    var customMirror: Mirror { IOSFailedHistoryRedaction.mirror(of: self) }
+    public var description: String {
+        "IOSFailedHistoryPipelineStage(redacted)"
+    }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror {
+        IOSFailedHistoryRedaction.mirror(of: self)
+    }
 }
 
 extension IOSFailedHistoryOwnershipState: CustomStringConvertible,

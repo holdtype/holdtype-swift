@@ -364,16 +364,17 @@ host app, state, expected result, actual result, and go/no-go decision.
   an exact stale unresolved standalone marker. Its sealed expired-delivery
   handoff remains valid across clock rollback without publishing observation or
   cleanup state. Final C3 evidence lives in
-  `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. Bounded failed History
-  plus retry-audio ownership is specified in
-  `docs/specs/features/ios-failed-history-and-retry-audio.md`. C4 next adds its
-  strict five-row store, exact PendingRecording audio transfer and tombstone
-  cleanup, C3 cutover integration, and one explicit cancellable Retry whose
-  success first commits normal accepted output. The independent recording cache
-  follows. The shipping History toggle, Clear History action, and first-use
-  disclosure remain deferred until failed rows and retry-only audio join the
-  same generation and cleanup path. All remain outside the keyboard until the
-  directional bridge contract is implemented behind the physical M0 gates.
+  `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. C4 and P2 are now
+  complete: bounded failed History, exact PendingRecording audio transfer,
+  tombstone cleanup, policy cutover, cancellable Retry, accepted-output success,
+  process-loss recovery, protected Retry scratch, and the redacted
+  containing-app service are verified in
+  `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
+  Public-symbol and binary checks confirm that none of this provider,
+  persistence, History, Keychain, or scratch machinery entered the keyboard.
+  P3 may now build the native containing-app state owners and editors; the
+  independent recording cache and directional bridge remain later milestones
+  behind the physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain
   separate. The containing-app output handoff is now narrowed to accepted text

@@ -1707,6 +1707,47 @@ struct IOSPendingRecordingStoreTests {
         #expect(recovered.transcriptionID == nil)
     }
 
+    @Test func containingAppCompletesExactAcceptedOutputAndResumesAudioFirstCrash()
+        async throws {
+        let fixture = StoreFixture()
+        let prepared = try await fixture.store.prepare(fixture.preparation())
+        _ = try await fixture.store.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: UUID()
+        )
+        let transcribing = try #require(fixture.journal.recording)
+        let postProcessing = try await fixture.store.markPostProcessing(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: transcribing
+            )
+        )
+        let outputDelivery = try await fixture.store.markOutputDelivery(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: postProcessing
+            )
+        )
+        let destination = FakePendingDestinationInspector()
+        destination.hasDestination = true
+        let relaunchedStore = fixture.makeStore(
+            destinationInspector: destination
+        )
+        fixture.journal.removeError = .journalRemoveFailed
+
+        await #expect(throws: IOSPendingRecordingError.journalRemoveFailed) {
+            _ = try await relaunchedStore
+                .completeAcceptedOutputForContainingAppLaunchIfPresent()
+        }
+        #expect(!fixture.audio.published)
+        #expect(fixture.journal.recording == outputDelivery)
+
+        fixture.journal.removeError = nil
+        #expect(
+            try await relaunchedStore
+                .completeAcceptedOutputForContainingAppLaunchIfPresent()
+        )
+        #expect(fixture.journal.recording == nil)
+    }
+
     @Test func publicDestinationProofReceivesExactDurableIdentity() async throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(
@@ -3005,9 +3046,9 @@ private final class FakePendingDestinationInspector:
     }
 
     func hasCanonicalDestination(
-        attemptID: UUID,
-        transcriptionID: UUID
+        for recording: IOSPendingRecording
     ) throws -> Bool {
+        _ = recording
         if let error = lock.withLock({ storedError }) {
             throw error
         }

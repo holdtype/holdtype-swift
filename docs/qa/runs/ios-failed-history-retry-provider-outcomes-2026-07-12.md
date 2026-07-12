@@ -32,8 +32,10 @@ Milestone: P2 C4.4B provider outcomes and durable Retry failure
 
 C4.4C still owns `acceptingOutput`, the failed/delivery interlock, normal
 accepted-output publication, terminal History provenance, and success cleanup.
-C4.4D/C4.5 still own process-loss integration and the public containing-app
-factory backed by fresh Keychain/setup resolution.
+At this checkpoint C4.4D and C4.5 still owned process-loss integration and the
+public containing-app factory backed by fresh Keychain/setup resolution. Both
+are now complete; final C4 evidence lives in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.
 
 ## Automated Evidence
 
@@ -155,7 +157,9 @@ public API isolation, keyboard binary isolation, exact Store uncertainty,
 bounded adapter cancellation, late-result rejection, payload redaction, and
 independent review.
 
-The next checkpoint is C4.4C: commit `acceptingOutput`, freeze and protect the
-exact predecessor delivery, publish normal accepted output under the shared
-failed/delivery interlock, seal terminal History provenance, and move the
-successful failed row to its exact cleanup tombstone.
+The historical next checkpoint was C4.4C: commit `acceptingOutput`, freeze and
+protect the exact predecessor delivery, publish normal accepted output under
+the shared failed/delivery interlock, seal terminal History provenance, and
+move the successful failed row to its exact cleanup tombstone. C4.4C through
+C4.5 are now complete; final C4 evidence lives in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.

@@ -15,6 +15,7 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(path: "../HoldTypeDomain"),
         .package(path: "../HoldTypeOpenAI"),
         .package(path: "../HoldTypePersistence"),
     ],
@@ -22,6 +23,7 @@ let package = Package(
         .target(
             name: "HoldTypeIOSCore",
             dependencies: [
+                .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
                 "HoldTypeOpenAI",
                 "HoldTypePersistence",
             ]

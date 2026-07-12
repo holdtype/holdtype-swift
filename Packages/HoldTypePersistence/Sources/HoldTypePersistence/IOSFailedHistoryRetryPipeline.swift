@@ -4,7 +4,11 @@ import HoldTypeDomain
 /// Payload-free provider outcome accepted by the app-owned Retry adapter.
 /// Provider status codes, localized errors, credentials, and response payloads
 /// must be discarded before this boundary.
-enum IOSFailedHistoryRetryRuntimeFailure: CaseIterable, Equatable, Sendable {
+@_spi(HoldTypeIOSCore)
+public enum IOSFailedHistoryRetryRuntimeFailure:
+    CaseIterable,
+    Equatable,
+    Sendable {
     case credentialMissing
     case credentialUnavailable
     case credentialRejected
@@ -59,32 +63,71 @@ enum IOSFailedHistoryRetryRuntimeFailure: CaseIterable, Equatable, Sendable {
     }
 }
 
-enum IOSFailedHistoryRetryProviderTextOutcome: Equatable, Sendable {
+@_spi(HoldTypeIOSCore)
+public enum IOSFailedHistoryRetryProviderTextOutcome: Equatable, Sendable {
     case success(String)
     case failure(IOSFailedHistoryRetryRuntimeFailure)
 }
 
-struct IOSFailedHistoryRetryTranscriptionRequest: Sendable {
-    let transcriptionID: UUID
-    let audio: IOSPendingTranscriptionAudio
-    let resolvedModel: String
-    let resolvedLanguageCode: String?
-    let promptComposition: TranscriptionPromptComposition
-    let timeout: Duration
+@_spi(HoldTypeIOSCore)
+public struct IOSFailedHistoryRetryTranscriptionRequest: Sendable {
+    public let transcriptionID: UUID
+    public let audio: IOSPendingTranscriptionAudio
+    public let resolvedModel: String
+    public let resolvedLanguageCode: String?
+    public let promptComposition: TranscriptionPromptComposition
+    public let timeout: Duration
+
+    public init(
+        transcriptionID: UUID,
+        audio: IOSPendingTranscriptionAudio,
+        resolvedModel: String,
+        resolvedLanguageCode: String?,
+        promptComposition: TranscriptionPromptComposition,
+        timeout: Duration
+    ) {
+        self.transcriptionID = transcriptionID
+        self.audio = audio
+        self.resolvedModel = resolvedModel
+        self.resolvedLanguageCode = resolvedLanguageCode
+        self.promptComposition = promptComposition
+        self.timeout = timeout
+    }
 }
 
-struct IOSFailedHistoryRetryCorrectionRequest: Equatable, Sendable {
-    let transcript: AcceptedTranscript
-    let configuration: TextCorrectionConfiguration
-    let timeout: Duration
+@_spi(HoldTypeIOSCore)
+public struct IOSFailedHistoryRetryCorrectionRequest: Equatable, Sendable {
+    public let transcript: AcceptedTranscript
+    public let configuration: TextCorrectionConfiguration
+    public let timeout: Duration
+
+    public init(
+        transcript: AcceptedTranscript,
+        configuration: TextCorrectionConfiguration,
+        timeout: Duration
+    ) {
+        self.transcript = transcript
+        self.configuration = configuration
+        self.timeout = timeout
+    }
 }
 
-struct IOSFailedHistoryRetryTranslationRequest: Equatable, Sendable {
-    let translationRequest: TextTranslationRequest
-    let timeout: Duration
+@_spi(HoldTypeIOSCore)
+public struct IOSFailedHistoryRetryTranslationRequest: Equatable, Sendable {
+    public let translationRequest: TextTranslationRequest
+    public let timeout: Duration
+
+    public init(
+        translationRequest: TextTranslationRequest,
+        timeout: Duration
+    ) {
+        self.translationRequest = translationRequest
+        self.timeout = timeout
+    }
 }
 
-protocol IOSFailedHistoryRetryProviderExecuting: Sendable {
+@_spi(HoldTypeIOSCore)
+public protocol IOSFailedHistoryRetryProviderExecuting: Sendable {
     /// Every adapter call must finish within its own bounded transport/local-
     /// I/O cancellation contract. The pipeline retires stage authority first,
     /// then drains only this adapter task; abandoned lower-layer work must not
@@ -526,45 +569,45 @@ extension IOSFailedHistoryRetryRuntimeFailure:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { redactedDescription }
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    public var description: String { redactedDescription }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSFailedHistoryRetryProviderTextOutcome:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { redactedDescription }
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    public var description: String { redactedDescription }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSFailedHistoryRetryTranscriptionRequest:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { redactedDescription }
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    public var description: String { redactedDescription }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSFailedHistoryRetryCorrectionRequest:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { redactedDescription }
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    public var description: String { redactedDescription }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSFailedHistoryRetryTranslationRequest:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
-    var description: String { redactedDescription }
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    public var description: String { redactedDescription }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSFailedHistoryRetryPipelineFailure:

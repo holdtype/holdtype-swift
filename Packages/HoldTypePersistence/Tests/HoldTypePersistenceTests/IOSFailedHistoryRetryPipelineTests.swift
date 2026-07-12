@@ -1,7 +1,7 @@
 import Foundation
 import HoldTypeDomain
 import Testing
-@testable import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 
 struct IOSFailedHistoryRetryPipelineTests {
     @Test func runtimeFailureMappingIsTotalAndPayloadFree() {

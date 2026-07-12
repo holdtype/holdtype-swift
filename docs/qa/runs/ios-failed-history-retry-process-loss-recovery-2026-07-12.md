@@ -21,8 +21,10 @@ Milestone: P2 C4.4D provider-free process-loss recovery and integration
 - Keep the recovery entrypoint and every bearer capability module-internal,
   redacted, app-private, and absent from the keyboard extension.
 
-C4.5 still owns containing-app lifecycle scheduling, public redacted app
-results, and the final C4 user-facing boundary.
+At this checkpoint C4.5 still owned containing-app lifecycle scheduling, public
+redacted app results, and the final C4 user-facing boundary. It is now complete;
+final C4 evidence lives in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.
 
 ## Automated Evidence
 
@@ -164,6 +166,8 @@ production-context relaunch, policy integration, mutation uncertainty, temporal
 rollback, public API isolation, keyboard binary isolation, privacy, and
 independent review.
 
-The next checkpoint is C4.5: invoke these provider-free operations from the
-containing-app lifecycle, expose only redacted app-facing status/actions, repeat
-the full regression, and record the final C4 verdict.
+The historical next checkpoint was C4.5: invoke these provider-free operations
+from the containing-app lifecycle, expose only redacted app-facing
+status/actions, repeat the full regression, and record the final C4 verdict.
+That checkpoint is now complete in
+`ios-failed-history-containing-app-boundary-2026-07-12.md`.

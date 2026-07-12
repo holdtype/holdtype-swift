@@ -36,14 +36,18 @@ public actor IOSOpenAICredentialCoordinator {
     private var rejectedGeneration: IOSOpenAICredentialGeneration?
 
     public init(
-        applicationIdentifierAccessGroup: String,
-        markerFileURL: URL
+        applicationSupportDirectoryURL: URL,
+        applicationIdentifierAccessGroup: String
     ) throws {
         keychainStorage = try OpenAIAPIKeyKeychainStorage(
             applicationIdentifierAccessGroup: applicationIdentifierAccessGroup
         )
         markerStore = RepositoryCredentialPresenceMarkerStore(
-            repository: CredentialPresenceMarkerRepository(fileURL: markerFileURL)
+            repository: CredentialPresenceMarkerRepository(
+                fileURL: IOSCredentialPresenceMarkerStorageLocation.fileURL(
+                    in: applicationSupportDirectoryURL
+                )
+            )
         )
         now = { Date() }
         operationGate = CredentialOperationGate()

@@ -1,5 +1,6 @@
 import Foundation
 import HoldTypeIOSCore
+import HoldTypePersistence
 import Testing
 
 struct IOSOpenAICredentialCoordinatorIOSTests {
@@ -9,13 +10,17 @@ struct IOSOpenAICredentialCoordinatorIOSTests {
             isDirectory: true
         )
         defer { try? FileManager.default.removeItem(at: directoryURL) }
-        let markerFileURL = directoryURL.appendingPathComponent(
-            "credential-presence-v1.json"
+        try FileManager.default.createDirectory(
+            at: directoryURL,
+            withIntermediateDirectories: true
+        )
+        let markerFileURL = IOSCredentialPresenceMarkerStorageLocation.fileURL(
+            in: directoryURL
         )
 
         let coordinator = try IOSOpenAICredentialCoordinator(
-            applicationIdentifierAccessGroup: "TESTTEAMID.app.holdtype.HoldType.ios",
-            markerFileURL: markerFileURL
+            applicationSupportDirectoryURL: directoryURL,
+            applicationIdentifierAccessGroup: "TESTTEAMID.app.holdtype.HoldType.ios"
         )
 
         #expect(!FileManager.default.fileExists(atPath: markerFileURL.path))

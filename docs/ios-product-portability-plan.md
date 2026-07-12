@@ -1,7 +1,7 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap; P0 and P1 complete, P2 in progress; updated
-2026-07-12.
+Status: active implementation roadmap; P0, P1, and P2 complete; P3 is next;
+updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1052,7 +1052,7 @@ corrupt, unavailable, or superseded state fails closed. Expiry hands a
 store-minted sealed observation to bounded ordinary recovery without resampling
 time, including after clock rollback. Final C3 evidence and verdict live in
 `docs/qa/runs/ios-history-policy-cutover-2026-07-11.md`. Failed History and
-retry-only audio ownership are the next local durability slice. No History
+retry-only audio ownership are complete through C4. No History
 record, receipt, cleanup state, or text enters App Group or the keyboard, and
 this foundation adds no keyboard dependency.
 
@@ -1211,8 +1211,23 @@ generation N+1 before either policy or failed bytes change. Policy cleanup
 keeps its one-action bound and confirmed no-ops release ownership for later
 lifecycle recovery without generation N+2. Final evidence lives in
 `docs/qa/runs/ios-failed-history-retry-process-loss-recovery-2026-07-12.md`.
-C4.5 is next: containing-app lifecycle wiring and the public redacted app
-boundary.
+C4.5 and P2 are complete. One composition-owned failed-History service now
+exposes only redacted rows plus load, Delete, and explicit Retry dispositions;
+session factories, provider adapters, credentials, audio descriptors, durable
+receipts, and scratch paths remain outside its ordinary public surface. The
+fixed service graph resolves current app-private Settings, Library, and
+credential state, while lifecycle scheduling runs provider-free launch and
+foreground recovery without provider replay. PendingRecording launch recovery
+now recognizes exact failed-History and accepted-output destinations and fails
+closed on corrupt prerequisites. Retry URL materialization uses a marked,
+owner-only, Complete-protected, backup-excluded scratch namespace with bounded
+process-once orphan scavenging. Exact ordinary accepted-output identity also
+completes an interrupted `PendingRecording.outputDelivery` audio/journal
+retirement, while partial collisions and corrupt prerequisites fail closed.
+Strict package suites, release builds, 1,305 iOS
+simulator tests, 441 macOS tests, public-symbol checks, and keyboard binary
+isolation pass without a live provider or key. Final evidence lives in
+`docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1464,13 +1479,19 @@ relaunch paths, exact tagged-delivery reconstruction, durable Keep Latest,
 temporal rollback handling, policy-cutover continuation, and fresh production
 context recovery are verified in
 `docs/qa/runs/ios-failed-history-retry-process-loss-recovery-2026-07-12.md`.
-C4.5 next adds provider-free containing-app lifecycle recovery and the public
-redacted app boundary. The
-independent recording-cache and directional App Group bridge flows remain later
-work and do not enter the keyboard early. Until
-the full C4 chain is complete, the shipping app does not expose a partial
-History toggle, Clear History action, or disclosure that promises those
-controls.
+C4.5 and P2 are complete. The process-owned failed-History service, fixed
+current Settings/Library/credential Retry graph, provider-free containing-app
+lifecycle recovery, production PendingRecording destination inspection,
+protected Retry scratch materialization, bounded process-loss scavenging,
+ordinary public-symbol boundary, and unchanged keyboard binary isolation are
+verified in
+`docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
+The next slice is P3. Its first checkpoint must lift the existing Settings and
+Library repositories behind exactly one composition-owned state owner each,
+share those owners with failed-History Retry and every scene, and prove
+load/default/error, serialized read-modify-save, and durable-value rollback
+before any editor is exposed. The independent recording-cache and directional
+App Group bridge flows remain later work and do not enter the keyboard early.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

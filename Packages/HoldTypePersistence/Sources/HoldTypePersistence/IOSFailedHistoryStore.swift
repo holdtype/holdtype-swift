@@ -1615,7 +1615,8 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
     func loadPolicyFilteredEntries(
         using policy: IOSHistoryPolicyReceipt,
         operationLeaseAuthorization:
-            IOSPersistenceOperationLeaseAuthorization
+            IOSPersistenceOperationLeaseAuthorization,
+        requiringSettledRowOwnership: Bool = false
     ) throws -> [IOSFailedHistoryEntry] {
         try requireActiveLease(operationLeaseAuthorization)
         guard policy.capabilityOwnerIdentity == capabilityOwnerIdentity else {
@@ -1640,6 +1641,13 @@ actor IOSFailedHistoryStore: IOSPendingRecordingFailedOwnershipInspecting {
             source.envelope,
             using: policy
         )
+        if requiringSettledRowOwnership {
+            guard source.envelope.entries.allSatisfy({
+                $0.ownershipState == .ready && $0.retryOperation == nil
+            }) else {
+                throw IOSFailedHistoryError.compareAndSwapFailed
+            }
+        }
         guard source.envelope.entries.isEmpty
                 && source.envelope.audioCleanup.isEmpty
                 || repositoryBinding?.physicalRootIdentity != nil else {

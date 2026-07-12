@@ -102,6 +102,28 @@ enum IOSHistoryPolicyCutoverPhase: Equatable, Sendable {
         }
     }
 
+    var committedPolicyReceipt: IOSHistoryPolicyReceipt? {
+        switch self {
+        case .establishingPolicy:
+            nil
+        case .policyCaptured(let receipt),
+             .reconcilingFailedHistory(let receipt),
+             .recoveringFailedTransfer(let receipt),
+             .pruningAcceptedRows(let receipt),
+             .recoveringOutbox(let receipt),
+             .inspectingStandaloneDelivery(let receipt):
+            receipt
+        case .inspectingProcessLostFailedRetry(let receipt, _),
+             .cancellingProcessLostFailedRetry(let receipt, _),
+             .completingProcessLostFailedRetry(let receipt, _),
+             .invalidatingFailedRow(let receipt, _),
+             .recoveringFailedAudio(let receipt, _),
+             .awaitingExpiredDeliveryAbandonment(let receipt, _),
+             .cancellingStandaloneDelivery(let receipt, _):
+            receipt
+        }
+    }
+
     var expiredDeliveryAbandonmentObservation:
         IOSAcceptedOutputDeliveryExpiredObservation? {
         guard case .awaitingExpiredDeliveryAbandonment(
@@ -210,6 +232,23 @@ public extension IOSAcceptedHistoryCoordinator {
     /// never repeats a Clear, advances a generation, or calls a provider.
     func recoverHistoryPolicyCleanup()
         async throws -> IOSHistoryPolicyCleanupDisposition {
+        try await performHistoryPolicyCleanup(
+            completingPendingAcceptedOutputBeforeGenericHistory: false
+        )
+    }
+}
+
+extension IOSAcceptedHistoryCoordinator {
+    func recoverHistoryPolicyCleanupForContainingAppLaunch()
+        async throws -> IOSHistoryPolicyCleanupDisposition {
+        try await performHistoryPolicyCleanup(
+            completingPendingAcceptedOutputBeforeGenericHistory: true
+        )
+    }
+
+    private func performHistoryPolicyCleanup(
+        completingPendingAcceptedOutputBeforeGenericHistory: Bool
+    ) async throws -> IOSHistoryPolicyCleanupDisposition {
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
         let failedHistoryStore = failedHistoryStore
@@ -233,6 +272,20 @@ public extension IOSAcceptedHistoryCoordinator {
         do {
             return try await operationGate.perform {
                 operationLeaseAuthorization in
+                if completingPendingAcceptedOutputBeforeGenericHistory {
+                    guard let pendingRecordingStore else {
+                        return .pendingLocalRecovery
+                    }
+                    do {
+                        _ = try await pendingRecordingStore
+                            .completeAcceptedOutputForContainingAppLaunchIfPresent(
+                                operationLeaseAuthorization:
+                                    operationLeaseAuthorization
+                            )
+                    } catch {
+                        return .pendingLocalRecovery
+                    }
+                }
                 let retainedAtEntry = await cutoverState.current()
                 let mayResumeFailedHistory = retainedAtEntry?.ownerIdentity
                     == ownerIdentity

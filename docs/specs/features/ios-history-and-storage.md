@@ -214,6 +214,40 @@ intent, and the applicable History or pending-owner policy. The P1 macOS
 compatibility projection continues to create failed recovery only for
 transcription attribution; it does not pre-decide iOS Translation recovery.
 
+The containing-app failed-History boundary returns either the at-most-five
+current rows or a redacted local-recovery-pending state. Row IDs are opaque and
+non-Codable. The UI receives only compact category/stage, retry count, intent,
+model, language, dates, duration, and coarse audio availability; it never
+receives an audio path, stored byte count, policy generation, retry operation,
+receipt, or mutation capability. Delete is a payload-free complete-or-pending
+command. Retry is owned by a process-scoped service that resolves current
+settings, Library content, and credentials afresh before durable reservation.
+The read model never authorizes either command and never treats uncertain or
+unavailable storage as an empty History.
+
+After Clear or a policy toggle has crossed its durable logical boundary, a
+matching retained cutover may expose an empty failed-History list while
+old-generation physical cleanup remains pending. This exception requires a
+valid failed journal, no unresolved row ownership, no current-generation row,
+and agreement between the retained cutover receipt's owner/logical state and
+the freshly confirmed current policy.
+It does not make any old audio available and does not apply to pre-boundary,
+corrupt, future, conflicted, or ambiguous state.
+
+One process-owned lifecycle scheduler performs a launch-only strict standalone
+failed-Retry cold scan when no History-policy cutover is retained. A retained
+cutover bypasses that standalone preflight so its own cleanup owner can resume.
+Before either ordinary or retained generic History cleanup may expire accepted
+output, launch checks for an exact non-discarded ordinary destination of a
+process-lost `PendingRecording.outputDelivery` and retires only that exact
+Pending audio and journal. Canonical provider-free History cleanup then owns or
+resumes any retained cutover and performs its embedded strict cold Retry scan
+before later History recovery. A launch opportunity may finally convert one
+remaining process-lost PendingRecording provider phase to explicit recovery; a
+normal foreground opportunity may not. No lifecycle pass automatically invokes
+Retry, drains multiple cleanup heads, reads Keychain, requests permission, or
+contacts a provider.
+
 History and journal records never store API keys, authorization headers,
 provider responses, prompts, dictionary contents, surrounding text, analytics,
 or ordinary keystrokes.
@@ -284,6 +318,22 @@ exists. That local transition clears the old transcription ID before Retry is
 presented. It never resumes or repeats provider work automatically. A
 `readyForTranscription` record also remains explicit after relaunch; its name
 does not authorize automatic dispatch.
+
+After the strict failed-Retry cold scan proves no work and before generic
+accepted-output expiry or policy cleanup, the process-launch lifecycle path
+completes an `outputDelivery` Pending record when the app-private accepted-
+output journal already contains its exact ordinary destination. Exact means the
+same attempt ID, a transcript
+ID equal to the Pending transcription ID, no failed-Retry provenance, the same
+output intent, and matching model/language/duration metadata whenever a History
+write is present. Under the shared physical-root operation gate, completion
+removes the exact Pending audio if present, confirms the same destination
+again, and then retires the exact Pending journal. Removal is idempotent so a
+crash after audio removal but before journal retirement resumes safely. A
+partial identity match, failed-Retry delivery, metadata mismatch, corrupt or
+unavailable destination, invalid audio identity, or canonical destination for
+`transcribing` or `postProcessing` fails closed and preserves the journal. This
+completion never republishes accepted text or repeats provider work.
 
 Every mutating callback must present the expected attempt ID, transcription ID
 when one exists, and current phase. A cancelled, superseded, or late callback

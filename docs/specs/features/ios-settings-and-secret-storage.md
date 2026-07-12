@@ -124,6 +124,10 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   fresh process may read this marker to render status without touching Keychain;
   only an explicit OpenAI Settings action or a requested voice preflight
   resolves the actual item.
+- The marker's canonical app-private location is
+  `HoldType/ios-openai-credential-presence.json` beneath Application Support.
+  Production composition does not accept an alternate marker path from a
+  scene, view, or Retry caller.
 - A failed replacement leaves the previous saved item and runtime credential
   intact and shows a visible error.
 - Remove requires explicit user action. A failed delete must not present the key
@@ -133,6 +137,10 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   credential generation. A late rejection for a replaced credential is
   ignored, and voice preflight never silently reuses a current credential that
   is already marked rejected.
+- Failed-History Retry uses the same process-owned credential coordinator.
+  Credential rejection from its Transcription, Correction, or Translation
+  adapter records the exact generation before the result is reduced to a
+  payload-free failure; no provider status or credential value enters History.
 - Provider services receive an already resolved credential and never read
   Keychain themselves.
 - The resolved runtime credential trims only surrounding whitespace and rejects
@@ -151,6 +159,17 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   and a requested voice preflight. Voice preflight reuses a current runtime
   credential or known absence; Settings refresh always checks Keychain. There
   is no general or passive credential-load API.
+- An explicit failed-History Retry is a requested voice preflight. Its
+  process-owned session factory resolves the canonical credential coordinator,
+  current app settings, and current Library content for that action, then binds
+  the resolved credential to one transient provider adapter before the durable
+  Retry reservation. The public Retry call accepts no caller-mintable
+  credential-eligibility flag and no stored credential snapshot.
+- Launch, foreground, History cleanup, failed-Retry process-loss recovery, and
+  failed-row reads are passive operations. They do not resolve Keychain or
+  construct a provider session. Missing or unavailable credentials are
+  discovered only after the person explicitly requests Retry and route to the
+  OpenAI owning destination without changing the row or retry count.
 
 ## API-key status
 
@@ -397,11 +416,15 @@ without discarding a successfully resolved runtime credential or absence.
   1 MiB, requests Complete protection before the first content write, and
   keeps the final Library record eligible for system-managed device backup. A
   failed replacement preserves the previous durable bytes.
-- The app composition root owns one Library repository and one Library state
-  owner for the process lifetime and shares them across every scene. Separate
-  scene-local repository instances and read-then-save mutations outside that
-  state owner are unsupported because one actor serializes only its own method
-  calls, not a transaction split across actors or calls.
+- Before P3 exposes any editor, the one process-owned failed-History service is
+  the sole Settings and Library reader and transitively owns exactly one
+  repository actor for each record. P3 must lift those repositories behind one
+  composition-owned Settings state owner and one Library state owner before
+  the first editor is shown, then share those same owners with Retry across
+  every scene. Separate scene-local repository instances and read-then-save
+  mutations outside those state owners are unsupported because one actor
+  serializes only its own method calls, not a transaction split across actors
+  or calls.
 - Simulator verification may prove only that Complete protection was requested.
   Effective protection remains a signed physical-device gate.
 

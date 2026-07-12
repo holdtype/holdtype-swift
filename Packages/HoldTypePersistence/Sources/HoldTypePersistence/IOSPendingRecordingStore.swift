@@ -204,8 +204,7 @@ extension IOSPendingRecordingStoreIdentity: CustomStringConvertible,
 
 protocol IOSPendingRecordingDestinationInspecting: Sendable {
     func hasCanonicalDestination(
-        attemptID: UUID,
-        transcriptionID: UUID
+        for recording: IOSPendingRecording
     ) throws -> Bool
 }
 
@@ -214,21 +213,85 @@ private struct ClosureIOSPendingRecordingDestinationInspector:
     let canonicalDestinationExists: @Sendable (UUID, UUID) throws -> Bool
 
     func hasCanonicalDestination(
-        attemptID: UUID,
-        transcriptionID: UUID
+        for recording: IOSPendingRecording
     ) throws -> Bool {
-        try canonicalDestinationExists(attemptID, transcriptionID)
+        guard let transcriptionID = recording.transcriptionID else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        return try canonicalDestinationExists(
+            recording.attemptID,
+            transcriptionID
+        )
+    }
+}
+
+private struct IOSPendingRecordingProductionDestinationInspector:
+    IOSPendingRecordingDestinationInspecting {
+    private let acceptedOutputDeliveryJournal:
+        FoundationIOSAcceptedOutputDeliveryJournalRepository
+
+    init(
+        applicationSupportDirectoryURL: URL,
+        repositoryGuard: IOSAcceptedHistoryCoordinatorRepositoryGuard
+    ) {
+        acceptedOutputDeliveryJournal =
+            FoundationIOSAcceptedOutputDeliveryJournalRepository(
+                applicationSupportDirectoryURL:
+                    applicationSupportDirectoryURL,
+                repositoryGuard: repositoryGuard
+            )
+    }
+
+    func hasCanonicalDestination(
+        for recording: IOSPendingRecording
+    ) throws -> Bool {
+        guard let transcriptionID = recording.transcriptionID,
+              let delivery = try acceptedOutputDeliveryJournal.load()?.record
+        else {
+            return false
+        }
+        let attemptMatches = delivery.attemptID == recording.attemptID
+        let transcriptMatches = delivery.transcriptID == transcriptionID
+        guard attemptMatches || transcriptMatches else {
+            return false
+        }
+        guard attemptMatches,
+              transcriptMatches,
+              delivery.failedRetryID == nil,
+              delivery.outputIntent == recording.outputIntent,
+              delivery.historyWrite.map({ historyWrite in
+                  IOSAcceptedOutputDeliveryValidation.bytesEqual(
+                      historyWrite.transcriptionModel,
+                      recording.transcriptionModel
+                  )
+                      && historyWrite.transcriptionLanguageCode
+                          == recording.transcriptionLanguageCode
+                      && historyWrite.durationMilliseconds
+                          == recording.durationMilliseconds
+              }) ?? true else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        guard delivery.deliveryState != .discarded,
+              delivery.acceptedText != nil else {
+            return false
+        }
+        return true
     }
 }
 
 private struct UnconfiguredIOSPendingRecordingDestinationInspector:
     IOSPendingRecordingDestinationInspecting {
     func hasCanonicalDestination(
-        attemptID: UUID,
-        transcriptionID: UUID
+        for recording: IOSPendingRecording
     ) throws -> Bool {
+        _ = recording
         throw IOSPendingRecordingError.invalidTransition
     }
+}
+
+enum IOSPendingRecordingContainingAppRecoveryResolution: Equatable, Sendable {
+    case awaitingRecovery
+    case completedAcceptedOutput
 }
 
 private struct IOSPendingRecordingDispatchIdentity: Hashable, Sendable {
@@ -418,7 +481,12 @@ public actor IOSPendingRecordingStore {
                 repositoryGuard.invalidate()
             }
         )
-        destinationInspector = UnconfiguredIOSPendingRecordingDestinationInspector()
+        destinationInspector =
+            IOSPendingRecordingProductionDestinationInspector(
+                applicationSupportDirectoryURL:
+                    context.applicationSupportDirectoryURL,
+                repositoryGuard: repositoryGuard
+            )
         self.operationGate = operationGate
         liveOwnerRegistry = context.pendingRecordingLiveOwnerRegistry
         failedHistoryRetryState = context.failedHistoryRetryState
@@ -539,7 +607,11 @@ public actor IOSPendingRecordingStore {
             }
         )
         destinationInspector =
-            UnconfiguredIOSPendingRecordingDestinationInspector()
+            IOSPendingRecordingProductionDestinationInspector(
+                applicationSupportDirectoryURL:
+                    applicationSupportDirectoryURL,
+                repositoryGuard: repositoryGuard
+            )
         self.operationGate = operationGate
         self.liveOwnerRegistry = liveOwnerRegistry
         self.failedHistoryRetryState = failedHistoryRetryState
@@ -635,6 +707,17 @@ public actor IOSPendingRecordingStore {
         }
     }
 
+    /// Coordinator-only read that consumes the already active shared root
+    /// lease instead of attempting a reentrant gate acquisition.
+    func loadForContainingAppBoundary(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSPendingRecordingObservation? {
+        try await performLoad(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
     public func beginTranscription(
         expected: IOSPendingRecordingCASExpectation,
         transcriptionID: UUID
@@ -711,6 +794,35 @@ public actor IOSPendingRecordingStore {
                 operationLeaseAuthorization: authorization
             )
         }
+    }
+
+    func recoverContainingAppAfterProcessLoss(
+        expected: IOSPendingRecordingCASExpectation
+    ) async throws -> IOSPendingRecordingContainingAppRecoveryResolution {
+        try await performExclusiveOperation { [self] authorization in
+            try await performContainingAppRecoveryAfterProcessLoss(
+                expected: expected,
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+
+    func completeAcceptedOutputForContainingAppLaunchIfPresent()
+        async throws -> Bool {
+        try await performExclusiveOperation { [self] authorization in
+            try await performAcceptedOutputLaunchCompletionIfPresent(
+                operationLeaseAuthorization: authorization
+            )
+        }
+    }
+
+    func completeAcceptedOutputForContainingAppLaunchIfPresent(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> Bool {
+        try await performAcceptedOutputLaunchCompletionIfPresent(
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
     }
 
     public func discard(
@@ -2244,6 +2356,48 @@ private extension IOSPendingRecordingStore {
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
     ) async throws -> IOSPendingRecording {
+        let resolution = try await performProcessLossRecovery(
+            expected: expected,
+            mayCompleteAcceptedOutput: false,
+            validateAudioBeforeAwaitingRecovery: false,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard case .awaitingRecovery(let recording) = resolution else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        return recording
+    }
+
+    func performContainingAppRecoveryAfterProcessLoss(
+        expected: IOSPendingRecordingCASExpectation,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSPendingRecordingContainingAppRecoveryResolution {
+        switch try await performProcessLossRecovery(
+            expected: expected,
+            mayCompleteAcceptedOutput: true,
+            validateAudioBeforeAwaitingRecovery: true,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        ) {
+        case .awaitingRecovery:
+            return .awaitingRecovery
+        case .completedAcceptedOutput:
+            return .completedAcceptedOutput
+        }
+    }
+
+    private enum ProcessLossRecoveryResolution: Sendable {
+        case awaitingRecovery(IOSPendingRecording)
+        case completedAcceptedOutput
+    }
+
+    private func performProcessLossRecovery(
+        expected: IOSPendingRecordingCASExpectation,
+        mayCompleteAcceptedOutput: Bool,
+        validateAudioBeforeAwaitingRecovery: Bool,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> ProcessLossRecoveryResolution {
         let current = try requireCurrent(expected: expected)
         try await requireFailedOwnershipAbsent(
             for: current,
@@ -2251,7 +2405,7 @@ private extension IOSPendingRecordingStore {
         )
         if current.phase == .awaitingRecovery {
             try confirmJournalDurability(current)
-            return current
+            return .awaitingRecovery(current)
         }
         guard current.phase == .transcribing
                 || current.phase == .postProcessing
@@ -2267,15 +2421,39 @@ private extension IOSPendingRecordingStore {
         let hasCanonicalDestination: Bool
         do {
             hasCanonicalDestination = try destinationInspector
-                .hasCanonicalDestination(
-                    attemptID: current.attemptID,
-                    transcriptionID: transcriptionID
-                )
+                .hasCanonicalDestination(for: current)
         } catch {
             throw IOSPendingRecordingError.destinationInspectionFailed
         }
-        guard !hasCanonicalDestination else {
-            throw IOSPendingRecordingError.invalidTransition
+        if hasCanonicalDestination {
+            guard mayCompleteAcceptedOutput,
+                  current.phase == .outputDelivery else {
+                throw IOSPendingRecordingError.invalidTransition
+            }
+            try await performCompletedAcceptedOutputRetirement(
+                current,
+                operationLeaseAuthorization: operationLeaseAuthorization
+            )
+            return .completedAcceptedOutput
+        }
+
+        if validateAudioBeforeAwaitingRecovery {
+            do {
+                _ = try await performRepositoryBoundary { _ in
+                    try await audioFileSystem.validatePublishedAudio(
+                        relativeIdentifier:
+                            current.audioRelativeIdentifier,
+                        attemptID: current.attemptID,
+                        durationMilliseconds:
+                            current.durationMilliseconds,
+                        byteCount: current.byteCount
+                    )
+                }
+            } catch IOSPendingRecordingError.repositoryIdentityConflict {
+                throw IOSPendingRecordingError.repositoryIdentityConflict
+            } catch {
+                throw mapAudioError(error, operation: .validate)
+            }
         }
 
         let updated = try replacing(
@@ -2296,7 +2474,104 @@ private extension IOSPendingRecordingStore {
                 expectedRepositoryRoot: expectedRoot
             )
         }
-        return updated
+        return .awaitingRecovery(updated)
+    }
+
+    private func performCompletedAcceptedOutputRetirement(
+        _ current: IOSPendingRecording,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        guard current.phase == .outputDelivery,
+              operationGateBinding.proves(
+                  operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+
+        do {
+            _ = try await performRepositoryBoundary { expectedRoot in
+                try await audioFileSystem.removePublishedAudioIfPresent(
+                    relativeIdentifier: current.audioRelativeIdentifier,
+                    attemptID: current.attemptID,
+                    expectedByteCount: current.byteCount,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch IOSPendingRecordingError.repositoryIdentityConflict {
+            throw IOSPendingRecordingError.repositoryIdentityConflict
+        } catch {
+            throw mapAudioError(error, operation: .remove)
+        }
+
+        let stillHasCanonicalDestination: Bool
+        do {
+            stillHasCanonicalDestination = try destinationInspector
+                .hasCanonicalDestination(for: current)
+        } catch {
+            throw IOSPendingRecordingError.destinationInspectionFailed
+        }
+        guard stillHasCanonicalDestination,
+              operationGateBinding.proves(
+                  operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingError.destinationInspectionFailed
+        }
+
+        do {
+            _ = try performRepositoryBoundary { expectedRoot in
+                try journal.remove(
+                    expected: current,
+                    expectedRepositoryRoot: expectedRoot
+                )
+            }
+        } catch let error as IOSPendingRecordingError {
+            throw error
+        } catch {
+            throw IOSPendingRecordingError.journalRemoveFailed
+        }
+        liveOwnerRegistry.clearRetired(attemptID: current.attemptID)
+    }
+
+    func performAcceptedOutputLaunchCompletionIfPresent(
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> Bool {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              let current = try performRepositoryBoundary({ _ in
+                  try journal.load()
+              }),
+              current.phase == .outputDelivery,
+              let transcriptionID = current.transcriptionID else {
+            return false
+        }
+        try await requireFailedOwnershipAbsent(
+            for: current,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        guard activeDispatchIdentity == nil,
+              !liveOwnerRegistry.contains(
+                  attemptID: current.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+
+        let hasCanonicalDestination: Bool
+        do {
+            hasCanonicalDestination = try destinationInspector
+                .hasCanonicalDestination(for: current)
+        } catch {
+            throw IOSPendingRecordingError.destinationInspectionFailed
+        }
+        guard hasCanonicalDestination else {
+            return false
+        }
+        try await performCompletedAcceptedOutputRetirement(
+            current,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        return true
     }
 
     func performDiscard(

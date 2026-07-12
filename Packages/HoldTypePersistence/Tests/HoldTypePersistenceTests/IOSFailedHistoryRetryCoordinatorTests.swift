@@ -1,7 +1,7 @@
 import Foundation
 import HoldTypeDomain
 import Testing
-@testable import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 
 struct IOSFailedHistoryRetryCoordinatorTests {
     @Test func dispatchRegistersBeforeGateReleaseAndExecutesOnlyOnce()
@@ -1118,12 +1118,534 @@ struct IOSFailedHistoryRetryCoordinatorTests {
         #expect(retried.retryCount == 2)
         try await resumed.cancel()
     }
+
+    @Test func publicFailedHistoryBoundaryLoadsOnlyRedactedCurrentRows()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let row = try await fixture.prepareReadyFailure()
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .setupRequired(.openAI)
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+
+        guard case .available(let items) = await boundary.loadFailedHistory()
+        else {
+            Issue.record("Expected one available failed-History item.")
+            return
+        }
+        let item = try #require(items.first)
+
+        #expect(items.count == 1)
+        #expect(item.failureCategory == row.failureCategory)
+        #expect(item.pipelineStage == row.pipelineStage)
+        #expect(item.retryCount == row.retryCount)
+        #expect(item.outputIntent == row.outputIntent)
+        #expect(item.transcriptionModel == row.transcriptionModel)
+        #expect(
+            item.transcriptionLanguageCode
+                == row.transcriptionLanguageCode
+        )
+        #expect(item.createdAt == row.createdAt)
+        #expect(item.updatedAt == row.updatedAt)
+        #expect(item.durationMilliseconds == row.durationMilliseconds)
+        #expect(item.audioAvailability == .available)
+        #expect(String(describing: item.id).contains(row.attemptID.uuidString) == false)
+        #expect(String(describing: item) == "IOSFailedHistoryItem(redacted)")
+        #expect(item.customMirror.children.isEmpty)
+        #expect(item.id.customMirror.children.isEmpty)
+    }
+
+    @Test func publicFailedHistoryLoadFailsClosedForMissingAudio()
+        async throws {
+        try await expectPublicFailedHistoryLoadToPreserveAnomaly(.missing)
+    }
+
+    @Test func publicFailedHistoryLoadFailsClosedForByteChangedAudio()
+        async throws {
+        try await expectPublicFailedHistoryLoadToPreserveAnomaly(.byteChanged)
+    }
+
+    @Test func publicFailedHistoryLoadFailsClosedForUnknownAudio()
+        async throws {
+        try await expectPublicFailedHistoryLoadToPreserveAnomaly(.unknown)
+    }
+
+    @Test func publicFailedHistoryLoadFailsClosedForStagingAudio()
+        async throws {
+        try await expectPublicFailedHistoryLoadToPreserveAnomaly(.staging)
+    }
+
+    @Test func publicFailedHistoryLoadFailsClosedForDuplicateExtraAudio()
+        async throws {
+        try await expectPublicFailedHistoryLoadToPreserveAnomaly(
+            .duplicateExtra
+        )
+    }
+
+    @Test func publicClearHidesRowsAcrossRetainedPhysicalCleanup()
+        async throws {
+        try await expectPolicyBoundaryToHideRows(.clear)
+    }
+
+    @Test func publicDisableHidesRowsAcrossRetainedPhysicalCleanup()
+        async throws {
+        try await expectPolicyBoundaryToHideRows(.disable)
+    }
+
+    @Test func publicRetryTreatsPolicyCancelledHistoryAsAccepted()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPolicySupersedingProvider(
+            policyStore: fixture.context.policyStore
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .ready(
+                    IOSFailedHistoryRetrySession(
+                        configuration: try publicRetryConfiguration(),
+                        provider: provider
+                    )
+                )
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected one retryable failed-History item.")
+            return
+        }
+
+        #expect(await boundary.retryFailedHistory(item.id) == .accepted)
+        #expect(await provider.transcriptionCallCount() == 1)
+        guard case .active(let delivery)? = try await fixture.context
+            .deliveryStore.load() else {
+            Issue.record("Expected the policy-cancelled Retry delivery.")
+            return
+        }
+        #expect(delivery.historyWrite?.state == .cancelled)
+        #expect(
+            try await fixture.context.acceptedHistoryStore.load()?
+                .entries.isEmpty ?? true
+        )
+        let failed = try #require(
+            try await fixture.context.failedHistoryStore.load()
+        )
+        #expect(failed.entries.isEmpty)
+        #expect(failed.audioCleanup.count == 1)
+    }
+
+    @Test func preCancelledPublicRetryLeavesRowAndCountUnchanged()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPipelineProvider(
+            transcription: .success("must not run")
+        )
+        let sessionProvider = RetryCoordinatorSessionProvider(
+            resolution: .ready(
+                IOSFailedHistoryRetrySession(
+                    configuration: try publicRetryConfiguration(),
+                    provider: provider
+                )
+            )
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected one retryable failed-History item.")
+            return
+        }
+        let before = try await fixture.boundaryStorageSnapshot()
+        let startGate = RetryCoordinatorLatch()
+        let retry = Task {
+            await startGate.wait()
+            return await boundary.retryFailedHistory(item.id)
+        }
+        await startGate.waitUntilWaiting()
+
+        retry.cancel()
+        await startGate.open()
+
+        #expect(await retry.value == .cancelled)
+        #expect(try await fixture.boundaryStorageSnapshot() == before)
+        #expect(await sessionProvider.requestedIntents().isEmpty)
+        #expect(await provider.transcriptionCallCount() == 0)
+    }
+
+    @Test func deletingWhileRetrySessionIsPausedPreventsProviderWork()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPipelineProvider(
+            transcription: .success("must not run after Delete")
+        )
+        let sessionProvider = RetryCoordinatorPausedSessionProvider(
+            session: IOSFailedHistoryRetrySession(
+                configuration: try publicRetryConfiguration(),
+                provider: provider
+            )
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected one retryable failed-History item.")
+            return
+        }
+        let retry = Task { await boundary.retryFailedHistory(item.id) }
+        await sessionProvider.waitUntilPaused()
+
+        #expect(await boundary.deleteFailedHistory(item.id) == .complete)
+        await sessionProvider.resume()
+
+        #expect(await retry.value == .unavailable)
+        #expect(await provider.transcriptionCallCount() == 0)
+        #expect(
+            try await fixture.context.failedHistoryStore.load()?
+                .entries.isEmpty == true
+        )
+    }
+
+    @Test func disablingWhileRetrySessionIsPausedPreventsProviderWork()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPipelineProvider(
+            transcription: .success("must not run after Disable")
+        )
+        let sessionProvider = RetryCoordinatorPausedSessionProvider(
+            session: IOSFailedHistoryRetrySession(
+                configuration: try publicRetryConfiguration(),
+                provider: provider
+            )
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected one retryable failed-History item.")
+            return
+        }
+        let retry = Task { await boundary.retryFailedHistory(item.id) }
+        await sessionProvider.waitUntilPaused()
+
+        _ = try await fixture.coordinator.setHistoryEnabled(false)
+        await sessionProvider.resume()
+
+        #expect(await retry.value == .unavailable)
+        #expect(await provider.transcriptionCallCount() == 0)
+        #expect(try await fixture.context.policyStore.load()?.historyEnabled == false)
+    }
+
+    @Test func concurrentPublicRetriesRunProviderExactlyOnce()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPipelineProvider(
+            transcription: .success("one concurrent public Retry")
+        )
+        let sessionProvider = RetryCoordinatorPausedSessionProvider(
+            session: IOSFailedHistoryRetrySession(
+                configuration: try publicRetryConfiguration(),
+                provider: provider
+            )
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected one retryable failed-History item.")
+            return
+        }
+
+        async let first = boundary.retryFailedHistory(item.id)
+        async let second = boundary.retryFailedHistory(item.id)
+        await sessionProvider.waitUntilPaused(callCount: 2)
+        await sessionProvider.resume()
+        let results = await [first, second]
+
+        #expect(results.filter { $0 == .accepted }.count == 1)
+        #expect(
+            results.filter {
+                $0 == .pendingLocalRecovery || $0 == .unavailable
+            }.count == 1
+        )
+        #expect(await provider.transcriptionCallCount() == 1)
+        #expect(
+            try await fixture.context.failedHistoryStore.load()?
+                .audioCleanup.count == 1
+        )
+    }
+
+    @Test func publicFailedHistoryDeleteIsPayloadFreeAndIdempotent()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .setupRequired(.openAI)
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected a deletable failed-History item.")
+            return
+        }
+
+        #expect(await boundary.deleteFailedHistory(item.id) == .complete)
+        #expect(await boundary.deleteFailedHistory(item.id) == .complete)
+        guard case .available(let remaining) = await boundary.loadFailedHistory()
+        else {
+            Issue.record("Expected an available empty failed-History list.")
+            return
+        }
+        #expect(remaining.isEmpty)
+        #expect(
+            String(describing: IOSFailedHistoryMutationDisposition.complete)
+                == "IOSFailedHistoryMutationDisposition(redacted)"
+        )
+    }
+
+    @Test func publicFailedHistoryRetryUsesFreshSessionAndAcceptsOutput()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        _ = try await fixture.prepareReadyFailure()
+        let provider = RetryCoordinatorPipelineProvider(
+            transcription: .success("accepted from public Retry")
+        )
+        let sessionProvider = RetryCoordinatorSessionProvider(
+            resolution: .ready(
+                IOSFailedHistoryRetrySession(
+                    configuration: try publicRetryConfiguration(),
+                    provider: provider
+                )
+            )
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected a retryable failed-History item.")
+            return
+        }
+
+        #expect(await boundary.retryFailedHistory(item.id) == .accepted)
+        #expect(await provider.transcriptionCallCount() == 1)
+        #expect(await sessionProvider.requestedIntents() == [.standard])
+        guard case .available(let remaining) = await boundary.loadFailedHistory()
+        else {
+            Issue.record("Expected failed History to remain readable.")
+            return
+        }
+        #expect(remaining.isEmpty)
+        #expect(
+            try await fixture.context.acceptedHistoryStore.load()?
+                .entries.first?.acceptedText == "accepted from public Retry"
+        )
+    }
+
+    @Test func publicFailedHistoryRetrySetupRouteDoesNotMutateRow()
+        async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let row = try await fixture.prepareReadyFailure(
+            outputIntent: .translate
+        )
+        let sessionProvider = RetryCoordinatorSessionProvider(
+            resolution: .setupRequired(.translation)
+        )
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: sessionProvider,
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        guard case .available(let items) = await boundary.loadFailedHistory(),
+              let item = items.first else {
+            Issue.record("Expected a failed Translation item.")
+            return
+        }
+
+        #expect(
+            await boundary.retryFailedHistory(item.id)
+                == .setupRequired(.translation)
+        )
+        let unchanged = try #require(
+            try await fixture.context.failedHistoryStore.load()?.entries.first
+        )
+        #expect(unchanged.attemptID == row.attemptID)
+        #expect(unchanged.retryCount == 0)
+        #expect(unchanged.retryOperation == nil)
+        #expect(await sessionProvider.requestedIntents() == [.translate])
+    }
+
+    private func expectPublicFailedHistoryLoadToPreserveAnomaly(
+        _ anomaly: RetryCoordinatorBoundaryAudioAnomaly
+    ) async throws {
+        let fixture = try RetryCoordinatorFixture()
+        let row = try await fixture.prepareReadyFailure()
+        try fixture.installBoundaryAudioAnomaly(anomaly, for: row)
+        let before = try await fixture.boundaryStorageSnapshot()
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: fixture.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .setupRequired(.openAI)
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+
+        #expect(await boundary.loadFailedHistory() == .pendingLocalRecovery)
+        #expect(try await fixture.boundaryStorageSnapshot() == before)
+    }
+
+    private func expectPolicyBoundaryToHideRows(
+        _ command: RetryCoordinatorBoundaryPolicyCommand
+    ) async throws {
+        let preBoundary = try RetryCoordinatorFixture()
+        let preBoundaryRow = try await preBoundary.prepareReadyFailure()
+        let preBoundaryUI = IOSFailedHistoryAppBoundary(
+            coordinator: preBoundary.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .setupRequired(.openAI)
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        let policy = try #require(
+            try await preBoundary.context.policyStore.load()
+        )
+        let receipt = try await preBoundary.context.policyStore.confirm(
+            expected: IOSHistoryPolicyExpectation(state: policy)
+        )
+        await preBoundary.context.policyCutoverState.store(
+            IOSHistoryPolicyCutoverWork(
+                ownerIdentity: preBoundary.context.ownerIdentity,
+                command: command.internalCommand,
+                phase: .policyCaptured(receipt)
+            )
+        )
+
+        #expect(
+            await preBoundaryUI.loadFailedHistory()
+                == .pendingLocalRecovery
+        )
+        #expect(
+            try await preBoundary.context.failedHistoryStore.load()?
+                .entries == [preBoundaryRow]
+        )
+
+        let confirmed = try RetryCoordinatorFixture()
+        let oldRow = try await confirmed.prepareReadyFailure()
+        let boundary = IOSFailedHistoryAppBoundary(
+            coordinator: confirmed.coordinator,
+            retrySessionProvider: RetryCoordinatorSessionProvider(
+                resolution: .setupRequired(.openAI)
+            ),
+            usageRecorder: RetryCoordinatorUsageRecorder()
+        )
+        let firstCleanup = try await command.perform(on: confirmed.coordinator)
+        #expect(firstCleanup == .pendingLocalRecovery)
+        let retained = try #require(
+            await confirmed.context.policyCutoverState.current()
+        )
+        #expect(retained.phase.crossedLogicalBoundary)
+        let physical = try #require(
+            try await confirmed.context.failedHistoryStore.load()
+        )
+        #expect(!physical.entries.isEmpty || !physical.audioCleanup.isEmpty)
+        #expect(confirmed.audioExists(for: oldRow))
+        guard case .available(let hidden) = await boundary.loadFailedHistory()
+        else {
+            Issue.record("Committed logical cleanup must remain readable.")
+            return
+        }
+        #expect(hidden.isEmpty)
+
+        var cleanup = firstCleanup
+        for _ in 0..<12 where cleanup == .pendingLocalRecovery {
+            cleanup = try await confirmed.coordinator
+                .recoverHistoryPolicyCleanup()
+            guard case .available(let visible) = await boundary
+                .loadFailedHistory() else {
+                Issue.record("Old failed rows reappeared during cleanup.")
+                return
+            }
+            #expect(visible.isEmpty)
+        }
+        #expect(cleanup == .complete)
+        #expect(!confirmed.audioExists(for: oldRow))
+    }
 }
 
 private enum RetryCoordinatorUncertaintyBoundary: CaseIterable {
     case reservation
     case dispatch
     case cancellation
+}
+
+private enum RetryCoordinatorBoundaryAudioAnomaly {
+    case missing
+    case byteChanged
+    case unknown
+    case staging
+    case duplicateExtra
+}
+
+private enum RetryCoordinatorBoundaryPolicyCommand {
+    case clear
+    case disable
+
+    var internalCommand: IOSHistoryPolicyCutoverCommand {
+        switch self {
+        case .clear: .clear
+        case .disable: .setEnabled(false)
+        }
+    }
+
+    func perform(
+        on coordinator: IOSAcceptedHistoryCoordinator
+    ) async throws -> IOSHistoryPolicyCleanupDisposition {
+        switch self {
+        case .clear:
+            try await coordinator.clearHistoryPolicy()
+        case .disable:
+            try await coordinator.setHistoryEnabled(false)
+        }
+    }
+}
+
+private struct RetryCoordinatorBoundaryFileSnapshot: Equatable {
+    let data: Data
+    let fileSize: UInt64
+    let creationDate: Date?
+    let modificationDate: Date?
+    let posixPermissions: UInt16?
+}
+
+private struct RetryCoordinatorBoundaryStorageSnapshot: Equatable {
+    let failedJournal: RetryCoordinatorBoundaryFileSnapshot
+    let failedEnvelope: IOSFailedHistoryEnvelope
+    let audioFiles: [String: RetryCoordinatorBoundaryFileSnapshot]
 }
 
 private final class RetryCoordinatorFixture: @unchecked Sendable {
@@ -1311,6 +1833,107 @@ private final class RetryCoordinatorFixture: @unchecked Sendable {
         return FileManager.default.fileExists(atPath: url.path)
     }
 
+    func installBoundaryAudioAnomaly(
+        _ anomaly: RetryCoordinatorBoundaryAudioAnomaly,
+        for row: IOSFailedHistoryEntry
+    ) throws {
+        let audioURL = try #require(
+            IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier: row.audioRelativeIdentifier,
+                in: applicationSupportDirectoryURL
+            )
+        )
+        let audioDirectoryURL = IOSPendingRecordingStorageLocation
+            .audioDirectoryURL(in: applicationSupportDirectoryURL)
+
+        switch anomaly {
+        case .missing:
+            try FileManager.default.removeItem(at: audioURL)
+
+        case .byteChanged:
+            let original = try Data(contentsOf: audioURL)
+            try Data(repeating: 0xA5, count: original.count).write(
+                to: audioURL,
+                options: .atomic
+            )
+
+        case .unknown:
+            try Data([0x11, 0x22, 0x33]).write(
+                to: audioDirectoryURL.appendingPathComponent(
+                    "unknown-audio.bin",
+                    isDirectory: false
+                ),
+                options: .atomic
+            )
+
+        case .staging:
+            try Data([0x44, 0x55, 0x66]).write(
+                to: audioDirectoryURL.appendingPathComponent(
+                    ".recording-staging-v1-foreign.wav",
+                    isDirectory: false
+                ),
+                options: .atomic
+            )
+
+        case .duplicateExtra:
+            let duplicateURL = audioDirectoryURL.appendingPathComponent(
+                IOSPendingRecordingStorageLocation.audioFileName(
+                    for: UUID(),
+                    format: .wav
+                ),
+                isDirectory: false
+            )
+            try Data(contentsOf: audioURL).write(
+                to: duplicateURL,
+                options: .atomic
+            )
+        }
+    }
+
+    func boundaryStorageSnapshot()
+        async throws -> RetryCoordinatorBoundaryStorageSnapshot {
+        let failedJournalURL = IOSFailedHistoryStorageLocation.fileURL(
+            in: applicationSupportDirectoryURL
+        )
+        let failedEnvelope = try #require(
+            try await context.failedHistoryStore.load()
+        )
+        let audioDirectoryURL = IOSPendingRecordingStorageLocation
+            .audioDirectoryURL(in: applicationSupportDirectoryURL)
+        let audioURLs = try FileManager.default.contentsOfDirectory(
+            at: audioDirectoryURL,
+            includingPropertiesForKeys: nil,
+            options: []
+        )
+        var audioFiles: [String: RetryCoordinatorBoundaryFileSnapshot] = [:]
+        for audioURL in audioURLs {
+            audioFiles[audioURL.lastPathComponent] = try boundaryFileSnapshot(
+                at: audioURL
+            )
+        }
+        return try RetryCoordinatorBoundaryStorageSnapshot(
+            failedJournal: boundaryFileSnapshot(at: failedJournalURL),
+            failedEnvelope: failedEnvelope,
+            audioFiles: audioFiles
+        )
+    }
+
+    private func boundaryFileSnapshot(
+        at url: URL
+    ) throws -> RetryCoordinatorBoundaryFileSnapshot {
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: url.path
+        )
+        return RetryCoordinatorBoundaryFileSnapshot(
+            data: try Data(contentsOf: url),
+            fileSize: (attributes[.size] as? NSNumber)?.uint64Value ?? 0,
+            creationDate: attributes[.creationDate] as? Date,
+            modificationDate: attributes[.modificationDate] as? Date,
+            posixPermissions:
+                (attributes[.posixPermissions] as? NSNumber)?.uint16Value
+        )
+    }
+
     func rawPendingRecording() throws -> IOSPendingRecording? {
         try FoundationIOSPendingRecordingJournalRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
@@ -1461,6 +2084,9 @@ private final class RetryCoordinatorUncertaintyFixture:
 private actor RetryCoordinatorLatch {
     private var isOpen = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waitingObservers: [
+        (count: Int, continuation: CheckedContinuation<Void, Never>)
+    ] = []
 
     func wait() async {
         guard !isOpen else { return }
@@ -1469,6 +2095,18 @@ private actor RetryCoordinatorLatch {
                 continuation.resume()
             } else {
                 waiters.append(continuation)
+                resumeSatisfiedWaitingObservers()
+            }
+        }
+    }
+
+    func waitUntilWaiting(count: Int = 1) async {
+        guard !isOpen, waiters.count < count else { return }
+        await withCheckedContinuation { continuation in
+            if isOpen || waiters.count >= count {
+                continuation.resume()
+            } else {
+                waitingObservers.append((count, continuation))
             }
         }
     }
@@ -1481,6 +2119,25 @@ private actor RetryCoordinatorLatch {
         for waiter in waiters {
             waiter.resume()
         }
+        let observers = waitingObservers
+        waitingObservers.removeAll()
+        for observer in observers {
+            observer.continuation.resume()
+        }
+    }
+
+    private func resumeSatisfiedWaitingObservers() {
+        var retained: [
+            (count: Int, continuation: CheckedContinuation<Void, Never>)
+        ] = []
+        for observer in waitingObservers {
+            if waiters.count >= observer.count {
+                observer.continuation.resume()
+            } else {
+                retained.append(observer)
+            }
+        }
+        waitingObservers = retained
     }
 }
 
@@ -1536,6 +2193,56 @@ private actor RetryCoordinatorPipelineProvider:
     }
 }
 
+private actor RetryCoordinatorPolicySupersedingProvider:
+    IOSFailedHistoryRetryProviderExecuting {
+    private let policyStore: IOSHistoryPolicyStore
+    private var storedTranscriptionCallCount = 0
+
+    init(policyStore: IOSHistoryPolicyStore) {
+        self.policyStore = policyStore
+    }
+
+    func transcribe(
+        _ request: IOSFailedHistoryRetryTranscriptionRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        storedTranscriptionCallCount += 1
+        guard (try? await request.audio.read(
+            atOffset: 0,
+            maximumByteCount: 64
+        ))?.isEmpty == false else {
+            return .failure(.invalidRecording)
+        }
+        do {
+            let policy = try #require(try await policyStore.load())
+            let receipt = try await policyStore.confirm(
+                expected: IOSHistoryPolicyExpectation(state: policy)
+            )
+            _ = try await policyStore.clear(using: receipt)
+            return .success("accepted after a newer policy")
+        } catch {
+            return .failure(.unknown)
+        }
+    }
+
+    func correct(
+        _ request: IOSFailedHistoryRetryCorrectionRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        _ = request
+        return .failure(.unknown)
+    }
+
+    func translate(
+        _ request: IOSFailedHistoryRetryTranslationRequest
+    ) async -> IOSFailedHistoryRetryProviderTextOutcome {
+        _ = request
+        return .failure(.unknown)
+    }
+
+    func transcriptionCallCount() -> Int {
+        storedTranscriptionCallCount
+    }
+}
+
 private actor RetryCoordinatorUsageRecorder:
     IOSFailedHistoryRetryUsageRecording {
     private var storedCallCount = 0
@@ -1550,6 +2257,72 @@ private actor RetryCoordinatorUsageRecorder:
     func callCount() -> Int {
         storedCallCount
     }
+}
+
+private actor RetryCoordinatorSessionProvider:
+    IOSFailedHistoryRetrySessionProviding {
+    private let resolution: IOSFailedHistoryRetrySessionResolution
+    private var intents: [DictationOutputIntent] = []
+
+    init(resolution: IOSFailedHistoryRetrySessionResolution) {
+        self.resolution = resolution
+    }
+
+    func makeFailedHistoryRetrySession(
+        for outputIntent: DictationOutputIntent
+    ) async -> IOSFailedHistoryRetrySessionResolution {
+        intents.append(outputIntent)
+        return resolution
+    }
+
+    func requestedIntents() -> [DictationOutputIntent] {
+        intents
+    }
+}
+
+private actor RetryCoordinatorPausedSessionProvider:
+    IOSFailedHistoryRetrySessionProviding {
+    private let session: IOSFailedHistoryRetrySession
+    private let pause = RetryCoordinatorLatch()
+    private var intents: [DictationOutputIntent] = []
+
+    init(session: IOSFailedHistoryRetrySession) {
+        self.session = session
+    }
+
+    func makeFailedHistoryRetrySession(
+        for outputIntent: DictationOutputIntent
+    ) async -> IOSFailedHistoryRetrySessionResolution {
+        intents.append(outputIntent)
+        await pause.wait()
+        return .ready(session)
+    }
+
+    func waitUntilPaused(callCount: Int = 1) async {
+        await pause.waitUntilWaiting(count: callCount)
+    }
+
+    func resume() async {
+        await pause.open()
+    }
+
+    func requestedIntents() -> [DictationOutputIntent] {
+        intents
+    }
+}
+
+private func publicRetryConfiguration()
+    throws -> IOSFailedHistoryRetryConfiguration {
+    try #require(
+        IOSFailedHistoryRetryConfiguration(
+            transcriptionConfiguration: .defaults,
+            transcriptionPromptComposition: retryPromptComposition(),
+            textCorrectionConfiguration: .defaults,
+            postProcessingConfiguration: .defaults,
+            translationConfiguration: nil,
+            keepLatestResult: true
+        )
+    )
 }
 
 private func retryCoordinatorSetup(

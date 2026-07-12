@@ -196,6 +196,51 @@ The app guides setup in this order:
 - Latest-result, history, pending-recording, and keyboard-bridge lifetimes are
   separate product states and must not be inferred from one another.
 
+## App-Private Recovery Lifecycle
+
+- The app composition root owns one recovery scheduler and one canonical
+  app-private storage context for the process. Scenes and views never create
+  their own recovery owners.
+- The same composition root retains exactly one OpenAI credential coordinator
+  and one failed-History service. The service installs its fixed provider
+  adapter internally; scenes and views receive no provider/session factory and
+  cannot select a different marker path or credential cache.
+- Construction schedules one provider-free launch opportunity before History,
+  pending-recording, or accepted-delivery consumers can leave their local
+  unavailable state. It also schedules the process-once, provider-free cleanup
+  of old exactly marked Retry provider copies in the app's private temporary
+  namespace. Neither startup action is linked from or scheduled by the
+  keyboard. The initial scene activation does not duplicate either action.
+- A later genuine return to active may schedule one more opportunity.
+  Concurrent scene notifications coalesce while work is in flight, and the
+  scheduler never drains storage in a loop or promises background completion.
+- When no History-policy cutover is already retained, launch recovery first
+  settles the strict standalone failed-Retry cold barrier. If that scan
+  performs or retains work, the bounded opportunity stops and a later launch
+  opportunity continues. A retained cutover is never sent through that
+  standalone preflight because its own cleanup owner must resume it.
+- Before any generic History cleanup may expire or discard accepted output,
+  launch checks only for the exact ordinary destination of a process-lost
+  `PendingRecording.outputDelivery`. This check also precedes resuming a
+  retained cutover. An exact, non-discarded accepted destination with stored
+  accepted text idempotently retires that Pending audio and journal instead of
+  presenting a duplicate Retry. A discarded delivery is not an accepted
+  destination. Partial identity, failed-Retry provenance, corrupt storage, or
+  unavailable protection remains pending and performs no provider work.
+- Launch recovery then enters canonical bounded History cleanup. That cleanup
+  owns or resumes any retained cutover and settles its embedded strict
+  failed-Retry cold barrier before accepted-output recovery; only then may the
+  launch opportunity convert any remaining process-lost PendingRecording
+  provider phase to explicit user recovery. If any prerequisite is pending,
+  later work does not run.
+- Passive launch or foreground recovery never reads Keychain, requests
+  microphone permission, starts recording, builds a provider request, contacts
+  OpenAI, publishes a keyboard command, or inserts text. The app sees only a
+  redacted complete-or-pending result.
+- A launch opportunity that remains pending is retried as launch work on a
+  later ordinary lifecycle trigger. A foreground opportunity alone cannot
+  claim that an in-process provider phase was lost.
+
 ## Verification Mapping
 
 - Navigation coverage should verify the four destinations on iPhone and the

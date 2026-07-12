@@ -102,27 +102,42 @@ struct IOSFailedHistoryRetryProductionRelaunchTests {
                     .requiresRetryRecoveryScan
             )
 
-            let resolution = try await relaunchedCoordinator
-                .recoverInterruptedFailedHistoryRetry()
+            let lifecycleDisposition = await relaunchedCoordinator
+                .recoverContainingAppLifecycle(.foreground)
             let failed = try #require(
                 try await relaunchedContext.failedHistoryStore.load()
             )
 
             switch state {
             case .reserved, .providerDispatched:
-                #expect(resolution == .retryCancelled)
+                #expect(lifecycleDisposition == .pendingLocalRecovery)
                 let retained = try #require(failed.entries.first)
                 #expect(retained.retryOperation == nil)
                 #expect(failed.audioCleanup.isEmpty)
 
             case .acceptingOutput:
-                #expect(resolution == .acceptedOutputRecovered)
-                #expect(failed.entries.isEmpty)
-                #expect(failed.audioCleanup.count == 1)
+                #expect(lifecycleDisposition == .pendingLocalRecovery)
+                let retained = try #require(failed.entries.first)
+                #expect(
+                    retained.retryOperation?.state == .acceptingOutput
+                )
+                #expect(failed.audioCleanup.isEmpty)
                 let accepted = try #require(
                     try await relaunchedContext.acceptedHistoryStore.load()
                 )
                 #expect(accepted.entries.count == 1)
+            }
+
+            var finalDisposition = lifecycleDisposition
+            if state == .acceptingOutput {
+                finalDisposition = await relaunchedCoordinator
+                    .recoverContainingAppLifecycle(.foreground)
+                #expect(finalDisposition == .pendingLocalRecovery)
+                let recoveredFailed = try #require(
+                    try await relaunchedContext.failedHistoryStore.load()
+                )
+                #expect(recoveredFailed.entries.isEmpty)
+                #expect(recoveredFailed.audioCleanup.count == 1)
                 guard case .active(let delivery)? = try await
                         relaunchedContext.deliveryStore.load() else {
                     Issue.record("Expected recovered accepted delivery")
@@ -132,6 +147,20 @@ struct IOSFailedHistoryRetryProductionRelaunchTests {
                 #expect(
                     delivery.keepLatestResult == operation.keepLatestResult
                 )
+            }
+
+            for _ in 0..<12 where finalDisposition == .pendingLocalRecovery {
+                finalDisposition = await relaunchedCoordinator
+                    .recoverContainingAppLifecycle(.foreground)
+            }
+            switch state {
+            case .reserved, .providerDispatched:
+                #expect(finalDisposition == .complete)
+            case .acceptingOutput:
+                // This adversarial fixture intentionally seeds no physical
+                // retry audio. The accepted relation recovers, while the
+                // orphaned tombstone correctly keeps later cleanup pending.
+                #expect(finalDisposition == .pendingLocalRecovery)
             }
         }
     }

@@ -1,4 +1,5 @@
 import HoldTypeOpenAI
+import HoldTypePersistence
 import Testing
 @testable import HoldTypeIOS
 
@@ -28,18 +29,51 @@ struct OpenAIProviderServicesIOSTests {
         requireSendable(OpenAITextTranslationService.self)
     }
 
-    @Test func containingAppInitializationSchedulesContentFreeProviderMaintenance() {
+    @Test func containingAppInitializationSchedulesProviderAndLocalRecovery()
+        async throws {
         var scheduleCount = 0
+        let recoveryRecorder = ContainingAppRecoveryInvocationRecorder()
 
-        _ = HoldTypeIOSApp(scheduleProviderStartupMaintenance: {
-            scheduleCount += 1
-        })
+        _ = HoldTypeIOSApp(
+            scheduleProviderStartupMaintenance: {
+                scheduleCount += 1
+            },
+            recoverContainingAppLifecycle: { opportunity in
+                await recoveryRecorder.record(opportunity)
+                return .complete
+            }
+        )
 
         #expect(scheduleCount == 1)
+        try await containingAppEventually {
+            await recoveryRecorder.opportunities() == [.processLaunch]
+        }
         requireContentFreeSchedule(OpenAIProviderStartupMaintenance.schedule)
     }
 
     private func requireSendable<Value: Sendable>(_: Value.Type) {}
 
     private func requireContentFreeSchedule(_: () -> Void) {}
+}
+
+private actor ContainingAppRecoveryInvocationRecorder {
+    private var values: [IOSContainingAppRecoveryOpportunity] = []
+
+    func record(_ opportunity: IOSContainingAppRecoveryOpportunity) {
+        values.append(opportunity)
+    }
+
+    func opportunities() -> [IOSContainingAppRecoveryOpportunity] {
+        values
+    }
+}
+
+private func containingAppEventually(
+    _ predicate: @escaping @Sendable () async -> Bool
+) async throws {
+    for _ in 0..<100 {
+        if await predicate() { return }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    Issue.record("Timed out waiting for containing-app startup recovery.")
 }
