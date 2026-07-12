@@ -2,10 +2,10 @@
 
 Status: active implementation roadmap; P0, P1, P2, and P3 are complete. The
 native containing app now includes its state owners, shell, Settings editors,
-Dictionary, Voice Emoji Commands, and Replacement Rules. P4 is in progress: its
-app-only foreground voice contract and Persistence transaction are complete;
-reader-based OpenAI and consent-gated foreground processing are next; updated
-2026-07-12.
+Dictionary, Voice Emoji Commands, and Replacement Rules. P4A, P4B, and P4C are
+complete: the app-only foreground contract, Persistence transaction,
+reader-based OpenAI, and consent-gated processing are implemented. P4D audio,
+shared Voice UI, and bounded runtime QA are next; updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1325,13 +1325,19 @@ retirement, Latest Result load/Clear, and provider-free `Saving Result`
 recovery. Final evidence lives in
 `docs/qa/runs/ios-p4b-persistence-foundation-2026-07-12.md`.
 
-P4C is next. It adds the neutral reader request to `HoldTypeOpenAI`, binds the
-protected Pending reader only inside `HoldTypeIOSCore`, and implements
-consent-gated foreground Transcription, correction, local processing,
-Translation, Usage handoff, exact Pending transitions, cancellation recovery,
-and P4B acceptance. It adds no microphone implementation, Voice UI, background
-mode, Quick Session, App Group publication, or keyboard dependency; those
-foreground audio and presentation surfaces remain P4D.
+P4C is complete. The neutral `HoldTypeOpenAI` reader request consumes the exact
+protected Pending recording in bounded chunks without receiving a path. The
+`HoldTypeIOSCore` processor owns consent-gated foreground Transcription,
+optional fail-open correction, local processing, strict Translation, exactly
+once Usage handoff, exact Pending transitions, cancellation recovery,
+same-process provider-free local reconciliation, and P4B acceptance. One
+composition-owned Persistence owner keeps the canonical Pending actor and
+foreground facade identity alive for the process. P4C adds no microphone
+implementation, Voice
+UI, background mode, Quick Session, App Group publication, or keyboard
+dependency; those foreground audio and presentation surfaces remain P4D.
+Final evidence lives in
+`docs/qa/runs/ios-p4c-foreground-processing-2026-07-12.md`.
 
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
@@ -1612,9 +1618,9 @@ redacted drafts, automation-disabled Keychain access, truthful saved-state
 presentation, Dynamic Type, dark appearance, and keyboard isolation remain
 intact.
 
-P4 is in progress. P4A froze the foreground-only contract and P4B completed its
-canonical Persistence transaction. P4C now owns reader-based OpenAI and
-consent-gated foreground processing; P4D follows with audio-session/recorder
+P4 is in progress. P4A froze the foreground-only contract, P4B completed its
+canonical Persistence transaction, and P4C completed reader-based OpenAI plus
+consent-gated foreground processing. P4D is next: audio-session/recorder
 integration, the shared Voice owner and UI, and bounded simulator runtime QA.
 No P4 slice adds background audio, Quick Session, directional App Group work,
 or keyboard provider dependencies.

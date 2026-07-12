@@ -21,6 +21,16 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
         )
     }
 
+    /// Composition-only construction for the canonical Application Support
+    /// root already resolved and created by the containing app.
+    @_spi(HoldTypeIOSCore)
+    public convenience init(applicationSupportDirectoryURL: URL) {
+        self.init(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            registry: .shared
+        )
+    }
+
     convenience init(
         bootstrappingApplicationSupportDirectoryURL: URL,
         registry: IOSAcceptedHistoryCoordinatorProcessContextRegistry,

@@ -269,6 +269,38 @@ Full Access, none of these extension-to-app commands is available.
   discarded only after explicit processing cancellation, attempt replacement,
   terminal failure, or a mismatched session/attempt identity.
 
+### P4 Provider-Stage Completion
+
+- Transcription, optional remote correction, and Translation each obtain their
+  own consent-gated dispatch registration and one-shot result authorization. A
+  completed earlier stage never authorizes launch or result consumption for a
+  later stage.
+- After a non-empty Transcription outcome is consent-consumed, the exact Pending
+  owner advances from `transcribing` to `postProcessing` before optional
+  correction, local processing, or Translation can produce final output.
+- Remote correction remains fail-open. If consent withdrawal cancels correction
+  or makes its result ineligible, Standard processing discards that correction
+  result and may continue locally from the already consent-consumed
+  transcription; it starts no replacement provider request.
+- Translation remains strict. If withdrawal prevents Translation launch or
+  result consumption, the untranslated intermediate is never accepted, copied,
+  shared, or saved as translated output. After provider authority is retired,
+  the exact Pending attempt must durably reach `awaitingRecovery` before Retry
+  or Discard is offered.
+- A failed same-process Pending transition retains the normalized provider
+  result only as provider-free local recovery work. It does not return to an
+  earlier provider stage or issue another request automatically.
+- After any thrown local transition, the attempt owner reloads the exact
+  Pending attempt. A visible destination phase is not sufficient evidence of a
+  durable commit: the owner must perform the idempotent same-phase durability
+  confirmation before continuing. A missing, mismatched, or otherwise
+  ambiguous observation keeps provider-free local recovery blocked rather than
+  discarding text or replaying provider work.
+- Successful-transcription usage is handed off exactly once immediately after
+  the normalized non-empty Transcription outcome is consent-consumed. Later
+  cancellation, Translation failure, or local transition uncertainty does not
+  remove that usage event, and local recovery does not create another one.
+
 ## Product states
 
 Active voice work uses one payload-free runtime phase:

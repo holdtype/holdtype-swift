@@ -1,7 +1,7 @@
 import Foundation
 import HoldTypeDomain
 import Testing
-@testable import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 
 struct IOSForegroundVoicePersistenceTests {
     @Test func namedPreparationSealsTheAppOnlyPolicyAndRedactsText()
@@ -50,6 +50,61 @@ struct IOSForegroundVoicePersistenceTests {
             try await fixture.facade.loadLatestResult()
                 == .resultReady(record)
         )
+    }
+
+    @Test func processOwnerKeepsTheExactPendingActorAcrossProviderStages()
+        async throws {
+        let fixture = ForegroundVoicePersistenceFixture()
+        let owner = IOSForegroundVoicePersistenceOwner(
+            pendingRecordingStore: fixture.pendingStore,
+            acceptedOutputPersistence: fixture.facade
+        )
+        let attemptID = UUID()
+        let transcriptionID = UUID()
+        let prepared = try await owner.prepare(
+            IOSPendingRecordingPreparation(
+                attemptID: attemptID,
+                sourceArtifact: AudioRecordingArtifact(
+                    fileURL: URL(fileURLWithPath: "/runtime/owner.m4a"),
+                    duration: 1.25,
+                    byteCount: 32
+                ),
+                initialState: .readyForTranscription,
+                outputIntent: .standard,
+                transcriptionConfiguration: .defaults
+            )
+        )
+
+        let dispatch = try await owner.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(recording: prepared),
+            transcriptionID: transcriptionID
+        )
+        #expect(dispatch.recording == fixture.pendingJournal.recording)
+        #expect(dispatch.recording.attemptID == attemptID)
+        #expect(dispatch.recording.transcriptionID == transcriptionID)
+        #expect(
+            try await dispatch.execute(using: fixture.executor)
+                == "provider result"
+        )
+
+        let postProcessing = try await owner.markPostProcessing(
+            expected: dispatch.expectation
+        )
+        let outputDelivery = try await owner.markOutputDelivery(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: postProcessing
+            )
+        )
+        let result = try await owner.accept(
+            try fixture.preparation(for: outputDelivery),
+            expectedPending: IOSPendingRecordingCASExpectation(
+                recording: outputDelivery
+            )
+        )
+
+        _ = try result.requireReady()
+        #expect(fixture.pendingJournal.recording == nil)
+        #expect(fixture.executor.callCount == 1)
     }
 
     @Test func readyLoadRequiresDurablePendingJournalAbsenceProof()

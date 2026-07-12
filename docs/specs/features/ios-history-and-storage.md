@@ -39,6 +39,10 @@ three explicit data lifecycles.
   rows, failed rows, outbox entries, retry-audio ownership, recording-cache
   metadata, or first-use History disclosure state. The History destination
   remains unavailable for P4 attempts.
+- Failed-History Retry remains unavailable throughout P4 unless its provider
+  adapter has adopted both the neutral bounded-reader request and the current
+  provider-consent dispatch/result gate. The existence of an internal legacy
+  Retry implementation does not make that action eligible for presentation.
 - P4 app-only acceptance is a named Persistence-owned mode, not a caller-supplied
   optional History bypass. It creates the mandatory accepted-output record with
   `historyWrite: null` without reading, disabling, or otherwise changing the
@@ -447,6 +451,31 @@ reusable. `load`, observations, and a persisted `transcribing` record never
 expose a provider-capable URL or reconstruct dispatch authority. If the process
 loses the authorization, the attempt must use process-loss recovery and
 explicit Retry with a fresh UUID.
+
+The same process-owned Pending transaction owner that commits the transcription
+ID must remain the owner for the corresponding same-process
+`markPostProcessing`, `markOutputDelivery`, cancellation-to-`awaitingRecovery`,
+and app-only acceptance handoffs. A scene or provider adapter cannot substitute
+another Pending store or reconstruct that live transition authority. Process
+loss ends this lifetime and uses the existing recovery-plus-fresh-Retry contract
+instead.
+
+Persistence supplies that lifetime to the containing app as one narrow,
+process-owned foreground transaction facade created from the canonical physical-
+root context. The facade returns the exact committed `transcribing` owner with
+its one-shot handoff and owns every later Pending and app-only acceptance
+transition. It does not expose a replaceable Pending store or allow independently
+constructed path-based components to be combined into a live attempt.
+
+If a facade mutation throws after bytes may have become visible, reconciliation
+loads only the same attempt and transcription identity. A visible
+`postProcessing`, `outputDelivery`, or `awaitingRecovery` destination is adopted
+only after the corresponding idempotent same-phase operation confirms directory
+durability. Any absent, mismatched, or unconfirmed observation preserves the
+provider-free local checkpoint. App-only acceptance reconciliation additionally
+requires Persistence-owned equality of accepted bytes, output intent, app-only
+mode, and immutable identities; a one-way `keepLatestResult` revocation from on
+to off remains valid and is never reversed by replay.
 
 Preparing a pending attempt follows this order:
 

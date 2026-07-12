@@ -1152,6 +1152,16 @@ public actor IOSPendingRecordingStore {
         expected: IOSPendingRecordingCASExpectation,
         transcriptionID: UUID
     ) async throws -> IOSPendingTranscriptionHandoff {
+        try await beginTranscriptionCommit(
+            expected: expected,
+            transcriptionID: transcriptionID
+        ).handoff
+    }
+
+    func beginTranscriptionCommit(
+        expected: IOSPendingRecordingCASExpectation,
+        transcriptionID: UUID
+    ) async throws -> IOSPendingTranscriptionCommit {
         try await performExclusiveOperation { [self] authorization in
             try await performBeginTranscription(
                 expected: expected,
@@ -1166,6 +1176,18 @@ public actor IOSPendingRecordingStore {
         transcriptionID: UUID,
         transcriptionConfiguration: TranscriptionConfiguration
     ) async throws -> IOSPendingTranscriptionHandoff {
+        try await retryTranscriptionCommit(
+            expected: expected,
+            transcriptionID: transcriptionID,
+            transcriptionConfiguration: transcriptionConfiguration
+        ).handoff
+    }
+
+    func retryTranscriptionCommit(
+        expected: IOSPendingRecordingCASExpectation,
+        transcriptionID: UUID,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSPendingTranscriptionCommit {
         try await performExclusiveOperation { [self] authorization in
             try await performRetryTranscription(
                 expected: expected,
@@ -3014,7 +3036,7 @@ private extension IOSPendingRecordingStore {
         transcriptionID: UUID,
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
-    ) async throws -> IOSPendingTranscriptionHandoff {
+    ) async throws -> IOSPendingTranscriptionCommit {
         guard await failedHistoryRetryState.hasLiveOwner() == false else {
             throw IOSPendingRecordingError.localRecoveryPending
         }
@@ -3061,12 +3083,16 @@ private extension IOSPendingRecordingStore {
             updated,
             operationLeaseAuthorization: operationLeaseAuthorization
         )
-        return IOSPendingTranscriptionHandoff(
+        let handoff = IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
                 audio: IOSPendingTranscriptionAudio(lease: lease)
             ),
             authorization: authorization
+        )
+        return IOSPendingTranscriptionCommit(
+            recording: updated,
+            handoff: handoff
         )
     }
 
@@ -3076,7 +3102,7 @@ private extension IOSPendingRecordingStore {
         transcriptionConfiguration: TranscriptionConfiguration,
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
-    ) async throws -> IOSPendingTranscriptionHandoff {
+    ) async throws -> IOSPendingTranscriptionCommit {
         guard await failedHistoryRetryState.hasLiveOwner() == false else {
             throw IOSPendingRecordingError.localRecoveryPending
         }
@@ -3136,12 +3162,16 @@ private extension IOSPendingRecordingStore {
             updated,
             operationLeaseAuthorization: operationLeaseAuthorization
         )
-        return IOSPendingTranscriptionHandoff(
+        let handoff = IOSPendingTranscriptionHandoff(
             dispatch: IOSPendingTranscriptionDispatch(
                 recording: updated,
                 audio: IOSPendingTranscriptionAudio(lease: lease)
             ),
             authorization: authorization
+        )
+        return IOSPendingTranscriptionCommit(
+            recording: updated,
+            handoff: handoff
         )
     }
 

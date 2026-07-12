@@ -189,6 +189,37 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
                 != initialDispatch.recording.transcriptionID
         )
     }
+
+    @Test func executorDiagnosticsRedactCredentialPromptAndProviderState()
+        async throws {
+        let fixture = try await TranscriptionExecutorFixture()
+        defer { fixture.removeFiles() }
+        let promptCanary = "EXECUTOR-PROMPT-CANARY-712"
+        let executor = try fixture.makeExecutor(
+            promptComposition: makePromptComposition(promptCanary),
+            transcribe: { _, _ in "unused" }
+        )
+        var dumped = ""
+        dump(executor, to: &dumped)
+        let diagnostics = [
+            dumped,
+            String(describing: executor),
+            String(reflecting: executor),
+        ].joined(separator: "\n")
+
+        #expect(
+            diagnostics.contains(
+                "IOSForegroundVoiceTranscriptionExecutor(redacted)"
+            )
+        )
+        for canary in [
+            promptCanary,
+            "sk-adapter-test",
+            fixture.root.path,
+        ] {
+            #expect(!diagnostics.contains(canary))
+        }
+    }
 }
 
 private final class TranscriptionExecutorFixture: @unchecked Sendable {

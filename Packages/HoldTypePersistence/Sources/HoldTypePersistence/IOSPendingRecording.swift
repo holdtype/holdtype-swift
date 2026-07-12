@@ -379,6 +379,14 @@ struct IOSPendingTranscriptionDispatch: Sendable {
     }
 }
 
+/// Exact durable owner and one-shot provider handoff produced by one atomic
+/// Pending transition. Keeping these values together prevents a caller from
+/// reconstructing the committed owner with a later repository read.
+struct IOSPendingTranscriptionCommit: Sendable {
+    let recording: IOSPendingRecording
+    let handoff: IOSPendingTranscriptionHandoff
+}
+
 extension IOSPendingTranscriptionDispatch: CustomStringConvertible,
     CustomDebugStringConvertible, CustomReflectable {
     var description: String { "IOSPendingTranscriptionDispatch(redacted)" }

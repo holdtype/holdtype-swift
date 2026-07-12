@@ -337,6 +337,18 @@ public struct IOSForegroundVoicePersistence: Sendable {
         let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry
             .shared
         let context = registry.context(for: applicationSupportDirectoryURL)
+        self.init(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            registry: registry,
+            context: context
+        )
+    }
+
+    init(
+        applicationSupportDirectoryURL: URL,
+        registry: IOSAcceptedHistoryCoordinatorProcessContextRegistry,
+        context: IOSAcceptedHistoryCoordinatorProcessContext
+    ) {
         operationGate = context.operationGate
         pendingRecordingStore = context.pendingRecordingStore
         deliveryStore = context.deliveryStore
@@ -582,6 +594,43 @@ public struct IOSForegroundVoicePersistence: Sendable {
             case .clockRollbackAmbiguous(let expectation):
                 return .clockRollbackAmbiguous(expectation)
             }
+        }
+    }
+
+    func reconcileAcceptance(
+        matching preparation: IOSForegroundVoiceAcceptedOutputPreparation
+    ) async throws -> IOSForegroundVoiceAcceptanceResult? {
+        let before = await state.current()
+        let observation = try await loadLatestResult()
+        let after = await state.current()
+        let hasExactWork = [before, after].contains { work in
+            work?.preparation.reconcilesForegroundVoiceAcceptance(
+                preparation.deliveryPreparation
+            ) == true
+        }
+        switch observation {
+        case .resultReady(let record):
+            guard record.isForegroundVoiceAppOnlyRecord,
+                  (!record.keepLatestResult
+                    || preparation.keepLatestResult),
+                  record.hasSameAcceptance(
+                      as: preparation.deliveryPreparation
+                  ) else { return nil }
+            return .resultReady(record)
+        case .savingResult(let expectation, _):
+            guard hasExactWork,
+                  expectation.matches(preparation) else { return nil }
+            return .savingResult(expectation)
+        case .expired(let expectation):
+            guard hasExactWork,
+                  expectation.matches(preparation) else { return nil }
+            return .expired(expectation)
+        case .clockRollbackAmbiguous(let expectation):
+            guard hasExactWork,
+                  expectation.matches(preparation) else { return nil }
+            return .clockRollbackAmbiguous(expectation)
+        case .absent, .clearedCleanupPending:
+            return nil
         }
     }
 
@@ -981,6 +1030,55 @@ public struct IOSForegroundVoicePersistence: Sendable {
             throw IOSForegroundVoicePersistenceError
                 .repositoryIdentityConflict
         }
+    }
+}
+
+private extension IOSAcceptedOutputDeliveryPreparation {
+    func reconcilesForegroundVoiceAcceptance(
+        _ candidate: IOSAcceptedOutputDeliveryPreparation
+    ) -> Bool {
+        failedRetrySafeIdentityMatches(candidate)
+            && IOSAcceptedOutputDeliveryValidation.bytesEqual(
+                acceptedText,
+                candidate.acceptedText
+            )
+            && outputIntent == candidate.outputIntent
+            && !automaticInsertionPreferenceEnabled
+            && !candidate.automaticInsertionPreferenceEnabled
+            && historyWrite == nil
+            && candidate.historyWrite == nil
+            && (!keepLatestResult || candidate.keepLatestResult)
+    }
+
+    func failedRetrySafeIdentityMatches(
+        _ candidate: IOSAcceptedOutputDeliveryPreparation
+    ) -> Bool {
+        deliveryID == candidate.deliveryID
+            && sessionID == candidate.sessionID
+            && attemptID == candidate.attemptID
+            && transcriptID == candidate.transcriptID
+    }
+}
+
+private extension IOSForegroundVoiceSavingResultExpectation {
+    func matches(
+        _ preparation: IOSForegroundVoiceAcceptedOutputPreparation
+    ) -> Bool {
+        deliveryID == preparation.deliveryID
+            && sessionID == preparation.sessionID
+            && attemptID == preparation.attemptID
+            && transcriptID == preparation.transcriptID
+    }
+}
+
+private extension IOSAcceptedOutputDeliveryExpectation {
+    func matches(
+        _ preparation: IOSForegroundVoiceAcceptedOutputPreparation
+    ) -> Bool {
+        deliveryID == preparation.deliveryID
+            && sessionID == preparation.sessionID
+            && attemptID == preparation.attemptID
+            && transcriptID == preparation.transcriptID
     }
 }
 

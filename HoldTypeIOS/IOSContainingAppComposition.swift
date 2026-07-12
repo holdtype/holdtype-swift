@@ -1,7 +1,7 @@
 import Foundation
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import HoldTypeOpenAI
-import HoldTypePersistence
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
 
 enum IOSContainingAppCompositionAvailability: Equatable {
     case ready
@@ -37,6 +37,21 @@ final class IOSContainingAppComposition {
             IOSLibraryStateOwner,
             IOSOpenAICredentialCoordinator?
         ) -> IOSFailedHistoryService
+        let makeProviderConsentCoordinator: @MainActor (
+            URL
+        ) -> IOSProviderConsentCoordinator
+        let makeForegroundVoicePersistenceOwner: @MainActor (
+            URL
+        ) -> IOSForegroundVoicePersistenceOwner
+        let makeTranscriptionUsageRepository: @MainActor (
+            URL
+        ) -> IOSTranscriptionUsageRepository
+        let makeForegroundVoiceProcessor: @MainActor (
+            IOSForegroundVoicePersistenceOwner,
+            IOSProviderConsentCoordinator,
+            IOSTranscriptionUsageRepository,
+            IOSOpenAICredentialCoordinator
+        ) -> IOSForegroundVoiceProcessor
 
         static let production = Factories(
             resolveApplicationSupportDirectoryURL: {
@@ -100,6 +115,39 @@ final class IOSContainingAppComposition {
                     },
                     credentialCoordinator: credentialCoordinator
                 )
+            },
+            makeProviderConsentCoordinator: {
+                applicationSupportDirectoryURL in
+                IOSProviderConsentCoordinator(
+                    applicationSupportDirectoryURL:
+                        applicationSupportDirectoryURL
+                )
+            },
+            makeForegroundVoicePersistenceOwner: {
+                applicationSupportDirectoryURL in
+                IOSForegroundVoicePersistenceOwner(
+                    applicationSupportDirectoryURL:
+                        applicationSupportDirectoryURL
+                )
+            },
+            makeTranscriptionUsageRepository: {
+                applicationSupportDirectoryURL in
+                IOSTranscriptionUsageRepository(
+                    applicationSupportDirectoryURL:
+                        applicationSupportDirectoryURL
+                )
+            },
+            makeForegroundVoiceProcessor: {
+                persistenceOwner,
+                consentCoordinator,
+                usageRepository,
+                credentialCoordinator in
+                IOSForegroundVoiceProcessor(
+                    persistenceOwner: persistenceOwner,
+                    consentCoordinator: consentCoordinator,
+                    usageRepository: usageRepository,
+                    credentialCoordinator: credentialCoordinator
+                )
             }
         )
     }
@@ -111,6 +159,11 @@ final class IOSContainingAppComposition {
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
     let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
     let failedHistoryService: IOSFailedHistoryService?
+    let providerConsentCoordinator: IOSProviderConsentCoordinator?
+    let foregroundVoicePersistenceOwner:
+        IOSForegroundVoicePersistenceOwner?
+    let transcriptionUsageRepository: IOSTranscriptionUsageRepository?
+    let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
     let availability: IOSContainingAppCompositionAvailability
 
@@ -136,6 +189,10 @@ final class IOSContainingAppComposition {
             credentialCoordinator = nil
             openAISettingsStateOwner = nil
             failedHistoryService = nil
+            providerConsentCoordinator = nil
+            foregroundVoicePersistenceOwner = nil
+            transcriptionUsageRepository = nil
+            foregroundVoiceProcessor = nil
             availability = .storageUnavailable
             lifecycleScheduler = IOSContainingAppLifecycleScheduler { _ in
                 .pendingLocalRecovery
@@ -163,6 +220,22 @@ final class IOSContainingAppComposition {
             applicationSupportDirectoryURL
         )
         self.historyCoordinator = historyCoordinator
+        let providerConsentCoordinator = factories
+            .makeProviderConsentCoordinator(
+                applicationSupportDirectoryURL
+            )
+        self.providerConsentCoordinator = providerConsentCoordinator
+        let foregroundVoicePersistenceOwner = factories
+            .makeForegroundVoicePersistenceOwner(
+                applicationSupportDirectoryURL
+            )
+        self.foregroundVoicePersistenceOwner =
+            foregroundVoicePersistenceOwner
+        let transcriptionUsageRepository = factories
+            .makeTranscriptionUsageRepository(
+                applicationSupportDirectoryURL
+            )
+        self.transcriptionUsageRepository = transcriptionUsageRepository
 
         let credentialCoordinator: IOSOpenAICredentialCoordinator?
         if let applicationIdentifierAccessGroup = factories
@@ -186,6 +259,14 @@ final class IOSContainingAppComposition {
             libraryStateOwner,
             credentialCoordinator
         )
+        foregroundVoiceProcessor = credentialCoordinator.map {
+            factories.makeForegroundVoiceProcessor(
+                foregroundVoicePersistenceOwner,
+                providerConsentCoordinator,
+                transcriptionUsageRepository,
+                $0
+            )
+        }
         availability = credentialCoordinator == nil
             ? .credentialUnavailable
             : .ready
@@ -218,6 +299,10 @@ final class IOSContainingAppComposition {
         credentialCoordinator = nil
         openAISettingsStateOwner = nil
         failedHistoryService = nil
+        providerConsentCoordinator = nil
+        foregroundVoicePersistenceOwner = nil
+        transcriptionUsageRepository = nil
+        foregroundVoiceProcessor = nil
         availability = .injected
         lifecycleScheduler = IOSContainingAppLifecycleScheduler(
             recover: recoverContainingAppLifecycle

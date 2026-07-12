@@ -1,6 +1,6 @@
 import Foundation
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
-import HoldTypePersistence
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
 import Testing
 @testable import HoldTypeIOS
 
@@ -14,10 +14,18 @@ struct IOSContainingAppCompositionTests {
         var events: [String] = []
         var providerScheduleCount = 0
         var retryScratchScheduleCount = 0
+        var providerConsentFactoryCount = 0
+        var foregroundPersistenceFactoryCount = 0
+        var usageRepositoryFactoryCount = 0
+        var foregroundProcessorFactoryCount = 0
         var capturedCredentialCoordinator:
             IOSOpenAICredentialCoordinator?
         var capturedSettingsStateOwner: IOSAppSettingsStateOwner?
         var capturedLibraryStateOwner: IOSLibraryStateOwner?
+        var capturedProviderConsentCoordinator:
+            IOSProviderConsentCoordinator?
+        var capturedUsageRepository: IOSTranscriptionUsageRepository?
+        var capturedForegroundProcessor: IOSForegroundVoiceProcessor?
 
         let composition = IOSContainingAppComposition(
             factories: IOSContainingAppComposition.Factories(
@@ -101,6 +109,56 @@ struct IOSContainingAppCompositionTests {
                         },
                         credentialCoordinator: credentialCoordinator
                     )
+                },
+                makeProviderConsentCoordinator: { resolvedRoot in
+                    events.append("provider-consent")
+                    providerConsentFactoryCount += 1
+                    let coordinator = IOSProviderConsentCoordinator(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                    capturedProviderConsentCoordinator = coordinator
+                    return coordinator
+                },
+                makeForegroundVoicePersistenceOwner: { resolvedRoot in
+                    events.append("foreground-persistence")
+                    foregroundPersistenceFactoryCount += 1
+                    return IOSForegroundVoicePersistenceOwner(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeTranscriptionUsageRepository: { resolvedRoot in
+                    events.append("usage")
+                    usageRepositoryFactoryCount += 1
+                    let repository = IOSTranscriptionUsageRepository(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                    capturedUsageRepository = repository
+                    return repository
+                },
+                makeForegroundVoiceProcessor: {
+                    persistenceOwner,
+                    consentCoordinator,
+                    usageRepository,
+                    credentialCoordinator in
+                    events.append("foreground-processor")
+                    foregroundProcessorFactoryCount += 1
+                    #expect(
+                        consentCoordinator
+                            === capturedProviderConsentCoordinator
+                    )
+                    #expect(usageRepository === capturedUsageRepository)
+                    #expect(
+                        credentialCoordinator
+                            === capturedCredentialCoordinator
+                    )
+                    let processor = IOSForegroundVoiceProcessor(
+                        persistenceOwner: persistenceOwner,
+                        consentCoordinator: consentCoordinator,
+                        usageRepository: usageRepository,
+                        credentialCoordinator: credentialCoordinator
+                    )
+                    capturedForegroundProcessor = processor
+                    return processor
                 }
             ),
             scheduleProviderStartupMaintenance: {
@@ -121,9 +179,13 @@ struct IOSContainingAppCompositionTests {
                 "settings",
                 "library",
                 "history",
+                "provider-consent",
+                "foreground-persistence",
+                "usage",
                 "access-group",
                 "credential",
                 "failed-history",
+                "foreground-processor",
             ]
         )
         #expect(providerScheduleCount == 1)
@@ -149,6 +211,23 @@ struct IOSContainingAppCompositionTests {
             composition.openAISettingsStateOwner?.state == .notLoaded
         )
         #expect(composition.failedHistoryService != nil)
+        #expect(providerConsentFactoryCount == 1)
+        #expect(foregroundPersistenceFactoryCount == 1)
+        #expect(usageRepositoryFactoryCount == 1)
+        #expect(foregroundProcessorFactoryCount == 1)
+        #expect(
+            composition.providerConsentCoordinator
+                === capturedProviderConsentCoordinator
+        )
+        #expect(composition.foregroundVoicePersistenceOwner != nil)
+        #expect(
+            composition.transcriptionUsageRepository
+                === capturedUsageRepository
+        )
+        #expect(
+            composition.foregroundVoiceProcessor
+                === capturedForegroundProcessor
+        )
         #expect(firstScene.presentation == .shell)
         #expect(secondScene.presentation == .shell)
         #expect(
@@ -179,6 +258,18 @@ struct IOSContainingAppCompositionTests {
                 atPath: IOSLibraryStorageLocation.fileURL(in: root).path
             )
         )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSProviderConsentStorageLocation
+                    .fileURL(in: root).path
+            )
+        )
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: IOSTranscriptionUsageStorageLocation
+                    .fileURL(in: root).path
+            )
+        )
 
         await composition.lifecycleScheduler.waitUntilIdle()
         let markerURL = IOSCredentialPresenceMarkerStorageLocation.fileURL(
@@ -193,6 +284,10 @@ struct IOSContainingAppCompositionTests {
         defer { try? FileManager.default.removeItem(at: root) }
         var credentialFactoryCalls = 0
         var serviceCredentialWasNil = false
+        var providerConsentFactoryCalls = 0
+        var foregroundPersistenceFactoryCalls = 0
+        var usageRepositoryFactoryCalls = 0
+        var foregroundProcessorFactoryCalls = 0
 
         let composition = IOSContainingAppComposition(
             factories: IOSContainingAppComposition.Factories(
@@ -235,6 +330,30 @@ struct IOSContainingAppCompositionTests {
                         },
                         credentialCoordinator: coordinator
                     )
+                },
+                makeProviderConsentCoordinator: { resolvedRoot in
+                    providerConsentFactoryCalls += 1
+                    return IOSProviderConsentCoordinator(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeForegroundVoicePersistenceOwner: { resolvedRoot in
+                    foregroundPersistenceFactoryCalls += 1
+                    return IOSForegroundVoicePersistenceOwner(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeTranscriptionUsageRepository: { resolvedRoot in
+                    usageRepositoryFactoryCalls += 1
+                    return IOSTranscriptionUsageRepository(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeForegroundVoiceProcessor: { _, _, _, _ in
+                    foregroundProcessorFactoryCalls += 1
+                    preconditionFailure(
+                        "Processor must not be constructed without credentials."
+                    )
                 }
             ),
             scheduleProviderStartupMaintenance: {},
@@ -255,8 +374,16 @@ struct IOSContainingAppCompositionTests {
             composition.openAISettingsStateOwner?.state == .unavailable
         )
         #expect(composition.failedHistoryService != nil)
+        #expect(composition.providerConsentCoordinator != nil)
+        #expect(composition.foregroundVoicePersistenceOwner != nil)
+        #expect(composition.transcriptionUsageRepository != nil)
+        #expect(composition.foregroundVoiceProcessor == nil)
         #expect(credentialFactoryCalls == 0)
         #expect(serviceCredentialWasNil)
+        #expect(providerConsentFactoryCalls == 1)
+        #expect(foregroundPersistenceFactoryCalls == 1)
+        #expect(usageRepositoryFactoryCalls == 1)
+        #expect(foregroundProcessorFactoryCalls == 0)
 
         let service = try #require(composition.failedHistoryService)
         #expect(await service.loadFailedHistory() == .available([]))
@@ -274,6 +401,10 @@ struct IOSContainingAppCompositionTests {
         defer { try? FileManager.default.removeItem(at: root) }
         var credentialFactoryCalls = 0
         var serviceCredentialWasNil = false
+        var providerConsentFactoryCalls = 0
+        var foregroundPersistenceFactoryCalls = 0
+        var usageRepositoryFactoryCalls = 0
+        var foregroundProcessorFactoryCalls = 0
 
         let composition = IOSContainingAppComposition(
             factories: IOSContainingAppComposition.Factories(
@@ -321,6 +452,30 @@ struct IOSContainingAppCompositionTests {
                         },
                         credentialCoordinator: coordinator
                     )
+                },
+                makeProviderConsentCoordinator: { resolvedRoot in
+                    providerConsentFactoryCalls += 1
+                    return IOSProviderConsentCoordinator(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeForegroundVoicePersistenceOwner: { resolvedRoot in
+                    foregroundPersistenceFactoryCalls += 1
+                    return IOSForegroundVoicePersistenceOwner(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeTranscriptionUsageRepository: { resolvedRoot in
+                    usageRepositoryFactoryCalls += 1
+                    return IOSTranscriptionUsageRepository(
+                        applicationSupportDirectoryURL: resolvedRoot
+                    )
+                },
+                makeForegroundVoiceProcessor: { _, _, _, _ in
+                    foregroundProcessorFactoryCalls += 1
+                    preconditionFailure(
+                        "Processor must not be constructed without credentials."
+                    )
                 }
             ),
             scheduleProviderStartupMaintenance: {},
@@ -340,6 +495,14 @@ struct IOSContainingAppCompositionTests {
         #expect(
             composition.openAISettingsStateOwner?.state == .unavailable
         )
+        #expect(composition.providerConsentCoordinator != nil)
+        #expect(composition.foregroundVoicePersistenceOwner != nil)
+        #expect(composition.transcriptionUsageRepository != nil)
+        #expect(composition.foregroundVoiceProcessor == nil)
+        #expect(providerConsentFactoryCalls == 1)
+        #expect(foregroundPersistenceFactoryCalls == 1)
+        #expect(usageRepositoryFactoryCalls == 1)
+        #expect(foregroundProcessorFactoryCalls == 0)
         let service = try #require(composition.failedHistoryService)
         #expect(await service.loadFailedHistory() == .available([]))
         #expect(
@@ -357,6 +520,10 @@ struct IOSContainingAppCompositionTests {
         var libraryFactoryCalls = 0
         var credentialFactoryCalls = 0
         var serviceFactoryCalls = 0
+        var providerConsentFactoryCalls = 0
+        var foregroundPersistenceFactoryCalls = 0
+        var usageRepositoryFactoryCalls = 0
+        var foregroundProcessorFactoryCalls = 0
         var providerScheduleCount = 0
         var retryScratchScheduleCount = 0
 
@@ -388,6 +555,30 @@ struct IOSContainingAppCompositionTests {
                 makeFailedHistoryService: { _, _, _, _ in
                     serviceFactoryCalls += 1
                     preconditionFailure("Service must not be constructed.")
+                },
+                makeProviderConsentCoordinator: { _ in
+                    providerConsentFactoryCalls += 1
+                    preconditionFailure(
+                        "Consent must not be constructed."
+                    )
+                },
+                makeForegroundVoicePersistenceOwner: { _ in
+                    foregroundPersistenceFactoryCalls += 1
+                    preconditionFailure(
+                        "Foreground persistence must not be constructed."
+                    )
+                },
+                makeTranscriptionUsageRepository: { _ in
+                    usageRepositoryFactoryCalls += 1
+                    preconditionFailure(
+                        "Usage repository must not be constructed."
+                    )
+                },
+                makeForegroundVoiceProcessor: { _, _, _, _ in
+                    foregroundProcessorFactoryCalls += 1
+                    preconditionFailure(
+                        "Foreground processor must not be constructed."
+                    )
                 }
             ),
             scheduleProviderStartupMaintenance: {
@@ -413,6 +604,10 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.credentialCoordinator == nil)
         #expect(composition.openAISettingsStateOwner == nil)
         #expect(composition.failedHistoryService == nil)
+        #expect(composition.providerConsentCoordinator == nil)
+        #expect(composition.foregroundVoicePersistenceOwner == nil)
+        #expect(composition.transcriptionUsageRepository == nil)
+        #expect(composition.foregroundVoiceProcessor == nil)
         #expect(
             composition.lifecycleScheduler.latestDisposition
                 == .pendingLocalRecovery
@@ -422,6 +617,10 @@ struct IOSContainingAppCompositionTests {
         #expect(libraryFactoryCalls == 0)
         #expect(credentialFactoryCalls == 0)
         #expect(serviceFactoryCalls == 0)
+        #expect(providerConsentFactoryCalls == 0)
+        #expect(foregroundPersistenceFactoryCalls == 0)
+        #expect(usageRepositoryFactoryCalls == 0)
+        #expect(foregroundProcessorFactoryCalls == 0)
         #expect(providerScheduleCount == 1)
         #expect(retryScratchScheduleCount == 1)
     }
@@ -443,6 +642,10 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.credentialCoordinator == nil)
         #expect(app.composition.openAISettingsStateOwner == nil)
         #expect(app.composition.failedHistoryService == nil)
+        #expect(app.composition.providerConsentCoordinator == nil)
+        #expect(app.composition.foregroundVoicePersistenceOwner == nil)
+        #expect(app.composition.transcriptionUsageRepository == nil)
+        #expect(app.composition.foregroundVoiceProcessor == nil)
         #expect(app.composition.lifecycleScheduler.latestDisposition == .complete)
     }
 
