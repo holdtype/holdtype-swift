@@ -197,6 +197,8 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         var watchdogTask: Task<Void, Never>?
         var continuation:
             CheckedContinuation<IOSVoiceBoundaryStartResult, Never>?
+        var deferredPlayerEvent: IOSVoiceBoundaryPlayerEvent?
+        var resolution: IOSVoiceBoundaryStartResult?
         private var playerWasStopped = false
 
         init(token: IOSVoiceBoundaryFeedbackToken, generation: UInt64) {
@@ -215,21 +217,21 @@ final class IOSVoiceBoundaryFeedbackAdapter {
     private final class ActiveStop {
         let token: IOSVoiceBoundaryFeedbackToken
         let generation: UInt64
-        let player: any IOSVoiceBoundaryAudioPlayer
+        var player: (any IOSVoiceBoundaryAudioPlayer)?
+        var deferredPlayerEvent: IOSVoiceBoundaryPlayerEvent?
+        var resolution: IOSVoiceBoundaryStopResult?
         private var playerWasStopped = false
 
         init(
             token: IOSVoiceBoundaryFeedbackToken,
-            generation: UInt64,
-            player: any IOSVoiceBoundaryAudioPlayer
+            generation: UInt64
         ) {
             self.token = token
             self.generation = generation
-            self.player = player
         }
 
         func stopPlayerOnce() -> Bool {
-            guard !playerWasStopped else { return false }
+            guard !playerWasStopped, let player else { return false }
             playerWasStopped = true
             player.stop()
             return true
@@ -269,6 +271,9 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         if preferences.hapticsEnabled {
             client.performHaptic()
             diagnose(.boundaryHapticDelivered)
+            guard isCurrent(active) else {
+                return active.resolution ?? .cueFailed
+            }
         }
         guard preferences.audioCuesEnabled else {
             completeStart(active, with: .completed)
@@ -276,7 +281,7 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         }
 
         do {
-            active.player = try client.makePlayer(.start) {
+            let player = try client.makePlayer(.start) {
                 [weak self] event in
                 self?.receiveStartPlayerEvent(
                     event,
@@ -284,7 +289,15 @@ final class IOSVoiceBoundaryFeedbackAdapter {
                     generation: generation
                 )
             }
+            active.player = player
+            guard isCurrent(active) else {
+                _ = active.stopPlayerOnce()
+                return active.resolution ?? .cueFailed
+            }
         } catch let error as IOSVoiceBoundaryFeedbackSystemError {
+            guard isCurrent(active) else {
+                return active.resolution ?? .cueFailed
+            }
             let result: IOSVoiceBoundaryStartResult
             switch error {
             case .cueUnavailable:
@@ -295,6 +308,9 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             completeStart(active, with: result)
             return result
         } catch {
+            guard isCurrent(active) else {
+                return active.resolution ?? .cueFailed
+            }
             completeStart(active, with: .cueFailed)
             return .cueFailed
         }
@@ -302,6 +318,22 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 active.continuation = continuation
+                if let event = active.deferredPlayerEvent {
+                    active.deferredPlayerEvent = nil
+                    receiveStartPlayerEvent(
+                        event,
+                        token: token,
+                        generation: generation
+                    )
+                    return
+                }
+                guard isCurrent(active) else {
+                    continuation.resume(
+                        returning: active.resolution ?? .cueFailed
+                    )
+                    active.continuation = nil
+                    return
+                }
                 let sleep = client.sleep
                 active.watchdogTask = Task { @MainActor [weak self] in
                     do {
@@ -316,7 +348,9 @@ final class IOSVoiceBoundaryFeedbackAdapter {
                     )
                 }
 
-                guard active.player?.play() == true else {
+                let didStart = active.player?.play() == true
+                guard isCurrent(active) else { return }
+                guard didStart else {
                     completeStart(active, with: .cueFailed)
                     return
                 }
@@ -400,6 +434,11 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         }
 
         let generation = makeGeneration()
+        let active = ActiveStop(
+            token: token,
+            generation: generation
+        )
+        activeStop = active
         let player: any IOSVoiceBoundaryAudioPlayer
         do {
             player = try client.makePlayer(.successStop) {
@@ -410,25 +449,45 @@ final class IOSVoiceBoundaryFeedbackAdapter {
                     generation: generation
                 )
             }
-        } catch let error as IOSVoiceBoundaryFeedbackSystemError {
-            switch error {
-            case .cueUnavailable:
-                return .cueUnavailable
-            case .playerCreationFailed:
-                return .cueFailed
+            active.player = player
+            guard activeStop === active else {
+                _ = active.stopPlayerOnce()
+                return active.resolution ?? .stale
             }
+        } catch let error as IOSVoiceBoundaryFeedbackSystemError {
+            guard activeStop === active else {
+                return active.resolution ?? .stale
+            }
+            let result: IOSVoiceBoundaryStopResult = switch error {
+            case .cueUnavailable:
+                .cueUnavailable
+            case .playerCreationFailed:
+                .cueFailed
+            }
+            active.resolution = result
+            activeStop = nil
+            return result
         } catch {
+            guard activeStop === active else {
+                return active.resolution ?? .stale
+            }
+            active.resolution = .cueFailed
+            activeStop = nil
             return .cueFailed
         }
 
-        let active = ActiveStop(
-            token: token,
-            generation: generation,
-            player: player
-        )
-        activeStop = active
-        guard player.play() else {
-            stopActiveStop(active)
+        if let event = active.deferredPlayerEvent {
+            active.deferredPlayerEvent = nil
+            resolveStopPlayerEvent(active, event: event)
+            return active.resolution ?? .cueFailed
+        }
+
+        let didStart = player.play()
+        guard activeStop === active else {
+            return active.resolution ?? .stale
+        }
+        guard didStart else {
+            resolveStopPlayerEvent(active, event: .failed)
             return .cueFailed
         }
         diagnose(.cueStarted)
@@ -442,6 +501,7 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             diagnose(.staleCallbackIgnored)
             return
         }
+        activeStop.resolution = .feedbackSkipped
         stopActiveStop(activeStop)
     }
 
@@ -450,6 +510,22 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         token: IOSVoiceBoundaryFeedbackToken,
         generation: UInt64
     ) {
+        guard case let .starting(active) = phase,
+              active.token == token,
+              active.generation == generation else {
+            diagnose(.staleCallbackIgnored)
+            return
+        }
+        guard active.player != nil,
+              active.continuation != nil else {
+            guard active.deferredPlayerEvent == nil else {
+                diagnose(.staleCallbackIgnored)
+                return
+            }
+            active.deferredPlayerEvent = event
+            return
+        }
+
         let result: IOSVoiceBoundaryStartResult
         switch event {
         case .completed:
@@ -462,6 +538,11 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             generation: generation,
             result: result
         )
+    }
+
+    private func isCurrent(_ active: ActiveStart) -> Bool {
+        guard case let .starting(current) = phase else { return false }
+        return current === active
     }
 
     private func completeStartIfCurrent(
@@ -483,10 +564,13 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         with result: IOSVoiceBoundaryStartResult
     ) {
         guard case let .starting(current) = phase,
-              current === active else {
+              current === active,
+              active.resolution == nil else {
             diagnose(.staleCallbackIgnored)
             return
         }
+
+        active.resolution = result
 
         active.watchdogTask?.cancel()
         active.watchdogTask = nil
@@ -528,10 +612,30 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             diagnose(.staleCallbackIgnored)
             return
         }
-        stopActiveStop(activeStop)
-        if event == .completed {
-            diagnose(.successFeedbackCompleted)
+        guard activeStop.player != nil else {
+            guard activeStop.deferredPlayerEvent == nil else {
+                diagnose(.staleCallbackIgnored)
+                return
+            }
+            activeStop.deferredPlayerEvent = event
+            return
         }
+        resolveStopPlayerEvent(activeStop, event: event)
+    }
+
+    private func resolveStopPlayerEvent(
+        _ active: ActiveStop,
+        event: IOSVoiceBoundaryPlayerEvent
+    ) {
+        guard activeStop === active, active.resolution == nil else {
+            diagnose(.staleCallbackIgnored)
+            return
+        }
+        active.resolution = event == .completed
+            ? .feedbackCompleted
+            : .cueFailed
+        stopActiveStop(active)
+        if event == .completed { diagnose(.successFeedbackCompleted) }
     }
 
     private func stopActiveStop(_ active: ActiveStop) {

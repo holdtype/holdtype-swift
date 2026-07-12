@@ -241,6 +241,112 @@ struct IOSVoiceBoundaryFeedbackAdapterTests {
         fixture.sleep.fire()
     }
 
+    @Test func synchronousStartCallbackDuringFactoryCompletesWithoutPlaying()
+        async throws {
+        let fixture = VoiceBoundaryFeedbackFixture()
+        fixture.startFactoryEvent = .completed
+        let adapter = IOSVoiceBoundaryFeedbackAdapter(
+            client: fixture.client
+        )
+        let token = IOSVoiceBoundaryFeedbackToken()
+
+        #expect(
+            await adapter.prepareStartBoundary(
+                for: token,
+                preferences: enabled
+            ) == .completed
+        )
+        let player = try #require(fixture.player(for: .start))
+        #expect(player.stopCount == 1)
+        #expect(!fixture.calls.contains(.play(.start)))
+        #expect(adapter.retainedCaptureDidBegin(for: token))
+    }
+
+    @Test func synchronousStartCallbackDuringPlayWinsExactlyOnce()
+        async throws {
+        let fixture = VoiceBoundaryFeedbackFixture()
+        fixture.startPlayEvent = .completed
+        let adapter = IOSVoiceBoundaryFeedbackAdapter(
+            client: fixture.client
+        )
+        let token = IOSVoiceBoundaryFeedbackToken()
+
+        #expect(
+            await adapter.prepareStartBoundary(
+                for: token,
+                preferences: enabled
+            ) == .completed
+        )
+        let player = try #require(fixture.player(for: .start))
+        #expect(player.stopCount == 1)
+        #expect(
+            fixture.calls.filter { $0 == .play(.start) }.count == 1
+        )
+        #expect(adapter.retainedCaptureDidBegin(for: token))
+        await Task.yield()
+        fixture.sleep.fire()
+    }
+
+    @Test func synchronousStopCallbackDuringFactoryReturnsCompletedNotStarted()
+        async throws {
+        let fixture = VoiceBoundaryFeedbackFixture()
+        fixture.stopFactoryEvent = .completed
+        let adapter = IOSVoiceBoundaryFeedbackAdapter(
+            client: fixture.client
+        )
+        let token = IOSVoiceBoundaryFeedbackToken()
+        #expect(
+            await adapter.prepareStartBoundary(
+                for: token,
+                preferences: disabled
+            ) == .completed
+        )
+        #expect(adapter.retainedCaptureDidBegin(for: token))
+
+        #expect(
+            adapter.recorderDidClose(
+                for: token,
+                disposition: .success,
+                preferences: enabled
+            ) == .feedbackCompleted
+        )
+        let player = try #require(fixture.player(for: .successStop))
+        #expect(player.stopCount == 1)
+        #expect(!fixture.calls.contains(.play(.successStop)))
+    }
+
+    @Test func synchronousStopCallbackDuringPlayReturnsCompletedNotStarted()
+        async throws {
+        let fixture = VoiceBoundaryFeedbackFixture()
+        fixture.stopPlayEvent = .completed
+        let adapter = IOSVoiceBoundaryFeedbackAdapter(
+            client: fixture.client
+        )
+        let token = IOSVoiceBoundaryFeedbackToken()
+        #expect(
+            await adapter.prepareStartBoundary(
+                for: token,
+                preferences: disabled
+            ) == .completed
+        )
+        #expect(adapter.retainedCaptureDidBegin(for: token))
+
+        #expect(
+            adapter.recorderDidClose(
+                for: token,
+                disposition: .success,
+                preferences: enabled
+            ) == .feedbackCompleted
+        )
+        let player = try #require(fixture.player(for: .successStop))
+        #expect(player.stopCount == 1)
+        #expect(
+            fixture.calls.filter {
+                $0 == .play(.successStop)
+            }.count == 1
+        )
+    }
+
     @Test func cancelAndInterruptionAfterRecorderCloseNeverEmitSuccessFeedback() async {
         for disposition in [
             IOSVoiceBoundaryRecorderCloseDisposition.cancelled,
@@ -351,6 +457,10 @@ private final class VoiceBoundaryFeedbackFixture {
 
     var startPlayResult = true
     var stopPlayResult = true
+    var startFactoryEvent: IOSVoiceBoundaryPlayerEvent?
+    var stopFactoryEvent: IOSVoiceBoundaryPlayerEvent?
+    var startPlayEvent: IOSVoiceBoundaryPlayerEvent?
+    var stopPlayEvent: IOSVoiceBoundaryPlayerEvent?
     var startFactoryError: IOSVoiceBoundaryFeedbackSystemError?
     var stopFactoryError: IOSVoiceBoundaryFeedbackSystemError?
     private(set) var calls: [Call] = []
@@ -374,12 +484,19 @@ private final class VoiceBoundaryFeedbackFixture {
                     playResult: cue == .start
                         ? startPlayResult
                         : stopPlayResult,
+                    playEvent: cue == .start
+                        ? startPlayEvent
+                        : stopPlayEvent,
                     receive: receive,
                     record: { [weak self] call in
                         self?.calls.append(call)
                     }
                 )
                 players.append(player)
+                let factoryEvent = cue == .start
+                    ? startFactoryEvent
+                    : stopFactoryEvent
+                if let factoryEvent { receive(factoryEvent) }
                 return player
             },
             performHaptic: { [weak self] in
@@ -404,6 +521,7 @@ private final class VoiceBoundaryPlayerFixture:
 {
     let cue: IOSVoiceBoundaryCue
     private let playResult: Bool
+    private let playEvent: IOSVoiceBoundaryPlayerEvent?
     private let receive:
         IOSVoiceBoundaryFeedbackClient.PlayerEventHandler
     private let record: @MainActor (VoiceBoundaryFeedbackFixture.Call) -> Void
@@ -412,6 +530,7 @@ private final class VoiceBoundaryPlayerFixture:
     init(
         cue: IOSVoiceBoundaryCue,
         playResult: Bool,
+        playEvent: IOSVoiceBoundaryPlayerEvent?,
         receive: @escaping IOSVoiceBoundaryFeedbackClient.PlayerEventHandler,
         record: @escaping @MainActor (
             VoiceBoundaryFeedbackFixture.Call
@@ -419,12 +538,14 @@ private final class VoiceBoundaryPlayerFixture:
     ) {
         self.cue = cue
         self.playResult = playResult
+        self.playEvent = playEvent
         self.receive = receive
         self.record = record
     }
 
     func play() -> Bool {
         record(.play(cue))
+        if let playEvent { receive(playEvent) }
         return playResult
     }
 
