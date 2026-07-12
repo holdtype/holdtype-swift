@@ -15,9 +15,14 @@ struct IOSDictionaryView: View {
     @State private var operationInFlight = false
     @State private var isLoading = false
     @Binding private var hasUnsavedSceneEditor: Bool
+    @Binding private var hasBlockingSceneOperation: Bool
 
-    init(hasUnsavedSceneEditor: Binding<Bool>) {
+    init(
+        hasUnsavedSceneEditor: Binding<Bool>,
+        hasBlockingSceneOperation: Binding<Bool> = .constant(false)
+    ) {
         _hasUnsavedSceneEditor = hasUnsavedSceneEditor
+        _hasBlockingSceneOperation = hasBlockingSceneOperation
     }
 
     var body: some View {
@@ -48,7 +53,10 @@ struct IOSDictionaryView: View {
         }
         .navigationTitle("Dictionary")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(addDraft.hasMeaningfulInput)
+        .navigationBarBackButtonHidden(
+            addDraft.hasMeaningfulInput
+                || (operationInFlight && hasBlockingSceneOperation)
+        )
         .toolbar {
             if addDraft.hasMeaningfulInput {
                 ToolbarItem(placement: .cancellationAction) {
@@ -273,8 +281,12 @@ struct IOSDictionaryView: View {
     private func beginDelete(_ reference: IOSDictionaryEntryReference) {
         guard !operationInFlight else { return }
         operationInFlight = true
+        hasBlockingSceneOperation = true
         Task {
-            defer { operationInFlight = false }
+            defer {
+                operationInFlight = false
+                hasBlockingSceneOperation = false
+            }
             do {
                 let completion = try await stateOwner.apply(
                     .dictionary(.remove(reference))
@@ -390,7 +402,7 @@ private struct IOSLibraryEditorNoticeSection: View {
     }
 }
 
-private struct IOSLibraryPersistentFailureStatus: View {
+struct IOSLibraryPersistentFailureStatus: View {
     var body: some View {
         Label {
             Text("Not Saved — saved Library unchanged")

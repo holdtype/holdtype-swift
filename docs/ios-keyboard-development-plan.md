@@ -399,8 +399,13 @@ host app, state, expected result, actual result, and go/no-go decision.
   relaunch persistence, redacted drafts, and guarded iPhone/iPad navigation.
   App Group bytes and the Release keyboard executable remain unchanged.
   Evidence lives in
-  `docs/qa/runs/ios-library-dictionary-2026-07-12.md`. Voice Emoji Commands and
-  Replacement Rules are the next P3 slices. The independent recording cache
+  `docs/qa/runs/ios-library-dictionary-2026-07-12.md`. P3.5B adds the native
+  Voice Emoji Commands route: global preference, Active Set selection,
+  searchable six-language catalog, retry-stable UUID custom CRUD, concurrent
+  change recovery, and blocking Save/Delete navigation. App Group bytes and
+  the Release keyboard binary remain unchanged. Evidence lives in
+  `docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`. Replacement
+  Rules is the next P3 slice. The independent recording cache
   and directional bridge remain later milestones behind the physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain

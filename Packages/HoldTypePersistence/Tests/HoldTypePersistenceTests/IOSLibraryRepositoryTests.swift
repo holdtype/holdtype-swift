@@ -64,7 +64,9 @@ struct IOSLibraryRepositoryTests {
             #"{"aliases":["Launch Emoji"],"command":"Emoji Rocket","emoji":"🚀","#,
             #""id":"11111111-1111-1111-1111-111111111111","isEnabled":false},"#,
             #"{"aliases":[],"command":"ship it","emoji":"✅","#,
-            #""id":"22222222-2222-2222-2222-222222222222","isEnabled":true}],"#,
+            #""id":"22222222-2222-2222-2222-222222222222","isEnabled":true},"#,
+            #"{"aliases":[],"command":"émóji rocket","emoji":"🚀","#,
+            #""id":"33333333-3333-3333-3333-333333333333","isEnabled":true}],"#,
             #""enabledBuiltInSetIDs":["pt"],"isEnabled":true},"#,
             #""replacementRules":["#,
             #"{"id":"44444444-4444-4444-4444-444444444444","isEnabled":true,"#,
@@ -83,13 +85,19 @@ struct IOSLibraryRepositoryTests {
         )
         #expect(
             loaded.emojiCommandsConfiguration.customCommands.map(\.id) == [
-                Self.firstCommandID, Self.aliasesOnlyCommandID,
+                Self.firstCommandID,
+                Self.aliasesOnlyCommandID,
+                Self.semanticDuplicateCommandID,
             ]
         )
         #expect(!loaded.emojiCommandsConfiguration.customCommands[0].isEnabled)
         #expect(loaded.emojiCommandsConfiguration.customCommands[0].aliases == ["Launch Emoji"])
         #expect(loaded.emojiCommandsConfiguration.customCommands[1].command == "ship it")
         #expect(loaded.emojiCommandsConfiguration.customCommands[1].aliases.isEmpty)
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands[2].command
+                == "émóji rocket"
+        )
         #expect(loaded.replacementRules.map(\.id) == [Self.firstRuleID, Self.secondRuleID])
         #expect(loaded.replacementRules.map(\.search) == ["", "  A\nB  "])
         #expect(loaded.replacementRules.map(\.replacement) == [" keep ", " \nvalue \n"])
@@ -159,7 +167,9 @@ struct IOSLibraryRepositoryTests {
         #expect(loaded.emojiCommandsConfiguration.enabledBuiltInSetIDs.isEmpty)
         #expect(
             loaded.emojiCommandsConfiguration.customCommands.map(\.id) == [
-                Self.firstCommandID, Self.aliasesOnlyCommandID,
+                Self.firstCommandID,
+                Self.semanticDuplicateCommandID,
+                Self.aliasesOnlyCommandID,
             ]
         )
         #expect(loaded.emojiCommandsConfiguration.customCommands[0].emoji == "🚀")
@@ -172,8 +182,12 @@ struct IOSLibraryRepositoryTests {
                 ["Launch Emoji"]
         )
         #expect(!loaded.emojiCommandsConfiguration.customCommands[0].isEnabled)
-        #expect(loaded.emojiCommandsConfiguration.customCommands[1].command == "ship it")
-        #expect(loaded.emojiCommandsConfiguration.customCommands[1].aliases.isEmpty)
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands[1].command
+                == "emoji rocket"
+        )
+        #expect(loaded.emojiCommandsConfiguration.customCommands[2].command == "ship it")
+        #expect(loaded.emojiCommandsConfiguration.customCommands[2].aliases.isEmpty)
         #expect(loaded.replacementRules.map(\.id) == [Self.firstRuleID, Self.secondRuleID])
         #expect(loaded.replacementRules.map(\.search) == ["", "  A\nB  "])
         #expect(loaded.replacementRules.map(\.replacement) == [" keep ", ""])
@@ -546,6 +560,40 @@ struct IOSLibraryRepositoryTests {
         #expect(!loaded.emojiCommandsConfiguration.isEnabled)
         #expect(loaded.emojiCommandsConfiguration.enabledBuiltInSetIDs.isEmpty)
         #expect(loaded.emojiCommandsConfiguration.customCommands == [command])
+    }
+
+    @Test func readableLegacySemanticCollisionsRemainVisibleAcrossRoundTrip()
+        async throws {
+        let first = CustomEmojiCommand(
+            id: Self.firstCommandID,
+            emoji: " 🚀 ",
+            command: " launch   now ",
+            aliases: ["first alias"]
+        )
+        let second = CustomEmojiCommand(
+            id: Self.semanticDuplicateCommandID,
+            emoji: "🚀",
+            command: "launch now",
+            aliases: ["second alias"],
+            isEnabled: false
+        )
+        let content = IOSLibraryContent(
+            emojiCommandsConfiguration: EmojiCommandsConfiguration(
+                customCommands: [first, second]
+            )
+        )
+        let fileSystem = IOSLibraryFileSystemFake()
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        try await repository.save(content)
+        let loaded = try await repository.load()
+
+        #expect(
+            loaded.emojiCommandsConfiguration.customCommands == [
+                first.normalizedForStorage,
+                second.normalizedForStorage,
+            ]
+        )
     }
 
     @Test func unusableCommandRowsFailInsteadOfBeingDiscarded() async throws {

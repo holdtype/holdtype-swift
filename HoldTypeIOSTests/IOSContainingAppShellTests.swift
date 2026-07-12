@@ -89,6 +89,22 @@ struct IOSContainingAppShellTests {
                 hasUnsavedEditor: true
             ) == .unchanged
         )
+        #expect(
+            IOSContainingAppDestinationSelectionDecision.resolve(
+                current: .library,
+                requested: .history,
+                hasUnsavedEditor: false,
+                hasBlockingEditorOperation: true
+            ) == .blockedByEditorOperation
+        )
+        #expect(
+            IOSContainingAppDestinationSelectionDecision.resolve(
+                current: .library,
+                requested: .library,
+                hasUnsavedEditor: true,
+                hasBlockingEditorOperation: true
+            ) == .unchanged
+        )
     }
 
     @Test func rootRequiresAllConcreteStateOwners() {

@@ -36,6 +36,10 @@ separate editing or text-expansion product.
   segmented tabs do not fit compact width. Built-in choices are English,
   Russian, Spanish, German, French, and Portuguese; Custom stores no built-in
   selection and keeps enabled custom rows active.
+- The iOS Library route always keeps custom rows visible below the selected
+  built-in catalog because enabled custom and built-in commands can be active
+  together. Selecting Custom hides only the built-in catalog and hints; it
+  does not hide, disable, or clear custom rows.
 - Each built-in tab should show the emoji, primary spoken command, and supported
   aliases so users can discover the exact phrases without reading docs.
 - The Custom tab should let users add an emoji output, a primary spoken command,
@@ -48,6 +52,10 @@ separate editing or text-expansion product.
   mutations but preserves any readable legacy collision until the person edits
   it; loading never silently removes or rewrites those rows. P3 preserves custom
   command insertion order but does not expose custom reorder.
+- The iOS editor accepts one optional alias per line. Its raw draft stays only
+  in memory; Save normalizes whitespace and duplicate phrases through the
+  shared domain rules. Navigation identity contains only app-owned catalog IDs
+  or the custom row UUID, never output, primary phrase, or aliases.
 - English commands use an explicit `emoji` prefix, such as `emoji smile`.
 - Russian commands use the explicit `эмодзи` prefix, such as `эмодзи улыбка`.
 - Built-in command prefixes must use the canonical emoji term for the selected

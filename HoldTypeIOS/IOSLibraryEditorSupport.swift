@@ -105,7 +105,7 @@ nonisolated struct IOSDictionaryEntryReference: Equatable, Hashable, Sendable {
     }
 }
 
-nonisolated enum IOSBuiltInEmojiSetSelection: Equatable, Sendable {
+nonisolated enum IOSBuiltInEmojiSetSelection: Equatable, Hashable, Sendable {
     case custom
     case builtIn(String)
 
@@ -291,13 +291,14 @@ nonisolated enum IOSLibraryMutation: Equatable, Sendable {
             configuration.enabledBuiltInSetIDs = requestedIdentifiers
 
         case .add(let requested):
-            guard hasRequiredCustomCommandFields(requested) else {
+            guard IOSEmojiCommandDraftValidation.resolve(
+                candidate: requested,
+                excluding: requested.id,
+                customCommands: configuration.customCommands
+            ) == .valid else {
                 return IOSLibraryMutationReceipt(disposition: .invalid)
             }
             let normalized = requested.normalizedForStorage
-            guard normalized.hasUsableCommand else {
-                return IOSLibraryMutationReceipt(disposition: .invalid)
-            }
             if let existing = configuration.customCommands.first(
                 where: { $0.id == normalized.id }
             ) {
@@ -306,13 +307,6 @@ nonisolated enum IOSLibraryMutation: Equatable, Sendable {
                         ? .unchanged
                         : .conflict
                 )
-            }
-            guard !hasCustomCommandCollision(
-                normalized,
-                excluding: nil,
-                in: configuration.customCommands
-            ) else {
-                return IOSLibraryMutationReceipt(disposition: .invalid)
             }
             configuration.customCommands.append(normalized)
 
@@ -330,20 +324,14 @@ nonisolated enum IOSLibraryMutation: Equatable, Sendable {
             guard configuration.customCommands[index] == expected else {
                 return IOSLibraryMutationReceipt(disposition: .conflict)
             }
-            guard hasRequiredCustomCommandFields(requested) else {
+            guard IOSEmojiCommandDraftValidation.resolve(
+                candidate: requested,
+                excluding: requested.id,
+                customCommands: configuration.customCommands
+            ) == .valid else {
                 return IOSLibraryMutationReceipt(disposition: .invalid)
             }
             let normalized = requested.normalizedForStorage
-            guard normalized.hasUsableCommand else {
-                return IOSLibraryMutationReceipt(disposition: .invalid)
-            }
-            guard !hasCustomCommandCollision(
-                normalized,
-                excluding: normalized.id,
-                in: configuration.customCommands
-            ) else {
-                return IOSLibraryMutationReceipt(disposition: .invalid)
-            }
             guard configuration.customCommands[index] != normalized else {
                 return IOSLibraryMutationReceipt(disposition: .unchanged)
             }
@@ -382,13 +370,6 @@ nonisolated enum IOSLibraryMutation: Equatable, Sendable {
 
         content.emojiCommandsConfiguration = configuration
         return IOSLibraryMutationReceipt(disposition: .committed)
-    }
-
-    private func hasRequiredCustomCommandFields(
-        _ command: CustomEmojiCommand
-    ) -> Bool {
-        !command.normalizedEmoji.isEmpty
-            && !EmojiCommand.normalizedSpokenPhrase(command.command).isEmpty
     }
 
     private func applyReplacementRules(
@@ -483,40 +464,6 @@ nonisolated enum IOSLibraryMutation: Equatable, Sendable {
         return IOSLibraryMutationReceipt(disposition: .committed)
     }
 
-    private func hasCustomCommandCollision(
-        _ candidate: CustomEmojiCommand,
-        excluding excludedID: UUID?,
-        in commands: [CustomEmojiCommand]
-    ) -> Bool {
-        let semanticKey = customCommandSemanticKey(candidate)
-        let phraseKeys = Set(
-            candidate.normalizedSpokenPhrases.compactMap(
-                EmojiCommandReplacementService.normalizedSpokenPhraseKey
-            )
-        )
-
-        return commands.contains { command in
-            guard command.id != excludedID else { return false }
-            if customCommandSemanticKey(command) == semanticKey {
-                return true
-            }
-            let existingPhraseKeys = Set(
-                command.normalizedSpokenPhrases.compactMap(
-                    EmojiCommandReplacementService.normalizedSpokenPhraseKey
-                )
-            )
-            return !phraseKeys.isDisjoint(with: existingPhraseKeys)
-        }
-    }
-
-    private func customCommandSemanticKey(
-        _ command: CustomEmojiCommand
-    ) -> String {
-        "\(command.normalizedEmoji)|\(command.displayCommand)".folding(
-            options: [.caseInsensitive, .diacriticInsensitive],
-            locale: nil
-        )
-    }
 }
 
 extension IOSLibraryState {

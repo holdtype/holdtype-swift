@@ -12,9 +12,11 @@ struct IOSContainingAppShell: View {
     @State private var openAIEditorDraft =
         IOSOpenAICredentialEditorDraft()
     @State private var hasUnsavedEditor = false
+    @State private var hasBlockingEditorOperation = false
     @State private var pendingDestination:
         IOSContainingAppDestination?
     @State private var showsEditorDiscardConfirmation = false
+    @State private var showsEditorOperationAlert = false
 
     let secureProviderAvailability: IOSSecureProviderAvailability
     let layout: IOSContainingAppShellLayout
@@ -51,6 +53,17 @@ struct IOSContainingAppShell: View {
         } message: {
             Text(
                 "Your unsaved edits on the current screen will be lost."
+            )
+        }
+        .alert(
+            "Finishing Library Change",
+            isPresented: $showsEditorOperationAlert
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(
+                "Wait for the current Save or Delete operation to finish "
+                    + "before changing destinations."
             )
         }
     }
@@ -154,7 +167,8 @@ struct IOSContainingAppShell: View {
             )
         case .library:
             IOSLibraryHomeView(
-                hasUnsavedLibraryEditor: $hasUnsavedEditor
+                hasUnsavedLibraryEditor: $hasUnsavedEditor,
+                hasBlockingLibraryOperation: $hasBlockingEditorOperation
             )
         case .history:
             IOSHistoryHomeView()
@@ -183,7 +197,8 @@ struct IOSContainingAppShell: View {
         switch IOSContainingAppDestinationSelectionDecision.resolve(
             current: selectedDestination,
             requested: destination,
-            hasUnsavedEditor: hasUnsavedEditor
+            hasUnsavedEditor: hasUnsavedEditor,
+            hasBlockingEditorOperation: hasBlockingEditorOperation
         ) {
         case .unchanged:
             if layout == .split {
@@ -195,6 +210,9 @@ struct IOSContainingAppShell: View {
         case .confirmDiscard(let destination):
             pendingDestination = destination
             showsEditorDiscardConfirmation = true
+        case .blockedByEditorOperation:
+            pendingDestination = nil
+            showsEditorOperationAlert = true
         }
     }
 

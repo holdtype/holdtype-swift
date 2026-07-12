@@ -421,21 +421,23 @@ result after the operation returns.
 - The private v1 root contains only `schemaVersion`, `dictionary`,
   `emojiCommands`, and `replacementRules`. A canonical save writes every group
   and field and uses sorted object keys. It preserves exact replacement-rule
-  order and the relative order of dictionary entries and custom commands that
-  survive normalization; normalization may reduce those arrays. Dictionary
-  entries and custom emoji commands use the current shared-domain rules before
-  they become durable. Replacement search, replacement, enabled state,
-  semantic UUID identity, and row order are preserved; repeated search text is
-  valid and is not deduplicated. A noncanonical UUID string may be written in
-  canonical `UUID.uuidString` form by a later save without changing identity.
+  order, custom-command order and UUIDs, and the relative order of dictionary
+  entries that survive normalization. Dictionary normalization may reduce its
+  ordered string array. Each custom command is normalized independently with
+  current shared-domain field rules; UUID-distinct readable rows are retained
+  even when their normalized output and spoken phrases are semantically
+  equivalent. Replacement search, replacement, enabled state, semantic UUID
+  identity, and row order are preserved; repeated search text is valid and is
+  not deduplicated. A noncanonical UUID string may be written in canonical
+  `UUID.uuidString` form by a later save without changing identity.
 - A load may default a missing known root group or a missing known group field.
   Every field of an existing custom-command or replacement-rule row is
   required. Nulls, wrong types, non-object rows, malformed identifiers, and
   unexpected fields at any level fail instead of defaulting or being ignored.
   A custom-command row also fails with a redacted known-field error when its
-  normalized emoji or normalized spoken phrases are empty. Among otherwise
-  valid commands, current domain normalization keeps the first semantic
-  duplicate.
+  normalized emoji or normalized spoken phrases are empty. Every otherwise
+  valid custom-command row is retained after independent field normalization;
+  load never chooses only the first semantic equivalent.
 - `schemaVersion` is required and must be exactly integer `1`. Version `0` and
   future versions are unsupported, and no legacy shape or migration is
   inferred until an earlier durable schema actually exists.
@@ -447,8 +449,8 @@ result after the operation returns.
   known item fails instead of silently choosing one. Custom-command UUIDs must
   be unique within their collection, and replacement-rule UUIDs must be unique
   within theirs. The duplicate check happens on the raw rows before normalized
-  usability is validated and before semantic normalization can keep only the
-  first equivalent custom command. Reusing one UUID across the two
+  usability is validated. Row-wise custom-command normalization never merges
+  UUID-distinct semantic equivalents. Reusing one UUID across the two
   independently addressed collections is allowed.
 - Public errors identify only known field locations and failure classes. They
   never echo dictionary text, emoji or command content, replacement content,
@@ -740,6 +742,11 @@ result after the operation returns.
   discard clears only the active Library route/draft. Failed persistence keeps
   the draft visibly `Not Saved`, while shared lists remain at the last durable
   value and may retry.
+- While an explicit Library Save or Delete transaction is unresolved, the
+  containing app keeps that editor destination active and blocks iPhone-tab or
+  iPad-sidebar switching with a content-free wait alert. It never presents an
+  in-flight operation as discardable draft state. Navigation becomes available
+  again immediately after the transaction publishes success or failure.
 - Search queries and drafts are memory-only. Dictionary text, emoji output,
   spoken phrases, aliases, replacement content, and semantic keys never enter
   navigation identity, `SceneStorage`, accessibility identifiers, notices,

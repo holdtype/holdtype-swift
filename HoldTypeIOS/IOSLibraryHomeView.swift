@@ -6,6 +6,7 @@ struct IOSLibraryHomeView: View {
     @Environment(IOSLibraryStateOwner.self) private var stateOwner
     @State private var isLoading = false
     @Binding var hasUnsavedLibraryEditor: Bool
+    @Binding var hasBlockingLibraryOperation: Bool
 
     var body: some View {
         Group {
@@ -24,14 +25,12 @@ struct IOSLibraryHomeView: View {
             case .ready(let content):
                 IOSLibrarySummaryList(
                     content: content,
-                    showsSaveFailure: false,
-                    hasUnsavedLibraryEditor: $hasUnsavedLibraryEditor
+                    showsSaveFailure: false
                 )
             case .saveFailed(let lastDurableValue):
                 IOSLibrarySummaryList(
                     content: lastDurableValue,
-                    showsSaveFailure: true,
-                    hasUnsavedLibraryEditor: $hasUnsavedLibraryEditor
+                    showsSaveFailure: true
                 )
             }
         }
@@ -40,7 +39,32 @@ struct IOSLibraryHomeView: View {
             switch route {
             case .dictionary:
                 IOSDictionaryView(
-                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor
+                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor,
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
+            case .emojiCommands:
+                IOSEmojiCommandsView(
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
+            case .emojiSetSelection:
+                IOSEmojiSetSelectionView()
+            case .builtInEmojiCommand(let reference):
+                IOSBuiltInEmojiCommandDetailView(reference: reference)
+            case .newCustomEmojiCommand(let id):
+                IOSCustomEmojiCommandEditorView(
+                    mode: .add(id),
+                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor,
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
+                )
+            case .customEmojiCommand(let id):
+                IOSCustomEmojiCommandEditorView(
+                    mode: .edit(id),
+                    hasUnsavedSceneEditor: $hasUnsavedLibraryEditor,
+                    hasBlockingSceneOperation:
+                        $hasBlockingLibraryOperation
                 )
             }
         }
@@ -65,10 +89,9 @@ struct IOSLibraryHomeView: View {
     }
 }
 
-private struct IOSLibrarySummaryList: View {
+struct IOSLibrarySummaryList: View {
     let content: IOSLibraryContent
     let showsSaveFailure: Bool
-    @Binding var hasUnsavedLibraryEditor: Bool
 
     var body: some View {
         List {
@@ -92,36 +115,25 @@ private struct IOSLibrarySummaryList: View {
                         .rowAccessibilityIdentifier
                 )
 
-                LabeledContent(
-                    "Custom emoji commands",
-                    value: countLabel(
-                        content.emojiCommandsConfiguration.customCommands.count,
-                        singular: "command",
-                        plural: "commands"
+                NavigationLink(value: IOSLibraryRoute.emojiCommands) {
+                    IOSLibraryDestinationLabel(
+                        destination: .emojiCommands,
+                        summary: IOSEmojiCommandsPresentation.summary(
+                            content.emojiCommandsConfiguration
+                        )
                     )
+                }
+                .accessibilityIdentifier(
+                    IOSLibraryDestination.emojiCommands
+                        .rowAccessibilityIdentifier
                 )
+
                 LabeledContent(
                     "Replacement rules",
                     value: countLabel(
                         content.replacementRules.count,
                         singular: "rule",
                         plural: "rules"
-                    )
-                )
-            }
-
-            Section("Saved Emoji Preference") {
-                LabeledContent(
-                    "Emoji commands",
-                    value: content.emojiCommandsConfiguration.isEnabled
-                        ? "Preference on"
-                        : "Preference off"
-                )
-                LabeledContent(
-                    "Selected built-in set",
-                    value: builtInEmojiSetName(
-                        content.emojiCommandsConfiguration
-                            .enabledBuiltInSetIDs.first
                     )
                 )
             }
@@ -145,26 +157,10 @@ private struct IOSLibrarySummaryList: View {
         "\(count) \(count == 1 ? singular : plural)"
     }
 
-    private func builtInEmojiSetName(_ identifier: String?) -> String {
-        switch identifier {
-        case "en":
-            "English"
-        case "ru":
-            "Russian"
-        case "es":
-            "Spanish"
-        case "de":
-            "German"
-        case "fr":
-            "French"
-        case "pt":
-            "Portuguese"
-        case nil:
-            "Custom"
-        default:
-            "Unknown"
-        }
-    }
+}
+
+extension IOSLibrarySummaryList: CustomReflectable {
+    var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 private struct IOSLibraryDestinationLabel: View {

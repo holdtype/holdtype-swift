@@ -315,8 +315,8 @@ private enum IOSLibraryWireCodec {
             emojiCommandsConfiguration: EmojiCommandsConfiguration(
                 isEnabled: emojiConfiguration.isEnabled,
                 enabledBuiltInSetIDs: emojiConfiguration.enabledBuiltInSetIDs,
-                customCommands: EmojiCommandsConfiguration.normalizedCustomCommands(
-                    emojiConfiguration.customCommands
+                customCommands: emojiConfiguration.customCommands.map(
+                    \.normalizedForStorage
                 )
             ),
             replacementRules: content.replacementRules

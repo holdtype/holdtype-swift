@@ -69,13 +69,18 @@ enum IOSContainingAppDestinationSelectionDecision: Equatable, Sendable {
     case unchanged
     case apply(IOSContainingAppDestination)
     case confirmDiscard(IOSContainingAppDestination)
+    case blockedByEditorOperation
 
     static func resolve(
         current: IOSContainingAppDestination,
         requested: IOSContainingAppDestination,
-        hasUnsavedEditor: Bool
+        hasUnsavedEditor: Bool,
+        hasBlockingEditorOperation: Bool = false
     ) -> Self {
         guard requested != current else { return .unchanged }
+        guard !hasBlockingEditorOperation else {
+            return .blockedByEditorOperation
+        }
         return hasUnsavedEditor
             ? .confirmDiscard(requested)
             : .apply(requested)
@@ -89,6 +94,11 @@ enum IOSSettingsRoute: Hashable {
 
 enum IOSLibraryRoute: Hashable {
     case dictionary
+    case emojiCommands
+    case emojiSetSelection
+    case builtInEmojiCommand(IOSBuiltInEmojiCommandReference)
+    case newCustomEmojiCommand(UUID)
+    case customEmojiCommand(UUID)
 }
 
 enum IOSSecureProviderAvailability: Equatable, Sendable {

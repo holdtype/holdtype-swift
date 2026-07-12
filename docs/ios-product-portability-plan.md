@@ -2,8 +2,8 @@
 
 Status: active implementation roadmap; P0, P1, and P2 complete; P3 is in
 progress through the native shell, OpenAI and general Settings editors, typed
-Library mutation foundation, and Dictionary route. Voice Emoji Commands and
-Replacement Rules are the next P3 checkpoints; updated 2026-07-12.
+Library mutation foundation, Dictionary, and Voice Emoji Commands. Replacement
+Rules is the next P3 checkpoint; updated 2026-07-12.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1286,6 +1286,16 @@ filtered deletion, retained/discarded drafts, content-free logs, unchanged App
 Group bytes, and unchanged keyboard isolation. Final evidence lives in
 `docs/qa/runs/ios-library-dictionary-2026-07-12.md`.
 
+P3.5B is now complete. The native Voice Emoji Commands route owns the global
+replacement preference, six-language Active Set selection, searchable built-in
+catalog, and UUID-based custom command CRUD. Scene-local raw drafts use explicit
+Save, full-row compare-and-swap, retry-stable identity, truthful concurrent
+change recovery, and blocking Save/Delete navigation. Runtime evidence proves
+relaunch persistence, iPhone and iPad flows, unchanged App Group bytes,
+content-free logs, reflection redaction, readable legacy-collision preservation,
+and unchanged Release keyboard isolation. Final evidence lives in
+`docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`.
+
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
 The C4.0 contract review is recorded in
@@ -1294,13 +1304,13 @@ The C4.0 contract review is recorded in
 ### P3 — Native containing-app shell
 
 State-owner prerequisite, native shell, secure OpenAI editor, non-secret
-general Settings editors, and P3.5A Library/Dictionary foundation are complete.
+general Settings editors, P3.5A Library/Dictionary foundation, and P3.5B Voice
+Emoji Commands are complete.
 Exactly one
 composition-owned Settings owner, Library owner, and credential presentation
 owner provide shared process truth. Editor drafts are scene-local and
-ephemeral. Remaining P3 Library work is Voice Emoji Commands followed by
-Replacement Rules inside that shell; it must not create scene-local
-repositories.
+ephemeral. Remaining P3 Library work is Replacement Rules inside that shell; it
+must not create scene-local repositories.
 
 - implement Voice, Library, History, and Settings navigation;
 - implement setup status, public system-settings routes, practice field, and
@@ -1554,20 +1564,22 @@ verified in
 `docs/qa/runs/ios-failed-history-containing-app-boundary-2026-07-12.md`.
 P3 is in progress. Its state owners, native iPhone tab and iPad split shell,
 app-only OpenAI editor, four general Settings editors, typed Library mutation
-foundation, and native Dictionary route are complete. Navigation restoration,
+foundation, native Dictionary route, and Voice Emoji Commands are complete.
+Navigation restoration,
 exact owner
 identity, blocking root-storage failure, payload-free revisioned credential
 status, scene-local redacted retry draft, automation-disabled Keychain access,
 truthful saved-state presentation, Dynamic Type, dark appearance, and keyboard
-isolation are verified. The next slices expose Voice Emoji Commands and
-Replacement Rules inside Library.
+isolation are verified. The next slice exposes Replacement Rules inside
+Library.
 The independent recording-cache and directional App Group bridge flows remain
 later work and do not enter the keyboard early. Final evidence lives in
 `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`,
 `docs/qa/runs/ios-containing-app-shell-2026-07-12.md`, and
 `docs/qa/runs/ios-openai-credential-settings-2026-07-12.md`,
 `docs/qa/runs/ios-general-settings-editors-2026-07-12.md`, and
-`docs/qa/runs/ios-library-dictionary-2026-07-12.md`.
+`docs/qa/runs/ios-library-dictionary-2026-07-12.md`, and
+`docs/qa/runs/ios-library-voice-emoji-commands-2026-07-12.md`.
 
 The app-private credential marker, settings, Library, and Usage repositories
 now run one strict bounded structural pass before Foundation decoding. It

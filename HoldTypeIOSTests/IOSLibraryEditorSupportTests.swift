@@ -176,6 +176,62 @@ struct IOSLibraryEditorSupportTests {
         #expect(staleToggle.disposition == .conflict)
     }
 
+    @Test func emojiUnrelatedMutationsPreserveReadableLegacyCollisions() {
+        let first = CustomEmojiCommand(
+            id: UUID(),
+            emoji: "🙂",
+            command: "first primary",
+            aliases: ["shared legacy alias"],
+            isEnabled: true
+        )
+        let second = CustomEmojiCommand(
+            id: UUID(),
+            emoji: "🔥",
+            command: "second primary",
+            aliases: ["shared legacy alias"],
+            isEnabled: true
+        )
+        var content = IOSLibraryContent(
+            emojiCommandsConfiguration: EmojiCommandsConfiguration(
+                isEnabled: true,
+                enabledBuiltInSetIDs: ["en"],
+                customCommands: [first, second]
+            )
+        )
+
+        #expect(
+            IOSLibraryMutation.emojiCommands(
+                .setEnabled(expected: true, requested: false)
+            ).apply(to: &content).disposition == .committed
+        )
+        #expect(
+            IOSLibraryMutation.emojiCommands(
+                .selectBuiltInSet(
+                    expected: .builtIn("en"),
+                    requested: .builtIn("ru")
+                )
+            ).apply(to: &content).disposition == .committed
+        )
+        #expect(
+            IOSLibraryMutation.emojiCommands(
+                .setCommandEnabled(
+                    id: first.id,
+                    expected: true,
+                    requested: false
+                )
+            ).apply(to: &content).disposition == .committed
+        )
+
+        #expect(content.emojiCommandsConfiguration.customCommands.count == 2)
+        #expect(
+            content.emojiCommandsConfiguration.customCommands[0].aliases
+                == ["shared legacy alias"]
+        )
+        #expect(
+            content.emojiCommandsConfiguration.customCommands[1] == second
+        )
+    }
+
     @Test func emojiCRUDUsesUUIDFullRowCASAndRejectsPhraseAmbiguity() {
         let first = CustomEmojiCommand(
             id: UUID(),
