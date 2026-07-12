@@ -35,6 +35,21 @@ public struct IOSOpenAICredentialStatus: Equatable, Sendable {
     }
 }
 
+/// Monotonic process-local ordering for payload-free credential presentation.
+/// The revision carries no credential identity or generation.
+public struct IOSOpenAICredentialStatusUpdate: Equatable, Sendable {
+    public let revision: UInt64
+    public let status: IOSOpenAICredentialStatus
+
+    public init(
+        revision: UInt64,
+        status: IOSOpenAICredentialStatus
+    ) {
+        self.revision = revision
+        self.status = status
+    }
+}
+
 public enum IOSOpenAICredentialMutationOutcome: Equatable, Sendable {
     case applied
     case appliedStatusNeedsRefresh
@@ -68,7 +83,11 @@ public enum IOSOpenAICredentialResolution: Equatable, Sendable {
 
 public struct IOSOpenAICredentialResolutionOutcome: Equatable, Sendable {
     public let resolution: IOSOpenAICredentialResolution
-    public let status: IOSOpenAICredentialStatus
+    public let statusUpdate: IOSOpenAICredentialStatusUpdate
+
+    public var status: IOSOpenAICredentialStatus {
+        statusUpdate.status
+    }
 
     public var localMarkerIssue: IOSOpenAICredentialLocalMarkerIssue? {
         status.localMarkerIssue
@@ -79,7 +98,18 @@ public struct IOSOpenAICredentialResolutionOutcome: Equatable, Sendable {
         status: IOSOpenAICredentialStatus
     ) {
         self.resolution = resolution
-        self.status = status
+        statusUpdate = IOSOpenAICredentialStatusUpdate(
+            revision: 0,
+            status: status
+        )
+    }
+
+    public init(
+        resolution: IOSOpenAICredentialResolution,
+        statusUpdate: IOSOpenAICredentialStatusUpdate
+    ) {
+        self.resolution = resolution
+        self.statusUpdate = statusUpdate
     }
 }
 
@@ -148,6 +178,19 @@ extension IOSOpenAICredentialStatus:
     CustomReflectable
 {
     public var description: String { "IOSOpenAICredentialStatus(<redacted>)" }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Self.redactedMirror(for: self) }
+}
+
+extension IOSOpenAICredentialStatusUpdate:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    public var description: String {
+        "IOSOpenAICredentialStatusUpdate(<redacted>)"
+    }
+
     public var debugDescription: String { description }
     public var customMirror: Mirror { Self.redactedMirror(for: self) }
 }

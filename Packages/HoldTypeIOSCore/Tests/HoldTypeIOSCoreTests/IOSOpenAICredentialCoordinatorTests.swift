@@ -439,6 +439,84 @@ struct IOSOpenAICredentialCoordinatorTests {
         #expect(try resolvedKey(in: cached) == "sk-present")
     }
 
+    @Test func exactResolutionIssueReachesOutcomeAndStatusStream()
+        async throws {
+        let markerStore = ScriptedMarkerStore(
+            marker: try marker(.absent),
+            saveResults: [.failure, .failure]
+        )
+        let coordinator = makeCoordinator(
+            keychain: ScriptedAPIKeyStore(storedKey: "sk-present"),
+            markerStore: markerStore
+        )
+        let updates = await coordinator.statusUpdates()
+        var iterator = updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        let outcome = try await coordinator.resolve(
+            for: .openAISettingsRefresh
+        )
+        let streamedUpdate = await iterator.next()
+
+        #expect(try resolvedKey(in: outcome) == "sk-present")
+        #expect(outcome.localMarkerIssue == .unavailable)
+        #expect(streamedUpdate == outcome.statusUpdate)
+        #expect(streamedUpdate?.status.localMarkerIssue == .unavailable)
+        #expect(markerStore.marker?.state == .absent)
+        #expect(
+            (await coordinator.credentialStatus()).localMarkerIssue
+                == .unavailable
+        )
+
+        let recovered = try await coordinator.resolve(
+            for: .voicePreflight
+        )
+        #expect(recovered.localMarkerIssue == nil)
+        #expect(markerStore.marker?.state == .present)
+        #expect(
+            (await coordinator.credentialStatus()).localMarkerIssue == nil
+        )
+    }
+
+    @Test func rejectedCachePreservesFailedReconciliationInStream()
+        async throws {
+        let markerStore = ScriptedMarkerStore(
+            marker: try marker(.absent),
+            saveResults: [
+                .failure, .failure,
+                .failure, .failure,
+            ]
+        )
+        let coordinator = makeCoordinator(
+            keychain: ScriptedAPIKeyStore(storedKey: "sk-present"),
+            markerStore: markerStore
+        )
+        let updates = await coordinator.statusUpdates()
+        var iterator = updates.makeAsyncIterator()
+        _ = await iterator.next()
+
+        let resolved = try await coordinator.resolve(
+            for: .openAISettingsRefresh
+        )
+        _ = await iterator.next()
+        let generation = try #require(
+            availableHandle(in: resolved)
+        ).generation
+        await coordinator.recordProviderRejection(for: generation)
+        _ = await iterator.next()
+
+        await expectCoordinatorError(.providerRejected) {
+            _ = try await coordinator.resolve(for: .voicePreflight)
+        }
+        let rejectedUpdate = await iterator.next()
+
+        #expect(rejectedUpdate?.status.primary == .providerRejected)
+        #expect(
+            rejectedUpdate?.status.localMarkerIssue == .unavailable
+        )
+        #expect(markerStore.marker?.state == .absent)
+    }
+
     @Test func freshLockedResolutionRetriesAndDoesNotClearAnExistingCredential() async throws {
         let keychain = ScriptedAPIKeyStore(
             storedKey: "sk-present",
@@ -780,8 +858,11 @@ struct IOSOpenAICredentialCoordinatorTests {
         let outcome = try await coordinator.resolve(for: .voicePreflight)
         let handle = try #require(availableHandle(in: outcome))
         let status = await coordinator.credentialStatus()
+        let statusUpdate = await coordinator.credentialStatusUpdate()
         let values: [Any] = [
+            coordinator,
             status,
+            statusUpdate,
             IOSOpenAICredentialMutationOutcome.applied,
             outcome,
             outcome.resolution,
@@ -808,6 +889,40 @@ struct IOSOpenAICredentialCoordinatorTests {
                 #expect(!rendering.contains("-34018"))
             }
         }
+    }
+
+    @Test func statusUpdatesArePayloadFreeAndTrackExternalTruth()
+        async throws {
+        let coordinator = makeCoordinator(
+            keychain: ScriptedAPIKeyStore(),
+            markerStore: ScriptedMarkerStore(marker: nil)
+        )
+        let updates = await coordinator.statusUpdates()
+        var iterator = updates.makeAsyncIterator()
+
+        let initialUpdate = await iterator.next()
+        #expect(
+            initialUpdate?.status == IOSOpenAICredentialStatus(
+                primary: .notCheckedInThisProcess,
+                statusNeedsRefresh: false,
+                localMarkerIssue: nil
+            )
+        )
+        #expect(initialUpdate?.revision == 0)
+
+        _ = try await coordinator.saveOrReplace("sk-status-update")
+        let savedUpdate = await iterator.next()
+        #expect(savedUpdate?.status.primary == .availableInThisProcess)
+        #expect(savedUpdate?.revision == 1)
+
+        let resolution = try await coordinator.resolve(for: .voicePreflight)
+        let generation = try #require(
+            availableHandle(in: resolution)
+        ).generation
+        await coordinator.recordProviderRejection(for: generation)
+        let rejectedUpdate = await iterator.next()
+        #expect(rejectedUpdate?.status.primary == .providerRejected)
+        #expect(rejectedUpdate?.revision == 3)
     }
 }
 

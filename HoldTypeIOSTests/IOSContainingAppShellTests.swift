@@ -60,23 +60,26 @@ struct IOSContainingAppShellTests {
         )
     }
 
-    @Test func rootRequiresBothConcreteStateOwners() {
+    @Test func rootRequiresAllConcreteStateOwners() {
         #expect(
             IOSContainingAppRootPresentation.resolve(
                 hasSettingsStateOwner: true,
-                hasLibraryStateOwner: true
+                hasLibraryStateOwner: true,
+                hasOpenAISettingsStateOwner: true
             ) == .shell
         )
 
         for availability in [
-            (false, false),
-            (true, false),
-            (false, true),
+            (false, false, false),
+            (true, false, true),
+            (false, true, true),
+            (true, true, false),
         ] {
             #expect(
                 IOSContainingAppRootPresentation.resolve(
                     hasSettingsStateOwner: availability.0,
-                    hasLibraryStateOwner: availability.1
+                    hasLibraryStateOwner: availability.1,
+                    hasOpenAISettingsStateOwner: availability.2
                 ) == .storageUnavailable
             )
         }

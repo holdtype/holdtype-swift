@@ -77,7 +77,9 @@ final class IOSContainingAppComposition {
                     applicationSupportDirectoryURL:
                         applicationSupportDirectoryURL,
                     applicationIdentifierAccessGroup:
-                        applicationIdentifierAccessGroup
+                        applicationIdentifierAccessGroup,
+                    keychainAccessMode:
+                        .currentProcessDefault()
                 )
             },
             makeFailedHistoryService: {
@@ -107,6 +109,7 @@ final class IOSContainingAppComposition {
     let settingsStateOwner: IOSAppSettingsStateOwner?
     let libraryStateOwner: IOSLibraryStateOwner?
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
+    let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
     let failedHistoryService: IOSFailedHistoryService?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
     let availability: IOSContainingAppCompositionAvailability
@@ -131,6 +134,7 @@ final class IOSContainingAppComposition {
             settingsStateOwner = nil
             libraryStateOwner = nil
             credentialCoordinator = nil
+            openAISettingsStateOwner = nil
             failedHistoryService = nil
             availability = .storageUnavailable
             lifecycleScheduler = IOSContainingAppLifecycleScheduler { _ in
@@ -171,6 +175,11 @@ final class IOSContainingAppComposition {
             credentialCoordinator = nil
         }
         self.credentialCoordinator = credentialCoordinator
+        openAISettingsStateOwner = IOSOpenAICredentialSettingsStateOwner(
+            client: credentialCoordinator.map {
+                IOSOpenAICredentialSettingsClient(coordinator: $0)
+            }
+        )
         failedHistoryService = factories.makeFailedHistoryService(
             applicationSupportDirectoryURL,
             settingsStateOwner,
@@ -207,6 +216,7 @@ final class IOSContainingAppComposition {
         settingsStateOwner = nil
         libraryStateOwner = nil
         credentialCoordinator = nil
+        openAISettingsStateOwner = nil
         failedHistoryService = nil
         availability = .injected
         lifecycleScheduler = IOSContainingAppLifecycleScheduler(
@@ -244,6 +254,19 @@ final class IOSContainingAppComposition {
             }
         )
     }
+}
+
+extension IOSContainingAppComposition:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    nonisolated var description: String {
+        "IOSContainingAppComposition(<redacted>)"
+    }
+
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSContainingAppCompositionAvailability:

@@ -383,8 +383,14 @@ host app, state, expected result, actual result, and go/no-go decision.
   owners, restores scene-local top-level selection, exposes passive Voice
   practice plus truthful Settings/Library summaries, and keeps secure provider
   failure payload-free without entering the keyboard. Final evidence lives in
-  `docs/qa/runs/ios-containing-app-shell-2026-07-12.md`. The next P3 slice is
-  the P4-owned Settings and Library editors. The independent recording cache
+  `docs/qa/runs/ios-containing-app-shell-2026-07-12.md`. P3.3 adds the
+  containing-app-only OpenAI credential editor through one revisioned,
+  payload-free presentation owner and one scene-local redacted draft. Explicit
+  Keychain checks and mutations remain outside the extension, and repository
+  automation uses a no-Security-call access mode. Evidence lives in
+  `docs/qa/runs/ios-openai-credential-settings-2026-07-12.md`. The next P3
+  slice is the remaining non-secret P4-owned Settings and Library editors. The
+  independent recording cache
   and directional bridge remain later milestones behind the physical M0 gates.
   The runtime-only four-case `VoiceAttemptStage` is portable too; preflight,
   outcomes, recovery eligibility, and durable resume checkpoints remain

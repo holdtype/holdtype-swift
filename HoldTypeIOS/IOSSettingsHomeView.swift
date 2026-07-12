@@ -1,10 +1,12 @@
 import HoldTypeDomain
+import HoldTypeIOSCore
 import HoldTypePersistence
 import SwiftUI
 
 struct IOSSettingsHomeView: View {
     @Environment(IOSAppSettingsStateOwner.self) private var stateOwner
     @State private var isLoading = false
+    @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
 
     var body: some View {
         Group {
@@ -23,12 +25,14 @@ struct IOSSettingsHomeView: View {
             case .ready(let settings):
                 IOSSettingsSummaryList(
                     settings: settings,
-                    showsSaveFailure: false
+                    showsSaveFailure: false,
+                    openAIEditorDraft: $openAIEditorDraft
                 )
             case .saveFailed(let lastDurableValue):
                 IOSSettingsSummaryList(
                     settings: lastDurableValue,
-                    showsSaveFailure: true
+                    showsSaveFailure: true,
+                    openAIEditorDraft: $openAIEditorDraft
                 )
             }
         }
@@ -55,13 +59,37 @@ struct IOSSettingsHomeView: View {
 }
 
 private struct IOSSettingsSummaryList: View {
+    @Environment(IOSOpenAICredentialSettingsStateOwner.self)
+    private var openAISettingsStateOwner
+
     let settings: IOSAppSettings
     let showsSaveFailure: Bool
+    @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
 
     var body: some View {
         List {
             if showsSaveFailure {
                 IOSSaveFailureSection(subject: "Settings")
+            }
+
+            Section("OpenAI") {
+                NavigationLink {
+                    IOSOpenAISettingsView(
+                        editorDraft: $openAIEditorDraft
+                    )
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("API Key")
+                            Text(openAISummary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "key")
+                    }
+                }
+                .accessibilityIdentifier("ios.settings.openai.row")
             }
 
             Section("Saved Transcription Configuration") {
@@ -127,6 +155,17 @@ private struct IOSSettingsSummaryList: View {
         }
     }
 
+    private var openAISummary: String {
+        switch openAISettingsStateOwner.state {
+        case .unavailable:
+            return "Secure storage unavailable"
+        case .notLoaded:
+            return "Open to view saved-key status"
+        case .ready(let status):
+            return status.primary.settingsSummary
+        }
+    }
+
     private func transcriptionLanguageName(
         _ configuration: TranscriptionConfiguration
     ) -> String {
@@ -179,6 +218,25 @@ private struct IOSSettingsSummaryList: View {
             return "1.5 seconds"
         case .seconds2:
             return "2 seconds"
+        }
+    }
+}
+
+private extension IOSOpenAICredentialPrimaryStatus {
+    var settingsSummary: String {
+        switch self {
+        case .notConfigured:
+            "Not configured"
+        case .notCheckedInThisProcess:
+            "Not checked in this process"
+        case .savedLastKnown:
+            "Saved, last known"
+        case .availableInThisProcess:
+            "Available in this process"
+        case .unavailableWhileLocked:
+            "Unavailable while locked"
+        case .providerRejected:
+            "Provider rejected"
         }
     }
 }

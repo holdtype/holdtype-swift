@@ -34,13 +34,23 @@ public actor IOSOpenAICredentialCoordinator {
 
     private var runtimeCache = RuntimeCache.unresolved
     private var rejectedGeneration: IOSOpenAICredentialGeneration?
+    private var unresolvedMarkerIssue:
+        IOSOpenAICredentialLocalMarkerIssue?
+    private var statusRevision: UInt64 = 0
+    private var statusUpdateContinuations: [
+        UUID: AsyncStream<IOSOpenAICredentialStatusUpdate>.Continuation
+    ] = [:]
 
     public init(
         applicationSupportDirectoryURL: URL,
-        applicationIdentifierAccessGroup: String
+        applicationIdentifierAccessGroup: String,
+        keychainAccessMode: OpenAIAPIKeyKeychainAccessMode =
+            .currentProcessDefault()
     ) throws {
         keychainStorage = try OpenAIAPIKeyKeychainStorage(
-            applicationIdentifierAccessGroup: applicationIdentifierAccessGroup
+            applicationIdentifierAccessGroup:
+                applicationIdentifierAccessGroup,
+            accessMode: keychainAccessMode
         )
         markerStore = RepositoryCredentialPresenceMarkerStore(
             repository: CredentialPresenceMarkerRepository(
@@ -80,7 +90,36 @@ public actor IOSOpenAICredentialCoordinator {
 
     /// Reads only the app-private non-secret marker. It never touches Keychain.
     public func credentialStatus() -> IOSOpenAICredentialStatus {
-        status(for: loadMarkerObservation())
+        credentialStatusUpdate().status
+    }
+
+    /// Reads the same marker-only status plus its process-local ordering token.
+    public func credentialStatusUpdate()
+        -> IOSOpenAICredentialStatusUpdate {
+        IOSOpenAICredentialStatusUpdate(
+            revision: statusRevision,
+            status: status(for: loadMarkerObservation())
+        )
+    }
+
+    /// Observes payload-free process truth. Subscription reads only the local
+    /// non-secret marker for its initial value; later values are event-driven
+    /// and never contain a credential or generation.
+    public func statusUpdates()
+        -> AsyncStream<IOSOpenAICredentialStatusUpdate> {
+        let identifier = UUID()
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: IOSOpenAICredentialStatusUpdate.self,
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        statusUpdateContinuations[identifier] = continuation
+        continuation.onTermination = { @Sendable [weak self] _ in
+            Task {
+                await self?.removeStatusUpdateContinuation(identifier)
+            }
+        }
+        continuation.yield(credentialStatusUpdate())
+        return stream
     }
 
     public func saveOrReplace(
@@ -103,6 +142,7 @@ public actor IOSOpenAICredentialCoordinator {
     private func performSaveOrReplace(
         _ credential: OpenAICredential
     ) async throws -> IOSOpenAICredentialMutationOutcome {
+        defer { publishStatusUpdate() }
         let priorMarker = try loadReadableMarkerForMutation()
         try saveMarker(
             state: .mutationInProgress,
@@ -131,6 +171,7 @@ public actor IOSOpenAICredentialCoordinator {
 
         do {
             try saveMarker(state: .present)
+            unresolvedMarkerIssue = nil
             return .applied
         } catch {
             return .appliedStatusNeedsRefresh
@@ -144,6 +185,7 @@ public actor IOSOpenAICredentialCoordinator {
     }
 
     private func performRemove() async throws -> IOSOpenAICredentialMutationOutcome {
+        defer { publishStatusUpdate() }
         let priorMarker = try loadReadableMarkerForMutation()
         try saveMarker(
             state: .mutationInProgress,
@@ -172,6 +214,7 @@ public actor IOSOpenAICredentialCoordinator {
 
         do {
             try saveMarker(state: .absent)
+            unresolvedMarkerIssue = nil
             return .applied
         } catch {
             return .appliedStatusNeedsRefresh
@@ -187,6 +230,29 @@ public actor IOSOpenAICredentialCoordinator {
     }
 
     private func performResolve(
+        for purpose: IOSOpenAICredentialResolutionPurpose
+    ) async throws -> IOSOpenAICredentialResolutionOutcome {
+        do {
+            let outcome = try await resolveWithoutPublishing(
+                for: purpose
+            )
+            let statusUpdate = publishStatusUpdate(
+                status: outcome.status
+            ) ?? IOSOpenAICredentialStatusUpdate(
+                revision: statusRevision,
+                status: outcome.status
+            )
+            return IOSOpenAICredentialResolutionOutcome(
+                resolution: outcome.resolution,
+                statusUpdate: statusUpdate
+            )
+        } catch {
+            publishStatusUpdate()
+            throw error
+        }
+    }
+
+    private func resolveWithoutPublishing(
         for purpose: IOSOpenAICredentialResolutionPurpose
     ) async throws -> IOSOpenAICredentialResolutionOutcome {
         let markerObservation = loadMarkerObservation()
@@ -231,6 +297,34 @@ public actor IOSOpenAICredentialCoordinator {
         }
 
         rejectedGeneration = generation
+        publishStatusUpdate()
+    }
+
+    @discardableResult
+    private func publishStatusUpdate(
+        status: IOSOpenAICredentialStatus? = nil
+    ) -> IOSOpenAICredentialStatusUpdate? {
+        guard !statusUpdateContinuations.isEmpty else {
+            guard let status else { return nil }
+            return IOSOpenAICredentialStatusUpdate(
+                revision: statusRevision,
+                status: status
+            )
+        }
+        let resolvedStatus = status ?? credentialStatusUpdate().status
+        statusRevision &+= 1
+        let update = IOSOpenAICredentialStatusUpdate(
+            revision: statusRevision,
+            status: resolvedStatus
+        )
+        for continuation in statusUpdateContinuations.values {
+            continuation.yield(update)
+        }
+        return update
+    }
+
+    private func removeStatusUpdateContinuation(_ identifier: UUID) {
+        statusUpdateContinuations.removeValue(forKey: identifier)
     }
 
     private func resolveFromKeychain(
@@ -372,6 +466,7 @@ public actor IOSOpenAICredentialCoordinator {
         from observation: MarkerObservation
     ) -> IOSOpenAICredentialLocalMarkerIssue? {
         guard case .readable(let marker) = observation else {
+            unresolvedMarkerIssue = .unavailable
             return .unavailable
         }
 
@@ -383,6 +478,7 @@ public actor IOSOpenAICredentialCoordinator {
         }
 
         if marker?.state == finalState {
+            unresolvedMarkerIssue = nil
             return nil
         }
 
@@ -395,8 +491,10 @@ public actor IOSOpenAICredentialCoordinator {
 
         do {
             try saveMarker(state: finalState)
+            unresolvedMarkerIssue = nil
             return nil
         } catch {
+            unresolvedMarkerIssue = .unavailable
             return .unavailable
         }
     }
@@ -405,14 +503,14 @@ public actor IOSOpenAICredentialCoordinator {
         for markerObservation: MarkerObservation
     ) -> IOSOpenAICredentialStatus {
         let marker: CredentialPresenceMarker?
-        let localMarkerIssue: IOSOpenAICredentialLocalMarkerIssue?
+        let observedMarkerIssue: IOSOpenAICredentialLocalMarkerIssue?
         switch markerObservation {
         case .readable(let readableMarker):
             marker = readableMarker
-            localMarkerIssue = nil
+            observedMarkerIssue = nil
         case .unreadable:
             marker = nil
-            localMarkerIssue = .unavailable
+            observedMarkerIssue = .unavailable
         }
 
         let primary: IOSOpenAICredentialPrimaryStatus = switch runtimeCache {
@@ -445,7 +543,8 @@ public actor IOSOpenAICredentialCoordinator {
         return IOSOpenAICredentialStatus(
             primary: primary,
             statusNeedsRefresh: statusNeedsRefresh,
-            localMarkerIssue: localMarkerIssue
+            localMarkerIssue:
+                observedMarkerIssue ?? unresolvedMarkerIssue
         )
     }
 
@@ -535,5 +634,20 @@ private struct RepositoryCredentialPresenceMarkerStore:
 
     func removeIfPresent() throws {
         try repository.removeIfPresent()
+    }
+}
+
+extension IOSOpenAICredentialCoordinator:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    public nonisolated var description: String {
+        "IOSOpenAICredentialCoordinator(<redacted>)"
+    }
+
+    public nonisolated var debugDescription: String { description }
+    public nonisolated var customMirror: Mirror {
+        Mirror(self, children: [:])
     }
 }

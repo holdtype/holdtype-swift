@@ -8,6 +8,41 @@ public protocol OpenAIAPIKeyStoring: Sendable {
     func removeAPIKey() async throws
 }
 
+public enum OpenAIAPIKeyKeychainAccessMode: Equatable, Sendable {
+    case live
+    case disabledForAutomation
+
+    public static func currentProcessDefault(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Self {
+        if isEnabled(environment["HOLDTYPE_AUTOMATION"])
+            || isRunningXCTest(environment) {
+            return .disabledForAutomation
+        }
+        return .live
+    }
+
+    private static func isRunningXCTest(
+        _ environment: [String: String]
+    ) -> Bool {
+        environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestSessionIdentifier"] != nil
+            || environment["XCTestBundlePath"] != nil
+            || environment["XCInjectBundle"] != nil
+            || environment["XCInjectBundleInto"] != nil
+    }
+
+    private static func isEnabled(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return switch value.lowercased() {
+        case "1", "true", "yes":
+            true
+        default:
+            false
+        }
+    }
+}
+
 public enum OpenAIAPIKeyKeychainStorageError: Error, Equatable, Sendable {
     case invalidApplicationIdentifierAccessGroup
     case emptyAPIKey
@@ -66,11 +101,19 @@ public actor OpenAIAPIKeyKeychainStorage: OpenAIAPIKeyStoring {
     private let client: any SecItemClient
     private let applicationIdentifierAccessGroup: String
 
-    public init(applicationIdentifierAccessGroup: String) throws {
+    public init(
+        applicationIdentifierAccessGroup: String,
+        accessMode: OpenAIAPIKeyKeychainAccessMode =
+            .currentProcessDefault()
+    ) throws {
         self.applicationIdentifierAccessGroup = try Self.validate(
             applicationIdentifierAccessGroup: applicationIdentifierAccessGroup
         )
-        client = SystemSecItemClient()
+        client = Self.selectClient(
+            for: accessMode,
+            liveClient: SystemSecItemClient(),
+            disabledClient: DisabledSecItemClient()
+        )
     }
 
     init(
@@ -219,6 +262,19 @@ public actor OpenAIAPIKeyKeychainStorage: OpenAIAPIKeyStoring {
 
         return .keychainFailure
     }
+
+    static func selectClient(
+        for accessMode: OpenAIAPIKeyKeychainAccessMode,
+        liveClient: any SecItemClient,
+        disabledClient: any SecItemClient
+    ) -> any SecItemClient {
+        switch accessMode {
+        case .live:
+            liveClient
+        case .disabledForAutomation:
+            disabledClient
+        }
+    }
 }
 
 struct SecItemCopyResult {
@@ -250,5 +306,26 @@ struct SystemSecItemClient: SecItemClient {
 
     func delete(query: [String: Any]) -> OSStatus {
         SecItemDelete(query as CFDictionary)
+    }
+}
+
+struct DisabledSecItemClient: SecItemClient {
+    func add(attributes: [String: Any]) -> OSStatus {
+        errSecNotAvailable
+    }
+
+    func update(
+        query: [String: Any],
+        attributes: [String: Any]
+    ) -> OSStatus {
+        errSecNotAvailable
+    }
+
+    func copyMatching(query: [String: Any]) -> SecItemCopyResult {
+        SecItemCopyResult(status: errSecNotAvailable, value: nil)
+    }
+
+    func delete(query: [String: Any]) -> OSStatus {
+        errSecNotAvailable
     }
 }

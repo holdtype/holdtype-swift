@@ -40,6 +40,13 @@ and the OpenAI API key.
 - A setting appears only when its owning behavior works. Future keyboard,
   Quick Session, or typing controls must not be saved inertly in an earlier
   milestone.
+- The Settings root exposes OpenAI as a native detail destination. Merely
+  opening the Settings root does not inspect the credential marker or
+  Keychain. Each OpenAI-detail appearance refreshes its payload-free,
+  marker-only status and the first appearance starts one process-owned,
+  event-driven status observation; neither action reads Keychain. Keychain
+  remains untouched until an explicit key mutation or `Check Saved Key`
+  action.
 
 ## Default configuration
 
@@ -99,12 +106,38 @@ default. Typing layouts and dictionaries appear only after their entry gate.
 - The extension never reads Keychain and never receives key metadata.
 - HoldType does not read the key on launch, passive Settings appearance,
   permission refresh, keyboard status refresh, or diagnostics export.
+- Repository automation and XCTest host launches select a disabled Keychain
+  access mode before the containing-app coordinator is constructed. In that
+  mode every load, save/replace, and remove fails locally without calling any
+  Security item API, inspecting an existing item, or changing it. The mode is
+  process-local, is never selected by a normal production launch, and does not
+  turn an inaccessible item into `not configured`.
 - Saving or replacing a manually entered key occurs when the user commits the
   field with Done/Return or leaves the field with a non-empty valid candidate;
   it does not write a partial key on every character.
 - An explicit Paste action with non-empty text commits immediately. HoldType
   does not inspect the clipboard passively.
 - No separate Save button is required.
+- The API-key draft belongs only to one scene's ephemeral OpenAI editor state.
+  It may survive a transient navigation dismissal so a failed focus-loss save
+  can be retried, but it is never copied into the process-owned presentation
+  owner, another scene, app settings, diagnostics, `SceneStorage`, App Group,
+  or durable navigation state. The editor uses a secure, privacy-sensitive
+  field with capitalization and correction disabled. A successful save clears
+  the draft. A failed save keeps the still-masked draft and visible failure for
+  an explicit retry while preserving the previous saved item and status.
+- Return/Done attempts one manual commit. Leaving the field commits only a
+  non-empty candidate. Typing alone performs no credential operation. Empty
+  or whitespace-only submitted and pasted candidates are rejected locally;
+  HoldType does not require an `sk-` prefix or otherwise infer provider key
+  formats.
+- Remove is a destructive action with confirmation. A successful remove also
+  clears the visible draft; a failed remove retains both the previous status
+  and any draft.
+- While one credential action is in progress, the OpenAI detail disables
+  refresh, save, paste, and remove actions. The process-owned coordinator
+  remains the final FIFO transaction boundary if another scene or voice flow
+  already has an operation queued.
 - Save/replace updates the same stable item and the process credential cache.
 - The containing app serializes save, replace, remove, explicit Settings
   refresh, and voice-preflight resolution as whole operations. Awaiting a
@@ -185,6 +218,12 @@ The OpenAI surface distinguishes:
 A mask indicates last known successful storage, not proof that the key is
 currently readable or accepted by OpenAI. The full key is never revealed.
 
+The OpenAI detail labels a successful mutation as `Saved in HoldType`; it does
+not claim that the credential is provider-accepted, active in the keyboard, or
+published anywhere. A partial success adds the existing `status needs refresh`
+warning. Unknown failures are reduced to fixed redacted UI categories rather
+than retaining an arbitrary `Error` or its description in observable state.
+
 The surface always shows one primary state from the list above. It may add a
 `status needs refresh` warning only while the marker is `unknown` or
 `mutationInProgress`; `saved, status needs refresh` and `removed, status needs
@@ -231,7 +270,13 @@ contradictory `present`/`absent` marker, it first attempts `unknown` and then
 the final actual state so a failed final replacement cannot leave the opposite
 last-known state. Failure to prepare `unknown` does not prevent the final
 actual-state attempt; a remaining failure is surfaced as a local marker issue
-without discarding a successfully resolved runtime credential or absence.
+without discarding a successfully resolved runtime credential or absence. The
+coordinator retains that redacted issue in process memory across later passive
+status reads, subscriptions, and provider-status events. It clears the issue
+only after a successful reconciliation, save, or removal proves durable marker
+truth. The explicit resolution outcome and the status stream publish the same
+revisioned status update, so no presentation layer reconstructs or weakens the
+result after the operation returns.
 
 ## Persistence ownership
 
@@ -478,6 +523,62 @@ without discarding a successfully resolved runtime credential or absence.
   may observe or mutate through them but cannot construct a replacement owner
   or repository. Storage-root failure leaves both owners unavailable rather
   than presenting defaults as durable state.
+
+### P3 process-owned credential presentation state
+
+- After constructing the one credential coordinator, the composition root
+  constructs exactly one app-private credential presentation owner and gives
+  that same identity to every scene. SwiftUI receives this owner, not the
+  coordinator, Keychain adapter, or containing-app composition. The owner
+  wraps a narrow client whose production closures all capture the exact
+  process-owned coordinator.
+- If secure credential construction is unavailable, the presentation owner
+  still exists in an explicit `unavailable` state. It never converts that
+  condition to `not configured`; local Settings and Library remain usable.
+  Storage-root failure prevents all three presentation owners from being
+  created and uses the existing blocking local-storage surface.
+- Construction is passive. Each OpenAI detail task requests
+  `credentialStatusUpdate()`, which reads the non-secret marker, and the first task
+  subscribes to one payload-free coordinator status stream. The stream emits
+  an initial marker/cache status and event-driven changes after credential
+  mutations, voice preflight, or provider rejection. Every emitted status has
+  a monotonic process-local revision that contains no credential identity or
+  generation, so a late passive snapshot cannot overwrite newer truth. The
+  stream never polls Keychain and contains no credential or generation.
+  `Check Saved Key` calls
+  `resolve(for: .openAISettingsRefresh)` and stores only the returned
+  payload-free status; the credential resolution and generation never enter
+  SwiftUI state.
+- The owner stores only availability, payload-free status, a closed operation
+  state, and closed redacted notice or failure categories. It never stores an
+  API-key candidate, clipboard value, resolved credential, provider request,
+  or arbitrary error. After save or remove it reloads marker/cache status
+  through `credentialStatusUpdate()` without performing another Keychain read.
+- A single owner operation state prevents overlapping UI actions across
+  scenes. Save and remove report success only after the coordinator returns;
+  refresh failure re-reads marker/cache presentation state so process truth
+  can be shown without another Keychain access, but that older cached truth
+  does not hide the supplementary failure of the user's explicit Keychain
+  check. Re-entering the detail also does not erase a failed mutation or its
+  retry draft. Event-driven status
+  changes received while an owner action is in progress are retained by
+  revision, and an older action result cannot overwrite them. A newer external
+  status clears only an action notice or failure that the payload-free status
+  itself makes obsolete. A cache-only voice preflight does not prove that a
+  previously locked or unreadable Keychain item recovered, so Keychain-access
+  failures remain until a successful explicit Settings refresh, save/replace,
+  or remove begins a new action. A newer same-status event likewise preserves
+  a still-relevant failed replacement error. The coordinator stream therefore
+  keeps an open detail current when voice or Retry changes process truth
+  without overstating what its cache-only events verified.
+- The SwiftUI root stores only the exact Settings, Library, and credential
+  presentation-owner identities plus payload-free provider availability. It
+  never stores or receives the containing-app composition, credential
+  coordinator, Keychain adapter, or failed-History service.
+- The narrow client, presentation owner, draft wrapper, coordinator, and
+  containing-app composition have redacted description, debug, and reflection
+  surfaces so a debug dump cannot traverse into key material or captured
+  credential state.
 
 ### Credential-presence marker v1
 

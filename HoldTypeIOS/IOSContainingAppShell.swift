@@ -7,6 +7,8 @@ struct IOSContainingAppShell: View {
 
     @State private var splitSelection: IOSContainingAppDestination?
     @State private var didRestoreSplitSelection = false
+    @State private var openAIEditorDraft =
+        IOSOpenAICredentialEditorDraft()
 
     let secureProviderAvailability: IOSSecureProviderAvailability
     let layout: IOSContainingAppShellLayout
@@ -108,7 +110,9 @@ struct IOSContainingAppShell: View {
         case .history:
             IOSHistoryHomeView()
         case .settings:
-            IOSSettingsHomeView()
+            IOSSettingsHomeView(
+                openAIEditorDraft: $openAIEditorDraft
+            )
         }
     }
 

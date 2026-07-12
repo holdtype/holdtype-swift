@@ -112,12 +112,8 @@ struct IOSContainingAppCompositionTests {
         )
 
         let app = HoldTypeIOSApp(composition: composition)
-        let firstScene = HoldTypeIOSRootView(
-            composition: app.composition
-        )
-        let secondScene = HoldTypeIOSRootView(
-            composition: app.composition
-        )
+        let firstScene = rootView(for: app.composition)
+        let secondScene = rootView(for: app.composition)
 
         #expect(
             events == [
@@ -148,18 +144,30 @@ struct IOSContainingAppCompositionTests {
             composition.credentialCoordinator
                 === capturedCredentialCoordinator
         )
+        #expect(composition.openAISettingsStateOwner != nil)
+        #expect(
+            composition.openAISettingsStateOwner?.state == .notLoaded
+        )
         #expect(composition.failedHistoryService != nil)
-        #expect(firstScene.composition === composition)
-        #expect(secondScene.composition === composition)
         #expect(firstScene.presentation == .shell)
         #expect(secondScene.presentation == .shell)
         #expect(
-            firstScene.composition.settingsStateOwner
-                === secondScene.composition.settingsStateOwner
+            firstScene.settingsStateOwner
+                === secondScene.settingsStateOwner
         )
         #expect(
-            firstScene.composition.libraryStateOwner
-                === secondScene.composition.libraryStateOwner
+            firstScene.libraryStateOwner
+                === secondScene.libraryStateOwner
+        )
+        #expect(
+            firstScene.openAISettingsStateOwner
+                === secondScene.openAISettingsStateOwner
+        )
+        #expect(firstScene.settingsStateOwner === capturedSettingsStateOwner)
+        #expect(firstScene.libraryStateOwner === capturedLibraryStateOwner)
+        #expect(
+            firstScene.openAISettingsStateOwner
+                === composition.openAISettingsStateOwner
         )
         #expect(
             !FileManager.default.fileExists(
@@ -232,17 +240,20 @@ struct IOSContainingAppCompositionTests {
             scheduleProviderStartupMaintenance: {},
             scheduleRetryScratchStartupMaintenance: {}
         )
-        let rootView = HoldTypeIOSRootView(composition: composition)
+        let rootPresentation = rootView(for: composition)
 
         await composition.lifecycleScheduler.waitUntilIdle()
         #expect(composition.availability == .credentialUnavailable)
-        #expect(rootView.presentation == .shell)
+        #expect(rootPresentation.presentation == .shell)
         #expect(composition.historyCoordinator != nil)
         #expect(composition.settingsStateOwner != nil)
         #expect(composition.libraryStateOwner != nil)
         #expect(composition.settingsStateOwner?.state == .notLoaded)
         #expect(composition.libraryStateOwner?.state == .notLoaded)
         #expect(composition.credentialCoordinator == nil)
+        #expect(
+            composition.openAISettingsStateOwner?.state == .unavailable
+        )
         #expect(composition.failedHistoryService != nil)
         #expect(credentialFactoryCalls == 0)
         #expect(serviceCredentialWasNil)
@@ -326,6 +337,9 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.settingsStateOwner?.state == .notLoaded)
         #expect(composition.libraryStateOwner?.state == .notLoaded)
         #expect(composition.credentialCoordinator == nil)
+        #expect(
+            composition.openAISettingsStateOwner?.state == .unavailable
+        )
         let service = try #require(composition.failedHistoryService)
         #expect(await service.loadFailedHistory() == .available([]))
         #expect(
@@ -384,17 +398,20 @@ struct IOSContainingAppCompositionTests {
             }
         )
         let app = HoldTypeIOSApp(composition: composition)
-        let root = HoldTypeIOSRootView(composition: app.composition)
+        let root = rootView(for: app.composition)
 
         await composition.lifecycleScheduler.waitUntilIdle()
-        #expect(root.composition === composition)
         #expect(root.presentation == .storageUnavailable)
+        #expect(root.settingsStateOwner == nil)
+        #expect(root.libraryStateOwner == nil)
+        #expect(root.openAISettingsStateOwner == nil)
         #expect(composition.availability == .storageUnavailable)
         #expect(composition.applicationSupportDirectoryURL == nil)
         #expect(composition.historyCoordinator == nil)
         #expect(composition.settingsStateOwner == nil)
         #expect(composition.libraryStateOwner == nil)
         #expect(composition.credentialCoordinator == nil)
+        #expect(composition.openAISettingsStateOwner == nil)
         #expect(composition.failedHistoryService == nil)
         #expect(
             composition.lifecycleScheduler.latestDisposition
@@ -424,6 +441,7 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.settingsStateOwner == nil)
         #expect(app.composition.libraryStateOwner == nil)
         #expect(app.composition.credentialCoordinator == nil)
+        #expect(app.composition.openAISettingsStateOwner == nil)
         #expect(app.composition.failedHistoryService == nil)
         #expect(app.composition.lifecycleScheduler.latestDisposition == .complete)
     }
@@ -459,4 +477,19 @@ private func compositionTemporaryRoot() throws -> URL {
         withIntermediateDirectories: true
     )
     return root
+}
+
+@MainActor
+private func rootView(
+    for composition: IOSContainingAppComposition
+) -> HoldTypeIOSRootView {
+    HoldTypeIOSRootView(
+        settingsStateOwner: composition.settingsStateOwner,
+        libraryStateOwner: composition.libraryStateOwner,
+        openAISettingsStateOwner:
+            composition.openAISettingsStateOwner,
+        secureProviderAvailability: .resolve(
+            compositionAvailability: composition.availability
+        )
+    )
 }

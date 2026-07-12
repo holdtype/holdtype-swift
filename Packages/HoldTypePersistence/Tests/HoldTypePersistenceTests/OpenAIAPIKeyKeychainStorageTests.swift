@@ -262,6 +262,84 @@ struct OpenAIAPIKeyKeychainStorageTests {
         #expect(client.recordedCalls.isEmpty)
     }
 
+    @Test func processDefaultDisablesKeychainForAutomationAndXCTest() {
+        #expect(
+            OpenAIAPIKeyKeychainAccessMode.currentProcessDefault(
+                environment: [:]
+            ) == .live
+        )
+
+        for value in ["1", "true", "YES"] {
+            #expect(
+                OpenAIAPIKeyKeychainAccessMode.currentProcessDefault(
+                    environment: ["HOLDTYPE_AUTOMATION": value]
+                ) == .disabledForAutomation
+            )
+        }
+
+        #expect(
+            OpenAIAPIKeyKeychainAccessMode.currentProcessDefault(
+                environment: ["XCTestSessionIdentifier": "fixture"]
+            ) == .disabledForAutomation
+        )
+        #expect(
+            OpenAIAPIKeyKeychainAccessMode.currentProcessDefault(
+                environment: ["HOLDTYPE_AUTOMATION": "0"]
+            ) == .live
+        )
+    }
+
+    @Test func disabledModeFailsEveryOperationWithoutSecurityItemWork()
+        async throws {
+        let storage = try OpenAIAPIKeyKeychainStorage(
+            applicationIdentifierAccessGroup:
+                testApplicationIdentifierAccessGroup,
+            accessMode: .disabledForAutomation
+        )
+
+        await expectError(.keychainFailure, from: storage) { storage in
+            try await storage.saveOrReplaceAPIKey("qa-not-a-live-key")
+        }
+        await expectError(.keychainFailure, from: storage) { storage in
+            _ = try await storage.loadAPIKey()
+        }
+        await expectError(.keychainFailure, from: storage) { storage in
+            try await storage.removeAPIKey()
+        }
+
+        requireSendable(OpenAIAPIKeyKeychainAccessMode.self)
+    }
+
+    @Test func disabledModeSelectsTheNoSecurityItemClient() {
+        let liveClient = SecItemClientFake(
+            updateStatuses: [errSecSuccess],
+            copyResults: [
+                SecItemCopyResult(
+                    status: errSecSuccess,
+                    value: Data("must-not-load".utf8)
+                ),
+            ],
+            deleteStatuses: [errSecSuccess]
+        )
+        let selectedClient = OpenAIAPIKeyKeychainStorage.selectClient(
+            for: .disabledForAutomation,
+            liveClient: liveClient,
+            disabledClient: DisabledSecItemClient()
+        )
+
+        #expect(
+            selectedClient.update(query: [:], attributes: [:])
+                == errSecNotAvailable
+        )
+        #expect(
+            selectedClient.copyMatching(query: [:]).status
+                == errSecNotAvailable
+        )
+        #expect(selectedClient.delete(query: [:]) == errSecNotAvailable)
+        #expect(selectedClient.add(attributes: [:]) == errSecNotAvailable)
+        #expect(liveClient.recordedCalls.isEmpty)
+    }
+
     @Test func publicInitializerFailsClosedForEveryInvalidAppIdentity() throws {
         let invalidValues = [
             "",

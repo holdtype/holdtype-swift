@@ -74,9 +74,12 @@ enum IOSContainingAppRootPresentation: Equatable, Sendable {
 
     static func resolve(
         hasSettingsStateOwner: Bool,
-        hasLibraryStateOwner: Bool
+        hasLibraryStateOwner: Bool,
+        hasOpenAISettingsStateOwner: Bool
     ) -> Self {
-        hasSettingsStateOwner && hasLibraryStateOwner
+        hasSettingsStateOwner
+            && hasLibraryStateOwner
+            && hasOpenAISettingsStateOwner
             ? .shell
             : .storageUnavailable
     }

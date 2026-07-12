@@ -49,7 +49,15 @@ struct HoldTypeIOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HoldTypeIOSRootView(composition: composition)
+            HoldTypeIOSRootView(
+                settingsStateOwner: composition.settingsStateOwner,
+                libraryStateOwner: composition.libraryStateOwner,
+                openAISettingsStateOwner:
+                    composition.openAISettingsStateOwner,
+                secureProviderAvailability: .resolve(
+                    compositionAvailability: composition.availability
+                )
+            )
         }
         .onChange(of: scenePhase, initial: true) { oldPhase, newPhase in
             composition.lifecycleScheduler.observeScenePhase(
@@ -61,37 +69,50 @@ struct HoldTypeIOSApp: App {
 }
 
 struct HoldTypeIOSRootView: View {
-    let composition: IOSContainingAppComposition
+    let settingsStateOwner: IOSAppSettingsStateOwner?
+    let libraryStateOwner: IOSLibraryStateOwner?
+    let openAISettingsStateOwner:
+        IOSOpenAICredentialSettingsStateOwner?
+    let secureProviderAvailability: IOSSecureProviderAvailability
     let layout: IOSContainingAppShellLayout
 
     init(
-        composition: IOSContainingAppComposition,
+        settingsStateOwner: IOSAppSettingsStateOwner?,
+        libraryStateOwner: IOSLibraryStateOwner?,
+        openAISettingsStateOwner:
+            IOSOpenAICredentialSettingsStateOwner?,
+        secureProviderAvailability: IOSSecureProviderAvailability,
         layout: IOSContainingAppShellLayout = .current
     ) {
-        self.composition = composition
+        self.settingsStateOwner = settingsStateOwner
+        self.libraryStateOwner = libraryStateOwner
+        self.openAISettingsStateOwner = openAISettingsStateOwner
+        self.secureProviderAvailability = secureProviderAvailability
         self.layout = layout
     }
 
     var presentation: IOSContainingAppRootPresentation {
         .resolve(
             hasSettingsStateOwner:
-                composition.settingsStateOwner != nil,
+                settingsStateOwner != nil,
             hasLibraryStateOwner:
-                composition.libraryStateOwner != nil
+                libraryStateOwner != nil,
+            hasOpenAISettingsStateOwner:
+                openAISettingsStateOwner != nil
         )
     }
 
     var body: some View {
-        if let settingsStateOwner = composition.settingsStateOwner,
-           let libraryStateOwner = composition.libraryStateOwner {
+        if let settingsStateOwner,
+           let libraryStateOwner,
+           let openAISettingsStateOwner {
             IOSContainingAppShell(
-                secureProviderAvailability: .resolve(
-                    compositionAvailability: composition.availability
-                ),
+                secureProviderAvailability: secureProviderAvailability,
                 layout: layout
             )
                 .environment(settingsStateOwner)
                 .environment(libraryStateOwner)
+                .environment(openAISettingsStateOwner)
         } else {
             IOSContainingAppStorageUnavailableView()
         }
