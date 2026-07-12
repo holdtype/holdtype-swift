@@ -497,9 +497,11 @@ API. Persistence owns one app-private foreground capture-source namespace at
 `HoldType/Recordings/Capture`. The namespace is owner-only, no-follow, mode
 `0700`, Complete-protected, excluded from backup, and marked with
 `com.holdtype.ios.capture-source-namespace` exact ASCII bytes `v1`. The
-containing app may receive one transient source URL only through an opaque
-Persistence-issued recording lease for `AVAudioRecorder`; no provider, scene
-state, log, App Group, or keyboard surface receives it.
+containing app's recorder adapter may receive one transient source URL only
+through an opaque Persistence-issued recording lease; no provider, scene state,
+log, App Group, or keyboard surface receives it. `AVAudioRecorder` is only one
+candidate implementation and cannot become the release recorder until the
+P4D-2 identity gate below passes.
 
 #### Capture creation and wire format
 
@@ -567,6 +569,17 @@ replacement, rename, link-count change, symlink, owner/mode change, or
 path/descriptor disagreement fails closed. The manifests contain no prompt,
 Library content, credential, consent value, provider data, transcript, scene
 identity, or external-app context.
+
+Before an `AVAudioRecorder` candidate may retain audio, HoldType revalidates the
+same pinned descriptor/path identity, source xattrs, owner, mode, link count,
+Complete protection, and backup exclusion after both recorder initialization
+and `prepareToRecord()`. Any replacement or metadata loss retires the candidate
+without recording and preserves the source for exact blocked cleanup. A bounded
+physical-device gate must repeat that proof before and after a short real
+recording. Simulator evidence alone cannot approve the release recorder. If the
+gate shows that `AVAudioRecorder` replaces or weakens the source, P4D uses a
+descriptor-backed AudioToolbox/AVAudioEngine writer instead; the storage and
+crash-recovery contract is not weakened to accommodate a URL-only recorder.
 
 #### Capture finalization and active recovery
 

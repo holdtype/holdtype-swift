@@ -1364,6 +1364,18 @@ permission, foreground audio-session, recorder, feedback, and bounded
 finalization adapters. Final evidence lives in
 `docs/qa/runs/ios-p4d-shared-voice-controller-2026-07-12.md`.
 
+P4D-2 proceeds in three bounded checkpoints. P4D-2A implements the
+descriptor-bound capture-source owner and its Pending handoff in Persistence.
+P4D-2B implements app-target permission, audio-session, route-event,
+cue/haptic, background-finalization, and fail-closed recorder adapters with
+fakes. P4D-2C is a physical-device release gate around the recorder's exact
+inode, xattr, protection, and post-recording identity. An `AVAudioRecorder`
+candidate may compile and run only while it revalidates that proof at runtime;
+it is not release-approved by Simulator. A failed device gate selects a
+descriptor-backed AudioToolbox/AVAudioEngine writer and does not weaken the
+storage contract. P4D-3 composition may begin after 2A and 2B, but P4 cannot be
+declared release-ready until 2C has an approved physical result.
+
 No History toggle, Clear History action, first-use disclosure, Recording Cache,
 App Group publication, or keyboard dependency is exposed by C4.0 alone.
 The C4.0 contract review is recorded in

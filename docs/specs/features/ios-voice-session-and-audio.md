@@ -190,6 +190,51 @@ microphone activity or losing completed recordings.
   assertion never keeps the microphone alive and P4 declares no audio
   background mode.
 
+### P4D-2 Adapter And Recorder Feasibility Gate
+
+- P4D-2 keeps UIKit and AVFAudio production adapters in the containing-app
+  target. `HoldTypeIOSCore` remains cross-platform and receives no UIKit,
+  `AVAudioSession`, `AVAudioRecorder`, permission, or background-task type.
+- Before a live permission request exists, the containing app declares exactly
+  `NSMicrophoneUsageDescription = HoldType uses the microphone to record speech
+  you choose to transcribe.` The keyboard plist, entitlements, and link graph
+  receive no microphone or audio addition. No Speech-recognition purpose string
+  or audio background mode is added.
+- The iOS 17 permission adapter reads
+  `AVAudioApplication.shared.recordPermission`, requests only from an explicit
+  Start while the value is undetermined, and fails closed for an unknown value.
+  A late completion cannot bypass the current attempt token, active-scene,
+  consent, credential, or storage revalidation.
+- Persistence creates and pins the descriptor-bound source before a recorder
+  receives its transient URL. `AVAudioRecorder` may be used only as a
+  fail-closed candidate: source identity, xattrs, protection, link count, mode,
+  and path agreement are revalidated after initialization and
+  `prepareToRecord()` and again after close. It never starts retained capture
+  after a failed proof.
+- Release approval additionally requires a bounded physical-device probe around
+  a short real recording. Apple documents that `prepareToRecord()` creates and
+  may overwrite its URL but does not promise inode or metadata preservation;
+  simulator behavior is not sufficient evidence. If the device proof fails,
+  HoldType uses a descriptor-backed AudioToolbox/AVAudioEngine writer without
+  weakening the frozen capture-source contract.
+- `AVAudioRecorderDelegate` is not the sole stop authority because an audio
+  interruption may omit its finish callback. Session interruption, route,
+  input-mute, media-lost, scene, token, watchdog, and explicit actions all
+  converge on one idempotent owner stop. Interruption end and media reset never
+  resume automatically.
+- Recorder time is presentation-only. Canonical duration and byte count come
+  from bounded post-close descriptor media validation because recorder time may
+  reset after stop. Complete-protection unavailability after lock or background
+  is blocked local recovery, never absence, corruption, success, or a reason to
+  weaken protection.
+- iOS 26 high-quality Bluetooth recording and iOS 26.2 far-field input remain
+  outside P4D-2. No availability guard or dormant reference to either API is
+  added in this milestone.
+- P4D-2 may implement and fully fake-test capture source, permission, session,
+  route events, cues/haptics, bounded finalization, and the fail-closed recorder
+  candidate without production composition or UI. P4D-3 remains the first
+  milestone that binds those adapters into the process Voice workflow.
+
 ### P4 Foreground Lifecycle
 
 - P4 declares no audio background mode and does not expose Quick Session. One-
