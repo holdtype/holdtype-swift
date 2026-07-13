@@ -227,12 +227,18 @@ struct IOSForegroundVoiceProcessorTests {
             first == .localRecoveryPending(
                 failure: .localPersistence,
                 stage: .transcription,
-                disposition: .processingCheckpoint
+                disposition: .processingCheckpoint,
+                requirement: .providerFree
             )
         )
         #expect(await processor.hasLocalRecoveryPending())
         #expect(calls.events == ["transcription", "usage"])
         #expect(initialProgress.stages == [.transcription])
+
+        _ = try await fixture.consentCoordinator.withdraw(
+            using: fixture.acceptedConsent,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_100)
+        )
 
         let record = try await processor.retryLocalRecovery(
             progress: { retryProgress.record($0) }
@@ -646,7 +652,8 @@ struct IOSForegroundVoiceProcessorTests {
                 == .localRecoveryPending(
                     failure: .localPersistence,
                     stage: .transcription,
-                    disposition: .processingCheckpoint
+                    disposition: .processingCheckpoint,
+                    requirement: .providerFree
                 )
         )
         guard case .awaitingRecovery(
@@ -694,8 +701,13 @@ struct IOSForegroundVoiceProcessorTests {
                 == .localRecoveryPending(
                     failure: .localPersistence,
                     stage: .postProcessing,
-                    disposition: .savingResult
+                    disposition: .savingResult,
+                    requirement: .providerFree
                 )
+        )
+        _ = try await fixture.consentCoordinator.withdraw(
+            using: fixture.acceptedConsent,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_100)
         )
         let record = try await processor.retryLocalRecovery(
             progress: { retryProgress.record($0) }
@@ -735,7 +747,8 @@ struct IOSForegroundVoiceProcessorTests {
                 == .localRecoveryPending(
                     failure: .localPersistence,
                     stage: .postProcessing,
-                    disposition: .savingResult
+                    disposition: .savingResult,
+                    requirement: .providerFree
                 )
         )
         #expect(calls.events == ["transcription", "usage"])
@@ -753,7 +766,8 @@ struct IOSForegroundVoiceProcessorTests {
             await cancelledRetry.value == .localRecoveryPending(
                 failure: .cancelled,
                 stage: .postProcessing,
-                disposition: .savingResult
+                disposition: .savingResult,
+                requirement: .providerFree
             )
         )
         #expect(cancelledProgress.stages == [.postProcessing])
@@ -803,7 +817,8 @@ struct IOSForegroundVoiceProcessorTests {
                 == .localRecoveryPending(
                     failure: .localPersistence,
                     stage: .outputDelivery,
-                    disposition: .savingResult
+                    disposition: .savingResult,
+                    requirement: .providerFree
                 )
         )
         let record = try await processor.retryLocalRecovery(
@@ -851,7 +866,8 @@ struct IOSForegroundVoiceProcessorTests {
                 == .localRecoveryPending(
                     failure: .localPersistence,
                     stage: .transcription,
-                    disposition: .processingCheckpoint
+                    disposition: .processingCheckpoint,
+                    requirement: .providerFree
                 )
         )
         guard case .awaitingRecovery(
@@ -1004,7 +1020,7 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(progress.stages.isEmpty)
     }
 
-    @Test func retainedBeginningWaitsForDurableDispatchBeforeProgress()
+    @Test func retainedBeginningRequiresFreshAuthorityAndUsesOnlyReplacementCredential()
         async throws {
         let fixture = try await ProcessorFixture(outputIntent: .standard)
         defer { fixture.removeFiles() }
@@ -1015,11 +1031,17 @@ struct IOSForegroundVoiceProcessorTests {
         )
         let firstProgress = ProcessorProgressCapture()
         let retryProgress = ProcessorProgressCapture()
+        let credentialCapture = ProcessorOpenAICredentialCapture()
+        let replacementCredential = IOSResolvedOpenAICredential(
+            credential: try OpenAICredential(apiKey: "sk-processor-replacement"),
+            generation: IOSOpenAICredentialGeneration(rawValue: UUID())
+        )
         let processor = fixture.makeProcessor(
             persistence: persistence,
             provider: IOSForegroundVoiceOpenAIProviderOperations(
-                transcribe: { _, _ in
+                transcribe: { _, credential in
                     calls.record("transcription")
+                    credentialCapture.record(credential)
                     return "Retained beginning"
                 },
                 correct: { transcript, _, _ in transcript.text },
@@ -1035,14 +1057,30 @@ struct IOSForegroundVoiceProcessorTests {
             ) == .localRecoveryPending(
                 failure: .localPersistence,
                 stage: .transcription,
-                disposition: .processingCheckpoint
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
             )
         )
         #expect(firstProgress.stages.isEmpty)
         #expect(calls.events.isEmpty)
         #expect(persistence.beginCallCount == 1)
 
+        #expect(
+            await processor.retryLocalRecovery()
+                == .localRecoveryPending(
+                    failure: .providerConsentUnavailable,
+                    stage: .transcription,
+                    disposition: .processingCheckpoint,
+                    requirement: .currentProviderAuthority
+                )
+        )
+        #expect(calls.events.isEmpty)
+        #expect(persistence.beginCallCount == 1)
+
         let record = try await processor.retryLocalRecovery(
+            authorization: fixture.retryAuthorization(
+                credential: replacementCredential
+            ),
             progress: { retryProgress.record($0) }
         ).requireReady()
         #expect(record.acceptedText == "Retained beginning")
@@ -1051,7 +1089,171 @@ struct IOSForegroundVoiceProcessorTests {
                 == [.transcription, .postProcessing, .outputDelivery]
         )
         #expect(calls.events == ["transcription", "usage"])
+        #expect(
+            credentialCapture.values
+                == [replacementCredential.credential]
+        )
         #expect(persistence.beginCallCount == 2)
+    }
+
+    @Test func retainedBeginningRejectsConsentObservationFromBeforeReacceptance()
+        async throws {
+        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let staleRetryProgress = ProcessorProgressCapture()
+        let persistence = FailingOnceForegroundPersistence(
+            base: fixture.persistenceOwner,
+            failure: .beginBeforeCommit
+        )
+        let processor = fixture.makeProcessor(
+            persistence: persistence,
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Fresh consent"
+                },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { _, _ in "unexpected" }
+            ),
+            calls: calls
+        )
+
+        guard case .localRecoveryPending(
+            failure: _,
+            stage: _,
+            disposition: _,
+            requirement: .currentProviderAuthority
+        ) = await processor.process(fixture.request()) else {
+            Issue.record("Expected provider-authorized retained beginning.")
+            return
+        }
+        let withdrawn = try await fixture.consentCoordinator.withdraw(
+            using: fixture.acceptedConsent,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_100)
+        )
+        let reaccepted = try await fixture.consentCoordinator.accept(
+            using: withdrawn,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_200)
+        )
+
+        #expect(
+            await processor.retryLocalRecovery(
+                authorization: fixture.retryAuthorization(
+                    consentObservation: fixture.acceptedConsent
+                ),
+                progress: { staleRetryProgress.record($0) }
+            ) == .localRecoveryPending(
+                failure: .providerConsentUnavailable,
+                stage: .transcription,
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
+            )
+        )
+        #expect(calls.events.isEmpty)
+        #expect(persistence.beginCallCount == 1)
+        #expect(staleRetryProgress.stages.isEmpty)
+
+        _ = try await processor.retryLocalRecovery(
+            authorization: fixture.retryAuthorization(
+                consentObservation: reaccepted
+            )
+        ).requireReady()
+        #expect(calls.events == ["transcription", "usage"])
+        #expect(persistence.beginCallCount == 2)
+    }
+
+    @Test func retainedPostProcessingRebindsFreshCredentialBeforeCorrection()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.textCorrectionConfiguration.isEnabled = true
+        let fixture = try await ProcessorFixture(
+            outputIntent: .standard,
+            settings: settings
+        )
+        defer { fixture.removeFiles() }
+        let transcriptionID = UUID()
+        let dispatch = try await fixture.persistenceOwner.beginTranscription(
+            expected: IOSPendingRecordingCASExpectation(
+                recording: fixture.pending
+            ),
+            transcriptionID: transcriptionID
+        )
+        let oldContext = fixture.providerContext(
+            transcriptionID: transcriptionID,
+            deliveryID: UUID()
+        )
+        guard let oldAuthorization = fixture.consentCoordinator
+            .makeAuthorization(from: fixture.acceptedConsent) else {
+            Issue.record("Expected fixture provider authorization.")
+            return
+        }
+        let admissionExecutor = IOSForegroundVoiceTranscriptionExecutor(
+            authorization: oldAuthorization,
+            stageExecutor: IOSProviderConsentStageExecutor(
+                consentCoordinator: fixture.consentCoordinator
+            ),
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in "Consumed before retained checkpoint" },
+                correct: { transcript, _, _ in transcript.text },
+                translate: { request, _ in request.acceptedTranscript.text }
+            ),
+            credential: fixture.credential.credential,
+            promptComposition: oldContext.promptComposition
+        )
+        _ = try await dispatch.execute(using: admissionExecutor)
+        let postProcessing = try await fixture.persistenceOwner
+            .markPostProcessing(expected: dispatch.expectation)
+        let replacementCredential = IOSResolvedOpenAICredential(
+            credential: try OpenAICredential(apiKey: "sk-post-processing-fresh"),
+            generation: IOSOpenAICredentialGeneration(rawValue: UUID())
+        )
+        let credentialCapture = ProcessorOpenAICredentialCapture()
+        let calls = ProcessorCallLog()
+        let processor = IOSForegroundVoiceProcessor(
+            persistenceOwner: fixture.persistenceOwner,
+            consentCoordinator: fixture.consentCoordinator,
+            provider: IOSForegroundVoiceOpenAIProviderOperations(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "must not replay"
+                },
+                correct: { transcript, _, credential in
+                    calls.record("correction")
+                    credentialCapture.record(credential)
+                    return "Corrected fresh authority"
+                },
+                translate: { _, _ in "unexpected" }
+            ),
+            retainedWork: .postProcessing(
+                oldContext,
+                postProcessing,
+                try AcceptedTranscript(rawText: "Original retained text"),
+                usageAttempted: true
+            )
+        )
+
+        guard case .localRecoveryPending(
+            failure: _,
+            stage: _,
+            disposition: _,
+            requirement: .currentProviderAuthority
+        ) = await processor.process(fixture.request()) else {
+            Issue.record("Expected provider-authorized post-processing retry.")
+            return
+        }
+        let record = try await processor.retryLocalRecovery(
+            authorization: fixture.retryAuthorization(
+                credential: replacementCredential
+            )
+        ).requireReady()
+
+        #expect(record.acceptedText == "Corrected fresh authority")
+        #expect(calls.events == ["correction"])
+        #expect(
+            credentialCapture.values
+                == [replacementCredential.credential]
+        )
     }
 
     @Test func cancelledDurableAdmissionEmitsNoProgressOrProviderCall()
@@ -1193,9 +1395,14 @@ struct IOSForegroundVoiceProcessorTests {
         )
         let diagnostics = [
             diagnosticDump(request),
+            diagnosticDump(fixture.retryAuthorization()),
             diagnosticDump(resolution),
             diagnosticDump(
                 IOSForegroundVoiceLocalRecoveryDisposition.savingResult
+            ),
+            diagnosticDump(
+                IOSForegroundVoiceLocalRecoveryRequirement
+                    .currentProviderAuthority
             ),
             diagnosticDump(processor),
             String(describing: processor),
@@ -1323,7 +1530,8 @@ struct IOSForegroundVoiceProcessorTests {
                     resolution == .localRecoveryPending(
                         failure: .cancelled,
                         stage: .outputDelivery,
-                        disposition: .savingResult
+                        disposition: .savingResult,
+                        requirement: .providerFree
                     )
                 )
                 #expect(
@@ -1438,6 +1646,56 @@ private final class ProcessorFixture: @unchecked Sendable {
             library: library ?? self.library,
             credential: credential,
             consentObservation: acceptedConsent
+        )
+    }
+
+    func retryAuthorization(
+        credential: IOSResolvedOpenAICredential? = nil,
+        consentObservation: IOSProviderConsentObservation? = nil
+    ) -> IOSForegroundVoiceProviderRetryAuthorization {
+        IOSForegroundVoiceProviderRetryAuthorization(
+            credential: credential ?? self.credential,
+            consentObservation: consentObservation ?? acceptedConsent
+        )
+    }
+
+    func providerContext(
+        transcriptionID: UUID,
+        deliveryID: UUID
+    ) -> IOSForegroundVoiceProviderContext {
+        let transcription = settings.transcriptionConfiguration
+        return IOSForegroundVoiceProviderContext(
+            sessionID: UUID(),
+            pendingRecording: pending,
+            mode: .initial,
+            transcriptionConfiguration: transcription,
+            correctionConfiguration:
+                settings.textCorrectionConfiguration,
+            translationConfiguration:
+                pending.outputIntent == .translate
+                    ? settings.translationConfiguration
+                    : nil,
+            postProcessingConfiguration:
+                TranscriptPostProcessingConfiguration(
+                    localTextCleanupEnabled:
+                        settings.localTextCleanupEnabled,
+                    emojiCommands:
+                        library.emojiCommandsConfiguration,
+                    textReplacementRules: library.replacementRules
+                ),
+            promptComposition: TranscriptionPromptComposition(
+                resolvedFreeformPrompt:
+                    transcription.resolvedFreeformPrompt,
+                context: nil,
+                emojiCommandsConfiguration:
+                    library.emojiCommandsConfiguration,
+                customDictionary: library.customDictionary
+            ),
+            keepLatestResult: settings.keepLatestResult,
+            credential: credential,
+            consentObservation: acceptedConsent,
+            transcriptionID: transcriptionID,
+            deliveryID: deliveryID
         )
     }
 
@@ -1722,6 +1980,17 @@ private final class ProcessorCredentialGenerationCapture:
     }
 
     func record(_ value: IOSOpenAICredentialGeneration) {
+        lock.withLock { storedValues.append(value) }
+    }
+}
+
+private final class ProcessorOpenAICredentialCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValues: [OpenAICredential] = []
+
+    var values: [OpenAICredential] { lock.withLock { storedValues } }
+
+    func record(_ value: OpenAICredential) {
         lock.withLock { storedValues.append(value) }
     }
 }

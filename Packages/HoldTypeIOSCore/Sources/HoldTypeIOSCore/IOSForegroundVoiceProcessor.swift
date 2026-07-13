@@ -106,7 +106,8 @@ public actor IOSForegroundVoiceProcessor {
             @escaping ProviderRejectionRecorder = { _ in },
         makeUUID: @escaping @Sendable () -> UUID = { UUID() },
         postProcessor: TranscriptTextPostProcessor =
-            TranscriptTextPostProcessor()
+            TranscriptTextPostProcessor(),
+        retainedWork: IOSForegroundVoiceRetainedWork? = nil
     ) {
         self.persistenceOwner = persistenceOwner
         self.consentCoordinator = consentCoordinator
@@ -118,6 +119,7 @@ public actor IOSForegroundVoiceProcessor {
         self.recordProviderRejection = recordProviderRejection
         self.makeUUID = makeUUID
         self.postProcessor = postProcessor
+        self.retainedWork = retainedWork
     }
 
     public func process(
@@ -131,7 +133,8 @@ public actor IOSForegroundVoiceProcessor {
             return .localRecoveryPending(
                 failure: .localPersistence,
                 stage: retainedWork.stage,
-                disposition: retainedWork.recoveryDisposition
+                disposition: retainedWork.recoveryDisposition,
+                requirement: retainedWork.recoveryRequirement
             )
         }
         guard let context = makeContext(from: request) else {
@@ -153,6 +156,7 @@ public actor IOSForegroundVoiceProcessor {
     }
 
     public func retryLocalRecovery(
+        authorization: IOSForegroundVoiceProviderRetryAuthorization? = nil,
         progress: @escaping IOSForegroundVoiceProcessingProgressHandler = {
             _ in
         }
@@ -162,19 +166,45 @@ public actor IOSForegroundVoiceProcessor {
         guard let retainedWork else {
             return .notStarted(.localPersistence)
         }
+        let retryWork: IOSForegroundVoiceRetainedWork
+        switch retainedWork.recoveryRequirement {
+        case .providerFree:
+            // Provider-free recovery deliberately ignores any supplied
+            // authority so local saving never reads or validates provider
+            // state.
+            retryWork = retainedWork.droppingUnusedProviderAuthority()
+            self.retainedWork = retryWork
+        case .currentProviderAuthority:
+            guard let authorization,
+                  consentCoordinator.makeAuthorization(
+                      from: authorization.consentObservation
+                  ) != nil,
+                  let rebound = retainedWork.rebindingProviderAuthority(
+                      authorization
+                  ) else {
+                return .localRecoveryPending(
+                    failure: .providerConsentUnavailable,
+                    stage: retainedWork.stage,
+                    disposition: retainedWork.recoveryDisposition,
+                    requirement: .currentProviderAuthority
+                )
+            }
+            retryWork = rebound
+            self.retainedWork = rebound
+        }
         let operationID = UUID()
         beginOperation(operationID, progress: progress)
-        if case .beginning = retainedWork {
+        if case .beginning = retryWork {
             // Transcription begins only after Persistence returns the durable
             // one-shot dispatch below.
         } else {
             await reportProgress(
-                retainedWork.stage,
+                retryWork.stage,
                 operationID: operationID
             )
         }
         let resolution = await resume(
-            retainedWork,
+            retryWork,
             operationID: operationID
         )
         finishOperation(operationID)
@@ -313,7 +343,7 @@ public actor IOSForegroundVoiceProcessor {
         }
 
         let recording = dispatch.recording
-        retainedWork = .transcribing(context, recording)
+        retainedWork = .transcribing(context.providerFree, recording)
         guard activeOperationID == operationID,
               !Task.isCancelled else {
             return await recover(
@@ -498,7 +528,8 @@ public actor IOSForegroundVoiceProcessor {
                 operationID: operationID
             )
         }
-        if let providerContext {
+        if let providerContext,
+           providerContext.requiresRemainingProviderAuthority {
             let next = IOSForegroundVoiceRetainedWork.postProcessing(
                 providerContext,
                 postProcessing,
@@ -1578,7 +1609,8 @@ public actor IOSForegroundVoiceProcessor {
         return .localRecoveryPending(
             failure: failure,
             stage: stage,
-            disposition: work.recoveryDisposition
+            disposition: work.recoveryDisposition,
+            requirement: work.recoveryRequirement
         )
     }
 
@@ -1716,7 +1748,7 @@ public actor IOSForegroundVoiceProcessor {
     }
 }
 
-private struct IOSForegroundVoiceProviderContext: Sendable {
+struct IOSForegroundVoiceProviderContext: Sendable {
     let sessionID: UUID
     let pendingRecording: IOSPendingRecording
     let mode: IOSForegroundVoiceProcessingMode
@@ -1748,15 +1780,40 @@ private struct IOSForegroundVoiceProviderContext: Sendable {
             postProcessingConfiguration: postProcessingConfiguration
         )
     }
+
+    var requiresRemainingProviderAuthority: Bool {
+        correctionConfiguration.isEnabled
+            || pendingRecording.outputIntent == .translate
+    }
+
+    func rebindingProviderAuthority(
+        _ authorization: IOSForegroundVoiceProviderRetryAuthorization
+    ) -> IOSForegroundVoiceProviderContext {
+        IOSForegroundVoiceProviderContext(
+            sessionID: sessionID,
+            pendingRecording: pendingRecording,
+            mode: mode,
+            transcriptionConfiguration: transcriptionConfiguration,
+            correctionConfiguration: correctionConfiguration,
+            translationConfiguration: translationConfiguration,
+            postProcessingConfiguration: postProcessingConfiguration,
+            promptComposition: promptComposition,
+            keepLatestResult: keepLatestResult,
+            credential: authorization.credential,
+            consentObservation: authorization.consentObservation,
+            transcriptionID: transcriptionID,
+            deliveryID: deliveryID
+        )
+    }
 }
 
-private struct IOSForegroundVoiceLocalTranscriptionContext: Sendable {
+struct IOSForegroundVoiceLocalTranscriptionContext: Sendable {
     let providerFree: IOSForegroundVoiceProviderFreeContext
     let postProcessingConfiguration:
         TranscriptPostProcessingConfiguration
 }
 
-private struct IOSForegroundVoiceProviderFreeContext: Sendable {
+struct IOSForegroundVoiceProviderFreeContext: Sendable {
     let sessionID: UUID
     let transcriptionID: UUID
     let deliveryID: UUID
@@ -1764,10 +1821,10 @@ private struct IOSForegroundVoiceProviderFreeContext: Sendable {
     let keepLatestResult: Bool
 }
 
-private enum IOSForegroundVoiceRetainedWork: Sendable {
+enum IOSForegroundVoiceRetainedWork: Sendable {
     case beginning(IOSForegroundVoiceProviderContext)
     case transcribing(
-        IOSForegroundVoiceProviderContext,
+        IOSForegroundVoiceProviderFreeContext,
         IOSPendingRecording
     )
     case transcriptionConsumed(
@@ -1828,6 +1885,79 @@ private enum IOSForegroundVoiceRetainedWork: Sendable {
              .postProcessing,
              .recovering:
             .processingCheckpoint
+        }
+    }
+
+    var recoveryRequirement: IOSForegroundVoiceLocalRecoveryRequirement {
+        switch self {
+        case .beginning:
+            .currentProviderAuthority
+        case .postProcessing(let context, _, _, _):
+            context.requiresRemainingProviderAuthority
+                ? .currentProviderAuthority
+                : .providerFree
+        case .transcribing,
+             .transcriptionConsumed,
+             .providerFreePostProcessing,
+             .finalText,
+             .outputDelivery,
+             .recovering:
+            .providerFree
+        }
+    }
+
+    func rebindingProviderAuthority(
+        _ authorization: IOSForegroundVoiceProviderRetryAuthorization
+    ) -> IOSForegroundVoiceRetainedWork? {
+        switch self {
+        case .beginning(let context):
+            .beginning(context.rebindingProviderAuthority(authorization))
+        case .postProcessing(
+            let context,
+            let recording,
+            let transcript,
+            let usageAttempted
+        ) where context.requiresRemainingProviderAuthority:
+            .postProcessing(
+                context.rebindingProviderAuthority(authorization),
+                recording,
+                transcript,
+                usageAttempted: usageAttempted
+            )
+        case .postProcessing,
+             .transcribing,
+             .transcriptionConsumed,
+             .providerFreePostProcessing,
+             .finalText,
+             .outputDelivery,
+             .recovering:
+            nil
+        }
+    }
+
+    func droppingUnusedProviderAuthority() -> IOSForegroundVoiceRetainedWork {
+        switch self {
+        case .postProcessing(
+            let context,
+            let recording,
+            let transcript,
+            let usageAttempted
+        ) where !context.requiresRemainingProviderAuthority:
+            .providerFreePostProcessing(
+                context.localTranscription,
+                recording,
+                transcript,
+                usageAttempted: usageAttempted
+            )
+        case .beginning,
+             .transcribing,
+             .transcriptionConsumed,
+             .providerFreePostProcessing,
+             .postProcessing,
+             .finalText,
+             .outputDelivery,
+             .recovering:
+            self
         }
     }
 }

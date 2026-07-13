@@ -281,6 +281,22 @@ microphone activity or losing completed recordings.
   finish only as iOS permits, but no new provider dispatch may begin. P4D-3
   adds no Voice UI, Quick Session, background-audio mode, App Group
   publication, keyboard command, or keyboard dependency.
+- A same-process local-recovery result separately states whether its retained
+  checkpoint is provider-free or requires current provider authority. The
+  coarse attempt stage and Saving disposition never imply that requirement.
+- Retained work that may still start Transcription, correction, or Translation
+  resumes only after the explicit Retry supplies a newly resolved credential
+  generation and a current accepted consent observation. HoldType validates and
+  binds that fresh pair before any provider dispatch; a missing or stale pair
+  leaves the same local checkpoint blocked without progress or mutation. A
+  retained credential or consent observation from the failed invocation is
+  never reused after replacement, removal, withdrawal, or reacceptance.
+- Provider-free checkpoints do not resolve Keychain, inspect consent, or require
+  provider authority. They include durable recovery commits, retained accepted
+  text and output saving, provider-free local post-processing, and a persisted
+  `transcribing` state whose live one-shot dispatch is gone. Retrying those
+  checkpoints may finish only their exact local work and never repeats a
+  completed or lost Transcription, correction, or Translation request.
 
 ### P4 Foreground Lifecycle
 
