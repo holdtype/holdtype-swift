@@ -124,20 +124,57 @@ nonisolated struct IOSVoiceSceneRegistrySnapshot: Equatable, Sendable {
     let revision: UInt64
 }
 
+/// Thread-safe exact-once storage for a MainActor observer-removal action.
+/// Explicit cancellation runs synchronously on MainActor. If the subscription's
+/// last reference is released on another executor, token deinitialization uses
+/// a supported asynchronous hop without assuming executor identity.
+private nonisolated final class IOSVoiceSceneMainActorCancellationToken:
+    @unchecked Sendable {
+    typealias Action = @MainActor @Sendable () -> Bool
+
+    private let lock = NSLock()
+    private var action: Action?
+
+    init(_ action: @escaping Action) {
+        self.action = action
+    }
+
+    @MainActor
+    func cancel() -> Bool {
+        take()?() ?? false
+    }
+
+    private func take() -> Action? {
+        lock.lock()
+        defer { lock.unlock() }
+        let pendingAction = action
+        action = nil
+        return pendingAction
+    }
+
+    deinit {
+        guard let action = take() else { return }
+        Task { @MainActor in
+            _ = action()
+        }
+    }
+}
+
 @MainActor
 final class IOSVoiceSceneEventSubscription:
     CustomDebugStringConvertible,
     CustomReflectable,
     CustomStringConvertible {
-    private weak var registry: IOSVoiceSceneRegistry?
-    private var observerValue: UInt64?
+    private let cancellationToken: IOSVoiceSceneMainActorCancellationToken
 
     fileprivate init(
         registry: IOSVoiceSceneRegistry,
         observerValue: UInt64
     ) {
-        self.registry = registry
-        self.observerValue = observerValue
+        cancellationToken = IOSVoiceSceneMainActorCancellationToken {
+            [weak registry] in
+            registry?.removeEventObserver(observerValue) ?? false
+        }
     }
 
     var description: String { "IOSVoiceSceneEventSubscription" }
@@ -149,17 +186,7 @@ final class IOSVoiceSceneEventSubscription:
 
     @discardableResult
     func cancel() -> Bool {
-        guard let observerValue else { return false }
-        self.observerValue = nil
-        return registry?.removeEventObserver(observerValue) ?? false
-    }
-
-    deinit {
-        MainActor.assumeIsolated {
-            guard let observerValue else { return }
-            self.observerValue = nil
-            _ = registry?.removeEventObserver(observerValue)
-        }
+        cancellationToken.cancel()
     }
 }
 
@@ -263,6 +290,10 @@ final class IOSVoiceSceneRegistry {
             isForegroundActive: activeCount > 0,
             revision: revision
         )
+    }
+
+    var activeEventSubscriptionCount: Int {
+        eventObservers.count
     }
 
     func observeEvents(

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import HoldTypeIOS
 
@@ -345,6 +346,30 @@ struct IOSVoiceSceneRegistryTests {
             ]
         )
     }
+
+    @Test func subscriptionLastReleaseOffMainRemovesObserverExactlyOnce()
+        async {
+        let events = VoiceSceneEventRecorder()
+        let registry = IOSVoiceSceneRegistry()
+        let scene = registry.registerScene(initialActivity: .background)
+        let releaseBox = VoiceSceneCrossExecutorReleaseBox(
+            registry.observeEvents { events.record($0) }
+        )
+        #expect(registry.activeEventSubscriptionCount == 1)
+
+        await Task.detached {
+            releaseBox.release()
+        }.value
+
+        for _ in 0..<100 where registry.activeEventSubscriptionCount != 0 {
+            await Task.yield()
+        }
+        #expect(registry.activeEventSubscriptionCount == 0)
+
+        #expect(scene.updateActivity(.active) == .accepted)
+        #expect(events.values.isEmpty)
+        #expect(registry.activeEventSubscriptionCount == 0)
+    }
 }
 
 @MainActor
@@ -372,4 +397,21 @@ private final class VoiceSceneSubscriptionHarness {
 private struct VoiceSceneObserverCall: Equatable {
     let observer: String
     let kind: IOSVoiceSceneRegistryEvent.Kind
+}
+
+private nonisolated final class VoiceSceneCrossExecutorReleaseBox<
+    Value: AnyObject
+>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value?
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func release() {
+        lock.lock()
+        value = nil
+        lock.unlock()
+    }
 }
