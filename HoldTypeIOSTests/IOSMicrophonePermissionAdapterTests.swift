@@ -55,8 +55,144 @@ struct IOSMicrophonePermissionAdapterTests {
         let adapter = IOSMicrophonePermissionAdapter(client: state.client)
 
         let status = await adapter.requestIfUndetermined()
-        #expect(status == .undetermined)
+        #expect(status == .unavailable)
         #expect(state.requestCount == 1)
+    }
+
+    @Test func requestTimeoutIsTypedAndLateCompletionCannotResumeIt()
+        async throws {
+        let request = MicrophonePermissionRequestLatch()
+        let timeout = MicrophonePermissionSleepProbe()
+        let state = MicrophonePermissionFake(
+            status: .undetermined,
+            request: { await request.wait() }
+        )
+        let adapter = IOSMicrophonePermissionAdapter(
+            client: state.client,
+            sleep: timeout.sleep
+        )
+
+        let first = Task {
+            await adapter.requestOutcomeIfUndetermined()
+        }
+        try await permissionEventually {
+            state.requestCount == 1 && timeout.waiterCount == 1
+        }
+        #expect(
+            timeout.requestedDurations
+                == [IOSMicrophonePermissionAdapter.requestTimeout]
+        )
+        #expect(
+            IOSMicrophonePermissionAdapter.requestTimeout
+                == .seconds(120)
+        )
+        timeout.fire()
+        #expect(await first.value == .timedOut)
+        #expect(
+            await adapter.requestOutcomeIfUndetermined() == .unavailable
+        )
+        #expect(state.requestCount == 1)
+
+        state.status = .granted
+        await request.open()
+        try await permissionEventually {
+            adapter.currentStatus() == .granted
+        }
+        #expect(
+            await adapter.requestOutcomeIfUndetermined() == .granted
+        )
+        #expect(state.requestCount == 1)
+    }
+
+    @Test func cancellingOneCoalescedCallerDoesNotCancelTheOther()
+        async throws {
+        let request = MicrophonePermissionRequestLatch()
+        let timeout = MicrophonePermissionSleepProbe()
+        let state = MicrophonePermissionFake(
+            status: .undetermined,
+            request: { await request.wait() }
+        )
+        let adapter = IOSMicrophonePermissionAdapter(
+            client: state.client,
+            sleep: timeout.sleep
+        )
+        let first = Task {
+            await adapter.requestOutcomeIfUndetermined()
+        }
+        let second = Task {
+            await adapter.requestOutcomeIfUndetermined()
+        }
+        try await permissionEventually {
+            state.requestCount == 1 && timeout.waiterCount == 1
+        }
+
+        first.cancel()
+        #expect(await first.value == .cancelled)
+        state.status = .granted
+        await request.open()
+        #expect(await second.value == .granted)
+        #expect(state.requestCount == 1)
+        timeout.fire()
+    }
+
+    @Test func soleCallerCancellationRetiresWaitButNotSystemTruth()
+        async throws {
+        let request = MicrophonePermissionRequestLatch()
+        let timeout = MicrophonePermissionSleepProbe()
+        let state = MicrophonePermissionFake(
+            status: .undetermined,
+            request: { await request.wait() }
+        )
+        let adapter = IOSMicrophonePermissionAdapter(
+            client: state.client,
+            sleep: timeout.sleep
+        )
+        let task = Task {
+            await adapter.requestOutcomeIfUndetermined()
+        }
+        try await permissionEventually {
+            state.requestCount == 1 && timeout.waiterCount == 1
+        }
+
+        task.cancel()
+
+        #expect(await task.value == .cancelled)
+        #expect(
+            await adapter.requestOutcomeIfUndetermined() == .unavailable
+        )
+        #expect(state.requestCount == 1)
+        state.status = .granted
+        await request.open()
+        try await permissionEventually {
+            adapter.currentStatus() == .granted
+        }
+        timeout.fire()
+    }
+
+    @Test func unexpectedTimeoutClockFailureStillFailsClosed()
+        async throws {
+        let request = MicrophonePermissionRequestLatch()
+        let timeout = MicrophonePermissionSleepProbe()
+        let state = MicrophonePermissionFake(
+            status: .undetermined,
+            request: { await request.wait() }
+        )
+        let adapter = IOSMicrophonePermissionAdapter(
+            client: state.client,
+            sleep: timeout.sleep
+        )
+        let task = Task {
+            await adapter.requestOutcomeIfUndetermined()
+        }
+        try await permissionEventually {
+            state.requestCount == 1 && timeout.waiterCount == 1
+        }
+
+        timeout.fail()
+
+        #expect(await task.value == .timedOut)
+        state.status = .denied
+        await request.open()
     }
 
     @Test func diagnosticsAndReflectionAreRedacted() {
@@ -67,6 +203,14 @@ struct IOSMicrophonePermissionAdapterTests {
         for value in [
             String(describing: IOSMicrophonePermissionStatus.denied),
             String(reflecting: IOSMicrophonePermissionStatus.denied),
+            String(
+                describing:
+                    IOSMicrophonePermissionRequestResult.timedOut
+            ),
+            String(
+                reflecting:
+                    IOSMicrophonePermissionRequestResult.timedOut
+            ),
             String(describing: state.client),
             String(reflecting: state.client),
             String(describing: adapter),
@@ -77,8 +221,49 @@ struct IOSMicrophonePermissionAdapterTests {
         }
         #expect(Mirror(reflecting: state.client).children.isEmpty)
         #expect(Mirror(reflecting: adapter).children.isEmpty)
+        #expect(
+            Mirror(
+                reflecting:
+                    IOSMicrophonePermissionRequestResult.timedOut
+            ).children.isEmpty
+        )
     }
 }
+
+@MainActor
+private final class MicrophonePermissionSleepProbe {
+    private(set) var requestedDurations: [Duration] = []
+    private var continuations: [CheckedContinuation<Void, any Error>] = []
+
+    var waiterCount: Int { continuations.count }
+
+    func sleep(_ duration: Duration) async throws {
+        requestedDurations.append(duration)
+        try await withCheckedThrowingContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func fire() {
+        let continuations = continuations
+        self.continuations.removeAll()
+        for continuation in continuations {
+            continuation.resume()
+        }
+    }
+
+    func fail() {
+        let continuations = continuations
+        self.continuations.removeAll()
+        for continuation in continuations {
+            continuation.resume(
+                throwing: MicrophonePermissionSleepFailure()
+            )
+        }
+    }
+}
+
+private struct MicrophonePermissionSleepFailure: Error {}
 
 @MainActor
 private final class MicrophonePermissionFake {
