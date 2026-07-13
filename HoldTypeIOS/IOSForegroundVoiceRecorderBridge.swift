@@ -1,0 +1,387 @@
+import Foundation
+import HoldTypeDomain
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
+
+/// Narrow, fakeable surface over one descriptor-bound recorder adapter.
+nonisolated struct IOSForegroundVoiceRecorderBridgeDriver: Sendable {
+    let start: @MainActor @Sendable (
+        IOSVoiceRecorderAttemptToken
+    ) async -> IOSVoiceRecorderStartResult
+    let stop: @MainActor @Sendable (
+        IOSVoiceRecorderAttemptToken,
+        IOSVoiceRecorderStopReason
+    ) async -> IOSVoiceRecorderStopResult
+    let waitForTerminal: @MainActor @Sendable (
+        IOSVoiceRecorderAttemptToken
+    ) -> IOSVoiceRecorderTerminalWait
+    let isActivelyRecording: @MainActor @Sendable (
+        IOSVoiceRecorderAttemptToken
+    ) -> Bool
+
+    @MainActor
+    init(adapter: IOSVoiceRecorderAdapter) {
+        start = { [adapter] token in
+            await adapter.start(for: token)
+        }
+        stop = { [adapter] token, reason in
+            await adapter.stop(for: token, reason: reason)
+        }
+        waitForTerminal = { [adapter] token in
+            adapter.waitForTerminal(for: token)
+        }
+        isActivelyRecording = { [adapter] token in
+            adapter.isActivelyRecording(for: token)
+        }
+    }
+
+    init(
+        start: @escaping @MainActor @Sendable (
+            IOSVoiceRecorderAttemptToken
+        ) async -> IOSVoiceRecorderStartResult,
+        stop: @escaping @MainActor @Sendable (
+            IOSVoiceRecorderAttemptToken,
+            IOSVoiceRecorderStopReason
+        ) async -> IOSVoiceRecorderStopResult,
+        waitForTerminal: @escaping @MainActor @Sendable (
+            IOSVoiceRecorderAttemptToken
+        ) -> IOSVoiceRecorderTerminalWait,
+        isActivelyRecording: @escaping @MainActor @Sendable (
+            IOSVoiceRecorderAttemptToken
+        ) -> Bool
+    ) {
+        self.start = start
+        self.stop = stop
+        self.waitForTerminal = waitForTerminal
+        self.isActivelyRecording = isActivelyRecording
+    }
+}
+
+/// Creates the capture lease before constructing the recorder adapter and
+/// maps its exact terminal ownership into the process Voice workflow.
+@MainActor
+final class IOSForegroundVoiceRecorderBridge {
+    typealias MakeDriver = @MainActor @Sendable (
+        UUID,
+        DictationOutputIntent
+    ) async throws -> IOSForegroundVoiceRecorderBridgeDriver
+    typealias PreparePending = @MainActor @Sendable (
+        IOSVoiceRecorderCompletedCaptureHandoff,
+        TranscriptionConfiguration
+    ) async throws -> IOSPendingRecording
+
+    private let makeDriver: MakeDriver
+    private let preparePending: PreparePending
+    private let feedback: IOSForegroundVoiceFeedbackBridge?
+
+    init(
+        persistenceOwner: IOSForegroundVoicePersistenceOwner,
+        recorderClient: IOSVoiceRecorderClient = .live,
+        feedback: IOSForegroundVoiceFeedbackBridge? = nil,
+        diagnose: @escaping IOSVoiceRecorderAdapter.DiagnosticHandler = {
+            _ in
+        }
+    ) {
+        makeDriver = { attemptID, outputIntent in
+            let lease = try await persistenceOwner.createCapture(
+                attemptID: attemptID,
+                outputIntent: outputIntent
+            )
+            let adapter = IOSVoiceRecorderAdapter(
+                lease: lease,
+                client: recorderClient,
+                diagnose: diagnose
+            )
+            return IOSForegroundVoiceRecorderBridgeDriver(adapter: adapter)
+        }
+        preparePending = { handoff, configuration in
+            try await handoff.preparePending(
+                using: persistenceOwner,
+                transcriptionConfiguration: configuration
+            )
+        }
+        self.feedback = feedback
+    }
+
+    init(
+        makeDriver: @escaping MakeDriver,
+        preparePending: @escaping PreparePending,
+        feedback: IOSForegroundVoiceFeedbackBridge? = nil
+    ) {
+        self.makeDriver = makeDriver
+        self.preparePending = preparePending
+        self.feedback = feedback
+    }
+
+    func makeRecording(
+        attemptID: UUID,
+        outputIntent: DictationOutputIntent
+    ) async throws -> IOSForegroundVoiceWorkflowRecording {
+        let driver = try await makeDriver(attemptID, outputIntent)
+        let owner = AttemptOwner(
+            driver: driver,
+            preparePending: preparePending,
+            feedback: feedback,
+            feedbackHandle: feedback?.recorderAttemptHandle
+        )
+        return owner.recording
+    }
+}
+
+@MainActor
+private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
+    private let driver: IOSForegroundVoiceRecorderBridgeDriver
+    private let token = IOSVoiceRecorderAttemptToken()
+    private let preparePending:
+        IOSForegroundVoiceRecorderBridge.PreparePending
+    private let feedback: IOSForegroundVoiceFeedbackBridge?
+    private let feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?
+
+    private var receiveTerminal: (@MainActor @Sendable (
+        IOSForegroundVoiceWorkflowCaptureStopReason
+    ) -> Void)?
+    private var observationGeneration: UInt64 = 0
+    private var terminalWait: IOSVoiceRecorderTerminalWait?
+    private var terminalTask: Task<Void, Never>?
+    private var pendingTerminalResult: IOSVoiceRecorderStopResult?
+    private var terminalResultWasHandled = false
+    private var stopTask:
+        Task<IOSForegroundVoiceWorkflowCaptureStopResult, Never>?
+    private var retainedCaptureBegan = false
+    private var feedbackCloseWasForwarded = false
+
+    init(
+        driver: IOSForegroundVoiceRecorderBridgeDriver,
+        preparePending: @escaping
+            IOSForegroundVoiceRecorderBridge.PreparePending,
+        feedback: IOSForegroundVoiceFeedbackBridge?,
+        feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?
+    ) {
+        self.driver = driver
+        self.preparePending = preparePending
+        self.feedback = feedback
+        self.feedbackHandle = feedbackHandle
+    }
+
+    var recording: IOSForegroundVoiceWorkflowRecording {
+        IOSForegroundVoiceWorkflowRecording(
+            start: { [self] in await start() },
+            stop: { [self] reason in await stop(reason) },
+            isActive: { [self] in
+                driver.isActivelyRecording(token)
+            },
+            observeTerminal: { [self] receive in
+                observeTerminal(receive)
+            }
+        )
+    }
+
+    private func start() async
+        -> IOSForegroundVoiceWorkflowRecordingStartResult {
+        let result = await driver.start(token)
+        installTerminalWaitIfNeeded()
+
+        switch result {
+        case .recording:
+            if let feedback {
+                guard let feedbackHandle,
+                      feedback.retainedCaptureDidBegin(
+                          for: feedbackHandle
+                      ) else {
+                    if let feedbackHandle {
+                        feedback.retainedCaptureDidNotBegin(
+                            for: feedbackHandle
+                        )
+                    }
+                    terminalResultWasHandled = true
+                    let discarded = await driver.stop(token, .cancelled)
+                    release(discarded)
+                    return .failed
+                }
+            }
+            retainedCaptureBegan = true
+            return .started
+        case .cancelled:
+            if let feedbackHandle {
+                feedback?.retainedCaptureDidNotBegin(for: feedbackHandle)
+            }
+            return .cancelled
+        case .busy, .failed:
+            if let feedbackHandle {
+                feedback?.retainedCaptureDidNotBegin(for: feedbackHandle)
+            }
+            return .failed
+        }
+    }
+
+    private func stop(
+        _ reason: IOSForegroundVoiceWorkflowCaptureStopReason
+    ) async -> IOSForegroundVoiceWorkflowCaptureStopResult {
+        if let stopTask { return await stopTask.value }
+        let task = Task { @MainActor [self] in
+            await performStop(reason)
+        }
+        stopTask = task
+        let result = await task.value
+        stopTask = nil
+        return result
+    }
+
+    private func performStop(
+        _ reason: IOSForegroundVoiceWorkflowCaptureStopReason
+    ) async -> IOSForegroundVoiceWorkflowCaptureStopResult {
+        terminalResultWasHandled = true
+        let recorderResult: IOSVoiceRecorderStopResult
+        if let pendingTerminalResult {
+            self.pendingTerminalResult = nil
+            recorderResult = pendingTerminalResult
+        } else {
+            let terminalDelivery = terminalTask
+            recorderResult = await driver.stop(token, Self.map(reason))
+            await terminalDelivery?.value
+        }
+        await forwardRecorderCloseIfNeeded(reason)
+        return map(recorderResult)
+    }
+
+    private func observeTerminal(
+        _ receive: @escaping @MainActor @Sendable (
+            IOSForegroundVoiceWorkflowCaptureStopReason
+        ) -> Void
+    ) -> IOSForegroundVoiceWorkflowObservation {
+        observationGeneration &+= 1
+        if observationGeneration == 0 { observationGeneration = 1 }
+        let generation = observationGeneration
+        receiveTerminal = receive
+        return IOSForegroundVoiceWorkflowObservation { [weak self] in
+            guard let self,
+                  self.observationGeneration == generation else {
+                return
+            }
+            self.receiveTerminal = nil
+        }
+    }
+
+    private func installTerminalWaitIfNeeded() {
+        guard terminalTask == nil else { return }
+        let wait = driver.waitForTerminal(token)
+        terminalWait = wait
+        terminalTask = Task { @MainActor [weak self, wait] in
+            let event = await wait.value()
+            guard !Task.isCancelled, let self else { return }
+            await self.receive(event)
+        }
+    }
+
+    private func receive(_ event: IOSVoiceRecorderTerminalEvent) async {
+        terminalWait = nil
+        terminalTask = nil
+        guard let reason = Self.map(event.cause) else {
+            release(event.result)
+            return
+        }
+        if !terminalResultWasHandled {
+            pendingTerminalResult = event.result
+        }
+        await forwardRecorderCloseIfNeeded(reason)
+        receiveTerminal?(reason)
+    }
+
+    private func forwardRecorderCloseIfNeeded(
+        _ reason: IOSForegroundVoiceWorkflowCaptureStopReason
+    ) async {
+        guard retainedCaptureBegan,
+              !feedbackCloseWasForwarded,
+              let feedbackHandle else {
+            return
+        }
+        feedbackCloseWasForwarded = true
+        await feedback?.recorderDidClose(reason, for: feedbackHandle)
+    }
+
+    private func map(
+        _ result: IOSVoiceRecorderStopResult
+    ) -> IOSForegroundVoiceWorkflowCaptureStopResult {
+        switch result {
+        case .completed(let capture):
+            guard let handoff = capture.claimPersistenceHandoff() else {
+                capture.release()
+                return .preserved
+            }
+            return .completed(
+                IOSForegroundVoiceWorkflowCaptureHandoff(
+                    prepare: { [preparePending] configuration in
+                        try await preparePending(handoff, configuration)
+                    },
+                    release: { handoff.release() }
+                )
+            )
+        case .discarded:
+            return .discarded
+        case .invalid(let reason):
+            return .invalid(reason)
+        case .preserved:
+            return .preserved
+        case .stale:
+            return .stale
+        }
+    }
+
+    private func release(_ result: IOSVoiceRecorderStopResult) {
+        if case .completed(let capture) = result { capture.release() }
+    }
+
+    private static func map(
+        _ reason: IOSForegroundVoiceWorkflowCaptureStopReason
+    ) -> IOSVoiceRecorderStopReason {
+        switch reason {
+        case .done: .done
+        case .cancelled: .cancelled
+        case .interrupted: .interrupted
+        case .maximumDuration: .maximumDuration
+        }
+    }
+
+    private static func map(
+        _ cause: IOSVoiceRecorderTerminalCause
+    ) -> IOSForegroundVoiceWorkflowCaptureStopReason? {
+        switch cause {
+        case .done:
+            .done
+        case .cancelled:
+            .cancelled
+        case .interrupted, .recorderEndedUnexpectedly, .failed:
+            .interrupted
+        case .maximumDuration:
+            .maximumDuration
+        case .stale:
+            nil
+        }
+    }
+}
+
+private typealias AttemptOwner =
+    IOSForegroundVoiceRecorderBridgeAttemptOwner
+
+extension IOSForegroundVoiceRecorderBridge:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    nonisolated var description: String {
+        "IOSForegroundVoiceRecorderBridge(<redacted>)"
+    }
+
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSForegroundVoiceRecorderBridgeDriver:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSForegroundVoiceRecorderBridgeDriver(<redacted>)"
+    }
+
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
