@@ -6,7 +6,7 @@ import HoldTypeOpenAI
 struct IOSOpenAIFailedHistoryRetryProviderBuilder:
     IOSFailedHistoryRetryProviderBuilding {
     typealias Transcribe = @Sendable (
-        AudioTranscriptionRequest,
+        OpenAIReaderTranscriptionRequest,
         OpenAICredential
     ) async throws -> String
     typealias Correct = @Sendable (
@@ -19,7 +19,6 @@ struct IOSOpenAIFailedHistoryRetryProviderBuilder:
         OpenAICredential
     ) async throws -> String
 
-    private let materializer: IOSFailedHistoryRetryAudioMaterializer
     private let transcribe: Transcribe
     private let correct: Correct
     private let translate: Translate
@@ -29,7 +28,6 @@ struct IOSOpenAIFailedHistoryRetryProviderBuilder:
         let correctionService = OpenAITextCorrectionService()
         let translationService = OpenAITextTranslationService()
         self.init(
-            materializer: IOSFailedHistoryRetryAudioMaterializer(),
             transcribe: { request, credential in
                 try await transcriptionService.transcribe(
                     request,
@@ -53,12 +51,10 @@ struct IOSOpenAIFailedHistoryRetryProviderBuilder:
     }
 
     init(
-        materializer: IOSFailedHistoryRetryAudioMaterializer,
         transcribe: @escaping Transcribe,
         correct: @escaping Correct,
         translate: @escaping Translate
     ) {
-        self.materializer = materializer
         self.transcribe = transcribe
         self.correct = correct
         self.translate = translate
@@ -69,7 +65,6 @@ struct IOSOpenAIFailedHistoryRetryProviderBuilder:
     ) async -> any IOSFailedHistoryRetryProviderExecuting {
         IOSOpenAIFailedHistoryRetryProvider(
             credential: credential.credential,
-            materializer: materializer,
             transcribe: transcribe,
             correct: correct,
             translate: translate
@@ -80,7 +75,6 @@ struct IOSOpenAIFailedHistoryRetryProviderBuilder:
 struct IOSOpenAIFailedHistoryRetryProvider:
     IOSFailedHistoryRetryProviderExecuting {
     private let credential: OpenAICredential
-    private let materializer: IOSFailedHistoryRetryAudioMaterializer
     private let transcribeOperation:
         IOSOpenAIFailedHistoryRetryProviderBuilder.Transcribe
     private let correctOperation:
@@ -90,7 +84,6 @@ struct IOSOpenAIFailedHistoryRetryProvider:
 
     init(
         credential: OpenAICredential,
-        materializer: IOSFailedHistoryRetryAudioMaterializer,
         transcribe: @escaping IOSOpenAIFailedHistoryRetryProviderBuilder
             .Transcribe,
         correct: @escaping IOSOpenAIFailedHistoryRetryProviderBuilder.Correct,
@@ -98,7 +91,6 @@ struct IOSOpenAIFailedHistoryRetryProvider:
             .Translate
     ) {
         self.credential = credential
-        self.materializer = materializer
         transcribeOperation = transcribe
         correctOperation = correct
         translateOperation = translate
@@ -108,26 +100,29 @@ struct IOSOpenAIFailedHistoryRetryProvider:
         _ request: IOSFailedHistoryRetryTranscriptionRequest
     ) async -> IOSFailedHistoryRetryProviderTextOutcome {
         do {
-            let configuration = TranscriptionConfiguration(
+            let format: OpenAIReaderTranscriptionRequest.AudioFormat =
+                switch request.audio.format {
+                case .m4a: .m4a
+                case .wav: .wav
+                }
+            let providerRequest = try OpenAIReaderTranscriptionRequest(
+                format: format,
+                durationMilliseconds: request.audio.durationMilliseconds,
+                byteCount: request.audio.byteCount,
                 model: request.resolvedModel,
-                language: request.resolvedLanguageCode == nil
-                    ? .automatic
-                    : .custom,
-                customLanguageCode: request.resolvedLanguageCode ?? ""
+                languageCode: request.resolvedLanguageCode,
+                promptComposition: request.promptComposition,
+                reader: OpenAITranscriptionAudioReader { offset, count in
+                    try await request.audio.read(
+                        atOffset: offset,
+                        maximumByteCount: count
+                    )
+                }
             )
-            let text = try await materializer.withMaterializedAudio(
-                request.audio
-            ) { fileURL in
-                let providerRequest = try AudioTranscriptionRequest(
-                    audioFileURL: fileURL,
-                    transcriptionConfiguration: configuration,
-                    promptComposition: request.promptComposition
-                )
-                return try await transcribeOperation(
-                    providerRequest,
-                    credential
-                )
-            }
+            let text = try await transcribeOperation(
+                providerRequest,
+                credential
+            )
             return .success(text)
         } catch {
             return .failure(Self.transcriptionFailure(for: error))
@@ -169,7 +164,7 @@ struct IOSOpenAIFailedHistoryRetryProvider:
         for error: any Error
     ) -> IOSFailedHistoryRetryRuntimeFailure {
         if error is CancellationError { return .cancelled }
-        if error is IOSFailedHistoryRetryAudioMaterializationError {
+        if error is OpenAIReaderTranscriptionRequest.ValidationError {
             return .invalidRecording
         }
         guard let error = error as? OpenAITranscriptionServiceError else {

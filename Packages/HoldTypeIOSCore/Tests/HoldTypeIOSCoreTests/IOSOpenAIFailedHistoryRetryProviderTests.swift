@@ -1,141 +1,177 @@
-import Darwin
 import Foundation
 import HoldTypeDomain
-import HoldTypeOpenAI
-@_spi(HoldTypeIOSCore) import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 import Testing
+@testable import HoldTypeOpenAI
 @testable import HoldTypeIOSCore
 
 struct IOSOpenAIFailedHistoryRetryProviderTests {
-    @Test func materializationIsExactPrivateAndRemovedAfterSuccess()
+    @Test func readerAdapterBindsExactMetadataAndBoundedAudioWithoutSourceCopy()
         async throws {
         let root = try retryProviderTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let bytes = Data((0..<4_097).map { UInt8($0 % 251) })
-        let audio = RetryProviderAudio(data: bytes, format: .wav)
-        let materializer = IOSFailedHistoryRetryAudioMaterializer(
-            scratchDirectoryURL: root
+        let bytes = Data(
+            (0..<(OpenAITranscriptionAudioReader.maximumReadByteCount * 2 + 17))
+                .map { UInt8($0 % 251) }
         )
-        let capture = RetryProviderURLCapture()
-
-        let count = try await materializer.withMaterializedAudio(audio) {
-            fileURL in
-            await capture.store(fileURL)
-            let copied = try Data(contentsOf: fileURL)
-            let attributes = try FileManager.default.attributesOfItem(
-                atPath: fileURL.path
-            )
-            let permissions = try #require(
-                attributes[.posixPermissions] as? NSNumber
-            )
-            #expect(permissions.intValue & 0o077 == 0)
-            #if os(iOS)
-            let descriptor = Darwin.open(
-                fileURL.path,
-                O_RDONLY | O_CLOEXEC | O_NOFOLLOW
-            )
-            #expect(descriptor >= 0)
-            if descriptor >= 0 {
-                #expect(
-                    Darwin.fcntl(descriptor, F_GETPROTECTIONCLASS) == 1
+        let promptComposition = TranscriptionPromptComposition(
+            resolvedFreeformPrompt: "reader-bound retry prompt",
+            context: nil,
+            emojiCommandsConfiguration: EmojiCommandsConfiguration(
+                isEnabled: false
+            ),
+            customDictionary: CustomDictionary(entries: ["HoldType"])
+        )
+        let credential = try OpenAICredential(apiKey: "sk-reader-adapter-test")
+        let capture = RetryProviderReaderRequestCapture()
+        let scratchBefore = try legacyRetryScratchEntries()
+        let provider = IOSOpenAIFailedHistoryRetryProvider(
+            credential: credential,
+            transcribe: { request, receivedCredential in
+                capture.record(
+                    try await inspectRetryReaderRequest(
+                        request,
+                        credential: receivedCredential
+                    )
                 )
-                _ = Darwin.close(descriptor)
+                return "reader result"
+            },
+            correct: { _, _, _ in
+                throw RetryProviderTestError.unexpectedCall
+            },
+            translate: { _, _ in
+                throw RetryProviderTestError.unexpectedCall
             }
-            #endif
-            #expect(
-                try fileURL.resourceValues(
-                    forKeys: [.isExcludedFromBackupKey]
-                ).isExcludedFromBackup == true
+        )
+
+        for format in IOSPendingRecordingAudioFormat.allCases {
+            let lease = RetryProviderAudioLease(
+                data: bytes,
+                format: format,
+                durationMilliseconds: 1_234,
+                root: root
             )
-            #expect(fileURL.pathExtension == "wav")
-            #expect(copied == bytes)
-            return copied.count
+            let audio = IOSPendingTranscriptionAudio(lease: lease)
+            let outcome = await provider.transcribe(
+                IOSFailedHistoryRetryTranscriptionRequest(
+                    transcriptionID: UUID(),
+                    audio: audio,
+                    resolvedModel: "gpt-4o-mini-transcribe",
+                    resolvedLanguageCode: "fr",
+                    promptComposition: promptComposition,
+                    timeout: .seconds(1)
+                )
+            )
+            let observation = try #require(capture.take())
+
+            #expect(outcome == .success("reader result"))
+            #expect(observation.credential == credential)
+            #expect(observation.format == retryReaderFormat(format))
+            #expect(observation.durationMilliseconds == 1_234)
+            #expect(observation.byteCount == Int64(bytes.count))
+            #expect(observation.model == "gpt-4o-mini-transcribe")
+            #expect(observation.languageCode == "fr")
+            #expect(observation.promptComposition == promptComposition)
+            #expect(observation.audio == bytes)
+            #expect(
+                observation.offsets
+                    == [
+                        0,
+                        Int64(
+                            OpenAITranscriptionAudioReader
+                                .maximumReadByteCount
+                        ),
+                        Int64(
+                            OpenAITranscriptionAudioReader
+                                .maximumReadByteCount * 2
+                        ),
+                        Int64(bytes.count),
+                    ]
+            )
+            #expect(
+                observation.chunkByteCounts
+                    == [
+                        OpenAITranscriptionAudioReader.maximumReadByteCount,
+                        OpenAITranscriptionAudioReader.maximumReadByteCount,
+                        17,
+                        0,
+                    ]
+            )
+            #expect(observation.oversizedReadWasRejected)
+            #expect(
+                lease.requestedMaximumByteCounts().allSatisfy {
+                    $0
+                        <= OpenAITranscriptionAudioReader
+                            .maximumReadByteCount
+                }
+            )
         }
 
-        #expect(count == bytes.count)
-        let fileURL = try #require(await capture.value())
-        #expect(FileManager.default.fileExists(atPath: fileURL.path) == false)
-        try expectRetryScratchNamespaceIsEmpty(in: root)
-    }
-
-    @Test func materializationRemovesCopyWhenProviderThrowsOrCancels()
-        async throws {
-        let root = try retryProviderTemporaryRoot()
-        defer { try? FileManager.default.removeItem(at: root) }
-        let audio = RetryProviderAudio(
-            data: Data(repeating: 7, count: 1_025),
-            format: .m4a
-        )
-        let materializer = IOSFailedHistoryRetryAudioMaterializer(
-            scratchDirectoryURL: root
-        )
-        let capture = RetryProviderURLCapture()
-
-        do {
-            _ = try await materializer.withMaterializedAudio(audio) {
-                fileURL -> Int in
-                await capture.store(fileURL)
-                throw RetryProviderTestError.providerFailed
-            }
-            Issue.record("Expected the provider operation to fail.")
-        } catch RetryProviderTestError.providerFailed {
-            // Expected.
-        }
-        let failedURL = try #require(await capture.value())
-        #expect(FileManager.default.fileExists(atPath: failedURL.path) == false)
-        try expectRetryScratchNamespaceIsEmpty(in: root)
-
-        await capture.clear()
-        do {
-            _ = try await materializer.withMaterializedAudio(audio) {
-                fileURL -> Int in
-                await capture.store(fileURL)
-                throw CancellationError()
-            }
-            Issue.record("Expected cancellation from the provider operation.")
-        } catch is CancellationError {
-            // Expected.
-        }
-        let cancelledURL = try #require(await capture.value())
+        #expect(try legacyRetryScratchEntries() == scratchBefore)
         #expect(
-            FileManager.default.fileExists(atPath: cancelledURL.path) == false
+            try FileManager.default.contentsOfDirectory(atPath: root.path)
+                .isEmpty
         )
-        try expectRetryScratchNamespaceIsEmpty(in: root)
     }
 
-    @Test func materializationRejectsShortSourceAndLeavesNoScratchFile()
+    @Test func invalidReaderMetadataFailsBeforeProviderOrAudioRead()
         async throws {
         let root = try retryProviderTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
-        let audio = RetryProviderAudio(
-            data: Data(repeating: 3, count: 32),
-            format: .wav,
-            advertisedByteCount: 33
-        )
-        let materializer = IOSFailedHistoryRetryAudioMaterializer(
-            scratchDirectoryURL: root
-        )
-
-        do {
-            _ = try await materializer.withMaterializedAudio(audio) {
-                _ in 0
+        let credential = try OpenAICredential(apiKey: "sk-invalid-reader-test")
+        let providerCalls = RetryProviderCallCounter()
+        let provider = IOSOpenAIFailedHistoryRetryProvider(
+            credential: credential,
+            transcribe: { _, _ in
+                providerCalls.increment()
+                return "unexpected"
+            },
+            correct: { _, _, _ in
+                throw RetryProviderTestError.unexpectedCall
+            },
+            translate: { _, _ in
+                throw RetryProviderTestError.unexpectedCall
             }
-            Issue.record("Expected exact byte-count validation to fail.")
-        } catch IOSFailedHistoryRetryAudioMaterializationError.invalidAudio {
-            // Expected.
+        )
+        let invalidMetadata: [(duration: Int64, byteCount: Int64)] = [
+            (300_000, 1),
+            (1_000, 25_000_000),
+        ]
+
+        for metadata in invalidMetadata {
+            let lease = RetryProviderAudioLease(
+                data: Data([1]),
+                format: .m4a,
+                durationMilliseconds: metadata.duration,
+                advertisedByteCount: metadata.byteCount,
+                root: root
+            )
+            let outcome = await provider.transcribe(
+                IOSFailedHistoryRetryTranscriptionRequest(
+                    transcriptionID: UUID(),
+                    audio: IOSPendingTranscriptionAudio(lease: lease),
+                    resolvedModel: "gpt-4o-mini-transcribe",
+                    resolvedLanguageCode: nil,
+                    promptComposition: .init(
+                        resolvedFreeformPrompt: nil,
+                        context: nil,
+                        emojiCommandsConfiguration: .init(isEnabled: false),
+                        customDictionary: .empty
+                    ),
+                    timeout: .seconds(1)
+                )
+            )
+
+            #expect(outcome == .failure(.invalidRecording))
+            #expect(lease.requestedMaximumByteCounts().isEmpty)
         }
-        try expectRetryScratchNamespaceIsEmpty(in: root)
+        #expect(providerCalls.value == 0)
     }
 
     @Test func fixedAdapterUsesInjectedServicesWithoutNetwork() async throws {
-        let root = try retryProviderTemporaryRoot()
-        defer { try? FileManager.default.removeItem(at: root) }
         let credential = try OpenAICredential(apiKey: "sk-adapter-test")
         let provider = IOSOpenAIFailedHistoryRetryProvider(
             credential: credential,
-            materializer: IOSFailedHistoryRetryAudioMaterializer(
-                scratchDirectoryURL: root
-            ),
             transcribe: { _, _ in
                 throw RetryProviderTestError.unexpectedCall
             },
@@ -287,8 +323,14 @@ struct IOSOpenAIFailedHistoryRetryProviderTests {
         )
         #expect(
             IOSOpenAIFailedHistoryRetryProvider.transcriptionFailure(
-                for: IOSFailedHistoryRetryAudioMaterializationError.writeFailed
+                for: OpenAIReaderTranscriptionRequest.ValidationError
+                    .invalidByteCount
             ) == .invalidRecording
+        )
+        #expect(
+            IOSOpenAIFailedHistoryRetryProvider.transcriptionFailure(
+                for: IOSFailedHistoryRetryAudioMaterializationError.writeFailed
+            ) == .unknown
         )
         #expect(
             String(
@@ -299,25 +341,132 @@ struct IOSOpenAIFailedHistoryRetryProviderTests {
     }
 }
 
-private struct RetryProviderAudio: IOSFailedHistoryRetryAudioReading {
-    let data: Data
-    let format: IOSPendingRecordingAudioFormat
+private struct RetryProviderReaderRequestObservation: Sendable {
+    let credential: OpenAICredential
+    let format: OpenAIReaderTranscriptionRequest.AudioFormat
+    let durationMilliseconds: Int64
     let byteCount: Int64
+    let model: String
+    let languageCode: String?
+    let promptComposition: TranscriptionPromptComposition
+    let audio: Data
+    let offsets: [Int64]
+    let chunkByteCounts: [Int]
+    let oversizedReadWasRejected: Bool
+}
+
+private func inspectRetryReaderRequest(
+    _ request: OpenAIReaderTranscriptionRequest,
+    credential: OpenAICredential
+) async throws -> RetryProviderReaderRequestObservation {
+    let reader = try request.claimReader()
+    let oversizedReadWasRejected: Bool
+    do {
+        _ = try await reader.read(
+            atOffset: 0,
+            maximumByteCount:
+                OpenAITranscriptionAudioReader.maximumReadByteCount + 1
+        )
+        oversizedReadWasRejected = false
+    } catch let error as OpenAITranscriptionAudioReaderError {
+        oversizedReadWasRejected = error == .invalidRead
+    }
+
+    let maximumByteCount = OpenAITranscriptionAudioReader.maximumReadByteCount
+    var audio = Data()
+    var offsets: [Int64] = []
+    var chunkByteCounts: [Int] = []
+    var offset: Int64 = 0
+    while true {
+        offsets.append(offset)
+        let chunk = try await reader.read(
+            atOffset: offset,
+            maximumByteCount: maximumByteCount
+        )
+        chunkByteCounts.append(chunk.count)
+        guard !chunk.isEmpty else { break }
+        audio.append(chunk)
+        offset += Int64(chunk.count)
+    }
+
+    return RetryProviderReaderRequestObservation(
+        credential: credential,
+        format: request.format,
+        durationMilliseconds: request.durationMilliseconds,
+        byteCount: request.byteCount,
+        model: request.model,
+        languageCode: request.languageCode,
+        promptComposition: request.promptComposition,
+        audio: audio,
+        offsets: offsets,
+        chunkByteCounts: chunkByteCounts,
+        oversizedReadWasRejected: oversizedReadWasRejected
+    )
+}
+
+private final class RetryProviderReaderRequestCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var observation: RetryProviderReaderRequestObservation?
+
+    func record(_ observation: RetryProviderReaderRequestObservation) {
+        lock.withLock { self.observation = observation }
+    }
+
+    func take() -> RetryProviderReaderRequestObservation? {
+        lock.withLock {
+            defer { observation = nil }
+            return observation
+        }
+    }
+}
+
+private final class RetryProviderAudioLease:
+    IOSPendingRecordingPublishedAudioLease,
+    @unchecked Sendable {
+    let relativeIdentifier: String
+    let audioArtifact: AudioRecordingArtifact
+    let durationMilliseconds: Int64
+
+    private let data: Data
+    private let lock = NSLock()
+    private var requestedMaximumByteCountValues: [Int] = []
 
     init(
         data: Data,
         format: IOSPendingRecordingAudioFormat,
-        advertisedByteCount: Int64? = nil
+        durationMilliseconds: Int64,
+        advertisedByteCount: Int64? = nil,
+        root: URL
     ) {
+        let identifier = UUID().uuidString
+        let pathExtension = switch format {
+        case .m4a: "m4a"
+        case .wav: "wav"
+        }
+        relativeIdentifier =
+            "Recordings/Pending/retry-provider-\(identifier).\(pathExtension)"
+        audioArtifact = AudioRecordingArtifact(
+            fileURL: root.appendingPathComponent(
+                "source-\(identifier).\(pathExtension)"
+            ),
+            duration: Double(durationMilliseconds) / 1_000,
+            byteCount: advertisedByteCount ?? Int64(data.count)
+        )
+        self.durationMilliseconds = durationMilliseconds
         self.data = data
-        self.format = format
-        byteCount = advertisedByteCount ?? Int64(data.count)
+    }
+
+    func revalidate() async throws -> AudioRecordingArtifact {
+        audioArtifact
     }
 
     func read(
         atOffset offset: Int64,
         maximumByteCount: Int
     ) async throws -> Data {
+        lock.withLock {
+            requestedMaximumByteCountValues.append(maximumByteCount)
+        }
         guard offset >= 0,
               maximumByteCount > 0,
               offset <= Int64(data.count) else {
@@ -328,20 +477,66 @@ private struct RetryProviderAudio: IOSFailedHistoryRetryAudioReading {
         let upperBound = min(data.count, lowerBound + maximumByteCount)
         return data.subdata(in: lowerBound..<upperBound)
     }
+
+    func release() {}
+
+    func requestedMaximumByteCounts() -> [Int] {
+        lock.withLock { requestedMaximumByteCountValues }
+    }
 }
 
-private actor RetryProviderURLCapture {
-    private var storedURL: URL?
+private final class RetryProviderCallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedValue = 0
 
-    func store(_ url: URL) { storedURL = url }
-    func value() -> URL? { storedURL }
-    func clear() { storedURL = nil }
+    var value: Int { lock.withLock { storedValue } }
+
+    func increment() {
+        lock.withLock { storedValue += 1 }
+    }
 }
 
 private enum RetryProviderTestError: Error {
-    case providerFailed
     case unexpectedCall
     case invalidRead
+}
+
+private struct RetryProviderScratchSnapshot: Equatable {
+    let exists: Bool
+    let isDirectory: Bool
+    let entries: [String]
+}
+
+private func legacyRetryScratchEntries() throws
+    -> RetryProviderScratchSnapshot {
+    let namespace = IOSFailedHistoryRetryScratchNamespace.namespaceURL(
+        in: IOSFailedHistoryRetryScratchNamespace.defaultParentDirectoryURL
+    )
+    var isDirectory: ObjCBool = false
+    let exists = FileManager.default.fileExists(
+        atPath: namespace.path,
+        isDirectory: &isDirectory
+    )
+    let entries = if exists, isDirectory.boolValue {
+        try FileManager.default.contentsOfDirectory(atPath: namespace.path)
+            .sorted()
+    } else {
+        [String]()
+    }
+    return RetryProviderScratchSnapshot(
+        exists: exists,
+        isDirectory: isDirectory.boolValue,
+        entries: entries
+    )
+}
+
+private func retryReaderFormat(
+    _ format: IOSPendingRecordingAudioFormat
+) -> OpenAIReaderTranscriptionRequest.AudioFormat {
+    switch format {
+    case .m4a: .m4a
+    case .wav: .wav
+    }
 }
 
 private func retryProviderTemporaryRoot() throws -> URL {
@@ -354,17 +549,5 @@ private func retryProviderTemporaryRoot() throws -> URL {
         withIntermediateDirectories: true,
         attributes: [.posixPermissions: 0o700]
     )
-    #expect(Darwin.chmod(root.path, 0o700) == 0)
     return root
-}
-
-private func expectRetryScratchNamespaceIsEmpty(in root: URL) throws {
-    let namespace = IOSFailedHistoryRetryScratchNamespace.namespaceURL(
-        in: root
-    )
-    #expect(FileManager.default.fileExists(atPath: namespace.path))
-    #expect(
-        try FileManager.default.contentsOfDirectory(atPath: namespace.path)
-            .isEmpty
-    )
 }
