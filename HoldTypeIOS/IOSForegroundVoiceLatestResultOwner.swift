@@ -45,6 +45,14 @@ nonisolated struct IOSForegroundVoiceLatestResultClearCommand:
     fileprivate let presentationRevision: UInt64
 }
 
+/// Opaque admission for one exact visible Latest Result snapshot. It carries
+/// no text or durable identity and becomes stale on every owner publication.
+nonisolated struct IOSForegroundVoiceLatestResultContentCommand:
+    Equatable,
+    Sendable {
+    fileprivate let presentationRevision: UInt64
+}
+
 nonisolated enum IOSForegroundVoiceLatestResultClearAdmission:
     Equatable,
     Sendable {
@@ -270,6 +278,34 @@ final class IOSForegroundVoiceLatestResultOwner {
         return IOSForegroundVoiceLatestResultClearCommand(
             presentationRevision: presentationRevision
         )
+    }
+
+    var contentCommand: IOSForegroundVoiceLatestResultContentCommand? {
+        guard Self.contentIsAdmitted(
+            presentation: presentation,
+            selection: selection
+        ) else {
+            return nil
+        }
+        return IOSForegroundVoiceLatestResultContentCommand(
+            presentationRevision: presentationRevision
+        )
+    }
+
+    /// Resolves an exact text snapshot only while the command still names the
+    /// current visible selection, without exposing record or Persistence
+    /// identity.
+    func content(
+        for command: IOSForegroundVoiceLatestResultContentCommand
+    ) -> String? {
+        guard command.presentationRevision == presentationRevision,
+              Self.contentIsAdmitted(
+                  presentation: presentation,
+                  selection: selection
+              ) else {
+            return nil
+        }
+        return selection?.record.acceptedText
     }
 
     /// The workflow's only Latest loader. The same durable observation updates
@@ -576,6 +612,23 @@ final class IOSForegroundVoiceLatestResultOwner {
         }
     }
 
+    private nonisolated static func contentIsAdmitted(
+        presentation: IOSForegroundVoiceLatestResultPresentation,
+        selection: IOSForegroundVoiceLatestResultSelection?
+    ) -> Bool {
+        switch presentation.status {
+        case .ready, .priorWhileSaving, .clearing:
+            guard let visibleText = presentation.text,
+                  let selectedText = selection?.record.acceptedText else {
+                return false
+            }
+            return visibleText.utf8.elementsEqual(selectedText.utf8)
+        case .notLoaded, .absent, .savingWithoutPrior, .expired,
+             .clockRollbackAmbiguous, .cleanupPending, .unavailable:
+            return false
+        }
+    }
+
 }
 
 extension IOSForegroundVoiceLatestResultOwner:
@@ -608,6 +661,18 @@ extension IOSForegroundVoiceLatestResultClearCommand:
     CustomReflectable {
     var description: String {
         "IOSForegroundVoiceLatestResultClearCommand(<redacted>)"
+    }
+
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSForegroundVoiceLatestResultContentCommand:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSForegroundVoiceLatestResultContentCommand(<redacted>)"
     }
 
     var debugDescription: String { description }

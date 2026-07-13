@@ -95,6 +95,128 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         #expect(snapshot.clears.isEmpty)
     }
 
+    @Test func contentCommandAdmitsReadyPriorAndRetainedClearingText()
+        async throws {
+        let record = try latestResultRecord(text: "exact visible result")
+        let saving = try latestSavingExpectation()
+        let mappedProbe = LatestResultClientProbe(
+            loads: [
+                .value(.resultReady(record)),
+                .value(.savingResult(saving, priorResult: record)),
+            ]
+        )
+        let mappedOwner = latestResultOwner(probe: mappedProbe)
+
+        _ = try await mappedOwner.loadForVoiceWorkflow()
+        let readyCommand = try #require(mappedOwner.contentCommand)
+        #expect(
+            mappedOwner.content(for: readyCommand) == "exact visible result"
+        )
+
+        _ = try await mappedOwner.loadForVoiceWorkflow()
+        #expect(mappedOwner.content(for: readyCommand) == nil)
+        let priorCommand = try #require(mappedOwner.contentCommand)
+        #expect(
+            mappedOwner.content(for: priorCommand) == "exact visible result"
+        )
+
+        let clearStarted = LatestResultTestGate()
+        let clearRelease = LatestResultTestGate()
+        let clearingProbe = LatestResultClientProbe(
+            loads: [.value(.resultReady(record))],
+            clears: [.value(.cleared)],
+            clearStarted: clearStarted,
+            clearRelease: clearRelease
+        )
+        let clearingOwner = latestResultOwner(probe: clearingProbe)
+        _ = try await clearingOwner.loadForVoiceWorkflow()
+        let beforeClear = try #require(clearingOwner.contentCommand)
+        let clear = try #require(clearingOwner.clearCommand)
+
+        #expect(clearingOwner.clear(clear) == .accepted)
+        #expect(clearingOwner.content(for: beforeClear) == nil)
+        let clearingCommand = try #require(clearingOwner.contentCommand)
+        #expect(
+            clearingOwner.content(for: clearingCommand)
+                == "exact visible result"
+        )
+
+        await clearStarted.wait()
+        await clearRelease.open()
+        await clearingOwner.waitUntilClearIsIdle()
+        #expect(clearingOwner.contentCommand == nil)
+        #expect(clearingOwner.content(for: clearingCommand) == nil)
+    }
+
+    @Test func contentCommandIsUnavailableForEveryContentFreeState()
+        async throws {
+        let record = try latestResultRecord(text: "never expose indirectly")
+        let expectation = IOSAcceptedOutputDeliveryExpectation(record: record)
+        let saving = try latestSavingExpectation()
+        let probe = LatestResultClientProbe(
+            loads: [
+                .value(.absent),
+                .value(.savingResult(saving, priorResult: nil)),
+                .value(.expired(expectation)),
+                .value(.clockRollbackAmbiguous(expectation)),
+                .value(.clearedCleanupPending),
+                .failure,
+            ]
+        )
+        let owner = latestResultOwner(probe: probe)
+
+        for expectedStatus in [
+            IOSForegroundVoiceLatestResultStatus.absent,
+            .savingWithoutPrior,
+            .expired,
+            .clockRollbackAmbiguous,
+            .cleanupPending,
+        ] {
+            _ = try await owner.loadForVoiceWorkflow()
+            #expect(owner.presentation.status == expectedStatus)
+            #expect(owner.contentCommand == nil)
+        }
+
+        await #expect(
+            throws: IOSForegroundVoiceLatestResultOwnerError.self
+        ) {
+            _ = try await owner.loadForVoiceWorkflow()
+        }
+        #expect(owner.presentation.status == .unavailable)
+        #expect(owner.contentCommand == nil)
+    }
+
+    @Test func staleContentCommandCannotReadAReplacementOrClearedResult()
+        async throws {
+        let old = try latestResultRecord(text: "old visible result")
+        let replacement = try latestResultRecord(text: "replacement result")
+        let probe = LatestResultClientProbe(
+            loads: [
+                .value(.resultReady(old)),
+                .value(.resultReady(replacement)),
+            ],
+            clears: [.value(.cleared)]
+        )
+        let owner = latestResultOwner(probe: probe)
+
+        _ = try await owner.loadForVoiceWorkflow()
+        let oldCommand = try #require(owner.contentCommand)
+        _ = try await owner.loadForVoiceWorkflow()
+        #expect(owner.content(for: oldCommand) == nil)
+
+        let replacementCommand = try #require(owner.contentCommand)
+        #expect(owner.content(for: replacementCommand) == "replacement result")
+        #expect(
+            owner.clear(try #require(owner.clearCommand)) == .accepted
+        )
+        let clearingCommand = try #require(owner.contentCommand)
+        await owner.waitUntilClearIsIdle()
+
+        #expect(owner.content(for: replacementCommand) == nil)
+        #expect(owner.content(for: clearingCommand) == nil)
+        #expect(owner.contentCommand == nil)
+    }
+
     @Test func confirmedClearUsesExactExpectationAndHidesCleanupTombstone()
         async throws {
         let record = try latestResultRecord(text: "clear me")
@@ -403,22 +525,26 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         )
         let owner = latestResultOwner(probe: probe)
         _ = try await owner.loadForVoiceWorkflow()
-        let command = try #require(owner.clearCommand)
+        let clearCommand = try #require(owner.clearCommand)
+        let contentCommand = try #require(owner.contentCommand)
 
         for rendered in [
             String(describing: owner),
             String(reflecting: owner),
             String(describing: owner.presentation),
             String(reflecting: owner.presentation),
-            String(describing: command),
-            String(reflecting: command),
+            String(describing: clearCommand),
+            String(reflecting: clearCommand),
+            String(describing: contentCommand),
+            String(reflecting: contentCommand),
         ] {
             #expect(!rendered.contains(secret))
             #expect(rendered.localizedCaseInsensitiveContains("redacted"))
         }
         #expect(Mirror(reflecting: owner).children.isEmpty)
         #expect(Mirror(reflecting: owner.presentation).children.isEmpty)
-        #expect(Mirror(reflecting: command).children.isEmpty)
+        #expect(Mirror(reflecting: clearCommand).children.isEmpty)
+        #expect(Mirror(reflecting: contentCommand).children.isEmpty)
     }
 }
 
