@@ -39,10 +39,11 @@ three explicit data lifecycles.
   rows, failed rows, outbox entries, retry-audio ownership, recording-cache
   metadata, or first-use History disclosure state. The History destination
   remains unavailable for P4 attempts.
-- Failed-History Retry remains unavailable throughout P4 unless its provider
-  adapter has adopted both the neutral bounded-reader request and the current
-  provider-consent dispatch/result gate. The existence of an internal legacy
-  Retry implementation does not make that action eligible for presentation.
+- P5H-1 has moved Failed-History Retry to the neutral bounded-reader request and
+  current provider-consent dispatch/result gate, but the action remains
+  unavailable throughout P4 and the non-release-qualified P5H-2/P5H-3
+  checkpoints. Internal readiness alone does not make Retry eligible for
+  presentation.
 - P4 app-only acceptance is a named Persistence-owned mode, not a caller-supplied
   optional History bypass. It creates the mandatory accepted-output record with
   `historyWrite: null` without reading, disabling, or otherwise changing the
@@ -88,8 +89,14 @@ three explicit data lifecycles.
 ### Frozen P5H Foreground Ownership Transition
 
 P5H-0 freezes the later production transition without changing P4 runtime
-behavior. P5H-2 may enable it only in the same releasable checkpoint that makes
-provider disclosure version `2` current.
+behavior. P5H-2 lands and tests the foreground History-capable internals while
+production remains on disclosure version `1` and the app-only mode. P5H-3 then
+lands the combined local History facade and shared state owner without changing
+that production selection. P5H-4 adds the functional native History and Storage
+& Recovery controls and only then atomically selects captured foreground mode,
+makes provider disclosure version `2` current, and publishes its copy. P5H-2
+through P5H-4 are one non-release-qualified train until the final activation
+passes.
 
 - Before a new History-producing provider chain begins, version `2` must be
   durably accepted. Acceptance of the disclosure does not mutate the independent
@@ -99,8 +106,9 @@ provider disclosure version `2` current.
   accepted-History acceptance/outbox contract when History is enabled. With
   History disabled it retains the app-private Latest/Pending result contract
   without creating a History row.
-- P4 results are never backfilled. Only attempts begun through the activated
-  P5H-2 path can create accepted or failed History ownership.
+- P4 results are never backfilled. Only attempts begun through the production
+  captured path after the P5H-4 activation can create accepted or failed
+  History ownership.
 - An eligible recoverable Transcription or Translation failure with History on
   transfers the exact Pending Recording and retry-only audio to one failed row
   before retiring Pending metadata. Voice then offers `Open History`, not stale
@@ -1038,8 +1046,10 @@ without trusting process memory.
   remain app-private and never enter App Group storage or a keyboard settings
   snapshot.
 - The functional History route depends on the process-owned combined service
-  and state owner. The current placeholder remains until P5H-1 through P5H-3
-  have passed and P5H-4 explicitly exposes the surface.
+  and state owner. The current placeholder remains through P5H-3. P5H-4
+  replaces it and adds Storage & Recovery controls before the same checkpoint
+  atomically activates production captured mode, disclosure version `2`, and
+  version-2 copy.
 
 ## Verification mapping
 

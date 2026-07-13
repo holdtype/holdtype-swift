@@ -169,12 +169,18 @@ behavior remain platform-owned.
 ### Frozen P5H Accepted-History Activation
 
 P5H-0 leaves the P4 `historyWrite: null` path active. P5H-2 introduces a named
-History-aware foreground mode and makes it production only in the same
-releasable checkpoint as provider disclosure version `2`.
+History-aware foreground mode and its accepted/failed ownership internals, but
+production continues to select disclosure version `1` and the app-only mode.
+P5H-3 adds the combined local History facade/state owner under the same inactive
+boundary. P5H-4 first lands native History plus Storage & Recovery controls,
+then atomically makes the captured mode production, makes provider disclosure
+version `2` current, and publishes the version-2 copy. P5H-2 through P5H-4 are
+one non-release-qualified train until this final activation passes.
 
-- Before provider work, the app obtains current version-2 provider authority;
-  separately, the History coordinator captures the canonical enabled state and
-  generation needed by accepted-output preparation.
+- After the P5H-4 activation, before provider work, the app obtains current
+  version-2 provider authority; separately, the History coordinator captures
+  the canonical enabled state and generation needed by accepted-output
+  preparation.
 - With History enabled, the mandatory delivery record carries the captured
   pending History write and the coordinator attempts the accepted row before
   result publication. With History disabled, the record retains a null History

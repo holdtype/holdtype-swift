@@ -190,9 +190,15 @@ renewed consent before the changed request path runs.
 ### Frozen P5 History-Aware Disclosure
 
 P5H-0 freezes provider disclosure version `2` but does not activate it. The
-current app continues to enforce version `1` until P5H-2 can switch the
-disclosure and foreground History ownership together. The version-2 review
-adds clear product copy that:
+current app continues to enforce version `1` and foreground app-only ownership
+through P5H-2 and P5H-3. Those checkpoints may land and test History-capable
+foreground internals plus the combined local History facade/state owner, but
+production cannot select captured mode or show version-2 copy. P5H-4 first
+lands the functional native History and Storage & Recovery controls, then the
+same atomic activation makes version `2` current, selects captured foreground
+mode, and publishes the matching Voice/Privacy copy. P5H-2 through P5H-4 are
+one non-release-qualified train until that final activation passes. The
+version-2 review adds clear product copy that:
 
 - History is local, enabled by default, and bounded to 20 accepted results and
   five recoverable failed attempts;

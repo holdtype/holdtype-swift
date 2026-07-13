@@ -47,9 +47,14 @@ or purpose requires a later disclosure version and renewed acceptance.
 
 P5H-0 freezes `disclosureVersion` integer `2` without activating it. The
 persisted record keeps `schemaVersion: 1`; this is a disclosure-semantic change,
-not a wire-format migration. Production continues to use version `1` until the
-P5H-2 activation checkpoint changes the current version together with the real
-foreground History ownership path.
+not a wire-format migration. Production continues to use version `1` and the
+app-only foreground path throughout P5H-2 and P5H-3. P5H-2 lands the
+History-capable foreground internals behind that production boundary, and
+P5H-3 lands the combined local History facade and state owner. Only P5H-4 may
+atomically make version `2` current, select the captured foreground mode, and
+publish the version-2 Voice/Privacy copy, after native History and Storage &
+Recovery controls are functional. P5H-2 through P5H-4 are one
+non-release-qualified implementation train until that final activation passes.
 
 Version `2` keeps every version-1 provider statement and additionally explains
 that:
@@ -75,8 +80,8 @@ After version `2` becomes current, a readable accepted version-1 record is
 `review required`, not declined or accepted. Local History browsing, Copy,
 Share, Delete, Clear, and policy changes remain available, but every new Voice
 provider stage and failed-row Retry stays blocked until version `2` is durably
-accepted. P5H-0 does not change the current production version or user-visible
-behavior.
+accepted. P5H-0 through P5H-3 do not change the current production disclosure
+version, captured-mode selection, disclosure copy, or History UI.
 
 The timestamp uses exactly `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`, a proleptic Gregorian
 calendar, four calendar-year digits, and no leap second. The complete file is at

@@ -326,7 +326,13 @@ The app guides setup in this order:
 
 P5H-0 defines the functional History surface but leaves the current placeholder
 unchanged. P5H-4 may expose it only after the failed-Retry reader/consent gate,
-foreground History ownership, and combined containing-app boundary have passed.
+foreground History-capable internals, and combined containing-app boundary have
+passed. P5H-2 and P5H-3 remain production disclosure-v1/app-only checkpoints.
+P5H-4 first lands the functional History surface and Storage & Recovery
+controls; the same atomic activation then selects captured foreground mode,
+makes disclosure version `2` current, and publishes its Voice/Privacy copy.
+P5H-2 through P5H-4 are one non-release-qualified train until that activation
+passes.
 
 - The composition root owns one combined History service and one observable
   state owner for the process. Every scene receives those exact identities;
@@ -532,6 +538,8 @@ foreground History ownership, and combined containing-app boundary have passed.
   remains app-only.
 - Functional History exposure follows P5H-0 through P5H-4 in
   `docs/ios-product-portability-plan.md`; the spec freeze alone does not activate
-  disclosure version `2`, History-producing foreground work, or UI.
+  disclosure version `2`, History-producing foreground work, or UI. P5H-2 and
+  P5H-3 also remain non-release-qualified behind production app-only mode;
+  P5H-4 owns the atomic UI, captured-mode, disclosure, and copy activation.
 - A configurable Quick Session duration, Live Activity, first production typing
   layouts, and the iPad hardware-keyboard trigger require later decisions.

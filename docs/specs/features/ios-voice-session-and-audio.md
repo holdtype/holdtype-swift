@@ -548,8 +548,13 @@ Full Access, none of these extension-to-app commands is available.
 ### Frozen P5H Foreground History Handoff
 
 P5H-0 freezes the P5 transition while production remains on the P4 app-only
-path. P5H-2 activates the following only together with provider disclosure
-version `2`:
+path. P5H-2 lands and tests the following History-capable foreground internals
+behind production disclosure version `1` and app-only selection. P5H-3 lands the
+combined local History facade/state owner without activating them. P5H-4 first
+lands the native History and Storage & Recovery controls, then atomically
+selects captured foreground mode, makes provider disclosure version `2`
+current, and publishes its copy. P5H-2 through P5H-4 are one
+non-release-qualified train until that final activation passes. Once activated:
 
 - New Voice provider work requires a durable current version-2 observation
   before credential or microphone preflight continues. The disclosure decision
