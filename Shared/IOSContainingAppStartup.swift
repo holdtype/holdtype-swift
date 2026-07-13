@@ -6,11 +6,9 @@ struct IOSContainingAppStartup {
         scheduleProviderStartupMaintenance: @MainActor () -> Void = {
             OpenAIProviderStartupMaintenance.schedule()
         },
-        scheduleRetryScratchStartupMaintenance: @MainActor () -> Void,
         scheduleContainingAppRecovery: @MainActor () -> Void
     ) {
         scheduleProviderStartupMaintenance()
-        scheduleRetryScratchStartupMaintenance()
         scheduleContainingAppRecovery()
     }
 }

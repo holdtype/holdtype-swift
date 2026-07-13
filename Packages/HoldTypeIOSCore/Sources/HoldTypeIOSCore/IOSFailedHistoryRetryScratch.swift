@@ -884,47 +884,6 @@ nonisolated struct IOSFailedHistoryRetryScratchScavenger: Sendable {
     }
 }
 
-@_spi(HoldTypeIOSCore)
-public nonisolated enum IOSFailedHistoryRetryScratchStartupMaintenance {
-    private static let scheduler =
-        IOSFailedHistoryRetryScratchStartupMaintenanceScheduler()
-
-    public static func schedule() {
-        scheduler.schedule {
-            _ = IOSFailedHistoryRetryScratchScavenger().run()
-        }
-    }
-}
-
-nonisolated final class
-IOSFailedHistoryRetryScratchStartupMaintenanceScheduler:
-    @unchecked Sendable {
-    typealias Dispatch = @Sendable (@escaping @Sendable () -> Void) -> Void
-
-    private let lock = NSLock()
-    private let dispatch: Dispatch
-    private var didSchedule = false
-
-    init(
-        dispatch: @escaping Dispatch = { operation in
-            DispatchQueue.global(qos: .utility).async(execute: operation)
-        }
-    ) {
-        self.dispatch = dispatch
-    }
-
-    @discardableResult
-    func schedule(_ operation: @escaping @Sendable () -> Void) -> Bool {
-        lock.lock()
-        let shouldSchedule = !didSchedule
-        didSchedule = true
-        lock.unlock()
-        guard shouldSchedule else { return false }
-        dispatch(operation)
-        return true
-    }
-}
-
 private final class IOSFailedHistoryRetryOpenNamespace:
     @unchecked Sendable {
     private let lock = NSLock()

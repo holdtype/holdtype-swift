@@ -31,14 +31,6 @@ final class IOSContainingAppComposition {
             URL,
             String
         ) throws -> IOSOpenAICredentialCoordinator
-        let makeFailedHistoryService: @MainActor (
-            URL,
-            IOSAppSettingsStateOwner,
-            IOSLibraryStateOwner,
-            IOSProviderConsentCoordinator,
-            IOSOpenAICredentialCoordinator?,
-            IOSTranscriptionUsageRecordingClient
-        ) -> IOSFailedHistoryService
         let makeProviderConsentCoordinator: @MainActor (
             URL
         ) -> IOSProviderConsentCoordinator
@@ -101,30 +93,6 @@ final class IOSContainingAppComposition {
                         .currentProcessDefault()
                 )
             },
-            makeFailedHistoryService: {
-                applicationSupportDirectoryURL,
-                settingsStateOwner,
-                libraryStateOwner,
-                providerConsentCoordinator,
-                credentialCoordinator,
-                usageRecordingClient in
-                IOSFailedHistoryService(
-                    applicationSupportDirectoryURL:
-                        applicationSupportDirectoryURL,
-                    loadSettings: {
-                        try await settingsStateOwner
-                            .confirmedValueForProviderAction()
-                    },
-                    loadLibrary: {
-                        try await libraryStateOwner
-                            .confirmedValueForProviderAction()
-                    },
-                    providerConsentCoordinator:
-                        providerConsentCoordinator,
-                    credentialCoordinator: credentialCoordinator,
-                    usageRecordingClient: usageRecordingClient
-                )
-            },
             makeProviderConsentCoordinator: {
                 applicationSupportDirectoryURL in
                 IOSProviderConsentCoordinator(
@@ -170,7 +138,6 @@ final class IOSContainingAppComposition {
     let libraryStateOwner: IOSLibraryStateOwner?
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
     let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
-    let failedHistoryService: IOSFailedHistoryService?
     let providerConsentCoordinator: IOSProviderConsentCoordinator?
     let acceptedTextHistoryRepository:
         IOSAcceptedTextHistoryRepository?
@@ -190,9 +157,6 @@ final class IOSContainingAppComposition {
         factories: Factories? = nil,
         scheduleProviderStartupMaintenance: @MainActor () -> Void = {
             OpenAIProviderStartupMaintenance.schedule()
-        },
-        scheduleRetryScratchStartupMaintenance: @MainActor () -> Void = {
-            IOSFailedHistoryRetryScratchStartupMaintenance.schedule()
         }
     ) {
         let factories = factories ?? .production
@@ -207,7 +171,6 @@ final class IOSContainingAppComposition {
             libraryStateOwner = nil
             credentialCoordinator = nil
             openAISettingsStateOwner = nil
-            failedHistoryService = nil
             providerConsentCoordinator = nil
             acceptedTextHistoryRepository = nil
             acceptedTextHistoryStateOwner = nil
@@ -223,9 +186,7 @@ final class IOSContainingAppComposition {
             voiceSceneLifecycleBinding = nil
             scheduleStartup(
                 scheduleProviderStartupMaintenance:
-                    scheduleProviderStartupMaintenance,
-                scheduleRetryScratchStartupMaintenance:
-                    scheduleRetryScratchStartupMaintenance
+                    scheduleProviderStartupMaintenance
             )
             return
         }
@@ -299,14 +260,6 @@ final class IOSContainingAppComposition {
                 IOSOpenAICredentialSettingsClient(coordinator: $0)
             }
         )
-        failedHistoryService = factories.makeFailedHistoryService(
-            applicationSupportDirectoryURL,
-            settingsStateOwner,
-            libraryStateOwner,
-            providerConsentCoordinator,
-            credentialCoordinator,
-            usageRecordingClient
-        )
         let foregroundVoiceProcessor = credentialCoordinator.map {
             factories.makeForegroundVoiceProcessor(
                 foregroundVoicePersistenceOwner,
@@ -341,9 +294,7 @@ final class IOSContainingAppComposition {
         )
         scheduleStartup(
             scheduleProviderStartupMaintenance:
-                scheduleProviderStartupMaintenance,
-            scheduleRetryScratchStartupMaintenance:
-                scheduleRetryScratchStartupMaintenance
+                scheduleProviderStartupMaintenance
         )
     }
 
@@ -351,7 +302,6 @@ final class IOSContainingAppComposition {
     /// storage, Keychain, or provider dependencies.
     init(
         scheduleProviderStartupMaintenance: @MainActor () -> Void,
-        scheduleRetryScratchStartupMaintenance: @MainActor () -> Void,
         recoverContainingAppLifecycle:
             @escaping IOSContainingAppLifecycleScheduler.Recovery
     ) {
@@ -361,7 +311,6 @@ final class IOSContainingAppComposition {
         libraryStateOwner = nil
         credentialCoordinator = nil
         openAISettingsStateOwner = nil
-        failedHistoryService = nil
         providerConsentCoordinator = nil
         acceptedTextHistoryRepository = nil
         acceptedTextHistoryStateOwner = nil
@@ -377,9 +326,7 @@ final class IOSContainingAppComposition {
         voiceSceneLifecycleBinding = nil
         scheduleStartup(
             scheduleProviderStartupMaintenance:
-                scheduleProviderStartupMaintenance,
-            scheduleRetryScratchStartupMaintenance:
-                scheduleRetryScratchStartupMaintenance
+                scheduleProviderStartupMaintenance
         )
     }
 
@@ -394,14 +341,11 @@ final class IOSContainingAppComposition {
     }
 
     private func scheduleStartup(
-        scheduleProviderStartupMaintenance: @MainActor () -> Void,
-        scheduleRetryScratchStartupMaintenance: @MainActor () -> Void
+        scheduleProviderStartupMaintenance: @MainActor () -> Void
     ) {
         _ = IOSContainingAppStartup(
             scheduleProviderStartupMaintenance:
                 scheduleProviderStartupMaintenance,
-            scheduleRetryScratchStartupMaintenance:
-                scheduleRetryScratchStartupMaintenance,
             scheduleContainingAppRecovery: {
                 lifecycleScheduler.scheduleProcessLaunch()
             }

@@ -354,18 +354,6 @@ struct IOSFailedHistoryRetryScratchTests {
         #expect(timeSummary.stopReason == .timeLimit)
     }
 
-    @Test func startupSchedulerDispatchesOnlyOncePerProcessInstance() {
-        let dispatch = RetryScratchCapturingDispatch()
-        let scheduler =
-            IOSFailedHistoryRetryScratchStartupMaintenanceScheduler(
-                dispatch: { operation in dispatch.append(operation) }
-            )
-
-        #expect(scheduler.schedule {})
-        #expect(!scheduler.schedule {})
-        #expect(dispatch.operationCount == 1)
-    }
-
     @Test func missingSymlinkOrUnmarkedNamespaceIsNeverClaimed()
         async throws {
         let root = try retryScratchTemporaryRoot("namespace-preservation")
@@ -570,17 +558,6 @@ private final class RetryScratchScriptedClock: @unchecked Sendable {
             index += 1
             return value
         }
-    }
-}
-
-private final class RetryScratchCapturingDispatch: @unchecked Sendable {
-    private let lock = NSLock()
-    private var operations: [@Sendable () -> Void] = []
-
-    var operationCount: Int { lock.withLock { operations.count } }
-
-    func append(_ operation: @escaping @Sendable () -> Void) {
-        lock.withLock { operations.append(operation) }
     }
 }
 

@@ -17,7 +17,6 @@ struct HoldTypeIOSApp: App {
         if IOSUIQualificationRoute.current != nil {
             composition = IOSContainingAppComposition(
                 scheduleProviderStartupMaintenance: {},
-                scheduleRetryScratchStartupMaintenance: {},
                 recoverContainingAppLifecycle: { _ in .complete }
             )
             return
@@ -30,22 +29,18 @@ struct HoldTypeIOSApp: App {
         self.init(
             scheduleProviderStartupMaintenance:
                 scheduleProviderStartupMaintenance,
-            scheduleRetryScratchStartupMaintenance: {},
             recoverContainingAppLifecycle: { _ in .complete }
         )
     }
 
     init(
         scheduleProviderStartupMaintenance: @MainActor () -> Void,
-        scheduleRetryScratchStartupMaintenance: @MainActor () -> Void = {},
         recoverContainingAppLifecycle:
             @escaping IOSContainingAppLifecycleScheduler.Recovery
     ) {
         composition = IOSContainingAppComposition(
             scheduleProviderStartupMaintenance:
                 scheduleProviderStartupMaintenance,
-            scheduleRetryScratchStartupMaintenance:
-                scheduleRetryScratchStartupMaintenance,
             recoverContainingAppLifecycle:
                 recoverContainingAppLifecycle
         )
