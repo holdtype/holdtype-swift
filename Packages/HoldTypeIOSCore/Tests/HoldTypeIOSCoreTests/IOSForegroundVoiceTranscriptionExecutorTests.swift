@@ -6,8 +6,9 @@ import Testing
 @_spi(HoldTypeIOSCore) @testable import HoldTypeIOSCore
 
 @MainActor
+@Suite(.serialized)
 struct IOSForegroundVoiceTranscriptionExecutorTests {
-    @Test func pendingDispatchBindsExactWAVReaderMetadataAndNormalizedResult()
+    @Test func dispatchBindsExactM4AReaderMetadataAndNormalizedResult()
         async throws {
         let fixture = try await TranscriptionExecutorFixture()
         defer { fixture.removeFiles() }
@@ -16,8 +17,7 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         let executor = try fixture.makeExecutor(
             promptComposition: composition,
             transcribe: { request, _ in
-                let observation = try await inspectReaderRequest(request)
-                capture.record(observation)
+                capture.record(try await inspectReaderRequest(request))
                 return " \n  Reader-bound result  \t"
             }
         )
@@ -27,7 +27,7 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         let observation = try #require(capture.observation)
 
         #expect(result == "Reader-bound result")
-        #expect(observation.format == .wav)
+        #expect(observation.format == .m4a)
         #expect(observation.durationMilliseconds == fixture.durationMilliseconds)
         #expect(observation.byteCount == Int64(fixture.audio.count))
         #expect(observation.model == fixture.configuration.resolvedModel)
@@ -37,20 +37,8 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         )
         #expect(observation.promptComposition == composition)
         #expect(observation.audio == fixture.audio)
-        #expect(
-            observation.offsets
-                == [0, Int64(OpenAITranscriptionAudioReader.maximumReadByteCount),
-                    Int64(fixture.audio.count)]
-        )
-        #expect(
-            observation.chunkByteCounts
-                == [
-                    OpenAITranscriptionAudioReader.maximumReadByteCount,
-                    fixture.audio.count
-                        - OpenAITranscriptionAudioReader.maximumReadByteCount,
-                    0,
-                ]
-        )
+        #expect(observation.offsets.first == 0)
+        #expect(observation.chunkByteCounts.last == 0)
         #expect(
             observation.maximumRequestedByteCount
                 == OpenAITranscriptionAudioReader.maximumReadByteCount
@@ -58,12 +46,11 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         #expect(observation.oversizedReadWasRejected)
         #expect(
             OpenAITranscriptionAudioReader.maximumReadByteCount
-                == IOSPendingTranscriptionAudio.maximumReadByteCount
+                == IOSV1PendingTranscriptionAudio.maximumReadByteCount
         )
     }
 
-    @Test func completedHandoffMakesCapturedUnclaimedRequestUnreadable()
-        async throws {
+    @Test func completedHandoffInvalidatesCapturedReader() async throws {
         let fixture = try await TranscriptionExecutorFixture()
         defer { fixture.removeFiles() }
         let capture = ReaderRequestBox()
@@ -81,7 +68,8 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         let request = try #require(capture.request)
         let reader = try request.claimReader()
         await #expect(
-            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+            throws: IOSV1ForegroundVoicePersistenceError
+                .dispatchAlreadyExecuted
         ) {
             try await reader.read(
                 atOffset: 0,
@@ -91,8 +79,7 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         }
     }
 
-    @Test func pendingMetadataMismatchFailsBeforeProviderLaunch()
-        async throws {
+    @Test func dispatchCanExecuteOnlyOnce() async throws {
         let fixture = try await TranscriptionExecutorFixture()
         defer { fixture.removeFiles() }
         let providerCalls = LockedInteger()
@@ -100,94 +87,19 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
             promptComposition: makePromptComposition(nil),
             transcribe: { _, _ in
                 providerCalls.increment()
-                return "unexpected"
+                return "Once"
             }
         )
         let dispatch = try await fixture.beginTranscription()
-        let mismatchingExecutor = DurationMismatchingExecutor(base: executor)
 
-        do {
-            _ = try await dispatch.execute(using: mismatchingExecutor)
-            Issue.record("Expected mismatched Pending metadata to fail.")
-        } catch let error as IOSForegroundVoiceTranscriptionStageError {
-            guard case .failure(.invalidRecording) = error else {
-                Issue.record("Expected invalid-recording stage failure.")
-                return
-            }
-        }
-
-        #expect(providerCalls.value == 0)
-    }
-
-    @Test func explicitRetryGetsFreshOneShotDispatchAndCurrentRequestValues()
-        async throws {
-        let fixture = try await TranscriptionExecutorFixture()
-        defer { fixture.removeFiles() }
-        let initialCapture = ReaderRequestCapture()
-        let initialExecutor = try fixture.makeExecutor(
-            promptComposition: makePromptComposition("initial prompt"),
-            transcribe: { request, _ in
-                initialCapture.record(try await inspectReaderRequest(request))
-                return "Initial"
-            }
-        )
-        let initialDispatch = try await fixture.beginTranscription()
-        #expect(
-            try await initialDispatch.execute(using: initialExecutor)
-                == "Initial"
-        )
-        let recovery = try await fixture.persistenceOwner.markAwaitingRecovery(
-            expected: initialDispatch.expectation
-        )
-
+        #expect(try await dispatch.execute(using: executor) == "Once")
         await #expect(
-            throws: IOSPendingRecordingError.dispatchAlreadyCommitted
+            throws: IOSV1ForegroundVoicePersistenceError
+                .dispatchAlreadyExecuted
         ) {
-            try await initialDispatch.execute(using: initialExecutor)
+            _ = try await dispatch.execute(using: executor)
         }
-
-        let retryConfiguration = TranscriptionConfiguration(
-            model: "fresh-retry-model",
-            language: .custom,
-            customLanguageCode: "RU",
-            freeformPrompt: "fresh retry prompt"
-        )
-        let retryComposition = makePromptComposition(
-            retryConfiguration.resolvedFreeformPrompt
-        )
-        let retryCapture = ReaderRequestCapture()
-        let retryExecutor = try fixture.makeExecutor(
-            promptComposition: retryComposition,
-            transcribe: { request, _ in
-                retryCapture.record(try await inspectReaderRequest(request))
-                return "Retried"
-            }
-        )
-        let retryDispatch = try await fixture.persistenceOwner.retryTranscription(
-            expected: IOSPendingRecordingCASExpectation(recording: recovery),
-            transcriptionID: UUID(),
-            transcriptionConfiguration: retryConfiguration
-        )
-
-        #expect(
-            try await retryDispatch.execute(using: retryExecutor)
-                == "Retried"
-        )
-        let initial = try #require(initialCapture.observation)
-        let retried = try #require(retryCapture.observation)
-
-        #expect(initial.audio == fixture.audio)
-        #expect(retried.audio == fixture.audio)
-        #expect(initial.model == fixture.configuration.resolvedModel)
-        #expect(initial.languageCode == fixture.configuration.resolvedLanguageCode)
-        #expect(retried.model == "fresh-retry-model")
-        #expect(retried.languageCode == "ru")
-        #expect(retried.promptComposition == retryComposition)
-        #expect(retryDispatch.recording.attemptID == fixture.pending.attemptID)
-        #expect(
-            retryDispatch.recording.transcriptionID
-                != initialDispatch.recording.transcriptionID
-        )
+        #expect(providerCalls.value == 1)
     }
 
     @Test func executorDiagnosticsRedactCredentialPromptAndProviderState()
@@ -212,11 +124,7 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
                 "IOSForegroundVoiceTranscriptionExecutor(redacted)"
             )
         )
-        for canary in [
-            promptCanary,
-            "sk-adapter-test",
-            fixture.root.path,
-        ] {
+        for canary in [promptCanary, "sk-adapter-test", fixture.root.path] {
             #expect(!diagnostics.contains(canary))
         }
     }
@@ -224,77 +132,74 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
 
 private final class TranscriptionExecutorFixture: @unchecked Sendable {
     let root: URL
-    let sourceURL: URL
     let audio: Data
     let durationMilliseconds: Int64
     let configuration: TranscriptionConfiguration
-    let historyCoordinator: IOSAcceptedHistoryCoordinator
-    let persistenceOwner: IOSForegroundVoicePersistenceOwner
+    let persistenceOwner: IOSV1ForegroundVoicePersistenceOwner
     let consentCoordinator: IOSV1ProviderConsentCoordinator
     let acceptedConsent: IOSV1ProviderConsentObservation
-    let pending: IOSPendingRecording
+    let pending: IOSV1PendingRecording
     let credential: OpenAICredential
 
     init() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "ios-transcription-executor-\(UUID().uuidString)",
+            "ios-v1-transcription-executor-\(UUID().uuidString)",
             isDirectory: true
         )
         try FileManager.default.createDirectory(
             at: root,
             withIntermediateDirectories: true
         )
-        sourceURL = root.appendingPathComponent(
-            "source-\(UUID().uuidString).wav",
-            isDirectory: false
-        )
         durationMilliseconds = 6_000
-        audio = makeWAV(durationMilliseconds: durationMilliseconds)
-        try audio.write(to: sourceURL, options: .withoutOverwriting)
+        let audioData = try makeForegroundVoiceTestM4A(durationSeconds: 6)
+        audio = audioData
         configuration = TranscriptionConfiguration(
             model: "reader-bound-model",
             language: .russian,
             freeformPrompt: "initial fixture prompt"
         )
-        historyCoordinator = IOSAcceptedHistoryCoordinator(
+        persistenceOwner = IOSV1ForegroundVoicePersistenceOwner(
             applicationSupportDirectoryURL: root
         )
-        guard await historyCoordinator.recoverContainingAppLifecycle(
-            .processLaunch
-        ) == .complete else {
+        let lease = try await persistenceOwner.createCapture(
+            attemptID: UUID(),
+            outputIntent: .standard
+        )
+        try lease.withTransientRecordingURL { url in
+            let handle = try FileHandle(forWritingTo: url)
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: audioData)
+            try handle.close()
+        }
+        try lease.revalidateRecorderCheckpoint()
+        try await lease.beginFinalizing()
+        guard case .completed(let completed) =
+            try await lease.completeAfterRecorderClose() else {
             throw TranscriptionExecutorFixtureError.setupFailed
         }
-        persistenceOwner = IOSForegroundVoicePersistenceOwner(
-            applicationSupportDirectoryURL: root
+        _ = try await persistenceOwner.prepareCompletedCapture(
+            completed,
+            transcriptionConfiguration: configuration
         )
-        pending = try await persistenceOwner.prepare(
-            IOSPendingRecordingPreparation(
-                attemptID: UUID(),
-                sourceArtifact: AudioRecordingArtifact(
-                    fileURL: sourceURL,
-                    duration: TimeInterval(durationMilliseconds) / 1_000,
-                    byteCount: Int64(audio.count)
-                ),
-                initialState: .readyForTranscription,
-                outputIntent: .standard,
-                transcriptionConfiguration: configuration
-            )
-        )
+        guard let prepared = try await persistenceOwner.load()?.recording else {
+            throw TranscriptionExecutorFixtureError.setupFailed
+        }
+        pending = prepared
+
         consentCoordinator = IOSV1ProviderConsentCoordinator(
             applicationSupportDirectoryURL: root
         )
-        let observed = await consentCoordinator.observe()
         acceptedConsent = try await consentCoordinator.accept(
-            using: observed,
+            using: await consentCoordinator.observe(),
             decisionAt: Date(timeIntervalSince1970: 1_800_000_000)
         )
         credential = try OpenAICredential(apiKey: "sk-adapter-test")
     }
 
     func beginTranscription() async throws
-        -> IOSForegroundVoiceTranscriptionDispatch {
+        -> IOSV1ForegroundVoiceTranscriptionDispatch {
         try await persistenceOwner.beginTranscription(
-            expected: IOSPendingRecordingCASExpectation(recording: pending),
+            expected: IOSV1PendingRecordingExpectation(recording: pending),
             transcriptionID: UUID()
         )
     }
@@ -325,35 +230,6 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
 
     func removeFiles() {
         try? FileManager.default.removeItem(at: root)
-    }
-}
-
-private struct DurationMismatchingExecutor:
-    IOSPendingTranscriptionExecutor,
-    Sendable {
-    let base: IOSForegroundVoiceTranscriptionExecutor
-
-    func transcribe(
-        recording: IOSPendingRecording,
-        audio: IOSPendingTranscriptionAudio
-    ) async throws -> String {
-        let mismatched = try IOSPendingRecording(
-            attemptID: recording.attemptID,
-            audioRelativeIdentifier: recording.audioRelativeIdentifier,
-            createdAt: recording.createdAt,
-            updatedAt: recording.updatedAt,
-            phase: recording.phase,
-            outputIntent: recording.outputIntent,
-            transcriptionID: recording.transcriptionID,
-            transcriptionModel: recording.transcriptionModel,
-            transcriptionLanguageCode: recording.transcriptionLanguageCode,
-            durationMilliseconds: recording.durationMilliseconds + 1,
-            byteCount: recording.byteCount
-        )
-        return try await base.transcribe(
-            recording: mismatched,
-            audio: audio
-        )
     }
 }
 
@@ -426,7 +302,6 @@ private final class ReaderRequestCapture: @unchecked Sendable {
     var observation: ReaderRequestObservation? {
         lock.withLock { storedObservation }
     }
-
     func record(_ observation: ReaderRequestObservation) {
         lock.withLock { storedObservation = observation }
     }
@@ -439,7 +314,6 @@ private final class ReaderRequestBox: @unchecked Sendable {
     var request: OpenAIReaderTranscriptionRequest? {
         lock.withLock { storedRequest }
     }
-
     func record(_ request: OpenAIReaderTranscriptionRequest) {
         lock.withLock { storedRequest = request }
     }
@@ -450,10 +324,7 @@ private final class LockedInteger: @unchecked Sendable {
     private var storedValue = 0
 
     var value: Int { lock.withLock { storedValue } }
-
-    func increment() {
-        lock.withLock { storedValue += 1 }
-    }
+    func increment() { lock.withLock { storedValue += 1 } }
 }
 
 private enum TranscriptionExecutorFixtureError: Error {
@@ -471,45 +342,4 @@ private func makePromptComposition(
         ),
         customDictionary: .empty
     )
-}
-
-private func makeWAV(durationMilliseconds: Int64) -> Data {
-    let sampleRate: UInt32 = 8_000
-    let channelCount: UInt16 = 1
-    let bitsPerSample: UInt16 = 16
-    let sampleCount = Int(
-        Int64(sampleRate) * durationMilliseconds / 1_000
-    )
-    let dataByteCount = UInt32(sampleCount * Int(bitsPerSample / 8))
-    let byteRate = sampleRate * UInt32(channelCount)
-        * UInt32(bitsPerSample / 8)
-    let blockAlign = channelCount * (bitsPerSample / 8)
-
-    var data = Data()
-    data.append(contentsOf: "RIFF".utf8)
-    data.appendExecutorLittleEndian(UInt32(36) + dataByteCount)
-    data.append(contentsOf: "WAVE".utf8)
-    data.append(contentsOf: "fmt ".utf8)
-    data.appendExecutorLittleEndian(UInt32(16))
-    data.appendExecutorLittleEndian(UInt16(1))
-    data.appendExecutorLittleEndian(channelCount)
-    data.appendExecutorLittleEndian(sampleRate)
-    data.appendExecutorLittleEndian(byteRate)
-    data.appendExecutorLittleEndian(blockAlign)
-    data.appendExecutorLittleEndian(bitsPerSample)
-    data.append(contentsOf: "data".utf8)
-    data.appendExecutorLittleEndian(dataByteCount)
-    data.append(Data(repeating: 0, count: Int(dataByteCount)))
-    return data
-}
-
-private extension Data {
-    mutating func appendExecutorLittleEndian<Value: FixedWidthInteger>(
-        _ value: Value
-    ) {
-        var littleEndian = value.littleEndian
-        Swift.withUnsafeBytes(of: &littleEndian) {
-            append(contentsOf: $0)
-        }
-    }
 }

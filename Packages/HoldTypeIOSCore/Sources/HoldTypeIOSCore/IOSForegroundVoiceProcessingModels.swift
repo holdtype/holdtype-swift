@@ -14,68 +14,27 @@ public enum IOSForegroundVoiceProcessingMode: Equatable, Sendable {
 @_spi(HoldTypeIOSCore)
 public struct IOSForegroundVoiceProcessingRequest: Sendable {
     let sessionID: UUID
-    let pendingRecording: IOSPendingRecording
+    let pendingRecording: IOSV1PendingRecording
     let mode: IOSForegroundVoiceProcessingMode
     let settings: IOSAppSettings
     let library: IOSLibraryContent
     let credential: IOSResolvedOpenAICredential
     let consentObservation: IOSV1ProviderConsentObservation
-    let historyMode: IOSForegroundVoiceHistoryMode
 
     public init(
         sessionID: UUID,
-        pendingRecording: IOSPendingRecording,
+        pendingRecording: IOSV1PendingRecording,
         mode: IOSForegroundVoiceProcessingMode,
         settings: IOSAppSettings,
         library: IOSLibraryContent,
         credential: IOSResolvedOpenAICredential,
         consentObservation: IOSV1ProviderConsentObservation
-    ) {
-        self.init(
-            sessionID: sessionID,
-            pendingRecording: pendingRecording,
-            mode: mode,
-            settings: settings,
-            library: library,
-            credential: credential,
-            consentObservation: consentObservation,
-            historyMode: .appOnly
-        )
-    }
-
-    public init(
-        sessionID: UUID,
-        pendingRecording: IOSPendingRecording,
-        mode: IOSForegroundVoiceProcessingMode,
-        settings: IOSAppSettings,
-        library: IOSLibraryContent,
-        credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSV1ProviderConsentObservation,
-        historyMode: IOSForegroundVoiceHistoryMode
     ) {
         self.sessionID = sessionID
         self.pendingRecording = pendingRecording
         self.mode = mode
         self.settings = settings
         self.library = library
-        self.credential = credential
-        self.consentObservation = consentObservation
-        self.historyMode = historyMode
-    }
-}
-
-/// Fresh provider authority supplied only by an explicit retry. The value is
-/// runtime-only and deliberately redacts both the credential and consent
-/// observation.
-@_spi(HoldTypeIOSCore)
-public struct IOSForegroundVoiceProviderRetryAuthorization: Sendable {
-    let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSV1ProviderConsentObservation
-
-    public init(
-        credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSV1ProviderConsentObservation
-    ) {
         self.credential = credential
         self.consentObservation = consentObservation
     }
@@ -102,40 +61,16 @@ public enum IOSForegroundVoiceProcessingFailure: Equatable, Sendable {
 public typealias IOSForegroundVoiceProcessingProgressHandler =
     @MainActor @Sendable (VoiceAttemptStage) -> Void
 
-/// Payload-free guidance for a local-only retry surface.
-@_spi(HoldTypeIOSCore)
-public enum IOSForegroundVoiceLocalRecoveryDisposition:
-    Equatable,
-    Sendable {
-    case processingCheckpoint
-    case savingResult
-}
-
-/// Payload-free authority requirement for one retained local checkpoint.
-@_spi(HoldTypeIOSCore)
-public enum IOSForegroundVoiceLocalRecoveryRequirement:
-    Equatable,
-    Sendable {
-    case currentProviderAuthority
-    case providerFree
-}
-
 /// Redacted orchestration result. Provider text and credentials never cross
-/// this boundary; accepted text appears only through the existing P4B record.
+/// this boundary; accepted text appears only through Latest Result.
 @_spi(HoldTypeIOSCore)
 public enum IOSForegroundVoiceProcessingResolution: Equatable, Sendable {
     case notStarted(IOSForegroundVoiceProcessingFailure)
-    case acceptance(IOSForegroundVoiceAcceptanceResult)
-    case awaitingRecovery(
-        IOSPendingRecording,
+    case acceptance(IOSV1ForegroundVoiceAcceptanceResult)
+    case retryAvailable(
+        IOSV1PendingRecording,
         failure: IOSForegroundVoiceProcessingFailure,
         stage: VoiceAttemptStage
-    )
-    case localRecoveryPending(
-        failure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage,
-        disposition: IOSForegroundVoiceLocalRecoveryDisposition,
-        requirement: IOSForegroundVoiceLocalRecoveryRequirement
     )
     case busy
 }
@@ -164,48 +99,12 @@ extension IOSForegroundVoiceProcessingRequest:
     public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
-extension IOSForegroundVoiceProviderRetryAuthorization:
-    CustomStringConvertible,
-    CustomDebugStringConvertible,
-    CustomReflectable {
-    public var description: String {
-        "IOSForegroundVoiceProviderRetryAuthorization(redacted)"
-    }
-
-    public var debugDescription: String { description }
-    public var customMirror: Mirror { Mirror(self, children: [:]) }
-}
-
 extension IOSForegroundVoiceProcessingFailure:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
     public var description: String {
         "IOSForegroundVoiceProcessingFailure(redacted)"
-    }
-
-    public var debugDescription: String { description }
-    public var customMirror: Mirror { Mirror(self, children: [:]) }
-}
-
-extension IOSForegroundVoiceLocalRecoveryDisposition:
-    CustomStringConvertible,
-    CustomDebugStringConvertible,
-    CustomReflectable {
-    public var description: String {
-        "IOSForegroundVoiceLocalRecoveryDisposition(redacted)"
-    }
-
-    public var debugDescription: String { description }
-    public var customMirror: Mirror { Mirror(self, children: [:]) }
-}
-
-extension IOSForegroundVoiceLocalRecoveryRequirement:
-    CustomStringConvertible,
-    CustomDebugStringConvertible,
-    CustomReflectable {
-    public var description: String {
-        "IOSForegroundVoiceLocalRecoveryRequirement(redacted)"
     }
 
     public var debugDescription: String { description }

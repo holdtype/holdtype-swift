@@ -210,7 +210,7 @@ enum IOSForegroundVoiceTranscriptionStageError: Error, Sendable {
 }
 
 struct IOSForegroundVoiceTranscriptionExecutor:
-    IOSPendingTranscriptionExecutor,
+    IOSV1PendingTranscriptionExecutor,
     Sendable {
     let authorization: IOSV1ProviderConsentAuthorization
     let stageExecutor: IOSProviderConsentStageExecutor
@@ -219,8 +219,8 @@ struct IOSForegroundVoiceTranscriptionExecutor:
     let promptComposition: TranscriptionPromptComposition
 
     func transcribe(
-        recording: IOSPendingRecording,
-        audio: IOSPendingTranscriptionAudio
+        recording: IOSV1PendingRecording,
+        audio: IOSV1PendingTranscriptionAudio
     ) async throws -> String {
         guard recording.durationMilliseconds == audio.durationMilliseconds,
               recording.byteCount == audio.byteCount else {

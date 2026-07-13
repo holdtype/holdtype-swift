@@ -4,51 +4,46 @@ import HoldTypeOpenAI
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 
 protocol IOSForegroundVoicePersisting: Sendable {
-    func load() async throws -> IOSPendingRecordingObservation?
+    func load() async throws -> IOSV1PendingRecordingObservation?
 
     func beginTranscription(
-        expected: IOSPendingRecordingCASExpectation,
+        expected: IOSV1PendingRecordingExpectation,
         transcriptionID: UUID
-    ) async throws -> IOSForegroundVoiceTranscriptionDispatch
+    ) async throws -> IOSV1ForegroundVoiceTranscriptionDispatch
 
     func retryTranscription(
-        expected: IOSPendingRecordingCASExpectation,
+        expected: IOSV1PendingRecordingExpectation,
         transcriptionID: UUID,
         transcriptionConfiguration: TranscriptionConfiguration
-    ) async throws -> IOSForegroundVoiceTranscriptionDispatch
+    ) async throws -> IOSV1ForegroundVoiceTranscriptionDispatch
 
     func markPostProcessing(
-        expected: IOSPendingRecordingCASExpectation
-    ) async throws -> IOSPendingRecording
+        expected: IOSV1PendingRecordingExpectation
+    ) async throws -> IOSV1PendingRecording
 
     func markOutputDelivery(
-        expected: IOSPendingRecordingCASExpectation
-    ) async throws -> IOSPendingRecording
+        expected: IOSV1PendingRecordingExpectation
+    ) async throws -> IOSV1PendingRecording
 
-    func markAwaitingRecovery(
-        expected: IOSPendingRecordingCASExpectation
-    ) async throws -> IOSPendingRecording
-
-    func recoverAfterProcessLoss(
-        expected: IOSPendingRecordingCASExpectation
-    ) async throws -> IOSPendingRecording
+    func markFailed(
+        expected: IOSV1PendingRecordingExpectation
+    ) async throws -> IOSV1PendingRecording
 
     func accept(
-        _ preparation: IOSForegroundVoiceAcceptedOutputPreparation,
-        expectedPending: IOSPendingRecordingCASExpectation
-    ) async throws -> IOSForegroundVoiceAcceptanceResult
+        _ preparation: IOSV1ForegroundVoiceAcceptedOutputPreparation,
+        expectedPending: IOSV1PendingRecordingExpectation
+    ) async throws -> IOSV1ForegroundVoiceAcceptanceResult
 
     func reconcileAcceptance(
-        matching preparation: IOSForegroundVoiceAcceptedOutputPreparation
-    ) async throws -> IOSForegroundVoiceAcceptanceResult?
+        matching preparation: IOSV1ForegroundVoiceAcceptedOutputPreparation
+    ) async throws -> IOSV1ForegroundVoiceAcceptanceResult?
 }
 
-extension IOSForegroundVoicePersistenceOwner:
-    IOSForegroundVoicePersisting {}
+extension IOSV1ForegroundVoicePersistenceOwner: IOSForegroundVoicePersisting {}
 
-/// One process-owned P4 provider and local-persistence orchestrator. It keeps
-/// normalized provider output only in redacted process memory until the exact
-/// Pending transition or P4B acceptance has durably taken ownership.
+/// One process-owned provider pipeline. Durable Pending is the only recovery
+/// source: every failed active operation is reduced to `.failed`, and provider
+/// work can start again only through a new explicit `.retry` request.
 @_spi(HoldTypeIOSCore)
 public actor IOSForegroundVoiceProcessor {
     typealias UsageRecorder = @Sendable (
@@ -68,13 +63,9 @@ public actor IOSForegroundVoiceProcessor {
     private let postProcessor: TranscriptTextPostProcessor
 
     private var activeOperationID: UUID?
-    private var activeProgressHandler:
-        IOSForegroundVoiceProcessingProgressHandler?
-    private var reportedProgressStages: [VoiceAttemptStage] = []
-    private var retainedWork: IOSForegroundVoiceRetainedWork?
 
     public init(
-        persistenceOwner: IOSForegroundVoicePersistenceOwner,
+        persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
         consentCoordinator: IOSV1ProviderConsentCoordinator,
         usageRecordingClient: IOSTranscriptionUsageRecordingClient,
         credentialCoordinator: IOSOpenAICredentialCoordinator
@@ -100,7 +91,7 @@ public actor IOSForegroundVoiceProcessor {
     /// Test-only convenience. Production composition injects one shared
     /// recording client so failures are ordered against Reset.
     init(
-        persistenceOwner: IOSForegroundVoicePersistenceOwner,
+        persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
         consentCoordinator: IOSV1ProviderConsentCoordinator,
         usageRepository: IOSTranscriptionUsageRepository,
         credentialCoordinator: IOSOpenAICredentialCoordinator
@@ -125,8 +116,7 @@ public actor IOSForegroundVoiceProcessor {
             @escaping ProviderRejectionRecorder = { _ in },
         makeUUID: @escaping @Sendable () -> UUID = { UUID() },
         postProcessor: TranscriptTextPostProcessor =
-            TranscriptTextPostProcessor(),
-        retainedWork: IOSForegroundVoiceRetainedWork? = nil
+            TranscriptTextPostProcessor()
     ) {
         self.persistenceOwner = persistenceOwner
         self.consentCoordinator = consentCoordinator
@@ -138,7 +128,6 @@ public actor IOSForegroundVoiceProcessor {
         self.recordProviderRejection = recordProviderRejection
         self.makeUUID = makeUUID
         self.postProcessor = postProcessor
-        self.retainedWork = retainedWork
     }
 
     public func process(
@@ -148,224 +137,82 @@ public actor IOSForegroundVoiceProcessor {
         }
     ) async -> IOSForegroundVoiceProcessingResolution {
         guard activeOperationID == nil else { return .busy }
-        if let retainedWork {
-            return .localRecoveryPending(
-                failure: .localPersistence,
-                stage: retainedWork.stage,
-                disposition: retainedWork.recoveryDisposition,
-                requirement: retainedWork.recoveryRequirement
-            )
-        }
         guard let context = makeContext(from: request) else {
             return .notStarted(.invalidConfiguration)
         }
-        guard hasCurrentProviderAuthorization(
-            for: context.historyMode,
-            observation: context.consentObservation
-        ) else {
+        guard consentCoordinator.makeAuthorization(
+            from: context.consentObservation
+        ) != nil else {
             return .notStarted(.providerConsentUnavailable)
         }
 
         let operationID = UUID()
-        beginOperation(operationID, progress: progress)
-        let work = IOSForegroundVoiceRetainedWork.beginning(context)
-        retainedWork = work
-        let resolution = await resume(work, operationID: operationID)
-        finishOperation(operationID)
-        return resolution
-    }
-
-    public func retryLocalRecovery(
-        authorization: IOSForegroundVoiceProviderRetryAuthorization? = nil,
-        progress: @escaping IOSForegroundVoiceProcessingProgressHandler = {
-            _ in
-        }
-    )
-        async -> IOSForegroundVoiceProcessingResolution {
-        guard activeOperationID == nil else { return .busy }
-        guard let retainedWork else {
-            return .notStarted(.localPersistence)
-        }
-        let retryWork: IOSForegroundVoiceRetainedWork
-        switch retainedWork.recoveryRequirement {
-        case .providerFree:
-            // Provider-free recovery deliberately ignores any supplied
-            // authority so local saving never reads or validates provider
-            // state.
-            retryWork = retainedWork.droppingUnusedProviderAuthority()
-            self.retainedWork = retryWork
-        case .currentProviderAuthority:
-            guard let authorization,
-                  hasCurrentProviderAuthorization(
-                      for: retainedWork.historyMode,
-                      observation: authorization.consentObservation
-                  ),
-                  let rebound = retainedWork.rebindingProviderAuthority(
-                      authorization
-                  ) else {
-                return .localRecoveryPending(
-                    failure: .providerConsentUnavailable,
-                    stage: retainedWork.stage,
-                    disposition: retainedWork.recoveryDisposition,
-                    requirement: .currentProviderAuthority
-                )
+        activeOperationID = operationID
+        defer {
+            if activeOperationID == operationID {
+                activeOperationID = nil
             }
-            retryWork = rebound
-            self.retainedWork = rebound
         }
-        let operationID = UUID()
-        beginOperation(operationID, progress: progress)
-        if case .beginning = retryWork {
-            // Transcription begins only after Persistence returns the durable
-            // one-shot dispatch below.
-        } else {
-            await reportProgress(
-                retryWork.stage,
-                operationID: operationID
-            )
-        }
-        let resolution = await resume(
-            retryWork,
-            operationID: operationID
+        return await run(
+            context,
+            operationID: operationID,
+            progress: progress
         )
-        finishOperation(operationID)
-        return resolution
     }
 
-    public func hasLocalRecoveryPending() -> Bool {
-        activeOperationID == nil && retainedWork != nil
-    }
-
-    private func hasCurrentProviderAuthorization(
-        for historyMode: IOSForegroundVoiceHistoryMode,
-        observation: IOSV1ProviderConsentObservation
-    ) -> Bool {
-        switch historyMode {
-        case .appOnly:
-            consentCoordinator.makeAuthorization(
-                from: observation
-            ) != nil
-        case .captured:
-            consentCoordinator.makeAuthorization(
-                from: observation
-            ) != nil
-        }
-    }
-
-    private func resume(
-        _ work: IOSForegroundVoiceRetainedWork,
-        operationID: UUID
+    private func run(
+        _ context: IOSForegroundVoicePipelineContext,
+        operationID: UUID,
+        progress: @escaping IOSForegroundVoiceProcessingProgressHandler
     ) async -> IOSForegroundVoiceProcessingResolution {
-        guard activeOperationID == operationID else { return .busy }
-        switch work {
-        case .beginning(let context):
-            return await resumeBeginning(
-                context,
-                operationID: operationID
-            )
-        case .transcribing(let context, let recording):
-            // A one-shot handoff cannot be reconstructed. Retire its exact
-            // owner instead of replaying provider work.
-            return await recover(
-                context: context,
-                recording: recording,
-                failure: Task.isCancelled
-                    ? .cancelled
-                    : .localPersistence,
-                stage: .transcription,
-                operationID: operationID
-            )
-        case .transcriptionConsumed(
-            let localContext,
-            let recording,
-            let transcript
-        ):
-            return await resumeTranscriptionConsumed(
-                providerContext: nil,
-                localContext: localContext,
-                recording: recording,
-                transcript: transcript,
-                operationID: operationID
-            )
-        case .providerFreePostProcessing(
-            let context,
-            let recording,
-            let transcript,
-            let usageAttempted
-        ):
-            return await resumeProviderFreePostProcessing(
-                context: context,
-                recording: recording,
-                transcript: transcript,
-                usageAttempted: usageAttempted,
-                operationID: operationID
-            )
-        case .postProcessing(
-            let context,
-            let recording,
-            let transcript,
-            let usageAttempted
-        ):
-            return await resumePostProcessing(
-                context: context,
-                recording: recording,
-                transcript: transcript,
-                usageAttempted: usageAttempted,
-                operationID: operationID
-            )
-        case .finalText(let context, let recording, let text):
-            return await resumeFinalText(
-                context: context,
-                recording: recording,
-                text: text,
-                operationID: operationID
-            )
-        case .outputDelivery(let context, let recording, let text):
-            return await resumeOutputDelivery(
-                context: context,
-                recording: recording,
-                text: text,
-                operationID: operationID
-            )
-        case .recovering(
-            let context,
-            let recording,
-            let failure,
-            let stage
-        ):
-            return await resumeRecovery(
-                context: context,
-                recording: recording,
-                failure: failure,
-                stage: stage,
-                operationID: operationID
-            )
-        }
-    }
-
-    private func resumeBeginning(
-        _ context: IOSForegroundVoiceProviderContext,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        guard !Task.isCancelled else {
-            retainedWork = nil
+        guard activeOperationID == operationID, !Task.isCancelled else {
             return .notStarted(.cancelled)
         }
-        retainedWork = .beginning(context)
-        let dispatch: IOSForegroundVoiceTranscriptionDispatch
+
+        let dispatchSource: IOSV1PendingRecording
+        switch context.mode {
+        case .initial:
+            dispatchSource = context.pendingRecording
+        case .retry where context.pendingRecording.phase == .readyForTranscription:
+            do {
+                let failed = try await persistenceOwner.markFailed(
+                    expected: IOSV1PendingRecordingExpectation(
+                        recording: context.pendingRecording
+                    )
+                )
+                dispatchSource = try await canonicalRecording(
+                    continuing: failed,
+                    phase: .failed
+                )
+            } catch {
+                guard let observed = try? await persistenceOwner.load()?.recording,
+                      Self.continuesAttempt(
+                          observed,
+                          from: context.pendingRecording
+                      ),
+                      observed.phase == .failed else {
+                    return .notStarted(.localPersistence)
+                }
+                dispatchSource = observed
+            }
+        case .retry:
+            dispatchSource = context.pendingRecording
+        }
+
+        let dispatch: IOSV1ForegroundVoiceTranscriptionDispatch
         do {
             switch context.mode {
             case .initial:
                 dispatch = try await persistenceOwner.beginTranscription(
-                    expected: IOSPendingRecordingCASExpectation(
-                        recording: context.pendingRecording
+                    expected: IOSV1PendingRecordingExpectation(
+                        recording: dispatchSource
                     ),
                     transcriptionID: context.transcriptionID
                 )
             case .retry:
                 dispatch = try await persistenceOwner.retryTranscription(
-                    expected: IOSPendingRecordingCASExpectation(
-                        recording: context.pendingRecording
+                    expected: IOSV1PendingRecordingExpectation(
+                        recording: dispatchSource
                     ),
                     transcriptionID: context.transcriptionID,
                     transcriptionConfiguration:
@@ -373,44 +220,47 @@ public actor IOSForegroundVoiceProcessor {
                 )
             }
         } catch {
-            return await reconcileBeginningFailure(
+            return await reconcileBeginFailure(
                 context,
-                operationID: operationID
+                dispatchSource: dispatchSource
             )
         }
 
-        let recording = dispatch.recording
-        retainedWork = .transcribing(context.providerFree, recording)
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: context,
-                recording: recording,
-                failure: .cancelled,
-                stage: .transcription,
-                operationID: operationID
+        let transcribing: IOSV1PendingRecording
+        do {
+            transcribing = try await canonicalRecording(
+                continuing: dispatch.recording,
+                phase: .transcribing
+            )
+        } catch {
+            return await persistFailure(
+                from: dispatch.recording,
+                failure: .localPersistence,
+                stage: .transcription
             )
         }
-        await reportProgress(.transcription, operationID: operationID)
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: context,
-                recording: recording,
+        guard activeOperationID == operationID, !Task.isCancelled else {
+            return await persistFailure(
+                from: transcribing,
                 failure: .cancelled,
-                stage: .transcription,
-                operationID: operationID
+                stage: .transcription
+            )
+        }
+        await progress(.transcription)
+        guard activeOperationID == operationID, !Task.isCancelled else {
+            return await persistFailure(
+                from: transcribing,
+                failure: .cancelled,
+                stage: .transcription
             )
         }
         guard let authorization = consentCoordinator.makeAuthorization(
             from: context.consentObservation
         ) else {
-            return await recover(
-                context: context,
-                recording: recording,
+            return await persistFailure(
+                from: transcribing,
                 failure: .providerConsentUnavailable,
-                stage: .transcription,
-                operationID: operationID
+                stage: .transcription
             )
         }
 
@@ -421,349 +271,188 @@ public actor IOSForegroundVoiceProcessor {
             credential: context.credential.credential,
             promptComposition: context.promptComposition
         )
+        let transcript: AcceptedTranscript
         do {
-            let text = try await dispatch.execute(using: executor)
-            guard let transcript = try? AcceptedTranscript(
-                rawText: text
-            ) else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .invalidResponse,
-                    stage: .transcription,
-                    operationID: operationID
-                )
-            }
-            let localContext = context.localTranscription
-            await recordSuccessfulTranscriptionUsage(
-                context: localContext.providerFree,
-                recording: recording
-            )
-            let work = IOSForegroundVoiceRetainedWork
-                .transcriptionConsumed(
-                    localContext,
-                    recording,
-                transcript
-            )
-            retainedWork = work
-            guard !Task.isCancelled else {
-                return await recover(
-                    context: localContext.providerFree,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .transcription,
-                    operationID: operationID
-                )
-            }
-            return await resumeTranscriptionConsumed(
-                providerContext: context,
-                localContext: localContext,
-                recording: recording,
-                transcript: transcript,
-                operationID: operationID
+            transcript = try AcceptedTranscript(
+                rawText: try await dispatch.execute(using: executor)
             )
         } catch let error as IOSForegroundVoiceTranscriptionStageError {
-            guard !Task.isCancelled else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .transcription,
-                    operationID: operationID
-                )
-            }
+            let failure: IOSForegroundVoiceProcessingFailure
             switch error {
-            case .failure(let failure):
+            case .failure(let providerFailure):
                 await recordCredentialRejectionIfNeeded(
-                    failure,
+                    providerFailure,
                     context: context
                 )
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: failure.publicFailure,
-                    stage: .transcription,
-                    operationID: operationID
-                )
+                failure = providerFailure.publicFailure
             case .cancelled:
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .transcription,
-                    operationID: operationID
-                )
+                failure = .cancelled
             case .authorizationUnavailable:
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .providerConsentUnavailable,
-                    stage: .transcription,
-                    operationID: operationID
-                )
+                failure = .providerConsentUnavailable
             }
+            return await persistFailure(
+                from: transcribing,
+                failure: Task.isCancelled ? .cancelled : failure,
+                stage: .transcription
+            )
         } catch {
-            let failure: IOSForegroundVoiceProcessingFailure =
-                Task.isCancelled ? .cancelled : .invalidRecording
-            return await recover(
-                context: context,
-                recording: recording,
-                failure: failure,
-                stage: .transcription,
-                operationID: operationID
+            return await persistFailure(
+                from: transcribing,
+                failure: Task.isCancelled ? .cancelled : .invalidRecording,
+                stage: .transcription
             )
         }
-    }
 
-    private func resumeTranscriptionConsumed(
-        providerContext: IOSForegroundVoiceProviderContext?,
-        localContext: IOSForegroundVoiceLocalTranscriptionContext,
-        recording: IOSPendingRecording,
-        transcript: AcceptedTranscript,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let current = IOSForegroundVoiceRetainedWork.transcriptionConsumed(
-            localContext,
-            recording,
-            transcript
+        await recordSuccessfulTranscriptionUsage(
+            context: context,
+            recording: transcribing
         )
-        retainedWork = current
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: localContext.providerFree,
-                recording: recording,
+        guard !Task.isCancelled else {
+            return await persistFailure(
+                from: transcribing,
                 failure: .cancelled,
-                stage: .transcription,
-                operationID: operationID
+                stage: .transcription
             )
         }
-        let postProcessing: IOSPendingRecording
+
+        let postProcessing: IOSV1PendingRecording
         do {
-            postProcessing = try await persistenceOwner.markPostProcessing(
-                expected: IOSPendingRecordingCASExpectation(
-                    recording: recording
-                )
-            )
+            postProcessing = try await advanceToPostProcessing(transcribing)
         } catch {
-            return await reconcilePostProcessingCommitFailure(
-                source: recording,
-                localContext: localContext,
-                transcript: transcript,
-                operationID: operationID,
-                sourceWork: current
-            )
-        }
-        await reportProgress(.postProcessing, operationID: operationID)
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: localContext.providerFree,
-                recording: postProcessing,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        if let providerContext,
-           providerContext.requiresRemainingProviderAuthority {
-            let next = IOSForegroundVoiceRetainedWork.postProcessing(
-                providerContext,
-                postProcessing,
-                transcript,
-                usageAttempted: true
-            )
-            retainedWork = next
-            return await resume(next, operationID: operationID)
-        }
-        let next = IOSForegroundVoiceRetainedWork
-            .providerFreePostProcessing(
-                localContext,
-                postProcessing,
-                transcript,
-                usageAttempted: true
-            )
-        retainedWork = next
-        return await resume(next, operationID: operationID)
-    }
-
-    private func resumeProviderFreePostProcessing(
-        context: IOSForegroundVoiceLocalTranscriptionContext,
-        recording: IOSPendingRecording,
-        transcript: AcceptedTranscript,
-        usageAttempted: Bool,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: context.providerFree,
-                recording: recording,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        if !usageAttempted {
-            retainedWork = .providerFreePostProcessing(
-                context,
-                recording,
-                transcript,
-                usageAttempted: true
-            )
-            if let usage = try? SuccessfulTranscriptionUsage(
-                transcriptionID: context.providerFree.transcriptionID,
-                model: recording.transcriptionModel,
-                audioDuration:
-                    TimeInterval(recording.durationMilliseconds) / 1_000
-            ) {
-                await recordUsage(usage)
-            }
-        }
-        guard !Task.isCancelled else {
-            return await recover(
-                context: context.providerFree,
-                recording: recording,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        guard recording.outputIntent == .standard else {
-            // A Translation stage cannot be resumed from retained text without
-            // provider authority. Explicit Retry owns a fresh full chain.
-            return await recover(
-                context: context.providerFree,
-                recording: recording,
+            return await persistFailure(
+                from: transcribing,
                 failure: .localPersistence,
-                stage: .postProcessing,
-                operationID: operationID
+                stage: .transcription
             )
         }
-        let processedText = postProcessor.process(
-            transcript.text,
-            configuration: context.postProcessingConfiguration,
-            fallback: transcript.text
-        )
-        guard let processed = try? AcceptedTranscript(
-            rawText: processedText
-        ) else {
-            return await recover(
-                context: context.providerFree,
-                recording: recording,
-                failure: .invalidConfiguration,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        return await beginFinalText(
-            processed,
-            context: context.providerFree,
-            recording: recording,
-            operationID: operationID
-        )
-    }
-
-    private func resumePostProcessing(
-        context: IOSForegroundVoiceProviderContext,
-        recording: IOSPendingRecording,
-        transcript: AcceptedTranscript,
-        usageAttempted: Bool,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: context,
-                recording: recording,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        var usageWasAttempted = usageAttempted
-        if !usageWasAttempted {
-            usageWasAttempted = true
-            retainedWork = .postProcessing(
-                context,
-                recording,
-                transcript,
-                usageAttempted: true
-            )
-            if let usage = try? SuccessfulTranscriptionUsage(
-                transcriptionID: context.transcriptionID,
-                model: recording.transcriptionModel,
-                audioDuration:
-                    TimeInterval(recording.durationMilliseconds) / 1_000
-            ) {
-                await recordUsage(usage)
-            }
-        }
+        await progress(.postProcessing)
         guard !Task.isCancelled else {
-            return await recover(
-                context: context,
-                recording: recording,
+            return await persistFailure(
+                from: postProcessing,
                 failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
+                stage: .postProcessing
             )
         }
 
-        let corrected = await correctedTranscript(
+        let finalText: AcceptedTranscript
+        switch await makeFinalText(
             transcript,
             context: context,
-            recording: recording,
-            operationID: operationID
+            recording: postProcessing
+        ) {
+        case .success(let value):
+            finalText = value
+        case .failure(let failure):
+            return await persistFailure(
+                from: postProcessing,
+                failure: failure,
+                stage: .postProcessing
+            )
+        }
+
+        let outputDelivery: IOSV1PendingRecording
+        do {
+            outputDelivery = try await advanceToOutputDelivery(postProcessing)
+        } catch {
+            return await persistFailure(
+                from: postProcessing,
+                failure: .localPersistence,
+                stage: .postProcessing
+            )
+        }
+        await progress(.outputDelivery)
+        guard !Task.isCancelled else {
+            return await persistFailure(
+                from: outputDelivery,
+                failure: .cancelled,
+                stage: .outputDelivery
+            )
+        }
+
+        let preparation: IOSV1ForegroundVoiceAcceptedOutputPreparation
+        do {
+            preparation = try IOSV1ForegroundVoiceAcceptedOutputPreparation(
+                deliveryID: context.deliveryID,
+                sessionID: context.sessionID,
+                attemptID: outputDelivery.attemptID,
+                transcriptID: context.transcriptionID,
+                rawAcceptedText: finalText.text,
+                outputIntent: context.outputIntent
+            )
+        } catch {
+            return await persistFailure(
+                from: outputDelivery,
+                failure: .invalidConfiguration,
+                stage: .outputDelivery
+            )
+        }
+
+        do {
+            return .acceptance(
+                try await persistenceOwner.accept(
+                    preparation,
+                    expectedPending: IOSV1PendingRecordingExpectation(
+                        recording: outputDelivery
+                    )
+                )
+            )
+        } catch {
+            do {
+                if let result = try await persistenceOwner
+                    .reconcileAcceptance(matching: preparation) {
+                    return .acceptance(result)
+                }
+            } catch {
+                if await acceptanceCleanupIsPending(
+                    attemptID: outputDelivery.attemptID
+                ) {
+                    return .notStarted(.localPersistence)
+                }
+            }
+            return await persistFailure(
+                from: outputDelivery,
+                failure: .localPersistence,
+                stage: .outputDelivery
+            )
+        }
+    }
+
+    private func makeFinalText(
+        _ transcript: AcceptedTranscript,
+        context: IOSForegroundVoicePipelineContext,
+        recording: IOSV1PendingRecording
+    ) async -> IOSForegroundVoiceTextResolution {
+        guard !Task.isCancelled else { return .failure(.cancelled) }
+
+        let corrected = await correctedTranscript(transcript, context: context)
+        guard !Task.isCancelled else { return .failure(.cancelled) }
+        let processedText = postProcessor.process(
+            corrected.text,
+            configuration: context.postProcessingConfiguration,
+            fallback: corrected.text
         )
-        switch corrected {
-        case .recovery(let resolution):
-            return resolution
-        case .accepted(let correctedTranscript):
-            guard !Task.isCancelled else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            }
-            let processedText = postProcessor.process(
-                correctedTranscript.text,
-                configuration: context.postProcessingConfiguration,
-                fallback: correctedTranscript.text
-            )
-            guard let processed = try? AcceptedTranscript(
-                rawText: processedText
-            ) else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .invalidConfiguration,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            }
-            return await finishPostProcessing(
-                processed,
-                context: context,
-                recording: recording,
-                operationID: operationID
-            )
+        guard let processed = try? AcceptedTranscript(rawText: processedText)
+        else {
+            return .failure(.invalidConfiguration)
+        }
+
+        switch recording.outputIntent {
+        case .standard:
+            return .success(processed)
+        case .translate:
+            return await translatedTranscript(processed, context: context)
         }
     }
 
     private func correctedTranscript(
         _ transcript: AcceptedTranscript,
-        context: IOSForegroundVoiceProviderContext,
-        recording: IOSPendingRecording,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceCorrectionResolution {
+        context: IOSForegroundVoicePipelineContext
+    ) async -> AcceptedTranscript {
         guard context.correctionConfiguration.isEnabled,
               let authorization = consentCoordinator.makeAuthorization(
                   from: context.consentObservation
               ) else {
-            return .accepted(transcript)
+            return transcript
         }
         let provider = provider
         let credential = context.credential.credential
@@ -775,912 +464,234 @@ public actor IOSForegroundVoiceProcessor {
             authorization,
             for: .correction,
             operation: {
-                let text = try await provider.correct(
-                    transcript,
-                    configuration,
-                    credential
+                try AcceptedTranscript(
+                    rawText: try await provider.correct(
+                        transcript,
+                        configuration,
+                        credential
+                    )
                 )
-                return try AcceptedTranscript(rawText: text)
             },
             normalizeFailure: {
                 IOSForegroundVoiceProviderFailureMapper.correction($0)
             }
         )
-        guard !Task.isCancelled else {
-            return .recovery(
-                await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            )
-        }
         switch outcome {
-        case .success(let candidate):
-            guard Self.isSafeCorrection(
+        case .success(let candidate)
+            where Self.isSafeCorrection(
                 original: transcript.text,
                 corrected: candidate.text
-            ) else {
-                return .accepted(transcript)
-            }
-            return .accepted(candidate)
+            ):
+            return candidate
         case .failure(let failure):
-            await recordCredentialRejectionIfNeeded(
-                failure,
-                context: context
-            )
-            return .accepted(transcript)
-        case .cancelled, .authorizationUnavailable:
-            return .accepted(transcript)
+            await recordCredentialRejectionIfNeeded(failure, context: context)
+            return transcript
+        case .success, .cancelled, .authorizationUnavailable:
+            return transcript
         }
     }
 
-    private func finishPostProcessing(
-        _ processed: AcceptedTranscript,
-        context: IOSForegroundVoiceProviderContext,
-        recording: IOSPendingRecording,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        switch recording.outputIntent {
-        case .standard:
-            return await beginFinalText(
-                processed,
-                context: context,
-                recording: recording,
-                operationID: operationID
-            )
-        case .translate:
-            guard let translation = context.translationConfiguration,
-                  let authorization = consentCoordinator.makeAuthorization(
-                      from: context.consentObservation
-                  ) else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: context.translationConfiguration == nil
-                        ? .invalidConfiguration
-                        : .providerConsentUnavailable,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            }
-            let provider = provider
-            let credential = context.credential.credential
-            let transcriptionConfiguration =
-                context.transcriptionConfiguration
-            let outcome: IOSProviderConsentStageOutcome<
-                AcceptedTranscript,
-                IOSForegroundVoiceProviderFailure
-            > = await stageExecutor.execute(
-                authorization,
-                for: .translation,
-                operation: {
-                    let text = try await provider.translate(
+    private func translatedTranscript(
+        _ transcript: AcceptedTranscript,
+        context: IOSForegroundVoicePipelineContext
+    ) async -> IOSForegroundVoiceTextResolution {
+        guard let translation = context.translationConfiguration else {
+            return .failure(.invalidConfiguration)
+        }
+        guard let authorization = consentCoordinator.makeAuthorization(
+            from: context.consentObservation
+        ) else {
+            return .failure(.providerConsentUnavailable)
+        }
+        let provider = provider
+        let credential = context.credential.credential
+        let transcriptionConfiguration = context.transcriptionConfiguration
+        let outcome: IOSProviderConsentStageOutcome<
+            AcceptedTranscript,
+            IOSForegroundVoiceProviderFailure
+        > = await stageExecutor.execute(
+            authorization,
+            for: .translation,
+            operation: {
+                try AcceptedTranscript(
+                    rawText: try await provider.translate(
                         TextTranslationRequest(
-                            acceptedTranscript: processed,
+                            acceptedTranscript: transcript,
                             translationConfiguration: translation,
                             transcriptionConfiguration:
                                 transcriptionConfiguration
                         ),
                         credential
                     )
-                    return try AcceptedTranscript(rawText: text)
-                },
-                normalizeFailure: {
-                    IOSForegroundVoiceProviderFailureMapper.translation($0)
-                }
-            )
-            guard !Task.isCancelled else {
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .postProcessing,
-                    operationID: operationID
                 )
+            },
+            normalizeFailure: {
+                IOSForegroundVoiceProviderFailureMapper.translation($0)
             }
-            switch outcome {
-            case .success(let translated):
-                let final: AcceptedTranscript
-                if context.postProcessingConfiguration
-                    .localTextCleanupEnabled {
-                    let normalized = TranscriptTextPostProcessor
-                        .normalizedInformalTypography(
-                            from: translated.text,
-                            fallback: translated.text
-                        )
-                    guard let accepted = try? AcceptedTranscript(
-                        rawText: normalized
-                    ) else {
-                        return await recover(
-                            context: context,
-                            recording: recording,
-                            failure: .invalidResponse,
-                            stage: .postProcessing,
-                            operationID: operationID
-                        )
-                    }
-                    final = accepted
-                } else {
-                    final = translated
-                }
-                return await beginFinalText(
-                    final,
-                    context: context,
-                    recording: recording,
-                    operationID: operationID
-                )
-            case .failure(let failure):
-                await recordCredentialRejectionIfNeeded(
-                    failure,
-                    context: context
-                )
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: failure.publicFailure,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            case .cancelled:
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .cancelled,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
-            case .authorizationUnavailable:
-                return await recover(
-                    context: context,
-                    recording: recording,
-                    failure: .providerConsentUnavailable,
-                    stage: .postProcessing,
-                    operationID: operationID
-                )
+        )
+        guard !Task.isCancelled else { return .failure(.cancelled) }
+        switch outcome {
+        case .success(let translated):
+            guard context.postProcessingConfiguration
+                .localTextCleanupEnabled else {
+                return .success(translated)
             }
-        }
-    }
-
-    private func beginFinalText(
-        _ text: AcceptedTranscript,
-        context: IOSForegroundVoiceProviderContext,
-        recording: IOSPendingRecording,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        await beginFinalText(
-            text,
-            context: context.providerFree,
-            recording: recording,
-            operationID: operationID
-        )
-    }
-
-    private func beginFinalText(
-        _ text: AcceptedTranscript,
-        context providerFree: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let work = IOSForegroundVoiceRetainedWork.finalText(
-            providerFree,
-            recording,
-            text
-        )
-        retainedWork = work
-        guard !Task.isCancelled else {
-            return localRecovery(
-                retaining: work,
-                failure: .cancelled,
-                stage: .postProcessing
-            )
-        }
-        return await resume(work, operationID: operationID)
-    }
-
-    private func resumeFinalText(
-        context: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording,
-        text: AcceptedTranscript,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let current = IOSForegroundVoiceRetainedWork.finalText(
-            context,
-            recording,
-            text
-        )
-        retainedWork = current
-        guard !Task.isCancelled else {
-            return localRecovery(
-                retaining: current,
-                failure: .cancelled,
-                stage: .postProcessing
-            )
-        }
-        let outputDelivery: IOSPendingRecording
-        do {
-            outputDelivery = try await persistenceOwner.markOutputDelivery(
-                expected: IOSPendingRecordingCASExpectation(
-                    recording: recording
+            let normalized = TranscriptTextPostProcessor
+                .normalizedInformalTypography(
+                    from: translated.text,
+                    fallback: translated.text
                 )
-            )
-        } catch {
-            return await reconcileOutputDeliveryCommitFailure(
-                source: recording,
-                context: context,
-                text: text,
-                operationID: operationID,
-                sourceWork: current
-            )
-        }
-        await reportProgress(.outputDelivery, operationID: operationID)
-        let next = IOSForegroundVoiceRetainedWork.outputDelivery(
-            context,
-            outputDelivery,
-            text
-        )
-        retainedWork = next
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return localRecovery(
-                retaining: next,
-                failure: .cancelled,
-                stage: .outputDelivery
-            )
-        }
-        return await resume(next, operationID: operationID)
-    }
-
-    private func resumeOutputDelivery(
-        context: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording,
-        text: AcceptedTranscript,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let current = IOSForegroundVoiceRetainedWork.outputDelivery(
-            context,
-            recording,
-            text
-        )
-        retainedWork = current
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return localRecovery(
-                retaining: current,
-                failure: .cancelled,
-                stage: .outputDelivery
-            )
-        }
-        let preparation: IOSForegroundVoiceAcceptedOutputPreparation
-        do {
-            preparation = try IOSForegroundVoiceAcceptedOutputPreparation(
-                deliveryID: context.deliveryID,
-                sessionID: context.sessionID,
-                attemptID: recording.attemptID,
-                transcriptID: context.transcriptionID,
-                rawAcceptedText: text.text,
-                outputIntent: context.outputIntent,
-                historyMode: context.historyMode
-            )
-        } catch {
-            return localRecovery(
-                retaining: current,
-                failure: .invalidConfiguration,
-                stage: .outputDelivery
-            )
-        }
-        do {
-            let result = try await persistenceOwner.accept(
-                preparation,
-                expectedPending: IOSPendingRecordingCASExpectation(
-                    recording: recording
-                )
-            )
-            retainedWork = nil
-            return .acceptance(result)
-        } catch {
-            return await reconcileAcceptanceFailure(
-                preparation: preparation,
-                source: recording,
-                sourceWork: current
-            )
+            guard let accepted = try? AcceptedTranscript(rawText: normalized)
+            else { return .failure(.invalidResponse) }
+            return .success(accepted)
+        case .failure(let failure):
+            await recordCredentialRejectionIfNeeded(failure, context: context)
+            return .failure(failure.publicFailure)
+        case .cancelled:
+            return .failure(.cancelled)
+        case .authorizationUnavailable:
+            return .failure(.providerConsentUnavailable)
         }
     }
 
-    private func recover(
-        context: IOSForegroundVoiceProviderContext,
-        recording: IOSPendingRecording,
-        failure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage,
-        operationID: UUID
+    private func reconcileBeginFailure(
+        _ context: IOSForegroundVoicePipelineContext,
+        dispatchSource: IOSV1PendingRecording
     ) async -> IOSForegroundVoiceProcessingResolution {
-        await recover(
-            context: context.providerFree,
-            recording: recording,
-            failure: failure,
-            stage: stage,
-            operationID: operationID
-        )
-    }
-
-    private func recover(
-        context: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording,
-        failure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let work = IOSForegroundVoiceRetainedWork.recovering(
-            context,
-            recording,
-            failure,
-            stage
-        )
-        retainedWork = work
-        return await resume(work, operationID: operationID)
-    }
-
-    private func resumeRecovery(
-        context: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording,
-        failure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let current = IOSForegroundVoiceRetainedWork.recovering(
-            context,
-            recording,
-            failure,
-            stage
-        )
-        retainedWork = current
-        guard activeOperationID == operationID else { return .busy }
-        let persistenceOwner = persistenceOwner
-        let expectation = IOSPendingRecordingCASExpectation(
-            recording: recording
-        )
-        let recoveryResult: Result<IOSPendingRecording, any Error>
-        if Task.isCancelled {
-            // Session cancellation has already retired provider authority. A
-            // fresh local task must finish the exact durable recovery commit;
-            // the cancelled session task itself cannot acquire Persistence.
-            recoveryResult = await Task {
-                try await persistenceOwner.markAwaitingRecovery(
-                    expected: expectation
-                )
-            }.result
-        } else {
-            do {
-                recoveryResult = .success(
-                    try await persistenceOwner.markAwaitingRecovery(
-                        expected: expectation
-                    )
-                )
-            } catch {
-                recoveryResult = .failure(error)
-            }
-        }
-        switch recoveryResult {
-        case .success(let recovered):
-            retainedWork = nil
-            return .awaitingRecovery(
-                recovered,
-                failure: failure,
-                stage: stage
-            )
-        case .failure:
-            return await reconcileRecoveryCommitFailure(
-                context: context,
-                source: recording,
-                requestedFailure: failure,
-                stage: stage,
-                sourceWork: current
-            )
-        }
-    }
-
-    private func reconcileBeginningFailure(
-        _ context: IOSForegroundVoiceProviderContext,
-        operationID: UUID
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let sourceWork = IOSForegroundVoiceRetainedWork.beginning(context)
-        let observation: IOSPendingRecordingObservation?
+        let observation: IOSV1PendingRecordingObservation?
         do {
             observation = try await persistenceOwner.load()
         } catch {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard let current = observation?.recording else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        if current == context.pendingRecording {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard Self.continuesAttempt(
-            current,
-            from: context.pendingRecording,
-            model: context.transcriptionConfiguration.resolvedModel,
-            languageCode:
-                context.transcriptionConfiguration.resolvedLanguageCode
-        ) else {
-            retainedWork = nil
             return .notStarted(.localPersistence)
         }
-        if current.phase == .awaitingRecovery,
-           current.transcriptionID == nil {
-            return await confirmAwaitingRecovery(
-                current,
-                context: context.providerFree,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard current.phase == .transcribing,
-              current.transcriptionID == context.transcriptionID else {
-            retainedWork = nil
+        guard let current = observation?.recording,
+              Self.continuesAttempt(
+                  current,
+                  from: dispatchSource
+              ) else {
             return .notStarted(.localPersistence)
         }
-        // A durable begin with no returned handoff has lost its one-shot
-        // provider authority. Reconcile it to explicit Retry/Discard only.
-        return await recover(
-            context: context.providerFree,
-            recording: current,
-            failure: .localPersistence,
-            stage: .transcription,
-            operationID: operationID
-        )
-    }
-
-    private func reconcilePostProcessingCommitFailure(
-        source: IOSPendingRecording,
-        localContext: IOSForegroundVoiceLocalTranscriptionContext,
-        transcript: AcceptedTranscript,
-        operationID: UUID,
-        sourceWork: IOSForegroundVoiceRetainedWork
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let observation: IOSPendingRecordingObservation?
-        do {
-            observation = try await persistenceOwner.load()
-        } catch {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard let current = observation?.recording else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        if current == source {
-            if Task.isCancelled {
-                return await recover(
-                    context: localContext.providerFree,
-                    recording: current,
-                    failure: .cancelled,
-                    stage: .transcription,
-                    operationID: operationID
-                )
-            }
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard Self.continuesAttempt(current, from: source) else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        if current.phase == .awaitingRecovery,
-           current.transcriptionID == nil {
-            return await confirmAwaitingRecovery(
-                current,
-                context: localContext.providerFree,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard current.phase == .postProcessing,
-              current.transcriptionID == source.transcriptionID else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .transcription
-            )
-        }
-        let confirmationWork = IOSForegroundVoiceRetainedWork
-            .transcriptionConsumed(
-                localContext,
-                current,
-                transcript
-            )
-        let confirmedPostProcessing: IOSPendingRecording
-        switch await confirmPostProcessing(current) {
-        case .success(let confirmed):
-            confirmedPostProcessing = confirmed
-        case .failure:
-            return localRecovery(
-                retaining: confirmationWork,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        await reportProgress(.postProcessing, operationID: operationID)
-        guard activeOperationID == operationID,
-              !Task.isCancelled else {
-            return await recover(
-                context: localContext.providerFree,
-                recording: confirmedPostProcessing,
-                failure: .cancelled,
-                stage: .postProcessing,
-                operationID: operationID
-            )
-        }
-        let next = IOSForegroundVoiceRetainedWork
-            .providerFreePostProcessing(
-                localContext,
-                confirmedPostProcessing,
-                transcript,
-                usageAttempted: true
-            )
-        retainedWork = next
-        return await resume(next, operationID: operationID)
-    }
-
-    private func reconcileOutputDeliveryCommitFailure(
-        source: IOSPendingRecording,
-        context: IOSForegroundVoiceProviderFreeContext,
-        text: AcceptedTranscript,
-        operationID: UUID,
-        sourceWork: IOSForegroundVoiceRetainedWork
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let observation: IOSPendingRecordingObservation?
-        do {
-            observation = try await persistenceOwner.load()
-        } catch {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        guard let current = observation?.recording else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        if current == source {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled
-                    ? .cancelled
-                    : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        guard Self.continuesAttempt(current, from: source) else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        if current.phase == .awaitingRecovery,
-           current.transcriptionID == nil {
-            return await confirmAwaitingRecovery(
-                current,
-                context: context,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        guard current.phase == .outputDelivery,
-              current.transcriptionID == source.transcriptionID else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: Task.isCancelled ? .cancelled : .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        let confirmationWork = IOSForegroundVoiceRetainedWork.finalText(
-            context,
-            current,
-            text
-        )
-        let confirmedOutputDelivery: IOSPendingRecording
-        switch await confirmOutputDelivery(current) {
-        case .success(let confirmed):
-            confirmedOutputDelivery = confirmed
-        case .failure:
-            return localRecovery(
-                retaining: confirmationWork,
-                failure: .localPersistence,
-                stage: .postProcessing
-            )
-        }
-        await reportProgress(.outputDelivery, operationID: operationID)
-        let next = IOSForegroundVoiceRetainedWork.outputDelivery(
-            context,
-            confirmedOutputDelivery,
-            text
-        )
-        retainedWork = next
-        if activeOperationID != operationID || Task.isCancelled {
-            return localRecovery(
-                retaining: next,
-                failure: .cancelled,
-                stage: .outputDelivery
-            )
-        }
-        return await resume(next, operationID: operationID)
-    }
-
-    private func reconcileRecoveryCommitFailure(
-        context: IOSForegroundVoiceProviderFreeContext,
-        source: IOSPendingRecording,
-        requestedFailure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage,
-        sourceWork: IOSForegroundVoiceRetainedWork
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        let observation: IOSPendingRecordingObservation?
-        do {
-            observation = try await persistenceOwner.load()
-        } catch {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: stage
-            )
-        }
-        guard let current = observation?.recording else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: stage
-            )
-        }
-        if Self.continuesAttempt(current, from: source),
-           current.phase == .awaitingRecovery,
-           current.transcriptionID == nil {
-            return await confirmAwaitingRecovery(
-                current,
-                context: context,
-                failure: requestedFailure,
-                stage: stage
-            )
-        }
-        guard current == source else {
-            return localRecovery(
-                retaining: sourceWork,
-                failure: .localPersistence,
-                stage: stage
-            )
-        }
-
-        let persistenceOwner = persistenceOwner
-        let expectation = IOSPendingRecordingCASExpectation(recording: current)
-        let fallback = await Task {
-            try await persistenceOwner.recoverAfterProcessLoss(
-                expected: expectation
-            )
-        }.result
-        if case .success(let recovered) = fallback {
-            retainedWork = nil
-            return .awaitingRecovery(
-                recovered,
-                failure: requestedFailure,
-                stage: stage
-            )
-        }
-        return localRecovery(
-            retaining: sourceWork,
-            failure: .localPersistence,
-            stage: stage
-        )
-    }
-
-    private func reconcileAcceptanceFailure(
-        preparation: IOSForegroundVoiceAcceptedOutputPreparation,
-        source _: IOSPendingRecording,
-        sourceWork: IOSForegroundVoiceRetainedWork
-    ) async -> IOSForegroundVoiceProcessingResolution {
-        do {
-            if let result = try await persistenceOwner.reconcileAcceptance(
-                matching: preparation
-            ) {
-                retainedWork = nil
-                return .acceptance(result)
-            }
-        } catch {}
-        // Absence or a non-matching destination is ambiguous after a thrown
-        // app-only acceptance. Preserve the provider-free text and retry only
-        // this exact local checkpoint; never infer loss from a partial read.
-        return localRecovery(
-            retaining: sourceWork,
+        return await persistFailure(
+            from: current,
             failure: Task.isCancelled ? .cancelled : .localPersistence,
-            stage: .outputDelivery
+            stage: .transcription
         )
     }
 
-    private static func continuesAttempt(
-        _ candidate: IOSPendingRecording,
-        from source: IOSPendingRecording,
-        model: String? = nil,
-        languageCode: String?? = nil
-    ) -> Bool {
-        candidate.attemptID == source.attemptID
-            && candidate.audioRelativeIdentifier
-                == source.audioRelativeIdentifier
-            && candidate.createdAt == source.createdAt
-            && candidate.updatedAt >= source.updatedAt
-            && candidate.outputIntent == source.outputIntent
-            && candidate.transcriptionModel
-                == (model ?? source.transcriptionModel)
-            && candidate.transcriptionLanguageCode
-                == (languageCode ?? source.transcriptionLanguageCode)
-            && candidate.durationMilliseconds == source.durationMilliseconds
-            && candidate.byteCount == source.byteCount
-    }
-
-    private func confirmPostProcessing(
-        _ recording: IOSPendingRecording
-    ) async -> Result<IOSPendingRecording, any Error> {
-        let owner = persistenceOwner
-        let expectation = IOSPendingRecordingCASExpectation(
-            recording: recording
-        )
-        if Task.isCancelled {
-            return await Task {
-                try await owner.markPostProcessing(expected: expectation)
-            }.result
-        }
+    private func advanceToPostProcessing(
+        _ source: IOSV1PendingRecording
+    ) async throws -> IOSV1PendingRecording {
         do {
-            return .success(
-                try await owner.markPostProcessing(expected: expectation)
+            let advanced = try await persistenceOwner.markPostProcessing(
+                expected: IOSV1PendingRecordingExpectation(recording: source)
+            )
+            return try await canonicalRecording(
+                continuing: advanced,
+                phase: .postProcessing
             )
         } catch {
-            return .failure(error)
+            guard let current = try await persistenceOwner.load()?.recording,
+                  Self.continuesAttempt(current, from: source),
+                  current.phase == .postProcessing,
+                  current.transcriptionID == source.transcriptionID else {
+                throw error
+            }
+            return current
         }
     }
 
-    private func confirmOutputDelivery(
-        _ recording: IOSPendingRecording
-    ) async -> Result<IOSPendingRecording, any Error> {
-        let owner = persistenceOwner
-        let expectation = IOSPendingRecordingCASExpectation(
-            recording: recording
-        )
-        if Task.isCancelled {
-            return await Task {
-                try await owner.markOutputDelivery(expected: expectation)
-            }.result
-        }
+    private func advanceToOutputDelivery(
+        _ source: IOSV1PendingRecording
+    ) async throws -> IOSV1PendingRecording {
         do {
-            return .success(
-                try await owner.markOutputDelivery(expected: expectation)
+            let advanced = try await persistenceOwner.markOutputDelivery(
+                expected: IOSV1PendingRecordingExpectation(recording: source)
+            )
+            return try await canonicalRecording(
+                continuing: advanced,
+                phase: .outputDelivery
             )
         } catch {
-            return .failure(error)
+            guard let current = try await persistenceOwner.load()?.recording,
+                  Self.continuesAttempt(current, from: source),
+                  current.phase == .outputDelivery,
+                  current.transcriptionID == source.transcriptionID else {
+                throw error
+            }
+            return current
         }
     }
 
-    private func confirmAwaitingRecovery(
-        _ recording: IOSPendingRecording,
-        context: IOSForegroundVoiceProviderFreeContext,
+    private func persistFailure(
+        from source: IOSV1PendingRecording,
         failure: IOSForegroundVoiceProcessingFailure,
         stage: VoiceAttemptStage
     ) async -> IOSForegroundVoiceProcessingResolution {
-        let work = IOSForegroundVoiceRetainedWork.recovering(
-            context,
-            recording,
-            failure,
-            stage
-        )
-        retainedWork = work
-        let owner = persistenceOwner
-        let expectation = IOSPendingRecordingCASExpectation(
-            recording: recording
-        )
-        let result: Result<IOSPendingRecording, any Error>
-        if Task.isCancelled {
-            result = await Task {
-                try await owner.markAwaitingRecovery(expected: expectation)
-            }.result
-        } else {
-            do {
-                result = .success(
-                    try await owner.markAwaitingRecovery(
-                        expected: expectation
-                    )
-                )
-            } catch {
-                result = .failure(error)
+        let current: IOSV1PendingRecording
+        do {
+            guard let observed = try await persistenceOwner.load()?.recording,
+                  Self.continuesAttempt(observed, from: source) else {
+                return .notStarted(.localPersistence)
             }
+            current = observed
+        } catch {
+            return .notStarted(.localPersistence)
         }
-        switch result {
-        case .success(let confirmed):
-            retainedWork = nil
-            return .awaitingRecovery(
-                confirmed,
-                failure: failure,
-                stage: stage
-            )
-        case .failure:
-            return localRecovery(
-                retaining: work,
-                failure: .localPersistence,
-                stage: stage
-            )
+        if current.phase == .failed {
+            return .retryAvailable(current, failure: failure, stage: stage)
         }
+        guard current.phase != .acceptedCleanup else {
+            return .notStarted(.localPersistence)
+        }
+
+        let owner = persistenceOwner
+        let expectation = IOSV1PendingRecordingExpectation(recording: current)
+        let result = await Task {
+            try await owner.markFailed(expected: expectation)
+        }.result
+        if case .success(let failed) = result,
+           let canonical = try? await canonicalRecording(
+               continuing: failed,
+               phase: .failed
+           ) {
+            return .retryAvailable(canonical, failure: failure, stage: stage)
+        }
+        if let observed = try? await persistenceOwner.load()?.recording,
+           Self.continuesAttempt(observed, from: source),
+           observed.phase == .failed {
+            return .retryAvailable(observed, failure: failure, stage: stage)
+        }
+        return .notStarted(.localPersistence)
     }
 
-    private func localRecovery(
-        retaining work: IOSForegroundVoiceRetainedWork,
-        failure: IOSForegroundVoiceProcessingFailure,
-        stage: VoiceAttemptStage
-    ) -> IOSForegroundVoiceProcessingResolution {
-        retainedWork = work
-        return .localRecoveryPending(
-            failure: failure,
-            stage: stage,
-            disposition: work.recoveryDisposition,
-            requirement: work.recoveryRequirement
-        )
+    private func canonicalRecording(
+        continuing source: IOSV1PendingRecording,
+        phase: IOSV1PendingRecordingPhase
+    ) async throws -> IOSV1PendingRecording {
+        guard let current = try await persistenceOwner.load()?.recording,
+              Self.continuesAttempt(current, from: source),
+              current.phase == phase,
+              current.transcriptionID == source.transcriptionID else {
+            throw IOSForegroundVoiceCanonicalizationError.unavailable
+        }
+        return current
     }
 
-    private func beginOperation(
-        _ operationID: UUID,
-        progress: @escaping IOSForegroundVoiceProcessingProgressHandler
-    ) {
-        activeOperationID = operationID
-        activeProgressHandler = progress
-        reportedProgressStages = []
-    }
-
-    private func finishOperation(_ operationID: UUID) {
-        guard activeOperationID == operationID else { return }
-        activeOperationID = nil
-        activeProgressHandler = nil
-        reportedProgressStages = []
-    }
-
-    private func reportProgress(
-        _ stage: VoiceAttemptStage,
-        operationID: UUID
-    ) async {
-        guard activeOperationID == operationID,
-              !reportedProgressStages.contains(stage) else { return }
-        reportedProgressStages.append(stage)
-        guard let activeProgressHandler else { return }
-        await activeProgressHandler(stage)
+    private func acceptanceCleanupIsPending(attemptID: UUID) async -> Bool {
+        let observation: IOSV1PendingRecordingObservation?
+        do {
+            observation = try await persistenceOwner.load()
+        } catch {
+            return false
+        }
+        guard let recording = observation?.recording else { return false }
+        return recording.attemptID == attemptID
+            && recording.phase == .acceptedCleanup
     }
 
     private func makeContext(
         from request: IOSForegroundVoiceProcessingRequest
-    ) -> IOSForegroundVoiceProviderContext? {
+    ) -> IOSForegroundVoicePipelineContext? {
         let pending = request.pendingRecording
         switch request.mode {
         case .initial:
@@ -1688,7 +699,7 @@ public actor IOSForegroundVoiceProcessor {
                   pending.transcriptionID == nil else { return nil }
         case .retry:
             guard (pending.phase == .readyForTranscription
-                    || pending.phase == .awaitingRecovery),
+                    || pending.phase == .failed),
                   pending.transcriptionID == nil else { return nil }
         }
         let transcription = request.settings.transcriptionConfiguration
@@ -1713,21 +724,7 @@ public actor IOSForegroundVoiceProcessor {
             }
             translation = request.settings.translationConfiguration
         }
-        let prompt = TranscriptionPromptComposition(
-            resolvedFreeformPrompt: transcription.resolvedFreeformPrompt,
-            context: nil,
-            emojiCommandsConfiguration:
-                request.library.emojiCommandsConfiguration,
-            customDictionary: request.library.customDictionary
-        )
-        let postProcessing = TranscriptPostProcessingConfiguration(
-            localTextCleanupEnabled:
-                request.settings.localTextCleanupEnabled,
-            emojiCommands:
-                request.library.emojiCommandsConfiguration,
-            textReplacementRules: request.library.replacementRules
-        )
-        return IOSForegroundVoiceProviderContext(
+        return IOSForegroundVoicePipelineContext(
             sessionID: request.sessionID,
             pendingRecording: pending,
             mode: request.mode,
@@ -1735,9 +732,22 @@ public actor IOSForegroundVoiceProcessor {
             correctionConfiguration:
                 request.settings.textCorrectionConfiguration,
             translationConfiguration: translation,
-            postProcessingConfiguration: postProcessing,
-            promptComposition: prompt,
-            historyMode: request.historyMode,
+            postProcessingConfiguration:
+                TranscriptPostProcessingConfiguration(
+                    localTextCleanupEnabled:
+                        request.settings.localTextCleanupEnabled,
+                    emojiCommands:
+                        request.library.emojiCommandsConfiguration,
+                    textReplacementRules: request.library.replacementRules
+                ),
+            promptComposition: TranscriptionPromptComposition(
+                resolvedFreeformPrompt:
+                    transcription.resolvedFreeformPrompt,
+                context: nil,
+                emojiCommandsConfiguration:
+                    request.library.emojiCommandsConfiguration,
+                customDictionary: request.library.customDictionary
+            ),
             credential: request.credential,
             consentObservation: request.consentObservation,
             transcriptionID: makeUUID(),
@@ -1747,15 +757,15 @@ public actor IOSForegroundVoiceProcessor {
 
     private func recordCredentialRejectionIfNeeded(
         _ failure: IOSForegroundVoiceProviderFailure,
-        context: IOSForegroundVoiceProviderContext
+        context: IOSForegroundVoicePipelineContext
     ) async {
         guard failure == .credentialRejected else { return }
         await recordProviderRejection(context.credential.generation)
     }
 
     private func recordSuccessfulTranscriptionUsage(
-        context: IOSForegroundVoiceProviderFreeContext,
-        recording: IOSPendingRecording
+        context: IOSForegroundVoicePipelineContext,
+        recording: IOSV1PendingRecording
     ) async {
         guard let usage = try? SuccessfulTranscriptionUsage(
             transcriptionID: context.transcriptionID,
@@ -1764,10 +774,25 @@ public actor IOSForegroundVoiceProcessor {
                 TimeInterval(recording.durationMilliseconds) / 1_000
         ) else { return }
         let recorder = recordUsage
-        // A consumed provider success remains billable bookkeeping even when
-        // the caller cancels immediately afterward. Keep this local, non-fatal
-        // handoff outside the cancelled provider task.
         await Task { await recorder(usage) }.value
+    }
+
+    private static func continuesAttempt(
+        _ candidate: IOSV1PendingRecording,
+        from source: IOSV1PendingRecording
+    ) -> Bool {
+        candidate.attemptID == source.attemptID
+            && candidate.audioRelativeIdentifier
+                == source.audioRelativeIdentifier
+            && candidate.createdAt == source.createdAt
+            && candidate.updatedAt.timeIntervalSince(source.updatedAt)
+                >= -0.001
+            && candidate.outputIntent == source.outputIntent
+            && candidate.transcriptionModel == source.transcriptionModel
+            && candidate.transcriptionLanguageCode
+                == source.transcriptionLanguageCode
+            && candidate.durationMilliseconds == source.durationMilliseconds
+            && candidate.byteCount == source.byteCount
     }
 
     private static func isSafeCorrection(
@@ -1785,239 +810,32 @@ public actor IOSForegroundVoiceProcessor {
     }
 }
 
-struct IOSForegroundVoiceProviderContext: Sendable {
+private struct IOSForegroundVoicePipelineContext: Sendable {
     let sessionID: UUID
-    let pendingRecording: IOSPendingRecording
+    let pendingRecording: IOSV1PendingRecording
     let mode: IOSForegroundVoiceProcessingMode
     let transcriptionConfiguration: TranscriptionConfiguration
     let correctionConfiguration: TextCorrectionConfiguration
     let translationConfiguration: TranslationConfiguration?
-    let postProcessingConfiguration:
-        TranscriptPostProcessingConfiguration
+    let postProcessingConfiguration: TranscriptPostProcessingConfiguration
     let promptComposition: TranscriptionPromptComposition
-    let historyMode: IOSForegroundVoiceHistoryMode
     let credential: IOSResolvedOpenAICredential
     let consentObservation: IOSV1ProviderConsentObservation
     let transcriptionID: UUID
     let deliveryID: UUID
 
-    var providerFree: IOSForegroundVoiceProviderFreeContext {
-        IOSForegroundVoiceProviderFreeContext(
-            sessionID: sessionID,
-            transcriptionID: transcriptionID,
-            deliveryID: deliveryID,
-            outputIntent: pendingRecording.outputIntent,
-            historyMode: historyMode
-        )
-    }
-
-    var localTranscription: IOSForegroundVoiceLocalTranscriptionContext {
-        IOSForegroundVoiceLocalTranscriptionContext(
-            providerFree: providerFree,
-            postProcessingConfiguration: postProcessingConfiguration
-        )
-    }
-
-    var requiresRemainingProviderAuthority: Bool {
-        correctionConfiguration.isEnabled
-            || pendingRecording.outputIntent == .translate
-    }
-
-    func rebindingProviderAuthority(
-        _ authorization: IOSForegroundVoiceProviderRetryAuthorization
-    ) -> IOSForegroundVoiceProviderContext {
-        IOSForegroundVoiceProviderContext(
-            sessionID: sessionID,
-            pendingRecording: pendingRecording,
-            mode: mode,
-            transcriptionConfiguration: transcriptionConfiguration,
-            correctionConfiguration: correctionConfiguration,
-            translationConfiguration: translationConfiguration,
-            postProcessingConfiguration: postProcessingConfiguration,
-            promptComposition: promptComposition,
-            historyMode: historyMode,
-            credential: authorization.credential,
-            consentObservation: authorization.consentObservation,
-            transcriptionID: transcriptionID,
-            deliveryID: deliveryID
-        )
+    var outputIntent: DictationOutputIntent {
+        pendingRecording.outputIntent
     }
 }
 
-struct IOSForegroundVoiceLocalTranscriptionContext: Sendable {
-    let providerFree: IOSForegroundVoiceProviderFreeContext
-    let postProcessingConfiguration:
-        TranscriptPostProcessingConfiguration
+private enum IOSForegroundVoiceTextResolution: Sendable {
+    case success(AcceptedTranscript)
+    case failure(IOSForegroundVoiceProcessingFailure)
 }
 
-struct IOSForegroundVoiceProviderFreeContext: Sendable {
-    let sessionID: UUID
-    let transcriptionID: UUID
-    let deliveryID: UUID
-    let outputIntent: DictationOutputIntent
-    let historyMode: IOSForegroundVoiceHistoryMode
-}
-
-enum IOSForegroundVoiceRetainedWork: Sendable {
-    case beginning(IOSForegroundVoiceProviderContext)
-    case transcribing(
-        IOSForegroundVoiceProviderFreeContext,
-        IOSPendingRecording
-    )
-    case transcriptionConsumed(
-        IOSForegroundVoiceLocalTranscriptionContext,
-        IOSPendingRecording,
-        AcceptedTranscript
-    )
-    case providerFreePostProcessing(
-        IOSForegroundVoiceLocalTranscriptionContext,
-        IOSPendingRecording,
-        AcceptedTranscript,
-        usageAttempted: Bool
-    )
-    case postProcessing(
-        IOSForegroundVoiceProviderContext,
-        IOSPendingRecording,
-        AcceptedTranscript,
-        usageAttempted: Bool
-    )
-    case finalText(
-        IOSForegroundVoiceProviderFreeContext,
-        IOSPendingRecording,
-        AcceptedTranscript
-    )
-    case outputDelivery(
-        IOSForegroundVoiceProviderFreeContext,
-        IOSPendingRecording,
-        AcceptedTranscript
-    )
-    case recovering(
-        IOSForegroundVoiceProviderFreeContext,
-        IOSPendingRecording,
-        IOSForegroundVoiceProcessingFailure,
-        VoiceAttemptStage
-    )
-
-    var stage: VoiceAttemptStage {
-        switch self {
-        case .beginning, .transcribing, .transcriptionConsumed:
-            .transcription
-        case .providerFreePostProcessing, .postProcessing, .finalText:
-            .postProcessing
-        case .outputDelivery:
-            .outputDelivery
-        case .recovering(_, _, _, let stage):
-            stage
-        }
-    }
-
-    var historyMode: IOSForegroundVoiceHistoryMode {
-        switch self {
-        case .beginning(let context),
-             .postProcessing(let context, _, _, _):
-            context.historyMode
-        case .transcribing(let context, _),
-             .finalText(let context, _, _),
-             .outputDelivery(let context, _, _),
-             .recovering(let context, _, _, _):
-            context.historyMode
-        case .transcriptionConsumed(let context, _, _),
-             .providerFreePostProcessing(let context, _, _, _):
-            context.providerFree.historyMode
-        }
-    }
-
-    var recoveryDisposition: IOSForegroundVoiceLocalRecoveryDisposition {
-        switch self {
-        case .finalText, .outputDelivery:
-            .savingResult
-        case .beginning,
-             .transcribing,
-             .transcriptionConsumed,
-             .providerFreePostProcessing,
-             .postProcessing,
-             .recovering:
-            .processingCheckpoint
-        }
-    }
-
-    var recoveryRequirement: IOSForegroundVoiceLocalRecoveryRequirement {
-        switch self {
-        case .beginning:
-            .currentProviderAuthority
-        case .postProcessing(let context, _, _, _):
-            context.requiresRemainingProviderAuthority
-                ? .currentProviderAuthority
-                : .providerFree
-        case .transcribing,
-             .transcriptionConsumed,
-             .providerFreePostProcessing,
-             .finalText,
-             .outputDelivery,
-             .recovering:
-            .providerFree
-        }
-    }
-
-    func rebindingProviderAuthority(
-        _ authorization: IOSForegroundVoiceProviderRetryAuthorization
-    ) -> IOSForegroundVoiceRetainedWork? {
-        switch self {
-        case .beginning(let context):
-            .beginning(context.rebindingProviderAuthority(authorization))
-        case .postProcessing(
-            let context,
-            let recording,
-            let transcript,
-            let usageAttempted
-        ) where context.requiresRemainingProviderAuthority:
-            .postProcessing(
-                context.rebindingProviderAuthority(authorization),
-                recording,
-                transcript,
-                usageAttempted: usageAttempted
-            )
-        case .postProcessing,
-             .transcribing,
-             .transcriptionConsumed,
-             .providerFreePostProcessing,
-             .finalText,
-             .outputDelivery,
-             .recovering:
-            nil
-        }
-    }
-
-    func droppingUnusedProviderAuthority() -> IOSForegroundVoiceRetainedWork {
-        switch self {
-        case .postProcessing(
-            let context,
-            let recording,
-            let transcript,
-            let usageAttempted
-        ) where !context.requiresRemainingProviderAuthority:
-            .providerFreePostProcessing(
-                context.localTranscription,
-                recording,
-                transcript,
-                usageAttempted: usageAttempted
-            )
-        case .beginning,
-             .transcribing,
-             .transcriptionConsumed,
-             .providerFreePostProcessing,
-             .postProcessing,
-             .finalText,
-             .outputDelivery,
-             .recovering:
-            self
-        }
-    }
-}
-
-private enum IOSForegroundVoiceCorrectionResolution: Sendable {
-    case accepted(AcceptedTranscript)
-    case recovery(IOSForegroundVoiceProcessingResolution)
+private enum IOSForegroundVoiceCanonicalizationError: Error {
+    case unavailable
 }
 
 extension IOSForegroundVoiceProcessor:
