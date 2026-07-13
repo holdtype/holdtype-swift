@@ -20,6 +20,10 @@ nonisolated struct IOSVoiceBoundaryFeedbackPreferences:
 {
     let audioCuesEnabled: Bool
     let hapticsEnabled: Bool
+
+    nonisolated static func p4(audioCuesEnabled: Bool) -> Self {
+        Self(audioCuesEnabled: audioCuesEnabled, hapticsEnabled: true)
+    }
 }
 
 nonisolated enum IOSVoiceBoundaryCue: Equatable, Sendable {
@@ -65,11 +69,11 @@ nonisolated enum IOSVoiceBoundaryStopResult:
     Equatable,
     Sendable
 {
-    case feedbackStarted
     case feedbackCompleted
     case feedbackSkipped
     case cueUnavailable
     case cueFailed
+    case timedOut
     case stale
     case busy
 }
@@ -100,6 +104,7 @@ nonisolated enum IOSVoiceBoundaryFeedbackDiagnostic:
     case recorderCloseAccepted = "recorder close accepted"
     case successFeedbackSkipped = "success feedback skipped"
     case successFeedbackCompleted = "success feedback completed"
+    case successFeedbackTimedOut = "success feedback timed out"
     case staleCallbackIgnored = "stale feedback callback ignored"
 }
 
@@ -170,6 +175,92 @@ nonisolated struct IOSVoiceBoundaryFeedbackClient: Sendable {
             }
         )
     }
+
+    nonisolated static func live() -> Self {
+        Self(
+            makePlayer: { cue, receive in
+                do {
+                    return try IOSVoiceBoundaryAVAudioPlayer(
+                        data: IOSVoiceBoundaryCueAudio.waveData(for: cue),
+                        receive: receive
+                    )
+                } catch {
+                    throw IOSVoiceBoundaryFeedbackSystemError
+                        .playerCreationFailed
+                }
+            },
+            performHaptic: {
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.prepare()
+                generator.impactOccurred()
+            },
+            sleep: { duration in
+                try await ContinuousClock().sleep(for: duration)
+            }
+        )
+    }
+}
+
+nonisolated enum IOSVoiceBoundaryCueAudio {
+    private static let sampleRate: UInt32 = 44_100
+    private static let channelCount: UInt16 = 1
+    private static let bitsPerSample: UInt16 = 16
+
+    static func waveData(for cue: IOSVoiceBoundaryCue) -> Data {
+        let parameters: (frequency: Double, duration: Double) = switch cue {
+        case .start:
+            (frequency: 880, duration: 0.07)
+        case .successStop:
+            (frequency: 660, duration: 0.09)
+        }
+        let frameCount = Int(Double(sampleRate) * parameters.duration)
+        let bytesPerFrame = Int(bitsPerSample / 8) * Int(channelCount)
+        let payloadByteCount = frameCount * bytesPerFrame
+        var data = Data(capacity: 44 + payloadByteCount)
+
+        data.append(contentsOf: [0x52, 0x49, 0x46, 0x46]) // RIFF
+        data.appendLittleEndian(UInt32(36 + payloadByteCount))
+        data.append(contentsOf: [0x57, 0x41, 0x56, 0x45]) // WAVE
+        data.append(contentsOf: [0x66, 0x6d, 0x74, 0x20]) // fmt
+        data.appendLittleEndian(UInt32(16))
+        data.appendLittleEndian(UInt16(1)) // Linear PCM
+        data.appendLittleEndian(channelCount)
+        data.appendLittleEndian(sampleRate)
+        data.appendLittleEndian(sampleRate * UInt32(bytesPerFrame))
+        data.appendLittleEndian(UInt16(bytesPerFrame))
+        data.appendLittleEndian(bitsPerSample)
+        data.append(contentsOf: [0x64, 0x61, 0x74, 0x61]) // data
+        data.appendLittleEndian(UInt32(payloadByteCount))
+
+        let rampFrameCount = max(1, Int(Double(sampleRate) * 0.008))
+        let peakAmplitude = Double(Int16.max) * 0.18
+        for frame in 0..<frameCount {
+            let attack = min(1, Double(frame) / Double(rampFrameCount))
+            let release = min(
+                1,
+                Double(frameCount - frame - 1) / Double(rampFrameCount)
+            )
+            let envelope = max(0, min(attack, release))
+            let phase = 2 * Double.pi * parameters.frequency
+                * Double(frame) / Double(sampleRate)
+            let sample = Int16(
+                (sin(phase) * peakAmplitude * envelope).rounded()
+            )
+            data.appendLittleEndian(sample)
+        }
+        return data
+    }
+}
+
+private extension Data {
+    nonisolated mutating func appendLittleEndian<T: FixedWidthInteger>(
+        _ value: T
+    ) {
+        var littleEndian = value.littleEndian
+        Swift.withUnsafeBytes(of: &littleEndian) { bytes in
+            append(contentsOf: bytes)
+        }
+    }
 }
 
 /// Coordinates only the audible and haptic boundaries around retained audio.
@@ -182,6 +273,7 @@ final class IOSVoiceBoundaryFeedbackAdapter {
     ) -> Void
 
     nonisolated static let startCueWatchdogDuration: Duration = .seconds(2)
+    nonisolated static let successStopCueWatchdogDuration: Duration = .seconds(2)
 
     private enum Phase {
         case idle
@@ -218,6 +310,9 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         let token: IOSVoiceBoundaryFeedbackToken
         let generation: UInt64
         var player: (any IOSVoiceBoundaryAudioPlayer)?
+        var watchdogTask: Task<Void, Never>?
+        var continuation:
+            CheckedContinuation<IOSVoiceBoundaryStopResult, Never>?
         var deferredPlayerEvent: IOSVoiceBoundaryPlayerEvent?
         var resolution: IOSVoiceBoundaryStopResult?
         private var playerWasStopped = false
@@ -339,6 +434,12 @@ final class IOSVoiceBoundaryFeedbackAdapter {
                     do {
                         try await sleep(Self.startCueWatchdogDuration)
                     } catch {
+                        guard !Task.isCancelled else { return }
+                        self?.completeStartIfCurrent(
+                            token: token,
+                            generation: generation,
+                            result: .cueFailed
+                        )
                         return
                     }
                     self?.completeStartIfCurrent(
@@ -406,39 +507,48 @@ final class IOSVoiceBoundaryFeedbackAdapter {
         for token: IOSVoiceBoundaryFeedbackToken,
         disposition: IOSVoiceBoundaryRecorderCloseDisposition,
         preferences: IOSVoiceBoundaryFeedbackPreferences
-    ) -> IOSVoiceBoundaryStopResult {
+    ) async -> IOSVoiceBoundaryStopResult {
         guard activeStop == nil else { return .busy }
         guard case .capturing(token) = phase else { return .stale }
 
         // The caller's recorder-close signal retires the capture phase before
         // either feedback surface can run.
         phase = .idle
-        diagnose(.recorderCloseAccepted)
-
-        guard disposition == .success else {
-            diagnose(.successFeedbackSkipped)
-            return .feedbackSkipped
-        }
-
-        if preferences.hapticsEnabled {
-            client.performHaptic()
-            diagnose(.boundaryHapticDelivered)
-        }
-        guard preferences.audioCuesEnabled else {
-            if preferences.hapticsEnabled {
-                diagnose(.successFeedbackCompleted)
-                return .feedbackCompleted
-            }
-            diagnose(.successFeedbackSkipped)
-            return .feedbackSkipped
-        }
-
         let generation = makeGeneration()
         let active = ActiveStop(
             token: token,
             generation: generation
         )
         activeStop = active
+        diagnose(.recorderCloseAccepted)
+        guard activeStop === active else {
+            return active.resolution ?? .stale
+        }
+
+        guard disposition == .success else {
+            completeStop(active, with: .feedbackSkipped)
+            return active.resolution ?? .feedbackSkipped
+        }
+        guard !Task.isCancelled else {
+            completeStop(active, with: .feedbackSkipped)
+            return active.resolution ?? .feedbackSkipped
+        }
+
+        if preferences.hapticsEnabled {
+            client.performHaptic()
+            diagnose(.boundaryHapticDelivered)
+            guard activeStop === active else {
+                return active.resolution ?? .stale
+            }
+        }
+        guard preferences.audioCuesEnabled else {
+            let result: IOSVoiceBoundaryStopResult = preferences.hapticsEnabled
+                ? .feedbackCompleted
+                : .feedbackSkipped
+            completeStop(active, with: result)
+            return active.resolution ?? result
+        }
+
         let player: any IOSVoiceBoundaryAudioPlayer
         do {
             player = try client.makePlayer(.successStop) {
@@ -476,22 +586,58 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             return .cueFailed
         }
 
-        if let event = active.deferredPlayerEvent {
-            active.deferredPlayerEvent = nil
-            resolveStopPlayerEvent(active, event: event)
-            return active.resolution ?? .cueFailed
-        }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                active.continuation = continuation
+                if let event = active.deferredPlayerEvent {
+                    active.deferredPlayerEvent = nil
+                    receiveStopPlayerEvent(
+                        event,
+                        token: token,
+                        generation: generation
+                    )
+                    return
+                }
+                guard activeStop === active else {
+                    continuation.resume(
+                        returning: active.resolution ?? .stale
+                    )
+                    active.continuation = nil
+                    return
+                }
+                let sleep = client.sleep
+                active.watchdogTask = Task { @MainActor [weak self] in
+                    do {
+                        try await sleep(Self.successStopCueWatchdogDuration)
+                    } catch {
+                        guard !Task.isCancelled else { return }
+                        self?.completeStopIfCurrent(
+                            token: token,
+                            generation: generation,
+                            result: .cueFailed
+                        )
+                        return
+                    }
+                    self?.completeStopIfCurrent(
+                        token: token,
+                        generation: generation,
+                        result: .timedOut
+                    )
+                }
 
-        let didStart = player.play()
-        guard activeStop === active else {
-            return active.resolution ?? .stale
+                let didStart = player.play()
+                guard activeStop === active else { return }
+                guard didStart else {
+                    completeStop(active, with: .cueFailed)
+                    return
+                }
+                diagnose(.cueStarted)
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelSuccessFeedback(for: token)
+            }
         }
-        guard didStart else {
-            resolveStopPlayerEvent(active, event: .failed)
-            return .cueFailed
-        }
-        diagnose(.cueStarted)
-        return .feedbackStarted
     }
 
     func cancelSuccessFeedback(
@@ -501,8 +647,7 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             diagnose(.staleCallbackIgnored)
             return
         }
-        activeStop.resolution = .feedbackSkipped
-        stopActiveStop(activeStop)
+        completeStop(activeStop, with: .feedbackSkipped)
     }
 
     private func receiveStartPlayerEvent(
@@ -620,33 +765,62 @@ final class IOSVoiceBoundaryFeedbackAdapter {
             activeStop.deferredPlayerEvent = event
             return
         }
-        resolveStopPlayerEvent(activeStop, event: event)
+        guard activeStop.continuation != nil else {
+            guard activeStop.deferredPlayerEvent == nil else {
+                diagnose(.staleCallbackIgnored)
+                return
+            }
+            activeStop.deferredPlayerEvent = event
+            return
+        }
+        let result: IOSVoiceBoundaryStopResult = event == .completed
+            ? .feedbackCompleted
+            : .cueFailed
+        completeStop(activeStop, with: result)
     }
 
-    private func resolveStopPlayerEvent(
+    private func completeStopIfCurrent(
+        token: IOSVoiceBoundaryFeedbackToken,
+        generation: UInt64,
+        result: IOSVoiceBoundaryStopResult
+    ) {
+        guard let activeStop,
+              activeStop.token == token,
+              activeStop.generation == generation else {
+            diagnose(.staleCallbackIgnored)
+            return
+        }
+        completeStop(activeStop, with: result)
+    }
+
+    private func completeStop(
         _ active: ActiveStop,
-        event: IOSVoiceBoundaryPlayerEvent
+        with result: IOSVoiceBoundaryStopResult
     ) {
         guard activeStop === active, active.resolution == nil else {
             diagnose(.staleCallbackIgnored)
             return
         }
-        active.resolution = event == .completed
-            ? .feedbackCompleted
-            : .cueFailed
-        stopActiveStop(active)
-        if event == .completed { diagnose(.successFeedbackCompleted) }
-    }
-
-    private func stopActiveStop(_ active: ActiveStop) {
-        guard activeStop === active else {
-            diagnose(.staleCallbackIgnored)
-            return
-        }
+        active.resolution = result
+        active.watchdogTask?.cancel()
+        active.watchdogTask = nil
         if active.stopPlayerOnce() {
             diagnose(.cueStopped)
         }
+        switch result {
+        case .feedbackCompleted:
+            diagnose(.successFeedbackCompleted)
+        case .feedbackSkipped:
+            diagnose(.successFeedbackSkipped)
+        case .timedOut:
+            diagnose(.successFeedbackTimedOut)
+        case .cueUnavailable, .cueFailed, .stale, .busy:
+            break
+        }
         activeStop = nil
+        let continuation = active.continuation
+        active.continuation = nil
+        continuation?.resume(returning: result)
     }
 
     private func makeGeneration() -> UInt64 {
@@ -671,6 +845,19 @@ private final class IOSVoiceBoundaryAVAudioPlayer:
         receive: @escaping IOSVoiceBoundaryFeedbackClient.PlayerEventHandler
     ) throws {
         player = try AVAudioPlayer(contentsOf: url)
+        self.receive = receive
+        super.init()
+        player.delegate = self
+        guard player.prepareToPlay() else {
+            throw IOSVoiceBoundaryFeedbackSystemError.playerCreationFailed
+        }
+    }
+
+    init(
+        data: Data,
+        receive: @escaping IOSVoiceBoundaryFeedbackClient.PlayerEventHandler
+    ) throws {
+        player = try AVAudioPlayer(data: data)
         self.receive = receive
         super.init()
         player.delegate = self
