@@ -134,6 +134,190 @@ struct IOSContainingAppRecoveryTests {
         )
     }
 
+    @Test(arguments: [
+        IOSAcceptedOutputHistoryWriteState.pending,
+        .pendingReplacement,
+        .committed,
+        .cancelled,
+    ])
+    func launchRetiresCapturedDestinationAcrossHistoryMarkerStates(
+        markerState: IOSAcceptedOutputHistoryWriteState
+    ) async throws {
+        let root = try containingAppRecoveryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outputDelivery = try await seedProcessLostPendingRecording(
+            in: root,
+            endingAt: .outputDelivery
+        )
+        let transcriptionID = try #require(outputDelivery.transcriptionID)
+        let audioURL = try #require(
+            IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier:
+                    outputDelivery.audioRelativeIdentifier,
+                in: root
+            )
+        )
+        _ = try seedAcceptedOutputDestination(
+            for: outputDelivery,
+            transcriptID: transcriptionID,
+            historyWrite: try containingAppRecoveryHistoryWrite(
+                for: outputDelivery,
+                state: markerState
+            ),
+            in: root
+        )
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry(
+            retryRecoveryScanRequiredOnContextCreation: true
+        )
+        let context = registry.context(for: root)
+        let coordinator = containingAppRecoveryCoordinator(
+            context: context,
+            registry: registry,
+            root: root
+        )
+
+        _ = await coordinator.recoverContainingAppLifecycle(.processLaunch)
+
+        #expect(
+            try FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: root
+            ).load() == nil
+        )
+        #expect(!FileManager.default.fileExists(atPath: audioURL.path))
+        let remainingDestination = try #require(
+            try FoundationIOSAcceptedOutputDeliveryJournalRepository(
+                applicationSupportDirectoryURL: root
+            ).load()?.record
+        )
+        #expect(remainingDestination.attemptID == outputDelivery.attemptID)
+        #expect(remainingDestination.transcriptID == transcriptionID)
+    }
+
+    @Test func capturedDestinationRetiresBeforePendingAcceptedHistoryRecovery()
+        async throws {
+        let root = try containingAppRecoveryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outputDelivery = try await seedProcessLostPendingRecording(
+            in: root,
+            endingAt: .outputDelivery
+        )
+        let transcriptionID = try #require(outputDelivery.transcriptionID)
+        let audioURL = try #require(
+            IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier:
+                    outputDelivery.audioRelativeIdentifier,
+                in: root
+            )
+        )
+        _ = try seedAcceptedOutputDestination(
+            for: outputDelivery,
+            transcriptID: transcriptionID,
+            historyWrite: try containingAppRecoveryHistoryWrite(
+                for: outputDelivery,
+                state: .pending
+            ),
+            in: root
+        )
+        let acceptedHistoryURL = IOSAcceptedHistoryStorageLocation.fileURL(
+            in: root
+        )
+        let corruptAcceptedHistory = Data(
+            "{\"schemaVersion\":99,\"private\":true}".utf8
+        )
+        try corruptAcceptedHistory.write(
+            to: acceptedHistoryURL,
+            options: .atomic
+        )
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry(
+            retryRecoveryScanRequiredOnContextCreation: true
+        )
+        let context = registry.context(for: root)
+        let coordinator = containingAppRecoveryCoordinator(
+            context: context,
+            registry: registry,
+            root: root
+        )
+
+        #expect(
+            await coordinator.recoverContainingAppLifecycle(.processLaunch)
+                == .pendingLocalRecovery
+        )
+        #expect(
+            try FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: root
+            ).load() == nil
+        )
+        #expect(!FileManager.default.fileExists(atPath: audioURL.path))
+        #expect(
+            try Data(contentsOf: acceptedHistoryURL)
+                == corruptAcceptedHistory
+        )
+        #expect(
+            try FoundationIOSAcceptedOutputDeliveryJournalRepository(
+                applicationSupportDirectoryURL: root
+            ).load()?.record.attemptID == outputDelivery.attemptID
+        )
+    }
+
+    @Test(arguments: [
+        CapturedDestinationMetadataMismatch.model,
+        .language,
+        .duration,
+    ])
+    func capturedDestinationMetadataMismatchFailsClosed(
+        mismatch: CapturedDestinationMetadataMismatch
+    ) async throws {
+        let root = try containingAppRecoveryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outputDelivery = try await seedProcessLostPendingRecording(
+            in: root,
+            endingAt: .outputDelivery
+        )
+        let transcriptionID = try #require(outputDelivery.transcriptionID)
+        let audioURL = try #require(
+            IOSPendingRecordingStorageLocation.audioFileURL(
+                forRelativeIdentifier:
+                    outputDelivery.audioRelativeIdentifier,
+                in: root
+            )
+        )
+        _ = try seedAcceptedOutputDestination(
+            for: outputDelivery,
+            transcriptID: transcriptionID,
+            historyWrite: try containingAppRecoveryHistoryWrite(
+                for: outputDelivery,
+                state: .pending,
+                mismatch: mismatch
+            ),
+            in: root
+        )
+        let deliveryURL = IOSAcceptedOutputDeliveryStorageLocation.fileURL(
+            in: root
+        )
+        let deliveryBytes = try Data(contentsOf: deliveryURL)
+        let registry = IOSAcceptedHistoryCoordinatorProcessContextRegistry(
+            retryRecoveryScanRequiredOnContextCreation: true
+        )
+        let context = registry.context(for: root)
+        let coordinator = containingAppRecoveryCoordinator(
+            context: context,
+            registry: registry,
+            root: root
+        )
+
+        #expect(
+            await coordinator.recoverContainingAppLifecycle(.processLaunch)
+                == .pendingLocalRecovery
+        )
+        #expect(
+            try FoundationIOSPendingRecordingJournalRepository(
+                applicationSupportDirectoryURL: root
+            ).load() == outputDelivery
+        )
+        #expect(FileManager.default.fileExists(atPath: audioURL.path))
+        #expect(try Data(contentsOf: deliveryURL) == deliveryBytes)
+    }
+
     @Test func partialAcceptedDestinationIdentityFailsClosed()
         async throws {
         let root = try containingAppRecoveryRoot()
@@ -511,6 +695,7 @@ private func seedAcceptedOutputDestination(
     transcriptID: UUID,
     createdAt sourceCreatedAt: Date = Date(),
     deliveryState: IOSAcceptedOutputDeliveryState = .pending,
+    historyWrite: IOSAcceptedOutputHistoryWrite? = nil,
     in root: URL
 ) throws -> IOSAcceptedOutputDeliveryRecord {
     let createdAt = try IOSAcceptedOutputDeliveryTimestampCodec.canonicalDate(
@@ -541,12 +726,41 @@ private func seedAcceptedOutputDestination(
         automaticInsertionPreferenceEnabled: false,
         keepLatestResult: true,
         publicationGeneration: 0,
-        historyWrite: nil
+        historyWrite: historyWrite
     )
     _ = try FoundationIOSAcceptedOutputDeliveryJournalRepository(
         applicationSupportDirectoryURL: root
     ).create(record)
     return record
+}
+
+enum CapturedDestinationMetadataMismatch: Sendable {
+    case model
+    case language
+    case duration
+}
+
+private func containingAppRecoveryHistoryWrite(
+    for pending: IOSPendingRecording,
+    state: IOSAcceptedOutputHistoryWriteState,
+    mismatch: CapturedDestinationMetadataMismatch? = nil
+) throws -> IOSAcceptedOutputHistoryWrite {
+    let model = mismatch == .model
+        ? "mismatched-model"
+        : pending.transcriptionModel
+    let languageCode = mismatch == .language
+        ? "fr"
+        : pending.transcriptionLanguageCode
+    let durationMilliseconds = mismatch == .duration
+        ? pending.durationMilliseconds + 1
+        : pending.durationMilliseconds
+    return try IOSAcceptedOutputHistoryWrite(
+        state: state,
+        policyGeneration: 1,
+        transcriptionModel: model,
+        transcriptionLanguageCode: languageCode,
+        durationMilliseconds: durationMilliseconds
+    )
 }
 
 private func containingAppRecoveryCoordinator(
