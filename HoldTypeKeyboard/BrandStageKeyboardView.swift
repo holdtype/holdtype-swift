@@ -1,7 +1,7 @@
 import UIKit
 
 struct BrandStageKeyboardPresentation: Equatable {
-    let statusText: String
+    let status: KeyboardTopRailStatus
     let latestIsEnabled: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
@@ -85,7 +85,7 @@ final class BrandStageKeyboardView: UIView {
     }
 
     func render(_ presentation: BrandStageKeyboardPresentation) {
-        statusLabel.text = presentation.statusText
+        statusLabel.text = presentation.status.rawValue
         latestButton.isEnabled = presentation.latestIsEnabled
         updateInputModeSwitchKeyVisibility(
             presentation.showsInputModeSwitchKey

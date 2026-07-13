@@ -9,6 +9,14 @@ import Testing
 
 struct KeyboardCommandSurfaceIOSTests {
 
+    @Test func topRailStatusUsesOnlyShortProductLabels() {
+        #expect(KeyboardTopRailStatus.allCases.map(\.rawValue) == [
+            "Ready",
+            "Full Access",
+            "Open failed",
+        ])
+    }
+
     @Test func cursorDragAccumulatesThresholdsAndReportsDirection() {
         var accumulator = KeyboardCursorDragAccumulator(maximumCharactersPerUpdate: 3)
 

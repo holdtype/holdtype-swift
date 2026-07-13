@@ -131,10 +131,10 @@ final class KeyboardViewController: UIInputViewController {
         #endif
     }
 
-    private func render(statusOverride: String? = nil) {
+    private func render(statusOverride: KeyboardTopRailStatus? = nil) {
         keyboardView.render(
             BrandStageKeyboardPresentation(
-                statusText: statusOverride ?? statusText,
+                status: statusOverride ?? status,
                 latestIsEnabled: latestItem != nil,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
@@ -147,11 +147,11 @@ final class KeyboardViewController: UIInputViewController {
         )
     }
 
-    private var statusText: String {
+    private var status: KeyboardTopRailStatus {
         if !hasFullAccess {
-            return "Full Access"
+            return .fullAccess
         }
-        return "Ready"
+        return .ready
     }
 
     private var returnIsEnabled: Bool {
@@ -162,7 +162,7 @@ final class KeyboardViewController: UIInputViewController {
     private func openHistory() {
         guard let url = HoldTypeContainingAppRoute.history.url,
               let extensionContext else {
-            showTemporaryStatus("Open failed", duration: 1.6)
+            showTemporaryStatus(.openFailed, duration: 1.6)
             return
         }
 
@@ -179,7 +179,7 @@ final class KeyboardViewController: UIInputViewController {
                 self.historyRequestID = nil
                 guard !opened else { return }
                 self.showTemporaryStatus(
-                    "Open failed",
+                    .openFailed,
                     duration: 1.6
                 )
             }
@@ -201,7 +201,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func showTemporaryStatus(
-        _ status: String,
+        _ status: KeyboardTopRailStatus,
         duration: TimeInterval
     ) {
         statusResetWorkItem?.cancel()
