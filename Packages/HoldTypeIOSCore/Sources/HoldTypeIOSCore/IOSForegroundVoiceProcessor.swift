@@ -159,9 +159,10 @@ public actor IOSForegroundVoiceProcessor {
         guard let context = makeContext(from: request) else {
             return .notStarted(.invalidConfiguration)
         }
-        guard consentCoordinator.makeAuthorization(
-            from: context.consentObservation
-        ) != nil else {
+        guard hasCurrentProviderAuthorization(
+            for: context.historyMode,
+            observation: context.consentObservation
+        ) else {
             return .notStarted(.providerConsentUnavailable)
         }
 
@@ -195,9 +196,10 @@ public actor IOSForegroundVoiceProcessor {
             self.retainedWork = retryWork
         case .currentProviderAuthority:
             guard let authorization,
-                  consentCoordinator.makeAuthorization(
-                      from: authorization.consentObservation
-                  ) != nil,
+                  hasCurrentProviderAuthorization(
+                      for: retainedWork.historyMode,
+                      observation: authorization.consentObservation
+                  ),
                   let rebound = retainedWork.rebindingProviderAuthority(
                       authorization
                   ) else {
@@ -232,6 +234,22 @@ public actor IOSForegroundVoiceProcessor {
 
     public func hasLocalRecoveryPending() -> Bool {
         activeOperationID == nil && retainedWork != nil
+    }
+
+    private func hasCurrentProviderAuthorization(
+        for historyMode: IOSForegroundVoiceHistoryMode,
+        observation: IOSProviderConsentObservation
+    ) -> Bool {
+        switch historyMode {
+        case .appOnly:
+            consentCoordinator.makeAuthorization(
+                from: observation
+            ) != nil
+        case .captured:
+            consentCoordinator.makeForegroundHistoryAuthorization(
+                from: observation
+            ) != nil
+        }
     }
 
     private func resume(
@@ -1044,7 +1062,8 @@ public actor IOSForegroundVoiceProcessor {
                 transcriptID: context.transcriptionID,
                 rawAcceptedText: text.text,
                 outputIntent: context.outputIntent,
-                keepLatestResult: context.keepLatestResult
+                keepLatestResult: context.keepLatestResult,
+                historyMode: context.historyMode
             )
         } catch {
             return localRecovery(
@@ -1720,6 +1739,7 @@ public actor IOSForegroundVoiceProcessor {
             postProcessingConfiguration: postProcessing,
             promptComposition: prompt,
             keepLatestResult: request.settings.keepLatestResult,
+            historyMode: request.historyMode,
             credential: request.credential,
             consentObservation: request.consentObservation,
             transcriptionID: makeUUID(),
@@ -1778,6 +1798,7 @@ struct IOSForegroundVoiceProviderContext: Sendable {
         TranscriptPostProcessingConfiguration
     let promptComposition: TranscriptionPromptComposition
     let keepLatestResult: Bool
+    let historyMode: IOSForegroundVoiceHistoryMode
     let credential: IOSResolvedOpenAICredential
     let consentObservation: IOSProviderConsentObservation
     let transcriptionID: UUID
@@ -1789,7 +1810,8 @@ struct IOSForegroundVoiceProviderContext: Sendable {
             transcriptionID: transcriptionID,
             deliveryID: deliveryID,
             outputIntent: pendingRecording.outputIntent,
-            keepLatestResult: keepLatestResult
+            keepLatestResult: keepLatestResult,
+            historyMode: historyMode
         )
     }
 
@@ -1818,6 +1840,7 @@ struct IOSForegroundVoiceProviderContext: Sendable {
             postProcessingConfiguration: postProcessingConfiguration,
             promptComposition: promptComposition,
             keepLatestResult: keepLatestResult,
+            historyMode: historyMode,
             credential: authorization.credential,
             consentObservation: authorization.consentObservation,
             transcriptionID: transcriptionID,
@@ -1838,6 +1861,7 @@ struct IOSForegroundVoiceProviderFreeContext: Sendable {
     let deliveryID: UUID
     let outputIntent: DictationOutputIntent
     let keepLatestResult: Bool
+    let historyMode: IOSForegroundVoiceHistoryMode
 }
 
 enum IOSForegroundVoiceRetainedWork: Sendable {
@@ -1890,6 +1914,22 @@ enum IOSForegroundVoiceRetainedWork: Sendable {
             .outputDelivery
         case .recovering(_, _, _, let stage):
             stage
+        }
+    }
+
+    var historyMode: IOSForegroundVoiceHistoryMode {
+        switch self {
+        case .beginning(let context),
+             .postProcessing(let context, _, _, _):
+            context.historyMode
+        case .transcribing(let context, _),
+             .finalText(let context, _, _),
+             .outputDelivery(let context, _, _),
+             .recovering(let context, _, _, _):
+            context.historyMode
+        case .transcriptionConsumed(let context, _, _),
+             .providerFreePostProcessing(let context, _, _, _):
+            context.providerFree.historyMode
         }
     }
 

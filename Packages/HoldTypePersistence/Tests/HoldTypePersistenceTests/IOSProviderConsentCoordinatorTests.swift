@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 import Testing
-@testable import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 
 struct IOSProviderConsentCoordinatorTests {
     @Test func publicCoordinatorUsesCanonicalApplicationSupportConstruction() {
@@ -1090,6 +1090,65 @@ struct IOSProviderConsentCoordinatorTests {
         #expect(journal.currentRecord?.epochID == old.epochID)
         #expect(journal.currentRecord?.revision == 3)
         #expect(journal.currentRecord?.disclosureVersion == 2)
+    }
+
+    @Test func foregroundHistoryAuthorizationRequiresExactDisclosureTwo()
+        async throws {
+        let versionOneJournal = IOSProviderConsentJournalFake(
+            record: try fixtureRecord(
+                state: .accepted,
+                revision: 1,
+                disclosureVersion: 1
+            )
+        )
+        let versionOneCoordinator = IOSProviderConsentCoordinator(
+            journal: versionOneJournal,
+            currentDisclosureVersion: 1
+        )
+        let versionOne = await versionOneCoordinator.observe()
+        #expect(
+            versionOneCoordinator.makeAuthorization(from: versionOne) != nil
+        )
+        #expect(
+            versionOneCoordinator.makeForegroundHistoryAuthorization(
+                from: versionOne
+            ) == nil
+        )
+
+        let versionTwoJournal = IOSProviderConsentJournalFake(
+            record: try fixtureRecord(
+                state: .accepted,
+                revision: 1,
+                disclosureVersion: 2
+            )
+        )
+        let versionTwoCoordinator = IOSProviderConsentCoordinator(
+            journal: versionTwoJournal,
+            currentDisclosureVersion: 2
+        )
+        let versionTwo = await versionTwoCoordinator.observe()
+        #expect(
+            versionTwoCoordinator.makeForegroundHistoryAuthorization(
+                from: versionTwo
+            ) == versionTwoCoordinator.makeAuthorization(from: versionTwo)
+        )
+
+        let foreignCoordinator = IOSProviderConsentCoordinator(
+            journal: IOSProviderConsentJournalFake(
+                record: try fixtureRecord(
+                    state: .accepted,
+                    revision: 1,
+                    disclosureVersion: 2
+                )
+            ),
+            currentDisclosureVersion: 2
+        )
+        let foreignVersionTwo = await foreignCoordinator.observe()
+        #expect(
+            versionTwoCoordinator.makeForegroundHistoryAuthorization(
+                from: foreignVersionTwo
+            ) == nil
+        )
     }
 
     @Test func unreadableDataCannotBeOverwrittenAndResetUsesExactRevision() async throws {

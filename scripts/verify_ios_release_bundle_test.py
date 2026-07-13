@@ -317,6 +317,7 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         self.write_mach_o(
             app_executable,
             b"KeyboardBridgeProbeViewIOSProviderConsentQualificationFixture"
+            b"IOSProviderConsentProcessingQualificationFixture"
             b"IOSTranscriptionUsageQualificationFixture",
         )
         (self.app / "qualification.txt").write_text("Qualification Gallery")
@@ -327,6 +328,10 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         self.assertEqual(check.status, "fail")
         self.assertIn("KeyboardBridgeProbeView", check.message)
         self.assertIn("IOSProviderConsentQualificationFixture", check.message)
+        self.assertIn(
+            "IOSProviderConsentProcessingQualificationFixture",
+            check.message,
+        )
         self.assertIn("IOSTranscriptionUsageQualificationFixture", check.message)
         self.assertIn("Qualification Gallery", check.message)
 

@@ -75,6 +75,7 @@ FORBIDDEN_RELEASE_APP_MARKERS = (
     "KeyboardBridgeProbeView",
     "IOSAcceptedOutputDeliveryQualificationFixture",
     "IOSProviderConsentQualificationFixture",
+    "IOSProviderConsentProcessingQualificationFixture",
     "IOSTranscriptionUsageQualificationFixture",
     "Publish Keyboard Test Sample",
     "ios.voice.publish-practice-sample",

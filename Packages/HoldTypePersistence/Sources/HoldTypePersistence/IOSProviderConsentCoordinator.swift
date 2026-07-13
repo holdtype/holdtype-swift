@@ -5,6 +5,7 @@ import Foundation
 /// compare-and-swap mutation, and short-lived provider authority.
 public final class IOSProviderConsentCoordinator: @unchecked Sendable {
     public static let currentDisclosureVersion: Int64 = 1
+    static let frozenHistoryDisclosureVersion: Int64 = 2
 
     private let owner: IOSProviderConsentOwner
     private let gate: IOSProviderConsentAuthorizationGate
@@ -230,6 +231,20 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
             for: binding,
             observedAt: observationFence
         )
+    }
+
+    /// Returns provider authority only when the exact observation is current
+    /// and already bound to the frozen History-aware disclosure.
+    @_spi(HoldTypeIOSCore)
+    public func makeForegroundHistoryAuthorization(
+        from observation: IOSProviderConsentObservation
+    ) -> IOSProviderConsentAuthorization? {
+        guard let authorization = makeAuthorization(from: observation),
+              authorization.binding.disclosureVersion
+                == Self.frozenHistoryDisclosureVersion else {
+            return nil
+        }
+        return authorization
     }
 
     /// Content-free readiness projection for presentation code. Unlike

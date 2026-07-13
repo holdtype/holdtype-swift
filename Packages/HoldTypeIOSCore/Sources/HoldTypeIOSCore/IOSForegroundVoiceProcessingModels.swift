@@ -1,6 +1,6 @@
 import Foundation
 import HoldTypeDomain
-import HoldTypePersistence
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
 
 @_spi(HoldTypeIOSCore)
 public enum IOSForegroundVoiceProcessingMode: Equatable, Sendable {
@@ -20,6 +20,7 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
     let library: IOSLibraryContent
     let credential: IOSResolvedOpenAICredential
     let consentObservation: IOSProviderConsentObservation
+    let historyMode: IOSForegroundVoiceHistoryMode
 
     public init(
         sessionID: UUID,
@@ -30,6 +31,28 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         credential: IOSResolvedOpenAICredential,
         consentObservation: IOSProviderConsentObservation
     ) {
+        self.init(
+            sessionID: sessionID,
+            pendingRecording: pendingRecording,
+            mode: mode,
+            settings: settings,
+            library: library,
+            credential: credential,
+            consentObservation: consentObservation,
+            historyMode: .appOnly
+        )
+    }
+
+    public init(
+        sessionID: UUID,
+        pendingRecording: IOSPendingRecording,
+        mode: IOSForegroundVoiceProcessingMode,
+        settings: IOSAppSettings,
+        library: IOSLibraryContent,
+        credential: IOSResolvedOpenAICredential,
+        consentObservation: IOSProviderConsentObservation,
+        historyMode: IOSForegroundVoiceHistoryMode
+    ) {
         self.sessionID = sessionID
         self.pendingRecording = pendingRecording
         self.mode = mode
@@ -37,6 +60,7 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         self.library = library
         self.credential = credential
         self.consentObservation = consentObservation
+        self.historyMode = historyMode
     }
 }
 
