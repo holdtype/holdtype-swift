@@ -587,22 +587,22 @@ private enum IOSUIQualificationConsentFixture {
                     do {
                         try await Task.sleep(for: .seconds(60))
                     } catch {
-                        return IOSProviderConsentQualificationFixture
+                        return IOSV1ProviderConsentQualificationFixture
                             .notReviewedObservation()
                     }
                 }
                 switch scenario {
                 case .checking, .ready:
-                    return IOSProviderConsentQualificationFixture
+                    return IOSV1ProviderConsentQualificationFixture
                         .notReviewedObservation()
                 case .accepted:
-                    return IOSProviderConsentQualificationFixture
+                    return IOSV1ProviderConsentQualificationFixture
                         .acceptedObservation()
                 case .unreadable:
-                    return IOSProviderConsentQualificationFixture
+                    return IOSV1ProviderConsentQualificationFixture
                         .resettableUnreadableObservation()
                 case .failure:
-                    return IOSProviderConsentQualificationFixture
+                    return IOSV1ProviderConsentQualificationFixture
                         .localDataUnavailableObservation()
                 }
             },
@@ -616,11 +616,11 @@ private enum IOSUIQualificationConsentFixture {
                 throw IOSUIQualificationFailure.mutationBlocked
             },
             isAuthorizationReady: { observation in
-                IOSProviderConsentQualificationFixture
+                IOSV1ProviderConsentQualificationFixture
                     .isAuthorizationReady(for: observation)
             },
             hasSameObservationAuthority: { candidate, current in
-                IOSProviderConsentQualificationFixture
+                IOSV1ProviderConsentQualificationFixture
                     .hasSameObservationAuthority(
                     candidate,
                     as: current

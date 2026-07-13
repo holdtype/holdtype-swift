@@ -19,7 +19,7 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
     let settings: IOSAppSettings
     let library: IOSLibraryContent
     let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSProviderConsentObservation
+    let consentObservation: IOSV1ProviderConsentObservation
     let historyMode: IOSForegroundVoiceHistoryMode
 
     public init(
@@ -29,7 +29,7 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         settings: IOSAppSettings,
         library: IOSLibraryContent,
         credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSProviderConsentObservation
+        consentObservation: IOSV1ProviderConsentObservation
     ) {
         self.init(
             sessionID: sessionID,
@@ -50,7 +50,7 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         settings: IOSAppSettings,
         library: IOSLibraryContent,
         credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSProviderConsentObservation,
+        consentObservation: IOSV1ProviderConsentObservation,
         historyMode: IOSForegroundVoiceHistoryMode
     ) {
         self.sessionID = sessionID
@@ -70,11 +70,11 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
 @_spi(HoldTypeIOSCore)
 public struct IOSForegroundVoiceProviderRetryAuthorization: Sendable {
     let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSProviderConsentObservation
+    let consentObservation: IOSV1ProviderConsentObservation
 
     public init(
         credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSProviderConsentObservation
+        consentObservation: IOSV1ProviderConsentObservation
     ) {
         self.credential = credential
         self.consentObservation = consentObservation

@@ -110,7 +110,7 @@ final class IOSForegroundVoiceRuntime {
     init(
         settingsStateOwner: IOSAppSettingsStateOwner,
         libraryStateOwner: IOSLibraryStateOwner,
-        providerConsentCoordinator: IOSProviderConsentCoordinator,
+        providerConsentCoordinator: IOSV1ProviderConsentCoordinator,
         persistenceOwner: IOSForegroundVoicePersistenceOwner,
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         processor: IOSForegroundVoiceProcessor?,

@@ -30,7 +30,7 @@ final class IOSContainingAppComposition {
         ) throws -> IOSOpenAICredentialCoordinator
         let makeProviderConsentCoordinator: @MainActor (
             URL
-        ) -> IOSProviderConsentCoordinator
+        ) -> IOSV1ProviderConsentCoordinator
         let makeForegroundVoicePersistenceOwner: @MainActor (
             URL,
             IOSAcceptedTextHistoryRepository
@@ -40,7 +40,7 @@ final class IOSContainingAppComposition {
         ) -> IOSTranscriptionUsageRepository
         let makeForegroundVoiceProcessor: @MainActor (
             IOSForegroundVoicePersistenceOwner,
-            IOSProviderConsentCoordinator,
+            IOSV1ProviderConsentCoordinator,
             IOSTranscriptionUsageRecordingClient,
             IOSOpenAICredentialCoordinator
         ) -> IOSForegroundVoiceProcessor
@@ -86,7 +86,7 @@ final class IOSContainingAppComposition {
             },
             makeProviderConsentCoordinator: {
                 applicationSupportDirectoryURL in
-                IOSProviderConsentCoordinator(
+                IOSV1ProviderConsentCoordinator(
                     applicationSupportDirectoryURL:
                         applicationSupportDirectoryURL
                 )
@@ -128,7 +128,7 @@ final class IOSContainingAppComposition {
     let libraryStateOwner: IOSLibraryStateOwner?
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
     let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
-    let providerConsentCoordinator: IOSProviderConsentCoordinator?
+    let providerConsentCoordinator: IOSV1ProviderConsentCoordinator?
     let acceptedTextHistoryRepository:
         IOSAcceptedTextHistoryRepository?
     let acceptedTextHistoryStateOwner:

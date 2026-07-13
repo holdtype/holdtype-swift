@@ -5,7 +5,7 @@ import Testing
 
 struct IOSProviderConsentStageExecutorTests {
     @Test func everyStageLaunchesAndConsumesExactlyOnce() async throws {
-        for stage in IOSProviderConsentProviderStage.allCases {
+        for stage in IOSV1ProviderConsentProviderStage.allCases {
             let gate = ProviderConsentStageGateFake()
             let providerCalls = LockedCounter()
 
@@ -340,7 +340,7 @@ private final class ProviderConsentStageGateFake:
     private var storedConsumeCallCount = 0
     private var storedConsumeOperationCount = 0
     private var storedResultCancellationCount = 0
-    private var storedRegisteredStages: [IOSProviderConsentProviderStage] = []
+    private var storedRegisteredStages: [IOSV1ProviderConsentProviderStage] = []
     private var consuming = false
 
     init(
@@ -371,14 +371,14 @@ private final class ProviderConsentStageGateFake:
     var resultCancellationCount: Int {
         lock.withLock { storedResultCancellationCount }
     }
-    var registeredStages: [IOSProviderConsentProviderStage] {
+    var registeredStages: [IOSV1ProviderConsentProviderStage] {
         lock.withLock { storedRegisteredStages }
     }
     var isConsuming: Bool { lock.withLock { consuming } }
 
     func registerProviderDispatch(
         _ authorization: ProviderConsentStageAuthorization,
-        for stage: IOSProviderConsentProviderStage,
+        for stage: IOSV1ProviderConsentProviderStage,
         onCancellation: @escaping @Sendable () -> Void
     ) async -> ProviderConsentStageRegistration? {
         _ = authorization

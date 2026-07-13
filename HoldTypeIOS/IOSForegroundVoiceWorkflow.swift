@@ -93,7 +93,7 @@ nonisolated struct IOSForegroundVoiceWorkflowCredentialProof:
 nonisolated struct IOSForegroundVoiceWorkflowProviderRetryAuthorization:
     Sendable {
     let credential: IOSForegroundVoiceWorkflowCredentialProof
-    let consentObservation: IOSProviderConsentObservation
+    let consentObservation: IOSV1ProviderConsentObservation
 }
 
 nonisolated enum IOSForegroundVoiceWorkflowCredentialResolution: Sendable {
@@ -124,7 +124,7 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
     let mode: IOSForegroundVoiceProcessingMode
     let configuration: IOSForegroundVoiceWorkflowConfiguration
     let credential: IOSForegroundVoiceWorkflowCredentialProof
-    let consentObservation: IOSProviderConsentObservation
+    let consentObservation: IOSV1ProviderConsentObservation
 }
 
 nonisolated struct IOSForegroundVoiceWorkflowDurableObservation: Sendable {
@@ -397,13 +397,13 @@ struct IOSForegroundVoiceWorkflowDependencies {
     typealias LoadSettings = @Sendable () async throws -> IOSAppSettings
     typealias LoadLibrary = @Sendable () async throws -> IOSLibraryContent
     typealias ObserveConsent = @Sendable () async ->
-        IOSProviderConsentObservation
+        IOSV1ProviderConsentObservation
     typealias ContinueConsent = @MainActor @Sendable (
         IOSVoiceSceneStartLease,
-        IOSProviderConsentObservation
-    ) async -> IOSProviderConsentObservation?
+        IOSV1ProviderConsentObservation
+    ) async -> IOSV1ProviderConsentObservation?
     typealias RevalidateConsent = @Sendable (
-        IOSProviderConsentObservation
+        IOSV1ProviderConsentObservation
     ) async -> Bool
     typealias ResolveCredential = @Sendable () async ->
         IOSForegroundVoiceWorkflowCredentialResolution
@@ -497,7 +497,7 @@ final class IOSForegroundVoiceWorkflow {
     }
 
     private enum ConsentResolution {
-        case accepted(IOSProviderConsentObservation)
+        case accepted(IOSV1ProviderConsentObservation)
         case needsSetup
         case unavailable
     }
@@ -983,7 +983,7 @@ final class IOSForegroundVoiceWorkflow {
         lastConfiguration = configuration
         passiveConfigurationSetupOverride = nil
 
-        let consent: IOSProviderConsentObservation
+        let consent: IOSV1ProviderConsentObservation
         switch await resolveConsent(for: attempt) {
         case .accepted(let observation):
             consent = observation
@@ -1324,7 +1324,7 @@ final class IOSForegroundVoiceWorkflow {
         _ requestedTrigger: StopTrigger,
         attempt: Attempt,
         configuration: IOSForegroundVoiceWorkflowConfiguration,
-        consent: IOSProviderConsentObservation,
+        consent: IOSV1ProviderConsentObservation,
         credential: IOSForegroundVoiceWorkflowCredentialProof,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
@@ -1624,7 +1624,7 @@ final class IOSForegroundVoiceWorkflow {
         guard retryCanContinue(authority, registry: registry) else {
             return pendingRetryLossResolution()
         }
-        let consent: IOSProviderConsentObservation
+        let consent: IOSV1ProviderConsentObservation
         switch await resolveConsentWithoutPresentation() {
         case .accepted(let value):
             consent = value
@@ -2450,7 +2450,7 @@ final class IOSForegroundVoiceWorkflow {
         attempt: Attempt,
         intent: DictationOutputIntent,
         configuration: IOSForegroundVoiceWorkflowConfiguration,
-        consent: IOSProviderConsentObservation,
+        consent: IOSV1ProviderConsentObservation,
         credential: IOSForegroundVoiceWorkflowCredentialProof,
         requireGrantedPermission: Bool,
         requireNoDurableOwner: Bool = true

@@ -59,7 +59,7 @@ public actor IOSForegroundVoiceProcessor {
     ) async -> Void
 
     private let persistenceOwner: any IOSForegroundVoicePersisting
-    private let consentCoordinator: IOSProviderConsentCoordinator
+    private let consentCoordinator: IOSV1ProviderConsentCoordinator
     private let stageExecutor: IOSProviderConsentStageExecutor
     private let provider: IOSForegroundVoiceOpenAIProviderOperations
     private let recordUsage: UsageRecorder
@@ -75,7 +75,7 @@ public actor IOSForegroundVoiceProcessor {
 
     public init(
         persistenceOwner: IOSForegroundVoicePersistenceOwner,
-        consentCoordinator: IOSProviderConsentCoordinator,
+        consentCoordinator: IOSV1ProviderConsentCoordinator,
         usageRecordingClient: IOSTranscriptionUsageRecordingClient,
         credentialCoordinator: IOSOpenAICredentialCoordinator
     ) {
@@ -101,7 +101,7 @@ public actor IOSForegroundVoiceProcessor {
     /// recording client so failures are ordered against Reset.
     init(
         persistenceOwner: IOSForegroundVoicePersistenceOwner,
-        consentCoordinator: IOSProviderConsentCoordinator,
+        consentCoordinator: IOSV1ProviderConsentCoordinator,
         usageRepository: IOSTranscriptionUsageRepository,
         credentialCoordinator: IOSOpenAICredentialCoordinator
     ) {
@@ -118,7 +118,7 @@ public actor IOSForegroundVoiceProcessor {
 
     init(
         persistenceOwner: any IOSForegroundVoicePersisting,
-        consentCoordinator: IOSProviderConsentCoordinator,
+        consentCoordinator: IOSV1ProviderConsentCoordinator,
         provider: IOSForegroundVoiceOpenAIProviderOperations,
         recordUsage: @escaping UsageRecorder = { _ in },
         recordProviderRejection:
@@ -238,7 +238,7 @@ public actor IOSForegroundVoiceProcessor {
 
     private func hasCurrentProviderAuthorization(
         for historyMode: IOSForegroundVoiceHistoryMode,
-        observation: IOSProviderConsentObservation
+        observation: IOSV1ProviderConsentObservation
     ) -> Bool {
         switch historyMode {
         case .appOnly:
@@ -246,7 +246,7 @@ public actor IOSForegroundVoiceProcessor {
                 from: observation
             ) != nil
         case .captured:
-            consentCoordinator.makeForegroundHistoryAuthorization(
+            consentCoordinator.makeAuthorization(
                 from: observation
             ) != nil
         }
@@ -1797,7 +1797,7 @@ struct IOSForegroundVoiceProviderContext: Sendable {
     let promptComposition: TranscriptionPromptComposition
     let historyMode: IOSForegroundVoiceHistoryMode
     let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSProviderConsentObservation
+    let consentObservation: IOSV1ProviderConsentObservation
     let transcriptionID: UUID
     let deliveryID: UUID
 

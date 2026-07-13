@@ -137,46 +137,6 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(calls.events == ["transcription", "usage"])
     }
 
-    @Test func capturedHistoryModeRequiresDisclosureTwoBeforePendingDispatch()
-        async throws {
-        let fixture = try await ProcessorFixture(
-            outputIntent: .standard,
-            usesLegacyHistoryDisclosureV1: true
-        )
-        defer { fixture.removeFiles() }
-        let historyMode = try await fixture.capturedHistoryMode()
-        let persistence = CapturingHistoryModeForegroundPersistence(
-            base: fixture.persistenceOwner
-        )
-        let calls = ProcessorCallLog()
-        let processor = fixture.makeProcessor(
-            persistence: persistence,
-            provider: IOSForegroundVoiceOpenAIProviderOperations(
-                transcribe: { _, _ in
-                    calls.record("transcription")
-                    return "must not dispatch"
-                },
-                correct: { transcript, _, _ in transcript.text },
-                translate: { _, _ in "must not dispatch" }
-            ),
-            calls: calls
-        )
-
-        #expect(
-            await processor.process(
-                fixture.request(historyMode: historyMode)
-            ) == .notStarted(.providerConsentUnavailable)
-        )
-        #expect(calls.events.isEmpty)
-        #expect(persistence.acceptedHistoryModes.isEmpty)
-        #expect(
-            try await fixture.persistenceOwner.load()?.recording
-                == fixture.pending
-        )
-        #expect(fixture.pending.phase == .readyForTranscription)
-        #expect(await processor.hasLocalRecoveryPending() == false)
-    }
-
     @Test func correctionFailureIsFailOpenAfterConsentConsumption()
         async throws {
         var settings = IOSAppSettings.defaults
@@ -1201,93 +1161,6 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(persistence.beginCallCount == 2)
     }
 
-    @Test func capturedRetainedBeginningRequiresDisclosureTwo()
-        async throws {
-        let versionOne = try await ProcessorFixture(
-            outputIntent: .standard,
-            usesLegacyHistoryDisclosureV1: true
-        )
-        defer { versionOne.removeFiles() }
-        let versionOneMode = try await versionOne.capturedHistoryMode()
-        let versionOneCalls = ProcessorCallLog()
-        let versionOneProcessor = versionOne.makeProcessor(
-            provider: IOSForegroundVoiceOpenAIProviderOperations(
-                transcribe: { _, _ in
-                    versionOneCalls.record("transcription")
-                    return "must not dispatch"
-                },
-                correct: { transcript, _, _ in transcript.text },
-                translate: { _, _ in "must not dispatch" }
-            ),
-            calls: versionOneCalls,
-            retainedWork: .beginning(
-                versionOne.providerContext(
-                    transcriptionID: UUID(),
-                    deliveryID: UUID(),
-                    historyMode: versionOneMode
-                )
-            )
-        )
-
-        #expect(
-            await versionOneProcessor.retryLocalRecovery(
-                authorization: versionOne.retryAuthorization()
-            ) == .localRecoveryPending(
-                failure: .providerConsentUnavailable,
-                stage: .transcription,
-                disposition: .processingCheckpoint,
-                requirement: .currentProviderAuthority
-            )
-        )
-        #expect(versionOneCalls.events.isEmpty)
-        #expect(
-            try await versionOne.persistenceOwner.load()?.recording
-                == versionOne.pending
-        )
-
-        let versionTwo = try await ProcessorFixture(
-            outputIntent: .standard
-        )
-        defer { versionTwo.removeFiles() }
-        let versionTwoMode = try await versionTwo.capturedHistoryMode()
-        let versionTwoCalls = ProcessorCallLog()
-        let persistence = CapturingHistoryModeForegroundPersistence(
-            base: versionTwo.persistenceOwner
-        )
-        let versionTwoProcessor = versionTwo.makeProcessor(
-            persistence: persistence,
-            provider: IOSForegroundVoiceOpenAIProviderOperations(
-                transcribe: { _, _ in
-                    versionTwoCalls.record("transcription")
-                    return "captured retained beginning"
-                },
-                correct: { transcript, _, _ in transcript.text },
-                translate: { _, _ in "unexpected" }
-            ),
-            calls: versionTwoCalls,
-            retainedWork: .beginning(
-                versionTwo.providerContext(
-                    transcriptionID: UUID(),
-                    deliveryID: UUID(),
-                    historyMode: versionTwoMode
-                )
-            )
-        )
-
-        #expect(
-            await versionTwoProcessor.retryLocalRecovery(
-                authorization: versionTwo.retryAuthorization()
-            ) == .localRecoveryPending(
-                failure: .localPersistence,
-                stage: .outputDelivery,
-                disposition: .savingResult,
-                requirement: .providerFree
-            )
-        )
-        #expect(versionTwoCalls.events == ["transcription", "usage"])
-        #expect(persistence.acceptedHistoryModes == [versionTwoMode])
-    }
-
     @Test func retainedBeginningRejectsConsentObservationFromBeforeReacceptance()
         async throws {
         let fixture = try await ProcessorFixture(outputIntent: .standard)
@@ -1749,8 +1622,8 @@ private final class ProcessorFixture: @unchecked Sendable {
     let sourceURL: URL
     let historyCoordinator: IOSAcceptedHistoryCoordinator
     let persistenceOwner: IOSForegroundVoicePersistenceOwner
-    let consentCoordinator: IOSProviderConsentCoordinator
-    let acceptedConsent: IOSProviderConsentObservation
+    let consentCoordinator: IOSV1ProviderConsentCoordinator
+    let acceptedConsent: IOSV1ProviderConsentObservation
     let pending: IOSPendingRecording
     let settings: IOSAppSettings
     let library: IOSLibraryContent
@@ -1759,8 +1632,7 @@ private final class ProcessorFixture: @unchecked Sendable {
     init(
         outputIntent: DictationOutputIntent,
         settings: IOSAppSettings = .defaults,
-        library: IOSLibraryContent = .defaults,
-        usesLegacyHistoryDisclosureV1: Bool = false
+        library: IOSLibraryContent = .defaults
     ) async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "ios-foreground-processor-\(UUID().uuidString)",
@@ -1811,16 +1683,9 @@ private final class ProcessorFixture: @unchecked Sendable {
             )
             throw error
         }
-        if usesLegacyHistoryDisclosureV1 {
-            consentCoordinator = IOSProviderConsentProcessingQualificationFixture
-                .legacyForegroundCoordinator(
-                    applicationSupportDirectoryURL: root
-                )
-        } else {
-            consentCoordinator = IOSProviderConsentCoordinator(
-                applicationSupportDirectoryURL: root
-            )
-        }
+        consentCoordinator = IOSV1ProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
         let observation = await consentCoordinator.observe()
         acceptedConsent = try await consentCoordinator.accept(
             using: observation,
@@ -1877,7 +1742,7 @@ private final class ProcessorFixture: @unchecked Sendable {
 
     func retryAuthorization(
         credential: IOSResolvedOpenAICredential? = nil,
-        consentObservation: IOSProviderConsentObservation? = nil
+        consentObservation: IOSV1ProviderConsentObservation? = nil
     ) -> IOSForegroundVoiceProviderRetryAuthorization {
         IOSForegroundVoiceProviderRetryAuthorization(
             credential: credential ?? self.credential,

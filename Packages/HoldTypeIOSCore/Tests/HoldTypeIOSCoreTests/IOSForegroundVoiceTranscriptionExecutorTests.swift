@@ -230,8 +230,8 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
     let configuration: TranscriptionConfiguration
     let historyCoordinator: IOSAcceptedHistoryCoordinator
     let persistenceOwner: IOSForegroundVoicePersistenceOwner
-    let consentCoordinator: IOSProviderConsentCoordinator
-    let acceptedConsent: IOSProviderConsentObservation
+    let consentCoordinator: IOSV1ProviderConsentCoordinator
+    let acceptedConsent: IOSV1ProviderConsentObservation
     let pending: IOSPendingRecording
     let credential: OpenAICredential
 
@@ -280,7 +280,7 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
                 transcriptionConfiguration: configuration
             )
         )
-        consentCoordinator = IOSProviderConsentCoordinator(
+        consentCoordinator = IOSV1ProviderConsentCoordinator(
             applicationSupportDirectoryURL: root
         )
         let observed = await consentCoordinator.observe()

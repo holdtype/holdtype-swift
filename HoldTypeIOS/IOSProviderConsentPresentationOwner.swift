@@ -3,7 +3,7 @@ import Observation
 import HoldTypePersistence
 
 nonisolated struct IOSProviderConsentPrivacySnapshot: Equatable, Sendable {
-    let status: IOSProviderConsentStatus
+    let status: IOSV1ProviderConsentStatus
     let decisionAt: Date?
     let canResetUnreadableData: Bool
     let requiresExplicitAcceptance: Bool
@@ -78,26 +78,26 @@ nonisolated enum IOSProviderConsentConfirmationAdmission:
 }
 
 nonisolated struct IOSProviderConsentPresentationClient: Sendable {
-    typealias Observe = @Sendable () async -> IOSProviderConsentObservation
+    typealias Observe = @Sendable () async -> IOSV1ProviderConsentObservation
     typealias Accept = @Sendable (
-        IOSProviderConsentObservation,
+        IOSV1ProviderConsentObservation,
         Date
-    ) async throws -> IOSProviderConsentObservation
+    ) async throws -> IOSV1ProviderConsentObservation
     typealias Withdraw = @Sendable (
-        IOSProviderConsentObservation,
+        IOSV1ProviderConsentObservation,
         Date,
         @escaping @Sendable () async -> Void
-    ) async throws -> IOSProviderConsentObservation
+    ) async throws -> IOSV1ProviderConsentObservation
     typealias Reset = @Sendable (
-        IOSProviderConsentObservation,
+        IOSV1ProviderConsentObservation,
         @escaping @Sendable () async -> Void
-    ) async throws -> IOSProviderConsentObservation
+    ) async throws -> IOSV1ProviderConsentObservation
     typealias IsAuthorizationReady = @Sendable (
-        IOSProviderConsentObservation
+        IOSV1ProviderConsentObservation
     ) -> Bool
     typealias HasSameObservationAuthority = @Sendable (
-        IOSProviderConsentObservation,
-        IOSProviderConsentObservation
+        IOSV1ProviderConsentObservation,
+        IOSV1ProviderConsentObservation
     ) -> Bool
 
     let observe: Observe
@@ -124,7 +124,7 @@ nonisolated struct IOSProviderConsentPresentationClient: Sendable {
         self.hasSameObservationAuthority = hasSameObservationAuthority
     }
 
-    init(coordinator: IOSProviderConsentCoordinator) {
+    init(coordinator: IOSV1ProviderConsentCoordinator) {
         self.init(
             observe: {
                 await coordinator.observe()
@@ -167,7 +167,7 @@ nonisolated struct IOSProviderConsentPresentationClient: Sendable {
 }
 
 private nonisolated struct IOSProviderConsentPresentedObservation: Sendable {
-    let observation: IOSProviderConsentObservation
+    let observation: IOSV1ProviderConsentObservation
     let isAuthorizationReady: Bool
 }
 
@@ -191,18 +191,18 @@ final class IOSProviderConsentPresentationOwner {
     private final class VoiceRequest {
         let id: IOSProviderConsentPromptID
         let lease: IOSVoiceSceneStartLease
-        let observation: IOSProviderConsentObservation
+        let observation: IOSV1ProviderConsentObservation
         var continuation: CheckedContinuation<
-            IOSProviderConsentObservation?,
+            IOSV1ProviderConsentObservation?,
             Never
         >?
 
         init(
             id: IOSProviderConsentPromptID,
             lease: IOSVoiceSceneStartLease,
-            observation: IOSProviderConsentObservation,
+            observation: IOSV1ProviderConsentObservation,
             continuation: CheckedContinuation<
-                IOSProviderConsentObservation?,
+                IOSV1ProviderConsentObservation?,
                 Never
             >
         ) {
@@ -216,7 +216,7 @@ final class IOSProviderConsentPresentationOwner {
     private struct PendingConfirmation {
         let token: IOSProviderConsentConfirmationToken
         let action: IOSProviderConsentPrivacyAction
-        let observation: IOSProviderConsentObservation
+        let observation: IOSV1ProviderConsentObservation
     }
 
     private(set) var privacyState = IOSProviderConsentPrivacyState.notLoaded
@@ -243,7 +243,7 @@ final class IOSProviderConsentPresentationOwner {
     @ObservationIgnored
     private let operationGate = IOSProviderConsentPresentationOperationGate()
     @ObservationIgnored
-    private var privacyObservation: IOSProviderConsentObservation?
+    private var privacyObservation: IOSV1ProviderConsentObservation?
     @ObservationIgnored
     private var privacyAuthorizationIsReady = false
     @ObservationIgnored
@@ -276,7 +276,7 @@ final class IOSProviderConsentPresentationOwner {
     }
 
     convenience init(
-        coordinator: IOSProviderConsentCoordinator,
+        coordinator: IOSV1ProviderConsentCoordinator,
         sceneRegistry: IOSVoiceSceneRegistry,
         permissionAdapter: IOSMicrophonePermissionAdapter
     ) {
@@ -338,7 +338,7 @@ final class IOSProviderConsentPresentationOwner {
 
     /// Voice preflight reads through this same process owner so Privacy and
     /// every scene converge on one exact observation sequence.
-    func observeForVoicePreflight() async -> IOSProviderConsentObservation {
+    func observeForVoicePreflight() async -> IOSV1ProviderConsentObservation {
         if let mutationTask { await mutationTask.value }
         let client = client
         let completion = await operationGate.perform {
@@ -357,8 +357,8 @@ final class IOSProviderConsentPresentationOwner {
     /// The continuation is never transferred to another scene.
     func continueVoiceStart(
         lease: IOSVoiceSceneStartLease,
-        observation: IOSProviderConsentObservation
-    ) async -> IOSProviderConsentObservation? {
+        observation: IOSV1ProviderConsentObservation
+    ) async -> IOSV1ProviderConsentObservation? {
         guard operation == .idle,
               voiceRequest == nil,
               privacyObservation.map({ current in
@@ -724,7 +724,7 @@ final class IOSProviderConsentPresentationOwner {
         self.notice = notice
         finishMutation(mutationID)
 
-        let continuationResult: IOSProviderConsentObservation?
+        let continuationResult: IOSV1ProviderConsentObservation?
         if let result,
            voiceRequest === request,
            sceneRegistry.validateContinuation(request.lease) == .ready {
@@ -840,7 +840,7 @@ final class IOSProviderConsentPresentationOwner {
 
     private func finishVoiceRequest(
         id: IOSProviderConsentPromptID? = nil,
-        result: IOSProviderConsentObservation?
+        result: IOSV1ProviderConsentObservation?
     ) {
         guard let request = voiceRequest,
               id == nil || request.id == id else {
@@ -856,7 +856,7 @@ final class IOSProviderConsentPresentationOwner {
     }
 
     private static func canOfferReview(
-        for observation: IOSProviderConsentObservation,
+        for observation: IOSV1ProviderConsentObservation,
         isAuthorizationReady: Bool
     ) -> Bool {
         switch observation.status {
@@ -871,7 +871,7 @@ final class IOSProviderConsentPresentationOwner {
 
     private static func canPerform(
         _ action: IOSProviderConsentPrivacyAction,
-        using observation: IOSProviderConsentObservation,
+        using observation: IOSV1ProviderConsentObservation,
         isAuthorizationReady: Bool
     ) -> Bool {
         switch action {
@@ -889,17 +889,16 @@ final class IOSProviderConsentPresentationOwner {
 
     private static func map(_ error: Error)
         -> IOSProviderConsentPresentationFailure {
-        guard let error = error as? IOSProviderConsentError else {
+        guard let error = error as? IOSV1ProviderConsentError else {
             return .operationFailed
         }
         return switch error {
         case .staleObservation:
             .statusChanged
-        case .localDataUnavailable, .commitUncertain:
+        case .localDataUnavailable:
             .localDataUnavailable
         case .mutationNotSaved, .unreadableDataRequiresReset,
-             .resetRequiresUnreadableObservation, .revisionOverflow,
-             .invalidDisclosureVersion:
+             .resetRequiresUnreadableObservation, .revisionOverflow:
             .decisionNotSaved
         }
     }

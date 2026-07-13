@@ -31,15 +31,15 @@ extension IOSProviderConsentStageOutcome:
 /// coordinator. It returns only a normalized result that was consumed by the
 /// current consent fence; callers perform asynchronous persistence afterward.
 struct IOSProviderConsentStageExecutor: Sendable {
-    private let consentCoordinator: IOSProviderConsentCoordinator
+    private let consentCoordinator: IOSV1ProviderConsentCoordinator
 
-    init(consentCoordinator: IOSProviderConsentCoordinator) {
+    init(consentCoordinator: IOSV1ProviderConsentCoordinator) {
         self.consentCoordinator = consentCoordinator
     }
 
     func execute<Success: Sendable, Failure: Sendable>(
-        _ authorization: IOSProviderConsentAuthorization,
-        for stage: IOSProviderConsentProviderStage,
+        _ authorization: IOSV1ProviderConsentAuthorization,
+        for stage: IOSV1ProviderConsentProviderStage,
         operation: @escaping @Sendable () async throws -> Success,
         normalizeFailure: @escaping @Sendable (any Error) -> Failure
     ) async -> IOSProviderConsentStageOutcome<Success, Failure> {
@@ -74,7 +74,7 @@ protocol IOSProviderConsentStageGating: Sendable {
 
     func registerProviderDispatch(
         _ authorization: Authorization,
-        for stage: IOSProviderConsentProviderStage,
+        for stage: IOSV1ProviderConsentProviderStage,
         onCancellation: @escaping @Sendable () -> Void
     ) async -> Registration?
 
@@ -100,13 +100,13 @@ protocol IOSProviderConsentStageGating: Sendable {
 
 private struct IOSProviderConsentCoordinatorStageGate:
     IOSProviderConsentStageGating {
-    let coordinator: IOSProviderConsentCoordinator
+    let coordinator: IOSV1ProviderConsentCoordinator
 
     func registerProviderDispatch(
-        _ authorization: IOSProviderConsentAuthorization,
-        for stage: IOSProviderConsentProviderStage,
+        _ authorization: IOSV1ProviderConsentAuthorization,
+        for stage: IOSV1ProviderConsentProviderStage,
         onCancellation: @escaping @Sendable () -> Void
-    ) async -> IOSProviderConsentDispatchRegistration? {
+    ) async -> IOSV1ProviderConsentDispatchRegistration? {
         await coordinator.registerProviderDispatch(
             authorization,
             for: stage,
@@ -115,7 +115,7 @@ private struct IOSProviderConsentCoordinatorStageGate:
     }
 
     func launchProviderDispatch(
-        _ registration: IOSProviderConsentDispatchRegistration,
+        _ registration: IOSV1ProviderConsentDispatchRegistration,
         launch: @Sendable () -> Void
     ) async -> Bool {
         await coordinator.launchProviderDispatch(
@@ -125,15 +125,15 @@ private struct IOSProviderConsentCoordinatorStageGate:
     }
 
     func cancelProviderDispatch(
-        _ registration: IOSProviderConsentDispatchRegistration
+        _ registration: IOSV1ProviderConsentDispatchRegistration
     ) {
         coordinator.cancelProviderDispatch(registration)
     }
 
     func finishProviderDispatch(
-        _ registration: IOSProviderConsentDispatchRegistration,
+        _ registration: IOSV1ProviderConsentDispatchRegistration,
         onResultCancellation: @escaping @Sendable () -> Void
-    ) async -> IOSProviderConsentResultAuthorization? {
+    ) async -> IOSV1ProviderConsentResultAuthorization? {
         await coordinator.finishProviderDispatch(
             registration,
             onResultCancellation: onResultCancellation
@@ -141,7 +141,7 @@ private struct IOSProviderConsentCoordinatorStageGate:
     }
 
     func consumeProviderResult<Value: Sendable>(
-        _ authorization: IOSProviderConsentResultAuthorization,
+        _ authorization: IOSV1ProviderConsentResultAuthorization,
         perform operation: @Sendable () throws -> Value
     ) async rethrows -> Value? {
         try await coordinator.consumeProviderResult(
@@ -151,7 +151,7 @@ private struct IOSProviderConsentCoordinatorStageGate:
     }
 
     func abandonProviderResult(
-        _ authorization: IOSProviderConsentResultAuthorization
+        _ authorization: IOSV1ProviderConsentResultAuthorization
     ) {
         coordinator.abandonProviderResult(authorization)
     }
@@ -165,7 +165,7 @@ enum IOSProviderConsentStageExecutionEngine {
     >(
         gate: Gate,
         authorization: Gate.Authorization,
-        stage: IOSProviderConsentProviderStage,
+        stage: IOSV1ProviderConsentProviderStage,
         operation: @escaping @Sendable () async throws -> Success,
         normalizeFailure: @escaping @Sendable (any Error) -> Failure
     ) async -> IOSProviderConsentStageOutcome<Success, Failure> {

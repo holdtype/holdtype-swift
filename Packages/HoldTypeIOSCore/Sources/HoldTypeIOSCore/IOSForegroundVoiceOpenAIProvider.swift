@@ -212,7 +212,7 @@ enum IOSForegroundVoiceTranscriptionStageError: Error, Sendable {
 struct IOSForegroundVoiceTranscriptionExecutor:
     IOSPendingTranscriptionExecutor,
     Sendable {
-    let authorization: IOSProviderConsentAuthorization
+    let authorization: IOSV1ProviderConsentAuthorization
     let stageExecutor: IOSProviderConsentStageExecutor
     let provider: IOSForegroundVoiceOpenAIProviderOperations
     let credential: OpenAICredential
