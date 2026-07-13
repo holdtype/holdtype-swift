@@ -9,12 +9,12 @@ struct IOSForegroundVoiceWorkflowPlatformBridgeTests {
         async throws {
         let gate = WorkflowPermissionGate()
         let state = WorkflowPermissionState(gate: gate)
-        let adapter = IOSMicrophonePermissionAdapter(client: state.client)
-        let owner = IOSForegroundVoiceWorkflowPermissionOwner(
-            adapter: adapter,
+        let adapter = IOSMicrophonePermissionAdapter(
+            client: state.client,
             timeout: .milliseconds(1),
             sleep: { _ in }
         )
+        let owner = IOSForegroundVoiceWorkflowPermissionOwner(adapter: adapter)
 
         let outcome = await owner.client.requestIfUndetermined()
         #expect(outcome == .timedOut)
@@ -27,7 +27,8 @@ struct IOSForegroundVoiceWorkflowPlatformBridgeTests {
     }
 
     @Test
-    func audioOwnerAllowsOnlyExactOutputOnlyRouteChange() throws {
+    func audioOwnerRequestsActiveRecorderRevalidationForOutputOnlyRouteChange()
+        throws {
         let system = WorkflowAudioSystem()
         let adapter = IOSAudioSessionAdapter(system: system)
         let owner = IOSForegroundVoiceWorkflowAudioOwner(adapter: adapter)
@@ -37,7 +38,25 @@ struct IOSForegroundVoiceWorkflowPlatformBridgeTests {
         let observation = lease.observe { events.append($0) }
 
         system.emit(.routeChanged(.routeConfigurationChange))
-        #expect(events.isEmpty)
+        #expect(events == [.routeNeedsRevalidation])
+
+        observation.cancel()
+        lease.deactivate()
+        #expect(system.activationRequests == [
+            .activate,
+            .deactivateAndNotifyOthers,
+        ])
+    }
+
+    @Test
+    func audioOwnerRejectsChangedInputWithoutRevalidationOpportunity() throws {
+        let system = WorkflowAudioSystem()
+        let adapter = IOSAudioSessionAdapter(system: system)
+        let owner = IOSForegroundVoiceWorkflowAudioOwner(adapter: adapter)
+        let lease = try owner.activate()
+        try lease.freezeAndValidateInput()
+        var events: [IOSForegroundVoiceWorkflowAudioEvent] = []
+        let observation = lease.observe { events.append($0) }
 
         system.state = IOSAudioSessionCurrentState(
             inputPorts: [

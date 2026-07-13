@@ -72,6 +72,11 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(fixture.facade.promptPresentation == .available)
 
         let values = fixture.events.values
+        let consentIndex = try #require(
+            values.firstIndex(of: "consent-observe")
+        )
+        #expect(values[..<consentIndex].filter { $0 == "settings-load" }.count == 1)
+        #expect(values[..<consentIndex].filter { $0 == "library-load" }.count == 1)
         assertOrdered(
             [
                 "capture-reconcile",
@@ -401,7 +406,7 @@ struct IOSForegroundVoiceWorkflowTests {
             progress: { _ in }
         )
         #expect(recorder.events.contains("recording-start"))
-        #expect(recorder.stopReasons == [.cancelled])
+        #expect(recorder.stopReasons == [.interrupted])
         #expect(!recorder.events.contains("provider-process"))
     }
 
@@ -411,8 +416,6 @@ struct IOSForegroundVoiceWorkflowTests {
         changed.localTextCleanupEnabled = false
         let settings = try await WorkflowFixture(
             settingsLoads: [
-                .value(.defaults),
-                .value(.defaults),
                 .value(.defaults),
                 .value(changed),
             ],
@@ -451,7 +454,6 @@ struct IOSForegroundVoiceWorkflowTests {
         ]
         let library = try await WorkflowFixture(
             libraryLoads: [
-                .value(.defaults), .value(.defaults), .value(.defaults),
                 .value(.defaults), .value(.defaults),
                 .value(changedLibrary),
             ],
@@ -721,12 +723,14 @@ struct IOSForegroundVoiceWorkflowTests {
             processorResolution: .localRecoveryPending(
                 failure: .localPersistence,
                 stage: .postProcessing,
-                disposition: .processingCheckpoint
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
             ),
             localRetryResolution: .localRecoveryPending(
                 failure: .localPersistence,
                 stage: .postProcessing,
-                disposition: .processingCheckpoint
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
             ),
             preacceptConsent: true,
             acquireLease: false
@@ -807,6 +811,1561 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func typedPreflightFailuresRemainDistinctAndStopImmediately() async throws {
+        let denied = try await WorkflowFixture(permission: .denied)
+        let deniedResolution = await denied.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: denied.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(deniedResolution.failure == .microphonePermissionDenied)
+        #expect(deniedResolution.observation.setup == .needsSetup(
+            .microphoneAndPrivacy
+        ))
+
+        let unavailable = try await WorkflowFixture(permission: .unavailable)
+        let unavailableResolution = await unavailable.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: unavailable.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(unavailableResolution.failure == .microphoneUnavailable)
+        #expect(unavailableResolution.observation.setup == .unavailable)
+
+        let timedOut = try await WorkflowFixture(
+            permission: .undetermined,
+            permissionOutcome: .timedOut,
+            reactivateSceneAfterPermission: false
+        )
+        let timedOutResolution = await timedOut.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: timedOut.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(timedOutResolution.failure == .microphonePermissionTimedOut)
+        #expect(!timedOut.events.contains("history-stop"))
+
+        let cancelled = try await WorkflowFixture(
+            permission: .undetermined,
+            permissionOutcome: .cancelled,
+            reactivateSceneAfterPermission: false
+        )
+        let cancelledResolution = await cancelled.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: cancelled.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(cancelledResolution.failure == nil)
+        #expect(!cancelled.events.contains("history-stop"))
+
+        let missingCredential = try await WorkflowFixture(
+            permission: .granted,
+            credentialResolutions: [.needsSetup]
+        )
+        let missingResolution = await missingCredential.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: missingCredential.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(missingResolution.failure == nil)
+        #expect(missingResolution.observation.setup == .needsSetup(.openAI))
+
+        let secureUnavailable = try await WorkflowFixture(
+            permission: .granted,
+            credentialResolutions: [.unavailable]
+        )
+        let secureResolution = await secureUnavailable.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: secureUnavailable.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(secureResolution.failure == .unavailable)
+        #expect(secureResolution.observation.setup == .unavailable)
+
+        let settingsIO = try await WorkflowFixture(
+            settingsLoads: [.failure],
+            permission: .granted
+        )
+        let settingsResolution = await settingsIO.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: settingsIO.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(settingsResolution.failure == .localRecovery)
+
+        let libraryIO = try await WorkflowFixture(
+            libraryLoads: [.failure],
+            permission: .granted
+        )
+        let libraryResolution = await libraryIO.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: libraryIO.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(libraryResolution.failure == .localRecovery)
+
+        var invalidSettings = IOSAppSettings.defaults
+        invalidSettings.transcriptionConfiguration = TranscriptionConfiguration(
+            language: .custom,
+            customLanguageCode: "x-invalid"
+        )
+        let invalid = try await WorkflowFixture(
+            settings: invalidSettings,
+            permission: .granted
+        )
+        let invalidResolution = await invalid.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: invalid.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(invalidResolution.failure == .unavailable)
+    }
+
+    @Test
+    func foregroundLossDuringHistoryOrRecorderCreationStartsNoAudioCapture()
+        async throws {
+        let history = try await WorkflowFixture(
+            permission: .granted,
+            deactivateSceneDuringHistoryStop: true
+        )
+        _ = await history.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: history.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(history.events.contains("history-stop"))
+        #expect(!history.events.contains("audio-activate"))
+        #expect(!history.events.contains("recording-make"))
+
+        let recorder = try await WorkflowFixture(
+            permission: .granted,
+            deactivateSceneDuringMakeRecording: true
+        )
+        _ = await recorder.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: recorder.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(recorder.events.contains("recording-make"))
+        #expect(!recorder.events.contains("recording-start"))
+        #expect(recorder.stopReasons == [.interrupted])
+    }
+
+    @Test
+    func exactOutputOnlyRouteContinuesWithFullLiveProof() async throws {
+        let continuing = try await WorkflowFixture(
+            permission: .granted,
+            audioFreezeResults: [true, true, true],
+            recordingActiveValues: [true, true]
+        )
+        let continuingToken = IOSForegroundVoiceWorkflowAttemptToken()
+        let continuingTask = Task { @MainActor in
+            await continuing.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: continuing.lease
+                ),
+                token: continuingToken,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil(timeout: .seconds(5)) {
+            continuing.events.contains("recording-start")
+        }
+        continuing.emitAudio(.routeNeedsRevalidation)
+        await Task.yield()
+        #expect(continuing.stopReasons.isEmpty)
+        #expect(continuing.workflow.finishUtterance(continuingToken) == .accepted)
+        _ = await continuingTask.value
+    }
+
+    @Test
+    func outputOnlyRouteStopsWhenRecorderIsNotActive() async throws {
+        let inactive = try await WorkflowFixture(
+            permission: .granted,
+            recordingActiveValues: [true, false]
+        )
+        let inactiveTask = Task { @MainActor in
+            await inactive.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: inactive.lease
+                ),
+                token: IOSForegroundVoiceWorkflowAttemptToken(),
+                progress: { _ in }
+            )
+        }
+        try await waitUntil(timeout: .seconds(5)) {
+            inactive.events.contains("recording-start")
+        }
+        inactive.emitAudio(.routeNeedsRevalidation)
+        _ = await inactiveTask.value
+        #expect(inactive.stopReasons == [.interrupted])
+    }
+
+    @Test
+    func outputOnlyRouteStopsWhenFrozenInputRevalidationFails() async throws {
+        let invalidInput = try await WorkflowFixture(
+            permission: .granted,
+            audioFreezeResults: [true, true, false],
+            recordingActiveValues: [true, true]
+        )
+        let invalidInputTask = Task { @MainActor in
+            await invalidInput.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: invalidInput.lease
+                ),
+                token: IOSForegroundVoiceWorkflowAttemptToken(),
+                progress: { _ in }
+            )
+        }
+        try await waitUntil(timeout: .seconds(5)) {
+            invalidInput.events.contains("recording-start")
+        }
+        invalidInput.emitAudio(.routeNeedsRevalidation)
+        _ = await invalidInputTask.value
+        #expect(invalidInput.stopReasons == [.interrupted])
+    }
+
+    @Test
+    func initiatingSceneOwnershipEndsAfterPreflightButAggregateLossStillStops()
+        async throws {
+        let listening = try await WorkflowFixture(permission: .granted)
+        let second = listening.registry.registerScene(initialActivity: .active)
+        let listeningToken = IOSForegroundVoiceWorkflowAttemptToken()
+        let listeningTask = Task { @MainActor in
+            await listening.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: listening.lease
+                ),
+                token: listeningToken,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { listening.events.contains("recording-start") }
+        #expect(listening.facade.promptPresentation == .available)
+        #expect(listening.facade.unregister() == .accepted)
+        await Task.yield()
+        #expect(listening.stopReasons.isEmpty)
+        #expect(listening.workflow.finishUtterance(listeningToken) == .accepted)
+        _ = await listeningTask.value
+        #expect(second.updateActivity(.inactive) == .accepted)
+
+        let processing = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorSuspendsUntilCancelled: true,
+            preacceptConsent: true
+        )
+        let processingSecond = processing.registry.registerScene(
+            initialActivity: .active
+        )
+        let processingToken = IOSForegroundVoiceWorkflowAttemptToken()
+        let processingTask = Task { @MainActor in
+            await processing.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: processing.lease
+                ),
+                token: processingToken,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { processing.events.contains("recording-start") }
+        #expect(
+            processing.workflow.finishUtterance(processingToken) == .accepted
+        )
+        try await waitUntil { processing.events.contains("provider-process") }
+        #expect(processing.facade.unregister() == .accepted)
+        await Task.yield()
+        #expect(processingSecond.updateActivity(.inactive) == .accepted)
+        let processingResolution = await processingTask.value
+        #expect(processingResolution.outcome == .recoverableFailure)
+        #expect(processingResolution.observation.recovery == .pendingRetryOrDiscard)
+    }
+
+    @Test
+    func expirationAfterAwaitedStopCueNeverPreparesPending() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            expireFinalizationAtStopBoundary: true,
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        let resolution = await task.value
+        #expect(fixture.events.contains("stop-boundary"))
+        #expect(!fixture.events.contains("pending-prepare"))
+        #expect(!fixture.events.contains("provider-process"))
+        #expect(resolution.failure == .localRecovery)
+    }
+
+    @Test
+    func terminalEventDuringRecorderStartIsObservedWithoutWindow() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            terminalDuringRecordingStart: .interrupted
+        )
+        let resolution = await fixture.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: fixture.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(fixture.events.contains("recording-start"))
+        #expect(fixture.stopReasons == [.interrupted])
+        #expect(resolution.outcome == .interrupted)
+    }
+
+    @Test
+    func captureHandoffIsSingleUseAndReleasesExactlyOnceOnFailure()
+        async throws {
+        var prepareCount = 0
+        var releaseCount = 0
+        let successful = IOSForegroundVoiceWorkflowCaptureHandoff(
+            prepare: { configuration in
+                prepareCount += 1
+                return try makePendingRecording(
+                    outputIntent: .standard,
+                    phase: .readyForTranscription,
+                    configuration: configuration
+                )
+            },
+            release: { releaseCount += 1 }
+        )
+        _ = try await successful.preparePending(
+            transcriptionConfiguration: .defaults
+        )
+        do {
+            _ = try await successful.preparePending(
+                transcriptionConfiguration: .defaults
+            )
+            Issue.record("Second prepare unexpectedly succeeded")
+        } catch {}
+        successful.release()
+        #expect(prepareCount == 1)
+        #expect(releaseCount == 0)
+
+        var failingPrepareCount = 0
+        var failingReleaseCount = 0
+        let failing = IOSForegroundVoiceWorkflowCaptureHandoff(
+            prepare: { _ in
+                failingPrepareCount += 1
+                throw WorkflowFixtureError.configuredFailure
+            },
+            release: { failingReleaseCount += 1 }
+        )
+        do {
+            _ = try await failing.preparePending(
+                transcriptionConfiguration: .defaults
+            )
+            Issue.record("Failing prepare unexpectedly succeeded")
+        } catch {}
+        failing.release()
+        #expect(failingPrepareCount == 1)
+        #expect(failingReleaseCount == 1)
+    }
+
+    @Test
+    func everyRejectedStartPathRetiresItsExactSceneLease() async throws {
+        let invalid = try await WorkflowFixture(permission: .granted)
+        let foreignRegistry = IOSVoiceSceneRegistry()
+        let foreignFacade = foreignRegistry.registerScene(
+            initialActivity: .active
+        )
+        let foreignLease = try #require(foreignFacade.acquireStartLease())
+        _ = await invalid.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: foreignLease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        let replacementForeignLease = try #require(
+            foreignFacade.acquireStartLease()
+        )
+        replacementForeignLease.finish()
+
+        let busy = try await WorkflowFixture(permission: .granted)
+        let busyToken = IOSForegroundVoiceWorkflowAttemptToken()
+        let busyTask = Task { @MainActor in
+            await busy.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: busy.lease
+                ),
+                token: busyToken,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { busy.events.contains("recording-start") }
+        let busyScene = busy.registry.registerScene(initialActivity: .active)
+        let rejectedLease = try #require(busyScene.acquireStartLease())
+        _ = await busy.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: rejectedLease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        let replacementBusyLease = try #require(
+            busyScene.acquireStartLease()
+        )
+        replacementBusyLease.finish()
+        #expect(busy.workflow.finishUtterance(busyToken) == .accepted)
+        _ = await busyTask.value
+
+        let released = try await WorkflowFixture(
+            permission: .granted,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: released.workflow.client,
+            sceneRegistry: released.registry
+        )
+        await controller.activate()
+        let command = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        released.releaseWorkflow()
+        #expect(controller.submit(command, from: released.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+        let postDeallocationLease = try #require(
+            released.facade.acquireStartLease()
+        )
+        postDeallocationLease.finish()
+    }
+
+    @Test
+    func localCheckpointRetryRequiresForegroundConsentAndCredential()
+        async throws {
+        let cancellable = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .postProcessing,
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
+            ),
+            localRetrySuspendsUntilCancelled: true,
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let cancellableController = IOSForegroundVoiceController(
+            client: cancellable.workflow.client,
+            sceneRegistry: cancellable.registry
+        )
+        await cancellableController.activate()
+        let start = try #require(cancellableController.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(
+            cancellableController.submit(start, from: cancellable.facade)
+                == .accepted
+        )
+        try await waitUntil {
+            cancellableController.presentation.phase == .listening
+        }
+        let finish = try #require(cancellableController.actionCommands.first {
+            $0.action == .finishUtterance
+        })
+        #expect(cancellableController.submit(finish) == .accepted)
+        try await waitUntil {
+            cancellableController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        }
+        let retry = try #require(cancellableController.actionCommands.first {
+            $0.action == .retryLocalCheckpoint
+        })
+        #expect(cancellableController.submit(retry) == .accepted)
+        try await waitUntil { cancellable.events.contains("local-retry") }
+        #expect(cancellable.facade.updateActivity(.inactive) == .accepted)
+        try await waitUntil {
+            cancellableController.presentation.phase == .inactive
+        }
+        #expect(
+            cancellableController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        )
+
+        let noConsent = try await makeLocalCheckpointFixture()
+        let noConsentController = IOSForegroundVoiceController(
+            client: noConsent.workflow.client,
+            sceneRegistry: noConsent.registry
+        )
+        try await driveToLocalCheckpoint(
+            fixture: noConsent,
+            controller: noConsentController
+        )
+        try await noConsent.withdrawConsent()
+        let noConsentRetry = try #require(
+            noConsentController.actionCommands.first {
+                $0.action == .retryLocalCheckpoint
+            }
+        )
+        #expect(noConsentController.submit(noConsentRetry) == .accepted)
+        try await waitUntil {
+            noConsentController.presentation.phase == .inactive
+        }
+        #expect(
+            noConsentController.presentation.setup
+                == .needsSetup(.microphoneAndPrivacy)
+        )
+        #expect(
+            noConsentController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        )
+        #expect(noConsentController.actionCommands.contains {
+            $0.action == .retryLocalCheckpoint
+        })
+        #expect(!noConsent.events.contains("local-retry"))
+
+        let noCredential = try await makeLocalCheckpointFixture(
+            credentialResolutions: [.available, .unavailable]
+        )
+        let noCredentialController = IOSForegroundVoiceController(
+            client: noCredential.workflow.client,
+            sceneRegistry: noCredential.registry
+        )
+        try await driveToLocalCheckpoint(
+            fixture: noCredential,
+            controller: noCredentialController
+        )
+        let noCredentialRetry = try #require(
+            noCredentialController.actionCommands.first {
+                $0.action == .retryLocalCheckpoint
+            }
+        )
+        #expect(noCredentialController.submit(noCredentialRetry) == .accepted)
+        try await waitUntil {
+            noCredentialController.presentation.phase == .inactive
+        }
+        #expect(noCredentialController.presentation.failure == .unavailable)
+        #expect(
+            noCredentialController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        )
+        #expect(noCredentialController.actionCommands.contains {
+            $0.action == .retryLocalCheckpoint
+        })
+        #expect(!noCredential.events.contains("local-retry"))
+    }
+
+    @Test
+    func savingDispositionWithoutExactExpectationUsesLocalAuthority()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .outputDelivery,
+                disposition: .savingResult,
+                requirement: .providerFree
+            ),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(controller.submit(start, from: fixture.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .listening }
+        let finish = try #require(controller.actionCommands.first {
+            $0.action == .finishUtterance
+        })
+        #expect(controller.submit(finish) == .accepted)
+        try await waitUntil {
+            controller.presentation.recovery
+                == .localCheckpoint(.outputDelivery)
+        }
+        #expect(controller.actionCommands.contains {
+            $0.action == .retryLocalCheckpoint
+        })
+        #expect(!controller.actionCommands.contains {
+            $0.action == .retrySavingResult
+        })
+    }
+
+    @Test
+    func unexpectedTailAndWatchdogErrorsResolveFailClosed() async throws {
+        var settings = IOSAppSettings.defaults
+        settings.voiceSessionPreferences.recordingStopTailDuration = .seconds2
+        let tail = try await WorkflowFixture(
+            settings: settings,
+            permission: .granted,
+            throwTailSleep: true
+        )
+        let tailToken = IOSForegroundVoiceWorkflowAttemptToken()
+        let tailTask = Task { @MainActor in
+            await tail.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: tail.lease
+                ),
+                token: tailToken,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { tail.events.contains("recording-start") }
+        #expect(tail.workflow.finishUtterance(tailToken) == .accepted)
+        _ = await tailTask.value
+        #expect(tail.stopReasons == [.interrupted])
+
+        let watchdog = try await WorkflowFixture(
+            permission: .granted,
+            throwMaximumSleep: true
+        )
+        let watchdogTask = Task { @MainActor in
+            await watchdog.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: watchdog.lease
+                ),
+                token: IOSForegroundVoiceWorkflowAttemptToken(),
+                progress: { _ in }
+            )
+        }
+        _ = await watchdogTask.value
+        #expect(watchdog.stopReasons == [.interrupted])
+    }
+
+    @Test
+    func lateProviderSuccessAfterAggregateLossIsRejected() async throws {
+        let record = try makeAcceptedDeliveryRecord()
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorSuspendsUntilCancelled: true,
+            processorReturnsSuccessAfterCancellation: true,
+            processorEmitsLateProgressAfterCancellation: true,
+            processorResolution: .acceptance(.resultReady(record)),
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        try await waitUntil { fixture.events.contains("provider-process") }
+        #expect(fixture.facade.updateActivity(.inactive) == .accepted)
+        let resolution = await task.value
+        #expect(resolution.outcome != .resultReady)
+        #expect(resolution.observation.recovery == .pendingRetryOrDiscard)
+    }
+
+    @Test
+    func pendingRetryPreservesTypedPreflightFailures() async throws {
+        let credential = try await WorkflowFixture(
+            permission: .granted,
+            credentialResolutions: [.unavailable],
+            preacceptConsent: true
+        )
+        _ = try await credential.seedPending()
+        let credentialController = IOSForegroundVoiceController(
+            client: credential.workflow.client,
+            sceneRegistry: credential.registry
+        )
+        await credentialController.activate()
+        let credentialRetry = try #require(
+            credentialController.actionCommands.first {
+                $0.action == .retryPending
+            }
+        )
+        #expect(credentialController.submit(credentialRetry) == .accepted)
+        try await waitUntil {
+            credentialController.presentation.phase == .inactive
+        }
+        #expect(credentialController.presentation.failure == .unavailable)
+        #expect(!credential.events.contains("provider-process"))
+
+        let settings = try await WorkflowFixture(
+            settingsLoads: [.failure],
+            permission: .granted,
+            preacceptConsent: true
+        )
+        _ = try await settings.seedPending()
+        let settingsController = IOSForegroundVoiceController(
+            client: settings.workflow.client,
+            sceneRegistry: settings.registry
+        )
+        await settingsController.activate()
+        let settingsRetry = try #require(
+            settingsController.actionCommands.first {
+                $0.action == .retryPending
+            }
+        )
+        #expect(settingsController.submit(settingsRetry) == .accepted)
+        try await waitUntil {
+            settingsController.presentation.phase == .inactive
+        }
+        #expect(settingsController.presentation.failure == .localRecovery)
+        #expect(!settings.events.contains("provider-process"))
+    }
+
+    @Test
+    func ordinaryCancelHasNoFalseTooShortFailureOrRecovery() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(controller.submit(start, from: fixture.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .listening }
+        let cancel = try #require(controller.actionCommands.first {
+            $0.action == .cancelUtterance
+        })
+        #expect(controller.submit(cancel) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+        #expect(fixture.stopReasons == [.cancelled])
+        #expect(controller.presentation.failure == nil)
+        #expect(controller.presentation.outcome == nil)
+        #expect(controller.presentation.recovery == .none)
+        #expect(!fixture.events.contains("provider-process"))
+    }
+
+    @Test
+    func cleanupHandlesReleasedOffMainHopToMainActorExactlyOnce()
+        async throws {
+        let counter = WorkflowCleanupCounter()
+
+        var observation: IOSForegroundVoiceWorkflowObservation? =
+            IOSForegroundVoiceWorkflowObservation {
+                counter.increment()
+            }
+        let observationBox = WorkflowOffMainReleaseBox(observation)
+        observation = nil
+
+        var handoff: IOSForegroundVoiceWorkflowCaptureHandoff? =
+            IOSForegroundVoiceWorkflowCaptureHandoff(
+                prepare: { configuration in
+                    try makePendingRecording(
+                        outputIntent: .standard,
+                        phase: .readyForTranscription,
+                        configuration: configuration
+                    )
+                },
+                release: { counter.increment() }
+            )
+        let handoffBox = WorkflowOffMainReleaseBox(handoff)
+        handoff = nil
+
+        var finalization: IOSForegroundVoiceWorkflowFinalizationLease? =
+            IOSForegroundVoiceWorkflowFinalizationLease {
+                counter.increment()
+            }
+        let finalizationBox = WorkflowOffMainReleaseBox(finalization)
+        finalization = nil
+
+        var audio: IOSForegroundVoiceWorkflowAudioLease? =
+            IOSForegroundVoiceWorkflowAudioLease(
+                freezeAndValidate: {},
+                observe: { _ in
+                    IOSForegroundVoiceWorkflowObservation(cancel: {})
+                },
+                deactivate: { counter.increment() }
+            )
+        let audioBox = WorkflowOffMainReleaseBox(audio)
+        audio = nil
+
+        await observationBox.releaseFromDetachedTask()
+        await handoffBox.releaseFromDetachedTask()
+        await finalizationBox.releaseFromDetachedTask()
+        await audioBox.releaseFromDetachedTask()
+        try await waitUntil { counter.value == 4 }
+
+        await observationBox.releaseFromDetachedTask()
+        await handoffBox.releaseFromDetachedTask()
+        await finalizationBox.releaseFromDetachedTask()
+        await audioBox.releaseFromDetachedTask()
+        await Task.yield()
+        #expect(counter.value == 4)
+    }
+
+    @Test
+    func retryAuthorityRejectsLossReactivationAndCancellationHostileSuccess()
+        async throws {
+        let record = try makeAcceptedDeliveryRecord()
+        let pending = try await WorkflowFixture(
+            permission: .granted,
+            processorSuspendsUntilCancelled: true,
+            processorReturnsSuccessAfterCancellation: true,
+            processorEmitsLateProgressAfterCancellation: true,
+            processorResolution: .acceptance(.resultReady(record)),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        _ = try await pending.seedPending()
+        let pendingController = IOSForegroundVoiceController(
+            client: pending.workflow.client,
+            sceneRegistry: pending.registry
+        )
+        await pendingController.activate()
+        let retryPending = try #require(
+            pendingController.actionCommands.first {
+                $0.action == .retryPending
+            }
+        )
+        #expect(pendingController.submit(retryPending) == .accepted)
+        try await waitUntil { pending.events.contains("provider-process") }
+        #expect(pending.facade.updateActivity(.inactive) == .accepted)
+        #expect(pending.facade.updateActivity(.active) == .accepted)
+        try await waitUntil {
+            pending.events.contains("provider-late-progress")
+        }
+        #expect(pendingController.presentation.phase == .processing)
+        #expect(pendingController.presentation.stage == .transcription)
+        try await waitUntil {
+            pendingController.presentation.phase == .inactive
+        }
+        #expect(
+            pendingController.presentation.recovery == .pendingRetryOrDiscard
+        )
+        #expect(pendingController.presentation.outcome != .resultReady)
+
+        let local = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .postProcessing,
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
+            ),
+            localRetrySuspendsUntilCancelled: true,
+            localRetryReturnsSuccessAfterCancellation: true,
+            localRetryEmitsLateProgressAfterCancellation: true,
+            localRetryResolution: .acceptance(.resultReady(record)),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let localController = IOSForegroundVoiceController(
+            client: local.workflow.client,
+            sceneRegistry: local.registry
+        )
+        try await driveToLocalCheckpoint(
+            fixture: local,
+            controller: localController
+        )
+        let retryLocal = try #require(
+            localController.actionCommands.first {
+                $0.action == .retryLocalCheckpoint
+            }
+        )
+        #expect(localController.submit(retryLocal) == .accepted)
+        try await waitUntil { local.events.contains("local-retry") }
+        #expect(local.facade.updateActivity(.inactive) == .accepted)
+        #expect(local.facade.updateActivity(.active) == .accepted)
+        try await waitUntil { local.events.contains("local-late-progress") }
+        #expect(localController.presentation.phase == .processing)
+        #expect(localController.presentation.stage == .postProcessing)
+        try await waitUntil { localController.presentation.phase == .inactive }
+        #expect(
+            localController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        )
+        #expect(localController.presentation.outcome != .resultReady)
+    }
+
+    @Test
+    func retryPendingLossDuringEveryAuthorityPreflightRemainsTerminal()
+        async throws {
+        for trigger in [
+            WorkflowEventTrigger("settings-load"),
+            WorkflowEventTrigger("consent-observe"),
+            WorkflowEventTrigger("credential-resolve"),
+            WorkflowEventTrigger("library-load", occurrence: 2),
+            WorkflowEventTrigger("consent-revalidate", occurrence: 3),
+            WorkflowEventTrigger("credential-revalidate", occurrence: 2),
+        ] {
+            let fixture = try await WorkflowFixture(
+                permission: .granted,
+                lossReactivationTrigger: trigger,
+                preacceptConsent: true,
+                acquireLease: false
+            )
+            _ = try await fixture.seedPending()
+            let controller = IOSForegroundVoiceController(
+                client: fixture.workflow.client,
+                sceneRegistry: fixture.registry
+            )
+            await controller.activate()
+            let retry = try #require(controller.actionCommands.first {
+                $0.action == .retryPending
+            })
+            #expect(controller.submit(retry) == .accepted)
+            try await waitUntil { controller.presentation.phase == .inactive }
+            #expect(
+                controller.presentation.recovery == .pendingRetryOrDiscard
+            )
+            #expect(!fixture.events.contains("provider-process"))
+            #expect(fixture.registry.snapshot.isForegroundActive)
+            if trigger.event == "settings-load" {
+                #expect(!fixture.events.contains("library-load"))
+            }
+        }
+    }
+
+    @Test
+    func parentCancelDuringRetryPreflightNeverDispatchesChild() async throws {
+        for event in [
+            "settings-load",
+            "consent-observe",
+            "credential-resolve",
+        ] {
+            let fixture = try await WorkflowFixture(
+                permission: .granted,
+                suspensionTrigger: WorkflowEventTrigger(event),
+                preacceptConsent: true,
+                acquireLease: false
+            )
+            _ = try await fixture.seedPending()
+            let controller = IOSForegroundVoiceController(
+                client: fixture.workflow.client,
+                sceneRegistry: fixture.registry
+            )
+            await controller.activate()
+            let retry = try #require(controller.actionCommands.first {
+                $0.action == .retryPending
+            })
+            #expect(controller.submit(retry) == .accepted)
+            try await waitUntil { fixture.events.contains(event) }
+            let cancel = try #require(controller.actionCommands.first {
+                $0.action == .cancelProcessing
+            })
+            #expect(controller.submit(cancel) == .accepted)
+            try await waitUntil {
+                fixture.events.contains("\(event)-cancelled")
+            }
+            try await waitUntil { controller.presentation.phase == .inactive }
+            #expect(
+                controller.presentation.recovery == .pendingRetryOrDiscard
+            )
+            #expect(!fixture.events.contains("provider-process"))
+            if event == "settings-load" {
+                #expect(!fixture.events.contains("library-load"))
+            }
+        }
+    }
+
+    @Test
+    func retryPendingRejectsReplacedVisibleSourceAndPreflightMutations()
+        async throws {
+        let replaced = try await WorkflowFixture(
+            permission: .granted,
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        _ = try await replaced.seedPending()
+        let replacedController = IOSForegroundVoiceController(
+            client: replaced.workflow.client,
+            sceneRegistry: replaced.registry
+        )
+        await replacedController.activate()
+        let staleRetry = try #require(
+            replacedController.actionCommands.first {
+                $0.action == .retryPending
+            }
+        )
+        _ = try replaced.replacePending()
+        #expect(replacedController.submit(staleRetry) == .accepted)
+        try await waitUntil {
+            replacedController.presentation.phase == .inactive
+        }
+        #expect(!replaced.events.contains("provider-process"))
+
+        for trigger in [
+            WorkflowEventTrigger("settings-load"),
+            WorkflowEventTrigger("consent-observe"),
+            WorkflowEventTrigger("credential-resolve"),
+            WorkflowEventTrigger("library-load", occurrence: 2),
+            WorkflowEventTrigger("consent-revalidate", occurrence: 3),
+            WorkflowEventTrigger("credential-revalidate", occurrence: 2),
+        ] {
+            let fixture = try await WorkflowFixture(
+                permission: .granted,
+                pendingMutationTrigger: trigger,
+                preacceptConsent: true,
+                acquireLease: false
+            )
+            _ = try await fixture.seedPending()
+            let controller = IOSForegroundVoiceController(
+                client: fixture.workflow.client,
+                sceneRegistry: fixture.registry
+            )
+            await controller.activate()
+            let retry = try #require(controller.actionCommands.first {
+                $0.action == .retryPending
+            })
+            #expect(controller.submit(retry) == .accepted)
+            try await waitUntil { controller.presentation.phase == .inactive }
+            #expect(!fixture.events.contains("provider-process"))
+        }
+    }
+
+    @Test
+    func retryPendingRevalidatesFrozenConfigurationAndFinalProviderProofs()
+        async throws {
+        var changedSettings = IOSAppSettings.defaults
+        changedSettings.keepLatestResult.toggle()
+        var changedLibrary = IOSLibraryContent.defaults
+        changedLibrary.replacementRules = [
+            TextReplacementRule(search: "one", replacement: "two")
+        ]
+        let scenarios: [WorkflowFixture] = [
+            try await WorkflowFixture(
+                settingsLoads: [
+                    .value(.defaults),
+                    .value(changedSettings),
+                ],
+                permission: .granted,
+                preacceptConsent: true,
+                acquireLease: false
+            ),
+            try await WorkflowFixture(
+                libraryLoads: [
+                    .value(.defaults),
+                    .value(changedLibrary),
+                ],
+                permission: .granted,
+                preacceptConsent: true,
+                acquireLease: false
+            ),
+            try await WorkflowFixture(
+                permission: .granted,
+                consentWithdrawalTrigger: WorkflowEventTrigger(
+                    "library-load",
+                    occurrence: 2
+                ),
+                preacceptConsent: true,
+                acquireLease: false
+            ),
+            try await WorkflowFixture(
+                permission: .granted,
+                consentRevalidation: [true, false],
+                preacceptConsent: true,
+                acquireLease: false
+            ),
+            try await WorkflowFixture(
+                permission: .granted,
+                credentialRevalidation: [true, false],
+                preacceptConsent: true,
+                acquireLease: false
+            ),
+        ]
+        for fixture in scenarios {
+            _ = try await fixture.seedPending()
+            let controller = IOSForegroundVoiceController(
+                client: fixture.workflow.client,
+                sceneRegistry: fixture.registry
+            )
+            await controller.activate()
+            let retry = try #require(controller.actionCommands.first {
+                $0.action == .retryPending
+            })
+            #expect(controller.submit(retry) == .accepted)
+            try await waitUntil { controller.presentation.phase == .inactive }
+            #expect(!fixture.events.contains("provider-process"))
+            #expect(
+                controller.presentation.recovery == .pendingRetryOrDiscard
+            )
+        }
+    }
+
+    @Test
+    func ordinaryCancelPreservesDurableRecoveryActionAndFailure() async throws {
+        let registry = IOSVoiceSceneRegistry()
+        let facade = registry.registerScene(initialActivity: .active)
+        let client = IOSForegroundVoiceClient(
+            observe: {
+                IOSForegroundVoiceObservation(
+                    setup: .ready,
+                    recovery: .none,
+                    latestAvailability: .absent
+                )
+            },
+            runStart: { _, lease, _, _ in
+                do {
+                    try await Task.sleep(for: .seconds(3_600))
+                } catch {}
+                _ = await MainActor.run { lease.finish() }
+                return IOSForegroundVoiceResolution(
+                    observation: IOSForegroundVoiceObservation(
+                        setup: .ready,
+                        recovery: .pendingRetryOrDiscard,
+                        stage: .transcription,
+                        latestAvailability: .absent
+                    ),
+                    stage: .transcription,
+                    outcome: .recoverableFailure,
+                    failure: .localRecovery
+                )
+            },
+            run: { _, _, _ in
+                IOSForegroundVoiceResolution(
+                    observation: IOSForegroundVoiceObservation(
+                        setup: .ready,
+                        recovery: .none,
+                        latestAvailability: .absent
+                    )
+                )
+            },
+            finishUtterance: { _ in .unavailable }
+        )
+        let controller = IOSForegroundVoiceController(
+            client: client,
+            sceneRegistry: registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(controller.submit(start, from: facade) == .accepted)
+        let cancel = try #require(controller.actionCommands.first {
+            $0.action == .cancelStart
+        })
+        #expect(controller.submit(cancel) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+        #expect(controller.presentation.outcome == nil)
+        #expect(controller.presentation.failure == .localRecovery)
+        #expect(controller.presentation.recovery == .pendingRetryOrDiscard)
+        #expect(controller.actionCommands.contains { $0.action == .retryPending })
+        #expect(controller.actionCommands.contains { $0.action == .discard })
+    }
+
+    @Test
+    func recorderStartFailureAndPostStartInactiveAreInterruptedFailClosed()
+        async throws {
+        let failed = try await WorkflowFixture(
+            permission: .granted,
+            recordingStartResult: .failed,
+            preacceptConsent: true
+        )
+        let inactive = try await WorkflowFixture(
+            permission: .granted,
+            recordingIsActive: false,
+            preacceptConsent: true
+        )
+        for (fixture, expectedFailure) in [
+            (failed, IOSForegroundVoiceFailure.operationFailed),
+            (inactive, IOSForegroundVoiceFailure.tooShort),
+        ] {
+            let resolution = await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: IOSForegroundVoiceWorkflowAttemptToken(),
+                progress: { _ in }
+            )
+            #expect(fixture.stopReasons == [.interrupted])
+            #expect(resolution.outcome == .interrupted)
+            #expect(resolution.failure == expectedFailure)
+            #expect(!fixture.events.contains("provider-process"))
+        }
+
+        let cancelled = try await WorkflowFixture(
+            permission: .granted,
+            recordingStartResult: .cancelled,
+            preacceptConsent: true
+        )
+        let cancellation = await cancelled.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: cancelled.lease
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+        #expect(cancelled.stopReasons == [.cancelled])
+        #expect(cancellation.outcome == nil)
+        #expect(cancellation.failure == nil)
+    }
+
+    @Test
+    func passiveConfigurationFailureClearsStaleActivationProjection()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration.targetLanguage = .english
+        let fixture = try await WorkflowFixture(
+            settings: settings,
+            settingsLoads: [.value(settings), .failure],
+            permission: .granted,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        #expect(controller.presentation.setup == .ready)
+        #expect(controller.actionCommands.contains {
+            $0.action == .startTranslation
+        })
+        await controller.activate()
+        #expect(controller.presentation.setup == .unavailable)
+        #expect(!controller.actionCommands.contains {
+            $0.action == .startTranslation
+        })
+
+        var invalidSettings = settings
+        invalidSettings.transcriptionConfiguration =
+            TranscriptionConfiguration(
+                language: .custom,
+                customLanguageCode: "invalid!"
+            )
+        let invalid = try await WorkflowFixture(
+            settingsLoads: [
+                .value(settings),
+                .value(invalidSettings),
+            ],
+            permission: .granted,
+            acquireLease: false
+        )
+        let invalidController = IOSForegroundVoiceController(
+            client: invalid.workflow.client,
+            sceneRegistry: invalid.registry
+        )
+        await invalidController.activate()
+        #expect(invalidController.actionCommands.contains {
+            $0.action == .startTranslation
+        })
+        await invalidController.activate()
+        #expect(
+            invalidController.presentation.setup == .needsSetup(.transcription)
+        )
+        #expect(!invalidController.actionCommands.contains {
+            $0.action == .startTranslation
+        })
+    }
+
+    @Test
+    func providerFreeSavingRetryNeverReadsConsentOrCredential() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            credentialResolutions: [.available, .unavailable],
+            completedCapture: true,
+            processorResolution: .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .outputDelivery,
+                disposition: .savingResult,
+                requirement: .providerFree
+            ),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        try await driveToLocalCheckpoint(
+            fixture: fixture,
+            controller: controller,
+            expectedStage: .outputDelivery
+        )
+        let consentReads = fixture.events.count("consent-observe")
+        let credentialReads = fixture.events.count("credential-resolve")
+        try await fixture.withdrawConsent()
+        let retry = try #require(controller.actionCommands.first {
+            $0.action == .retryLocalCheckpoint
+        })
+        #expect(controller.submit(retry) == .accepted)
+        try await waitUntil { fixture.events.contains("local-retry") }
+        try await waitUntil { controller.presentation.phase == .inactive }
+        #expect(fixture.events.contains("local-retry-provider-free"))
+        #expect(fixture.events.count("consent-observe") == consentReads)
+        #expect(fixture.events.count("credential-resolve") == credentialReads)
+        #expect(
+            controller.presentation.recovery
+                == .localCheckpoint(.outputDelivery)
+        )
+    }
+
+    @Test
+    func localProviderRetryLossDuringPreflightAndParentCancelIsTerminal()
+        async throws {
+        for trigger in [
+            WorkflowEventTrigger("consent-observe", occurrence: 2),
+            WorkflowEventTrigger("credential-resolve", occurrence: 2),
+        ] {
+            let fixture = try await WorkflowFixture(
+                permission: .granted,
+                completedCapture: true,
+                processorResolution: .localRecoveryPending(
+                    failure: .localPersistence,
+                    stage: .postProcessing,
+                    disposition: .processingCheckpoint,
+                    requirement: .currentProviderAuthority
+                ),
+                lossReactivationTrigger: trigger,
+                preacceptConsent: true,
+                acquireLease: false
+            )
+            let controller = IOSForegroundVoiceController(
+                client: fixture.workflow.client,
+                sceneRegistry: fixture.registry
+            )
+            try await driveToLocalCheckpoint(
+                fixture: fixture,
+                controller: controller
+            )
+            let retry = try #require(controller.actionCommands.first {
+                $0.action == .retryLocalCheckpoint
+            })
+            #expect(controller.submit(retry) == .accepted)
+            try await waitUntil { controller.presentation.phase == .inactive }
+            #expect(
+                controller.presentation.recovery
+                    == .localCheckpoint(.postProcessing)
+            )
+            #expect(!fixture.events.contains("local-retry"))
+            #expect(fixture.registry.snapshot.isForegroundActive)
+        }
+
+        let cancelled = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .localRecoveryPending(
+                failure: .localPersistence,
+                stage: .postProcessing,
+                disposition: .processingCheckpoint,
+                requirement: .currentProviderAuthority
+            ),
+            suspensionTrigger: WorkflowEventTrigger(
+                "consent-observe",
+                occurrence: 2
+            ),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let cancelledController = IOSForegroundVoiceController(
+            client: cancelled.workflow.client,
+            sceneRegistry: cancelled.registry
+        )
+        try await driveToLocalCheckpoint(
+            fixture: cancelled,
+            controller: cancelledController
+        )
+        let retry = try #require(
+            cancelledController.actionCommands.first {
+                $0.action == .retryLocalCheckpoint
+            }
+        )
+        #expect(cancelledController.submit(retry) == .accepted)
+        try await waitUntil {
+            cancelled.events.count("consent-observe") == 2
+        }
+        let cancel = try #require(
+            cancelledController.actionCommands.first {
+                $0.action == .cancelProcessing
+            }
+        )
+        #expect(cancelledController.submit(cancel) == .accepted)
+        try await waitUntil {
+            cancelled.events.contains("consent-observe-cancelled")
+        }
+        try await waitUntil {
+            cancelledController.presentation.phase == .inactive
+        }
+        #expect(!cancelled.events.contains("local-retry"))
+        #expect(
+            cancelledController.presentation.recovery
+                == .localCheckpoint(.postProcessing)
+        )
+    }
+
+    @Test
+    func ordinaryWorkflowCancelPreservesActualCaptureRecoveryAction()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            preserveCaptureOnCancelledStop: true,
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(controller.submit(start, from: fixture.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .listening }
+        let cancel = try #require(controller.actionCommands.first {
+            $0.action == .cancelUtterance
+        })
+        #expect(controller.submit(cancel) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+        #expect(controller.presentation.outcome == nil)
+        #expect(controller.presentation.failure == .localRecovery)
+        #expect(controller.presentation.recovery == .captureDiscardOnly)
+        #expect(controller.actionCommands.contains { $0.action == .discard })
+        #expect(!controller.actionCommands.contains {
+            $0.action == .retryPending
+        })
+    }
+
+    @Test
+    func cancellationDuringPendingPreparationCannotDispatchProvider()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            pendingPrepareSuspendsUntilCancelled: true,
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        try await waitUntil { fixture.events.contains("pending-prepare") }
+        task.cancel()
+        let resolution = await task.value
+        #expect(fixture.events.contains("pending-prepare-cancelled"))
+        #expect(!fixture.events.contains("provider-process"))
+        #expect(resolution.observation.recovery == .pendingRetryOrDiscard)
+        #expect(resolution.outcome != .resultReady)
+    }
+
+    @Test
+    func initialProviderCancelReconcilesPendingOutsideCancelledTask()
+        async throws {
+        let record = try makeAcceptedDeliveryRecord()
+        let fixture = try await WorkflowFixture(
+            loadPendingFailsWhenCancelled: true,
+            permission: .granted,
+            completedCapture: true,
+            processorSuspendsUntilCancelled: true,
+            processorInitialProgress: .transcription,
+            processorReturnsSuccessAfterCancellation: true,
+            processorEmitsLateProgressAfterCancellation: true,
+            processorResolution: .acceptance(.resultReady(record)),
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        #expect(controller.submit(start, from: fixture.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .listening }
+        let finish = try #require(controller.actionCommands.first {
+            $0.action == .finishUtterance
+        })
+        #expect(controller.submit(finish) == .accepted)
+        try await waitUntil {
+            controller.presentation.phase == .processing
+                && controller.presentation.stage == .transcription
+        }
+        let cancel = try #require(controller.actionCommands.first {
+            $0.action == .cancelProcessing
+        })
+        #expect(controller.submit(cancel) == .accepted)
+        try await waitUntil {
+            fixture.events.contains("provider-late-progress")
+        }
+        #expect(controller.presentation.phase == .processing)
+        #expect(controller.presentation.stage == .transcription)
+        try await waitUntil { controller.presentation.phase == .inactive }
+        #expect(!fixture.events.contains("pending-load-cancelled"))
+        #expect(controller.presentation.recovery == .pendingRetryOrDiscard)
+        #expect(controller.presentation.outcome == .recoverableFailure)
+        #expect(controller.presentation.failure == .localRecovery)
+        #expect(controller.actionCommands.contains {
+            $0.action == .retryPending
+        })
+        #expect(controller.actionCommands.contains { $0.action == .discard })
+        #expect(controller.presentation.outcome != .resultReady)
+    }
+
+    @Test
     func workflowValuesRedactConfigurationAndPrivateAuthorities() async throws {
         let sentinel = "PRIVATE-PROMPT-9f42"
         var settings = IOSAppSettings.defaults
@@ -823,6 +2382,11 @@ struct IOSForegroundVoiceWorkflowTests {
             outputIntent: .standard,
             sceneLease: fixture.lease
         )
+        let providerRetry =
+            IOSForegroundVoiceWorkflowProviderRetryAuthorization(
+                credential: IOSForegroundVoiceWorkflowCredentialProof(),
+                consentObservation: await fixture.consentCoordinator.observe()
+            )
         let values = [
             String(describing: fixture.workflow),
             String(reflecting: fixture.workflow),
@@ -832,11 +2396,30 @@ struct IOSForegroundVoiceWorkflowTests {
             String(reflecting: start),
             String(describing: IOSForegroundVoiceWorkflowCredentialProof()),
             String(reflecting: IOSForegroundVoiceWorkflowCredentialProof()),
+            String(describing: providerRetry),
+            String(reflecting: providerRetry),
         ]
 
         #expect(values.allSatisfy { !$0.contains(sentinel) })
         #expect(configuration.customMirror.children.isEmpty)
         #expect(start.customMirror.children.isEmpty)
+        #expect(providerRetry.customMirror.children.isEmpty)
+    }
+}
+
+private enum WorkflowCredentialResolution: Sendable {
+    case available
+    case needsSetup
+    case unavailable
+}
+
+private struct WorkflowEventTrigger: Sendable {
+    let event: String
+    let occurrence: Int
+
+    init(_ event: String, occurrence: Int = 1) {
+        self.event = event
+        self.occurrence = occurrence
     }
 }
 
@@ -860,6 +2443,11 @@ private final class WorkflowFixture {
     private(set) var terminalHandler: (@MainActor @Sendable (
         IOSForegroundVoiceWorkflowCaptureStopReason
     ) -> Void)?
+    private(set) var audioEventHandler: (@MainActor @Sendable (
+        IOSForegroundVoiceWorkflowAudioEvent
+    ) -> Void)?
+    private var finalizationExpirationHandler:
+        (@MainActor @Sendable () -> Void)?
     private var permission: IOSMicrophonePermissionStatus
 
     init(
@@ -868,25 +2456,50 @@ private final class WorkflowFixture {
         libraryLoads: [WorkflowLoad<IOSLibraryContent>] = [
             .value(.defaults)
         ],
+        loadPendingFailsWhenCancelled: Bool = false,
         permission: IOSMicrophonePermissionStatus,
         permissionOutcome:
             IOSForegroundVoiceWorkflowPermissionOutcome? = nil,
+        reactivateSceneAfterPermission: Bool = true,
         consentContinuationAllowed: Bool = true,
         consentRevalidation: [Bool] = [true],
         credentialAvailable: Bool = true,
+        credentialResolutions: [WorkflowCredentialResolution]? = nil,
         credentialRevalidation: [Bool] = [true],
         historyStops: Bool = true,
+        deactivateSceneDuringHistoryStop: Bool = false,
         startBoundarySucceeds: Bool = true,
         deactivateSceneAtStartBoundary: Bool = false,
-        recordingStarts: Bool = true,
+        audioFreezeResults: [Bool] = [true],
+        recordingStartResult:
+            IOSForegroundVoiceWorkflowRecordingStartResult = .started,
         recordingIsActive: Bool = true,
+        recordingActiveValues: [Bool]? = nil,
+        deactivateSceneDuringMakeRecording: Bool = false,
+        terminalDuringRecordingStart:
+            IOSForegroundVoiceWorkflowCaptureStopReason? = nil,
         completedCapture: Bool = false,
+        preserveCaptureOnCancelledStop: Bool = false,
+        pendingPrepareSuspendsUntilCancelled: Bool = false,
         expireFinalizationImmediately: Bool = false,
+        expireFinalizationAtStopBoundary: Bool = false,
         processorSuspendsUntilCancelled: Bool = false,
+        processorInitialProgress: VoiceAttemptStage? = nil,
+        processorReturnsSuccessAfterCancellation: Bool = false,
+        processorEmitsLateProgressAfterCancellation: Bool = false,
         processorResolution: IOSForegroundVoiceProcessingResolution? = nil,
+        localRetrySuspendsUntilCancelled: Bool = false,
+        localRetryReturnsSuccessAfterCancellation: Bool = false,
+        localRetryEmitsLateProgressAfterCancellation: Bool = false,
         localRetryResolution: IOSForegroundVoiceProcessingResolution =
             .notStarted(.localPersistence),
         savingRetryResult: IOSForegroundVoiceAcceptanceResult? = nil,
+        throwTailSleep: Bool = false,
+        throwMaximumSleep: Bool = false,
+        lossReactivationTrigger: WorkflowEventTrigger? = nil,
+        pendingMutationTrigger: WorkflowEventTrigger? = nil,
+        suspensionTrigger: WorkflowEventTrigger? = nil,
+        consentWithdrawalTrigger: WorkflowEventTrigger? = nil,
         preacceptConsent: Bool = false,
         acquireLease: Bool = true
     ) async throws {
@@ -945,12 +2558,59 @@ private final class WorkflowFixture {
         let credentialValidationSequence = WorkflowValueSequence(
             credentialRevalidation
         )
+        let credentialResolutionSequence = WorkflowValueSequence(
+            credentialResolutions ?? [
+                credentialAvailable ? .available : .needsSetup
+            ]
+        )
+        let audioFreezeSequence = WorkflowValueSequence(audioFreezeResults)
+        let recordingActiveSequence = WorkflowValueSequence(
+            recordingActiveValues ?? [recordingIsActive]
+        )
+        let hook = WorkflowEventHook(
+            lossReactivation: lossReactivationTrigger,
+            pendingMutation: pendingMutationTrigger,
+            suspension: suspensionTrigger,
+            consentWithdrawal: consentWithdrawalTrigger
+        )
+        let replacementPending = try makePendingRecording(
+            outputIntent: .translate,
+            phase: .awaitingRecovery,
+            configuration: .defaults
+        )
 
         let events = events
         let owner = persistenceOwner
         let pendingBox = pendingBox
         let consent = consentCoordinator
         let registry = registry
+        let sceneFacade = facade
+        let applyHook: @Sendable (String) async -> Void = { event in
+            let actions = hook.actions(for: event)
+            if actions.mutatePending {
+                pendingBox.store(replacementPending)
+            }
+            if actions.withdrawConsent {
+                let observation = await consent.observe()
+                _ = try? await consent.withdraw(
+                    using: observation,
+                    decisionAt: Date(timeIntervalSince1970: 1_800_000_002)
+                )
+            }
+            if actions.loseAndReactivate {
+                await MainActor.run {
+                    _ = sceneFacade.updateActivity(.inactive)
+                    _ = sceneFacade.updateActivity(.active)
+                }
+            }
+            if actions.suspendUntilCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(3_600))
+                } catch {
+                    events.record("\(event)-cancelled")
+                }
+            }
+        }
         workflow = IOSForegroundVoiceWorkflow(
             dependencies: IOSForegroundVoiceWorkflowDependencies(
                 sceneRegistry: registry,
@@ -964,6 +2624,12 @@ private final class WorkflowFixture {
                 },
                 loadPending: {
                     events.record("pending-load")
+                    await applyHook("pending-load")
+                    if loadPendingFailsWhenCancelled,
+                       Task.isCancelled {
+                        events.record("pending-load-cancelled")
+                        throw CancellationError()
+                    }
                     if let pending = pendingBox.load() {
                         return IOSPendingRecordingObservation(
                             recording: pending,
@@ -978,14 +2644,17 @@ private final class WorkflowFixture {
                 },
                 loadSettings: {
                     events.record("settings-load")
+                    await applyHook("settings-load")
                     return try settingsSequence.next()
                 },
                 loadLibrary: {
                     events.record("library-load")
+                    await applyHook("library-load")
                     return try librarySequence.next()
                 },
                 observeConsent: {
                     events.record("consent-observe")
+                    await applyHook("consent-observe")
                     return await consent.observe()
                 },
                 continueConsent: { _, observation in
@@ -998,6 +2667,7 @@ private final class WorkflowFixture {
                 },
                 revalidateConsent: { observation in
                     events.record("consent-revalidate")
+                    await applyHook("consent-revalidate")
                     return consentValidationSequence.next()
                         && consent.makeAuthorization(
                         from: observation
@@ -1005,14 +2675,21 @@ private final class WorkflowFixture {
                 },
                 resolveCredential: {
                     events.record("credential-resolve")
-                    return credentialAvailable
-                        ? .available(
+                    await applyHook("credential-resolve")
+                    return switch credentialResolutionSequence.next() {
+                    case .available:
+                        .available(
                             IOSForegroundVoiceWorkflowCredentialProof()
                         )
-                        : .needsSetup
+                    case .needsSetup:
+                        .needsSetup
+                    case .unavailable:
+                        .unavailable
+                    }
                 },
                 revalidateCredential: { _ in
                     events.record("credential-revalidate")
+                    await applyHook("credential-revalidate")
                     return credentialValidationSequence.next()
                 },
                 permission: IOSForegroundVoiceWorkflowPermissionClient(
@@ -1029,12 +2706,19 @@ private final class WorkflowFixture {
                         if outcome == .granted {
                             self.permission = .granted
                         }
-                        _ = facade.updateActivity(.active)
+                        if reactivateSceneAfterPermission {
+                            _ = facade.updateActivity(.active)
+                        }
                         return outcome
                     }
                 ),
                 stopHistoryPlayback: {
                     events.record("history-stop")
+                    if deactivateSceneDuringHistoryStop {
+                        await MainActor.run {
+                            _ = sceneFacade.updateActivity(.inactive)
+                        }
+                    }
                     return historyStops
                 },
                 activateAudio: { [weak self] in
@@ -1042,9 +2726,15 @@ private final class WorkflowFixture {
                     return IOSForegroundVoiceWorkflowAudioLease(
                         freezeAndValidate: {
                             events.record("input-freeze")
+                            guard audioFreezeSequence.next() else {
+                                throw WorkflowFixtureError.configuredFailure
+                            }
                         },
-                        observe: { _ in
-                            IOSForegroundVoiceWorkflowObservation(cancel: {})
+                        observe: { [weak self] handler in
+                            self?.audioEventHandler = handler
+                            return IOSForegroundVoiceWorkflowObservation(
+                                cancel: {}
+                            )
                         },
                         deactivate: {
                             events.record("audio-deactivate")
@@ -1062,15 +2752,26 @@ private final class WorkflowFixture {
                 cancelStartBoundary: {
                     events.record("start-boundary-cancel")
                 },
-                playStopBoundary: { _ in
+                playStopBoundary: { [weak self] _ in
                     events.record("stop-boundary")
+                    if expireFinalizationAtStopBoundary {
+                        self?.finalizationExpirationHandler?()
+                    }
                 },
                 makeRecording: { [weak self] _, _ in
                     events.record("recording-make")
+                    if deactivateSceneDuringMakeRecording {
+                        _ = self?.facade.updateActivity(.inactive)
+                    }
                     return IOSForegroundVoiceWorkflowRecording(
-                        start: {
+                        start: { [weak self] in
                             events.record("recording-start")
-                            return recordingStarts
+                            if let terminalDuringRecordingStart {
+                                self?.terminalHandler?(
+                                    terminalDuringRecordingStart
+                                )
+                            }
+                            return recordingStartResult
                         },
                         stop: { reason in
                             let name = switch reason {
@@ -1081,13 +2782,35 @@ private final class WorkflowFixture {
                             }
                             events.record("recording-stop-\(name)")
                             self?.stopReasons.append(reason)
+                            if preserveCaptureOnCancelledStop,
+                               reason == .cancelled {
+                                let capture = try? await owner.createCapture(
+                                    attemptID: UUID(),
+                                    outputIntent: .standard
+                                )
+                                capture?.release()
+                                return .preserved
+                            }
                             guard completedCapture else {
-                                return .discarded(.tooShort)
+                                return reason == .cancelled
+                                    ? .discarded
+                                    : .invalid(.tooShort)
                             }
                             return .completed(
                                 IOSForegroundVoiceWorkflowCaptureHandoff(
                                     prepare: { configuration in
                                         events.record("pending-prepare")
+                                        if pendingPrepareSuspendsUntilCancelled {
+                                            do {
+                                                try await Task.sleep(
+                                                    for: .seconds(3_600)
+                                                )
+                                            } catch {
+                                                events.record(
+                                                    "pending-prepare-cancelled"
+                                                )
+                                            }
+                                        }
                                         let pending = try makePendingRecording(
                                             outputIntent: .standard,
                                             phase: .readyForTranscription,
@@ -1102,7 +2825,7 @@ private final class WorkflowFixture {
                                 )
                             )
                         },
-                        isActive: { recordingIsActive },
+                        isActive: { recordingActiveSequence.next() },
                         observeTerminal: { [weak self] handler in
                             self?.terminalHandler = handler
                             return IOSForegroundVoiceWorkflowObservation(
@@ -1113,6 +2836,7 @@ private final class WorkflowFixture {
                 },
                 beginFinalization: { [weak self] expiration in
                     events.record("finalization-begin")
+                    self?.finalizationExpirationHandler = expiration
                     if expireFinalizationImmediately {
                         // Expiration is delivered synchronously to exercise
                         // the pre-close latch and no-provider guarantee.
@@ -1124,20 +2848,52 @@ private final class WorkflowFixture {
                         self?.finalizationFinishCount += 1
                     }
                 },
-                process: { _, _ in
+                process: { _, progress in
                     events.record("provider-process")
+                    if let processorInitialProgress {
+                        await progress(processorInitialProgress)
+                    }
                     if processorSuspendsUntilCancelled {
                         do {
                             try await Task.sleep(for: .seconds(3_600))
                         } catch {
+                            if processorEmitsLateProgressAfterCancellation {
+                                events.record("provider-late-progress")
+                                await progress(.outputDelivery)
+                                try? await Task.sleep(for: .milliseconds(250))
+                            }
+                            if processorReturnsSuccessAfterCancellation,
+                               let processorResolution {
+                                return processorResolution
+                            }
                             return .notStarted(.cancelled)
                         }
                     }
                     return processorResolution
                         ?? .notStarted(.providerUnavailable)
                 },
-                retryLocalRecovery: { _ in
+                retryLocalRecovery: { authorization, progress in
                     events.record("local-retry")
+                    events.record(
+                        authorization == nil
+                            ? "local-retry-provider-free"
+                            : "local-retry-authorized"
+                    )
+                    if localRetrySuspendsUntilCancelled {
+                        do {
+                            try await Task.sleep(for: .seconds(3_600))
+                        } catch {
+                            if localRetryEmitsLateProgressAfterCancellation {
+                                events.record("local-late-progress")
+                                await progress(.outputDelivery)
+                                try? await Task.sleep(for: .milliseconds(250))
+                            }
+                            if localRetryReturnsSuccessAfterCancellation {
+                                return localRetryResolution
+                            }
+                            return .notStarted(.cancelled)
+                        }
+                    }
                     return localRetryResolution
                 },
                 recoverCapture: { capability, configuration in
@@ -1166,6 +2922,14 @@ private final class WorkflowFixture {
                     return savingRetryResult
                 },
                 sleep: { duration in
+                    if throwMaximumSleep,
+                       duration >= .seconds(300) {
+                        throw WorkflowFixtureError.configuredFailure
+                    }
+                    if throwTailSleep,
+                       duration < .seconds(300) {
+                        throw WorkflowFixtureError.configuredFailure
+                    }
                     try await Task.sleep(for: duration)
                 },
                 makeUUID: { UUID() }
@@ -1179,6 +2943,22 @@ private final class WorkflowFixture {
         terminalHandler?(reason)
     }
 
+    func emitAudio(_ event: IOSForegroundVoiceWorkflowAudioEvent) {
+        audioEventHandler?(event)
+    }
+
+    func withdrawConsent() async throws {
+        let observation = await consentCoordinator.observe()
+        _ = try await consentCoordinator.withdraw(
+            using: observation,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_001)
+        )
+    }
+
+    func releaseWorkflow() {
+        workflow = nil
+    }
+
     func seedPending(
         outputIntent: DictationOutputIntent = .standard
     ) async throws -> IOSPendingRecording {
@@ -1189,6 +2969,113 @@ private final class WorkflowFixture {
         )
         pendingBox.store(pending)
         return pending
+    }
+
+    @discardableResult
+    func replacePending() throws -> IOSPendingRecording {
+        let pending = try makePendingRecording(
+            outputIntent: .translate,
+            phase: .awaitingRecovery,
+            configuration: .defaults
+        )
+        pendingBox.store(pending)
+        return pending
+    }
+}
+
+@MainActor
+private func makeLocalCheckpointFixture(
+    credentialResolutions: [WorkflowCredentialResolution]? = nil
+) async throws -> WorkflowFixture {
+    try await WorkflowFixture(
+        permission: .granted,
+        credentialResolutions: credentialResolutions,
+        completedCapture: true,
+        processorResolution: .localRecoveryPending(
+            failure: .localPersistence,
+            stage: .postProcessing,
+            disposition: .processingCheckpoint,
+            requirement: .currentProviderAuthority
+        ),
+        preacceptConsent: true,
+        acquireLease: false
+    )
+}
+
+@MainActor
+private func driveToLocalCheckpoint(
+    fixture: WorkflowFixture,
+    controller: IOSForegroundVoiceController,
+    expectedStage: VoiceAttemptStage = .postProcessing
+) async throws {
+    await controller.activate()
+    let start = try #require(controller.actionCommands.first {
+        $0.action == .startStandard
+    })
+    #expect(controller.submit(start, from: fixture.facade) == .accepted)
+    try await waitUntil { controller.presentation.phase == .listening }
+    let finish = try #require(controller.actionCommands.first {
+        $0.action == .finishUtterance
+    })
+    #expect(controller.submit(finish) == .accepted)
+    try await waitUntil {
+        controller.presentation.recovery
+            == .localCheckpoint(expectedStage)
+    }
+}
+
+private func makeAcceptedDeliveryRecord()
+    throws -> IOSAcceptedOutputDeliveryRecord {
+    let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+    let expiresAt = Date(
+        timeIntervalSince1970:
+            createdAt.timeIntervalSince1970
+                + TimeInterval(
+                    IOSAcceptedOutputDeliveryValidation
+                        .lifetimeMilliseconds
+                ) / 1_000
+    )
+    return try IOSAcceptedOutputDeliveryRecord(
+        revision: 1,
+        deliveryID: UUID(),
+        sessionID: UUID(),
+        attemptID: UUID(),
+        transcriptID: UUID(),
+        acceptedText: "accepted",
+        outputIntent: .standard,
+        createdAt: createdAt,
+        updatedAt: createdAt,
+        expiresAt: expiresAt,
+        deliveryState: .pending,
+        automaticInsertionPreferenceEnabled: false,
+        keepLatestResult: true,
+        publicationGeneration: 0,
+        historyWrite: nil
+    )
+}
+
+@MainActor
+private final class WorkflowCleanupCounter {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
+    }
+}
+
+nonisolated private final class WorkflowOffMainReleaseBox:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: AnyObject?
+
+    init(_ value: AnyObject?) {
+        self.value = value
+    }
+
+    func releaseFromDetachedTask() async {
+        await Task.detached { [self] in
+            lock.withLock { value = nil }
+        }.value
     }
 }
 
@@ -1239,6 +3126,71 @@ private final class WorkflowValueSequence<Value: Sendable>:
             index += 1
             return value
         }
+    }
+}
+
+private struct WorkflowEventActions: Sendable {
+    var loseAndReactivate = false
+    var mutatePending = false
+    var suspendUntilCancelled = false
+    var withdrawConsent = false
+}
+
+private final class WorkflowEventHook: @unchecked Sendable {
+    private let lock = NSLock()
+    private var occurrences: [String: Int] = [:]
+    private let lossReactivation: WorkflowEventTrigger?
+    private let pendingMutation: WorkflowEventTrigger?
+    private let suspension: WorkflowEventTrigger?
+    private let consentWithdrawal: WorkflowEventTrigger?
+
+    init(
+        lossReactivation: WorkflowEventTrigger?,
+        pendingMutation: WorkflowEventTrigger?,
+        suspension: WorkflowEventTrigger?,
+        consentWithdrawal: WorkflowEventTrigger?
+    ) {
+        self.lossReactivation = lossReactivation
+        self.pendingMutation = pendingMutation
+        self.suspension = suspension
+        self.consentWithdrawal = consentWithdrawal
+    }
+
+    func actions(for event: String) -> WorkflowEventActions {
+        lock.withLock {
+            let occurrence = occurrences[event, default: 0] + 1
+            occurrences[event] = occurrence
+            return WorkflowEventActions(
+                loseAndReactivate: matches(
+                    lossReactivation,
+                    event: event,
+                    occurrence: occurrence
+                ),
+                mutatePending: matches(
+                    pendingMutation,
+                    event: event,
+                    occurrence: occurrence
+                ),
+                suspendUntilCancelled: matches(
+                    suspension,
+                    event: event,
+                    occurrence: occurrence
+                ),
+                withdrawConsent: matches(
+                    consentWithdrawal,
+                    event: event,
+                    occurrence: occurrence
+                )
+            )
+        }
+    }
+
+    private func matches(
+        _ trigger: WorkflowEventTrigger?,
+        event: String,
+        occurrence: Int
+    ) -> Bool {
+        trigger?.event == event && trigger?.occurrence == occurrence
     }
 }
 
@@ -1327,6 +3279,10 @@ private final class WorkflowEventRecorder: @unchecked Sendable {
 
     func contains(_ value: String) -> Bool {
         lock.withLock { storage.contains(value) }
+    }
+
+    func count(_ value: String) -> Int {
+        lock.withLock { storage.filter { $0 == value }.count }
     }
 }
 

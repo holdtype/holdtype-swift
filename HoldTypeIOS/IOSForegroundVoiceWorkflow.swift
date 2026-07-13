@@ -3,26 +3,53 @@ import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 
-/// Cancels one process observation without exposing its platform identity.
-@MainActor
-final class IOSForegroundVoiceWorkflowObservation {
-    private var cancelAction: (@MainActor @Sendable () -> Void)?
+/// Exact-once cleanup storage whose last-reference path is safe on any
+/// executor. Explicit owners run it synchronously on MainActor; deinit hops
+/// the still-armed action to MainActor without assuming executor affinity.
+nonisolated final class IOSForegroundVoiceMainActorCleanup:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var action: (@MainActor @Sendable () -> Void)?
 
-    init(cancel: @escaping @MainActor @Sendable () -> Void) {
-        cancelAction = cancel
+    init(_ action: @escaping @MainActor @Sendable () -> Void) {
+        self.action = action
     }
 
-    func cancel() {
-        let action = cancelAction
-        cancelAction = nil
-        action?()
+    @MainActor
+    func run() {
+        take()?()
+    }
+
+    @MainActor
+    func disarm() {
+        _ = take()
+    }
+
+    private func take() -> (@MainActor @Sendable () -> Void)? {
+        lock.withLock {
+            let action = self.action
+            self.action = nil
+            return action
+        }
     }
 
     deinit {
-        MainActor.assumeIsolated {
-            cancelAction?()
-            cancelAction = nil
-        }
+        guard let action = take() else { return }
+        Task { @MainActor in action() }
+    }
+}
+
+/// Cancels one process observation without exposing its platform identity.
+@MainActor
+final class IOSForegroundVoiceWorkflowObservation {
+    private let cleanup: IOSForegroundVoiceMainActorCleanup
+
+    init(cancel: @escaping @MainActor @Sendable () -> Void) {
+        cleanup = IOSForegroundVoiceMainActorCleanup(cancel)
+    }
+
+    func cancel() {
+        cleanup.run()
     }
 }
 
@@ -62,6 +89,13 @@ nonisolated struct IOSForegroundVoiceWorkflowCredentialProof:
     }
 }
 
+/// Fresh, redacted provider authority passed only to an exact retained retry.
+nonisolated struct IOSForegroundVoiceWorkflowProviderRetryAuthorization:
+    Sendable {
+    let credential: IOSForegroundVoiceWorkflowCredentialProof
+    let consentObservation: IOSProviderConsentObservation
+}
+
 nonisolated enum IOSForegroundVoiceWorkflowCredentialResolution: Sendable {
     case available(IOSForegroundVoiceWorkflowCredentialProof)
     case needsSetup
@@ -99,7 +133,9 @@ nonisolated struct IOSForegroundVoiceWorkflowDurableObservation: Sendable {
     let latest: IOSForegroundVoiceLatestResultObservation
 }
 
-nonisolated enum IOSForegroundVoiceWorkflowCaptureStopReason: Sendable {
+nonisolated enum IOSForegroundVoiceWorkflowCaptureStopReason:
+    Equatable,
+    Sendable {
     case done
     case cancelled
     case interrupted
@@ -110,10 +146,22 @@ nonisolated enum IOSForegroundVoiceWorkflowCaptureStopReason: Sendable {
 /// It exposes no URL, path, descriptor, or reusable capture capability.
 @MainActor
 final class IOSForegroundVoiceWorkflowCaptureHandoff {
+    private enum State {
+        case available
+        case preparing
+        case consumed
+        case released
+    }
+
+    private enum UseError: Error {
+        case unavailable
+    }
+
     private let prepareAction: @MainActor @Sendable (
         TranscriptionConfiguration
     ) async throws -> IOSPendingRecording
-    private var releaseAction: (@MainActor @Sendable () -> Void)?
+    private let cleanup: IOSForegroundVoiceMainActorCleanup
+    private var state = State.available
 
     init(
         prepare: @escaping @MainActor @Sendable (
@@ -122,25 +170,35 @@ final class IOSForegroundVoiceWorkflowCaptureHandoff {
         release: @escaping @MainActor @Sendable () -> Void
     ) {
         prepareAction = prepare
-        releaseAction = release
+        cleanup = IOSForegroundVoiceMainActorCleanup(release)
     }
 
     func preparePending(
         transcriptionConfiguration: TranscriptionConfiguration
     ) async throws -> IOSPendingRecording {
-        let result = try await prepareAction(transcriptionConfiguration)
-        releaseAction = nil
-        return result
+        guard state == .available else { throw UseError.unavailable }
+        state = .preparing
+        do {
+            let result = try await prepareAction(transcriptionConfiguration)
+            guard state == .preparing else { throw UseError.unavailable }
+            state = .consumed
+            cleanup.disarm()
+            return result
+        } catch {
+            guard state == .preparing else { throw error }
+            state = .released
+            cleanup.run()
+            throw error
+        }
     }
 
     func release() {
-        let action = releaseAction
-        releaseAction = nil
-        action?()
-    }
-
-    deinit {
-        MainActor.assumeIsolated { release() }
+        if state == .preparing {
+            return
+        }
+        guard state == .available else { return }
+        state = .released
+        cleanup.run()
     }
 }
 
@@ -148,36 +206,39 @@ final class IOSForegroundVoiceWorkflowCaptureHandoff {
 /// descriptor validation, protected copy, and Pending publication.
 @MainActor
 final class IOSForegroundVoiceWorkflowFinalizationLease {
-    private let finishAction: @MainActor @Sendable () -> Void
-    private var wasFinished = false
+    private let cleanup: IOSForegroundVoiceMainActorCleanup
 
     init(finish: @escaping @MainActor @Sendable () -> Void) {
-        finishAction = finish
+        cleanup = IOSForegroundVoiceMainActorCleanup(finish)
     }
 
     func finish() {
-        guard !wasFinished else { return }
-        wasFinished = true
-        finishAction()
-    }
-
-    deinit {
-        MainActor.assumeIsolated { finish() }
+        cleanup.run()
     }
 }
 
 nonisolated enum IOSForegroundVoiceWorkflowCaptureStopResult: Sendable {
     case completed(IOSForegroundVoiceWorkflowCaptureHandoff)
-    case discarded(IOSForegroundVoiceCaptureInvalidReason)
+    case discarded
+    case invalid(IOSForegroundVoiceCaptureInvalidReason)
     case preserved
     case stale
+}
+
+nonisolated enum IOSForegroundVoiceWorkflowRecordingStartResult:
+    Equatable,
+    Sendable {
+    case started
+    case cancelled
+    case failed
 }
 
 /// One live recorder owner. Implementations may wrap AVAudioRecorder, but the
 /// workflow sees only descriptor-bound capture truth.
 @MainActor
 final class IOSForegroundVoiceWorkflowRecording {
-    private let startAction: @MainActor @Sendable () async -> Bool
+    private let startAction: @MainActor @Sendable () async ->
+        IOSForegroundVoiceWorkflowRecordingStartResult
     private let stopAction: @MainActor @Sendable (
         IOSForegroundVoiceWorkflowCaptureStopReason
     ) async -> IOSForegroundVoiceWorkflowCaptureStopResult
@@ -189,7 +250,8 @@ final class IOSForegroundVoiceWorkflowRecording {
     ) -> IOSForegroundVoiceWorkflowObservation
 
     init(
-        start: @escaping @MainActor @Sendable () async -> Bool,
+        start: @escaping @MainActor @Sendable () async ->
+            IOSForegroundVoiceWorkflowRecordingStartResult,
         stop: @escaping @MainActor @Sendable (
             IOSForegroundVoiceWorkflowCaptureStopReason
         ) async -> IOSForegroundVoiceWorkflowCaptureStopResult,
@@ -206,7 +268,9 @@ final class IOSForegroundVoiceWorkflowRecording {
         observeTerminalAction = observeTerminal
     }
 
-    func start() async -> Bool { await startAction() }
+    func start() async -> IOSForegroundVoiceWorkflowRecordingStartResult {
+        await startAction()
+    }
 
     func stop(
         _ reason: IOSForegroundVoiceWorkflowCaptureStopReason
@@ -225,9 +289,51 @@ final class IOSForegroundVoiceWorkflowRecording {
     }
 }
 
+/// Monotonic authority shared by one aggregate-foreground retry and its exact
+/// child task. Aggregate loss and parent cancellation are terminal even if a
+/// scene later reactivates or a cancellation-hostile dependency returns late.
+nonisolated final class IOSForegroundVoiceRetryAuthority:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var isTerminal = false
+    private var child:
+        Task<IOSForegroundVoiceProcessingResolution, Never>?
+
+    var canContinue: Bool {
+        lock.withLock { !isTerminal }
+    }
+
+    func terminate() {
+        let child = lock.withLock {
+            isTerminal = true
+            let child = self.child
+            self.child = nil
+            return child
+        }
+        child?.cancel()
+    }
+
+    func install(
+        _ child: Task<IOSForegroundVoiceProcessingResolution, Never>
+    ) -> Bool {
+        let accepted = lock.withLock {
+            guard !isTerminal else { return false }
+            self.child = child
+            return true
+        }
+        if !accepted { child.cancel() }
+        return accepted
+    }
+
+    func clearChild() {
+        lock.withLock { child = nil }
+    }
+}
+
 nonisolated enum IOSForegroundVoiceWorkflowAudioEvent: Equatable, Sendable {
     case interruption
     case routeInvalid
+    case routeNeedsRevalidation
     case mediaServicesLost
     case mediaServicesReset
     case ended
@@ -243,8 +349,7 @@ final class IOSForegroundVoiceWorkflowAudioLease {
             IOSForegroundVoiceWorkflowAudioEvent
         ) -> Void
     ) -> IOSForegroundVoiceWorkflowObservation
-    private let deactivateAction: @MainActor @Sendable () -> Void
-    private var wasDeactivated = false
+    private let cleanup: IOSForegroundVoiceMainActorCleanup
 
     init(
         freezeAndValidate: @escaping @MainActor @Sendable () throws -> Void,
@@ -257,7 +362,7 @@ final class IOSForegroundVoiceWorkflowAudioLease {
     ) {
         freezeAndValidateAction = freezeAndValidate
         observeAction = observe
-        deactivateAction = deactivate
+        cleanup = IOSForegroundVoiceMainActorCleanup(deactivate)
     }
 
     func freezeAndValidateInput() throws {
@@ -273,17 +378,7 @@ final class IOSForegroundVoiceWorkflowAudioLease {
     }
 
     func deactivate() {
-        guard !wasDeactivated else { return }
-        wasDeactivated = true
-        deactivateAction()
-    }
-
-    deinit {
-        MainActor.assumeIsolated {
-            guard !wasDeactivated else { return }
-            wasDeactivated = true
-            deactivateAction()
-        }
+        cleanup.run()
     }
 }
 
@@ -332,6 +427,7 @@ struct IOSForegroundVoiceWorkflowDependencies {
         @escaping IOSForegroundVoiceProcessingProgressHandler
     ) async -> IOSForegroundVoiceProcessingResolution
     typealias RetryLocal = @Sendable (
+        IOSForegroundVoiceWorkflowProviderRetryAuthorization?,
         @escaping IOSForegroundVoiceProcessingProgressHandler
     ) async -> IOSForegroundVoiceProcessingResolution
     typealias RecoverCapture = @Sendable (
@@ -391,9 +487,46 @@ final class IOSForegroundVoiceWorkflow {
         case maximumDuration
     }
 
+    private enum ConfigurationResolution {
+        case available(IOSForegroundVoiceWorkflowConfiguration)
+        case settingsUnavailable
+        case libraryUnavailable
+        case invalid(RecoveryDestination)
+    }
+
+    private enum ConsentResolution {
+        case accepted(IOSProviderConsentObservation)
+        case needsSetup
+        case unavailable
+    }
+
+    private enum PermissionResolution: Equatable {
+        case granted
+        case denied
+        case unavailable
+        case timedOut
+        case cancelled
+        case stale
+    }
+
+    private final class SceneLeaseOwner {
+        let lease: IOSVoiceSceneStartLease
+        private var isFinished = false
+
+        init(_ lease: IOSVoiceSceneStartLease) {
+            self.lease = lease
+        }
+
+        func finish() {
+            guard !isFinished else { return }
+            isFinished = true
+            lease.finish()
+        }
+    }
+
     private final class Attempt {
         let token: IOSForegroundVoiceWorkflowAttemptToken
-        let sceneLease: IOSVoiceSceneStartLease
+        let sceneLeaseOwner: SceneLeaseOwner
         var stopContinuation: CheckedContinuation<StopTrigger, Never>?
         var tailContinuation:
             CheckedContinuation<StopTrigger?, Never>?
@@ -411,14 +544,18 @@ final class IOSForegroundVoiceWorkflow {
         var finalizationLease: IOSForegroundVoiceWorkflowFinalizationLease?
         var finalizationExpired = false
         var isListening = false
+        var hasStartedRecording = false
+        var requiresInitiatingScene = true
 
         init(
             token: IOSForegroundVoiceWorkflowAttemptToken,
-            sceneLease: IOSVoiceSceneStartLease
+            sceneLeaseOwner: SceneLeaseOwner
         ) {
             self.token = token
-            self.sceneLease = sceneLease
+            self.sceneLeaseOwner = sceneLeaseOwner
         }
+
+        var sceneLease: IOSVoiceSceneStartLease { sceneLeaseOwner.lease }
     }
 
     private let dependencies: IOSForegroundVoiceWorkflowDependencies
@@ -428,11 +565,16 @@ final class IOSForegroundVoiceWorkflow {
     private var pendingObservation: IOSPendingRecordingObservation?
     private var savingResultExpectation:
         IOSForegroundVoiceSavingResultExpectation?
+    private var localCheckpointStage: VoiceAttemptStage?
+    private var localCheckpointRequirement:
+        IOSForegroundVoiceLocalRecoveryRequirement?
     private var latestAvailability = IOSForegroundVoiceLatestAvailability.unknown
     private var lastConfiguration: IOSForegroundVoiceWorkflowConfiguration?
+    private var passiveConfigurationSetupOverride: IOSForegroundVoiceSetup?
     private var didCompleteLaunchRecovery = false
     private var activeControllerAuthority: IOSForegroundVoiceAuthority?
     private var activeControllerToken: IOSForegroundVoiceWorkflowAttemptToken?
+    private var isRunningRecoveryOperation = false
 
     init(dependencies: IOSForegroundVoiceWorkflowDependencies) {
         self.dependencies = dependencies
@@ -451,7 +593,8 @@ final class IOSForegroundVoiceWorkflow {
             runStart: { [weak self] intent, lease, authority, progress in
                 guard let self else {
                     return await MainActor.run {
-                        Self.unavailableResolution
+                        lease.finish()
+                        return Self.unavailableResolution
                     }
                 }
                 return await self.runControllerStart(
@@ -488,6 +631,7 @@ final class IOSForegroundVoiceWorkflow {
     ) async -> IOSForegroundVoiceResolution {
         guard activeControllerAuthority == nil,
               activeControllerToken == nil else {
+            sceneLease.finish()
             return Self.busyResolution
         }
         let token = IOSForegroundVoiceWorkflowAttemptToken()
@@ -527,10 +671,15 @@ final class IOSForegroundVoiceWorkflow {
         token: IOSForegroundVoiceWorkflowAttemptToken,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
-        guard activeAttempt == nil else { return Self.busyResolution }
+        let leaseOwner = SceneLeaseOwner(request.sceneLease)
+        defer { leaseOwner.finish() }
+        guard activeAttempt == nil,
+              !isRunningRecoveryOperation else {
+            return Self.busyResolution
+        }
         return await runStart(
             request.outputIntent,
-            sceneLease: request.sceneLease,
+            sceneLeaseOwner: leaseOwner,
             token: token,
             progress: progress
         )
@@ -549,7 +698,9 @@ final class IOSForegroundVoiceWorkflow {
         return .accepted
     }
 
-    private func observe() async -> IOSForegroundVoiceObservation {
+    private func observe(
+        includeConfiguration: Bool = true
+    ) async -> IOSForegroundVoiceObservation {
         let capture = await dependencies.reconcileCaptureSources()
         if !didCompleteLaunchRecovery {
             guard await dependencies.recoverContainingAppLifecycle() else {
@@ -565,20 +716,31 @@ final class IOSForegroundVoiceWorkflow {
                 pending: pending,
                 latest: latest
             )
-            if mapRecovery(
+            if includeConfiguration,
+               mapRecovery(
                 capture: capture,
                 pending: pending,
                 latest: latest
             ) == .none {
-                let settings = try await dependencies.loadSettings()
-                let library = try await dependencies.loadLibrary()
-                lastConfiguration = IOSForegroundVoiceWorkflowConfiguration(
-                    settings: settings,
-                    library: library
-                )
+                switch await loadConfiguration(.standard) {
+                case .available(let configuration):
+                    lastConfiguration = configuration
+                    passiveConfigurationSetupOverride = nil
+                case .settingsUnavailable, .libraryUnavailable:
+                    lastConfiguration = nil
+                    passiveConfigurationSetupOverride = .unavailable
+                case .invalid(let destination):
+                    lastConfiguration = nil
+                    passiveConfigurationSetupOverride =
+                        .needsSetup(destination)
+                }
             }
             return apply(durable)
         } catch {
+            if includeConfiguration {
+                lastConfiguration = nil
+                passiveConfigurationSetupOverride = .unavailable
+            }
             return applyDurableFailure(capture: capture)
         }
     }
@@ -588,7 +750,12 @@ final class IOSForegroundVoiceWorkflow {
         authority _: IOSForegroundVoiceAuthority,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
-        guard activeAttempt == nil else { return Self.busyResolution }
+        guard activeAttempt == nil,
+              !isRunningRecoveryOperation else {
+            return Self.busyResolution
+        }
+        isRunningRecoveryOperation = true
+        defer { isRunningRecoveryOperation = false }
 
         switch operation {
         case .start:
@@ -610,26 +777,26 @@ final class IOSForegroundVoiceWorkflow {
         case .retrySavingResult:
             return await runRetrySavingResult()
         case .retryLocalCheckpoint:
-            return await mapProcessing(
-                await dependencies.retryLocalRecovery { stage in
-                    progress(.processing(stage))
-                }
-            )
+            return await runRetryLocalCheckpoint(progress: progress)
         }
     }
 
     private func runStart(
         _ intent: DictationOutputIntent,
-        sceneLease: IOSVoiceSceneStartLease,
+        sceneLeaseOwner: SceneLeaseOwner,
         token: IOSForegroundVoiceWorkflowAttemptToken,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
+        let sceneLease = sceneLeaseOwner.lease
         guard dependencies.sceneRegistry.validateContinuation(sceneLease)
                 == .ready else {
             return await blockedPreflight(failure: .unavailable)
         }
 
-        let attempt = Attempt(token: token, sceneLease: sceneLease)
+        let attempt = Attempt(
+            token: token,
+            sceneLeaseOwner: sceneLeaseOwner
+        )
         activeAttempt = attempt
         attempt.sceneObservation = dependencies.sceneRegistry.observeEvents {
             [weak self, weak attempt] event in
@@ -644,10 +811,15 @@ final class IOSForegroundVoiceWorkflow {
                  .aggregateBecameActive,
                  .initiatingSceneReactivatedAfterPermission:
                 break
-            case .lastActiveSceneLost(.voiceWorkMustStop),
-                 .initiatingSceneBecameUnavailable:
+            case .lastActiveSceneLost(.voiceWorkMustStop):
                 self.dependencies.cancelStartBoundary()
                 self.requestStop(.interrupted, for: attempt)
+            case .initiatingSceneBecameUnavailable
+                where attempt.requiresInitiatingScene:
+                self.dependencies.cancelStartBoundary()
+                self.requestStop(.interrupted, for: attempt)
+            case .initiatingSceneBecameUnavailable:
+                break
             }
         }
 
@@ -671,37 +843,117 @@ final class IOSForegroundVoiceWorkflow {
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
         defer { retire(attempt) }
-        defer {
-            attempt.sceneLease.finish()
-        }
 
-        guard await hasNoDurableRecoveryOwner() else {
+        guard await hasNoDurableRecoveryOwner(),
+              canContinueArming(
+                attempt,
+                requireInitiatingScene: true
+              ) else {
             return await blockedPreflight(failure: .localRecovery)
         }
-        guard let configuration = await loadValidatedConfiguration(intent) else {
-            return await configurationFailure(for: intent)
+        let configuration: IOSForegroundVoiceWorkflowConfiguration
+        switch await loadConfiguration(
+            intent,
+            continueIf: { [weak self, weak attempt] in
+                guard let self, let attempt else { return false }
+                return self.canContinueArming(
+                    attempt,
+                    requireInitiatingScene: true
+                )
+            }
+        ) {
+        case .available(let value):
+            configuration = value
+        case .settingsUnavailable, .libraryUnavailable:
+            return await blockedPreflight(failure: .localRecovery)
+        case .invalid(let destination):
+            return await blockedPreflight(
+                setup: .needsSetup(destination),
+                failure: .unavailable
+            )
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: true
+        ) else { return await blockedPreflight(failure: .unavailable) }
         lastConfiguration = configuration
+        passiveConfigurationSetupOverride = nil
 
-        guard let consent = await resolveConsent(for: attempt) else {
+        let consent: IOSProviderConsentObservation
+        switch await resolveConsent(for: attempt) {
+        case .accepted(let observation):
+            consent = observation
+        case .needsSetup:
             return await blockedPreflight(
                 setup: .needsSetup(.microphoneAndPrivacy),
                 failure: nil
             )
+        case .unavailable:
+            return await blockedPreflight(failure: .localRecovery)
         }
-        guard let credential = await resolveCredential() else {
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: true
+        ) else { return await blockedPreflight(failure: .unavailable) }
+
+        let credential: IOSForegroundVoiceWorkflowCredentialProof
+        switch await dependencies.resolveCredential() {
+        case .available(let proof):
+            credential = proof
+        case .needsSetup:
             return await blockedPreflight(
                 setup: .needsSetup(.openAI),
                 failure: nil
             )
-        }
-
-        guard await resolvePermission(for: attempt) else {
+        case .unavailable:
             return await blockedPreflight(
-                setup: .needsSetup(.microphoneAndPrivacy),
-                failure: nil
+                setup: .unavailable,
+                failure: .unavailable
             )
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: true
+        ) else { return await blockedPreflight(failure: .unavailable) }
+
+        switch await resolvePermission(for: attempt) {
+        case .granted:
+            break
+        case .denied:
+            return await blockedPreflight(
+                setup: .needsSetup(.microphoneAndPrivacy),
+                failure: .microphonePermissionDenied
+            )
+        case .unavailable:
+            return await blockedPreflight(
+                setup: .unavailable,
+                failure: .microphoneUnavailable
+            )
+        case .timedOut:
+            return await blockedPreflight(
+                setup: .ready,
+                failure: .microphonePermissionTimedOut
+            )
+        case .cancelled:
+            return await blockedPreflight(setup: .ready, failure: nil)
+        case .stale:
+            return await blockedPreflight(failure: .unavailable)
+        }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: true
+        ) else { return await blockedPreflight(failure: .unavailable) }
+
+        // Consent and the system permission interaction are complete. The
+        // process attempt remains admitted, but no scene owns presentation
+        // from this point forward.
+        attempt.requiresInitiatingScene = false
+        attempt.sceneLeaseOwner.finish()
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
+
         guard await revalidate(
             attempt: attempt,
             intent: intent,
@@ -712,15 +964,32 @@ final class IOSForegroundVoiceWorkflow {
         ) else {
             return await blockedPreflight(failure: .unavailable)
         }
-        guard await dependencies.stopHistoryPlayback() else {
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
+
+        guard await dependencies.stopHistoryPlayback(),
+              canContinueArming(
+                attempt,
+                requireInitiatingScene: false
+              ) else {
             return await blockedPreflight(failure: .operationFailed)
         }
 
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         do {
             attempt.audio = try dependencies.activateAudio()
         } catch {
             return await blockedPreflight(failure: .operationFailed)
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         attempt.audioObservation = attempt.audio?.observe {
             [weak self, weak attempt] event in
             guard let self, let attempt, self.activeAttempt === attempt else {
@@ -730,6 +999,18 @@ final class IOSForegroundVoiceWorkflow {
             case .interruption, .routeInvalid, .mediaServicesLost,
                  .mediaServicesReset, .ended:
                 self.requestStop(.interrupted, for: attempt)
+            case .routeNeedsRevalidation:
+                guard attempt.hasStartedRecording,
+                      attempt.recording?.isActive == true,
+                      let audio = attempt.audio else {
+                    self.requestStop(.interrupted, for: attempt)
+                    return
+                }
+                do {
+                    try audio.freezeAndValidateInput()
+                } catch {
+                    self.requestStop(.interrupted, for: attempt)
+                }
             }
         }
 
@@ -738,6 +1019,10 @@ final class IOSForegroundVoiceWorkflow {
         guard await dependencies.playStartBoundary(cuesEnabled) else {
             return await blockedPreflight(failure: .operationFailed)
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         guard await revalidate(
             attempt: attempt,
             intent: intent,
@@ -748,12 +1033,23 @@ final class IOSForegroundVoiceWorkflow {
         ) else {
             return await blockedPreflight(failure: .unavailable)
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         do {
-            try attempt.audio?.freezeAndValidateInput()
+            guard let audio = attempt.audio else {
+                return await blockedPreflight(failure: .unavailable)
+            }
+            try audio.freezeAndValidateInput()
         } catch {
             return await blockedPreflight(failure: .unavailable)
         }
 
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         do {
             attempt.recording = try await dependencies.makeRecording(
                 dependencies.makeUUID(),
@@ -762,9 +1058,12 @@ final class IOSForegroundVoiceWorkflow {
         } catch {
             return await blockedPreflight(failure: .localRecovery)
         }
-        guard await attempt.recording?.start() == true else {
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else {
             return await resolveStoppedAttempt(
-                .cancelled,
+                attempt.forcedTrigger ?? .cancelled,
                 attempt: attempt,
                 configuration: configuration,
                 consent: consent,
@@ -772,27 +1071,6 @@ final class IOSForegroundVoiceWorkflow {
                 progress: progress
             )
         }
-
-        guard attempt.recording?.isActive == true,
-              await revalidate(
-                attempt: attempt,
-                intent: intent,
-                configuration: configuration,
-                consent: consent,
-                credential: credential,
-                requireGrantedPermission: true,
-                requireNoDurableOwner: false
-              ) else {
-            return await resolveStoppedAttempt(
-                .cancelled,
-                attempt: attempt,
-                configuration: configuration,
-                consent: consent,
-                credential: credential,
-                progress: progress
-            )
-        }
-
         attempt.recordingObservation = attempt.recording?.observeTerminal {
             [weak self, weak attempt] reason in
             guard let self, let attempt, self.activeAttempt === attempt else {
@@ -807,8 +1085,112 @@ final class IOSForegroundVoiceWorkflow {
                 self.requestStop(.maximumDuration, for: attempt)
             }
         }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else {
+            return await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .cancelled,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        }
+        let startResult = await attempt.recording?.start() ?? .failed
+        switch startResult {
+        case .started:
+            break
+        case .cancelled:
+            return await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .cancelled,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        case .failed:
+            let resolution = await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .interrupted,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+            guard attempt.forcedTrigger == nil else { return resolution }
+            return IOSForegroundVoiceResolution(
+                observation: resolution.observation,
+                stage: resolution.stage,
+                outcome: .interrupted,
+                failure: resolution.observation.recovery == .none
+                    ? .operationFailed
+                    : resolution.failure ?? .localRecovery
+            )
+        }
+        attempt.hasStartedRecording = true
+
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else {
+            return await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .cancelled,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        }
+        guard attempt.recording?.isActive == true else {
+            return await resolveStoppedAttempt(
+                .interrupted,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        }
+        guard await revalidate(
+                attempt: attempt,
+                intent: intent,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                requireGrantedPermission: true,
+                requireNoDurableOwner: false
+            ) else {
+            return await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .interrupted,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else {
+            return await resolveStoppedAttempt(
+                attempt.forcedTrigger ?? .cancelled,
+                attempt: attempt,
+                configuration: configuration,
+                consent: consent,
+                credential: credential,
+                progress: progress
+            )
+        }
         do {
-            try attempt.audio?.freezeAndValidateInput()
+            guard let audio = attempt.audio else {
+                throw CancellationError()
+            }
+            try audio.freezeAndValidateInput()
         } catch {
             return await resolveStoppedAttempt(
                 .interrupted,
@@ -889,7 +1271,7 @@ final class IOSForegroundVoiceWorkflow {
                 deactivateAudio(for: attempt)
                 capture.release()
                 return IOSForegroundVoiceResolution(
-                    observation: await observe(),
+                    observation: await observeDurableTerminalState(),
                     stage: .recordingFinalization,
                     outcome: trigger == .interrupted ? .interrupted : nil,
                     failure: .localRecovery
@@ -913,7 +1295,7 @@ final class IOSForegroundVoiceWorkflow {
                 finishFinalization(for: attempt)
                 deactivateAudio(for: attempt)
                 capture.release()
-                let observation = await observe()
+                let observation = await observeDurableTerminalState()
                 return IOSForegroundVoiceResolution(
                     observation: observation,
                     stage: .recordingFinalization,
@@ -927,6 +1309,20 @@ final class IOSForegroundVoiceWorkflow {
                 configuration.settings.voiceSessionPreferences
                     .audioCuesEnabled
             )
+            if attempt.finalizationExpired
+                || attempt.forcedTrigger != nil {
+                capture.release()
+                finishFinalization(for: attempt)
+                deactivateAudio(for: attempt)
+                return IOSForegroundVoiceResolution(
+                    observation: await observeDurableTerminalState(),
+                    stage: .recordingFinalization,
+                    outcome: attempt.forcedTrigger == .interrupted
+                        ? .interrupted
+                        : nil,
+                    failure: .localRecovery
+                )
+            }
             deactivateAudio(for: attempt)
             let pending: IOSPendingRecording
             do {
@@ -938,7 +1334,7 @@ final class IOSForegroundVoiceWorkflow {
                 capture.release()
                 finishFinalization(for: attempt)
                 return IOSForegroundVoiceResolution(
-                    observation: await observe(),
+                    observation: await observeDurableTerminalState(),
                     stage: .recordingFinalization,
                     failure: .localRecovery
                 )
@@ -946,21 +1342,33 @@ final class IOSForegroundVoiceWorkflow {
             capture.release()
             let finalizationExpired = attempt.finalizationExpired
             finishFinalization(for: attempt)
-            guard !finalizationExpired else {
+            guard !finalizationExpired,
+                  !Task.isCancelled,
+                  activeAttempt === attempt,
+                  attempt.forcedTrigger == nil else {
                 return IOSForegroundVoiceResolution(
-                    observation: await observe(),
+                    observation: await observeDurableTerminalState(),
                     stage: .recordingFinalization,
-                    outcome: .recoverableFailure,
+                    outcome: attempt.forcedTrigger == .interrupted
+                        ? .interrupted
+                        : .recoverableFailure,
                     failure: .localRecovery
                 )
             }
-            guard dependencies.sceneRegistry.validateContinuation(
-                    attempt.sceneLease
-                  ) == .ready,
+            guard !Task.isCancelled,
+                  dependencies.sceneRegistry.snapshot.isForegroundActive,
+                  attempt.forcedTrigger == nil,
                   await dependencies.revalidateConsent(consent),
-                  await dependencies.revalidateCredential(credential) else {
+                  !Task.isCancelled,
+                  dependencies.sceneRegistry.snapshot.isForegroundActive,
+                  attempt.forcedTrigger == nil,
+                  await dependencies.revalidateCredential(credential),
+                  !Task.isCancelled,
+                  activeAttempt === attempt,
+                  dependencies.sceneRegistry.snapshot.isForegroundActive,
+                  attempt.forcedTrigger == nil else {
                 return IOSForegroundVoiceResolution(
-                    observation: await observe(),
+                    observation: await observeDurableTerminalState(),
                     stage: .recordingFinalization,
                     outcome: .recoverableFailure,
                     failure: .localRecovery
@@ -978,11 +1386,20 @@ final class IOSForegroundVoiceWorkflow {
                 attempt: attempt,
                 progress: progress
             )
-        case .discarded(let reason):
+        case .discarded:
             finishFinalization(for: attempt)
             deactivateAudio(for: attempt)
             return IOSForegroundVoiceResolution(
-                observation: await observe(),
+                observation: await observeDurableTerminalState(),
+                stage: nil,
+                outcome: trigger == .interrupted ? .interrupted : nil,
+                failure: nil
+            )
+        case .invalid(let reason):
+            finishFinalization(for: attempt)
+            deactivateAudio(for: attempt)
+            return IOSForegroundVoiceResolution(
+                observation: await observeDurableTerminalState(),
                 stage: nil,
                 outcome: trigger == .interrupted ? .interrupted : nil,
                 failure: failure(for: reason)
@@ -991,7 +1408,7 @@ final class IOSForegroundVoiceWorkflow {
             finishFinalization(for: attempt)
             deactivateAudio(for: attempt)
             return IOSForegroundVoiceResolution(
-                observation: await observe(),
+                observation: await observeDurableTerminalState(),
                 stage: .recordingFinalization,
                 outcome: trigger == .interrupted ? .interrupted : nil,
                 failure: .localRecovery
@@ -1002,20 +1419,249 @@ final class IOSForegroundVoiceWorkflow {
     private func runRetryPending(
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
-        guard dependencies.sceneRegistry.snapshot.isForegroundActive,
-              let pending = pendingObservation,
+        let expectedPending = pendingObservation
+        let registry = dependencies.sceneRegistry
+        let authority = IOSForegroundVoiceRetryAuthority()
+        let observation = registry.observeEvents { event in
+            guard registry.validate(event) else { return }
+            if event.kind == .lastActiveSceneLost(.voiceWorkMustStop) {
+                authority.terminate()
+            }
+        }
+        defer { observation.cancel() }
+        if !registry.snapshot.isForegroundActive { authority.terminate() }
+
+        return await withTaskCancellationHandler {
+            await performRetryPending(
+                expectedPending: expectedPending,
+                authority: authority,
+                registry: registry,
+                progress: progress
+            )
+        } onCancel: {
+            authority.terminate()
+        }
+    }
+
+    private func performRetryPending(
+        expectedPending: IOSPendingRecordingObservation?,
+        authority: IOSForegroundVoiceRetryAuthority,
+        registry: IOSVoiceSceneRegistry,
+        progress: @escaping IOSForegroundVoiceClient.Progress
+    ) async -> IOSForegroundVoiceResolution {
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        guard let expectedPending,
+              expectedPending.availability == .available,
+              expectedPending.recording.phase == .readyForTranscription
+                || expectedPending.recording.phase == .awaitingRecovery else {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+
+        // Canonical Pending is the first async read. Cached observation state
+        // never authorizes provider dispatch.
+        let pending: IOSPendingRecordingObservation
+        do {
+            guard let current = try await dependencies.loadPending() else {
+                return await pendingRetryPreflightResolution(
+                    failure: .localRecovery,
+                    authority: authority,
+                    registry: registry
+                )
+            }
+            pending = current
+        } catch {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard retryCanContinue(authority, registry: registry),
+              pending == expectedPending,
               pending.availability == .available,
               pending.recording.phase == .readyForTranscription
-                || pending.recording.phase == .awaitingRecovery,
-              let configuration = await loadValidatedConfiguration(
-                pending.recording.outputIntent
-              ),
-              let consent = await resolveConsentWithoutPresentation(),
-              let credential = await resolveCredential(),
-              dependencies.sceneRegistry.snapshot.isForegroundActive,
-              await dependencies.revalidateConsent(consent),
-              await dependencies.revalidateCredential(credential) else {
-            return await blockedPreflight(failure: .unavailable)
+                || pending.recording.phase == .awaitingRecovery else {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+
+        let configuration: IOSForegroundVoiceWorkflowConfiguration
+        switch await loadConfiguration(
+            pending.recording.outputIntent,
+            continueIf: {
+                retryCanContinue(authority, registry: registry)
+            }
+        ) {
+        case .available(let value):
+            configuration = value
+        case .settingsUnavailable, .libraryUnavailable:
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        case .invalid(let destination):
+            return await pendingRetryPreflightResolution(
+                setup: .needsSetup(destination),
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        let consent: IOSProviderConsentObservation
+        switch await resolveConsentWithoutPresentation() {
+        case .accepted(let value):
+            consent = value
+        case .needsSetup:
+            return await pendingRetryPreflightResolution(
+                setup: .needsSetup(.microphoneAndPrivacy),
+                failure: nil,
+                authority: authority,
+                registry: registry
+            )
+        case .unavailable:
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        let credential: IOSForegroundVoiceWorkflowCredentialProof
+        switch await dependencies.resolveCredential() {
+        case .available(let value):
+            credential = value
+        case .needsSetup:
+            return await pendingRetryPreflightResolution(
+                setup: .needsSetup(.openAI),
+                failure: nil,
+                authority: authority,
+                registry: registry
+            )
+        case .unavailable:
+            return await pendingRetryPreflightResolution(
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        guard await dependencies.revalidateConsent(consent),
+              retryCanContinue(authority, registry: registry) else {
+            return await pendingRetryPreflightResolution(
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard await dependencies.revalidateCredential(credential),
+              retryCanContinue(authority, registry: registry) else {
+            return await pendingRetryPreflightResolution(
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+
+        // Immediately before dispatch, prove the exact Pending and the frozen
+        // Settings/Library snapshot still match canonical storage.
+        let currentConfiguration: IOSForegroundVoiceWorkflowConfiguration
+        switch await loadConfiguration(
+            pending.recording.outputIntent,
+            continueIf: {
+                retryCanContinue(authority, registry: registry)
+            }
+        ) {
+        case .available(let value):
+            currentConfiguration = value
+        case .settingsUnavailable, .libraryUnavailable:
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        case .invalid(let destination):
+            return await pendingRetryPreflightResolution(
+                setup: .needsSetup(destination),
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard retryCanContinue(authority, registry: registry),
+              currentConfiguration.settings == configuration.settings,
+              currentConfiguration.library == configuration.library else {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+        do {
+            guard let currentPending = try await dependencies.loadPending(),
+                  currentPending == pending,
+                  retryCanContinue(authority, registry: registry) else {
+                return await pendingRetryPreflightResolution(
+                    failure: .localRecovery,
+                    authority: authority,
+                    registry: registry
+                )
+            }
+        } catch {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard await dependencies.revalidateConsent(consent),
+              retryCanContinue(authority, registry: registry) else {
+            return await pendingRetryPreflightResolution(
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        guard await dependencies.revalidateCredential(credential),
+              retryCanContinue(authority, registry: registry) else {
+            return await pendingRetryPreflightResolution(
+                failure: .unavailable,
+                authority: authority,
+                registry: registry
+            )
+        }
+        do {
+            guard let dispatchPending = try await dependencies.loadPending(),
+                  dispatchPending == pending,
+                  retryCanContinue(authority, registry: registry) else {
+                return await pendingRetryPreflightResolution(
+                    failure: .localRecovery,
+                    authority: authority,
+                    registry: registry
+                )
+            }
+        } catch {
+            return await pendingRetryPreflightResolution(
+                failure: .localRecovery,
+                authority: authority,
+                registry: registry
+            )
         }
 
         return await runAggregateProcessor(
@@ -1027,7 +1673,194 @@ final class IOSForegroundVoiceWorkflow {
                 credential: credential,
                 consentObservation: consent
             ),
+            authority: authority,
+            registry: registry,
             progress: progress
+        )
+    }
+
+    private func runRetryLocalCheckpoint(
+        progress: @escaping IOSForegroundVoiceClient.Progress
+    ) async -> IOSForegroundVoiceResolution {
+        let stage = localCheckpointStage
+        let requirement = localCheckpointRequirement
+        let registry = dependencies.sceneRegistry
+        let authority = IOSForegroundVoiceRetryAuthority()
+        let observation = registry.observeEvents { event in
+            guard registry.validate(event) else { return }
+            if event.kind == .lastActiveSceneLost(.voiceWorkMustStop) {
+                authority.terminate()
+            }
+        }
+        defer { observation.cancel() }
+        if !registry.snapshot.isForegroundActive { authority.terminate() }
+
+        return await withTaskCancellationHandler {
+            await performRetryLocalCheckpoint(
+                stage: stage,
+                requirement: requirement,
+                authority: authority,
+                registry: registry,
+                progress: progress
+            )
+        } onCancel: {
+            authority.terminate()
+        }
+    }
+
+    private func performRetryLocalCheckpoint(
+        stage: VoiceAttemptStage?,
+        requirement: IOSForegroundVoiceLocalRecoveryRequirement?,
+        authority: IOSForegroundVoiceRetryAuthority,
+        registry: IOSVoiceSceneRegistry,
+        progress: @escaping IOSForegroundVoiceClient.Progress
+    ) async -> IOSForegroundVoiceResolution {
+        guard let stage else {
+            return await blockedPreflight(failure: .localRecovery)
+        }
+        guard let requirement else {
+            return localCheckpointLossResolution(stage: stage)
+        }
+        guard retryCanContinue(authority, registry: registry) else {
+            return localCheckpointLossResolution(stage: stage)
+        }
+
+        let providerAuthorization:
+            IOSForegroundVoiceWorkflowProviderRetryAuthorization?
+        switch requirement {
+        case .providerFree:
+            providerAuthorization = nil
+        case .currentProviderAuthority:
+            switch await resolveConsentWithoutPresentation() {
+            case .accepted(let consent):
+                guard retryCanContinue(authority, registry: registry) else {
+                    return localCheckpointLossResolution(stage: stage)
+                }
+                guard await dependencies.revalidateConsent(consent),
+                      retryCanContinue(authority, registry: registry) else {
+                    return retryCanContinue(authority, registry: registry)
+                        ? localCheckpointLossResolution(
+                            stage: stage,
+                            failure: .unavailable
+                        )
+                        : localCheckpointLossResolution(stage: stage)
+                }
+                guard retryCanContinue(authority, registry: registry) else {
+                    return localCheckpointLossResolution(stage: stage)
+                }
+                switch await dependencies.resolveCredential() {
+                case .available(let credential):
+                    guard retryCanContinue(authority, registry: registry) else {
+                        return localCheckpointLossResolution(stage: stage)
+                    }
+                    guard await dependencies.revalidateCredential(credential),
+                          retryCanContinue(
+                            authority,
+                            registry: registry
+                          ) else {
+                        return retryCanContinue(
+                            authority,
+                            registry: registry
+                        )
+                            ? localCheckpointLossResolution(
+                                stage: stage,
+                                failure: .unavailable
+                            )
+                            : localCheckpointLossResolution(stage: stage)
+                    }
+                    providerAuthorization =
+                        IOSForegroundVoiceWorkflowProviderRetryAuthorization(
+                            credential: credential,
+                            consentObservation: consent
+                        )
+                case .needsSetup:
+                    return localCheckpointLossResolution(
+                        stage: stage,
+                        setup: .needsSetup(.openAI),
+                        failure: nil
+                    )
+                case .unavailable:
+                    return localCheckpointLossResolution(
+                        stage: stage,
+                        setup: .unavailable,
+                        failure: .unavailable
+                    )
+                }
+            case .needsSetup:
+                return localCheckpointLossResolution(
+                    stage: stage,
+                    setup: .needsSetup(.microphoneAndPrivacy),
+                    failure: nil
+                )
+            case .unavailable:
+                return localCheckpointLossResolution(
+                    stage: stage,
+                    setup: .unavailable,
+                    failure: .localRecovery
+                )
+            }
+        }
+
+        guard retryCanContinue(authority, registry: registry) else {
+            return localCheckpointLossResolution(stage: stage)
+        }
+        let retry = dependencies.retryLocalRecovery
+        let operation = Task {
+            guard authority.canContinue, !Task.isCancelled else {
+                return IOSForegroundVoiceProcessingResolution.notStarted(
+                    .cancelled
+                )
+            }
+            return await retry(providerAuthorization) { currentStage in
+                guard authority.canContinue,
+                      !Task.isCancelled,
+                      registry.snapshot.isForegroundActive else {
+                    return
+                }
+                progress(.processing(currentStage))
+            }
+        }
+        guard authority.install(operation) else {
+            return localCheckpointLossResolution(stage: stage)
+        }
+        let result = await operation.value
+        authority.clearChild()
+        guard retryCanContinue(authority, registry: registry) else {
+            return localCheckpointLossResolution(stage: stage)
+        }
+        switch result {
+        case .notStarted(let failure):
+            return localCheckpointLossResolution(
+                stage: stage,
+                failure: map(failure)
+            )
+        case .busy:
+            return localCheckpointLossResolution(
+                stage: stage,
+                failure: .unavailable
+            )
+        case .acceptance, .awaitingRecovery, .localRecoveryPending:
+            break
+        }
+        return await mapProcessing(result)
+    }
+
+    private func localCheckpointLossResolution(
+        stage: VoiceAttemptStage,
+        setup: IOSForegroundVoiceSetup = .ready,
+        failure: IOSForegroundVoiceFailure? = .localRecovery
+    ) -> IOSForegroundVoiceResolution {
+        IOSForegroundVoiceResolution(
+            observation: IOSForegroundVoiceObservation(
+                setup: setup,
+                recovery: .localCheckpoint(stage),
+                stage: stage,
+                latestAvailability: latestAvailability,
+                translationAvailable: translationIsAvailable
+            ),
+            stage: stage,
+            outcome: .recoverableFailure,
+            failure: failure
         )
     }
 
@@ -1044,12 +1877,12 @@ final class IOSForegroundVoiceWorkflow {
                 settings.transcriptionConfiguration
             )
             return IOSForegroundVoiceResolution(
-                observation: await observe(),
+                observation: await observeDurableTerminalState(),
                 stage: .recordingFinalization
             )
         } catch {
             return IOSForegroundVoiceResolution(
-                observation: await observe(),
+                observation: await observeDurableTerminalState(),
                 stage: .recordingFinalization,
                 failure: .localRecovery
             )
@@ -1102,34 +1935,60 @@ final class IOSForegroundVoiceWorkflow {
     ) async -> IOSForegroundVoiceResolution {
         switch resolution {
         case .acceptance(let acceptance):
+            localCheckpointStage = nil
+            localCheckpointRequirement = nil
             return await mapAcceptance(acceptance)
         case .awaitingRecovery(_, let failure, let stage):
+            localCheckpointStage = nil
+            localCheckpointRequirement = nil
             return IOSForegroundVoiceResolution(
                 observation: await observe(),
                 stage: stage,
                 outcome: .recoverableFailure,
                 failure: map(failure)
             )
-        case .localRecoveryPending(let failure, let stage, let disposition):
-            let recovery: IOSForegroundVoiceRecovery = switch disposition {
-            case .processingCheckpoint: .localCheckpoint(stage)
-            case .savingResult: .savingResult
+        case .localRecoveryPending(
+            let failure,
+            let stage,
+            let disposition,
+            let requirement
+        ):
+            if disposition == .savingResult {
+                let durable = await observe()
+                if savingResultExpectation != nil {
+                    localCheckpointStage = nil
+                    localCheckpointRequirement = nil
+                    return IOSForegroundVoiceResolution(
+                        observation: IOSForegroundVoiceObservation(
+                            setup: durable.setup,
+                            recovery: .savingResult,
+                            stage: stage,
+                            latestAvailability: durable.latestAvailability,
+                            translationAvailable:
+                                durable.translationAvailable
+                        ),
+                        stage: stage,
+                        failure: map(failure)
+                    )
+                }
             }
+            localCheckpointStage = stage
+            localCheckpointRequirement = requirement
             return IOSForegroundVoiceResolution(
                 observation: IOSForegroundVoiceObservation(
                     setup: .ready,
-                    recovery: recovery,
+                    recovery: .localCheckpoint(stage),
                     stage: stage,
                     latestAvailability: latestAvailability,
                     translationAvailable: translationIsAvailable
                 ),
                 stage: stage,
-                outcome: disposition == .processingCheckpoint
-                    ? .recoverableFailure
-                    : nil,
+                outcome: .recoverableFailure,
                 failure: map(failure)
             )
         case .notStarted(let failure):
+            localCheckpointStage = nil
+            localCheckpointRequirement = nil
             return IOSForegroundVoiceResolution(
                 observation: await observe(),
                 failure: map(failure)
@@ -1144,12 +2003,11 @@ final class IOSForegroundVoiceWorkflow {
         attempt: Attempt,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
-        guard dependencies.sceneRegistry.validateContinuation(
-                attempt.sceneLease
-              ) == .ready,
+        guard !Task.isCancelled,
+              dependencies.sceneRegistry.snapshot.isForegroundActive,
               attempt.forcedTrigger == nil else {
             return IOSForegroundVoiceResolution(
-                observation: await observe(),
+                observation: await observeDurableTerminalState(),
                 stage: .recordingFinalization,
                 outcome: .recoverableFailure,
                 failure: .localRecovery
@@ -1157,45 +2015,119 @@ final class IOSForegroundVoiceWorkflow {
         }
         let process = dependencies.process
         let task = Task {
-            await process(request) { stage in
+            return await process(request) { stage in
+                guard !Task.isCancelled,
+                      self.activeAttempt === attempt,
+                      attempt.forcedTrigger == nil,
+                      self.dependencies.sceneRegistry.snapshot
+                        .isForegroundActive else {
+                    return
+                }
                 progress(.processing(stage))
             }
         }
         attempt.providerTask = task
         let result = await task.value
         attempt.providerTask = nil
+        guard activeAttempt === attempt,
+              !Task.isCancelled,
+              attempt.forcedTrigger == nil,
+              dependencies.sceneRegistry.snapshot.isForegroundActive else {
+            return IOSForegroundVoiceResolution(
+                observation: await observeDurableTerminalState(),
+                stage: .recordingFinalization,
+                outcome: .recoverableFailure,
+                failure: .localRecovery
+            )
+        }
         return await mapProcessing(result)
     }
 
     private func runAggregateProcessor(
         _ request: IOSForegroundVoiceWorkflowProcessingRequest,
+        authority: IOSForegroundVoiceRetryAuthority,
+        registry: IOSVoiceSceneRegistry,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
-        guard dependencies.sceneRegistry.snapshot.isForegroundActive else {
-            return await blockedPreflight(failure: .unavailable)
-        }
-        var task: Task<IOSForegroundVoiceProcessingResolution, Never>?
-        let registry = dependencies.sceneRegistry
-        let observation = registry.observeEvents { event in
-            guard registry.validate(event) else { return }
-            if event.kind == .lastActiveSceneLost(.voiceWorkMustStop) {
-                task?.cancel()
-            }
-        }
-        defer { observation.cancel() }
-        guard registry.snapshot.isForegroundActive else {
-            return await blockedPreflight(failure: .unavailable)
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
         }
         let process = dependencies.process
         let operation = Task {
-            await process(request) { stage in
+            guard authority.canContinue, !Task.isCancelled else {
+                return IOSForegroundVoiceProcessingResolution.notStarted(
+                    .cancelled
+                )
+            }
+            return await process(request) { stage in
+                guard authority.canContinue,
+                      !Task.isCancelled,
+                      registry.snapshot.isForegroundActive else {
+                    return
+                }
                 progress(.processing(stage))
             }
         }
-        task = operation
+        guard authority.install(operation) else {
+            return pendingRetryLossResolution()
+        }
         let result = await operation.value
-        task = nil
+        authority.clearChild()
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
         return await mapProcessing(result)
+    }
+
+    private func retryCanContinue(
+        _ authority: IOSForegroundVoiceRetryAuthority,
+        registry: IOSVoiceSceneRegistry
+    ) -> Bool {
+        authority.canContinue
+            && !Task.isCancelled
+            && registry.snapshot.isForegroundActive
+    }
+
+    private func pendingRetryLossResolution() ->
+        IOSForegroundVoiceResolution {
+        IOSForegroundVoiceResolution(
+            observation: IOSForegroundVoiceObservation(
+                setup: passiveSetup,
+                recovery: .pendingRetryOrDiscard,
+                stage: .transcription,
+                latestAvailability: latestAvailability,
+                translationAvailable: translationIsAvailable
+            ),
+            stage: .transcription,
+            outcome: .recoverableFailure,
+            failure: .localRecovery
+        )
+    }
+
+    private func pendingRetryPreflightResolution(
+        setup: IOSForegroundVoiceSetup = .unavailable,
+        failure: IOSForegroundVoiceFailure?,
+        authority: IOSForegroundVoiceRetryAuthority,
+        registry: IOSVoiceSceneRegistry
+    ) async -> IOSForegroundVoiceResolution {
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        let current = await observeDurableTerminalState()
+        guard retryCanContinue(authority, registry: registry) else {
+            return pendingRetryLossResolution()
+        }
+        return IOSForegroundVoiceResolution(
+            observation: IOSForegroundVoiceObservation(
+                setup: setup,
+                recovery: current.recovery,
+                stage: current.stage,
+                latestAvailability: current.latestAvailability,
+                translationAvailable: current.translationAvailable
+            ),
+            stage: current.stage,
+            failure: failure
+        )
     }
 
     private func mapAcceptance(
@@ -1236,68 +2168,112 @@ final class IOSForegroundVoiceWorkflow {
     }
 
     private func hasNoDurableRecoveryOwner() async -> Bool {
-        let observation = await observe()
+        let observation = await observe(includeConfiguration: false)
         return observation.recovery == .none
     }
 
-    private func loadValidatedConfiguration(
-        _ intent: DictationOutputIntent
-    ) async -> IOSForegroundVoiceWorkflowConfiguration? {
-        guard let settings = try? await dependencies.loadSettings(),
-              let library = try? await dependencies.loadLibrary() else {
-            return nil
+    /// Terminal reconciliation must outlive cancellation of the operation
+    /// task; otherwise a cancelled persistence read can manufacture `.blocked`
+    /// and hide the exact durable source (or invent one after a clean discard).
+    private func observeDurableTerminalState() async
+        -> IOSForegroundVoiceObservation {
+        let task = Task.detached { @MainActor [weak self] in
+            guard let self else { return Self.unavailableObservation }
+            return await self.observe()
         }
+        return await task.value
+    }
+
+    private func loadConfiguration(
+        _ intent: DictationOutputIntent,
+        continueIf: @MainActor () -> Bool = { true }
+    ) async -> ConfigurationResolution {
+        let settings: IOSAppSettings
+        do {
+            settings = try await dependencies.loadSettings()
+        } catch {
+            return .settingsUnavailable
+        }
+        guard continueIf() else { return .settingsUnavailable }
+
+        let library: IOSLibraryContent
+        do {
+            library = try await dependencies.loadLibrary()
+        } catch {
+            return .libraryUnavailable
+        }
+        guard continueIf() else { return .libraryUnavailable }
+
         guard !settings.transcriptionConfiguration
-                .customLanguageCodeValidation.isInvalid else {
-            return nil
+            .customLanguageCodeValidation.isInvalid else {
+            return .invalid(.transcription)
         }
         if intent == .translate,
            !settings.translationConfiguration.canRunAction {
-            return nil
+            return .invalid(.translation)
         }
-        return IOSForegroundVoiceWorkflowConfiguration(
-            settings: settings,
-            library: library
+        return .available(
+            IOSForegroundVoiceWorkflowConfiguration(
+                settings: settings,
+                library: library
+            )
         )
     }
 
     private func resolveConsent(
         for attempt: Attempt
-    ) async -> IOSProviderConsentObservation? {
+    ) async -> ConsentResolution {
         await resolveConsent(sceneLease: attempt.sceneLease)
     }
 
     private func resolveConsent(
         sceneLease: IOSVoiceSceneStartLease
-    ) async -> IOSProviderConsentObservation? {
+    ) async -> ConsentResolution {
         let observed = await dependencies.observeConsent()
         if observed.status == .acceptedCurrentDisclosure,
            await dependencies.revalidateConsent(observed) {
-            return observed
+            return .accepted(observed)
+        }
+        switch observed.status {
+        case .localDataUnavailable, .mutationNotSaved:
+            return .unavailable
+        case .notReviewed, .reviewRequired, .withdrawn,
+             .acceptedCurrentDisclosure:
+            break
         }
         guard dependencies.sceneRegistry.validateContinuation(sceneLease)
                 == .ready,
               let accepted = await dependencies.continueConsent(
                   sceneLease,
                   observed
-              ),
-              accepted.status == .acceptedCurrentDisclosure,
-              dependencies.sceneRegistry.validateContinuation(sceneLease)
-                == .ready,
-              await dependencies.revalidateConsent(accepted) else {
-            return nil
+              ) else {
+            return dependencies.sceneRegistry.validateContinuation(sceneLease)
+                == .ready ? .needsSetup : .unavailable
         }
-        return accepted
+        guard accepted.status == .acceptedCurrentDisclosure,
+              dependencies.sceneRegistry.validateContinuation(sceneLease)
+                == .ready else {
+            return .needsSetup
+        }
+        guard await dependencies.revalidateConsent(accepted) else {
+            return .needsSetup
+        }
+        return .accepted(accepted)
     }
 
     private func resolveConsentWithoutPresentation() async
-        -> IOSProviderConsentObservation? {
+        -> ConsentResolution {
         let observed = await dependencies.observeConsent()
-        guard observed.status == .acceptedCurrentDisclosure,
-              await dependencies.revalidateConsent(observed) else {
-            return nil
+        guard observed.status == .acceptedCurrentDisclosure else {
+            return observed.status == .localDataUnavailable
+                || observed.status == .mutationNotSaved
+                ? .unavailable
+                : .needsSetup
         }
-        return observed
+        guard await dependencies.revalidateConsent(observed) else {
+            return .needsSetup
+        }
+        return .accepted(observed)
     }
 
     private func resolveCredential() async
@@ -1308,30 +2284,65 @@ final class IOSForegroundVoiceWorkflow {
         }
     }
 
-    private func resolvePermission(for attempt: Attempt) async -> Bool {
+    private func resolvePermission(
+        for attempt: Attempt
+    ) async -> PermissionResolution {
         let status = dependencies.permission.read()
         switch status {
         case .granted:
-            return true
-        case .denied, .unavailable:
-            return false
+            return .granted
+        case .denied:
+            return .denied
+        case .unavailable:
+            return .unavailable
         case .undetermined:
             guard dependencies.sceneRegistry
                 .beginExpectedMicrophonePermissionPrompt(
                     attempt.sceneLease
                 ) else {
-                return false
+                return .stale
             }
             let outcome = await dependencies.permission
                 .requestIfUndetermined()
+
+            switch outcome {
+            case .timedOut:
+                _ = dependencies.sceneRegistry
+                    .microphonePermissionPromptDidReturn(attempt.sceneLease)
+                return .timedOut
+            case .cancelled:
+                _ = dependencies.sceneRegistry
+                    .microphonePermissionPromptDidReturn(attempt.sceneLease)
+                return .cancelled
+            case .unavailable:
+                _ = dependencies.sceneRegistry
+                    .microphonePermissionPromptDidReturn(attempt.sceneLease)
+                return .unavailable
+            case .granted, .denied:
+                break
+            }
+
             var validation = dependencies.sceneRegistry
                 .microphonePermissionPromptDidReturn(attempt.sceneLease)
             if validation == .awaitingInitiatingSceneReactivation {
                 validation = await dependencies.sceneRegistry
                     .waitUntilInitiatingSceneActive(attempt.sceneLease)
             }
-            return validation == .ready && outcome == .granted
-                && dependencies.permission.read() == .granted
+            guard validation == .ready,
+                  !Task.isCancelled,
+                  attempt.forcedTrigger == nil else {
+                return .stale
+            }
+            switch outcome {
+            case .granted:
+                return dependencies.permission.read() == .granted
+                    ? .granted
+                    : .unavailable
+            case .denied:
+                return .denied
+            case .unavailable, .timedOut, .cancelled:
+                return .stale
+            }
         }
     }
 
@@ -1344,22 +2355,52 @@ final class IOSForegroundVoiceWorkflow {
         requireGrantedPermission: Bool,
         requireNoDurableOwner: Bool = true
     ) async -> Bool {
-        guard activeAttempt === attempt,
-              !Task.isCancelled,
-              dependencies.sceneRegistry.validateContinuation(
-                attempt.sceneLease
-              ) == .ready else {
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: attempt.requiresInitiatingScene
+        ) else {
             return false
         }
         if requireNoDurableOwner,
            !(await hasNoDurableRecoveryOwner()) {
             return false
         }
-        guard let current = await loadValidatedConfiguration(intent),
-              current.settings == configuration.settings,
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: attempt.requiresInitiatingScene
+        ) else { return false }
+        let current: IOSForegroundVoiceWorkflowConfiguration
+        switch await loadConfiguration(
+            intent,
+            continueIf: { [weak self, weak attempt] in
+                guard let self, let attempt else { return false }
+                return self.canContinueArming(
+                    attempt,
+                    requireInitiatingScene: attempt.requiresInitiatingScene
+                )
+            }
+        ) {
+        case .available(let value):
+            current = value
+        case .settingsUnavailable, .libraryUnavailable, .invalid:
+            return false
+        }
+        guard current.settings == configuration.settings,
               current.library == configuration.library,
+              canContinueArming(
+                attempt,
+                requireInitiatingScene: attempt.requiresInitiatingScene
+              ),
               await dependencies.revalidateConsent(consent),
-              await dependencies.revalidateCredential(credential) else {
+              canContinueArming(
+                attempt,
+                requireInitiatingScene: attempt.requiresInitiatingScene
+              ),
+              await dependencies.revalidateCredential(credential),
+              canContinueArming(
+                attempt,
+                requireInitiatingScene: attempt.requiresInitiatingScene
+              ) else {
             return false
         }
         return !requireGrantedPermission
@@ -1390,8 +2431,12 @@ final class IOSForegroundVoiceWorkflow {
 
     private func requestStop(_ trigger: StopTrigger, for attempt: Attempt) {
         guard activeAttempt === attempt else { return }
-        if trigger == .interrupted || trigger == .maximumDuration {
-            attempt.forcedTrigger = trigger
+        if trigger != .done {
+            if attempt.forcedTrigger == nil
+                || (attempt.forcedTrigger == .cancelled
+                    && trigger != .cancelled) {
+                attempt.forcedTrigger = trigger
+            }
         }
         if let continuation = attempt.tailContinuation,
            trigger != .done {
@@ -1421,6 +2466,14 @@ final class IOSForegroundVoiceWorkflow {
                     do {
                         try await sleep(duration)
                     } catch {
+                        guard !Task.isCancelled,
+                              let attempt,
+                              let continuation = attempt.tailContinuation else {
+                            return
+                        }
+                        attempt.tailContinuation = nil
+                        attempt.tailTask = nil
+                        continuation.resume(returning: .interrupted)
                         return
                     }
                     guard let attempt,
@@ -1446,6 +2499,13 @@ final class IOSForegroundVoiceWorkflow {
             do {
                 try await sleep(.seconds(300))
             } catch {
+                guard !Task.isCancelled,
+                      let self,
+                      let attempt,
+                      self.activeAttempt === attempt else {
+                    return
+                }
+                self.requestStop(.interrupted, for: attempt)
                 return
             }
             guard let self, let attempt else { return }
@@ -1473,6 +2533,22 @@ final class IOSForegroundVoiceWorkflow {
         attempt.recordingObservation?.cancel()
         attempt.recordingObservation = nil
         activeAttempt = nil
+    }
+
+    private func canContinueArming(
+        _ attempt: Attempt,
+        requireInitiatingScene: Bool
+    ) -> Bool {
+        guard activeAttempt === attempt,
+              !Task.isCancelled,
+              attempt.forcedTrigger == nil,
+              dependencies.sceneRegistry.snapshot.isForegroundActive else {
+            return false
+        }
+        return !requireInitiatingScene
+            || dependencies.sceneRegistry.validateContinuation(
+                attempt.sceneLease
+            ) == .ready
     }
 
     private func apply(
@@ -1606,6 +2682,9 @@ final class IOSForegroundVoiceWorkflow {
     }
 
     private var passiveSetup: IOSForegroundVoiceSetup {
+        if let passiveConfigurationSetupOverride {
+            return passiveConfigurationSetupOverride
+        }
         guard let settings = lastConfiguration?.settings else {
             return .unavailable
         }
@@ -1616,22 +2695,11 @@ final class IOSForegroundVoiceWorkflow {
         return .ready
     }
 
-    private func configurationFailure(
-        for intent: DictationOutputIntent
-    ) async -> IOSForegroundVoiceResolution {
-        await blockedPreflight(
-            setup: .needsSetup(
-                intent == .translate ? .translation : .transcription
-            ),
-            failure: nil
-        )
-    }
-
     private func blockedPreflight(
         setup: IOSForegroundVoiceSetup = .unavailable,
         failure: IOSForegroundVoiceFailure?
     ) async -> IOSForegroundVoiceResolution {
-        let current = await observe()
+        let current = await observe(includeConfiguration: false)
         return IOSForegroundVoiceResolution(
             observation: IOSForegroundVoiceObservation(
                 setup: setup,
@@ -1678,7 +2746,7 @@ extension IOSForegroundVoiceWorkflow:
 
 extension IOSForegroundVoiceWorkflowDependencies:
     IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceWorkflowDependencies(<redacted>)"
     }
 }
@@ -1725,6 +2793,18 @@ extension IOSForegroundVoiceWorkflowCredentialProof:
     CustomReflectable {
     nonisolated var description: String {
         "IOSForegroundVoiceWorkflowCredentialProof(<redacted>)"
+    }
+
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSForegroundVoiceWorkflowProviderRetryAuthorization:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    nonisolated var description: String {
+        "IOSForegroundVoiceWorkflowProviderRetryAuthorization(<redacted>)"
     }
 
     nonisolated var debugDescription: String { description }

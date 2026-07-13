@@ -229,9 +229,8 @@ struct IOSForegroundVoiceControllerTests {
                 action: .retryPending,
                 operation: .retryPending,
                 phase: .processing,
-                stage: nil,
-                actions: [],
-                proofProgress: .processing(.transcription)
+                stage: .transcription,
+                actions: [.cancelProcessing]
             ),
             VoiceOperationCase(
                 observation: voiceObservation(
@@ -251,9 +250,8 @@ struct IOSForegroundVoiceControllerTests {
                 action: .retryLocalCheckpoint,
                 operation: .retryLocalCheckpoint,
                 phase: .processing,
-                stage: nil,
-                actions: [],
-                proofProgress: .processing(.postProcessing)
+                stage: .postProcessing,
+                actions: [.cancelProcessing]
             ),
         ]
 
@@ -475,11 +473,12 @@ struct IOSForegroundVoiceControllerTests {
                 phase: .arming,
                 activeStage: nil,
                 resolutionRecovery: .pendingRetryOrDiscard,
-                terminalRecovery: .none,
-                terminalStage: nil,
+                terminalRecovery: .pendingRetryOrDiscard,
+                terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: nil,
-                terminalFailure: nil
+                terminalFailure: .operationFailed,
+                terminalLatest: .available
             ),
             VoiceCancellationCase(
                 progress: .listening,
@@ -487,11 +486,12 @@ struct IOSForegroundVoiceControllerTests {
                 phase: .listening,
                 activeStage: nil,
                 resolutionRecovery: .pendingRetryOrDiscard,
-                terminalRecovery: .none,
-                terminalStage: nil,
+                terminalRecovery: .pendingRetryOrDiscard,
+                terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: nil,
-                terminalFailure: nil
+                terminalFailure: .operationFailed,
+                terminalLatest: .available
             ),
             VoiceCancellationCase(
                 progress: .processing(.transcription),
@@ -503,7 +503,8 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: nil,
                 terminalOutcome: .recoverableFailure,
-                terminalFailure: .operationFailed
+                terminalFailure: .operationFailed,
+                terminalLatest: .priorAvailableWhileSaving
             ),
             VoiceCancellationCase(
                 progress: .processing(.postProcessing),
@@ -515,7 +516,8 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: nil,
-                terminalFailure: .operationFailed
+                terminalFailure: .operationFailed,
+                terminalLatest: .priorAvailableWhileSaving
             ),
         ]
 
@@ -591,7 +593,7 @@ struct IOSForegroundVoiceControllerTests {
             )
             #expect(
                 controller.presentation.latestAvailability
-                    == .priorAvailableWhileSaving
+                    == scenario.terminalLatest
             )
             #expect(fixture.cancellationAuthorities.count == 1)
         }
@@ -1061,6 +1063,7 @@ private struct VoiceCancellationCase {
     let resolutionOutcome: VoiceAttemptOutcome?
     let terminalOutcome: VoiceAttemptOutcome?
     let terminalFailure: IOSForegroundVoiceFailure?
+    let terminalLatest: IOSForegroundVoiceLatestAvailability
 }
 
 private struct VoiceTerminalCase {

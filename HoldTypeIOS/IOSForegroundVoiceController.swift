@@ -625,13 +625,13 @@ final class IOSForegroundVoiceController {
         case .start:
             (.arming, nil)
         case .retryPending:
-            (.processing, nil)
+            (.processing, .transcription)
         case .recoverRecording, .discard:
             (.finalizing, .recordingFinalization)
         case .retrySavingResult:
             (.processing, presentation.stage)
         case .retryLocalCheckpoint:
-            (.processing, nil)
+            (.processing, presentation.stage)
         }
     }
 
@@ -736,6 +736,24 @@ final class IOSForegroundVoiceController {
 
         switch kind {
         case .ordinary:
+            if resolution.observation.recovery != .none {
+                let reportedStage = resolution.stage
+                    ?? resolution.observation.stage
+                return TerminalProjection(
+                    observation: IOSForegroundVoiceObservation(
+                        setup: resolution.observation.setup,
+                        recovery: resolution.observation.recovery,
+                        stage: reportedStage,
+                        latestAvailability:
+                            resolution.observation.latestAvailability,
+                        translationAvailable:
+                            resolution.observation.translationAvailable
+                    ),
+                    stage: reportedStage,
+                    outcome: nil,
+                    failure: resolution.failure
+                )
+            }
             return TerminalProjection(
                 observation: IOSForegroundVoiceObservation(
                     setup: resolution.observation.setup,
@@ -978,91 +996,91 @@ extension IOSForegroundVoiceController:
     nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
-protocol IOSForegroundVoiceRedactedValue:
+nonisolated protocol IOSForegroundVoiceRedactedValue:
     CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {}
 
 extension IOSForegroundVoiceRedactedValue {
-    var debugDescription: String { description }
-    var customMirror: Mirror { Mirror(self, children: [:]) }
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSForegroundVoiceSetup: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceSetup(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceSetup(<redacted>)" }
 }
 
 extension IOSForegroundVoiceFailure: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceFailure(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceFailure(<redacted>)" }
 }
 
 extension IOSForegroundVoiceRecovery: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceRecovery(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceRecovery(<redacted>)" }
 }
 
 extension IOSForegroundVoiceLatestAvailability:
     IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceLatestAvailability(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceAction: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceAction(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceAction(<redacted>)" }
 }
 
 extension IOSForegroundVoiceActionCommand: IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceActionCommand(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceActionAdmission:
     IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceActionAdmission(<redacted>)"
     }
 }
 
 extension IOSForegroundVoicePresentation: IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoicePresentation(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceObservation: IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceObservation(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceOperation: IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceOperation(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceProgress: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceProgress(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceProgress(<redacted>)" }
 }
 
 extension IOSForegroundVoiceResolution: IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceResolution(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceAuthority: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceAuthority(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceAuthority(<redacted>)" }
 }
 
 extension IOSForegroundVoiceControlDisposition:
     IOSForegroundVoiceRedactedValue {
-    var description: String {
+    nonisolated var description: String {
         "IOSForegroundVoiceControlDisposition(<redacted>)"
     }
 }
 
 extension IOSForegroundVoiceClient: IOSForegroundVoiceRedactedValue {
-    var description: String { "IOSForegroundVoiceClient(<redacted>)" }
+    nonisolated var description: String { "IOSForegroundVoiceClient(<redacted>)" }
 }
