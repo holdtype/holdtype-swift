@@ -6,6 +6,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | Area | Spec | Read When |
 | --- | --- | --- |
 | iOS V1.1 release | `features/ios-v1-release.md` | Any current iOS product, keyboard, Voice, History, Settings, Library, privacy, or release-scope work; this contract wins conflicts with legacy iOS specs |
+| iOS V1.1 voice state | `features/ios-v1-voice-state-persistence.md` | Current Pending, Latest Result, Retry/Discard, relaunch recovery, or replacement of legacy iOS persistence |
 | Menu bar shell | `features/menu-bar-app-shell.md` | Menu bar lifecycle, primary controls, app shell state, status text |
 | Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |
 | OpenAI transcription | `features/openai-transcription.md` | Transcription request/response behavior, model settings, timeout/error policy |

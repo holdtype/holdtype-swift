@@ -200,8 +200,20 @@ Completion evidence, 2026-07-13:
   in isolation, and no observed issue exercises the H4 changes.
 
 The remaining deep persistence interlocks used by Pending and Latest are not a
-user-visible History service. They stay in place until a separately specified,
-smaller replacement is proven.
+user-visible History service. Their replacement and deletion now follow the
+approved bounded plan in `docs/ios-v1-persistence-simplification-plan.md`.
+
+## P1-P6 — Persistence Simplification And Legacy Retirement
+
+Replace the active Pending/Latest compatibility graph with one compact
+voice-state owner, detach capture and provider consent, prove zero production
+references, and then delete the accepted/failed History, retry-audio, outbox,
+generation, old delivery, and transaction-support families.
+
+The focused execution order, complexity budget, deletion manifest, stop
+conditions, and verification gates are defined in
+`docs/ios-v1-persistence-simplification-plan.md`. This cleanup precedes K1 so
+the keyboard work builds on the intended V1.1 persistence boundary.
 
 ## K1 — Signed Keyboard Voice Gate
 
@@ -253,6 +265,7 @@ Only after a positive K1 result, replace the probe with:
 | H2 Production append and Latest semantics | Completed 2026-07-13 |
 | H3 Finished History surface | Completed 2026-07-13 |
 | H4 Bounded legacy cleanup | Completed 2026-07-13 |
+| P1-P6 Persistence simplification and legacy retirement | In progress |
 | K1 Signed keyboard voice gate | Not started |
 | K2 Production `en-US` keyboard | Not started |
 | K3 Bridge, copy, and qualification | Not started |
