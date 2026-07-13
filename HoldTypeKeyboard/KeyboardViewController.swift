@@ -1,23 +1,20 @@
-//
-//  KeyboardViewController.swift
-//  HoldTypeKeyboard
-//
-//  Created by Codex on 7/9/26.
-//
-
 import UIKit
 
 final class KeyboardViewController: UIInputViewController {
-    private let statusLabel = UILabel()
-    private let insertTranscriptButton = UIButton(type: .system)
-    private let nextKeyboardButton = UIButton(type: .system)
-    private var acceptedTranscript: KeyboardBridgeTranscript?
+    private let keyboardView = BrandStageKeyboardView()
+    private let deleteRepeater = KeyboardDeleteRepeater()
+    private var cursorAccumulator = KeyboardCursorDragAccumulator()
+    private var previousCursorLocationX: CGFloat?
+    private var insertionGate = KeyboardInsertionEventGate()
+    private var latestItem: KeyboardBridgeItem?
+    private var recentItems: [KeyboardBridgeItem] = []
+    private var historyPresentation = BrandStageHistoryPresentation.unavailable
+    private var insertionStatusWorkItem: DispatchWorkItem?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
         hasDictationKey = false
-        configureInterface()
+        configureKeyboardView()
         reloadSharedSnapshot()
     }
 
@@ -26,174 +23,286 @@ final class KeyboardViewController: UIInputViewController {
         reloadSharedSnapshot()
     }
 
+    override func viewWillDisappear(_ animated: Bool) {
+        deleteRepeater.stop()
+        insertionStatusWorkItem?.cancel()
+        super.viewWillDisappear(animated)
+    }
+
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        nextKeyboardButton.isHidden = !needsInputModeSwitchKey
+        keyboardView.updatePreferredHeight(for: traitCollection)
+        render()
     }
 
     override func textWillChange(_ textInput: UITextInput?) {
         super.textWillChange(textInput)
+        insertionStatusWorkItem?.cancel()
+    }
+
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
         reloadSharedSnapshot()
     }
 
-    private func configureInterface() {
-        view.backgroundColor = .secondarySystemBackground
+    private func configureKeyboardView() {
+        view.backgroundColor = .clear
+        view.addSubview(keyboardView)
+        NSLayoutConstraint.activate([
+            keyboardView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            keyboardView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            keyboardView.topAnchor.constraint(equalTo: view.topAnchor),
+            keyboardView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
 
-        statusLabel.font = .preferredFont(forTextStyle: .caption1)
-        statusLabel.textColor = .secondaryLabel
-        statusLabel.numberOfLines = 2
-        statusLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-
-        let refreshButton = makeButton(
-            title: "Refresh",
-            systemImage: "arrow.clockwise",
-            action: #selector(refreshTapped)
-        )
-
-        let statusRow = UIStackView(arrangedSubviews: [statusLabel, refreshButton])
-        statusRow.axis = .horizontal
-        statusRow.alignment = .center
-        statusRow.spacing = 8
-
-        configureButton(
-            insertTranscriptButton,
-            title: "Insert latest",
-            systemImage: "text.badge.checkmark",
-            action: #selector(insertTranscriptTapped),
-            prominent: true
-        )
-
-        let characterButton = makeButton(
-            title: "a",
-            action: #selector(characterTapped)
-        )
-        characterButton.accessibilityLabel = "Letter a"
-
-        let spaceButton = makeButton(
-            title: "space",
-            action: #selector(spaceTapped)
-        )
-
-        let deleteButton = makeButton(
-            title: "Delete",
-            systemImage: "delete.left",
-            action: #selector(deleteTapped)
-        )
-
-        configureButton(
-            nextKeyboardButton,
-            title: "Next keyboard",
-            systemImage: "globe",
-            action: nil
-        )
-        nextKeyboardButton.addTarget(
+        keyboardView.nextKeyboardButton.addTarget(
             self,
             action: #selector(handleInputModeList(from:with:)),
             for: .allTouchEvents
         )
-        nextKeyboardButton.accessibilityLabel = "Next keyboard"
-
-        let inputRow = UIStackView(
-            arrangedSubviews: [nextKeyboardButton, characterButton, spaceButton, deleteButton]
-        )
-        inputRow.axis = .horizontal
-        inputRow.distribution = .fillEqually
-        inputRow.spacing = 6
-
-        let rootStack = UIStackView(
-            arrangedSubviews: [statusRow, insertTranscriptButton, inputRow]
-        )
-        rootStack.translatesAutoresizingMaskIntoConstraints = false
-        rootStack.axis = .vertical
-        rootStack.spacing = 8
-
-        view.addSubview(rootStack)
-        NSLayoutConstraint.activate([
-            rootStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            rootStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            rootStack.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            rootStack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -8),
-            insertTranscriptButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            inputRow.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
-        ])
-    }
-
-    private func makeButton(
-        title: String,
-        systemImage: String? = nil,
-        action: Selector
-    ) -> UIButton {
-        let button = UIButton(type: .system)
-        configureButton(
-            button,
-            title: title,
-            systemImage: systemImage,
-            action: action
-        )
-        return button
-    }
-
-    private func configureButton(
-        _ button: UIButton,
-        title: String,
-        systemImage: String? = nil,
-        action: Selector?,
-        prominent: Bool = false
-    ) {
-        var configuration = prominent
-            ? UIButton.Configuration.filled()
-            : UIButton.Configuration.gray()
-        configuration.title = title
-        configuration.image = systemImage.flatMap { UIImage(systemName: $0) }
-        configuration.imagePadding = 6
-        configuration.cornerStyle = .medium
-        button.configuration = configuration
-
-        if let action {
-            button.addTarget(self, action: action, for: .touchUpInside)
+        keyboardView.onHistoryRequested = { [weak self] in
+            self?.keyboardView.showHistory()
+        }
+        keyboardView.onLatestRequested = { [weak self] in
+            guard let self, let latestItem else { return }
+            insert(latestItem)
+        }
+        keyboardView.onRecentResultRequested = { [weak self] resultID in
+            guard let self,
+                  let item = recentItems.first(where: {
+                      $0.resultID == resultID && $0.expiresAt > Date()
+                  }) else {
+                return
+            }
+            insert(item)
+        }
+        keyboardView.onPunctuationRequested = { [weak self] character in
+            self?.insertText(character)
+        }
+        keyboardView.onSpaceRequested = { [weak self] in
+            self?.insertText(" ")
+        }
+        keyboardView.onSpaceCursorGesture = { [weak self] state, x in
+            self?.handleCursorGesture(state: state, locationX: x)
+        }
+        keyboardView.onCursorStepRequested = { [weak self] offset in
+            self?.textDocumentProxy.adjustTextPosition(
+                byCharacterOffset: offset
+            )
+        }
+        keyboardView.onDeleteStarted = { [weak self] in
+            guard let self else { return }
+            deleteRepeater.start { [weak self] in
+                self?.textDocumentProxy.deleteBackward()
+            }
+        }
+        keyboardView.onDeleteStopped = { [weak self] in
+            self?.deleteRepeater.stop()
+        }
+        keyboardView.onReturnRequested = { [weak self] in
+            self?.insertText("\n")
         }
     }
 
     private func reloadSharedSnapshot() {
-        do {
-            let store = try KeyboardBridgeStore.appGroup()
-            acceptedTranscript = try store.load()?.transcriptForInsertion()
-
-            if acceptedTranscript == nil {
-                statusLabel.text = "Publish a sample from the HoldType app."
-            } else {
-                statusLabel.text = "Accepted transcript is ready."
-            }
-        } catch {
-            acceptedTranscript = nil
-            statusLabel.text = "Shared state is unavailable."
-        }
-
-        insertTranscriptButton.isEnabled = acceptedTranscript != nil
-    }
-
-    @objc private func refreshTapped() {
-        reloadSharedSnapshot()
-    }
-
-    @objc private func insertTranscriptTapped() {
-        guard let acceptedTranscript else {
+        guard hasFullAccess else {
+            latestItem = nil
+            recentItems = []
+            historyPresentation = .unavailable
+            render()
             return
         }
 
-        textDocumentProxy.insertText(acceptedTranscript.text)
-        statusLabel.text = "Transcript inserted."
+        do {
+            let store = try KeyboardBridgeStore.appGroup()
+            guard let snapshot = try store.load() else {
+                latestItem = nil
+                recentItems = []
+                historyPresentation = .unavailable
+                render()
+                return
+            }
+
+            let now = Date()
+            latestItem = snapshot.latestForInsertion(at: now)
+            recentItems = snapshot.validRecentResults(at: now)
+            if !snapshot.historyEnabled {
+                historyPresentation = .disabled
+            } else if recentItems.isEmpty {
+                historyPresentation = .empty
+            } else {
+                historyPresentation = .results(recentItems)
+            }
+        } catch {
+            latestItem = nil
+            recentItems = []
+            historyPresentation = .unavailable
+        }
+        render()
     }
 
-    @objc private func characterTapped() {
-        textDocumentProxy.insertText("a")
+    private func render(statusOverride: String? = nil) {
+        keyboardView.render(
+            BrandStageKeyboardPresentation(
+                statusText: statusOverride ?? statusText,
+                latestIsEnabled: latestItem != nil,
+                history: historyPresentation,
+                returnKey: KeyboardReturnKeyPresentation(
+                    semantic: Self.returnSemantic(
+                        for: textDocumentProxy.returnKeyType ?? .default
+                    )
+                ),
+                returnIsEnabled: returnIsEnabled,
+                showsInputModeSwitchKey: needsInputModeSwitchKey
+            )
+        )
     }
 
-    @objc private func spaceTapped() {
-        textDocumentProxy.insertText(" ")
+    private var statusText: String {
+        if !hasFullAccess {
+            return "Voice starts in HoldType · Full Access enables results"
+        }
+        if latestItem != nil {
+            return "Latest result is ready"
+        }
+        return "Voice starts in the HoldType app"
     }
 
-    @objc private func deleteTapped() {
-        textDocumentProxy.deleteBackward()
+    private var returnIsEnabled: Bool {
+        !((textDocumentProxy.enablesReturnKeyAutomatically ?? false)
+            && !textDocumentProxy.hasText)
+    }
+
+    private func insert(_ item: KeyboardBridgeItem) {
+        guard item.expiresAt > Date() else {
+            reloadSharedSnapshot()
+            return
+        }
+        insertText(item.text, confirmation: "Inserted")
+    }
+
+    private func insertText(
+        _ text: String,
+        confirmation: String? = nil
+    ) {
+        guard insertionGate.beginEvent() else { return }
+        defer { insertionGate.endEvent() }
+        textDocumentProxy.insertText(text)
+
+        guard let confirmation else { return }
+        insertionStatusWorkItem?.cancel()
+        render(statusOverride: confirmation)
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.reloadSharedSnapshot()
+        }
+        insertionStatusWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + 0.8,
+            execute: workItem
+        )
+    }
+
+    private func handleCursorGesture(
+        state: UIGestureRecognizer.State,
+        locationX: CGFloat
+    ) {
+        switch state {
+        case .began:
+            cursorAccumulator.reset()
+            previousCursorLocationX = locationX
+        case .changed:
+            guard let previousCursorLocationX else { return }
+            self.previousCursorLocationX = locationX
+            if let movement = cursorAccumulator.consume(
+                horizontalDelta: Double(locationX - previousCursorLocationX)
+            ) {
+                textDocumentProxy.adjustTextPosition(
+                    byCharacterOffset: movement.characterOffset
+                )
+            }
+        case .ended, .cancelled, .failed:
+            cursorAccumulator.reset()
+            previousCursorLocationX = nil
+        default:
+            break
+        }
+    }
+
+    private static func returnSemantic(
+        for returnKeyType: UIReturnKeyType
+    ) -> KeyboardReturnKeySemantic {
+        switch returnKeyType {
+        case .go:
+            .go
+        case .google, .search, .yahoo:
+            .search
+        case .join:
+            .join
+        case .next:
+            .next
+        case .route:
+            .route
+        case .send:
+            .send
+        case .done:
+            .done
+        case .emergencyCall:
+            .emergencyCall
+        case .continue:
+            .continueAction
+        case .default:
+            .lineBreak
+        @unknown default:
+            .lineBreak
+        }
+    }
+}
+
+@MainActor
+private final class KeyboardDeleteRepeater {
+    private let profile = KeyboardDeleteRepeatProfile()
+    private var timer: Timer?
+    private var completedRepeats = 0
+    private var action: (() -> Void)?
+
+    func start(action: @escaping () -> Void) {
+        stop()
+        self.action = action
+        action()
+        schedule(after: profile.initialDelay)
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        completedRepeats = 0
+        action = nil
+    }
+
+    private func schedule(after interval: TimeInterval) {
+        let timer = Timer(
+            timeInterval: interval,
+            target: self,
+            selector: #selector(timerFired),
+            userInfo: nil,
+            repeats: false
+        )
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    @objc private func timerFired() {
+        fire()
+    }
+
+    private func fire() {
+        guard let action else { return }
+        action()
+        completedRepeats += 1
+        schedule(
+            after: profile.interval(
+                afterCompletedRepeats: completedRepeats
+            )
+        )
     }
 }

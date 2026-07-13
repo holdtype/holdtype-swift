@@ -60,18 +60,24 @@ struct KeyboardBridgeProbeView: View {
     private func publishSampleTranscript() {
         do {
             let now = Date()
-            let transcript = try KeyboardBridgeTranscript(
+            let resultID = UUID()
+            let latest = try KeyboardBridgeItem.latest(
+                resultID: resultID,
                 text: "HoldType keyboard bridge is working.",
                 createdAt: now
             )
+            let recent = try KeyboardBridgeItem.recent(
+                resultID: resultID,
+                text: latest.text,
+                createdAt: now
+            )
             let store = try KeyboardBridgeStore.appGroup()
-            let snapshot = KeyboardBridgeSnapshot(
+            let snapshot = try KeyboardBridgeSnapshot(
                 revision: try store.nextRevision(),
-                sessionID: UUID(),
-                phase: .transcriptReady,
-                updatedAt: now,
-                expiresAt: now.addingTimeInterval(10 * 60),
-                acceptedTranscript: transcript
+                publishedAt: now,
+                historyEnabled: true,
+                latest: latest,
+                recentResults: [recent]
             )
 
             try store.save(snapshot)
