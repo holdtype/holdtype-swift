@@ -77,6 +77,11 @@ containing app can grant or reliably inspect settings owned by iOS.
   process owner revalidates the initiating scene, attempt token, current
   provider consent, credential generation, and aggregate foreground activity
   before audio configuration or source creation.
+- One explicit permission request may wait for at most 120 monotonic seconds.
+  Timeout or caller cancellation retires that Start attempt, creates no audio
+  session or file, and returns to an honest non-recording failure state. A
+  later system callback may change the next passive permission observation,
+  but it cannot resume the expired attempt or continue its preflight.
 - Denied permission creates no audio session or file and offers the public app
   Settings URL. Granted permission with no usable input is `unavailable`, not
   `listening`. Passive Privacy & Permissions status never prompts.
