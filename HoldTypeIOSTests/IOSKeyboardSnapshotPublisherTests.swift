@@ -56,7 +56,7 @@ struct IOSKeyboardSnapshotPublisherTests {
         )
     }
 
-    @Test func republishingExpiredLatestDoesNotExtendItsInsertionLifetime()
+    @Test func republishingExpiredLatestOmitsItsTextFromSharedStorage()
         async throws {
         let fixture = try PublisherStoreFixture()
         defer { fixture.remove() }
@@ -74,11 +74,7 @@ struct IOSKeyboardSnapshotPublisherTests {
         #expect(await publisher.publishCurrent(at: now))
         let snapshot = try #require(try fixture.readerStore.load())
 
-        #expect(
-            snapshot.latest?.expiresAt == latest.createdAt.addingTimeInterval(
-                KeyboardBridgeConfiguration.latestLifetime
-            )
-        )
+        #expect(snapshot.latest == nil)
         #expect(snapshot.latestForInsertion(at: now) == nil)
     }
 

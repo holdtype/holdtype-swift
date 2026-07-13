@@ -46,9 +46,8 @@ final class IOSContainingAppComposition {
         ) -> IOSForegroundVoiceProcessor
         var voiceFactories: IOSForegroundVoiceRuntime.Factories = .production
         var makeKeyboardSnapshotPublisher: @MainActor (
-            IOSV1ForegroundVoicePersistenceOwner,
-            IOSAcceptedTextHistoryRepository
-        ) -> IOSKeyboardSnapshotPublisher? = { _, _ in nil }
+            IOSV1ForegroundVoicePersistenceOwner
+        ) -> IOSKeyboardSnapshotPublisher? = { _ in nil }
 
         static let production = Factories(
             resolveApplicationSupportDirectoryURL: {
@@ -125,18 +124,16 @@ final class IOSContainingAppComposition {
                 )
             },
             makeKeyboardSnapshotPublisher: {
-                persistenceOwner,
-                historyRepository in
+                persistenceOwner in
+                let store = try? KeyboardBridgeStore.appGroup()
+                _ = try? store?.replaceLegacySnapshotIfNeeded()
                 guard IOSKeyboardSnapshotProductionGate.isEnabled() else {
                     return nil
                 }
                 return IOSKeyboardSnapshotPublisher(
-                    store: try? KeyboardBridgeStore.appGroup(),
+                    store: store,
                     loadLatest: {
                         try await persistenceOwner.loadLatestResult()
-                    },
-                    loadHistory: {
-                        try await historyRepository.load()
                     }
                 )
             }
@@ -233,8 +230,7 @@ final class IOSContainingAppComposition {
             foregroundVoicePersistenceOwner
         let keyboardSnapshotPublisher = factories
             .makeKeyboardSnapshotPublisher(
-                foregroundVoicePersistenceOwner,
-                acceptedTextHistoryRepository
+                foregroundVoicePersistenceOwner
             )
         self.keyboardSnapshotPublisher = keyboardSnapshotPublisher
         let publishKeyboardSnapshot: @Sendable () async -> Bool = {
@@ -243,8 +239,7 @@ final class IOSContainingAppComposition {
         }
         acceptedTextHistoryStateOwner =
             IOSAcceptedTextHistoryStateOwner(
-                repository: acceptedTextHistoryRepository,
-                publishKeyboardSnapshot: publishKeyboardSnapshot
+                repository: acceptedTextHistoryRepository
             )
         let transcriptionUsageRepository = factories
             .makeTranscriptionUsageRepository(

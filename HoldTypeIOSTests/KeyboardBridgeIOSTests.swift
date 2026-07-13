@@ -217,6 +217,80 @@ struct KeyboardBridgeIOSTests {
         #expect(object["recentResults"] == nil)
     }
 
+    @Test func legacyCutoverWritesAnEmptyV3SnapshotWithoutProjection() throws {
+        let fixture = try BridgeStoreFixture()
+        defer { fixture.remove() }
+        let cutoverDate = Date(timeIntervalSince1970: 1_750_000_000)
+
+        try fixture.write(
+            Data(
+                """
+                {
+                  "schemaVersion": 2,
+                  "revision": 73,
+                  "historyEnabled": true,
+                  "recentResults": [{"text": "must disappear"}]
+                }
+                """.utf8
+            )
+        )
+
+        #expect(
+            try fixture.store.replaceLegacySnapshotIfNeeded(at: cutoverDate)
+        )
+        let snapshot = try #require(try fixture.store.load())
+        #expect(snapshot.revision == 74)
+        #expect(snapshot.publishedAt == cutoverDate)
+        #expect(snapshot.latest == nil)
+        let object = try #require(
+            JSONSerialization.jsonObject(with: fixture.data()) as? [String: Any]
+        )
+        #expect(object["historyEnabled"] == nil)
+        #expect(object["recentResults"] == nil)
+        #expect(
+            try !fixture.store.replaceLegacySnapshotIfNeeded(
+                at: cutoverDate.addingTimeInterval(1)
+            )
+        )
+    }
+
+    @Test func legacyCutoverAcceptsTheFormerLargerBound() throws {
+        let fixture = try BridgeStoreFixture()
+        defer { fixture.remove() }
+        let legacyText = String(repeating: "x", count: 40 * 1_024)
+
+        try fixture.write(
+            try JSONSerialization.data(
+                withJSONObject: [
+                    "schemaVersion": 2,
+                    "revision": 9,
+                    "historyEnabled": true,
+                    "recentResults": [["text": legacyText]],
+                ],
+                options: [.sortedKeys]
+            )
+        )
+        let storedLegacyData = try fixture.data()
+        #expect(
+            storedLegacyData.count
+                > KeyboardBridgeConfiguration.maximumSnapshotBytes
+        )
+
+        #expect(
+            try fixture.store.replaceLegacySnapshotIfNeeded(
+                at: Date(timeIntervalSince1970: 1_750_000_000)
+            )
+        )
+        let snapshot = try #require(try fixture.store.load())
+        #expect(snapshot.revision == 10)
+        #expect(snapshot.latest == nil)
+        let storedCurrentData = try fixture.data()
+        #expect(
+            storedCurrentData.count
+                < KeyboardBridgeConfiguration.maximumSnapshotBytes
+        )
+    }
+
     @Test func canonicalWriterRepairsCorruptCacheButNotFutureSchema()
         throws {
         let fixture = try BridgeStoreFixture()

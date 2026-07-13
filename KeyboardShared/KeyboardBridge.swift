@@ -10,15 +10,13 @@ import Foundation
 nonisolated enum KeyboardBridgeConfiguration {
     static let appGroupIdentifier = "group.app.holdtype.HoldType.shared"
 
-    // V2 intentionally replaces the unshipped V1 envelope at the same URL.
+    // V3 removes the obsolete recent-results payload at the same cache URL.
     static let snapshotFilename = "keyboard-bridge-v1.json"
-    static let maximumSnapshotBytes = 128 * 1_024
+    static let maximumSnapshotBytes = 32 * 1_024
     /// Flip only after signed-device Full Access qualification is recorded.
     static let productionProjectionIsQualified = false
     static let maximumTextUTF8Bytes = 16 * 1_024
-    static let maximumRecentResults = 5
     static let latestLifetime: TimeInterval = 10 * 60
-    static let recentResultLifetime: TimeInterval = 24 * 60 * 60
 }
 
 nonisolated struct KeyboardBridgeItem:
@@ -97,21 +95,6 @@ nonisolated struct KeyboardBridgeItem:
         )
     }
 
-    static func recent(
-        resultID: UUID,
-        text: String,
-        createdAt: Date
-    ) throws -> KeyboardBridgeItem {
-        try KeyboardBridgeItem(
-            resultID: resultID,
-            text: text,
-            createdAt: createdAt,
-            expiresAt: createdAt.addingTimeInterval(
-                KeyboardBridgeConfiguration.recentResultLifetime
-            )
-        )
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -147,45 +130,32 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         case invalidRevision
         case invalidPublishedAt
         case invalidLatestLifetime
-        case historyDisabledWithRecentResults
-        case tooManyRecentResults(maximum: Int)
-        case duplicateRecentResult(UUID)
-        case recentResultsNotNewestFirst
-        case invalidRecentResultLifetime(UUID)
     }
 
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
 
     let schemaVersion: Int
     let revision: UInt64
     let publishedAt: Date
-    let historyEnabled: Bool
     let latest: KeyboardBridgeItem?
-    let recentResults: [KeyboardBridgeItem]
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion
         case revision
         case publishedAt
-        case historyEnabled
         case latest
-        case recentResults
     }
 
     init(
         revision: UInt64,
         publishedAt: Date = Date(),
-        historyEnabled: Bool,
-        latest: KeyboardBridgeItem?,
-        recentResults: [KeyboardBridgeItem]
+        latest: KeyboardBridgeItem?
     ) throws {
         try self.init(
             schemaVersion: Self.currentSchemaVersion,
             revision: revision,
             publishedAt: publishedAt,
-            historyEnabled: historyEnabled,
-            latest: latest,
-            recentResults: recentResults
+            latest: latest
         )
     }
 
@@ -197,14 +167,6 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         return latest
     }
 
-    func validRecentResults(at date: Date = Date()) -> [KeyboardBridgeItem] {
-        guard historyEnabled else {
-            return []
-        }
-
-        return recentResults.filter { $0.expiresAt > date }
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -213,14 +175,9 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
                 schemaVersion: container.decode(Int.self, forKey: .schemaVersion),
                 revision: container.decode(UInt64.self, forKey: .revision),
                 publishedAt: container.decode(Date.self, forKey: .publishedAt),
-                historyEnabled: container.decode(Bool.self, forKey: .historyEnabled),
                 latest: container.decodeIfPresent(
                     KeyboardBridgeItem.self,
                     forKey: .latest
-                ),
-                recentResults: container.decode(
-                    [KeyboardBridgeItem].self,
-                    forKey: .recentResults
                 )
             )
         } catch let error as ValidationError {
@@ -237,9 +194,7 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         schemaVersion: Int,
         revision: UInt64,
         publishedAt: Date,
-        historyEnabled: Bool,
-        latest: KeyboardBridgeItem?,
-        recentResults: [KeyboardBridgeItem]
+        latest: KeyboardBridgeItem?
     ) throws {
         guard schemaVersion == Self.currentSchemaVersion else {
             throw ValidationError.incompatibleSchemaVersion(schemaVersion)
@@ -256,40 +211,10 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         ) }) ?? true else {
             throw ValidationError.invalidLatestLifetime
         }
-        guard historyEnabled || recentResults.isEmpty else {
-            throw ValidationError.historyDisabledWithRecentResults
-        }
-        guard recentResults.count <= KeyboardBridgeConfiguration.maximumRecentResults else {
-            throw ValidationError.tooManyRecentResults(
-                maximum: KeyboardBridgeConfiguration.maximumRecentResults
-            )
-        }
-
-        var resultIDs = Set<UUID>()
-        for result in recentResults {
-            guard resultIDs.insert(result.resultID).inserted else {
-                throw ValidationError.duplicateRecentResult(result.resultID)
-            }
-            guard Self.hasLifetime(
-                result,
-                duration: KeyboardBridgeConfiguration.recentResultLifetime
-            ) else {
-                throw ValidationError.invalidRecentResultLifetime(result.resultID)
-            }
-        }
-
-        for (newer, older) in zip(recentResults, recentResults.dropFirst()) {
-            guard newer.createdAt >= older.createdAt else {
-                throw ValidationError.recentResultsNotNewestFirst
-            }
-        }
-
         self.schemaVersion = schemaVersion
         self.revision = revision
         self.publishedAt = publishedAt
-        self.historyEnabled = historyEnabled
         self.latest = latest
-        self.recentResults = recentResults
     }
 
     private static func hasLifetime(
@@ -339,6 +264,8 @@ nonisolated enum KeyboardBridgeStoreError:
 }
 
 nonisolated struct KeyboardBridgeStore {
+    private static let maximumLegacySnapshotBytes = 128 * 1_024
+
     private struct SnapshotHeader: Decodable {
         let schemaVersion: Int
         let revision: UInt64
@@ -405,6 +332,28 @@ nonisolated struct KeyboardBridgeStore {
         return header.revision + 1
     }
 
+    /// Removes obsolete V1/V2 payload fields even while Latest publication is
+    /// still release-gated. The replacement remains a bounded, empty cache.
+    @discardableResult
+    func replaceLegacySnapshotIfNeeded(
+        at publishedAt: Date = Date()
+    ) throws -> Bool {
+        guard let header = try storedLegacyHeaderForCutover() else {
+            return false
+        }
+        guard header.revision < UInt64.max else {
+            throw KeyboardBridgeStoreError.revisionExhausted
+        }
+
+        let replacement = try KeyboardBridgeSnapshot(
+            revision: header.revision + 1,
+            publishedAt: publishedAt,
+            latest: nil
+        )
+        try save(replacement)
+        return true
+    }
+
     func save(_ snapshot: KeyboardBridgeSnapshot) throws {
         if let currentHeader = try replacementHeader(),
            snapshot.revision <= currentHeader.revision {
@@ -440,6 +389,7 @@ nonisolated struct KeyboardBridgeStore {
 
         let header = try decodeHeader(from: data)
         guard header.schemaVersion == 1 ||
+                header.schemaVersion == 2 ||
                 header.schemaVersion == KeyboardBridgeSnapshot.currentSchemaVersion else {
             throw KeyboardBridgeStoreError.incompatibleSchemaVersion(
                 found: header.schemaVersion,
@@ -447,6 +397,20 @@ nonisolated struct KeyboardBridgeStore {
             )
         }
 
+        return header
+    }
+
+    private func storedLegacyHeaderForCutover() throws -> SnapshotHeader? {
+        guard let data = try storedData(
+            maximumBytes: Self.maximumLegacySnapshotBytes
+        ) else {
+            return nil
+        }
+
+        let header = try decodeHeader(from: data)
+        guard header.schemaVersion == 1 || header.schemaVersion == 2 else {
+            return nil
+        }
         return header
     }
 
@@ -467,8 +431,25 @@ nonisolated struct KeyboardBridgeStore {
     }
 
     private func storedData() throws -> Data? {
+        try storedData(
+            maximumBytes: KeyboardBridgeConfiguration.maximumSnapshotBytes
+        )
+    }
+
+    private func storedData(maximumBytes: Int) throws -> Data? {
         guard fileManager.fileExists(atPath: snapshotURL.path) else {
             return nil
+        }
+
+        if let attributes = try? fileManager.attributesOfItem(
+            atPath: snapshotURL.path
+        ),
+           let size = attributes[.size] as? NSNumber,
+           size.intValue > maximumBytes {
+            throw KeyboardBridgeStoreError.snapshotTooLarge(
+                maximumBytes: maximumBytes,
+                actualBytes: size.intValue
+            )
         }
 
         let data: Data
@@ -477,7 +458,7 @@ nonisolated struct KeyboardBridgeStore {
         } catch {
             throw KeyboardBridgeStoreError.snapshotReadFailed
         }
-        try validateSize(of: data)
+        try validateSize(of: data, maximumBytes: maximumBytes)
         return data
     }
 
@@ -490,9 +471,19 @@ nonisolated struct KeyboardBridgeStore {
     }
 
     private func validateSize(of data: Data) throws {
-        guard data.count <= KeyboardBridgeConfiguration.maximumSnapshotBytes else {
+        try validateSize(
+            of: data,
+            maximumBytes: KeyboardBridgeConfiguration.maximumSnapshotBytes
+        )
+    }
+
+    private func validateSize(
+        of data: Data,
+        maximumBytes: Int
+    ) throws {
+        guard data.count <= maximumBytes else {
             throw KeyboardBridgeStoreError.snapshotTooLarge(
-                maximumBytes: KeyboardBridgeConfiguration.maximumSnapshotBytes,
+                maximumBytes: maximumBytes,
                 actualBytes: data.count
             )
         }

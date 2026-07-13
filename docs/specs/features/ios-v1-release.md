@@ -41,7 +41,8 @@ V1.1 includes:
 - up to 20 successful text-only History entries;
 - one production-quality iPhone voice-command keyboard surface;
 - a dedicated keyboard voice action and explicit Insert Result path;
-- a bounded keyboard projection of one short-lived Latest item only;
+- a bounded keyboard projection of one Latest item with time-limited insertion
+  eligibility only;
 - the existing Usage Estimate kept unchanged as an informational Settings
   route;
 - the existing iPad containing-app adaptation as best-effort compatibility UI,
@@ -190,8 +191,8 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with the HoldType mark plus honest status centered and
-  `Latest` as the only result action;
+- a compact top row with `History` navigation on the left, the HoldType mark
+  plus honest status centered, and `Latest` insertion on the right;
 - one medium microphone control and a restrained waveform/status stage; the
   microphone is the only primary action and never becomes a full-width button;
 - one correction row containing `.`, `,`, `?`, and `!`;
@@ -216,9 +217,11 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 
 - The microphone button performs only a physically verified action.
 - The extension never records audio or contacts OpenAI itself.
-- Current K1 evidence does not prove a supported containing-app handoff. The
-  production extension therefore adds no custom URL/private launch path and
-  exposes no actionable microphone or optimistic `Listening` state.
+- Current K1 evidence does not prove a review-safe containing-app handoff. The
+  extension uses no private launch path and exposes no actionable microphone or
+  optimistic `Listening` state. The user-required public `History` handoff is a
+  separate release gate: registering the app route does not by itself qualify a
+  keyboard-originated launch.
 - `hasDictationKey` remains false so iOS may show its own system Dictation key.
   System Dictation may insert speech directly into the active host field, but it
   does not use HoldType/OpenAI and provides no result callback to the extension.
@@ -234,9 +237,15 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   with a 10-minute insertion expiry. It contains only result id, exact accepted
   text, creation time, and expiry. No History row, secret, audio, prompt,
   dictionary, provider response, setting, or host context enters the snapshot.
+- An already-expired result is omitted from publication. Legacy schema 1/2
+  cache files are atomically replaced by an empty schema 3 cache at app startup,
+  independently of the production Latest gate.
 - `Latest` inserts only a valid unexpired item and the keyboard never renders or
   previews its text. Full 20-entry History, detail, Share, Delete, Clear All,
   and retention settings remain in the containing app.
+- `History` requests the containing app's real History destination. It never
+  inserts text, renders transcript content, or changes the Latest-only App Group
+  snapshot. A private responder-chain or host-return workaround is forbidden.
 - Every Latest selection is an explicit insertion. One tap calls
   `textDocumentProxy` once; re-entrant handling of that tap is suppressed.
 - The same still-valid result may be inserted again only after another explicit
@@ -262,7 +271,9 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The extension receives no API key or provider client.
 - Pending audio and the canonical 20-entry History remain app-private,
   protected, and backup-excluded according to their data type. Only the
-  short-lived Latest cache described above enters App Group storage.
+  bounded Latest cache described above enters App Group storage; expiry removes
+  insertion eligibility immediately, and the next app publication removes its
+  text.
 - Product logs contain no accepted text, prompt, dictionary content, API key,
   provider body, raw audio, or host document context.
 - External calls have bounded timeouts.
@@ -294,7 +305,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - Release navigation contains no placeholder destination.
 - Keyboard tests cover both appearances, punctuation, Delete repeat, Space
   cursor movement, Return traits, voice-state honesty, snapshot validation,
-  bounded recent results, expiry, and explicit insertion.
+  one bounded Latest item, expiry, explicit insertion, and containing-app
+  History route parsing.
 
 ### Signed Physical iPhone
 
@@ -306,10 +318,12 @@ V1.1 is not release-complete until a recorded device pass proves:
   third-party apps;
 - Full Access off and on behavior;
 - secure-field, phone-pad, and host-opt-out fallback;
-- the honest unavailable microphone state and absence of an undocumented launch;
+- the honest unavailable microphone state, public History handoff result, and
+  absence of a private launch workaround;
 - app foreground recording, Done, Cancel, interruption, and provider timeout;
-- explicit return and Latest/History insertion exactly once per tap, with no
-  automatic or wrong-field replay;
+- explicit return and Latest insertion exactly once per tap, with no automatic
+  or wrong-field replay; History opens the containing app at History and never
+  inserts text;
 - process termination preserves Latest or the one pending attempt;
 - effective Keychain and Data Protection behavior.
 - after explicit user authorization with a configured provider key, one manual

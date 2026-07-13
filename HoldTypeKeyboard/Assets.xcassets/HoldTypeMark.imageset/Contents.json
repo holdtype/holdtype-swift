@@ -1,6 +1,11 @@
 {
   "images" : [
     {
+      "filename" : "HoldTypeMark.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
       "filename" : "HoldTypeMark@2x.png",
       "idiom" : "universal",
       "scale" : "2x"

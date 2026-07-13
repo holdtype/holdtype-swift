@@ -45,6 +45,14 @@ struct IOSContainingAppShell: View {
             }
         }
         .onAppear(perform: restoreSelectionIfNeeded)
+        .onOpenURL { url in
+            guard let destination = IOSContainingAppDestination.resolve(
+                deepLinkURL: url
+            ) else {
+                return
+            }
+            requestDestination(destination)
+        }
         .confirmationDialog(
             "Discard Unsaved Changes?",
             isPresented: $showsEditorDiscardConfirmation,

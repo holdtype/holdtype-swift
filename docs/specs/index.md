@@ -31,7 +31,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | Blocked tasks | `features/blocked-task-resolution-automation.md` | Blocked-task resolver behavior and resolution contracts |
 | Automation recovery | `features/automation-prompt-recovery.md` | Installed automation/runbook recovery behavior |
 | iOS feasibility evidence | `features/ios-keyboard-feasibility.md` | Platform findings and the signed K1 gate for the Brand Stage voice-command keyboard |
-| iOS keyboard UX | `features/ios-keyboard-experience.md` | Active Brand Stage Adaptive composition, editing controls, voice states, Latest/History, accessibility, and appearance |
+| iOS keyboard UX | `features/ios-keyboard-experience.md` | Active Brand Stage Adaptive composition, editing controls, voice states, Latest insertion, History app navigation, accessibility, and appearance |
 | iOS shared state (legacy) | `features/ios-keyboard-shared-state.md` | Historical Phase-0 App Group and automatic-delivery evidence; current snapshot is in the V1.1 release contract |
 | iOS containing app (legacy) | `features/ios-containing-app-experience.md` | Historical expanded iPhone/iPad, Quick Session, and navigation contract; current scope is in V1.1 |
 | iOS settings/secrets | `features/ios-settings-and-secret-storage.md` | iOS defaults, persistence, migrations, Keychain, truthful setup status |

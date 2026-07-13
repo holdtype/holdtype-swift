@@ -7,9 +7,9 @@ final class KeyboardViewController: UIInputViewController {
     private var previousCursorLocationX: CGFloat?
     private var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
-    private var recentItems: [KeyboardBridgeItem] = []
-    private var historyPresentation = BrandStageHistoryPresentation.inaccessible
-    private var insertionStatusWorkItem: DispatchWorkItem?
+    private var statusResetWorkItem: DispatchWorkItem?
+    private var historyRequestID: UUID?
+    private var showsInputModeSwitchKey = true
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,23 +25,24 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         deleteRepeater.stop()
-        insertionStatusWorkItem?.cancel()
+        statusResetWorkItem?.cancel()
+        historyRequestID = nil
         super.viewWillDisappear(animated)
     }
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         keyboardView.updatePreferredHeight(for: traitCollection)
-        render()
     }
 
     override func textWillChange(_ textInput: UITextInput?) {
         super.textWillChange(textInput)
-        insertionStatusWorkItem?.cancel()
+        statusResetWorkItem?.cancel()
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        showsInputModeSwitchKey = needsInputModeSwitchKey
         reloadSharedSnapshot()
     }
 
@@ -61,21 +62,11 @@ final class KeyboardViewController: UIInputViewController {
             for: .allTouchEvents
         )
         keyboardView.onHistoryRequested = { [weak self] in
-            self?.keyboardView.showHistory()
+            self?.openHistory()
         }
         keyboardView.onLatestRequested = { [weak self] in
             guard let self, let latestItem else { return }
             insert(latestItem)
-        }
-        keyboardView.onRecentResultRequested = { [weak self] resultID in
-            guard let self,
-                  let item = recentItems.first(where: {
-                      $0.resultID == resultID && $0.expiresAt > Date()
-                  }) else {
-                self?.reloadSharedSnapshot()
-                return
-            }
-            insert(item)
         }
         keyboardView.onPunctuationRequested = { [weak self] character in
             self?.insertText(character)
@@ -108,15 +99,11 @@ final class KeyboardViewController: UIInputViewController {
     private func reloadSharedSnapshot() {
         guard Self.resultProjectionIsEnabled else {
             latestItem = nil
-            recentItems = []
-            historyPresentation = .missing
             render()
             return
         }
         guard hasFullAccess else {
             latestItem = nil
-            recentItems = []
-            historyPresentation = .fullAccessRequired
             render()
             return
         }
@@ -125,39 +112,13 @@ final class KeyboardViewController: UIInputViewController {
             let store = try KeyboardBridgeStore.appGroup()
             guard let snapshot = try store.load() else {
                 latestItem = nil
-                recentItems = []
-                historyPresentation = .missing
                 render()
                 return
             }
 
-            let now = Date()
-            latestItem = snapshot.latestForInsertion(at: now)
-            recentItems = snapshot.validRecentResults(at: now)
-            if !snapshot.historyEnabled {
-                historyPresentation = .disabled
-            } else if recentItems.isEmpty {
-                historyPresentation = .empty
-            } else {
-                historyPresentation = .results(recentItems)
-            }
-        } catch let error as KeyboardBridgeStoreError {
-            latestItem = nil
-            recentItems = []
-            switch error {
-            case .snapshotDecodeFailed, .snapshotTooLarge:
-                historyPresentation = .corrupt
-            case .incompatibleSchemaVersion:
-                historyPresentation = .incompatible
-            case .appGroupContainerUnavailable, .snapshotReadFailed,
-                 .snapshotEncodeFailed, .snapshotWriteFailed,
-                 .nonIncreasingRevision, .revisionExhausted:
-                historyPresentation = .inaccessible
-            }
+            latestItem = snapshot.latestForInsertion(at: Date())
         } catch {
             latestItem = nil
-            recentItems = []
-            historyPresentation = .inaccessible
         }
         render()
     }
@@ -175,26 +136,22 @@ final class KeyboardViewController: UIInputViewController {
             BrandStageKeyboardPresentation(
                 statusText: statusOverride ?? statusText,
                 latestIsEnabled: latestItem != nil,
-                history: historyPresentation,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
                         for: textDocumentProxy.returnKeyType ?? .default
                     )
                 ),
                 returnIsEnabled: returnIsEnabled,
-                showsInputModeSwitchKey: needsInputModeSwitchKey
+                showsInputModeSwitchKey: showsInputModeSwitchKey
             )
         )
     }
 
     private var statusText: String {
         if !hasFullAccess {
-            return "Voice starts in HoldType · Full Access enables results"
+            return "Full Access"
         }
-        if latestItem != nil {
-            return "Latest result is ready"
-        }
-        return "Voice starts in the HoldType app"
+        return "Ready"
     }
 
     private var returnIsEnabled: Bool {
@@ -202,31 +159,59 @@ final class KeyboardViewController: UIInputViewController {
             && !textDocumentProxy.hasText)
     }
 
+    private func openHistory() {
+        guard let url = HoldTypeContainingAppRoute.history.url,
+              let extensionContext else {
+            showTemporaryStatus("Open failed", duration: 1.6)
+            return
+        }
+
+        let requestID = UUID()
+        historyRequestID = requestID
+        statusResetWorkItem?.cancel()
+        render()
+        extensionContext.open(url) { [weak self] opened in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.historyRequestID == requestID else {
+                    return
+                }
+                self.historyRequestID = nil
+                guard !opened else { return }
+                self.showTemporaryStatus(
+                    "Open failed",
+                    duration: 1.6
+                )
+            }
+        }
+    }
+
     private func insert(_ item: KeyboardBridgeItem) {
         guard item.expiresAt > Date() else {
             reloadSharedSnapshot()
             return
         }
-        insertText(item.text, confirmation: "Inserted")
+        insertText(item.text)
     }
 
-    private func insertText(
-        _ text: String,
-        confirmation: String? = nil
-    ) {
+    private func insertText(_ text: String) {
         guard insertionGate.beginEvent() else { return }
         defer { insertionGate.endEvent() }
         textDocumentProxy.insertText(text)
+    }
 
-        guard let confirmation else { return }
-        insertionStatusWorkItem?.cancel()
-        render(statusOverride: confirmation)
+    private func showTemporaryStatus(
+        _ status: String,
+        duration: TimeInterval
+    ) {
+        statusResetWorkItem?.cancel()
+        render(statusOverride: status)
         let workItem = DispatchWorkItem { [weak self] in
             self?.reloadSharedSnapshot()
         }
-        insertionStatusWorkItem = workItem
+        statusResetWorkItem = workItem
         DispatchQueue.main.asyncAfter(
-            deadline: .now() + 0.8,
+            deadline: .now() + duration,
             execute: workItem
         )
     }

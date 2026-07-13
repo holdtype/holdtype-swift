@@ -16,8 +16,8 @@ Finish the visible iPhone product without another architecture expansion:
 - Library and core Settings;
 - compact successful-text History;
 - one production Brand Stage Adaptive voice-command keyboard;
-- explicit keyboard Latest/History insertion and an honest decision on keyboard
-  voice activation;
+- explicit keyboard Latest insertion, History app navigation, and an honest
+  decision on keyboard voice activation;
 - signed-device qualification.
 
 The user explicitly reprioritized working History ahead of the keyboard device
@@ -46,7 +46,7 @@ Remaining release work:
 2. Current Apple documentation does not qualify containing-app launch as a
    supported custom-keyboard action, and App Review 4.4.1 forbids keyboard
    extensions from launching apps other than Settings. The production
-   Latest/Recent-results App Group writer does not exist.
+   Latest-only App Group writer and History route qualification are unfinished.
 3. Cursor Space, Delete repeat, punctuation, adaptive Return, voice states,
    Light/Dark polish, final setup/privacy copy, and signed physical-iPhone
    qualification remain.
@@ -252,11 +252,13 @@ Documentation result, 2026-07-13: **not qualified for production**.
 - no public host-identity or automatic-return contract exists.
 
 A one-way custom URL may work on some iOS versions, but a signed device pass
-would prove only technical behavior, not App Review compatibility. No device is
-currently connected for the spike. Production therefore adds no URL scheme,
-responder-chain trampoline, private selector, or fabricated recording state.
-The keyboard-plus-voice release claim requires an explicit product rescope,
-Apple clarification, or later K1 evidence accepted as a release risk by the user.
+would prove only technical behavior, not App Review compatibility. The
+containing app may register and verify its public History route, and the
+selected keyboard keeps the user-required History control. Production uses no
+responder-chain trampoline, private selector, automatic-return claim, or
+fabricated recording state. The keyboard-originated History launch and the
+keyboard-plus-voice release claim require Apple clarification or explicit
+acceptance of the remaining release risk after bounded device evidence.
 
 ## K2 — Production Brand Stage Adaptive
 
@@ -278,16 +280,20 @@ keyboard dictionaries, or locale-layout engine. The microphone remains
 non-interactive while K1 is unresolved. Result actions remain honestly gated by
 K3 state while local editing and Globe keep working.
 
-## K3 — Latest/Recent Results Bridge And Qualification
+## K3 — Latest Snapshot And History Route Qualification
 
-- publish real accepted Latest with a 10-minute expiry plus at most five accepted
-  texts with a 24-hour expiry to one bounded app-written,
-  extension-read-only App Group snapshot;
+- publish one real accepted Latest with a 10-minute expiry to one bounded
+  app-written, extension-read-only App Group snapshot;
+- omit already-expired results and replace legacy schema 1/2 payloads with an
+  empty current-schema cache before the production projection gate opens;
 - keep full 20-entry History and every destructive History action app-private;
 - keep the projection as one replaceable cache with one app writer; add no
   outbox, receipt, acknowledgement, tombstone, or delivery transaction;
-- implement explicit one-call-per-tap insertion for Latest and a selected recent
-  result, with no automatic replay;
+- implement explicit one-call-per-tap insertion for Latest with no automatic
+  replay;
+- register and test the containing-app History route, wire the keyboard History
+  control through public extension APIs only, and record the separate
+  device/review qualification result;
 - finalize setup, Full Access, privacy, and fallback copy;
 - run Debug/Release dependency checks, simulator appearance/accessibility checks,
   and the signed physical-iPhone matrix;
@@ -315,8 +321,8 @@ K3 state while local editing and Globe keep working.
 | H4 Bounded legacy cleanup | Completed 2026-07-13 |
 | P1-P6 Persistence simplification and legacy retirement | Completed 2026-07-13 |
 | K1 Voice activation platform gate | Not qualified for production, 2026-07-13 |
-| K2 Production Brand Stage Adaptive | Not started |
-| K3 Latest/recent results bridge and qualification | Not started |
+| K2 Production Brand Stage Adaptive | In progress 2026-07-13 |
+| K3 Latest snapshot and History route qualification | In progress 2026-07-13 |
 
 Compact History is complete. K2-K3 may finish the safe keyboard surface, but
 V1.1 is not release-complete until K1 and the remaining signed-device gates are

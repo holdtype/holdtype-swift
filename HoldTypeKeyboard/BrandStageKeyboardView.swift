@@ -1,20 +1,8 @@
 import UIKit
 
-enum BrandStageHistoryPresentation: Equatable {
-    case fullAccessRequired
-    case missing
-    case corrupt
-    case incompatible
-    case inaccessible
-    case disabled
-    case empty
-    case results([KeyboardBridgeItem])
-}
-
 struct BrandStageKeyboardPresentation: Equatable {
     let statusText: String
     let latestIsEnabled: Bool
-    let history: BrandStageHistoryPresentation
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
     let showsInputModeSwitchKey: Bool
@@ -23,15 +11,8 @@ struct BrandStageKeyboardPresentation: Equatable {
 /// The selected Brand Stage Adaptive composition. The controller owns document
 /// proxy behavior; this view owns only layout, appearance, and touch routing.
 final class BrandStageKeyboardView: UIView {
-    private enum ActiveStage {
-        case hidden
-        case voice
-        case history
-    }
-
     var onHistoryRequested: (() -> Void)?
     var onLatestRequested: (() -> Void)?
-    var onRecentResultRequested: ((UUID) -> Void)?
     var onPunctuationRequested: ((String) -> Void)?
     var onSpaceRequested: (() -> Void)?
     var onSpaceCursorGesture: ((UIGestureRecognizer.State, CGFloat) -> Void)?
@@ -48,10 +29,7 @@ final class BrandStageKeyboardView: UIView {
     private let statusLabel = UILabel()
     private let stageContainer = UIView()
     private let voiceStage = UIStackView()
-    private let historyStage = UIStackView()
-    private let historyMessageLabel = UILabel()
-    private let historyResultsScrollView = UIScrollView()
-    private let historyResultsStack = UIStackView()
+    private let editingRow = UIStackView()
     private let spaceButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
@@ -61,11 +39,12 @@ final class BrandStageKeyboardView: UIView {
     private var preferredHeightConstraint: NSLayoutConstraint?
     private var stageMinimumHeightConstraint: NSLayoutConstraint?
     private var voiceStageConstraints: [NSLayoutConstraint] = []
-    private var historyStageConstraints: [NSLayoutConstraint] = []
-    private var activeStage: ActiveStage?
+    private var voiceStageIsHidden: Bool?
+    private var editingRowWithGlobeConstraints: [NSLayoutConstraint] = []
+    private var editingRowWithoutGlobeConstraints: [NSLayoutConstraint] = []
+    private var showsGlobeInEditingRow: Bool?
+    private var punctuationButtons: [UIButton] = []
     private var reduceTransparencyObserver: NSObjectProtocol?
-    private var historyPresentation = BrandStageHistoryPresentation.inaccessible
-    private var isShowingHistory = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -108,54 +87,30 @@ final class BrandStageKeyboardView: UIView {
     func render(_ presentation: BrandStageKeyboardPresentation) {
         statusLabel.text = presentation.statusText
         latestButton.isEnabled = presentation.latestIsEnabled
-        historyPresentation = presentation.history
-        nextKeyboardButton.isHidden = !presentation.showsInputModeSwitchKey
+        updateInputModeSwitchKeyVisibility(
+            presentation.showsInputModeSwitchKey
+        )
         returnButton.isEnabled = presentation.returnIsEnabled
         renderReturnKey(presentation.returnKey)
-        if isShowingHistory {
-            renderHistoryStage()
-        }
-    }
-
-    func showHistory() {
-        guard !isShowingHistory else { return }
-        isShowingHistory = true
-        renderHistoryStage()
-        voiceStage.isHidden = true
-        historyStage.isHidden = false
-        updatePreferredHeight(for: traitCollection)
-        UIAccessibility.post(
-            notification: .layoutChanged,
-            argument: historyMessageLabel
-        )
-    }
-
-    func showVoiceStage() {
-        guard isShowingHistory else { return }
-        isShowingHistory = false
-        historyStage.isHidden = true
-        voiceStage.isHidden = false
-        updatePreferredHeight(for: traitCollection)
-        UIAccessibility.post(notification: .layoutChanged, argument: statusLabel)
     }
 
     func updatePreferredHeight(for traitCollection: UITraitCollection) {
         let isCompact = traitCollection.verticalSizeClass == .compact
-        let hidesVoiceStage = isCompact && !isShowingHistory
+        let hidesVoiceStage = isCompact
         updateActiveStageConstraints(hidesVoiceStage: hidesVoiceStage)
         stageMinimumHeightConstraint?.constant = stageContainer.isHidden
             ? 0
-            : 76
+            : 96
         let baseHeight: CGFloat
-        if isShowingHistory {
-            baseHeight = 320
-        } else if isCompact {
+        if isCompact {
             baseHeight = 176
+        } else if bounds.width > 0, bounds.width < 600 {
+            baseHeight = 302
         } else {
-            baseHeight = 272
+            baseHeight = 284
         }
 
-        let fittingWidth = max(bounds.width - 16, 280)
+        let fittingWidth = min(max(bounds.width - 32, 280), 760)
         let contentSize = rootStack.systemLayoutSizeFitting(
             CGSize(
                 width: fittingWidth,
@@ -164,71 +119,87 @@ final class BrandStageKeyboardView: UIView {
             withHorizontalFittingPriority: .required,
             verticalFittingPriority: .fittingSizeLevel
         )
-        let resolvedHeight = max(baseHeight, ceil(contentSize.height + 16))
+        let resolvedHeight = max(baseHeight, ceil(contentSize.height + 28))
         if preferredHeightConstraint?.constant != resolvedHeight {
             preferredHeightConstraint?.constant = resolvedHeight
         }
     }
 
     private func updateActiveStageConstraints(hidesVoiceStage: Bool) {
-        let requestedStage: ActiveStage = if hidesVoiceStage {
-            .hidden
-        } else if isShowingHistory {
-            .history
-        } else {
-            .voice
-        }
-        guard activeStage != requestedStage else { return }
-        activeStage = requestedStage
-        NSLayoutConstraint.deactivate(
-            voiceStageConstraints + historyStageConstraints
-        )
-        if requestedStage == .hidden {
+        guard voiceStageIsHidden != hidesVoiceStage else { return }
+        voiceStageIsHidden = hidesVoiceStage
+        NSLayoutConstraint.deactivate(voiceStageConstraints)
+        if hidesVoiceStage {
             stageContainer.isHidden = true
             return
         }
 
         stageContainer.isHidden = false
+        NSLayoutConstraint.activate(voiceStageConstraints)
+    }
+
+    private func updateInputModeSwitchKeyVisibility(_ showsGlobe: Bool) {
+        guard showsGlobeInEditingRow != showsGlobe else { return }
+        NSLayoutConstraint.deactivate(editingRowWithGlobeConstraints)
+        NSLayoutConstraint.deactivate(editingRowWithoutGlobeConstraints)
+        nextKeyboardButton.isHidden = !showsGlobe
         NSLayoutConstraint.activate(
-            requestedStage == .history
-                ? historyStageConstraints
-                : voiceStageConstraints
+            showsGlobe
+                ? editingRowWithGlobeConstraints
+                : editingRowWithoutGlobeConstraints
         )
+        showsGlobeInEditingRow = showsGlobe
     }
 
     private func configureHierarchy() {
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = Self.keyboardBackground
+        layer.cornerRadius = 22
+        layer.cornerCurve = .continuous
+        layer.maskedCorners = [
+            .layerMinXMinYCorner,
+            .layerMaxXMinYCorner,
+        ]
+        layer.masksToBounds = true
 
         rootStack.translatesAutoresizingMaskIntoConstraints = false
         rootStack.axis = .vertical
-        rootStack.spacing = 8
+        rootStack.spacing = 10
         addSubview(rootStack)
 
         let topRail = makeTopRail()
         configureVoiceStage()
-        configureHistoryStage()
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
         stageContainer.addSubview(voiceStage)
-        stageContainer.addSubview(historyStage)
         let stageMinimumHeight = stageContainer.heightAnchor.constraint(
-            greaterThanOrEqualToConstant: 76
+            greaterThanOrEqualToConstant: 96
         )
         stageMinimumHeightConstraint = stageMinimumHeight
+        let voiceFillsAvailableWidth = voiceStage.widthAnchor.constraint(
+            equalTo: stageContainer.widthAnchor
+        )
+        voiceFillsAvailableWidth.priority = UILayoutPriority(999)
+        let voicePrefersMaximumWidth = voiceStage.widthAnchor.constraint(
+            equalToConstant: 520
+        )
+        voicePrefersMaximumWidth.priority = UILayoutPriority(998)
         voiceStageConstraints = [
-            voiceStage.leadingAnchor.constraint(equalTo: stageContainer.leadingAnchor),
-            voiceStage.trailingAnchor.constraint(equalTo: stageContainer.trailingAnchor),
+            voiceStage.leadingAnchor.constraint(
+                greaterThanOrEqualTo: stageContainer.leadingAnchor
+            ),
+            voiceStage.trailingAnchor.constraint(
+                lessThanOrEqualTo: stageContainer.trailingAnchor
+            ),
+            voiceStage.centerXAnchor.constraint(
+                equalTo: stageContainer.centerXAnchor
+            ),
+            voiceStage.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+            voiceFillsAvailableWidth,
+            voicePrefersMaximumWidth,
             voiceStage.topAnchor.constraint(equalTo: stageContainer.topAnchor),
             voiceStage.bottomAnchor.constraint(equalTo: stageContainer.bottomAnchor),
         ]
-        historyStageConstraints = [
-            historyStage.leadingAnchor.constraint(equalTo: stageContainer.leadingAnchor),
-            historyStage.trailingAnchor.constraint(equalTo: stageContainer.trailingAnchor),
-            historyStage.topAnchor.constraint(equalTo: stageContainer.topAnchor),
-            historyStage.bottomAnchor.constraint(equalTo: stageContainer.bottomAnchor),
-        ]
         NSLayoutConstraint.activate(voiceStageConstraints + [stageMinimumHeight])
-        historyStage.isHidden = true
 
         let punctuationRow = makePunctuationRow()
         let editingRow = makeEditingRow()
@@ -237,35 +208,61 @@ final class BrandStageKeyboardView: UIView {
         rootStack.addArrangedSubview(punctuationRow)
         rootStack.addArrangedSubview(editingRow)
 
-        let height = heightAnchor.constraint(equalToConstant: 272)
+        let height = heightAnchor.constraint(equalToConstant: 302)
         height.priority = UILayoutPriority(999)
         preferredHeightConstraint = height
+        let fillsAvailableWidth = rootStack.widthAnchor.constraint(
+            equalTo: widthAnchor,
+            constant: -32
+        )
+        fillsAvailableWidth.priority = UILayoutPriority(999)
+        let prefersMaximumWidth = rootStack.widthAnchor.constraint(
+            equalToConstant: 760
+        )
+        prefersMaximumWidth.priority = UILayoutPriority(998)
 
         NSLayoutConstraint.activate([
-            rootStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            rootStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            rootStack.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            rootStack.leadingAnchor.constraint(
+                greaterThanOrEqualTo: leadingAnchor,
+                constant: 16
+            ),
+            rootStack.trailingAnchor.constraint(
+                lessThanOrEqualTo: trailingAnchor,
+                constant: -16
+            ),
+            rootStack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            rootStack.widthAnchor.constraint(lessThanOrEqualToConstant: 760),
+            fillsAvailableWidth,
+            prefersMaximumWidth,
+            rootStack.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            rootStack.bottomAnchor.constraint(
+                equalTo: safeAreaLayoutGuide.bottomAnchor,
+                constant: -16
+            ),
             height,
-            topRail.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            topRail.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
             punctuationRow.heightAnchor.constraint(equalToConstant: 44),
-            editingRow.heightAnchor.constraint(equalToConstant: 48),
+            editingRow.heightAnchor.constraint(equalToConstant: 52),
         ])
     }
 
     private func makeTopRail() -> UIStackView {
-        configureKey(
+        configureTopAction(
             historyButton,
             title: "History",
-            systemImage: "clock.arrow.circlepath",
-            accessibilityLabel: "Open recent results"
+            systemImage: "clock",
+            accessibilityLabel: "Open History in HoldType"
         )
-        configureKey(
+        historyButton.accessibilityIdentifier = "keyboard.brand-stage.history"
+        historyButton.accessibilityHint =
+            "Opens HoldType and shows your transcription history."
+        configureTopAction(
             latestButton,
             title: "Latest",
             systemImage: "arrow.down.doc",
             accessibilityLabel: "Insert latest"
         )
+        latestButton.accessibilityIdentifier = "keyboard.brand-stage.latest"
 
         let logo = UIImageView(
             image: UIImage(named: "HoldTypeMark")
@@ -273,20 +270,26 @@ final class BrandStageKeyboardView: UIView {
         )
         logo.translatesAutoresizingMaskIntoConstraints = false
         logo.contentMode = .scaleAspectFit
+        logo.image = logo.image?.withRenderingMode(.alwaysOriginal)
         logo.isAccessibilityElement = false
-        statusLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        statusLabel.font = UIFontMetrics(forTextStyle: .caption1).scaledFont(
+            for: UIFont.systemFont(ofSize: 12, weight: .semibold),
+            maximumPointSize: 15
+        )
         statusLabel.adjustsFontForContentSizeCategory = true
+        statusLabel.adjustsFontSizeToFitWidth = true
+        statusLabel.minimumScaleFactor = 0.8
         statusLabel.textAlignment = .center
-        statusLabel.numberOfLines = 2
+        statusLabel.numberOfLines = 1
         statusLabel.accessibilityIdentifier = "keyboard.brand-stage.status"
 
         let identity = UIStackView(arrangedSubviews: [logo, statusLabel])
         identity.axis = .vertical
         identity.alignment = .center
-        identity.spacing = 1
+        identity.spacing = 2
         NSLayoutConstraint.activate([
-            logo.widthAnchor.constraint(equalToConstant: 30),
-            logo.heightAnchor.constraint(equalToConstant: 30),
+            logo.widthAnchor.constraint(equalToConstant: 34),
+            logo.heightAnchor.constraint(equalToConstant: 34),
         ])
 
         let rail = UIStackView(
@@ -296,10 +299,12 @@ final class BrandStageKeyboardView: UIView {
         rail.alignment = .center
         rail.distribution = .equalCentering
         rail.spacing = 8
-        historyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 104)
-            .isActive = true
-        latestButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96)
-            .isActive = true
+        NSLayoutConstraint.activate([
+            historyButton.widthAnchor.constraint(equalToConstant: 88),
+            latestButton.widthAnchor.constraint(equalTo: historyButton.widthAnchor),
+            historyButton.heightAnchor.constraint(equalToConstant: 44),
+            latestButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
         return rail
     }
 
@@ -308,7 +313,7 @@ final class BrandStageKeyboardView: UIView {
         voiceStage.axis = .horizontal
         voiceStage.alignment = .center
         voiceStage.distribution = .fill
-        voiceStage.spacing = 10
+        voiceStage.spacing = 12
 
         configureWaveform()
         let leftWaveform = waveformStack
@@ -316,75 +321,30 @@ final class BrandStageKeyboardView: UIView {
         voiceStage.addArrangedSubview(leftWaveform)
         voiceStage.addArrangedSubview(microphoneView)
         voiceStage.addArrangedSubview(rightWaveform)
-        leftWaveform.widthAnchor.constraint(greaterThanOrEqualToConstant: 70)
+        leftWaveform.widthAnchor.constraint(greaterThanOrEqualToConstant: 96)
             .isActive = true
         rightWaveform.widthAnchor.constraint(equalTo: leftWaveform.widthAnchor)
             .isActive = true
-        microphoneView.widthAnchor.constraint(equalToConstant: 66).isActive = true
-        microphoneView.heightAnchor.constraint(equalToConstant: 66).isActive = true
+        microphoneView.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        microphoneView.heightAnchor.constraint(equalToConstant: 80).isActive = true
 
-        microphoneView.layer.cornerRadius = 33
+        microphoneView.layer.cornerRadius = 40
+        microphoneView.layer.cornerCurve = .continuous
         microphoneView.layer.borderWidth = 2
+        microphoneView.layer.masksToBounds = false
         microphoneView.isUserInteractionEnabled = false
         microphoneView.isAccessibilityElement = false
+        microphoneView.accessibilityIdentifier = "keyboard.brand-stage.voice"
         microphoneImageView.translatesAutoresizingMaskIntoConstraints = false
-        microphoneImageView.image = UIImage(systemName: "mic.slash.fill")
+        microphoneImageView.image = UIImage(systemName: "mic.fill")
         microphoneImageView.contentMode = .scaleAspectFit
-        microphoneImageView.tintColor = .secondaryLabel
         microphoneView.addSubview(microphoneImageView)
         NSLayoutConstraint.activate([
             microphoneImageView.centerXAnchor.constraint(equalTo: microphoneView.centerXAnchor),
             microphoneImageView.centerYAnchor.constraint(equalTo: microphoneView.centerYAnchor),
-            microphoneImageView.widthAnchor.constraint(equalToConstant: 28),
-            microphoneImageView.heightAnchor.constraint(equalToConstant: 28),
+            microphoneImageView.widthAnchor.constraint(equalToConstant: 34),
+            microphoneImageView.heightAnchor.constraint(equalToConstant: 34),
         ])
-    }
-
-    private func configureHistoryStage() {
-        historyStage.translatesAutoresizingMaskIntoConstraints = false
-        historyStage.axis = .vertical
-        historyStage.spacing = 6
-
-        let closeButton = UIButton(type: .system)
-        var configuration = UIButton.Configuration.plain()
-        configuration.title = "Recent results"
-        configuration.image = UIImage(systemName: "xmark.circle.fill")
-        configuration.imagePlacement = .trailing
-        configuration.baseForegroundColor = .label
-        closeButton.configuration = configuration
-        closeButton.contentHorizontalAlignment = .fill
-        closeButton.accessibilityLabel = "Close recent results"
-        closeButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
-            .isActive = true
-        closeButton.addTarget(
-            self,
-            action: #selector(closeHistoryTapped),
-            for: .touchUpInside
-        )
-
-        historyMessageLabel.font = UIFont.preferredFont(forTextStyle: .footnote)
-        historyMessageLabel.adjustsFontForContentSizeCategory = true
-        historyMessageLabel.textColor = .secondaryLabel
-        historyMessageLabel.textAlignment = .center
-        historyMessageLabel.numberOfLines = 2
-
-        historyResultsScrollView.showsHorizontalScrollIndicator = false
-        historyResultsScrollView.alwaysBounceHorizontal = true
-        historyResultsStack.translatesAutoresizingMaskIntoConstraints = false
-        historyResultsStack.axis = .horizontal
-        historyResultsStack.spacing = 8
-        historyResultsScrollView.addSubview(historyResultsStack)
-        NSLayoutConstraint.activate([
-            historyResultsStack.leadingAnchor.constraint(equalTo: historyResultsScrollView.contentLayoutGuide.leadingAnchor),
-            historyResultsStack.trailingAnchor.constraint(equalTo: historyResultsScrollView.contentLayoutGuide.trailingAnchor),
-            historyResultsStack.topAnchor.constraint(equalTo: historyResultsScrollView.contentLayoutGuide.topAnchor),
-            historyResultsStack.bottomAnchor.constraint(equalTo: historyResultsScrollView.contentLayoutGuide.bottomAnchor),
-            historyResultsStack.heightAnchor.constraint(equalTo: historyResultsScrollView.frameLayoutGuide.heightAnchor),
-        ])
-
-        historyStage.addArrangedSubview(closeButton)
-        historyStage.addArrangedSubview(historyMessageLabel)
-        historyStage.addArrangedSubview(historyResultsScrollView)
     }
 
     private func makePunctuationRow() -> UIStackView {
@@ -400,9 +360,12 @@ final class BrandStageKeyboardView: UIView {
         ] {
             let button = UIButton(type: .system)
             configureKey(button, title: character, accessibilityLabel: name)
+            button.accessibilityIdentifier =
+                "keyboard.brand-stage.punctuation.\(name.lowercased())"
             button.addAction(UIAction { [weak self] _ in
                 self?.onPunctuationRequested?(character)
             }, for: .touchUpInside)
+            punctuationButtons.append(button)
             row.addArrangedSubview(button)
         }
         return row
@@ -416,7 +379,7 @@ final class BrandStageKeyboardView: UIView {
         )
         configureKey(
             spaceButton,
-            title: "space",
+            systemImage: "circle.grid.3x3.fill",
             accessibilityLabel: "Space"
         )
         spaceButton.accessibilityHint =
@@ -431,23 +394,52 @@ final class BrandStageKeyboardView: UIView {
             systemImage: "return",
             accessibilityLabel: "Return"
         )
+        nextKeyboardButton.accessibilityIdentifier =
+            "keyboard.brand-stage.next-keyboard"
+        spaceButton.accessibilityIdentifier = "keyboard.brand-stage.space"
+        deleteButton.accessibilityIdentifier = "keyboard.brand-stage.delete"
+        returnButton.accessibilityIdentifier = "keyboard.brand-stage.return"
+        returnButton.titleLabel?.adjustsFontSizeToFitWidth = true
+        returnButton.titleLabel?.minimumScaleFactor = 0.7
 
-        let row = UIStackView(
-            arrangedSubviews: [
-                nextKeyboardButton,
-                spaceButton,
-                deleteButton,
-                returnButton,
-            ]
-        )
-        row.axis = .horizontal
-        row.spacing = 8
-        nextKeyboardButton.widthAnchor.constraint(equalToConstant: 48)
-            .isActive = true
-        deleteButton.widthAnchor.constraint(equalToConstant: 56).isActive = true
-        returnButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 64)
-            .isActive = true
-        return row
+        for button in [
+            nextKeyboardButton,
+            spaceButton,
+            deleteButton,
+            returnButton,
+        ] {
+            editingRow.addArrangedSubview(button)
+        }
+        editingRow.axis = .horizontal
+        editingRow.distribution = .fill
+        editingRow.spacing = 8
+
+        editingRowWithGlobeConstraints = [
+            spaceButton.widthAnchor.constraint(
+                equalTo: nextKeyboardButton.widthAnchor,
+                multiplier: 4.35
+            ),
+            deleteButton.widthAnchor.constraint(
+                equalTo: nextKeyboardButton.widthAnchor,
+                multiplier: 1.15
+            ),
+            returnButton.widthAnchor.constraint(
+                equalTo: nextKeyboardButton.widthAnchor,
+                multiplier: 1.25
+            ),
+        ]
+        editingRowWithoutGlobeConstraints = [
+            spaceButton.widthAnchor.constraint(
+                equalTo: deleteButton.widthAnchor,
+                multiplier: 3.8
+            ),
+            returnButton.widthAnchor.constraint(
+                equalTo: deleteButton.widthAnchor,
+                multiplier: 1.07
+            ),
+        ]
+        updateInputModeSwitchKeyVisibility(true)
+        return editingRow
     }
 
     private func configureWaveform() {
@@ -455,7 +447,7 @@ final class BrandStageKeyboardView: UIView {
         waveformStack.alignment = .center
         waveformStack.distribution = .equalCentering
         waveformStack.spacing = 3
-        for height: CGFloat in [5, 9, 14, 20, 14, 9, 5] {
+        for height in Self.waveformHeights {
             waveformStack.addArrangedSubview(makeWaveformBar(height: height))
         }
     }
@@ -466,7 +458,7 @@ final class BrandStageKeyboardView: UIView {
         stack.alignment = .center
         stack.distribution = .equalCentering
         stack.spacing = 3
-        for height: CGFloat in [5, 9, 14, 20, 14, 9, 5] {
+        for height in Self.waveformHeights.reversed() {
             stack.addArrangedSubview(makeWaveformBar(height: height))
         }
         return stack
@@ -476,9 +468,9 @@ final class BrandStageKeyboardView: UIView {
         let bar = UIView()
         bar.translatesAutoresizingMaskIntoConstraints = false
         bar.backgroundColor = Self.waveformColor
-        bar.layer.cornerRadius = 1.5
+        bar.layer.cornerRadius = 1
         NSLayoutConstraint.activate([
-            bar.widthAnchor.constraint(equalToConstant: 3),
+            bar.widthAnchor.constraint(equalToConstant: 2),
             bar.heightAnchor.constraint(equalToConstant: height),
         ])
         return bar
@@ -544,68 +536,6 @@ final class BrandStageKeyboardView: UIView {
         )
     }
 
-    private func renderHistoryStage() {
-        historyResultsStack.arrangedSubviews.forEach { view in
-            historyResultsStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
-
-        switch historyPresentation {
-        case .fullAccessRequired:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text =
-                "Turn on Full Access in Settings for recent results."
-            historyResultsScrollView.isHidden = true
-        case .missing:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text =
-                "Open HoldType after a dictation to publish results."
-            historyResultsScrollView.isHidden = true
-        case .corrupt:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text =
-                "Recent results need to be refreshed from HoldType."
-            historyResultsScrollView.isHidden = true
-        case .incompatible:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text =
-                "Update HoldType to use recent results."
-            historyResultsScrollView.isHidden = true
-        case .inaccessible:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text =
-                "Recent results can’t be read. Check Full Access."
-            historyResultsScrollView.isHidden = true
-        case .disabled:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text = "Save History is off in HoldType."
-            historyResultsScrollView.isHidden = true
-        case .empty:
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text = "No recent results yet."
-            historyResultsScrollView.isHidden = true
-        case .results(let items):
-            historyMessageLabel.isHidden = false
-            historyMessageLabel.text = "Choose a result to insert"
-            historyResultsScrollView.isHidden = false
-            for item in items {
-                let button = UIButton(type: .system)
-                configureKey(
-                    button,
-                    title: Self.preview(item.text),
-                    accessibilityLabel: "Insert recent result, \(item.text)"
-                )
-                button.titleLabel?.lineBreakMode = .byTruncatingTail
-                button.contentHorizontalAlignment = .leading
-                button.widthAnchor.constraint(equalToConstant: 176).isActive = true
-                button.addAction(UIAction { [weak self] _ in
-                    self?.onRecentResultRequested?(item.resultID)
-                }, for: .touchUpInside)
-                historyResultsStack.addArrangedSubview(button)
-            }
-        }
-    }
-
     private func renderReturnKey(_ presentation: KeyboardReturnKeyPresentation) {
         var configuration = returnButton.configuration
         switch presentation {
@@ -631,7 +561,13 @@ final class BrandStageKeyboardView: UIView {
         configuration.image = systemImage.flatMap(UIImage.init(systemName:))
         configuration.imagePadding = 6
         configuration.cornerStyle = .medium
-        configuration.baseBackgroundColor = Self.keyBackground
+        configuration.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: 8,
+            bottom: 0,
+            trailing: 8
+        )
+        configuration.baseBackgroundColor = Self.editingKeyBackground
         configuration.baseForegroundColor = Self.keyForeground
         configuration.titleTextAttributesTransformer =
             UIConfigurationTextAttributesTransformer { incoming in
@@ -643,20 +579,75 @@ final class BrandStageKeyboardView: UIView {
                 return outgoing
             }
         button.configuration = configuration
+        button.layer.cornerRadius = 10
+        button.layer.cornerCurve = .continuous
+        button.layer.masksToBounds = false
         button.accessibilityLabel = accessibilityLabel
         button.accessibilityTraits.insert(.keyboardKey)
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
             .isActive = true
     }
 
+    private func configureTopAction(
+        _ button: UIButton,
+        title: String,
+        systemImage: String,
+        accessibilityLabel: String
+    ) {
+        configureKey(
+            button,
+            title: title,
+            systemImage: systemImage,
+            accessibilityLabel: accessibilityLabel
+        )
+        var configuration = button.configuration
+        configuration?.contentInsets = NSDirectionalEdgeInsets(
+            top: 0,
+            leading: 7,
+            bottom: 0,
+            trailing: 7
+        )
+        configuration?.imagePadding = 6
+        configuration?.titleLineBreakMode = .byClipping
+        configuration?.preferredSymbolConfigurationForImage =
+            UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        configuration?.titleTextAttributesTransformer =
+            UIConfigurationTextAttributesTransformer { incoming in
+                var outgoing = incoming
+                outgoing.font = UIFontMetrics(forTextStyle: .subheadline)
+                    .scaledFont(
+                        for: UIFont.systemFont(ofSize: 15, weight: .medium),
+                        maximumPointSize: 17
+                    )
+                return outgoing
+            }
+        button.configuration = configuration
+        button.titleLabel?.numberOfLines = 1
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.82
+        button.accessibilityTraits.remove(.keyboardKey)
+        button.accessibilityTraits.insert(.button)
+    }
+
     private func applyAppearance() {
         backgroundColor = Self.keyboardBackground
-        statusLabel.textColor = .secondaryLabel
+        layer.borderColor = Self.keyboardBorder.resolvedColor(
+            with: traitCollection
+        ).cgColor
+        layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
+        statusLabel.textColor = Self.statusForeground
         microphoneView.backgroundColor = Self.microphoneBackground
-        microphoneImageView.tintColor = .secondaryLabel
+        microphoneImageView.tintColor = Self.voiceForeground
         microphoneView.layer.borderColor = Self.microphoneBorder.resolvedColor(
             with: traitCollection
         ).cgColor
+        microphoneView.layer.shadowColor = Self.microphoneGlow.resolvedColor(
+            with: traitCollection
+        ).cgColor
+        microphoneView.layer.shadowOpacity = traitCollection.userInterfaceStyle
+            == .dark ? 0.34 : 0.24
+        microphoneView.layer.shadowOffset = .zero
+        microphoneView.layer.shadowRadius = 8
         let contrast = UIAccessibility.isDarkerSystemColorsEnabled
         microphoneView.layer.borderWidth = contrast ? 3 : 2
         updateKeyAppearance(in: self)
@@ -666,20 +657,37 @@ final class BrandStageKeyboardView: UIView {
     private func updateKeyAppearance(in root: UIView) {
         for subview in root.subviews {
             if let button = subview as? UIButton,
-               button.accessibilityTraits.contains(.keyboardKey),
                var configuration = button.configuration {
-                configuration.baseBackgroundColor = Self.keyBackground
+                configuration.baseBackgroundColor = keyBackground(
+                    for: button
+                )
                 configuration.baseForegroundColor = Self.keyForeground
                 button.configuration = configuration
+                button.layer.borderColor = Self.keyBorder.resolvedColor(
+                    with: traitCollection
+                ).cgColor
+                button.layer.borderWidth = UIAccessibility
+                    .isDarkerSystemColorsEnabled ? 1.5 : 0.5
+                button.layer.shadowColor = Self.keyShadow.resolvedColor(
+                    with: traitCollection
+                ).cgColor
+                button.layer.shadowOpacity = traitCollection.userInterfaceStyle
+                    == .dark ? 0.30 : 0.18
+                button.layer.shadowOffset = CGSize(width: 0, height: 1)
+                button.layer.shadowRadius = 1.5
             }
             updateKeyAppearance(in: subview)
         }
     }
 
-    private static func preview(_ text: String) -> String {
-        let singleLine = text.replacingOccurrences(of: "\n", with: " ")
-        guard singleLine.count > 48 else { return singleLine }
-        return String(singleLine.prefix(47)) + "…"
+    private func keyBackground(for button: UIButton) -> UIColor {
+        if button === historyButton || button === latestButton {
+            return Self.topActionBackground
+        }
+        if punctuationButtons.contains(where: { $0 === button }) {
+            return Self.punctuationKeyBackground
+        }
+        return Self.editingKeyBackground
     }
 
     @objc private func historyTapped() {
@@ -688,10 +696,6 @@ final class BrandStageKeyboardView: UIView {
 
     @objc private func latestTapped() {
         onLatestRequested?()
-    }
-
-    @objc private func closeHistoryTapped() {
-        showVoiceStage()
     }
 
     @objc private func spaceTapped() {
@@ -729,43 +733,87 @@ final class BrandStageKeyboardView: UIView {
     private static let keyboardBackground = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.035, green: 0.055, blue: 0.10, alpha: 1)
-            : UIColor.systemGroupedBackground
+            : UIColor(red: 0.90, green: 0.915, blue: 0.95, alpha: 1)
     }
 
-    private static let keyBackground = UIColor { traits in
-        if UIAccessibility.isReduceTransparencyEnabled {
-            return traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.17, green: 0.18, blue: 0.23, alpha: 1)
-                : UIColor.secondarySystemGroupedBackground
-        }
-        return traits.userInterfaceStyle == .dark
-            ? UIColor(white: 1, alpha: 0.13)
-            : UIColor.secondarySystemGroupedBackground
+    private static let keyboardBorder = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.16)
+            : UIColor(red: 0.69, green: 0.72, blue: 0.79, alpha: 1)
+    }
+
+    private static let topActionBackground = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.105, green: 0.12, blue: 0.17, alpha: 1)
+            : UIColor(red: 0.975, green: 0.98, blue: 0.995, alpha: 1)
+    }
+
+    private static let punctuationKeyBackground = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.13, green: 0.145, blue: 0.19, alpha: 1)
+            : UIColor(red: 0.985, green: 0.99, blue: 1, alpha: 1)
+    }
+
+    private static let editingKeyBackground = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.18, green: 0.195, blue: 0.24, alpha: 1)
+            : .white
     }
 
     private static let keyForeground = UIColor { traits in
-        traits.userInterfaceStyle == .dark ? .white : .label
+        traits.userInterfaceStyle == .dark
+            ? .white
+            : UIColor(red: 0.13, green: 0.15, blue: 0.20, alpha: 1)
+    }
+
+    private static let keyBorder = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 1, alpha: 0.16)
+            : UIColor(red: 0.73, green: 0.76, blue: 0.83, alpha: 1)
+    }
+
+    private static let keyShadow = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(white: 0, alpha: 0.8)
+            : UIColor(red: 0.24, green: 0.28, blue: 0.38, alpha: 0.7)
+    }
+
+    private static let statusForeground = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.84, green: 0.86, blue: 0.91, alpha: 1)
+            : UIColor(red: 0.30, green: 0.33, blue: 0.42, alpha: 1)
     }
 
     private static let waveformColor = UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.55, green: 0.62, blue: 0.84, alpha: 0.75)
-            : UIColor(red: 0.32, green: 0.40, blue: 0.70, alpha: 0.55)
+            ? UIColor(red: 0.55, green: 0.63, blue: 0.88, alpha: 0.72)
+            : UIColor(red: 0.37, green: 0.45, blue: 0.78, alpha: 0.58)
     }
 
     private static let microphoneBackground = UIColor { traits in
-        if UIAccessibility.isReduceTransparencyEnabled {
-            return traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.12, green: 0.15, blue: 0.28, alpha: 1)
-                : UIColor(red: 0.86, green: 0.88, blue: 0.97, alpha: 1)
-        }
-        let alpha: CGFloat = traits.userInterfaceStyle == .dark ? 0.22 : 0.14
-        return UIColor(red: 0.32, green: 0.40, blue: 0.91, alpha: alpha)
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.12, green: 0.15, blue: 0.29, alpha: 1)
+            : UIColor(red: 0.955, green: 0.965, blue: 1, alpha: 1)
     }
 
     private static let microphoneBorder = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.52, green: 0.30, blue: 0.95, alpha: 0.48)
-            : UIColor(red: 0.32, green: 0.40, blue: 0.91, alpha: 0.42)
+            : UIColor(red: 0.32, green: 0.40, blue: 0.91, alpha: 0.62)
     }
+
+    private static let voiceForeground = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.91, green: 0.92, blue: 0.98, alpha: 1)
+            : UIColor(red: 0.30, green: 0.37, blue: 0.70, alpha: 1)
+    }
+
+    private static let microphoneGlow = UIColor { _ in
+        UIColor(red: 0.38, green: 0.34, blue: 0.95, alpha: 1)
+    }
+
+    private static let waveformHeights: [CGFloat] = [
+        3, 4, 5, 6, 8, 10, 14, 20, 28, 36, 24,
+        30, 22, 18, 16, 12, 9, 7, 5, 4, 3,
+    ]
 }

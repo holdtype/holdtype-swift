@@ -71,6 +71,17 @@ struct IOSVoiceHomeView: View {
         .accessibilityIdentifier(
             IOSContainingAppDestination.voice.accessibilityIdentifier
         )
+        .task {
+            let environment = ProcessInfo.processInfo.environment
+            guard environment["HOLDTYPE_AUTOMATION"] == "1",
+                  environment[
+                    "HOLDTYPE_AUTOMATION_FOCUS_PRACTICE"
+                  ] == "1" else {
+                return
+            }
+            await Task.yield()
+            practiceFieldIsFocused = true
+        }
         .onChange(
             of: sceneOwner.presentation.phase,
             initial: true

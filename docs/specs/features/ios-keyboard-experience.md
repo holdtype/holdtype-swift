@@ -5,16 +5,19 @@ Status: active V1.1 UX contract; Brand Stage Adaptive selected 2026-07-13.
 
 Current K1 result: Apple does not document containing-app launch for custom
 keyboard extensions, and App Review 4.4.1 forbids keyboard extensions from
-launching apps other than Settings. Until the product is explicitly rescoped,
-Apple clarifies the rule, or the remaining review risk is explicitly accepted,
-the microphone stage is visibly unavailable and non-interactive; it is not an
-instruction-only fake action.
+launching apps other than Settings. The selected design nevertheless keeps the
+user-required `History` handoff as a distinct top-rail action. The containing
+app route and the button are implemented with public APIs only, but the action
+is not release-qualified until its keyboard-originated launch is proven and the
+remaining review risk is explicitly accepted or Apple clarifies the rule. The
+same unresolved gate keeps the microphone stage visibly unavailable and
+non-interactive; it is not an instruction-only fake action.
 
 ## Goal
 
 Provide a polished HoldType command keyboard that complements the user's system
 keyboards. It preserves Apple's system Dictation path when iOS offers it,
-exposes only Latest for explicit HoldType-result insertion, and keeps the small
+provides a direct `History` handoff plus `Latest` insertion, and keeps the small
 editing controls needed to finish a sentence without building a multilingual
 QWERTY engine.
 
@@ -32,17 +35,36 @@ QWERTY engine.
   qualified. `Latest` is a compact secondary action.
 - Canonical History and every History row remain in the containing app. The
   keyboard never renders transcript text, History lists, previews, or detail.
+- `History` is navigation, not a data surface: it requests the containing app's
+  History destination and never copies History records into the extension.
 
 ## Brand Stage Adaptive Composition
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: the HoldType mark and current state centered, with `Latest` as the
-   only result action.
+1. Top rail: `History` on the left, the HoldType mark and current state centered,
+   and `Latest` on the right.
 2. Voice stage: one medium circular microphone control with a restrained
    waveform or progress treatment.
 3. Correction row: `.`, `,`, `?`, and `!`.
 4. Editing row: Globe, wide Space, Delete, and adaptive Return.
+
+The approved Option 2 reference is the geometry source of truth. On iPhone the
+surface uses approximately 18-point side insets, 8-point key gaps, an
+approximately 80-point voice circle, four equal punctuation keys, and the
+editing-key width relationship `Globe : Space : Delete : Return` of roughly
+`1 : 4.35 : 1.15 : 1.25`. If iOS already supplies the input-mode control
+outside the extension, Space, Delete, and Return retain their relative
+`3.8 : 1 : 1.07` balance rather than allowing Return or Space to absorb the
+row. Wider iPad layouts keep a centered maximum content width instead of
+stretching fixed controls across the whole screen.
+
+The keyboard is one visually distinct surface with rounded top-left and
+top-right corners. It must not merge into the containing app background.
+`History` and `Latest` use equal 88-point top-rail widths so the brand/status
+column stays exactly centered. The HoldType mark is a full-color transparent
+image with no embedded square background and is identical in Light and Dark
+Mode.
 
 The HoldType mark is decorative identity plus status context. It is never an
 unlabelled action. The branded microphone treatment is non-interactive while
@@ -52,7 +74,17 @@ manual `Refresh`,
 alphabet layout, number deck, Shift, Caps Lock, `123`, prediction row, settings
 gear, or opaque mode icon.
 
-Light Mode uses system-light surfaces, neutral keycaps, and restrained shadows.
+The top-rail status is deliberately terse: `Ready` when the local command
+surface is usable, or one short problem label such as `Full Access` or `Open
+failed`. Latest availability is communicated by the `Latest` button itself and
+is never repeated in the centered status. `Ready` describes the keyboard
+surface only; it never claims that HoldType recording has started or that the
+unqualified microphone handoff is available. Successful taps and in-progress
+actions do not replace this label with messages such as `Inserted`, `Latest
+ready`, or `Opening History`.
+
+Light Mode uses a clearly separated cool-light surface, neutral keycaps,
+restrained borders, and native-looking shadows.
 Dark Mode uses deep navy system-dark surfaces and lighter translucent keycaps.
 Geometry, order, labels, and touch targets do not change between appearances.
 HoldType blue `#5165E8` and purple `#844DF2` are reserved for the microphone,
@@ -73,27 +105,19 @@ focus, and small active-state accents; the whole background is never a gradient.
 - Punctuation, Space, Delete, Return, and Globe work without network, provider
   setup, Full Access, or a running containing app.
 
-## Voice States
+## Status Contract
 
-The centered brand/status and voice stage show only these user-visible states:
+The centered label has only two categories:
 
-- `needsSetup`: required app-owned setup is incomplete; the keyboard explains
-  the next app step without requesting credentials or microphone permission;
-- `ready`: the verified voice action can begin now;
-- `handoffRequested`: a supported public handoff was requested, but the keyboard
-  does not claim recording has started;
-- `recording`: shown only after the containing app confirms that it owns an
-  active recording; waveform, Cancel, and Finish are unambiguous;
-- `processing`: capture has stopped and an accepted result is not ready yet;
-- `resultReady`: a valid Latest snapshot can be inserted;
-- `inserted`: brief non-blocking confirmation after one explicit insertion;
-- `recoverableFailure`: compact Retry or recovery guidance for a known failure;
-- `stale`: shared state is expired, incompatible, or no longer eligible.
+- `Ready` while the local keyboard controls are usable;
+- one short problem label when the user must understand a failure or missing
+  requirement, currently `Full Access` or `Open failed`.
 
-The UI never uses `Ready`, `Recording`, or `Listening` as optimism. Each label
-must correspond to app-confirmed state. Cancel and Finish are visually separate
-and cannot be mistaken for Latest or editing keys. Reduce Motion turns waveform
-animation into a static level/status treatment.
+Button enablement communicates Latest availability. Successful insertion has
+no text confirmation inside the keyboard because the inserted text is already
+visible in the host field. Longer setup, permission, recording, processing, or
+recovery explanations belong in the containing app. A future qualified voice
+handoff must revise this spec before adding any new keyboard status vocabulary.
 
 ## Voice Activation Contract
 
@@ -108,10 +132,11 @@ animation into a static level/status treatment.
 - If no supported handoff exists, the keyboard-plus-voice release is a no-go and
   requires an explicit product rescope; implementation does not grow a QWERTY
   engine to compensate.
-- Under the current unresolved K1 result, production code adds no custom URL
-  launch and shows no `ready`, `handoffRequested`, `recording`, or `processing`
-  state. The branded voice stage is disabled, explains that dictation starts in
-  the containing app, and is ignored as an action by assistive technology.
+- Under the current unresolved K1 result, the microphone adds no app-launch
+  action and shows no voice-ready, `handoffRequested`, `recording`, or
+  `processing` state. The branded voice stage is disabled and ignored as an
+  action by assistive technology. This does not remove the separate History
+  navigation control or the surface-level `Ready` label.
 - `hasDictationKey` remains `false`. Apple may then provide its own Dictation
   key outside the extension. That Apple-owned path may insert speech into the
   host field, but it does not run HoldType/OpenAI, expose audio to the extension,
@@ -126,6 +151,13 @@ animation into a static level/status treatment.
   host-field change.
 - The snapshot contains only schema/revision metadata and one optional Latest
   item: result id, exact accepted text, creation date, and 10-minute expiry.
+- An already-expired app result is omitted rather than copied into the shared
+  snapshot. An item that expires after publication becomes ineligible for
+  insertion immediately and is removed on the next app publication.
+- App startup atomically replaces legacy schema 1/2 cache payloads with an
+  empty schema 3 snapshot even while production Latest publication remains
+  release-gated. Legacy History or recent-result fields are never retained for
+  later keyboard use.
 - Latest text is never rendered or previewed by the keyboard. It enters the host
   field only after an explicit `Latest` tap.
 - Full History, previews, detail, Share, Delete, Clear All, and retention
@@ -133,6 +165,24 @@ animation into a static level/status treatment.
 - A new Latest item is observed at normal extension lifecycle boundaries. There
   is no manual Refresh button and App Group publication is not a wake-up
   mechanism.
+
+## History Handoff
+
+- `History` is always visible in the left top-rail position and is independent
+  of Latest availability, provider setup, network, and Full Access.
+- A tap requests the stable containing-app route `holdtype://history`. The
+  containing app resolves that route to its real History destination in both
+  tab and split layouts.
+- The handoff never inserts text, never previews a transcript, and never reads
+  or publishes History through App Group storage.
+- If the containing app already has an unsaved Library or Settings edit, its
+  existing confirmation policy still protects that work before navigation.
+- Only public extension APIs may request the launch. A private responder-chain
+  trampoline, hidden `UIApplication` access, or fabricated success is not an
+  acceptable implementation.
+- A Simulator `openurl` check qualifies the containing-app route only. The
+  keyboard-originated launch and review posture remain a signed-device/release
+  gate; failure must leave the keyboard usable and show a compact honest status.
 
 ## Failure And Fallback
 
@@ -143,15 +193,16 @@ animation into a static level/status treatment.
 - Expired or invalid Latest never inserts. Repeated lifecycle refreshes never
   replay a previous result.
 - The keyboard never requests an API key, microphone permission, long-form
-  consent, or History action inline.
+  consent, or History management inline.
 - System emoji and ordinary typing remain available by switching with Globe.
 
 ## Accessibility And Appearance
 
 - Every interactive target is at least 44 by 44 points.
-- VoiceOver names the action and current state, including `Insert latest`,
-  `Next keyboard`, `Space`, `Delete`, and the adaptive Return action. The
-  unavailable branded microphone treatment is not exposed as a button.
+- VoiceOver names the action and current state, including `Open History in
+  HoldType`, `Insert latest`, `Next keyboard`, `Space`, `Delete`, and the
+  adaptive Return action. The unavailable branded microphone treatment is not
+  exposed as a button.
 - Recording, processing, success, and failure do not rely on color alone.
 - Increase Contrast strengthens boundaries without changing hierarchy. Reduce
   Transparency replaces material effects with opaque system colors.
@@ -170,8 +221,8 @@ milestone with their own layout and signed-device evidence.
 ## Release Acceptance
 
 Automated and simulator coverage must prove composition, Light/Dark adaptation,
-editing semantics, honest state reduction, bounded snapshot decoding, and one
-explicit insertion per tap.
+the containing-app History route, editing semantics, honest state reduction,
+bounded snapshot decoding, and one explicit insertion per tap.
 
 Signed-device evidence must additionally prove Globe, Full Access off/on,
 cursor movement, Delete repeat, host field traits, secure/phone-field fallback,

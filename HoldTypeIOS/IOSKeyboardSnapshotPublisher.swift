@@ -22,24 +22,19 @@ nonisolated enum IOSKeyboardSnapshotProductionGate {
 actor IOSKeyboardSnapshotPublisher {
     typealias LatestLoader = @Sendable () async throws
         -> IOSV1ForegroundVoiceLatestResultObservation
-    typealias HistoryLoader = @Sendable () async throws
-        -> IOSAcceptedTextHistoryRecord
 
     private let store: KeyboardBridgeStore?
     private let loadLatest: LatestLoader
-    private let loadHistory: HistoryLoader
 
     private var operationIsActive = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     init(
         store: KeyboardBridgeStore?,
-        loadLatest: @escaping LatestLoader,
-        loadHistory: @escaping HistoryLoader
+        loadLatest: @escaping LatestLoader
     ) {
         self.store = store
         self.loadLatest = loadLatest
-        self.loadHistory = loadHistory
     }
 
     /// Publishes one replacement snapshot. Failure leaves canonical app state
@@ -56,15 +51,12 @@ actor IOSKeyboardSnapshotPublisher {
             try Task.checkCancellation()
             let latest = try await loadLatest()
             try Task.checkCancellation()
-            let history = try await loadHistory()
-            try Task.checkCancellation()
 
             let revision = try store.nextRevision()
             let snapshot = try Self.makeSnapshot(
                 revision: revision,
                 publishedAt: publishedAt,
-                latest: latest,
-                history: history
+                latest: latest
             )
             try store.save(snapshot)
             return true
@@ -76,63 +68,26 @@ actor IOSKeyboardSnapshotPublisher {
     private static func makeSnapshot(
         revision: UInt64,
         publishedAt: Date,
-        latest: IOSV1ForegroundVoiceLatestResultObservation,
-        history: IOSAcceptedTextHistoryRecord
+        latest: IOSV1ForegroundVoiceLatestResultObservation
     ) throws -> KeyboardBridgeSnapshot {
         let latestItem: KeyboardBridgeItem?
         switch latest {
         case .absent:
             latestItem = nil
         case .resultReady(let record):
-            latestItem = try KeyboardBridgeItem.latest(
+            let candidate = try KeyboardBridgeItem.latest(
                 resultID: record.resultID,
                 text: record.acceptedText,
                 createdAt: record.createdAt
             )
-        }
-
-        let recentItems: [KeyboardBridgeItem]
-        if history.isEnabled {
-            var seenResultIDs = Set<UUID>()
-            recentItems = try history.entries
-                .sorted(by: isOrderedBefore)
-                .filter { entry in
-                    guard seenResultIDs.insert(entry.resultID).inserted else {
-                        return false
-                    }
-                    return entry.createdAt.addingTimeInterval(
-                        KeyboardBridgeConfiguration.recentResultLifetime
-                    ) > publishedAt
-                }
-                .prefix(KeyboardBridgeConfiguration.maximumRecentResults)
-                .map { entry in
-                    try KeyboardBridgeItem.recent(
-                        resultID: entry.resultID,
-                        text: entry.text,
-                        createdAt: entry.createdAt
-                    )
-                }
-        } else {
-            recentItems = []
+            latestItem = candidate.expiresAt > publishedAt ? candidate : nil
         }
 
         return try KeyboardBridgeSnapshot(
             revision: revision,
             publishedAt: publishedAt,
-            historyEnabled: history.isEnabled,
-            latest: latestItem,
-            recentResults: recentItems
+            latest: latestItem
         )
-    }
-
-    private static func isOrderedBefore(
-        _ lhs: IOSAcceptedTextHistoryEntry,
-        _ rhs: IOSAcceptedTextHistoryEntry
-    ) -> Bool {
-        if lhs.createdAt != rhs.createdAt {
-            return lhs.createdAt > rhs.createdAt
-        }
-        return lhs.resultID.uuidString < rhs.resultID.uuidString
     }
 
     private func acquireOperation() async {

@@ -41,7 +41,8 @@ The production target is the Brand Stage Adaptive command surface defined in
 `ios-keyboard-experience.md`:
 
 - one non-interactive branded voice state while HoldType handoff is unavailable;
-- Apple's own Dictation key when iOS supplies it and one compact Latest action;
+- Apple's own Dictation key when iOS supplies it, one compact `History`
+  app-navigation action, and one compact Latest insertion action;
 - `.`, `,`, `?`, `!`, Globe, wide Space, Delete, and adaptive Return;
 - long-press and drag on Space for cursor movement;
 - system-driven Light and Dark appearances with stable composition;
@@ -52,6 +53,12 @@ The surface provides real local character/editing input without network or Full
 Access. Ordinary alphabetic typing, other language layouts, and system emoji
 remain available through Globe. Accepted result text may contain arbitrary
 Unicode and is independent of the keyboard metadata locale.
+
+The selected composition requires `History` visually and semantically, but the
+keyboard-originated launch is not production-qualified by registering a custom
+URL alone. The containing app may implement and test its public History route;
+the extension must not use a private responder-chain or automatic-return
+workaround if the public extension request is rejected.
 
 ## Phase 0 Evidence
 
@@ -81,6 +88,9 @@ the current `en-US` value is not a product language promise.
   atomically.
 - The extension reads only schema/revision metadata and one optional Latest
   result identifier, exact accepted text, creation date, and 10-minute expiry.
+- Expired source results are omitted, and app startup replaces obsolete schema
+  1/2 cache payloads with an empty current-schema snapshot even while Latest
+  publication remains release-gated.
 - Raw audio, API keys, prompts, keystrokes, host identity, provider payloads,
   canonical settings, recent results, and the History repository never enter
   App Group.
