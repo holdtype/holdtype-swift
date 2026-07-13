@@ -1095,48 +1095,6 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
-    func acceptedHistoryWarningUsesDurableLatestAvailability() async throws {
-        let record = try makeAcceptedDeliveryRecord()
-        let available = try await WorkflowFixture(
-            pendingLoads: [.value(nil)],
-            latestLoads: [.value(.resultReady(record))],
-            permission: .granted,
-            completedCapture: true,
-            processorResolution: .acceptance(
-                .acceptedHistoryRecoveryPending(record)
-            ),
-            preacceptConsent: true
-        )
-        let availableResolution = try await finishCompletedCapture(available)
-
-        #expect(availableResolution.warning == .historyRecoveryPending)
-        #expect(availableResolution.outcome == .resultReady)
-        #expect(availableResolution.observation.recovery == .none)
-        #expect(
-            availableResolution.observation.latestAvailability == .available
-        )
-        #expect(!available.events.contains("saving-retry"))
-
-        let absent = try await WorkflowFixture(
-            pendingLoads: [.value(nil)],
-            latestLoads: [.value(.absent)],
-            permission: .granted,
-            completedCapture: true,
-            processorResolution: .acceptance(
-                .acceptedHistoryRecoveryPending(record)
-            ),
-            preacceptConsent: true
-        )
-        let absentResolution = try await finishCompletedCapture(absent)
-
-        #expect(absentResolution.warning == .historyRecoveryPending)
-        #expect(absentResolution.outcome == nil)
-        #expect(absentResolution.observation.recovery == .none)
-        #expect(absentResolution.observation.latestAvailability == .absent)
-        #expect(!absent.events.contains("saving-retry"))
-    }
-
-    @Test
     func typedPreflightFailuresRemainDistinctAndStopImmediately() async throws {
         let denied = try await WorkflowFixture(permission: .denied)
         let deniedResolution = await denied.workflow.start(

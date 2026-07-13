@@ -26,7 +26,7 @@ Deliver a compact, testable iPhone product with:
 The plan is complete only when the whole user path works. A hidden backend,
 green simulator build, or placeholder screen is not a completed feature.
 
-## Starting State
+## Starting State At R0 Entry
 
 Already useful and retained:
 
@@ -93,6 +93,12 @@ Exit:
 
 Verification includes the full matching iOS foreground-processor test suite,
 not only a build, plus the macOS baseline and `git diff --check`.
+
+Completed 2026-07-13. The two authorized reverts restored the app-only Voice
+baseline, and the remaining dependent workflow branch was removed rather than
+reviving P5H. Simulator keyboard enablement and interaction evidence is recorded
+in `docs/qa/runs/ios-r0-baseline-keyboard-simulator-2026-07-13.md`; that evidence
+does not satisfy D0's signed physical-iPhone gate.
 
 ## D0 — Immediate Signed Keyboard Voice Feasibility Gate
 
@@ -452,7 +458,7 @@ V1.1 use, not restoration of the old P0-P8 roadmap.
 
 | Milestone | Status |
 | --- | --- |
-| R0 Scope reset and stable baseline | In progress |
+| R0 Scope reset and stable baseline | Completed 2026-07-13 |
 | D0 Immediate signed keyboard gate | Not started |
 | R1 Detach dormant History | Not started |
 | R2 Compact persistence | Not started |

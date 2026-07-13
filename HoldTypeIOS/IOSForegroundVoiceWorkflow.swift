@@ -2244,15 +2244,6 @@ final class IOSForegroundVoiceWorkflow {
                 observation: observation,
                 outcome: .resultReady
             )
-        case .acceptedHistoryRecoveryPending:
-            savingResultExpectation = nil
-            return IOSForegroundVoiceResolution(
-                observation: observation,
-                outcome: observation.latestAvailability == .available
-                    ? .resultReady
-                    : nil,
-                warning: .historyRecoveryPending
-            )
         case .savingResult(let expectation):
             savingResultExpectation = expectation
             return IOSForegroundVoiceResolution(
