@@ -5,12 +5,67 @@ import Testing
 
 @MainActor
 struct IOSContainingAppLifecycleSchedulerTests {
-    @Test func launchInitialActivationAndConcurrentSignalsCoalesce()
+    @Test func constructionIsPassiveAndInitialSceneActivationIsCoveredByLaunch()
+        async throws {
+        let recorder = LifecycleRecoveryRecorder(
+            results: [.complete, .complete]
+        )
+        let scheduler = IOSContainingAppLifecycleScheduler { opportunity in
+            await recorder.recover(opportunity)
+        }
+
+        await Task.yield()
+        #expect(await recorder.opportunities().isEmpty)
+
+        scheduler.scheduleProcessLaunch()
+        scheduler.observeScenePhase(.active, isInitialObservation: true)
+        await scheduler.waitUntilIdle()
+        #expect(await recorder.opportunities() == [.processLaunch])
+
+        scheduler.observeScenePhase(.inactive, isInitialObservation: true)
+        scheduler.observeScenePhase(.background, isInitialObservation: false)
+        scheduler.observeScenePhase(.active, isInitialObservation: false)
+        await scheduler.waitUntilIdle()
+        #expect(
+            await recorder.opportunities()
+                == [.processLaunch, .foreground]
+        )
+    }
+
+    @Test func foregroundSignalQueuedDuringLaunchRunsAfterCurrentPass()
         async throws {
         let firstPass = LifecycleRecoveryLatch()
         let recorder = LifecycleRecoveryRecorder(
-            results: [.pendingLocalRecovery, .complete, .complete],
-            firstPass: firstPass
+            results: [.complete, .complete],
+            blockedPasses: [0: firstPass]
+        )
+        let scheduler = IOSContainingAppLifecycleScheduler { opportunity in
+            await recorder.recover(opportunity)
+        }
+
+        scheduler.scheduleProcessLaunch()
+        try await lifecycleEventually {
+            await recorder.opportunities() == [.processLaunch]
+        }
+        scheduler.scheduleForeground()
+        #expect(await recorder.opportunities() == [.processLaunch])
+
+        await firstPass.open()
+        await scheduler.waitUntilIdle()
+        #expect(
+            await recorder.opportunities()
+                == [.processLaunch, .foreground]
+        )
+        #expect(await recorder.maximumConcurrentRecoveries() == 1)
+        #expect(scheduler.latestDisposition == .complete)
+    }
+
+    @Test func foregroundBurstDuringActiveRecoveryCoalescesOnce()
+        async throws {
+        let firstPass = LifecycleRecoveryLatch()
+        let recorder = LifecycleRecoveryRecorder(
+            results: [.complete, .complete],
+            blockedPasses: [0: firstPass]
         )
         let scheduler = IOSContainingAppLifecycleScheduler { opportunity in
             await recorder.recover(opportunity)
@@ -20,69 +75,114 @@ struct IOSContainingAppLifecycleSchedulerTests {
         try await lifecycleEventually {
             await recorder.opportunities().count == 1
         }
-        scheduler.scheduleForeground()
-        scheduler.scheduleForeground()
-        scheduler.observeScenePhase(.inactive, isInitialObservation: true)
-        scheduler.observeScenePhase(.active, isInitialObservation: false)
-        #expect(await recorder.opportunities() == [.processLaunch])
+        for _ in 0..<25 {
+            scheduler.scheduleForeground()
+        }
 
         await firstPass.open()
         await scheduler.waitUntilIdle()
-        #expect(scheduler.latestDisposition == .pendingLocalRecovery)
-
-        scheduler.observeScenePhase(.background, isInitialObservation: false)
-        scheduler.observeScenePhase(.active, isInitialObservation: false)
-        await scheduler.waitUntilIdle()
         #expect(
             await recorder.opportunities()
-                == [.processLaunch, .processLaunch]
+                == [.processLaunch, .foreground]
         )
-        #expect(scheduler.latestDisposition == .complete)
-
-        scheduler.observeScenePhase(.inactive, isInitialObservation: false)
-        scheduler.observeScenePhase(.active, isInitialObservation: false)
-        await scheduler.waitUntilIdle()
-        #expect(
-            await recorder.opportunities()
-                == [.processLaunch, .processLaunch, .foreground]
-        )
+        #expect(await recorder.maximumConcurrentRecoveries() == 1)
     }
 
-    @Test func laterSceneInitialObservationCannotResetProcessActivation()
-        async {
+    @Test func mixedQueuedBurstCoalescesToLaunchBeforeForeground()
+        async throws {
+        let firstPass = LifecycleRecoveryLatch()
         let recorder = LifecycleRecoveryRecorder(
-            results: [.complete, .complete]
+            results: [.complete, .complete],
+            blockedPasses: [0: firstPass]
         )
         let scheduler = IOSContainingAppLifecycleScheduler { opportunity in
             await recorder.recover(opportunity)
         }
 
         scheduler.scheduleProcessLaunch()
-        scheduler.observeScenePhase(.active, isInitialObservation: true)
-        await scheduler.waitUntilIdle()
-        scheduler.observeScenePhase(.inactive, isInitialObservation: true)
-        scheduler.observeScenePhase(.background, isInitialObservation: false)
-        scheduler.observeScenePhase(.active, isInitialObservation: false)
-        await scheduler.waitUntilIdle()
+        try await lifecycleEventually {
+            await recorder.opportunities().count == 1
+        }
+        for _ in 0..<25 {
+            scheduler.scheduleForeground()
+            scheduler.scheduleProcessLaunch()
+        }
 
+        await firstPass.open()
+        await scheduler.waitUntilIdle()
         #expect(
             await recorder.opportunities()
-                == [.processLaunch, .foreground]
+                == [.processLaunch, .processLaunch]
         )
+        #expect(await recorder.maximumConcurrentRecoveries() == 1)
+    }
+
+    @Test func pendingLaunchUsesQueuedForegroundAsOneLaunchRetry()
+        async throws {
+        let firstPass = LifecycleRecoveryLatch()
+        let recorder = LifecycleRecoveryRecorder(
+            results: [.pendingLocalRecovery, .complete],
+            blockedPasses: [0: firstPass]
+        )
+        let scheduler = IOSContainingAppLifecycleScheduler { opportunity in
+            await recorder.recover(opportunity)
+        }
+
+        scheduler.scheduleProcessLaunch()
+        try await lifecycleEventually {
+            await recorder.opportunities().count == 1
+        }
+        for _ in 0..<25 {
+            scheduler.scheduleForeground()
+        }
+
+        await firstPass.open()
+        await scheduler.waitUntilIdle()
+        #expect(
+            await recorder.opportunities()
+                == [.processLaunch, .processLaunch]
+        )
+        #expect(await recorder.maximumConcurrentRecoveries() == 1)
+        #expect(scheduler.latestDisposition == .complete)
+    }
+
+    @Test func deinitCancelsActiveRecoveryWithoutRetainingScheduler()
+        async throws {
+        let probe = LifecycleCancellationProbe()
+        weak var weakScheduler: IOSContainingAppLifecycleScheduler?
+        var scheduler: IOSContainingAppLifecycleScheduler? =
+            IOSContainingAppLifecycleScheduler { opportunity in
+                await probe.recover(opportunity)
+            }
+        weakScheduler = scheduler
+
+        await Task.yield()
+        #expect(await probe.opportunities().isEmpty)
+        scheduler?.scheduleProcessLaunch()
+        try await lifecycleEventually { await probe.didStart() }
+
+        scheduler = nil
+        try await lifecycleEventually {
+            let wasCancelled = await probe.wasCancelled()
+            return weakScheduler == nil && wasCancelled
+        }
+        #expect(await probe.opportunities() == [.processLaunch])
     }
 }
 
 private actor LifecycleRecoveryRecorder {
     private let results: [IOSContainingAppRecoveryDisposition]
-    private let firstPass: LifecycleRecoveryLatch?
+    private let blockedPasses: [Int: LifecycleRecoveryLatch]
     private var calls: [IOSContainingAppRecoveryOpportunity] = []
+    private var activeRecoveries = 0
+    private var maximumActiveRecoveries = 0
 
     init(
         results: [IOSContainingAppRecoveryDisposition],
-        firstPass: LifecycleRecoveryLatch? = nil
+        blockedPasses: [Int: LifecycleRecoveryLatch] = [:]
     ) {
         self.results = results
-        self.firstPass = firstPass
+        self.blockedPasses = blockedPasses
     }
 
     func recover(
@@ -90,9 +190,15 @@ private actor LifecycleRecoveryRecorder {
     ) async -> IOSContainingAppRecoveryDisposition {
         let index = calls.count
         calls.append(opportunity)
-        if index == 0, let firstPass {
-            await firstPass.wait()
+        activeRecoveries += 1
+        maximumActiveRecoveries = max(
+            maximumActiveRecoveries,
+            activeRecoveries
+        )
+        if let latch = blockedPasses[index] {
+            await latch.wait()
         }
+        activeRecoveries -= 1
         guard results.indices.contains(index) else {
             return .pendingLocalRecovery
         }
@@ -102,6 +208,34 @@ private actor LifecycleRecoveryRecorder {
     func opportunities() -> [IOSContainingAppRecoveryOpportunity] {
         calls
     }
+
+    func maximumConcurrentRecoveries() -> Int {
+        maximumActiveRecoveries
+    }
+}
+
+private actor LifecycleCancellationProbe {
+    private var calls: [IOSContainingAppRecoveryOpportunity] = []
+    private var cancellationObserved = false
+
+    func recover(
+        _ opportunity: IOSContainingAppRecoveryOpportunity
+    ) async -> IOSContainingAppRecoveryDisposition {
+        calls.append(opportunity)
+        do {
+            try await Task.sleep(for: .seconds(3_600))
+            return .complete
+        } catch {
+            cancellationObserved = true
+            return .pendingLocalRecovery
+        }
+    }
+
+    func didStart() -> Bool { !calls.isEmpty }
+
+    func wasCancelled() -> Bool { cancellationObserved }
+
+    func opportunities() -> [IOSContainingAppRecoveryOpportunity] { calls }
 }
 
 private actor LifecycleRecoveryLatch {
@@ -131,7 +265,7 @@ private actor LifecycleRecoveryLatch {
 }
 
 private func lifecycleEventually(
-    _ predicate: @escaping @Sendable () async -> Bool
+    _ predicate: @escaping @MainActor @Sendable () async -> Bool
 ) async throws {
     for _ in 0..<100 {
         if await predicate() { return }
