@@ -189,7 +189,10 @@ Completion evidence, 2026-07-13:
 - compact History repository, Voice acceptance, state owner, settings, and
   presentation paths pass their focused tests;
 - signed iPhone and iPad Simulator builds launch with the sanitized automation
-  environment, and macOS plus generic iOS builds succeed;
+  environment; external UI acceptance verified the populated newest-first
+  list and detail on both form factors, exact Copy output, Share presentation,
+  and the non-destructive Clear confirmation path;
+- macOS plus generic iOS builds succeed;
 - H1-H4 changed 58 files with 2,833 insertions and 6,810 deletions: a net
   reduction of 3,977 lines;
 - the broad persistence run executed 1,118 tests and reported 18 pre-existing
