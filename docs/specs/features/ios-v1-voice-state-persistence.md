@@ -50,6 +50,9 @@ response, or accepted/failed History transaction capability.
   attempted. History failure is a nonblocking local warning.
 - Pending metadata and audio cleanup continue after the History attempt,
   whether History succeeds, is disabled, or fails.
+- Once Latest is committed, a local cleanup failure never hides or rolls back
+  that result. The UI may show a nonblocking cleanup warning while relaunch or
+  a later lifecycle opportunity retries only the remaining local cleanup.
 - Clear Latest is idempotent and never changes an unrelated Pending attempt.
 
 ## Relaunch And Recovery

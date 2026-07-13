@@ -126,6 +126,68 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(fixture.audio.contains(FacadeIDs.attempt))
     }
 
+    @Test func foregroundOpportunityRetriesOnlyAcceptedLocalCleanup()
+        async throws {
+        let fixture = FacadeFixture()
+        let expected = try await fixture.moveToOutputDelivery()
+        fixture.audio.failNextUnlink = true
+        _ = try await fixture.owner.accept(
+            try fixture.acceptance(),
+            expectedPending: expected
+        )
+        fixture.events.clear()
+
+        #expect(
+            await fixture.owner.recoverContainingAppLifecycle(
+                .foregroundOpportunity
+            ) == .complete
+        )
+        let state = try await fixture.repository.load()
+        #expect(state.pending == nil)
+        #expect(state.latest?.resultID == FacadeIDs.result)
+        #expect(!fixture.audio.contains(FacadeIDs.attempt))
+        #expect(fixture.events.values == ["audio-unlink", "voice-write"])
+    }
+
+    @Test func clearLatestFinishesMatchingCleanupOrPreservesLatest()
+        async throws {
+        let fixture = FacadeFixture()
+        let expected = try await fixture.moveToOutputDelivery()
+        fixture.audio.failNextUnlink = true
+        let result = try await fixture.owner.accept(
+            try fixture.acceptance(),
+            expectedPending: expected
+        )
+        guard case .resultReady(let record, _) = result else {
+            Issue.record("Expected the durable Latest result")
+            return
+        }
+        let latestExpectation = IOSV1AcceptedOutputDeliveryExpectation(
+            record: record
+        )
+
+        fixture.audio.failNextUnlink = true
+        await #expect(
+            throws: IOSV1ForegroundVoicePersistenceError.cleanupUncertain
+        ) {
+            _ = try await fixture.owner.clearLatestResult(
+                expected: latestExpectation
+            )
+        }
+        #expect(try await fixture.repository.load().latest?.resultID
+            == FacadeIDs.result)
+        #expect(try await fixture.repository.load().pending != nil)
+
+        #expect(
+            try await fixture.owner.clearLatestResult(
+                expected: latestExpectation
+            ) == .cleared
+        )
+        let cleared = try await fixture.repository.load()
+        #expect(cleared.pending == nil)
+        #expect(cleared.latest == nil)
+    }
+
     @Test func failedAttemptRetriesWithCurrentSettingsAndDiscardsExactly()
         async throws {
         let fixture = FacadeFixture()

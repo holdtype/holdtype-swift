@@ -1077,6 +1077,17 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
               latest.sourceAttemptID == expected.sourceAttemptID else {
             throw IOSV1ForegroundVoicePersistenceError.invalidTransition
         }
+        if let state = snapshot.pending,
+           case .acceptedCleanup(let accepted) = state.status,
+           accepted.resultID == latest.resultID,
+           accepted.sourceAttemptID == latest.sourceAttemptID {
+            let record = IOSV1AcceptedOutputDeliveryRecord(latest)
+            _ = await appendHistory(record)
+            try await finishAcceptedCleanup(
+                pending: IOSV1PendingRecording(state),
+                record: record
+            )
+        }
         do {
             _ = try await repository.clearLatest(resultID: latest.resultID)
         } catch { throw mapRepositoryError(error) }
@@ -1086,11 +1097,16 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
     public func recoverContainingAppLifecycle(
         _ opportunity: IOSV1ContainingAppRecoveryOpportunity
     ) async -> IOSV1ContainingAppRecoveryDisposition {
-        guard opportunity == .processLaunch else { return .complete }
         await acquireOperation()
         defer { releaseOperation() }
         do {
-            let snapshot = try await repository.reconcileAfterLaunch()
+            let snapshot: IOSVoiceStateSnapshot
+            switch opportunity {
+            case .processLaunch:
+                snapshot = try await repository.reconcileAfterLaunch()
+            case .foregroundOpportunity:
+                snapshot = try await repository.load()
+            }
             guard snapshot.capture == nil else {
                 return .pendingLocalRecovery
             }
