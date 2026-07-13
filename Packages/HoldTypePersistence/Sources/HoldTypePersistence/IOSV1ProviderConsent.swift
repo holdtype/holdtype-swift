@@ -513,6 +513,12 @@ private final class IOSV1ProviderConsentFence: @unchecked Sendable {
         candidate.token == current.token
     }
 
+    func closeAuthorityUntilExplicitAcceptance() -> [Cancellation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return closeLocked(requireExplicitAccept: true)
+    }
+
     func register(
         _ authorization: IOSV1ProviderConsentAuthorization,
         stage: IOSV1ProviderConsentProviderStage,
@@ -806,6 +812,11 @@ public final class IOSV1ProviderConsentCoordinator: @unchecked Sendable {
         as current: IOSV1ProviderConsentObservation
     ) -> Bool {
         fence.hasSameAuthority(candidate, current)
+    }
+
+    @_spi(HoldTypeIOSCore)
+    public func closeProviderAuthorizations() {
+        fence.closeAuthorityUntilExplicitAcceptance().forEach { $0() }
     }
 
     public func registerProviderDispatch(

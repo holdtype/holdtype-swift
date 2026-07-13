@@ -447,7 +447,7 @@ struct IOSProviderConsentPresentationOwnerTests {
             using: fixture.coordinator.observe(),
             decisionAt: fixture.now
         )
-        fixture.coordinator.invalidateProviderAuthorizations()
+        fixture.coordinator.closeProviderAuthorizations()
         let owner = fixture.makeOwner()
         await owner.activatePrivacy()
 
@@ -476,7 +476,7 @@ struct IOSProviderConsentPresentationOwnerTests {
             using: fixture.coordinator.observe(),
             decisionAt: fixture.now
         )
-        fixture.coordinator.invalidateProviderAuthorizations()
+        fixture.coordinator.closeProviderAuthorizations()
         let owner = fixture.makeOwner()
         let scene = fixture.registry.registerScene(initialActivity: .active)
         let lease = try #require(scene.acquireStartLease())
@@ -625,13 +625,13 @@ struct IOSProviderConsentPresentationOwnerTests {
 @MainActor
 private final class ConsentPresentationFixture {
     let root: URL
-    let coordinator: IOSProviderConsentCoordinator
+    let coordinator: IOSV1ProviderConsentCoordinator
     let registry = IOSVoiceSceneRegistry()
     let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     var consentURL: URL {
         root.appendingPathComponent(
-            "HoldType/ios-openai-provider-consent.json"
+            "HoldType/ios-v1-provider-consent.json"
         )
     }
 
@@ -644,7 +644,7 @@ private final class ConsentPresentationFixture {
             at: root,
             withIntermediateDirectories: true
         )
-        coordinator = IOSProviderConsentCoordinator(
+        coordinator = IOSV1ProviderConsentCoordinator(
             applicationSupportDirectoryURL: root
         )
     }
@@ -684,9 +684,9 @@ private final class ConsentPresentationFixture {
                     authorizationDidClose in
                     probe.recordWithdraw()
                     if failurePlan?.consumeWithdrawalFailure() == true {
-                        coordinator.invalidateProviderAuthorizations()
+                        coordinator.closeProviderAuthorizations()
                         await authorizationDidClose()
-                        throw IOSProviderConsentError.mutationNotSaved
+                        throw IOSV1ProviderConsentError.mutationNotSaved
                     }
                     return try await coordinator.withdraw(
                         using: observation,

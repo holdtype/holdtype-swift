@@ -44,7 +44,7 @@ struct IOSProviderConsentStageExecutor: Sendable {
         normalizeFailure: @escaping @Sendable (any Error) -> Failure
     ) async -> IOSProviderConsentStageOutcome<Success, Failure> {
         await IOSProviderConsentStageExecutionEngine.execute(
-            gate: IOSProviderConsentCoordinatorStageGate(
+            gate: IOSV1ProviderConsentCoordinatorStageGate(
                 coordinator: consentCoordinator
             ),
             authorization: authorization,
@@ -98,7 +98,7 @@ protocol IOSProviderConsentStageGating: Sendable {
     func abandonProviderResult(_ authorization: ResultAuthorization)
 }
 
-private struct IOSProviderConsentCoordinatorStageGate:
+private struct IOSV1ProviderConsentCoordinatorStageGate:
     IOSProviderConsentStageGating {
     let coordinator: IOSV1ProviderConsentCoordinator
 
