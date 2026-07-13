@@ -32,6 +32,7 @@ struct IOSNativeVoicePresentationTests {
             .clearFailed,
             .clearStateUnknown,
             .resultChanged,
+            .keyboardProjectionUpdateFailed,
         ] {
             let resolved = IOSVoiceLatestStatusPresentation.resolve(
                 IOSForegroundVoiceLatestResultPresentation(

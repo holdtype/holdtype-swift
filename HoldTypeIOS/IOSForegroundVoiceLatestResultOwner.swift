@@ -15,6 +15,7 @@ nonisolated enum IOSForegroundVoiceLatestResultNotice: Equatable, Sendable {
     case clearFailed
     case clearStateUnknown
     case resultChanged
+    case keyboardProjectionUpdateFailed
 }
 
 /// Text-bearing presentation for the process-owned Latest Result surface.
@@ -205,6 +206,7 @@ private actor IOSForegroundVoiceLatestResultOperationCore {
 @Observable
 final class IOSForegroundVoiceLatestResultOwner {
     typealias BeforePublishing = @MainActor @Sendable (UInt64) async -> Void
+    typealias PublishKeyboardSnapshot = @Sendable () async -> Bool
 
     private(set) var presentation =
         IOSForegroundVoiceLatestResultPresentation.initial
@@ -213,6 +215,8 @@ final class IOSForegroundVoiceLatestResultOwner {
     private let operationCore: IOSForegroundVoiceLatestResultOperationCore
     @ObservationIgnored
     private let beforePublishing: BeforePublishing
+    @ObservationIgnored
+    private let publishKeyboardSnapshot: PublishKeyboardSnapshot
     @ObservationIgnored
     private var selection: IOSForegroundVoiceLatestResultSelection?
     @ObservationIgnored
@@ -226,14 +230,20 @@ final class IOSForegroundVoiceLatestResultOwner {
     @ObservationIgnored
     private var latestPublishedCoreSequence: UInt64 = 0
 
-    convenience init(persistenceOwner: IOSV1ForegroundVoicePersistenceOwner) {
+    convenience init(
+        persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
+        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = {
+            true
+        }
+    ) {
         self.init(
             load: { try await persistenceOwner.loadLatestResult() },
             clear: { expectation in
                 try await persistenceOwner.clearLatestResult(
                     expected: expectation
                 )
-            }
+            },
+            publishKeyboardSnapshot: publishKeyboardSnapshot
         )
     }
 
@@ -243,7 +253,10 @@ final class IOSForegroundVoiceLatestResultOwner {
         clear: @escaping @Sendable (
             IOSV1AcceptedOutputDeliveryExpectation
         ) async throws -> IOSV1ForegroundVoiceClearResult,
-        beforePublishing: @escaping BeforePublishing = { _ in }
+        beforePublishing: @escaping BeforePublishing = { _ in },
+        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = {
+            true
+        }
     ) {
         operationCore = IOSForegroundVoiceLatestResultOperationCore(
             client: IOSForegroundVoiceLatestResultClient(
@@ -252,6 +265,7 @@ final class IOSForegroundVoiceLatestResultOwner {
             )
         )
         self.beforePublishing = beforePublishing
+        self.publishKeyboardSnapshot = publishKeyboardSnapshot
     }
 
     deinit {
@@ -392,43 +406,62 @@ final class IOSForegroundVoiceLatestResultOwner {
         guard completion.sequence > latestPublishedCoreSequence else {
             return
         }
-        latestPublishedCoreSequence = completion.sequence
         let execution = completion.value
+        let projection: Projection
+        let updatesKeyboardSnapshot: Bool
         switch execution {
         case .completed(let result):
             switch result {
             case .cleared, .alreadyAbsent:
-                publish(
-                    Projection(
-                        presentation: IOSForegroundVoiceLatestResultPresentation(
-                            status: .absent,
-                            text: nil,
-                            notice: nil
-                        ),
-                        selection: nil,
-                        clearExpectation: nil
-                    )
+                projection = Projection(
+                    presentation: IOSForegroundVoiceLatestResultPresentation(
+                        status: .absent,
+                        text: nil,
+                        notice: nil
+                    ),
+                    selection: nil,
+                    clearExpectation: nil
                 )
+                updatesKeyboardSnapshot = true
             }
         case .failed(let reconciliation):
             guard let reconciliation,
-                  let projection = try? Self.projection(
+                  let reconciledProjection = try? Self.projection(
                       for: reconciliation
                   ) else {
+                latestPublishedCoreSequence = completion.sequence
                 publishUnavailable(
                     notice: .clearStateUnknown
                 )
                 return
             }
-            publish(
-                projection.withNotice(
-                    Self.clearFailureNotice(
-                        after: reconciliation,
-                        expected: expected
-                    )
+            projection = reconciledProjection.withNotice(
+                Self.clearFailureNotice(
+                    after: reconciliation,
+                    expected: expected
                 )
             )
+            if case .absent = reconciliation {
+                updatesKeyboardSnapshot = true
+            } else {
+                updatesKeyboardSnapshot = false
+            }
         }
+
+        let projectionUpdated = updatesKeyboardSnapshot
+            ? await publishKeyboardSnapshot()
+            : true
+        guard completion.sequence > latestPublishedCoreSequence else {
+            return
+        }
+        latestPublishedCoreSequence = completion.sequence
+        publish(
+            projection.withNotice(
+                projectionUpdated
+                    ? projection.presentation.notice
+                    : .keyboardProjectionUpdateFailed
+            )
+        )
     }
 
     private func publishUnavailable(

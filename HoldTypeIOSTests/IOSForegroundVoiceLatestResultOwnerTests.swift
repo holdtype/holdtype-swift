@@ -188,6 +188,75 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         #expect(snapshot.clears == [expected])
     }
 
+    @Test func confirmedAbsenceRepublishesKeyboardAndReportsProjectionFailure()
+        async throws {
+        let record = try latestResultRecord(text: "clear projection")
+        let probe = LatestResultClientProbe(
+            loads: [.value(.resultReady(record))],
+            clears: [.value(.cleared)]
+        )
+        let projection = LatestKeyboardProjectionProbe(results: [false])
+        let owner = latestResultOwner(
+            probe: probe,
+            publishKeyboardSnapshot: { await projection.publish() }
+        )
+
+        _ = try await owner.loadForVoiceWorkflow()
+        #expect(owner.clear(try #require(owner.clearCommand)) == .accepted)
+        await owner.waitUntilClearIsIdle()
+
+        #expect(owner.presentation.status == .absent)
+        #expect(owner.presentation.notice == .keyboardProjectionUpdateFailed)
+        #expect(await projection.callCount == 1)
+    }
+
+    @Test func reconciledAbsenceRepublishesKeyboardButRetainedResultDoesNot()
+        async throws {
+        let record = try latestResultRecord(text: "reconcile projection")
+        let absenceProbe = LatestResultClientProbe(
+            loads: [.value(.resultReady(record)), .value(.absent)],
+            clears: [.failure]
+        )
+        let absenceProjection = LatestKeyboardProjectionProbe(results: [true])
+        let absenceOwner = latestResultOwner(
+            probe: absenceProbe,
+            publishKeyboardSnapshot: {
+                await absenceProjection.publish()
+            }
+        )
+        _ = try await absenceOwner.loadForVoiceWorkflow()
+        #expect(
+            absenceOwner.clear(try #require(absenceOwner.clearCommand))
+                == .accepted
+        )
+        await absenceOwner.waitUntilClearIsIdle()
+        #expect(absenceOwner.presentation.status == .absent)
+        #expect(await absenceProjection.callCount == 1)
+
+        let retainedProbe = LatestResultClientProbe(
+            loads: [
+                .value(.resultReady(record)),
+                .value(.resultReady(record)),
+            ],
+            clears: [.failure]
+        )
+        let retainedProjection = LatestKeyboardProjectionProbe(results: [true])
+        let retainedOwner = latestResultOwner(
+            probe: retainedProbe,
+            publishKeyboardSnapshot: {
+                await retainedProjection.publish()
+            }
+        )
+        _ = try await retainedOwner.loadForVoiceWorkflow()
+        #expect(
+            retainedOwner.clear(try #require(retainedOwner.clearCommand))
+                == .accepted
+        )
+        await retainedOwner.waitUntilClearIsIdle()
+        #expect(retainedOwner.presentation.status == .ready)
+        #expect(await retainedProjection.callCount == 0)
+    }
+
     @Test func failedClearReconcilesSameRecordAndKeepsItRetryable()
         async throws {
         let record = try latestResultRecord(text: "still durable")
@@ -617,16 +686,35 @@ private actor LatestResultTestGate {
     }
 }
 
+private actor LatestKeyboardProjectionProbe {
+    private var results: [Bool]
+    private(set) var callCount = 0
+
+    init(results: [Bool]) {
+        self.results = results
+    }
+
+    func publish() -> Bool {
+        callCount += 1
+        return results.isEmpty ? true : results.removeFirst()
+    }
+}
+
 @MainActor
 private func latestResultOwner(
     probe: LatestResultClientProbe,
     beforePublishing: @escaping
-        IOSForegroundVoiceLatestResultOwner.BeforePublishing = { _ in }
+        IOSForegroundVoiceLatestResultOwner.BeforePublishing = { _ in },
+    publishKeyboardSnapshot: @escaping
+        IOSForegroundVoiceLatestResultOwner.PublishKeyboardSnapshot = {
+            true
+        }
 ) -> IOSForegroundVoiceLatestResultOwner {
     IOSForegroundVoiceLatestResultOwner(
         load: { try await probe.load() },
         clear: { try await probe.clear($0) },
-        beforePublishing: beforePublishing
+        beforePublishing: beforePublishing,
+        publishKeyboardSnapshot: publishKeyboardSnapshot
     )
 }
 

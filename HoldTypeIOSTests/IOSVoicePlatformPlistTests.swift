@@ -18,6 +18,25 @@ struct IOSVoicePlatformPlistTests {
         #expect(keyboard["UIBackgroundModes"] == nil)
     }
 
+    @Test func keyboardDeclaresCommandSurfaceAndAppGroupAccessHonestly()
+        throws {
+        let keyboard = try sourcePlist(at: "HoldTypeKeyboard/Info.plist")
+        let extensionRecord = try #require(
+            keyboard["NSExtension"] as? [String: Any]
+        )
+        let attributes = try #require(
+            extensionRecord["NSExtensionAttributes"] as? [String: Any]
+        )
+
+        #expect(
+            extensionRecord["NSExtensionPointIdentifier"] as? String
+                == "com.apple.keyboard-service"
+        )
+        #expect(attributes["RequestsOpenAccess"] as? Bool == true)
+        #expect(attributes["IsASCIICapable"] as? Bool == false)
+        #expect(attributes["PrefersRightToLeft"] as? Bool == false)
+    }
+
     @Test func privacyManifestsDeclareTheExactP4Boundary() throws {
         let app = try sourcePlist(at: "HoldTypeIOS/PrivacyInfo.xcprivacy")
         let keyboard = try sourcePlist(

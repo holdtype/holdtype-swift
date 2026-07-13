@@ -45,6 +45,10 @@ final class IOSContainingAppComposition {
             IOSOpenAICredentialCoordinator
         ) -> IOSForegroundVoiceProcessor
         var voiceFactories: IOSForegroundVoiceRuntime.Factories = .production
+        var makeKeyboardSnapshotPublisher: @MainActor (
+            IOSV1ForegroundVoicePersistenceOwner,
+            IOSAcceptedTextHistoryRepository
+        ) -> IOSKeyboardSnapshotPublisher? = { _, _ in nil }
 
         static let production = Factories(
             resolveApplicationSupportDirectoryURL: {
@@ -119,6 +123,22 @@ final class IOSContainingAppComposition {
                     usageRecordingClient: usageRecordingClient,
                     credentialCoordinator: credentialCoordinator
                 )
+            },
+            makeKeyboardSnapshotPublisher: {
+                persistenceOwner,
+                historyRepository in
+                guard IOSKeyboardSnapshotProductionGate.isEnabled() else {
+                    return nil
+                }
+                return IOSKeyboardSnapshotPublisher(
+                    store: try? KeyboardBridgeStore.appGroup(),
+                    loadLatest: {
+                        try await persistenceOwner.loadLatestResult()
+                    },
+                    loadHistory: {
+                        try await historyRepository.load()
+                    }
+                )
             }
         )
     }
@@ -135,6 +155,7 @@ final class IOSContainingAppComposition {
         IOSAcceptedTextHistoryStateOwner?
     let foregroundVoicePersistenceOwner:
         IOSV1ForegroundVoicePersistenceOwner?
+    let keyboardSnapshotPublisher: IOSKeyboardSnapshotPublisher?
     let transcriptionUsageRepository: IOSTranscriptionUsageRepository?
     let usageEstimateStateOwner: IOSUsageEstimateStateOwner?
     let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
@@ -164,6 +185,7 @@ final class IOSContainingAppComposition {
             acceptedTextHistoryRepository = nil
             acceptedTextHistoryStateOwner = nil
             foregroundVoicePersistenceOwner = nil
+            keyboardSnapshotPublisher = nil
             transcriptionUsageRepository = nil
             usageEstimateStateOwner = nil
             foregroundVoiceProcessor = nil
@@ -202,10 +224,6 @@ final class IOSContainingAppComposition {
             )
         self.acceptedTextHistoryRepository =
             acceptedTextHistoryRepository
-        acceptedTextHistoryStateOwner =
-            IOSAcceptedTextHistoryStateOwner(
-                repository: acceptedTextHistoryRepository
-            )
         let foregroundVoicePersistenceOwner = factories
             .makeForegroundVoicePersistenceOwner(
                 applicationSupportDirectoryURL,
@@ -213,6 +231,21 @@ final class IOSContainingAppComposition {
             )
         self.foregroundVoicePersistenceOwner =
             foregroundVoicePersistenceOwner
+        let keyboardSnapshotPublisher = factories
+            .makeKeyboardSnapshotPublisher(
+                foregroundVoicePersistenceOwner,
+                acceptedTextHistoryRepository
+            )
+        self.keyboardSnapshotPublisher = keyboardSnapshotPublisher
+        let publishKeyboardSnapshot: @Sendable () async -> Bool = {
+            guard let keyboardSnapshotPublisher else { return true }
+            return await keyboardSnapshotPublisher.publishCurrent()
+        }
+        acceptedTextHistoryStateOwner =
+            IOSAcceptedTextHistoryStateOwner(
+                repository: acceptedTextHistoryRepository,
+                publishKeyboardSnapshot: publishKeyboardSnapshot
+            )
         let transcriptionUsageRepository = factories
             .makeTranscriptionUsageRepository(
                 applicationSupportDirectoryURL
@@ -264,13 +297,18 @@ final class IOSContainingAppComposition {
             persistenceOwner: foregroundVoicePersistenceOwner,
             credentialCoordinator: credentialCoordinator,
             processor: foregroundVoiceProcessor,
+            publishKeyboardSnapshot: publishKeyboardSnapshot,
             factories: factories.voiceFactories
         )
         self.foregroundVoiceRuntime = foregroundVoiceRuntime
-        let lifecycleScheduler = IOSContainingAppLifecycleScheduler(
-            recover: foregroundVoiceRuntime.lifecycleCoordinator
-                .schedulerRecovery
-        )
+        let lifecycleScheduler = IOSContainingAppLifecycleScheduler {
+            opportunity in
+            let disposition = await foregroundVoiceRuntime
+                .lifecycleCoordinator
+                .recover(opportunity)
+            _ = await publishKeyboardSnapshot()
+            return disposition
+        }
         self.lifecycleScheduler = lifecycleScheduler
         voiceSceneLifecycleBinding = IOSVoiceSceneLifecycleBinding(
             registry: foregroundVoiceRuntime.sceneRegistry,
@@ -298,6 +336,7 @@ final class IOSContainingAppComposition {
         acceptedTextHistoryRepository = nil
         acceptedTextHistoryStateOwner = nil
         foregroundVoicePersistenceOwner = nil
+        keyboardSnapshotPublisher = nil
         transcriptionUsageRepository = nil
         usageEstimateStateOwner = nil
         foregroundVoiceProcessor = nil

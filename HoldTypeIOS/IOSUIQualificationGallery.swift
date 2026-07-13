@@ -529,7 +529,6 @@ private struct IOSUIQualificationVoiceHost: View {
         .task {
             await fixture.prepare()
         }
-        .environment(\.showsKeyboardBridgeProbe, false)
         .accessibilityIdentifier("ios.qualification.voice")
     }
 }

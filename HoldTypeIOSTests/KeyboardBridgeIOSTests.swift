@@ -279,6 +279,44 @@ struct KeyboardBridgeIOSTests {
         #expect(object["schemaVersion"] as? Int == 2)
         #expect(object["phase"] == nil)
     }
+
+    @Test func canonicalWriterRepairsCorruptCacheButNotFutureSchema()
+        throws {
+        let fixture = try BridgeStoreFixture()
+        defer { fixture.remove() }
+        let replacement = try KeyboardBridgeSnapshot(
+            revision: 1,
+            publishedAt: Date(timeIntervalSince1970: 1_750_000_000),
+            historyEnabled: false,
+            latest: nil,
+            recentResults: []
+        )
+
+        try fixture.write(Data("not-json".utf8))
+        #expect(try fixture.store.nextRevision() == 1)
+        try fixture.store.save(replacement)
+        #expect(try fixture.store.load() == replacement)
+
+        try fixture.write(
+            Data(
+                repeating: 0x20,
+                count: KeyboardBridgeConfiguration.maximumSnapshotBytes + 1
+            )
+        )
+        #expect(try fixture.store.nextRevision() == 1)
+        try fixture.store.save(replacement)
+        #expect(try fixture.store.load() == replacement)
+
+        try fixture.write(Data("{\"revision\":3,\"schemaVersion\":99}".utf8))
+        #expect(
+            throws: KeyboardBridgeStoreError.incompatibleSchemaVersion(
+                found: 99,
+                supported: KeyboardBridgeSnapshot.currentSchemaVersion
+            )
+        ) {
+            try fixture.store.save(replacement)
+        }
+    }
 }
 
 private struct BridgeStoreFixture {

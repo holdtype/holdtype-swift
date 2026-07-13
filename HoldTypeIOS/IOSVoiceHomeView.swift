@@ -4,11 +4,6 @@ import SwiftUI
 import UIKit
 
 struct IOSVoiceHomeView: View {
-    #if DEBUG
-    @Environment(\.showsKeyboardBridgeProbe)
-    private var showsKeyboardBridgeProbe
-    #endif
-
     @Environment(IOSForegroundVoiceSceneHostOwner.self)
     private var sceneOwner
     @Environment(IOSForegroundVoiceLatestResultOwner.self)
@@ -478,11 +473,6 @@ struct IOSVoiceHomeView: View {
                 .accessibilityIdentifier("ios.voice.practice-clear")
             }
 
-            #if DEBUG
-            if showsKeyboardBridgeProbe {
-                KeyboardBridgeProbeView()
-            }
-            #endif
         }
     }
 
@@ -851,6 +841,8 @@ struct IOSVoiceLatestStatusPresentation {
             "Clear could not be reconciled, so text remains hidden."
         case .resultChanged:
             "A newer result replaced the one selected for Clear."
+        case .keyboardProjectionUpdateFailed:
+            "Latest Result changed, but the keyboard copy couldn't be updated."
         }
         return Self(
             title: base.title,

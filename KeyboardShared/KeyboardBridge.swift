@@ -7,19 +7,25 @@
 
 import Foundation
 
-enum KeyboardBridgeConfiguration {
+nonisolated enum KeyboardBridgeConfiguration {
     static let appGroupIdentifier = "group.app.holdtype.HoldType.shared"
 
     // V2 intentionally replaces the unshipped V1 envelope at the same URL.
     static let snapshotFilename = "keyboard-bridge-v1.json"
     static let maximumSnapshotBytes = 128 * 1_024
+    /// Flip only after signed-device Full Access qualification is recorded.
+    static let productionProjectionIsQualified = false
     static let maximumTextUTF8Bytes = 16 * 1_024
     static let maximumRecentResults = 5
     static let latestLifetime: TimeInterval = 10 * 60
     static let recentResultLifetime: TimeInterval = 24 * 60 * 60
 }
 
-struct KeyboardBridgeItem: Codable, Equatable, Identifiable, Sendable {
+nonisolated struct KeyboardBridgeItem:
+    Codable,
+    Equatable,
+    Identifiable,
+    Sendable {
     enum ValidationError: Error, Equatable {
         case emptyText
         case textTooLarge(maximumUTF8Bytes: Int)
@@ -135,7 +141,7 @@ struct KeyboardBridgeItem: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
+nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
     enum ValidationError: Error, Equatable {
         case incompatibleSchemaVersion(Int)
         case invalidRevision
@@ -294,7 +300,10 @@ struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
     }
 }
 
-enum KeyboardBridgeStoreError: Error, LocalizedError, Equatable {
+nonisolated enum KeyboardBridgeStoreError:
+    Error,
+    LocalizedError,
+    Equatable {
     case appGroupContainerUnavailable(String)
     case snapshotReadFailed
     case snapshotDecodeFailed
@@ -329,7 +338,7 @@ enum KeyboardBridgeStoreError: Error, LocalizedError, Equatable {
     }
 }
 
-struct KeyboardBridgeStore {
+nonisolated struct KeyboardBridgeStore {
     private struct SnapshotHeader: Decodable {
         let schemaVersion: Int
         let revision: UInt64
@@ -386,7 +395,7 @@ struct KeyboardBridgeStore {
     }
 
     func nextRevision() throws -> UInt64 {
-        guard let header = try storedHeaderForReplacement() else {
+        guard let header = try replacementHeader() else {
             return 1
         }
         guard header.revision < UInt64.max else {
@@ -397,7 +406,7 @@ struct KeyboardBridgeStore {
     }
 
     func save(_ snapshot: KeyboardBridgeSnapshot) throws {
-        if let currentHeader = try storedHeaderForReplacement(),
+        if let currentHeader = try replacementHeader(),
            snapshot.revision <= currentHeader.revision {
             throw KeyboardBridgeStoreError.nonIncreasingRevision(
                 current: currentHeader.revision,
@@ -439,6 +448,22 @@ struct KeyboardBridgeStore {
         }
 
         return header
+    }
+
+    /// A malformed or oversized cache has no trustworthy revision and may be
+    /// atomically replaced from canonical app state. Read failures and future
+    /// schema versions remain fail-closed.
+    private func replacementHeader() throws -> SnapshotHeader? {
+        do {
+            return try storedHeaderForReplacement()
+        } catch let error as KeyboardBridgeStoreError {
+            switch error {
+            case .snapshotDecodeFailed, .snapshotTooLarge:
+                return nil
+            default:
+                throw error
+            }
+        }
     }
 
     private func storedData() throws -> Data? {

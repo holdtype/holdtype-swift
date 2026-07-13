@@ -16,6 +16,7 @@ struct IOSContainingAppCompositionTests {
         var providerScheduleCount = 0
         var providerConsentFactoryCount = 0
         var foregroundPersistenceFactoryCount = 0
+        var keyboardPublisherFactoryCount = 0
         var usageRepositoryFactoryCount = 0
         var foregroundProcessorFactoryCount = 0
         var capturedCredentialCoordinator:
@@ -30,6 +31,12 @@ struct IOSContainingAppCompositionTests {
         var capturedForegroundUsageClient:
             IOSTranscriptionUsageRecordingClient?
         var capturedForegroundProcessor: IOSForegroundVoiceProcessor?
+        let keyboardStore = HoldTypeIOS.KeyboardBridgeStore(
+            directoryURL: root.appendingPathComponent(
+                "KeyboardBridge",
+                isDirectory: true
+            )
+        )
 
         let composition = IOSContainingAppComposition(
             factories: IOSContainingAppComposition.Factories(
@@ -125,6 +132,21 @@ struct IOSContainingAppCompositionTests {
                     )
                     capturedForegroundProcessor = processor
                     return processor
+                },
+                makeKeyboardSnapshotPublisher: {
+                    persistenceOwner,
+                    historyRepository in
+                    events.append("keyboard-publisher")
+                    keyboardPublisherFactoryCount += 1
+                    return IOSKeyboardSnapshotPublisher(
+                        store: keyboardStore,
+                        loadLatest: {
+                            try await persistenceOwner.loadLatestResult()
+                        },
+                        loadHistory: {
+                            try await historyRepository.load()
+                        }
+                    )
                 }
             ),
             scheduleProviderStartupMaintenance: {
@@ -143,6 +165,7 @@ struct IOSContainingAppCompositionTests {
                 "library",
                 "provider-consent",
                 "foreground-persistence",
+                "keyboard-publisher",
                 "usage",
                 "access-group",
                 "credential",
@@ -171,6 +194,7 @@ struct IOSContainingAppCompositionTests {
         )
         #expect(providerConsentFactoryCount == 1)
         #expect(foregroundPersistenceFactoryCount == 1)
+        #expect(keyboardPublisherFactoryCount == 1)
         #expect(usageRepositoryFactoryCount == 1)
         #expect(foregroundProcessorFactoryCount == 1)
         #expect(
@@ -178,6 +202,7 @@ struct IOSContainingAppCompositionTests {
                 === capturedProviderConsentCoordinator
         )
         #expect(composition.foregroundVoicePersistenceOwner != nil)
+        #expect(composition.keyboardSnapshotPublisher != nil)
         #expect(
             composition.acceptedTextHistoryRepository ===
                 capturedAcceptedTextHistoryRepository
@@ -304,6 +329,11 @@ struct IOSContainingAppCompositionTests {
         #expect(usageOwner.notice == .writeFailed)
 
         await composition.lifecycleScheduler.waitUntilIdle()
+        let keyboardSnapshot = try #require(try keyboardStore.load())
+        #expect(keyboardSnapshot.revision == 1)
+        #expect(keyboardSnapshot.latest == nil)
+        #expect(keyboardSnapshot.historyEnabled)
+        #expect(keyboardSnapshot.recentResults.isEmpty)
         let markerURL = IOSCredentialPresenceMarkerStorageLocation.fileURL(
             in: root
         )
@@ -590,6 +620,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.acceptedTextHistoryRepository == nil)
         #expect(composition.acceptedTextHistoryStateOwner == nil)
         #expect(composition.foregroundVoicePersistenceOwner == nil)
+        #expect(composition.keyboardSnapshotPublisher == nil)
         #expect(composition.transcriptionUsageRepository == nil)
         #expect(composition.usageEstimateStateOwner == nil)
         #expect(composition.foregroundVoiceProcessor == nil)
@@ -628,6 +659,7 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.acceptedTextHistoryRepository == nil)
         #expect(app.composition.acceptedTextHistoryStateOwner == nil)
         #expect(app.composition.foregroundVoicePersistenceOwner == nil)
+        #expect(app.composition.keyboardSnapshotPublisher == nil)
         #expect(app.composition.transcriptionUsageRepository == nil)
         #expect(app.composition.usageEstimateStateOwner == nil)
         #expect(app.composition.foregroundVoiceProcessor == nil)

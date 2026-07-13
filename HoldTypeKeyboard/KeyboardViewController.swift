@@ -8,7 +8,7 @@ final class KeyboardViewController: UIInputViewController {
     private var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
     private var recentItems: [KeyboardBridgeItem] = []
-    private var historyPresentation = BrandStageHistoryPresentation.unavailable
+    private var historyPresentation = BrandStageHistoryPresentation.inaccessible
     private var insertionStatusWorkItem: DispatchWorkItem?
 
     override func viewDidLoad() {
@@ -72,6 +72,7 @@ final class KeyboardViewController: UIInputViewController {
                   let item = recentItems.first(where: {
                       $0.resultID == resultID && $0.expiresAt > Date()
                   }) else {
+                self?.reloadSharedSnapshot()
                 return
             }
             insert(item)
@@ -105,10 +106,17 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func reloadSharedSnapshot() {
+        guard Self.resultProjectionIsEnabled else {
+            latestItem = nil
+            recentItems = []
+            historyPresentation = .missing
+            render()
+            return
+        }
         guard hasFullAccess else {
             latestItem = nil
             recentItems = []
-            historyPresentation = .unavailable
+            historyPresentation = .fullAccessRequired
             render()
             return
         }
@@ -118,7 +126,7 @@ final class KeyboardViewController: UIInputViewController {
             guard let snapshot = try store.load() else {
                 latestItem = nil
                 recentItems = []
-                historyPresentation = .unavailable
+                historyPresentation = .missing
                 render()
                 return
             }
@@ -133,12 +141,33 @@ final class KeyboardViewController: UIInputViewController {
             } else {
                 historyPresentation = .results(recentItems)
             }
+        } catch let error as KeyboardBridgeStoreError {
+            latestItem = nil
+            recentItems = []
+            switch error {
+            case .snapshotDecodeFailed, .snapshotTooLarge:
+                historyPresentation = .corrupt
+            case .incompatibleSchemaVersion:
+                historyPresentation = .incompatible
+            case .appGroupContainerUnavailable, .snapshotReadFailed,
+                 .snapshotEncodeFailed, .snapshotWriteFailed,
+                 .nonIncreasingRevision, .revisionExhausted:
+                historyPresentation = .inaccessible
+            }
         } catch {
             latestItem = nil
             recentItems = []
-            historyPresentation = .unavailable
+            historyPresentation = .inaccessible
         }
         render()
+    }
+
+    private static var resultProjectionIsEnabled: Bool {
+        #if DEBUG
+        true
+        #else
+        KeyboardBridgeConfiguration.productionProjectionIsQualified
+        #endif
     }
 
     private func render(statusOverride: String? = nil) {
@@ -265,6 +294,10 @@ private final class KeyboardDeleteRepeater {
     private var completedRepeats = 0
     private var action: (() -> Void)?
 
+    isolated deinit {
+        stop()
+    }
+
     func start(action: @escaping () -> Void) {
         stop()
         self.action = action
@@ -282,17 +315,14 @@ private final class KeyboardDeleteRepeater {
     private func schedule(after interval: TimeInterval) {
         let timer = Timer(
             timeInterval: interval,
-            target: self,
-            selector: #selector(timerFired),
-            userInfo: nil,
             repeats: false
-        )
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.fire()
+            }
+        }
         self.timer = timer
         RunLoop.main.add(timer, forMode: .common)
-    }
-
-    @objc private func timerFired() {
-        fire()
     }
 
     private func fire() {

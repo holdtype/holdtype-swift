@@ -3,6 +3,20 @@ import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 
+nonisolated enum IOSKeyboardSnapshotAcceptancePublication {
+    typealias Publish = @Sendable () async -> Bool
+
+    static func apply(
+        to resolution: IOSForegroundVoiceProcessingResolution,
+        publish: @escaping Publish
+    ) async -> IOSForegroundVoiceProcessingResolution {
+        if case .acceptance = resolution {
+            _ = await publish()
+        }
+        return resolution
+    }
+}
+
 /// One passive process-lifetime Voice graph. Scenes receive its shared
 /// controller and registry identities; they never construct platform or
 /// persistence owners themselves.
@@ -114,6 +128,9 @@ final class IOSForegroundVoiceRuntime {
         persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         processor: IOSForegroundVoiceProcessor?,
+        publishKeyboardSnapshot: @escaping @Sendable () async -> Bool = {
+            true
+        },
         factories: Factories
     ) {
         let sceneRegistry = factories.makeSceneRegistry()
@@ -157,7 +174,8 @@ final class IOSForegroundVoiceRuntime {
             .makeHistoryPlaybackArbitrator()
         self.historyPlaybackArbitrator = historyPlaybackArbitrator
         let latestResultOwner = IOSForegroundVoiceLatestResultOwner(
-            persistenceOwner: persistenceOwner
+            persistenceOwner: persistenceOwner,
+            publishKeyboardSnapshot: publishKeyboardSnapshot
         )
         self.latestResultOwner = latestResultOwner
 
@@ -236,9 +254,13 @@ final class IOSForegroundVoiceRuntime {
                 finalizationOwner.begin(onExpiration: onExpiration)
             },
             process: { request, progress in
-                await providerBridge.process(
+                let resolution = await providerBridge.process(
                     request,
                     progress: progress
+                )
+                return await IOSKeyboardSnapshotAcceptancePublication.apply(
+                    to: resolution,
+                    publish: publishKeyboardSnapshot
                 )
             },
             recoverCapture: { attemptID, configuration in

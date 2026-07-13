@@ -6,6 +6,39 @@ import Testing
 
 @MainActor
 struct IOSForegroundVoiceRuntimeTests {
+    @Test func onlyAcceptancePublishesAndProjectionFailureDoesNotChangeIt()
+        async throws {
+        let publication = IOSVoiceRuntimeKeyboardPublicationProbe(
+            result: false
+        )
+        let record = try IOSV1AcceptedOutputDeliveryRecord(
+            resultID: UUID(),
+            sourceAttemptID: UUID(),
+            acceptedText: "Accepted without projection coupling",
+            createdAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+        let acceptance = IOSForegroundVoiceProcessingResolution.acceptance(
+            .resultReady(record)
+        )
+
+        let preserved = await IOSKeyboardSnapshotAcceptancePublication.apply(
+            to: acceptance,
+            publish: { await publication.publish() }
+        )
+        #expect(preserved == acceptance)
+        #expect(await publication.callCount == 1)
+
+        let notStarted = IOSForegroundVoiceProcessingResolution.notStarted(
+            .providerUnavailable
+        )
+        let unchanged = await IOSKeyboardSnapshotAcceptancePublication.apply(
+            to: notStarted,
+            publish: { await publication.publish() }
+        )
+        #expect(unchanged == notStarted)
+        #expect(await publication.callCount == 1)
+    }
+
     @Test func constructionBuildsOnePassiveGraphForEveryScene() async throws {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "holdtype-voice-runtime-\(UUID().uuidString)",
@@ -131,6 +164,20 @@ struct IOSForegroundVoiceRuntimeTests {
             return
         }
         #expect(factories.platformEffectCount == 0)
+    }
+}
+
+private actor IOSVoiceRuntimeKeyboardPublicationProbe {
+    private let result: Bool
+    private(set) var callCount = 0
+
+    init(result: Bool) {
+        self.result = result
+    }
+
+    func publish() -> Bool {
+        callCount += 1
+        return result
     }
 }
 
