@@ -112,7 +112,6 @@ final class IOSForegroundVoiceRuntime {
         libraryStateOwner: IOSLibraryStateOwner,
         providerConsentCoordinator: IOSProviderConsentCoordinator,
         persistenceOwner: IOSForegroundVoicePersistenceOwner,
-        historyCoordinator: IOSAcceptedHistoryCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         processor: IOSForegroundVoiceProcessor?,
         factories: Factories
@@ -168,7 +167,7 @@ final class IOSForegroundVoiceRuntime {
                 await persistenceOwner.reconcileCaptureSourcesAtLaunch()
             },
             recoverContainingAppLifecycle: { opportunity in
-                await historyCoordinator.recoverContainingAppLifecycle(
+                await persistenceOwner.recoverContainingAppLifecycle(
                     opportunity
                 )
             },

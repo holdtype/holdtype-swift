@@ -167,6 +167,44 @@ public struct IOSForegroundVoicePersistenceOwner: Sendable {
         try await pendingRecordingStore.load()
     }
 
+    /// Reconciles the one V1.1 Pending owner without starting provider work.
+    /// Foreground opportunities only trigger the workflow's normal reload;
+    /// process launch may convert an interrupted provider phase to Retry.
+    public func recoverContainingAppLifecycle(
+        _ opportunity: IOSContainingAppRecoveryOpportunity
+    ) async -> IOSContainingAppRecoveryDisposition {
+        guard !Task.isCancelled else {
+            return .pendingLocalRecovery
+        }
+        guard opportunity == .processLaunch else {
+            return .complete
+        }
+
+        do {
+            guard let observation = try await pendingRecordingStore.load()
+            else {
+                return .complete
+            }
+            switch observation.recording.phase {
+            case .readyForTranscription, .awaitingRecovery:
+                return observation.availability == .available
+                    ? .complete
+                    : .pendingLocalRecovery
+            case .transcribing, .postProcessing:
+                _ = try await pendingRecordingStore.recoverAfterProcessLoss(
+                    expected: observation.expectation
+                )
+                return .complete
+            case .outputDelivery:
+                // Latest reconciliation owns saving-result recovery. Keeping
+                // Pending unchanged preserves its exact local destination.
+                return .complete
+            }
+        } catch {
+            return .pendingLocalRecovery
+        }
+    }
+
     public func beginTranscription(
         expected: IOSPendingRecordingCASExpectation,
         transcriptionID: UUID

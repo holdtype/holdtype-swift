@@ -41,18 +41,6 @@ struct IOSContainingAppCompositionTests {
                     events.append("access-group")
                     return expectedAccessGroup
                 },
-                makeHistoryCoordinator: { resolvedRoot in
-                    events.append("history")
-                    #expect(resolvedRoot == root)
-                    #expect(
-                        FileManager.default.fileExists(
-                            atPath: resolvedRoot.path
-                        )
-                    )
-                    return IOSAcceptedHistoryCoordinator(
-                        applicationSupportDirectoryURL: resolvedRoot
-                    )
-                },
                 makeSettingsStateOwner: { resolvedRoot in
                     events.append("settings")
                     let owner = IOSAppSettingsStateOwner(
@@ -153,7 +141,6 @@ struct IOSContainingAppCompositionTests {
                 "root",
                 "settings",
                 "library",
-                "history",
                 "provider-consent",
                 "foreground-persistence",
                 "usage",
@@ -164,7 +151,6 @@ struct IOSContainingAppCompositionTests {
         )
         #expect(providerScheduleCount == 1)
         #expect(composition.availability == .ready)
-        #expect(composition.historyCoordinator != nil)
         #expect(
             composition.settingsStateOwner
                 === capturedSettingsStateOwner
@@ -334,11 +320,6 @@ struct IOSContainingAppCompositionTests {
             factories: IOSContainingAppComposition.Factories(
                 resolveApplicationSupportDirectoryURL: { root },
                 resolveApplicationIdentifierAccessGroup: { nil },
-                makeHistoryCoordinator: {
-                    IOSAcceptedHistoryCoordinator(
-                        applicationSupportDirectoryURL: $0
-                    )
-                },
                 makeSettingsStateOwner: {
                     IOSAppSettingsStateOwner(
                         applicationSupportDirectoryURL: $0
@@ -389,7 +370,6 @@ struct IOSContainingAppCompositionTests {
         await composition.lifecycleScheduler.waitUntilIdle()
         #expect(composition.availability == .credentialUnavailable)
         #expect(rootPresentation.presentation == .shell)
-        #expect(composition.historyCoordinator != nil)
         #expect(composition.settingsStateOwner != nil)
         #expect(composition.libraryStateOwner != nil)
         #expect(composition.settingsStateOwner?.state == .ready(.defaults))
@@ -447,11 +427,6 @@ struct IOSContainingAppCompositionTests {
                 resolveApplicationIdentifierAccessGroup: {
                     "group.app.holdtype.HoldType.shared"
                 },
-                makeHistoryCoordinator: {
-                    IOSAcceptedHistoryCoordinator(
-                        applicationSupportDirectoryURL: $0
-                    )
-                },
                 makeSettingsStateOwner: {
                     IOSAppSettingsStateOwner(
                         applicationSupportDirectoryURL: $0
@@ -504,7 +479,6 @@ struct IOSContainingAppCompositionTests {
         await composition.lifecycleScheduler.waitUntilIdle()
         #expect(credentialFactoryCalls == 1)
         #expect(composition.availability == .credentialUnavailable)
-        #expect(composition.historyCoordinator != nil)
         #expect(composition.settingsStateOwner != nil)
         #expect(composition.libraryStateOwner != nil)
         #expect(composition.settingsStateOwner?.state == .ready(.defaults))
@@ -534,7 +508,6 @@ struct IOSContainingAppCompositionTests {
 
     @Test func storageRootFailureKeepsAppLaunchableAndRecoveryPending()
         async {
-        var historyFactoryCalls = 0
         var settingsFactoryCalls = 0
         var libraryFactoryCalls = 0
         var credentialFactoryCalls = 0
@@ -552,10 +525,6 @@ struct IOSContainingAppCompositionTests {
                 resolveApplicationIdentifierAccessGroup: {
                     Issue.record("Access group must not be read without storage.")
                     return nil
-                },
-                makeHistoryCoordinator: { _ in
-                    historyFactoryCalls += 1
-                    preconditionFailure("History must not be constructed.")
                 },
                 makeSettingsStateOwner: { _ in
                     settingsFactoryCalls += 1
@@ -609,7 +578,6 @@ struct IOSContainingAppCompositionTests {
         #expect(root.usageEstimateStateOwner == nil)
         #expect(composition.availability == .storageUnavailable)
         #expect(composition.applicationSupportDirectoryURL == nil)
-        #expect(composition.historyCoordinator == nil)
         #expect(composition.settingsStateOwner == nil)
         #expect(composition.libraryStateOwner == nil)
         #expect(composition.credentialCoordinator == nil)
@@ -627,7 +595,6 @@ struct IOSContainingAppCompositionTests {
             composition.lifecycleScheduler.latestDisposition
                 == .pendingLocalRecovery
         )
-        #expect(historyFactoryCalls == 0)
         #expect(settingsFactoryCalls == 0)
         #expect(libraryFactoryCalls == 0)
         #expect(credentialFactoryCalls == 0)
@@ -649,7 +616,6 @@ struct IOSContainingAppCompositionTests {
         #expect(providerScheduleCount == 1)
         #expect(app.composition.availability == .injected)
         #expect(app.composition.applicationSupportDirectoryURL == nil)
-        #expect(app.composition.historyCoordinator == nil)
         #expect(app.composition.settingsStateOwner == nil)
         #expect(app.composition.libraryStateOwner == nil)
         #expect(app.composition.credentialCoordinator == nil)

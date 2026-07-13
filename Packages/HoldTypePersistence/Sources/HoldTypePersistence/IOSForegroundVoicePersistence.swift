@@ -703,12 +703,6 @@ public struct IOSForegroundVoicePersistence: Sendable {
                     priorResult: nil
                 )
             }
-            if pending == nil {
-                _ = try await pendingRecordingStore
-                    .proveForegroundVoicePendingJournalAbsent(
-                        operationLeaseAuthorization: lease
-                    )
-            }
             let delivery: IOSAcceptedOutputDeliveryObservation?
             do {
                 delivery = try await deliveryStore
@@ -723,6 +717,12 @@ public struct IOSForegroundVoicePersistence: Sendable {
                     .hasForegroundVoiceCleanupPending()
                     ? .clearedCleanupPending
                     : .absent
+            }
+            if pending == nil {
+                _ = try await pendingRecordingStore
+                    .proveForegroundVoicePendingJournalAbsent(
+                        operationLeaseAuthorization: lease
+                    )
             }
             if let pending,
                delivery.overlapsPendingIdentity(pending.recording) {

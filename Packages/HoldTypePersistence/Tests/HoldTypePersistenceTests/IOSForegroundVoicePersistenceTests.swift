@@ -639,6 +639,121 @@ struct IOSForegroundVoicePersistenceTests {
         #expect(fixture.executor.callCount == 1)
     }
 
+    @Test func lifecycleForegroundAndOutputDeliveryLeavePendingUnchanged()
+        async throws {
+        let foregroundFixture = ForegroundVoicePersistenceFixture()
+        let transcribing = try await foregroundFixture.makeLifecyclePending(
+            phase: .transcribing
+        )
+        let foregroundOwner = foregroundFixture.makeLifecycleOwner(
+            destinationInspectionFails: true
+        )
+
+        #expect(
+            await foregroundOwner.recoverContainingAppLifecycle(.foreground)
+                == .complete
+        )
+        #expect(foregroundFixture.pendingJournal.recording == transcribing)
+
+        let outputFixture = ForegroundVoicePersistenceFixture()
+        let output = try await outputFixture.makeLifecyclePending(
+            phase: .outputDelivery
+        )
+        let outputOwner = outputFixture.makeLifecycleOwner(
+            destinationInspectionFails: true
+        )
+
+        #expect(
+            await outputOwner.recoverContainingAppLifecycle(.processLaunch)
+                == .complete
+        )
+        #expect(outputFixture.pendingJournal.recording == output)
+        #expect(
+            String(describing: IOSContainingAppRecoveryOpportunity.processLaunch)
+                == "IOSContainingAppRecoveryOpportunity(redacted)"
+        )
+        #expect(
+            String(describing: IOSContainingAppRecoveryDisposition.complete)
+                == "IOSContainingAppRecoveryDisposition(redacted)"
+        )
+        #expect(
+            IOSContainingAppRecoveryDisposition.complete.customMirror
+                .children.isEmpty
+        )
+    }
+
+    @Test func lifecycleLaunchClassifiesRecoverablePendingByAvailability()
+        async throws {
+        for phase in [
+            IOSPendingRecordingPhase.readyForTranscription,
+            .awaitingRecovery,
+        ] {
+            let fixture = ForegroundVoicePersistenceFixture()
+            let pending = try await fixture.makeLifecyclePending(phase: phase)
+            let owner = fixture.makeLifecycleOwner()
+
+            #expect(
+                await owner.recoverContainingAppLifecycle(.processLaunch)
+                    == .complete
+            )
+            #expect(fixture.pendingJournal.recording == pending)
+        }
+
+        let unavailableFixture = ForegroundVoicePersistenceFixture()
+        let unavailable = try await unavailableFixture.makeLifecyclePending(
+            phase: .readyForTranscription
+        )
+        _ = try await unavailableFixture.audio.removePublishedAudioIfPresent(
+            relativeIdentifier: unavailable.audioRelativeIdentifier,
+            attemptID: unavailable.attemptID,
+            expectedByteCount: unavailable.byteCount
+        )
+
+        #expect(
+            await unavailableFixture.makeLifecycleOwner()
+                .recoverContainingAppLifecycle(.processLaunch)
+                == .pendingLocalRecovery
+        )
+        #expect(unavailableFixture.pendingJournal.recording == unavailable)
+    }
+
+    @Test func lifecycleLaunchRecoversInterruptedProviderPhasesAndDefersErrors()
+        async throws {
+        for phase in [
+            IOSPendingRecordingPhase.transcribing,
+            .postProcessing,
+        ] {
+            let fixture = ForegroundVoicePersistenceFixture()
+            let interrupted = try await fixture.makeLifecyclePending(
+                phase: phase
+            )
+            let owner = fixture.makeLifecycleOwner()
+
+            #expect(
+                await owner.recoverContainingAppLifecycle(.processLaunch)
+                    == .complete
+            )
+            let recovered = try #require(await owner.load())
+            #expect(recovered.recording.attemptID == interrupted.attemptID)
+            #expect(recovered.recording.phase == .awaitingRecovery)
+            #expect(recovered.recording.transcriptionID == nil)
+        }
+
+        let failingFixture = ForegroundVoicePersistenceFixture()
+        let interrupted = try await failingFixture.makeLifecyclePending(
+            phase: .transcribing
+        )
+        let failingOwner = failingFixture.makeLifecycleOwner(
+            destinationInspectionFails: true
+        )
+
+        #expect(
+            await failingOwner.recoverContainingAppLifecycle(.processLaunch)
+                == .pendingLocalRecovery
+        )
+        #expect(failingFixture.pendingJournal.recording == interrupted)
+    }
+
     @Test func readyLoadRequiresDurablePendingJournalAbsenceProof()
         async throws {
         let fixture = ForegroundVoicePersistenceFixture()
@@ -1743,6 +1858,23 @@ private func makeForegroundHistoryCaptures() async throws -> (
     return (enabled, disabled)
 }
 
+private struct ForegroundVoiceLifecycleDestinationInspector:
+    IOSPendingRecordingDestinationInspecting {
+    let fails: Bool
+
+    func inspectCanonicalDestination(
+        for recording: IOSPendingRecording,
+        expectedRepositoryRoot: IOSPersistenceRepositoryRootIdentity?
+    ) throws -> IOSPendingRecordingCanonicalDestinationDisposition {
+        _ = recording
+        _ = expectedRepositoryRoot
+        if fails {
+            throw IOSPendingRecordingError.destinationInspectionFailed
+        }
+        return .provenAbsent
+    }
+}
+
 private final class ForegroundVoicePersistenceFixture: @unchecked Sendable {
     let operationGate = IOSPersistenceOperationGate()
     let ownerIdentity = IOSAcceptedHistoryCapabilityOwnerIdentity()
@@ -1787,6 +1919,66 @@ private final class ForegroundVoicePersistenceFixture: @unchecked Sendable {
     ) {
         self.acceptedTextHistoryRepository =
             acceptedTextHistoryRepository
+    }
+
+    func makeLifecyclePending(
+        phase: IOSPendingRecordingPhase
+    ) async throws -> IOSPendingRecording {
+        let prepared = try await pendingStore.prepare(
+            IOSPendingRecordingPreparation(
+                attemptID: UUID(),
+                sourceArtifact: AudioRecordingArtifact(
+                    fileURL: URL(fileURLWithPath: "/runtime/lifecycle.m4a"),
+                    duration: 1.25,
+                    byteCount: 32
+                ),
+                initialState: .readyForTranscription,
+                outputIntent: .standard,
+                transcriptionConfiguration: .defaults
+            )
+        )
+        let transcriptionID: UUID? = switch phase {
+        case .readyForTranscription, .awaitingRecovery:
+            nil
+        case .transcribing, .postProcessing, .outputDelivery:
+            UUID()
+        }
+        let pending = try IOSPendingRecording(
+            attemptID: prepared.attemptID,
+            audioRelativeIdentifier: prepared.audioRelativeIdentifier,
+            createdAt: prepared.createdAt,
+            updatedAt: prepared.updatedAt,
+            phase: phase,
+            outputIntent: prepared.outputIntent,
+            transcriptionID: transcriptionID,
+            transcriptionModel: prepared.transcriptionModel,
+            transcriptionLanguageCode: prepared.transcriptionLanguageCode,
+            durationMilliseconds: prepared.durationMilliseconds,
+            byteCount: prepared.byteCount
+        )
+        pendingJournal.seed(pending)
+        return pending
+    }
+
+    func makeLifecycleOwner(
+        destinationInspectionFails: Bool = false
+    ) -> IOSForegroundVoicePersistenceOwner {
+        let lifecycleStore = IOSPendingRecordingStore(
+            journal: pendingJournal,
+            audioFileSystem: audio,
+            destinationInspector:
+                ForegroundVoiceLifecycleDestinationInspector(
+                    fails: destinationInspectionFails
+                ),
+            operationGate: operationGate,
+            liveOwnerRegistry: IOSPendingRecordingLiveOwnerRegistry(),
+            capabilityOwnerIdentity: ownerIdentity,
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+        return IOSForegroundVoicePersistenceOwner(
+            pendingRecordingStore: lifecycleStore,
+            acceptedOutputPersistence: facade
+        )
     }
 
     func makeOutputDelivery(

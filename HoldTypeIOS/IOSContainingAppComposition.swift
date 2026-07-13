@@ -18,9 +18,6 @@ final class IOSContainingAppComposition {
     struct Factories {
         let resolveApplicationSupportDirectoryURL: @MainActor () throws -> URL
         let resolveApplicationIdentifierAccessGroup: @MainActor () -> String?
-        let makeHistoryCoordinator: @MainActor (
-            URL
-        ) -> IOSAcceptedHistoryCoordinator
         let makeSettingsStateOwner: @MainActor (
             URL
         ) -> IOSAppSettingsStateOwner
@@ -61,12 +58,6 @@ final class IOSContainingAppComposition {
             resolveApplicationIdentifierAccessGroup: {
                 IOSContainingAppComposition.applicationIdentifierAccessGroup(
                     in: .main
-                )
-            },
-            makeHistoryCoordinator: { applicationSupportDirectoryURL in
-                IOSAcceptedHistoryCoordinator(
-                    applicationSupportDirectoryURL:
-                        applicationSupportDirectoryURL
                 )
             },
             makeSettingsStateOwner: { applicationSupportDirectoryURL in
@@ -133,7 +124,6 @@ final class IOSContainingAppComposition {
     }
 
     let applicationSupportDirectoryURL: URL?
-    let historyCoordinator: IOSAcceptedHistoryCoordinator?
     let settingsStateOwner: IOSAppSettingsStateOwner?
     let libraryStateOwner: IOSLibraryStateOwner?
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
@@ -166,7 +156,6 @@ final class IOSContainingAppComposition {
                 .resolveApplicationSupportDirectoryURL()
         } catch {
             self.applicationSupportDirectoryURL = nil
-            historyCoordinator = nil
             settingsStateOwner = nil
             libraryStateOwner = nil
             credentialCoordinator = nil
@@ -201,10 +190,6 @@ final class IOSContainingAppComposition {
             applicationSupportDirectoryURL
         )
         self.libraryStateOwner = libraryStateOwner
-        let historyCoordinator = factories.makeHistoryCoordinator(
-            applicationSupportDirectoryURL
-        )
-        self.historyCoordinator = historyCoordinator
         let providerConsentCoordinator = factories
             .makeProviderConsentCoordinator(
                 applicationSupportDirectoryURL
@@ -277,7 +262,6 @@ final class IOSContainingAppComposition {
             libraryStateOwner: libraryStateOwner,
             providerConsentCoordinator: providerConsentCoordinator,
             persistenceOwner: foregroundVoicePersistenceOwner,
-            historyCoordinator: historyCoordinator,
             credentialCoordinator: credentialCoordinator,
             processor: foregroundVoiceProcessor,
             factories: factories.voiceFactories
@@ -306,7 +290,6 @@ final class IOSContainingAppComposition {
             @escaping IOSContainingAppLifecycleScheduler.Recovery
     ) {
         applicationSupportDirectoryURL = nil
-        historyCoordinator = nil
         settingsStateOwner = nil
         libraryStateOwner = nil
         credentialCoordinator = nil

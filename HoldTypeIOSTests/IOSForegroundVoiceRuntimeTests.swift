@@ -38,9 +38,6 @@ struct IOSForegroundVoiceRuntimeTests {
         let persistenceOwner = IOSForegroundVoicePersistenceOwner(
             applicationSupportDirectoryURL: root
         )
-        let historyCoordinator = IOSAcceptedHistoryCoordinator(
-            applicationSupportDirectoryURL: root
-        )
         let factories = IOSVoiceRuntimeFactoryProbe()
 
         let runtime = IOSForegroundVoiceRuntime(
@@ -48,7 +45,6 @@ struct IOSForegroundVoiceRuntimeTests {
             libraryStateOwner: libraryStateOwner,
             providerConsentCoordinator: consentCoordinator,
             persistenceOwner: persistenceOwner,
-            historyCoordinator: historyCoordinator,
             credentialCoordinator: nil,
             processor: nil,
             factories: factories.value
@@ -90,6 +86,21 @@ struct IOSForegroundVoiceRuntimeTests {
         #expect(runtime.sceneRegistry.snapshot.registeredSceneCount == 2)
 
         let dependencies = try #require(factories.dependencies)
+        #expect(
+            await persistenceOwner.reconcileCaptureSourcesAtLaunch().status
+                == .empty
+        )
+        #expect(
+            await dependencies.recoverContainingAppLifecycle(.foreground)
+                == .complete
+        )
+        #expect(
+            await dependencies.recoverContainingAppLifecycle(.processLaunch)
+                == .complete
+        )
+        #expect(try await dependencies.loadPending() == nil)
+        #expect(try await persistenceOwner.loadLatestResult() == .absent)
+        #expect(try await dependencies.loadLatest() == .absent)
         let lease = try #require(firstScene.acquireStartLease())
         let consent = await dependencies.observeConsent()
         let continuation = Task { @MainActor in

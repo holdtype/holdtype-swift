@@ -328,7 +328,7 @@ final class IOSAcceptedHistoryCoordinatorProcessContextRegistry:
     @unchecked Sendable {
     static let shared =
         IOSAcceptedHistoryCoordinatorProcessContextRegistry(
-            retryRecoveryScanRequiredOnContextCreation: true
+            retryRecoveryScanRequiredOnContextCreation: false
         )
 
     private let retryRecoveryScanRequiredOnContextCreation: Bool
