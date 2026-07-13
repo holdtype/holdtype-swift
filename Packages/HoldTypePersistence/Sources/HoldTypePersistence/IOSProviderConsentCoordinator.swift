@@ -4,8 +4,8 @@ import Foundation
 /// The containing process's single owner for provider-consent observation,
 /// compare-and-swap mutation, and short-lived provider authority.
 public final class IOSProviderConsentCoordinator: @unchecked Sendable {
-    public static let currentDisclosureVersion: Int64 = 1
-    static let frozenHistoryDisclosureVersion: Int64 = 2
+    public static let currentDisclosureVersion: Int64 = 2
+    static let historyAwareDisclosureVersion: Int64 = 2
 
     private let owner: IOSProviderConsentOwner
     private let gate: IOSProviderConsentAuthorizationGate
@@ -241,7 +241,7 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
     ) -> IOSProviderConsentAuthorization? {
         guard let authorization = makeAuthorization(from: observation),
               authorization.binding.disclosureVersion
-                == Self.frozenHistoryDisclosureVersion else {
+                == Self.historyAwareDisclosureVersion else {
             return nil
         }
         return authorization

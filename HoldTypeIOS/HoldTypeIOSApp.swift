@@ -76,6 +76,8 @@ struct HoldTypeIOSRootView: View {
     let openAISettingsStateOwner:
         IOSOpenAICredentialSettingsStateOwner?
     let usageEstimateStateOwner: IOSUsageEstimateStateOwner?
+    let acceptedTextHistoryStateOwner:
+        IOSAcceptedTextHistoryStateOwner?
     let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let layout: IOSContainingAppShellLayout
@@ -86,6 +88,8 @@ struct HoldTypeIOSRootView: View {
         openAISettingsStateOwner:
             IOSOpenAICredentialSettingsStateOwner?,
         usageEstimateStateOwner: IOSUsageEstimateStateOwner?,
+        acceptedTextHistoryStateOwner:
+            IOSAcceptedTextHistoryStateOwner?,
         secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         layout: IOSContainingAppShellLayout = .current
@@ -94,6 +98,8 @@ struct HoldTypeIOSRootView: View {
         self.libraryStateOwner = libraryStateOwner
         self.openAISettingsStateOwner = openAISettingsStateOwner
         self.usageEstimateStateOwner = usageEstimateStateOwner
+        self.acceptedTextHistoryStateOwner =
+            acceptedTextHistoryStateOwner
         self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
@@ -109,7 +115,9 @@ struct HoldTypeIOSRootView: View {
             hasOpenAISettingsStateOwner:
                 openAISettingsStateOwner != nil,
             hasUsageEstimateStateOwner:
-                usageEstimateStateOwner != nil
+                usageEstimateStateOwner != nil,
+            hasAcceptedTextHistoryStateOwner:
+                acceptedTextHistoryStateOwner != nil
         )
     }
 
@@ -117,7 +125,8 @@ struct HoldTypeIOSRootView: View {
         if let settingsStateOwner,
            let libraryStateOwner,
            let openAISettingsStateOwner,
-           let usageEstimateStateOwner {
+           let usageEstimateStateOwner,
+           let acceptedTextHistoryStateOwner {
             IOSContainingAppShell(
                 secureProviderAvailability: secureProviderAvailability,
                 foregroundVoiceRuntimeAvailable:
@@ -128,6 +137,7 @@ struct HoldTypeIOSRootView: View {
                 .environment(libraryStateOwner)
                 .environment(openAISettingsStateOwner)
                 .environment(usageEstimateStateOwner)
+                .environment(acceptedTextHistoryStateOwner)
         } else {
             IOSContainingAppStorageUnavailableView()
         }

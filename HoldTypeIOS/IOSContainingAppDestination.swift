@@ -125,12 +125,14 @@ enum IOSContainingAppRootPresentation: Equatable, Sendable {
         hasSettingsStateOwner: Bool,
         hasLibraryStateOwner: Bool,
         hasOpenAISettingsStateOwner: Bool,
-        hasUsageEstimateStateOwner: Bool
+        hasUsageEstimateStateOwner: Bool,
+        hasAcceptedTextHistoryStateOwner: Bool
     ) -> Self {
         hasSettingsStateOwner
             && hasLibraryStateOwner
             && hasOpenAISettingsStateOwner
             && hasUsageEstimateStateOwner
+            && hasAcceptedTextHistoryStateOwner
             ? .shell
             : .storageUnavailable
     }

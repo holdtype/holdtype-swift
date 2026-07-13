@@ -174,6 +174,8 @@ final class IOSContainingAppComposition {
     let providerConsentCoordinator: IOSProviderConsentCoordinator?
     let acceptedTextHistoryRepository:
         IOSAcceptedTextHistoryRepository?
+    let acceptedTextHistoryStateOwner:
+        IOSAcceptedTextHistoryStateOwner?
     let foregroundVoicePersistenceOwner:
         IOSForegroundVoicePersistenceOwner?
     let transcriptionUsageRepository: IOSTranscriptionUsageRepository?
@@ -208,6 +210,7 @@ final class IOSContainingAppComposition {
             failedHistoryService = nil
             providerConsentCoordinator = nil
             acceptedTextHistoryRepository = nil
+            acceptedTextHistoryStateOwner = nil
             foregroundVoicePersistenceOwner = nil
             transcriptionUsageRepository = nil
             usageEstimateStateOwner = nil
@@ -253,6 +256,10 @@ final class IOSContainingAppComposition {
             )
         self.acceptedTextHistoryRepository =
             acceptedTextHistoryRepository
+        acceptedTextHistoryStateOwner =
+            IOSAcceptedTextHistoryStateOwner(
+                repository: acceptedTextHistoryRepository
+            )
         let foregroundVoicePersistenceOwner = factories
             .makeForegroundVoicePersistenceOwner(
                 applicationSupportDirectoryURL,
@@ -357,6 +364,7 @@ final class IOSContainingAppComposition {
         failedHistoryService = nil
         providerConsentCoordinator = nil
         acceptedTextHistoryRepository = nil
+        acceptedTextHistoryStateOwner = nil
         foregroundVoicePersistenceOwner = nil
         transcriptionUsageRepository = nil
         usageEstimateStateOwner = nil

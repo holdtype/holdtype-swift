@@ -115,58 +115,66 @@ public actor IOSAcceptedTextHistoryRepository {
     @discardableResult
     public func delete(
         resultID: UUID
-    ) throws -> IOSAcceptedTextHistoryDeleteResult {
+    ) throws -> IOSAcceptedTextHistoryRecord {
         let record = try load()
         let retainedEntries = record.entries.filter {
             $0.resultID != resultID
         }
         guard retainedEntries.count != record.entries.count else {
-            return .notFound
+            return record
         }
 
-        try replace(
-            IOSAcceptedTextHistoryRecord(
-                isEnabled: record.isEnabled,
-                entries: retainedEntries
-            )
+        let updated = IOSAcceptedTextHistoryRecord(
+            isEnabled: record.isEnabled,
+            entries: retainedEntries
         )
-        return .deleted
+        try replace(updated)
+        return updated
     }
 
     @discardableResult
-    public func clearAll() throws -> IOSAcceptedTextHistoryClearResult {
+    public func clearAll(
+        ifCurrent expected: IOSAcceptedTextHistorySnapshotToken
+    ) throws -> IOSAcceptedTextHistoryMutationResult {
         let record = try load()
+        guard IOSAcceptedTextHistorySnapshotToken(record: record) == expected
+        else {
+            return .stale(record)
+        }
         guard !record.entries.isEmpty else {
-            return .alreadyEmpty
+            return .confirmed(record)
         }
 
-        try replace(
-            IOSAcceptedTextHistoryRecord(
-                isEnabled: record.isEnabled,
-                entries: []
-            )
+        let updated = IOSAcceptedTextHistoryRecord(
+            isEnabled: record.isEnabled,
+            entries: []
         )
-        return .cleared
+        try replace(updated)
+        return .confirmed(updated)
     }
 
     @discardableResult
     public func setEnabled(
-        _ isEnabled: Bool
-    ) throws -> IOSAcceptedTextHistoryEnabledResult {
+        _ isEnabled: Bool,
+        ifCurrent expected: IOSAcceptedTextHistorySnapshotToken
+    ) throws -> IOSAcceptedTextHistoryMutationResult {
         let record = try load()
+        guard IOSAcceptedTextHistorySnapshotToken(record: record) == expected
+        else {
+            return .stale(record)
+        }
         let targetEntries = isEnabled ? record.entries : []
         guard record.isEnabled != isEnabled
                 || record.entries != targetEntries else {
-            return .unchanged
+            return .confirmed(record)
         }
 
-        try replace(
-            IOSAcceptedTextHistoryRecord(
-                isEnabled: isEnabled,
-                entries: targetEntries
-            )
+        let updated = IOSAcceptedTextHistoryRecord(
+            isEnabled: isEnabled,
+            entries: targetEntries
         )
-        return .updated
+        try replace(updated)
+        return .confirmed(updated)
     }
 
     private func replace(_ record: IOSAcceptedTextHistoryRecord) throws {

@@ -216,6 +216,9 @@ without changing the voice safety contract.
 - The API key remains in app-owned Keychain storage.
 - Provider consent is current, explicit, app-private, and checked before every
   remote stage.
+- The History-aware local-retention disclosure is contract version `2`.
+  Acceptance of the former no-History version `1` requires explicit review
+  before another provider request.
 - The extension receives no API key or provider client.
 - Pending audio and History remain app-private, protected, and backup-excluded
   according to their data type.

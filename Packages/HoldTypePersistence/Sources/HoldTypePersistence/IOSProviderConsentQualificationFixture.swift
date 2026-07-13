@@ -108,7 +108,7 @@ public enum IOSProviderConsentProcessingQualificationFixture {
                     applicationSupportDirectoryURL
             ),
             currentDisclosureVersion: IOSProviderConsentCoordinator
-                .frozenHistoryDisclosureVersion
+                .historyAwareDisclosureVersion
         )
     }
 }

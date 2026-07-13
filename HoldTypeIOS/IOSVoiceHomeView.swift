@@ -283,6 +283,20 @@ struct IOSVoiceHomeView: View {
                 openSettings(.privacyAndPermissions)
             }
             .accessibilityIdentifier("ios.voice.setup.microphone")
+
+            Label {
+                Text(
+                    "Save History is on by default and keeps up to 20 "
+                        + "successful texts locally. It never stores audio or "
+                        + "failed attempts."
+                )
+                .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "clock")
+                    .foregroundStyle(.tint)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("ios.voice.setup.history")
         }
     }
 

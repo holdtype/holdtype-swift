@@ -102,29 +102,92 @@ struct IOSAcceptedTextHistoryRepositoryTests {
         _ = try await repository.append(makeEntry(index: 1))
         _ = try await repository.append(makeEntry(index: 2))
 
-        #expect(
-            try await repository.delete(resultID: identifier(1)) == .deleted
+        let afterDelete = IOSAcceptedTextHistoryRecord(
+            isEnabled: true,
+            entries: [try makeEntry(index: 2)]
         )
         #expect(
-            try await repository.delete(resultID: identifier(1)) == .notFound
+            try await repository.delete(resultID: identifier(1))
+                == afterDelete
         )
-        #expect(try await repository.clearAll() == .cleared)
-        #expect(try await repository.clearAll() == .alreadyEmpty)
+        #expect(
+            try await repository.delete(resultID: identifier(1))
+                == afterDelete
+        )
+        #expect(
+            try await repository.clearAll(
+                ifCurrent: IOSAcceptedTextHistorySnapshotToken(
+                    record: afterDelete
+                )
+            ) == .confirmed(.enabledEmpty)
+        )
+        #expect(
+            try await repository.clearAll(
+                ifCurrent: IOSAcceptedTextHistorySnapshotToken(
+                    record: .enabledEmpty
+                )
+            ) == .confirmed(.enabledEmpty)
+        )
         _ = try await repository.append(makeEntry(index: 3))
-        #expect(try await repository.setEnabled(false) == .updated)
-        #expect(try await repository.load() == IOSAcceptedTextHistoryRecord(
+        let enabledWithEntry = try await repository.load()
+        let disabled = IOSAcceptedTextHistoryRecord(
             isEnabled: false,
             entries: []
-        ))
+        )
+        #expect(
+            try await repository.setEnabled(
+                false,
+                ifCurrent: IOSAcceptedTextHistorySnapshotToken(
+                    record: enabledWithEntry
+                )
+            ) == .confirmed(disabled)
+        )
+        #expect(try await repository.load() == disabled)
 
         let replacementCount = fileSystem.replacementCallCount
         #expect(
             try await repository.append(makeEntry(index: 4)) == .disabled
         )
-        #expect(try await repository.setEnabled(false) == .unchanged)
+        #expect(
+            try await repository.setEnabled(
+                false,
+                ifCurrent: IOSAcceptedTextHistorySnapshotToken(
+                    record: disabled
+                )
+            ) == .confirmed(disabled)
+        )
         #expect(fileSystem.replacementCallCount == replacementCount)
-        #expect(try await repository.setEnabled(true) == .updated)
+        #expect(
+            try await repository.setEnabled(
+                true,
+                ifCurrent: IOSAcceptedTextHistorySnapshotToken(
+                    record: disabled
+                )
+            ) == .confirmed(.enabledEmpty)
+        )
         #expect(try await repository.load() == .enabledEmpty)
+    }
+
+    @Test func destructiveMutationsRejectAStaleConfirmedSnapshot() async throws {
+        let fileSystem = HistoryFileSystemFake()
+        let repository = makeRepository(fileSystem: fileSystem)
+        _ = try await repository.append(makeEntry(index: 1))
+        let observed = try await repository.load()
+        let staleToken = IOSAcceptedTextHistorySnapshotToken(record: observed)
+        _ = try await repository.append(makeEntry(index: 2))
+        let current = try await repository.load()
+        let replacementCount = fileSystem.replacementCallCount
+
+        #expect(
+            try await repository.clearAll(ifCurrent: staleToken)
+                == .stale(current)
+        )
+        #expect(
+            try await repository.setEnabled(false, ifCurrent: staleToken)
+                == .stale(current)
+        )
+        #expect(fileSystem.replacementCallCount == replacementCount)
+        #expect(try await repository.load() == current)
     }
 
     @Test func strictDecoderRejectsUntrustedRecordsWithoutRewriting() async {

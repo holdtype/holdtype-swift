@@ -1064,6 +1064,14 @@ struct IOSProviderConsentCoordinatorTests {
         #expect(journal.replaceCallCount == 1)
     }
 
+    @Test func currentReleaseUsesHistoryAwareDisclosureVersionTwo() {
+        #expect(IOSProviderConsentCoordinator.currentDisclosureVersion == 2)
+        #expect(
+            IOSProviderConsentCoordinator.currentDisclosureVersion
+                == IOSProviderConsentCoordinator.historyAwareDisclosureVersion
+        )
+    }
+
     @Test func olderDisclosureRequiresReviewAndExplicitAcceptance() async throws {
         let old = try fixtureRecord(
             state: .accepted,

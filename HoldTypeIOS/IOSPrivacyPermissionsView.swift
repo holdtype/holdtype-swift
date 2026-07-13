@@ -253,6 +253,12 @@ struct IOSPrivacyPermissionsView: View {
     private var dataBoundarySection: some View {
         Section("Data Boundaries") {
             privacyBoundary(
+                "Save History is on by default and keeps up to 20 successful "
+                    + "texts in protected app-private storage. It stores no "
+                    + "audio or failed attempts.",
+                image: "clock"
+            )
+            privacyBoundary(
                 "The keyboard extension does not receive your API key, "
                     + "recordings, prompts, History, or Latest Result.",
                 image: "keyboard"

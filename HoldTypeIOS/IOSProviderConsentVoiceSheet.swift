@@ -168,7 +168,7 @@ struct IOSProviderConsentDisclosureSections: View {
                 )
             }
 
-            Section("Local Retention in P4") {
+            Section("Local Retention") {
                 disclosurePoint(
                     "Completed audio is protected locally until accepted-output "
                         + "cleanup, or until you choose Pending Retry or Discard.",
@@ -176,13 +176,13 @@ struct IOSProviderConsentDisclosureSections: View {
                 )
                 disclosurePoint(
                     "Accepted text stays in app-private Latest Result until "
-                        + "confirmed Clear, atomic replacement, or its 24-hour "
-                        + "safety expiry.",
+                        + "confirmed Clear or atomic replacement.",
                     image: "doc.text"
                 )
                 disclosurePoint(
-                    "P4 does not add accepted or failed History rows or a "
-                        + "Recording Cache.",
+                    "Save History is on by default and keeps up to 20 "
+                        + "successful texts in app-private storage. It stores "
+                        + "no audio or failed attempts.",
                     image: "clock.arrow.circlepath"
                 )
             }

@@ -57,6 +57,16 @@ public struct IOSAcceptedTextHistoryRecord: Equatable, Sendable {
     }
 }
 
+public struct IOSAcceptedTextHistorySnapshotToken: Equatable, Sendable {
+    private let isEnabled: Bool
+    private let resultIDs: [UUID]
+
+    public init(record: IOSAcceptedTextHistoryRecord) {
+        isEnabled = record.isEnabled
+        resultIDs = record.entries.map(\.resultID)
+    }
+}
+
 public enum IOSAcceptedTextHistoryAppendResult: Equatable, Sendable {
     case inserted
     case duplicate
@@ -64,19 +74,9 @@ public enum IOSAcceptedTextHistoryAppendResult: Equatable, Sendable {
     case outsideRetentionWindow
 }
 
-public enum IOSAcceptedTextHistoryDeleteResult: Equatable, Sendable {
-    case deleted
-    case notFound
-}
-
-public enum IOSAcceptedTextHistoryClearResult: Equatable, Sendable {
-    case cleared
-    case alreadyEmpty
-}
-
-public enum IOSAcceptedTextHistoryEnabledResult: Equatable, Sendable {
-    case updated
-    case unchanged
+public enum IOSAcceptedTextHistoryMutationResult: Equatable, Sendable {
+    case confirmed(IOSAcceptedTextHistoryRecord)
+    case stale(IOSAcceptedTextHistoryRecord)
 }
 
 extension IOSAcceptedTextHistoryEntry: CustomStringConvertible,

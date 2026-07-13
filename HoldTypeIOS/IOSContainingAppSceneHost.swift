@@ -65,6 +65,8 @@ private extension HoldTypeIOSRootView {
                 composition.openAISettingsStateOwner,
             usageEstimateStateOwner:
                 composition.usageEstimateStateOwner,
+            acceptedTextHistoryStateOwner:
+                composition.acceptedTextHistoryStateOwner,
             secureProviderAvailability: .resolve(
                 compositionAvailability: composition.availability
             ),

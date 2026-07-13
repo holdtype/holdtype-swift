@@ -247,6 +247,10 @@ struct IOSContainingAppCompositionTests {
             composition.acceptedTextHistoryRepository ===
                 capturedAcceptedTextHistoryRepository
         )
+        #expect(composition.acceptedTextHistoryStateOwner != nil)
+        #expect(
+            composition.acceptedTextHistoryStateOwner?.state == .notLoaded
+        )
         #expect(
             composition.transcriptionUsageRepository
                 === capturedUsageRepository
@@ -735,6 +739,8 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.openAISettingsStateOwner == nil)
         #expect(composition.failedHistoryService == nil)
         #expect(composition.providerConsentCoordinator == nil)
+        #expect(composition.acceptedTextHistoryRepository == nil)
+        #expect(composition.acceptedTextHistoryStateOwner == nil)
         #expect(composition.foregroundVoicePersistenceOwner == nil)
         #expect(composition.transcriptionUsageRepository == nil)
         #expect(composition.usageEstimateStateOwner == nil)
@@ -776,6 +782,8 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.openAISettingsStateOwner == nil)
         #expect(app.composition.failedHistoryService == nil)
         #expect(app.composition.providerConsentCoordinator == nil)
+        #expect(app.composition.acceptedTextHistoryRepository == nil)
+        #expect(app.composition.acceptedTextHistoryStateOwner == nil)
         #expect(app.composition.foregroundVoicePersistenceOwner == nil)
         #expect(app.composition.transcriptionUsageRepository == nil)
         #expect(app.composition.usageEstimateStateOwner == nil)
@@ -829,6 +837,8 @@ private func rootView(
             composition.openAISettingsStateOwner,
         usageEstimateStateOwner:
             composition.usageEstimateStateOwner,
+        acceptedTextHistoryStateOwner:
+            composition.acceptedTextHistoryStateOwner,
         secureProviderAvailability: .resolve(
             compositionAvailability: composition.availability
         )
