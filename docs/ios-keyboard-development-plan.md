@@ -2,9 +2,9 @@
 
 Status: active feasibility work; canonical roadmap P3 and P4A through P4D-4 are
 complete. P4D-5A local technical Release qualification and the independent P5U
-containing-app Usage surface are complete, while P4D-2C, P4D-5B, and keyboard
-M0B/M0C remain physical-device gates. Started 2026-07-09 and updated
-2026-07-13.
+containing-app Usage surface are complete. The docs-only P5H-0 app-private
+History contract freeze is also complete, while P4D-2C, P4D-5B, and keyboard
+M0B/M0C remain physical-device gates. Started 2026-07-09 and updated 2026-07-13.
 
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
@@ -458,3 +458,8 @@ host app, state, expected result, actual result, and go/no-go decision.
   failed-History Retry, exposes no state to App Group, and adds no dependency or
   symbol to the keyboard extension. Evidence lives in
   `docs/qa/runs/ios-transcription-usage-estimate-2026-07-13.md`.
+- P5H-0 app-private History contract freeze: complete. The ordered P5H-1
+  reader/consent migration, P5H-2 foreground ownership plus disclosure-v2
+  activation, P5H-3 combined containing-app boundary, and P5H-4 native UI remain
+  containing-app work. P5H-0 changes no Swift, App Group value, extension
+  dependency, keyboard setting, provider request, or current disclosure version.

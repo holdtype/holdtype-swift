@@ -12,6 +12,7 @@ change.
 - process-owned observation and compare-and-swap mutation;
 - provider-stage authorization and late-result rejection;
 - explicit review, acceptance, withdrawal, and unreadable-record reset;
+- frozen semantic contract for a later History-aware disclosure version;
 - storage durability, privacy, and redaction.
 
 ## Non-goals
@@ -20,7 +21,8 @@ change.
 - API-key storage or validation;
 - microphone authorization;
 - Quick Session consent;
-- general settings, History, App Group, keyboard, analytics, or cloud sync.
+- general settings, History rows or policy mutation, App Group, keyboard,
+  analytics, or cloud sync.
 
 ## Version-1 Record
 
@@ -40,6 +42,41 @@ app-only transcription, optional correction/translation, protected Pending
 recovery, app-private Latest Result, and no History or Recording Cache product.
 Enabling P5 History/retention or materially changing provider, transmitted data,
 or purpose requires a later disclosure version and renewed acceptance.
+
+### Frozen P5 Disclosure Version 2
+
+P5H-0 freezes `disclosureVersion` integer `2` without activating it. The
+persisted record keeps `schemaVersion: 1`; this is a disclosure-semantic change,
+not a wire-format migration. Production continues to use version `1` until the
+P5H-2 activation checkpoint changes the current version together with the real
+foreground History ownership path.
+
+Version `2` keeps every version-1 provider statement and additionally explains
+that:
+
+- when History is enabled, which is the default, HoldType stores at most 20
+  accepted results and five recoverable failed attempts in app-private local
+  storage;
+- a failed row may retain its protected recording only for explicit Retry,
+  while accepted audio is not retained merely because accepted text is in
+  History;
+- Pending Recording, Latest Result, History, and the separately gated Recording
+  Cache have independent lifetimes and controls;
+- History can be disabled or cleared from Storage & Recovery, does not sync to
+  cloud storage, and never enters App Group or the keyboard extension.
+
+Durable acceptance of version `2` is the first-use History disclosure required
+before the first History-producing provider attempt. It does not itself enable
+History, mutate its policy, create a row, start recording, read Keychain, or
+contact OpenAI. No second History-disclosure Boolean or duplicate first-use
+modal is created; the History policy remains the sole enable/disable authority.
+
+After version `2` becomes current, a readable accepted version-1 record is
+`review required`, not declined or accepted. Local History browsing, Copy,
+Share, Delete, Clear, and policy changes remain available, but every new Voice
+provider stage and failed-row Retry stays blocked until version `2` is durably
+accepted. P5H-0 does not change the current production version or user-visible
+behavior.
 
 The timestamp uses exactly `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'`, a proleptic Gregorian
 calendar, four calendar-year digits, and no leap second. The complete file is at
@@ -134,6 +171,13 @@ consent.
   repository/root unavailability, process-gate closure, duplicate completion,
   or physical-root mismatch makes matching output ineligible. There is no
   validation-to-result-consumption window.
+- Failed-History Retry is not an exemption. Its Transcription, optional
+  Correction, and Translation stages each use the same composition-owned
+  coordinator, obtain their own registration and one-shot result authority, and
+  reject an older disclosure, withdrawal, reset, supersession, or late result
+  exactly like foreground Voice. Transcription or Translation authorization
+  loss becomes a Privacy & Permissions setup requirement; optional Correction
+  discards its unconsumed result and remains fail-open.
 - The containing-app stage executor prepares one cancellable task behind a
   closed launch permit before registration. Registration installs cancellation
   first; the atomic launch operation may then release that exact task. Losing
@@ -220,6 +264,10 @@ consent.
   duplicate result, reset, disclosure update, another scene, root alias/root
   substitution, same-root accepted-file withdrawal/corruption/deletion or
   unavailability, cancellation, and non-cooperative late completion.
+- Test the version-1 to version-2 transition without changing schema version:
+  old acceptance becomes review-required, local History actions remain
+  provider-free, no Voice or failed Retry dispatch occurs before renewed
+  acceptance, and version-2 acceptance mutates no History policy or row.
 - Test the containing-app executor for a closed pre-launch permit, cancellation
   before launch and during result handoff, discarded late completion,
   normalized thrown failure, exactly-once consumption, all three provider

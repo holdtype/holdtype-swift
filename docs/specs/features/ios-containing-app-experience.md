@@ -322,6 +322,37 @@ The app guides setup in this order:
   Keychain, requests permission, contacts OpenAI, changes History, or mutates
   the keyboard/App Group.
 
+### Frozen P5H History Presentation
+
+P5H-0 defines the functional History surface but leaves the current placeholder
+unchanged. P5H-4 may expose it only after the failed-Retry reader/consent gate,
+foreground History ownership, and combined containing-app boundary have passed.
+
+- The composition root owns one combined History service and one observable
+  state owner for the process. Every scene receives those exact identities;
+  views never construct a coordinator, failed service, or repository.
+- A single generation-consistent snapshot drives loading, enabled-empty,
+  disabled, ready, pending-local-recovery, unreadable/unavailable, and
+  mutation-failed presentations. Recovery or corruption is never shown as an
+  optimistic empty list.
+- Ready History is newest-first and presents accepted and failed rows in one
+  understandable local timeline. Accepted rows offer Copy, Share, and confirmed
+  Delete. Failed rows show `Not transcribed`, compact recovery metadata,
+  explicit Retry or its owning setup route, and confirmed Delete.
+- Copy, Share, Delete, Clear, and enable/disable are provider-free. Failed-row
+  Retry requires current provider consent and routes an older or missing
+  disclosure to Privacy & Permissions before reservation, without changing the
+  row or retry count.
+- Settings adds Storage & Recovery for the History toggle, confirmed Clear
+  History, and a redacted cleanup-pending status. A confirmed policy boundary
+  updates every scene immediately even when physical cleanup continues.
+- Play and Save to Files remain absent until a retained-audio or Recording Cache
+  checkpoint makes them truthful. The UI does not render disabled future
+  controls.
+- Voice and failed-History Retry share one process-wide provider owner. History
+  actions explain and reject a busy operation rather than starting a competing
+  request, playback session, or destructive mutation.
+
 ## Quick Session Gate
 
 - Quick Session is hidden or clearly unavailable until the M0B prerequisites
@@ -413,9 +444,11 @@ The app guides setup in this order:
   app-private storage context for the process. Scenes and views never create
   their own recovery owners.
 - The same composition root retains exactly one OpenAI credential coordinator
-  and one failed-History service. The service installs its fixed provider
-  adapter internally; scenes and views receive no provider/session factory and
-  cannot select a different marker path or credential cache.
+  and one failed-History service. P5H-3 composes that service with accepted rows
+  and policy actions behind one History presentation boundary. The service
+  installs its fixed provider adapter internally; scenes and views receive no
+  provider/session factory and cannot select a different marker path,
+  credential cache, consent coordinator, or repository.
 - After its canonical storage root resolves, the composition root also retains
   exactly one observable Settings state owner and one observable Library state
   owner. Every iPhone and iPad scene and failed-History Retry uses those same
@@ -497,5 +530,8 @@ The app guides setup in this order:
 - Production QWERTY and iPad keyboard work remain under their existing gates.
 - Durable accepted and failed history follows `ios-history-and-storage.md` and
   remains app-only.
+- Functional History exposure follows P5H-0 through P5H-4 in
+  `docs/ios-product-portability-plan.md`; the spec freeze alone does not activate
+  disclosure version `2`, History-producing foreground work, or UI.
 - A configurable Quick Session duration, Live Activity, first production typing
   layouts, and the iPad hardware-keyboard trigger require later decisions.

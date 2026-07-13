@@ -166,6 +166,28 @@ behavior remain platform-owned.
   result; ambiguous replacement blocks another destructive mutation. A
   discarded, expired, or tombstoned predecessor never returns as prior text.
 
+### Frozen P5H Accepted-History Activation
+
+P5H-0 leaves the P4 `historyWrite: null` path active. P5H-2 introduces a named
+History-aware foreground mode and makes it production only in the same
+releasable checkpoint as provider disclosure version `2`.
+
+- Before provider work, the app obtains current version-2 provider authority;
+  separately, the History coordinator captures the canonical enabled state and
+  generation needed by accepted-output preparation.
+- With History enabled, the mandatory delivery record carries the captured
+  pending History write and the coordinator attempts the accepted row before
+  result publication. With History disabled, the record retains a null History
+  write and remains the independent Latest/Pending recovery destination.
+- A History append failure after mandatory delivery commit is a visible
+  non-blocking History warning. It retains exact local outbox/recovery work and
+  never repeats transcription, correction, or Translation.
+- P4 results are not backfilled, and enabling History later does not create rows
+  for an older Latest Result.
+- Copy, Share, Clear Latest, History Delete, Clear History, and the History
+  toggle remain distinct explicit local actions; none grants provider consent
+  or writes a keyboard/App Group command.
+
 ## Latest And Pending Result Lifetime
 
 - Before any keyboard publication or other output handoff, the containing app

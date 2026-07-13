@@ -85,6 +85,33 @@ three explicit data lifecycles.
 - One unresolved Pending attempt blocks another recording or provider chain
   until it succeeds, is explicitly discarded, or is safely reconciled.
 
+### Frozen P5H Foreground Ownership Transition
+
+P5H-0 freezes the later production transition without changing P4 runtime
+behavior. P5H-2 may enable it only in the same releasable checkpoint that makes
+provider disclosure version `2` current.
+
+- Before a new History-producing provider chain begins, version `2` must be
+  durably accepted. Acceptance of the disclosure does not mutate the independent
+  History policy.
+- Successful foreground output captures and revalidates the canonical History
+  policy, commits the mandatory accepted-output record, and uses the existing
+  accepted-History acceptance/outbox contract when History is enabled. With
+  History disabled it retains the app-private Latest/Pending result contract
+  without creating a History row.
+- P4 results are never backfilled. Only attempts begun through the activated
+  P5H-2 path can create accepted or failed History ownership.
+- An eligible recoverable Transcription or Translation failure with History on
+  transfers the exact Pending Recording and retry-only audio to one failed row
+  before retiring Pending metadata. Voice then offers `Open History`, not stale
+  Pending Retry or Discard actions.
+- With History off, at capacity, or before a transfer is durably confirmed, the
+  exact Pending Recording remains the visible Retry-or-Discard owner. The app
+  never presents both owners or starts a second recording against uncertainty.
+- A failed History append or post-boundary cleanup cannot repeat provider work.
+  Accepted output remains recoverable with a visible non-blocking History
+  warning, while failed transfer uncertainty remains local recovery work.
+
 ## Scope
 
 - accepted transcript history
@@ -167,6 +194,34 @@ three explicit data lifecycles.
   Share/Save to Files, and provides per-item Delete and Clear Cache.
 - Choosing unlimited recording retention shows that storage can grow until the
   user clears it or changes the policy.
+
+### Containing-App History Presentation Boundary
+
+- One process-owned History service and observable state owner are shared by
+  every scene. A view never opens accepted, failed, policy, outbox, delivery, or
+  audio repositories directly.
+- One bounded load returns a generation-consistent policy plus accepted and
+  failed presentation rows under the canonical operation gate. The UI never
+  merges independently loaded arrays or treats corrupt, future, unavailable,
+  conflicted, uncertain, or unresolved recovery state as empty.
+- Presentation states are explicit: loading, enabled empty, disabled, ready,
+  pending local recovery, unreadable/unavailable, and mutation failed with the
+  last confirmed snapshot when one exists.
+- Accepted row identifiers and failed row identifiers are opaque and
+  non-Codable. Accepted rows expose only accepted text and the metadata needed
+  for date, intent, model, language, duration, Copy, Share, and Delete. Failed
+  rows retain the existing bounded DTO and expose no path or mutation
+  capability.
+- Provider-free browsing, Copy, Share, accepted/failed Delete, Clear, and
+  enable/disable remain usable without OpenAI consent. Retry alone repeats
+  current Settings, Library, consent, credential, and media preflight.
+- History controls live in Settings > Storage & Recovery. The History screen
+  may link there but does not create a second policy owner. Confirmed logical
+  Clear or Disable immediately publishes empty/disabled truth; later physical
+  cleanup appears only as a redacted non-blocking pending status.
+- Play and Save to Files are shown only when their owning retained-audio or
+  Recording Cache checkpoint provides a valid item. The first functional
+  History UI exposes no inert playback or cache controls.
 
 ## Voice-Session Concurrency
 
@@ -982,6 +1037,9 @@ without trusting process memory.
 - History policy, generation, rows, retry-audio ownership, and cleanup status
   remain app-private and never enter App Group storage or a keyboard settings
   snapshot.
+- The functional History route depends on the process-owned combined service
+  and state owner. The current placeholder remains until P5H-1 through P5H-3
+  have passed and P5H-4 explicitly exposes the surface.
 
 ## Verification mapping
 
@@ -1011,6 +1069,10 @@ without trusting process memory.
   playback availability, Share/Save failure, and cache clear isolation.
 - Test Play/Retry gating in every voice phase, playback-to-recording handoff,
   single retry ownership, and destructive-action gating for an active item.
+- Test the combined History snapshot and every presentation state, exact
+  generation agreement across accepted and failed rows, multi-scene owner
+  identity, local actions without provider consent, and the absence of inert
+  Play/Save controls before Recording Cache.
 - Test relative identifier resolution, file protection configuration, backup
   exclusion, and HoldType-only reconciliation.
 - Test that logs, bridge files, and exports omit forbidden data.

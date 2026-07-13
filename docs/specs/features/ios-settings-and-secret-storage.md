@@ -57,6 +57,10 @@ and the OpenAI API key.
   `ios-privacy-and-permissions.md`; no consent value, date, or mutation marker
   enters `ios-app-settings.json`, Library, App Group, SceneStorage, or the
   keyboard settings snapshot.
+- P5H-4 adds Storage & Recovery only after the History boundary is complete.
+  Its History toggle and Clear action mutate the dedicated History policy, not
+  `ios-app-settings.json`. Opening the route performs no provider, Keychain,
+  microphone, App Group, or keyboard work.
 
 ## Default configuration
 
@@ -208,6 +212,14 @@ default. Typing layouts and dictionaries appear only after their entry gate.
   the resolved credential to one transient provider adapter before the durable
   Retry reservation. The public Retry call accepts no caller-mintable
   credential-eligibility flag and no stored credential snapshot.
+- P5H-1 inserts the exact composition-owned provider-consent coordinator into
+  that preflight. After current Settings, Library, and output intent are
+  resolved, Retry passively requires current consent before it reads Keychain
+  or performs a durable reservation. Missing, withdrawn, or older-version
+  consent routes to Privacy & Permissions and leaves row and retry count
+  unchanged. Every launched stage then revalidates through the same consent
+  executor; no consent value is retained in Settings, Library, or failed
+  History.
 - Launch, foreground, History cleanup, failed-Retry process-loss recovery, and
   failed-row reads are passive operations. They do not resolve Keychain or
   construct a provider session. Missing or unavailable credentials are

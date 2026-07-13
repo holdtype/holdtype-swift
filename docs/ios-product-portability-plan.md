@@ -6,7 +6,8 @@ containing app now includes the shared foreground Voice runtime and native
 Voice and Privacy presentation on iPhone and iPad. P4D-5A local Release/runtime
 qualification is complete; P4D-2C and P4D-5B physical-device evidence remains
 pending. P5 is in progress, with the independent P5U Transcription Usage
-Estimate complete; updated 2026-07-13.
+Estimate and the docs-only P5H-0 History contract freeze complete; updated
+2026-07-13.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1533,6 +1534,34 @@ History UI remains unavailable until provider-consent v2 and the neutral
 reader/consent-gated failed-Retry migration are complete; diagnostics follows
 as an independent later P5 slice.
 
+History delivery is split into five ordered checkpoints:
+
+1. **P5H-0 — contract freeze:** complete. Specs define disclosure version `2`,
+   foreground accepted/failed ownership, the reader/consent Retry gate, one
+   combined local History boundary, and native UI states. This checkpoint is
+   documentation only: production still uses disclosure version `1`, P4
+   `historyWrite: null`, the hidden legacy Retry adapter, and the unavailable
+   History placeholder.
+2. **P5H-1 — hidden Retry safety migration:** replace new retry-audio URL
+   materialization with the bounded neutral reader and route Transcription,
+   optional Correction, and Translation through the exact composition-owned
+   consent stage executor. Keep the action unavailable while testing consent
+   loss, cancellation, late results, and legacy-scratch scavenging.
+3. **P5H-2 — foreground ownership and v2 activation:** add the production
+   accepted-History path and eligible Pending-to-failed-row transfer. In the
+   same releasable checkpoint, make disclosure version `2` current and update
+   Voice/Privacy copy. Never let version-1 acceptance create retained History,
+   and never re-prompt for version `2` before its disclosed behavior exists.
+4. **P5H-3 — combined containing-app boundary:** expose one process-owned,
+   generation-consistent policy/accepted/failed service and shared state owner
+   with explicit loading, empty, disabled, ready, recovery-pending,
+   unavailable, and mutation-failed states. No view-level repositories or
+   independently merged arrays.
+5. **P5H-4 — native UI exposure:** replace the placeholder, add accepted and
+   failed row actions, and add Storage & Recovery History controls only after
+   P5H-1 through P5H-3 pass. Playback and Save to Files stay absent until their
+   retained-audio checkpoint exists.
+
 ### P6 — M0C Quick Session spike and production bridge
 
 Entry: M0B has passed on physical devices; Full Access and Quick Session
@@ -1757,6 +1786,13 @@ no provider request, Keychain read, microphone request, History mutation,
 App Group field, or keyboard dependency. History presentation and failed-row
 Retry remain hidden until their consent-v2 and neutral-reader prerequisites
 land.
+
+P5H-0 is also complete as a docs-only contract checkpoint. It changes no Swift,
+persisted bytes, consent decision, provider path, History policy, App Group
+record, or keyboard dependency. P5H-1 is the next History checkpoint: migrate
+the hidden failed-Retry provider adapter to the neutral reader and current
+consent-stage executor before activating disclosure version `2` or exposing any
+History action.
 
 Final P3 evidence lives in
 `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`,

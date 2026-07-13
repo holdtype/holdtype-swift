@@ -42,6 +42,7 @@ Accepted rows remain governed by
 - retention, individual Delete, and audio-cleanup tombstones
 - participation in History policy cutover and provider-free lifecycle recovery
 - durable one-retry ownership and accepted-output success handoff
+- neutral bounded-reader provider requests and current-consent stage gating
 - corruption, cancellation, process-loss, and storage-unavailable behavior
 
 The History screen, first-use disclosure, settings controls, and Voice screen
@@ -70,13 +71,16 @@ partial UI early.
 - Retry is available only when the row still owns valid audio, History remains
   enabled for that row's current generation, no Voice/provider chain is
   active, one audio-cleanup tombstone slot is free, and current settings and
-  credentials can run its output intent.
+  credentials can run its output intent, and the current provider disclosure is
+  durably accepted.
 - When all five audio-cleanup slots are occupied, Retry remains unavailable
   until bounded provider-free cleanup retires the canonical head. That local
   cleanup does not change the failed row, its retry count, or its original
   failure.
 - Missing or invalid current setup routes to the owning Settings section
   without changing the row or retry count.
+- Missing, withdrawn, or older-version provider consent routes to Privacy &
+  Permissions before credential resolution or durable Retry reservation.
 - Retry preserves `.standard` or `.translate`. Translation retries use the
   current valid translation configuration and never publish the intermediate
   transcription as the requested result. Both intents use one fresh frozen
@@ -91,6 +95,12 @@ partial UI early.
 - Cancelling an active Retry cancels its provider task and keeps the failed row
   and audio. A late provider response has no authority to accept output or
   delete the row.
+- Consent withdrawal or supersession during Retry follows the same preservation
+  rule. Missing or stale consent before reservation leaves retry count
+  unchanged. Authorization loss after durable reservation may retain that
+  explicit attempt's one count increment while clearing its exact operation;
+  it does not replace the prior compact failure. A later provider attempt
+  requires another explicit Retry.
 - Individual Delete makes only the selected failed row unavailable, then
   removes its exact retry audio during bounded local cleanup. If cleanup is
   interrupted, the row stays deleted and Storage & Recovery may show a
@@ -910,21 +920,22 @@ resurrects the item.
 
 Explicit Retry is exposed only by a process-owned containing-app service whose
 session factory resolves individually durable Settings and Library snapshots
-through the exact composition-owned state owners, then resolves the requested
-output intent and the app's canonical credential coordinator before the first
-durable Retry write. It waits behind an in-flight owner mutation, consumes the
-new canonical value only after successful save, and falls back to the previous
-durable value after a failed save. It does not claim cross-file atomicity for
-the independently durable Settings and Library pair. The action accepts no
-caller-provided
+through the exact composition-owned state owners, resolves the requested output
+intent, passively observes the app's canonical provider-consent coordinator,
+and requires current consent before resolving the canonical credential or
+performing the first durable Retry write. It waits behind an in-flight owner
+mutation, consumes the new canonical value only after successful save, and
+falls back to the previous durable value after a failed save. It does not claim
+cross-file atomicity for the independently durable Settings and Library pair.
+The action accepts no caller-provided
 `credentialEligible` flag, path, row, configuration snapshot, or provider
 capability. A ready session binds one transient resolved credential to a fixed
-provider adapter and the validated current configuration; it is non-Codable,
-redacted, and cannot be reconstructed from failed-row storage. Standard Retry
-passes no Translation configuration. Translation Retry requires a currently
-valid Translation route. Both compose the current prompt with no Nearby Text,
-freeze current correction and local-processing inputs, and force automatic
-insertion off.
+provider adapter, current consent observation, and validated configuration; it
+is non-Codable, redacted, and cannot be reconstructed from failed-row storage.
+Standard Retry passes no Translation configuration. Translation Retry requires
+a currently valid Translation route. Both compose the current prompt with no
+Nearby Text, freeze current correction and local-processing inputs, and force
+automatic insertion off.
 
 Within the failed-History action surface, only row DTOs and redacted
 load/Delete/Retry results are ordinary public API. The separate lifecycle
@@ -938,22 +949,30 @@ view/scene API. App code outside the composition root cannot construct another
 service or supply its own readiness flag, configuration, provider, credential
 generation, or session.
 
-Transcription Retry creates its one legacy URL-based provider copy only inside
-the dedicated `holdtype-ios-failed-history-retry-v1` temporary namespace. The
-namespace is owner-only and exactly marked. Before the first non-empty audio
-write, the same open file descriptor must prove mode `0600`, Complete file
-protection, backup exclusion, the exact retry-audio marker, a single link, and
-an exclusive advisory lock. The provider copy stays locked through the request;
-normal and cancellation cleanup retain the directory and file descriptors and
-remove only when the final descriptor and path identities still match. A
-replacement, symlink, hard link, changed mode, marker, protection, size, or
-identity fails closed and is preserved. Darwin has no compare-and-unlink
-primitive, so the descriptor and path are rechecked immediately before the
-descriptor-relative `unlinkat`; no caller receives this narrow cleanup
-authority.
+The completed C4.5 implementation still has an internal legacy URL-
+materialization provider path. It is not eligible for History UI exposure.
+P5H-1 replaces new production materialization with
+`OpenAIReaderTranscriptionRequest` backed directly by the already validated
+`IOSPendingTranscriptionAudio`: format, duration, byte count, and offset reads
+remain bounded, and no URL, path, `FileHandle`, detached descriptor, or scratch
+copy crosses the provider boundary.
 
-Containing-app startup schedules one provider-free, process-once orphan pass;
-the keyboard never schedules or links it. The pass does not create or repair a
+P5H-1 also sends Transcription, optional Correction, and Translation through
+the same composition-owned `IOSProviderConsentStageExecutor` used by foreground
+Voice. Each stage obtains its own registration and one-shot result authority
+from the current observation. Losing consent before launch invokes no provider;
+losing it after launch cancels supported work and rejects late completion.
+Transcription or Translation authorization loss clears only the exact operation,
+preserves row/audio and the prior failure, and returns setup required for
+Privacy & Permissions. Optional Correction remains fail-open: it discards the
+unconsumed correction result and continues from the accepted transcription,
+subject to a fresh gate for any later Translation stage. No authorization-loss
+path manufactures a new durable failure or rolls back the one retry-count
+increment already committed by reservation.
+
+Containing-app startup retains one provider-free, process-once orphan pass for
+legacy copies already left by the pre-P5H-1 implementation; the keyboard never
+schedules or links it. The pass does not create or repair a
 missing, symlinked, unmarked, or invalid namespace. It inspects at most 128
 entries, removes at most 16 files, accounts at most 200 MB, runs for less than
 500 ms, and accepts only an exact marked retry filename at least one hour old,
@@ -967,8 +986,12 @@ cancelled, setup required with its semantic owning destination, unavailable,
 or pending local recovery. It carries no transcript, credential, provider
 payload, status code, path, durable identifier, receipt, or capability.
 Missing or invalid setup returns before reservation and leaves the row and
-retry count unchanged. Cancellation after reservation uses the existing exact
-retirement path; late provider output remains unauthorized. Accepted output
+retry count unchanged. Missing or stale consent follows that same pre-reservation
+rule. Consent loss after reservation may retain the attempt's single increment;
+Transcription or Translation returns setup required for Privacy & Permissions,
+while optional Correction follows its fail-open contract. Cancellation after
+reservation uses the existing exact retirement path; late provider output
+remains unauthorized. Accepted output
 enters the normal accepted-output recovery path and is never inserted into an
 arbitrary field by this service. Cancellation before any reservation returns
 `cancelled` and leaves the row and retry count unchanged. Once exact Retry
@@ -1116,10 +1139,15 @@ row state.
   insertion off, preserved category and stage for cancel or unmappable
   outcomes, non-authoritative Usage failure, and no automatic provider call
   after process loss.
-- Test Retry scratch protection and exact markers on the first-write file
-  descriptor, lock retention, cleanup cancellation and replacement races, and
-  bounded startup orphan selection. Preserve fresh, active, malformed,
-  unmarked, symlinked, hard-linked, foreign, and final-check-changed entries.
+- P5H-1 tests reader-backed Retry without new scratch creation plus consent loss
+  before launch, during each stage, and before result consumption. Prove
+  pre-reservation consent failure leaves retry count unchanged; post-reservation
+  loss may retain exactly one increment; Transcription/Translation route to
+  Privacy; Correction fails open; row/audio and prior failure survive; and late
+  output is ineligible.
+- Keep bounded legacy-scratch orphan-selection coverage for cleanup of existing
+  marked copies. Preserve fresh, active, malformed, unmarked, symlinked,
+  hard-linked, foreign, and final-check-changed entries.
 - Test that a matching `acceptingOutput` delivery blocks replacement, Clear
   Latest, expiry, bridge publication, and every other generic delivery mutation
   across process loss. Cover a missing slot, a wholly unrelated frozen

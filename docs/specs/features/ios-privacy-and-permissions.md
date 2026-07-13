@@ -187,6 +187,45 @@ renewed consent before the changed request path runs.
   remains available, and Retry stays blocked until the current disclosure is
   explicitly accepted again.
 
+### Frozen P5 History-Aware Disclosure
+
+P5H-0 freezes provider disclosure version `2` but does not activate it. The
+current app continues to enforce version `1` until P5H-2 can switch the
+disclosure and foreground History ownership together. The version-2 review
+adds clear product copy that:
+
+- History is local, enabled by default, and bounded to 20 accepted results and
+  five recoverable failed attempts;
+- a recoverable failed attempt may retain protected retry-only audio, while an
+  accepted History row does not by itself retain accepted audio;
+- History, Pending Recording, Latest Result, and Recording Cache have separate
+  lifetimes and controls;
+- History may be disabled or cleared in Storage & Recovery, does not sync to a
+  cloud service, and is never shared with the keyboard or App Group.
+
+Accepting version `2` is the durable first-use History disclosure. Showing or
+accepting it does not toggle History, create a row, read Keychain, request
+microphone permission, or contact a provider. HoldType does not present a
+second first-use History modal backed by another Boolean.
+
+When version `2` becomes current, an existing version-1 acceptance requires
+review before any new Voice provider request or failed-History Retry. Decline,
+Not Now, withdrawal, and review-required state leave provider-free History
+browsing, Copy, Share, Delete, Clear, and enable/disable available. A failed-row
+Retry with missing or outdated consent routes to Privacy & Permissions before
+credential resolution or durable Retry reservation.
+
+Every failed-row Retry provider stage uses the same process-owned consent gate
+as foreground Voice. Consent loss before launch invokes no provider operation.
+Consent loss after launch cancels supported work, rejects late output, preserves
+the failed row and retry-only audio, and clears the exact operation. Missing or
+stale consent before reservation leaves retry count unchanged; authority loss
+after the durable reservation may retain that explicit attempt's single count
+increment and never rolls it back. Transcription or Translation authorization
+loss reports setup required in Privacy & Permissions. Optional Correction stays
+fail-open and discards only its unconsumed correction result. A later provider
+attempt requires a fresh current observation and explicit Retry.
+
 ## Quick Session consent
 
 Before the first Quick Session, HoldType separately explains and obtains
@@ -303,6 +342,8 @@ Before routing the user to enable Full Access, HoldType states:
 - Privacy & Permissions is an app Settings destination.
 - Setup progress distinguishes microphone, keyboard guidance, Full Access
   verification, API-key readiness, provider consent, and Quick Session consent.
+- History content and local History controls do not require provider consent;
+  only Voice provider work and explicit failed-row Retry do.
 - Consent records contain only versioned boolean/date metadata, not user
   content.
 - Keyboard heartbeat and Full Access verification are short-lived App Group
@@ -318,6 +359,9 @@ Before routing the user to enable Full Access, HoldType states:
 - Test provider and Quick Session consent independently, including decline and
   later review, withdrawal during idle/listening/processing, exact data
   isolation, and explicit re-consent.
+- Test the frozen version-2 History disclosure on both Voice and Privacy
+  presentation paths, version-1 review-required behavior, provider-free local
+  History actions, and consent loss before/during every failed-Retry stage.
 - Test Full Access stale-state presentation and no confident containing-app
   `disabled` claim.
 - Inspect built app and extension privacy manifests and purpose strings.

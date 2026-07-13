@@ -545,6 +545,32 @@ Full Access, none of these extension-to-app commands is available.
   cancellation, Translation failure, or local transition uncertainty does not
   remove that usage event, and local recovery does not create another one.
 
+### Frozen P5H Foreground History Handoff
+
+P5H-0 freezes the P5 transition while production remains on the P4 app-only
+path. P5H-2 activates the following only together with provider disclosure
+version `2`:
+
+- New Voice provider work requires a durable current version-2 observation
+  before credential or microphone preflight continues. The disclosure decision
+  does not enable History or capture a policy generation by itself.
+- Successful final text uses the canonical History capture and acceptance path.
+  With History on, the accepted row decision is made before result publication;
+  with History off, the mandatory Latest/Pending result remains independent and
+  no row is created.
+- An eligible recoverable Transcription or Translation failure with History on
+  transfers exact audio ownership from Pending Recording to one failed row.
+  After that durable boundary Voice offers `Open History` and cannot present a
+  Pending Retry or Discard command for the retired owner.
+- With History off or when transfer is full, unavailable, or uncertain, Pending
+  Recording remains the sole visible Retry-or-Discard owner. No UI guesses that
+  transfer succeeded, and no second attempt starts against unresolved ownership.
+- A failed accepted-row append remains a non-blocking History warning after the
+  mandatory accepted-output record commits. It never replays provider work or
+  hides an otherwise recoverable accepted result.
+- Failed-row Retry is a separate explicit History action. It uses the same
+  process-owned consent stage executor and cannot compete with active Voice.
+
 ## Product states
 
 Active voice work uses one payload-free runtime phase:
@@ -732,6 +758,9 @@ session as inactive, and must not label setup-dependent behavior as ready.
 - One active capture and one finalization/provider chain per attempt.
 - History playback and retry cannot compete with an active voice phase; their
   ownership and handoff follow `ios-history-and-storage.md`.
+- Voice never exposes Pending recovery actions after failed-row ownership is
+  durably confirmed, and never exposes `Open History` while Pending remains the
+  canonical owner.
 - A completed artifact is journaled before provider dispatch.
 - Quick Session and per-utterance timers remain independent.
 - Armed samples are discarded and never persisted or uploaded.
