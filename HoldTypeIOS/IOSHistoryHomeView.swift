@@ -130,17 +130,6 @@ struct IOSHistoryHomeView: View {
                     Button("Dismiss") {
                         stateOwner.dismissNotice()
                     }
-                    if notice == .keyboardProjectionUpdateFailed {
-                        Button("Retry Keyboard Update") {
-                            Task {
-                                await stateOwner.retryKeyboardProjection()
-                            }
-                        }
-                        .disabled(stateOwner.isBusy)
-                        .accessibilityIdentifier(
-                            "ios.history.retry-keyboard-update"
-                        )
-                    }
                 }
                 .accessibilityIdentifier("ios.history.warning")
             }

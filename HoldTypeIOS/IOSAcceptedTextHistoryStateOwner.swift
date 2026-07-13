@@ -114,7 +114,6 @@ enum IOSAcceptedTextHistoryOperation: Equatable, Sendable {
     case deleting(UUID)
     case clearing
     case settingEnabled(Bool)
-    case publishingKeyboardSnapshot
 }
 
 enum IOSAcceptedTextHistoryNotice: Equatable, Sendable {
@@ -123,7 +122,6 @@ enum IOSAcceptedTextHistoryNotice: Equatable, Sendable {
     case enableFailed
     case disableFailed
     case historyChanged
-    case keyboardProjectionUpdateFailed
 
     var message: String {
         switch self {
@@ -137,8 +135,6 @@ enum IOSAcceptedTextHistoryNotice: Equatable, Sendable {
             "Save History couldn't be turned off. Its previous setting and entries remain active."
         case .historyChanged:
             "History changed while the confirmation was open. Review it and try again."
-        case .keyboardProjectionUpdateFailed:
-            "History changed, but the keyboard copy couldn't be updated. Retry the keyboard update."
         }
     }
 }
@@ -146,37 +142,19 @@ enum IOSAcceptedTextHistoryNotice: Equatable, Sendable {
 @MainActor
 @Observable
 final class IOSAcceptedTextHistoryStateOwner {
-    typealias PublishKeyboardSnapshot = @Sendable () async -> Bool
-
     private(set) var state = IOSAcceptedTextHistoryState.notLoaded
     private(set) var operation = IOSAcceptedTextHistoryOperation.idle
     private(set) var notice: IOSAcceptedTextHistoryNotice?
 
     @ObservationIgnored
     private let client: IOSAcceptedTextHistoryClient
-    @ObservationIgnored
-    private let publishKeyboardSnapshot: PublishKeyboardSnapshot
 
-    init(
-        client: IOSAcceptedTextHistoryClient,
-        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = {
-            true
-        }
-    ) {
+    init(client: IOSAcceptedTextHistoryClient) {
         self.client = client
-        self.publishKeyboardSnapshot = publishKeyboardSnapshot
     }
 
-    convenience init(
-        repository: IOSAcceptedTextHistoryRepository,
-        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = {
-            true
-        }
-    ) {
-        self.init(
-            client: IOSAcceptedTextHistoryClient(repository: repository),
-            publishKeyboardSnapshot: publishKeyboardSnapshot
-        )
+    convenience init(repository: IOSAcceptedTextHistoryRepository) {
+        self.init(client: IOSAcceptedTextHistoryClient(repository: repository))
     }
 
     var confirmedRecord: IOSAcceptedTextHistoryRecord? {
@@ -189,14 +167,11 @@ final class IOSAcceptedTextHistoryStateOwner {
     func refresh() async -> Bool {
         guard begin(.refreshing) else { return false }
         let previous = state.lastConfirmed
-        let retainedNotice = notice == .keyboardProjectionUpdateFailed
-            ? notice
-            : nil
         do {
             let record = try await client.load()
             guard complete() else { return false }
             state = .ready(record)
-            notice = retainedNotice
+            notice = nil
             return true
         } catch is CancellationError {
             _ = complete()
@@ -204,7 +179,7 @@ final class IOSAcceptedTextHistoryStateOwner {
         } catch {
             guard complete() else { return false }
             state = .loadFailed(lastConfirmed: previous)
-            notice = retainedNotice
+            notice = nil
             return false
         }
     }
@@ -247,20 +222,6 @@ final class IOSAcceptedTextHistoryStateOwner {
         notice = nil
     }
 
-    @discardableResult
-    func retryKeyboardProjection() async -> Bool {
-        guard notice == .keyboardProjectionUpdateFailed,
-              begin(.publishingKeyboardSnapshot) else {
-            return false
-        }
-        let projectionUpdated = await publishKeyboardSnapshot()
-        guard complete() else { return false }
-        notice = projectionUpdated
-            ? nil
-            : .keyboardProjectionUpdateFailed
-        return projectionUpdated
-    }
-
     private func mutate(
         operation: IOSAcceptedTextHistoryOperation,
         failureNotice: IOSAcceptedTextHistoryNotice,
@@ -273,17 +234,13 @@ final class IOSAcceptedTextHistoryStateOwner {
         }
         do {
             let result = try await perform()
+            guard complete() else { return false }
             switch result {
             case .confirmed(let record):
-                let projectionUpdated = await publishKeyboardSnapshot()
-                guard complete() else { return false }
                 state = .ready(record)
-                notice = projectionUpdated
-                    ? nil
-                    : .keyboardProjectionUpdateFailed
-                return projectionUpdated
+                notice = nil
+                return true
             case .stale(let record):
-                guard complete() else { return false }
                 state = .ready(record)
                 notice = .historyChanged
                 return false

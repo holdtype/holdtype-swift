@@ -143,55 +143,6 @@ struct IOSAcceptedTextHistoryStateOwnerTests {
         #expect(await fixture.mutationCallCount == 4)
     }
 
-    @Test func confirmedMutationUpdatesKeyboardProjectionAndReportsFailure()
-        async throws {
-        let fixture = HistoryOwnerFixture(record: try historyRecord(1, 2))
-        let projection = HistoryKeyboardProjectionProbe(
-            results: [false, true]
-        )
-        let owner = IOSAcceptedTextHistoryStateOwner(
-            client: historyOwnerClient(fixture),
-            publishKeyboardSnapshot: { await projection.publish() }
-        )
-        _ = await owner.refresh()
-
-        #expect(!(await owner.delete(resultID: historyIdentifier(1))))
-        #expect(owner.confirmedRecord == (try historyRecord(2)))
-        #expect(owner.notice == .keyboardProjectionUpdateFailed)
-
-        #expect(await owner.refresh())
-        #expect(owner.notice == .keyboardProjectionUpdateFailed)
-        #expect(await projection.callCount == 1)
-
-        #expect(await owner.retryKeyboardProjection())
-        #expect(owner.confirmedRecord == (try historyRecord(2)))
-        #expect(owner.notice == nil)
-
-        #expect(await owner.clearAll(ifCurrent: try historyToken(2)))
-        #expect(owner.confirmedRecord == .enabledEmpty)
-        #expect(owner.notice == nil)
-        #expect(await projection.callCount == 3)
-    }
-
-    @Test func failedOrStaleMutationDoesNotPublishKeyboardProjection()
-        async throws {
-        let original = try historyRecord(1, 2)
-        let fixture = HistoryOwnerFixture(record: original)
-        let projection = HistoryKeyboardProjectionProbe(results: [true])
-        let owner = IOSAcceptedTextHistoryStateOwner(
-            client: historyOwnerClient(fixture),
-            publishKeyboardSnapshot: { await projection.publish() }
-        )
-        _ = await owner.refresh()
-
-        await fixture.setFailure(.delete)
-        #expect(!(await owner.delete(resultID: historyIdentifier(1))))
-        let staleToken = IOSAcceptedTextHistorySnapshotToken(record: original)
-        await fixture.replaceRecord(try historyRecord(1, 2, 3))
-        #expect(!(await owner.clearAll(ifCurrent: staleToken)))
-        #expect(await projection.callCount == 0)
-    }
-
     @Test func failedMutationsKeepConfirmedRecordAndExposeExactWarning()
         async throws {
         let fixture = HistoryOwnerFixture(record: try historyRecord(1, 2))
@@ -283,20 +234,6 @@ private enum HistoryOwnerFixtureAction: Sendable {
 
 private enum HistoryOwnerFixtureError: Error {
     case failed
-}
-
-private actor HistoryKeyboardProjectionProbe {
-    private var results: [Bool]
-    private(set) var callCount = 0
-
-    init(results: [Bool]) {
-        self.results = results
-    }
-
-    func publish() -> Bool {
-        callCount += 1
-        return results.isEmpty ? true : results.removeFirst()
-    }
 }
 
 private actor HistoryOwnerFixture {
