@@ -76,7 +76,7 @@ public actor IOSForegroundVoiceProcessor {
     public init(
         persistenceOwner: IOSForegroundVoicePersistenceOwner,
         consentCoordinator: IOSProviderConsentCoordinator,
-        usageRepository: IOSTranscriptionUsageRepository,
+        usageRecordingClient: IOSTranscriptionUsageRecordingClient,
         credentialCoordinator: IOSOpenAICredentialCoordinator
     ) {
         self.persistenceOwner = persistenceOwner
@@ -86,7 +86,7 @@ public actor IOSForegroundVoiceProcessor {
         )
         provider = IOSForegroundVoiceOpenAIProviderOperations()
         recordUsage = { usage in
-            _ = try? await usageRepository.record(usage)
+            await usageRecordingClient.record(usage)
         }
         recordProviderRejection = { generation in
             await credentialCoordinator.recordProviderRejection(
@@ -95,6 +95,25 @@ public actor IOSForegroundVoiceProcessor {
         }
         makeUUID = { UUID() }
         postProcessor = TranscriptTextPostProcessor()
+    }
+
+    /// Test-only convenience. Production composition injects one shared
+    /// recording client so failures are ordered against Reset.
+    init(
+        persistenceOwner: IOSForegroundVoicePersistenceOwner,
+        consentCoordinator: IOSProviderConsentCoordinator,
+        usageRepository: IOSTranscriptionUsageRepository,
+        credentialCoordinator: IOSOpenAICredentialCoordinator
+    ) {
+        self.init(
+            persistenceOwner: persistenceOwner,
+            consentCoordinator: consentCoordinator,
+            usageRecordingClient: IOSTranscriptionUsageRecordingClient(
+                repository: usageRepository,
+                reportFailure: { _ in }
+            ),
+            credentialCoordinator: credentialCoordinator
+        )
     }
 
     init(

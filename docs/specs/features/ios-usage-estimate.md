@@ -64,6 +64,9 @@ complete provider-usage dashboard.
 
 ## User-Visible Behavior
 
+- Settings exposes one independent `Transcription Usage Estimate` route. It is
+  available without a saved API key, microphone permission, Full Access, a
+  running Voice session, or a live provider request.
 - Settings labels the destination `Transcription Usage Estimate` and explains
   that values come only from successful transcriptions made by this device.
 - The summary shows `Today`, `Average per day`, `Last 30 days`, and `Estimated
@@ -81,11 +84,30 @@ complete provider-usage dashboard.
   by guessing.
 - With no events, the surface says that an estimate appears after successful
   transcriptions. A storage/decode failure shows a local error rather than an
-  empty-success state.
+  empty-success state. That unreadable state offers both local Retry and an
+  explicitly confirmed Reset; if Reset fails, the unreadable state remains and
+  Reset stays retryable.
+- Opening the route refreshes from the canonical repository. Pull to refresh
+  and a visible retry action perform the same local read. The screen does not
+  poll, contact OpenAI, or read Keychain merely to look current.
+- A usage-write failure never fails or rewinds an accepted transcription. One
+  process-local, content-free notice says that some usage could not be saved
+  and the estimate may be incomplete. A later successful load does not pretend
+  that the missing event was recovered. The notice remains for the process
+  lifetime unless the user explicitly dismisses it or successfully resets the
+  estimate; it is not persisted as another usage or diagnostics record.
+- The Cost/Minutes picker and every chart bar expose the day and formatted
+  value to accessibility. The four textual summary values remain the complete
+  nonvisual equivalent, so chart exploration is never the only way to learn
+  the totals or pricing limitation.
 - `Reset Usage Estimate` requires destructive confirmation, removes only local
   usage events, and immediately returns this surface to its empty state. It does
   not change the API key, settings, History, latest result, recordings, cache,
   consent, or any external OpenAI data.
+- While Reset is in flight, duplicate Reset and Refresh actions are disabled.
+  A reset failure preserves the last confirmed summary and presents a local,
+  retryable error; without a prior confirmed summary, it preserves the
+  unreadable presentation. It never optimistically clears the chart.
 
 ## Persistence And Privacy
 
@@ -93,6 +115,22 @@ complete provider-usage dashboard.
   exactly one process-wide repository actor, which serializes read-modify-write
   operations. Concurrent repository instances for the same file are unsupported;
   the keyboard, App Group, and Keychain never receive usage state.
+- Foreground Voice, failed-History Retry, and the Settings presentation owner
+  receive that exact composition-owned repository instance. No convenience
+  initializer may create a second production actor for the canonical file.
+- One process-owned presentation owner is shared by all scenes. It holds only
+  the current aggregate presentation, operation state, and content-free write
+  failure notice. Each load/reset command has a private monotonic operation
+  identity. Competing commands are rejected until the active command finishes,
+  and a cancelled refresh cannot publish a late success or failure.
+- Voice and Retry record through one mandatory composition-owned client. Every
+  attempted usage write receives an opaque monotonic token; a successful Reset
+  returns the repository's current token as a fence. Failure callbacks at or
+  before that fence cannot recreate a dismissed warning, while a later failure
+  remains visible. The token contains no usage content or persistent identity.
+  If its process-local counter is exhausted, its terminal token fails closed:
+  every later failure is shown again even after Dismiss or Reset rather than
+  being mistaken for an older callback.
 - The canonical file is app-private Application Support at
   `HoldType/ios-transcription-usage.json`. It uses Complete Data Protection, is
   excluded from backup, and is limited to 4 MiB.
@@ -184,6 +222,9 @@ complete provider-usage dashboard.
   preserves the source for bounded recovery; it is not silently overwritten.
 - A failed append leaves the successful dictation/output available and shows a
   non-blocking estimate-storage error.
+- Cancellation of a view-driven refresh is not shown as a storage failure and
+  its late completion is ignored. While one refresh or Reset is active, another
+  scene cannot admit a competing command.
 - A source larger than 4 MiB is rejected before decode. If adding a valid event
   would exceed 4 MiB, the append fails without modifying the old file; valid
   within-retention events are not evicted merely to make the new event fit.
@@ -201,8 +242,21 @@ complete provider-usage dashboard.
   cancelled, duplicate, correction, and translation path.
 - Test today, elapsed-day average, 30-day window, projection, daily buckets,
   time zones, known/unknown/mixed pricing, and frozen historical rates.
+- Test that foreground Voice, failed-History Retry, and presentation use the
+  exact same repository actor and that concurrent records cannot lose an
+  event through independent read-modify-write owners.
 - Test 365-day pruning, migrations, corrupt storage, append/reset failures,
   confirmation, and reset isolation.
+- Test initial refresh, explicit retry, cancelled late-completion rejection,
+  competing-command suppression, reset-failure preservation, and process-local
+  write-error notice dismissal.
+- Render empty, known-price, mixed-price, unknown-price, load-failure,
+  write-warning, and reset-failure states on compact iPhone and regular-width
+  iPad at maximum Dynamic Type. Verify chart marks expose day/value labels and
+  no total depends on chart color.
+- Make the iOS Release verifier fail when the containing-app bundle contains
+  the usage qualification fixture or the keyboard bundle contains usage
+  repository, estimate, storage-filename, or qualification markers.
 - Inspect fixtures and stores for all forbidden content and prove normal tests
   make no live billing/usage request.
 

@@ -63,6 +63,8 @@ private extension HoldTypeIOSRootView {
             libraryStateOwner: composition.libraryStateOwner,
             openAISettingsStateOwner:
                 composition.openAISettingsStateOwner,
+            usageEstimateStateOwner:
+                composition.usageEstimateStateOwner,
             secureProviderAvailability: .resolve(
                 compositionAvailability: composition.availability
             ),

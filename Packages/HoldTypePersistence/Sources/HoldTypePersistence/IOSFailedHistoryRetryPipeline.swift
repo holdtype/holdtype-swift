@@ -151,12 +151,12 @@ protocol IOSFailedHistoryRetryUsageRecording: Sendable {
     ) async throws
 }
 
-extension IOSTranscriptionUsageRepository:
+extension IOSTranscriptionUsageRecordingClient:
     IOSFailedHistoryRetryUsageRecording {
     func recordRetryUsage(
         _ usage: SuccessfulTranscriptionUsage
     ) async throws {
-        _ = try record(usage)
+        await record(usage)
     }
 }
 

@@ -1,9 +1,10 @@
 # HoldType iOS Keyboard Development Plan
 
 Status: active feasibility work; canonical roadmap P3 and P4A through P4D-4 are
-complete. P4D-5A local technical Release qualification is active, while
-P4D-2C, P4D-5B, and keyboard M0B/M0C remain physical-device gates. Started
-2026-07-09 and updated 2026-07-13.
+complete. P4D-5A local technical Release qualification and the independent P5U
+containing-app Usage surface are complete, while P4D-2C, P4D-5B, and keyboard
+M0B/M0C remain physical-device gates. Started 2026-07-09 and updated
+2026-07-13.
 
 The complete containing-app, settings, data, privacy, and macOS feature
 portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
@@ -452,3 +453,8 @@ host app, state, expected result, actual result, and go/no-go decision.
   App Group command/session records, keyboard linking, and actual keyboard
   insertion remain unchanged until their owning milestones.
 - Full QWERTY and background Quick Session: gated and not started.
+- P5U containing-app Transcription Usage Estimate: complete. It consumes the
+  exact app-private repository already written by foreground Voice and
+  failed-History Retry, exposes no state to App Group, and adds no dependency or
+  symbol to the keyboard extension. Evidence lives in
+  `docs/qa/runs/ios-transcription-usage-estimate-2026-07-13.md`.

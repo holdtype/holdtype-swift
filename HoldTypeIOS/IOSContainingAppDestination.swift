@@ -91,6 +91,7 @@ enum IOSSettingsRoute: Hashable {
     case openAI
     case general(IOSGeneralSettingsDestination)
     case privacyAndPermissions
+    case usageEstimate
 }
 
 enum IOSLibraryRoute: Hashable {
@@ -123,11 +124,13 @@ enum IOSContainingAppRootPresentation: Equatable, Sendable {
     static func resolve(
         hasSettingsStateOwner: Bool,
         hasLibraryStateOwner: Bool,
-        hasOpenAISettingsStateOwner: Bool
+        hasOpenAISettingsStateOwner: Bool,
+        hasUsageEstimateStateOwner: Bool
     ) -> Self {
         hasSettingsStateOwner
             && hasLibraryStateOwner
             && hasOpenAISettingsStateOwner
+            && hasUsageEstimateStateOwner
             ? .shell
             : .storageUnavailable
     }

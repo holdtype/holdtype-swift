@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 import Testing
@@ -25,6 +26,10 @@ struct IOSContainingAppCompositionTests {
         var capturedProviderConsentCoordinator:
             IOSProviderConsentCoordinator?
         var capturedUsageRepository: IOSTranscriptionUsageRepository?
+        var capturedFailedUsageClient:
+            IOSTranscriptionUsageRecordingClient?
+        var capturedForegroundUsageClient:
+            IOSTranscriptionUsageRecordingClient?
         var capturedForegroundProcessor: IOSForegroundVoiceProcessor?
 
         let composition = IOSContainingAppComposition(
@@ -82,7 +87,8 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
-                    credentialCoordinator in
+                    credentialCoordinator,
+                    usageRecordingClient in
                     events.append("failed-history")
                     #expect(resolvedRoot == root)
                     #expect(
@@ -97,6 +103,7 @@ struct IOSContainingAppCompositionTests {
                         libraryStateOwner
                             === capturedLibraryStateOwner
                     )
+                    capturedFailedUsageClient = usageRecordingClient
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
                         loadSettings: {
@@ -107,7 +114,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
-                        credentialCoordinator: credentialCoordinator
+                        credentialCoordinator: credentialCoordinator,
+                        usageRecordingClient: usageRecordingClient
                     )
                 },
                 makeProviderConsentCoordinator: { resolvedRoot in
@@ -138,7 +146,7 @@ struct IOSContainingAppCompositionTests {
                 makeForegroundVoiceProcessor: {
                     persistenceOwner,
                     consentCoordinator,
-                    usageRepository,
+                    usageRecordingClient,
                     credentialCoordinator in
                     events.append("foreground-processor")
                     foregroundProcessorFactoryCount += 1
@@ -146,15 +154,15 @@ struct IOSContainingAppCompositionTests {
                         consentCoordinator
                             === capturedProviderConsentCoordinator
                     )
-                    #expect(usageRepository === capturedUsageRepository)
                     #expect(
                         credentialCoordinator
                             === capturedCredentialCoordinator
                     )
+                    capturedForegroundUsageClient = usageRecordingClient
                     let processor = IOSForegroundVoiceProcessor(
                         persistenceOwner: persistenceOwner,
                         consentCoordinator: consentCoordinator,
-                        usageRepository: usageRepository,
+                        usageRecordingClient: usageRecordingClient,
                         credentialCoordinator: credentialCoordinator
                     )
                     capturedForegroundProcessor = processor
@@ -224,6 +232,16 @@ struct IOSContainingAppCompositionTests {
             composition.transcriptionUsageRepository
                 === capturedUsageRepository
         )
+        #expect(composition.usageEstimateStateOwner != nil)
+        let usageRepository = try #require(capturedUsageRepository)
+        let failedUsageClient = try #require(
+            capturedFailedUsageClient
+        )
+        let foregroundUsageClient = try #require(
+            capturedForegroundUsageClient
+        )
+        #expect(failedUsageClient.isBacked(by: usageRepository))
+        #expect(foregroundUsageClient.isBacked(by: usageRepository))
         #expect(
             composition.foregroundVoiceProcessor
                 === capturedForegroundProcessor
@@ -263,6 +281,10 @@ struct IOSContainingAppCompositionTests {
             firstScene.openAISettingsStateOwner
                 === secondScene.openAISettingsStateOwner
         )
+        #expect(
+            firstScene.usageEstimateStateOwner
+                === secondScene.usageEstimateStateOwner
+        )
         #expect(firstScene.settingsStateOwner === capturedSettingsStateOwner)
         #expect(firstScene.libraryStateOwner === capturedLibraryStateOwner)
         #expect(
@@ -291,6 +313,37 @@ struct IOSContainingAppCompositionTests {
                     .fileURL(in: root).path
             )
         )
+
+        let usageOwner = try #require(composition.usageEstimateStateOwner)
+        let usageFileURL = IOSTranscriptionUsageStorageLocation.fileURL(
+            in: root
+        )
+        try FileManager.default.createDirectory(
+            at: usageFileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("not-json".utf8).write(to: usageFileURL)
+        await failedUsageClient.record(
+            try SuccessfulTranscriptionUsage(
+                transcriptionID: UUID(),
+                model: "gpt-4o-transcribe",
+                audioDuration: 60
+            )
+        )
+        #expect(usageOwner.notice == .writeFailed)
+        #expect(!(await usageOwner.refresh()))
+        #expect(await usageOwner.reset())
+        #expect(usageOwner.notice == nil)
+
+        try Data("still-not-json".utf8).write(to: usageFileURL)
+        await foregroundUsageClient.record(
+            try SuccessfulTranscriptionUsage(
+                transcriptionID: UUID(),
+                model: "gpt-4o-transcribe",
+                audioDuration: 90
+            )
+        )
+        #expect(usageOwner.notice == .writeFailed)
 
         await composition.lifecycleScheduler.waitUntilIdle()
         let markerURL = IOSCredentialPresenceMarkerStorageLocation.fileURL(
@@ -337,7 +390,8 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
-                    coordinator in
+                    coordinator,
+                    usageRecordingClient in
                     serviceCredentialWasNil = coordinator == nil
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
@@ -349,7 +403,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
-                        credentialCoordinator: coordinator
+                        credentialCoordinator: coordinator,
+                        usageRecordingClient: usageRecordingClient
                     )
                 },
                 makeProviderConsentCoordinator: { resolvedRoot in
@@ -398,6 +453,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.providerConsentCoordinator != nil)
         #expect(composition.foregroundVoicePersistenceOwner != nil)
         #expect(composition.transcriptionUsageRepository != nil)
+        #expect(composition.usageEstimateStateOwner != nil)
         #expect(composition.foregroundVoiceProcessor == nil)
         let voiceRuntime = try #require(
             composition.foregroundVoiceRuntime
@@ -473,7 +529,8 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
-                    coordinator in
+                    coordinator,
+                    usageRecordingClient in
                     serviceCredentialWasNil = coordinator == nil
                     return IOSFailedHistoryService(
                         applicationSupportDirectoryURL: resolvedRoot,
@@ -485,7 +542,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
-                        credentialCoordinator: coordinator
+                        credentialCoordinator: coordinator,
+                        usageRecordingClient: usageRecordingClient
                     )
                 },
                 makeProviderConsentCoordinator: { resolvedRoot in
@@ -533,6 +591,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.providerConsentCoordinator != nil)
         #expect(composition.foregroundVoicePersistenceOwner != nil)
         #expect(composition.transcriptionUsageRepository != nil)
+        #expect(composition.usageEstimateStateOwner != nil)
         #expect(composition.foregroundVoiceProcessor == nil)
         #expect(composition.foregroundVoiceRuntime != nil)
         #expect(composition.voiceSceneLifecycleBinding != nil)
@@ -589,7 +648,7 @@ struct IOSContainingAppCompositionTests {
                     credentialFactoryCalls += 1
                     throw CompositionFixtureError.unexpectedFactoryCall
                 },
-                makeFailedHistoryService: { _, _, _, _ in
+                makeFailedHistoryService: { _, _, _, _, _ in
                     serviceFactoryCalls += 1
                     preconditionFailure("Service must not be constructed.")
                 },
@@ -633,6 +692,7 @@ struct IOSContainingAppCompositionTests {
         #expect(root.settingsStateOwner == nil)
         #expect(root.libraryStateOwner == nil)
         #expect(root.openAISettingsStateOwner == nil)
+        #expect(root.usageEstimateStateOwner == nil)
         #expect(composition.availability == .storageUnavailable)
         #expect(composition.applicationSupportDirectoryURL == nil)
         #expect(composition.historyCoordinator == nil)
@@ -644,6 +704,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.providerConsentCoordinator == nil)
         #expect(composition.foregroundVoicePersistenceOwner == nil)
         #expect(composition.transcriptionUsageRepository == nil)
+        #expect(composition.usageEstimateStateOwner == nil)
         #expect(composition.foregroundVoiceProcessor == nil)
         #expect(composition.foregroundVoiceRuntime == nil)
         #expect(composition.voiceSceneLifecycleBinding == nil)
@@ -684,6 +745,7 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.providerConsentCoordinator == nil)
         #expect(app.composition.foregroundVoicePersistenceOwner == nil)
         #expect(app.composition.transcriptionUsageRepository == nil)
+        #expect(app.composition.usageEstimateStateOwner == nil)
         #expect(app.composition.foregroundVoiceProcessor == nil)
         #expect(app.composition.foregroundVoiceRuntime == nil)
         #expect(app.composition.voiceSceneLifecycleBinding == nil)
@@ -732,6 +794,8 @@ private func rootView(
         libraryStateOwner: composition.libraryStateOwner,
         openAISettingsStateOwner:
             composition.openAISettingsStateOwner,
+        usageEstimateStateOwner:
+            composition.usageEstimateStateOwner,
         secureProviderAvailability: .resolve(
             compositionAvailability: composition.availability
         )

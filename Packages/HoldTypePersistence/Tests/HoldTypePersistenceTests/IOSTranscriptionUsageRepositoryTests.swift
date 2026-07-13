@@ -759,6 +759,74 @@ struct IOSTranscriptionUsageRepositoryTests {
         #expect(try await sameRepository.load().count == 1)
     }
 
+    @Test func observedWritesUseMonotonicTokensAndResetReturnsTheCurrentFence()
+        async throws {
+        let fileSystem = UsageFileSystemFake()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let firstUsage = try usage(
+            id: "C0000000-0000-0000-0000-000000000001"
+        )
+        let secondUsage = try usage(
+            id: "C0000000-0000-0000-0000-000000000002"
+        )
+
+        let firstToken = try #require(
+            insertedToken(await repository.recordObserved(firstUsage))
+        )
+        let duplicateToken = try #require(
+            duplicateToken(await repository.recordObserved(firstUsage))
+        )
+        fileSystem.replacementFailure = .writeFailed
+        let failedToken = try #require(
+            failedToken(await repository.recordObserved(secondUsage))
+        )
+
+        #expect(firstToken < duplicateToken)
+        #expect(duplicateToken < failedToken)
+
+        let resetFence = try await repository.resetWithWriteFence()
+        #expect(resetFence == failedToken)
+
+        fileSystem.replacementFailure = nil
+        let postResetToken = try #require(
+            insertedToken(await repository.recordObserved(secondUsage))
+        )
+        #expect(postResetToken > resetFence)
+    }
+
+    @Test func recordingClientReportsOnlyFailedWritesWithOpaqueTokens()
+        async throws {
+        let fileSystem = UsageFileSystemFake()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let collector = UsageFailureTokenCollector()
+        let client = IOSTranscriptionUsageRecordingClient(
+            repository: repository,
+            reportFailure: { token in
+                await collector.append(token)
+            }
+        )
+        let firstUsage = try usage(
+            id: "D0000000-0000-0000-0000-000000000001"
+        )
+        let secondUsage = try usage(
+            id: "D0000000-0000-0000-0000-000000000002"
+        )
+
+        await client.record(firstUsage)
+        await client.record(firstUsage)
+        #expect(await collector.tokens.isEmpty)
+
+        fileSystem.replacementFailure = .writeFailed
+        await client.record(secondUsage)
+        let failureTokens = await collector.tokens
+        #expect(failureTokens.count == 1)
+
+        let resetFence = try await repository.resetWithWriteFence()
+        #expect(failureTokens == [resetFence])
+        #expect(String(describing: resetFence).contains("redacted"))
+        #expect(!String(reflecting: resetFence).contains("revision"))
+    }
+
     private func makeRepository(
         fileSystem: UsageFileSystemFake,
         clock: UsageClock? = nil,
@@ -779,6 +847,27 @@ struct IOSTranscriptionUsageRepositoryTests {
             retentionDayCount: retentionDayCount,
             now: { resolvedClock.value }
         )
+    }
+
+    private func insertedToken(
+        _ result: IOSTranscriptionUsageObservedRecordResult
+    ) -> IOSTranscriptionUsageWriteToken? {
+        guard case .inserted(let token) = result else { return nil }
+        return token
+    }
+
+    private func duplicateToken(
+        _ result: IOSTranscriptionUsageObservedRecordResult
+    ) -> IOSTranscriptionUsageWriteToken? {
+        guard case .duplicate(let token) = result else { return nil }
+        return token
+    }
+
+    private func failedToken(
+        _ result: IOSTranscriptionUsageObservedRecordResult
+    ) -> IOSTranscriptionUsageWriteToken? {
+        guard case .failed(let token) = result else { return nil }
+        return token
     }
 
     private func usage(
@@ -902,6 +991,14 @@ private final class UsageClock: @unchecked Sendable {
         set {
             lock.withLock { storedValue = newValue }
         }
+    }
+}
+
+private actor UsageFailureTokenCollector {
+    private(set) var tokens: [IOSTranscriptionUsageWriteToken] = []
+
+    func append(_ token: IOSTranscriptionUsageWriteToken) {
+        tokens.append(token)
     }
 }
 

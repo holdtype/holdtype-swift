@@ -31,6 +31,13 @@ nonisolated enum IOSUIQualificationRoute:
     case privacyAccepted = "privacy-accepted"
     case privacyUnreadable = "privacy-unreadable"
     case privacyFailure = "privacy-failure"
+    case usageEmpty = "usage-empty"
+    case usageKnown = "usage-known"
+    case usageMixed = "usage-mixed"
+    case usageUnknown = "usage-unknown"
+    case usageLoadFailure = "usage-load-failure"
+    case usageWriteWarning = "usage-write-warning"
+    case usageResetFailure = "usage-reset-failure"
 
     static let environmentKey = "HOLDTYPE_UI_QUALIFICATION"
 
@@ -85,6 +92,20 @@ nonisolated enum IOSUIQualificationRoute:
             "Privacy — Unreadable Data Reset Confirmation"
         case .privacyFailure:
             "Privacy — Local Data Failure"
+        case .usageEmpty:
+            "Usage — Empty"
+        case .usageKnown:
+            "Usage — Known Pricing"
+        case .usageMixed:
+            "Usage — Mixed Pricing"
+        case .usageUnknown:
+            "Usage — Unknown Pricing"
+        case .usageLoadFailure:
+            "Usage — Local Read Failure"
+        case .usageWriteWarning:
+            "Usage — Incomplete Estimate Warning"
+        case .usageResetFailure:
+            "Usage — Reset Failure"
         }
     }
 
@@ -101,6 +122,9 @@ nonisolated enum IOSUIQualificationRoute:
         case .privacyChecking, .privacyReady, .privacyAccepted,
              .privacyUnreadable, .privacyFailure:
             .privacy
+        case .usageEmpty, .usageKnown, .usageMixed, .usageUnknown,
+             .usageLoadFailure, .usageWriteWarning, .usageResetFailure:
+            .usage
         }
     }
 
@@ -133,7 +157,9 @@ nonisolated enum IOSUIQualificationRoute:
         case .latestFailure:
             .latestFailure
         case .gallery, .privacyChecking, .privacyReady, .privacyAccepted,
-             .privacyUnreadable, .privacyFailure:
+             .privacyUnreadable, .privacyFailure, .usageEmpty,
+             .usageKnown, .usageMixed, .usageUnknown, .usageLoadFailure,
+             .usageWriteWarning, .usageResetFailure:
             nil
         }
     }
@@ -154,7 +180,36 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceListening, .voiceFinalizing, .voiceProcessing,
              .voicePostProcessing, .voiceSavingResult,
              .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
-             .latestSuccess, .latestFailure:
+             .latestSuccess, .latestFailure, .usageEmpty, .usageKnown,
+             .usageMixed, .usageUnknown, .usageLoadFailure,
+             .usageWriteWarning, .usageResetFailure:
+            nil
+        }
+    }
+
+    var usageScenario: IOSUIQualificationUsageScenario? {
+        switch self {
+        case .usageEmpty:
+            .empty
+        case .usageKnown:
+            .known
+        case .usageMixed:
+            .mixed
+        case .usageUnknown:
+            .unknown
+        case .usageLoadFailure:
+            .loadFailure
+        case .usageWriteWarning:
+            .writeWarning
+        case .usageResetFailure:
+            .resetFailure
+        case .gallery, .voiceStart, .voiceSetupBlocked, .voiceArming,
+             .voiceListening, .voiceFinalizing, .voiceProcessing,
+             .voicePostProcessing, .voiceSavingResult,
+             .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
+             .latestSuccess, .latestFailure, .privacyChecking,
+             .privacyReady, .privacyAccepted, .privacyUnreadable,
+             .privacyFailure:
             nil
         }
     }
@@ -167,6 +222,7 @@ fileprivate nonisolated enum IOSUIQualificationSection:
     case voice = "Voice"
     case latestResult = "Latest Result"
     case privacy = "Privacy & Permissions"
+    case usage = "Usage Estimate"
 }
 
 struct IOSUIQualificationRootView: View {
@@ -208,6 +264,8 @@ struct IOSUIQualificationRootView: View {
             IOSUIQualificationVoiceHost(scenario: scenario)
         } else if let scenario = route.privacyScenario {
             IOSUIQualificationPrivacyHost(scenario: scenario)
+        } else if let scenario = route.usageScenario {
+            IOSUIQualificationUsageHost(scenario: scenario)
         } else {
             ContentUnavailableView(
                 "Qualification Route Unavailable",
@@ -577,6 +635,151 @@ private enum IOSUIQualificationConsentFixture {
     }
 }
 
+nonisolated enum IOSUIQualificationUsageScenario:
+    Equatable,
+    Sendable {
+    case empty
+    case known
+    case mixed
+    case unknown
+    case loadFailure
+    case writeWarning
+    case resetFailure
+
+    static let now = Date(timeIntervalSince1970: 1_784_117_600)
+
+    var events: [TranscriptionUsageEvent] {
+        switch self {
+        case .empty, .loadFailure:
+            []
+        case .known, .writeWarning, .resetFailure:
+            Self.makeEvents(models: [
+                (0, "gpt-4o-transcribe", 90),
+                (-2, "gpt-4o-mini-transcribe", 150),
+                (-7, "gpt-4o-transcribe", 300),
+                (-20, "gpt-4o-mini-transcribe", 75),
+            ])
+        case .mixed:
+            Self.makeEvents(models: [
+                (0, "gpt-4o-transcribe", 90),
+                (0, "future-transcribe-model", 120),
+                (-2, "gpt-4o-mini-transcribe", 150),
+                (-7, "future-transcribe-model", 300),
+            ])
+        case .unknown:
+            Self.makeEvents(models: [
+                (0, "future-transcribe-model", 120),
+                (-2, "another-future-model", 150),
+                (-7, "future-transcribe-model", 300),
+            ])
+        }
+    }
+
+    var hasLoadFailure: Bool { self == .loadFailure }
+    var hasWriteWarning: Bool { self == .writeWarning }
+    var hasResetFailure: Bool { self == .resetFailure }
+
+    var summary: TranscriptionUsageSummary {
+        TranscriptionUsageSummary.make(
+            events: events,
+            now: Self.now,
+            calendar: Self.calendar
+        )
+    }
+
+    private static var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        return calendar
+    }
+
+    private static func makeEvents(
+        models: [(dayOffset: Int, model: String, duration: TimeInterval)]
+    ) -> [TranscriptionUsageEvent] {
+        models.enumerated().map { index, fixture in
+            let timestamp = calendar.date(
+                byAdding: .day,
+                value: fixture.dayOffset,
+                to: now
+            ) ?? now
+            do {
+                return try TranscriptionUsagePricing.current.makeEvent(
+                    timestamp: timestamp,
+                    model: fixture.model,
+                    durationSeconds: fixture.duration,
+                    id: qualificationIdentifier(index: index)
+                )
+            } catch {
+                fatalError("Invalid usage qualification fixture: \(error)")
+            }
+        }
+    }
+
+    private static func qualificationIdentifier(index: Int) -> UUID {
+        UUID(
+            uuidString: String(
+                format: "E0000000-0000-0000-0000-%012X",
+                index + 1
+            )
+        ) ?? UUID()
+    }
+}
+
+private struct IOSUIQualificationUsageHost: View {
+    @State private var stateOwner: IOSUsageEstimateStateOwner
+    private let scenario: IOSUIQualificationUsageScenario
+
+    init(scenario: IOSUIQualificationUsageScenario) {
+        self.scenario = scenario
+        let owner = IOSUsageEstimateStateOwner(
+            client: IOSUsageEstimateClient(
+                load: {
+                    if scenario.hasLoadFailure {
+                        throw IOSUIQualificationFailure.usageLoadUnavailable
+                    }
+                    return scenario.events
+                },
+                reset: {
+                    if scenario.hasResetFailure {
+                        throw IOSUIQualificationFailure.usageResetUnavailable
+                    }
+                    return IOSTranscriptionUsageQualificationFixture
+                        .writeToken(revision: 2)
+                }
+            ),
+            calendar: {
+                var calendar = Calendar(identifier: .gregorian)
+                calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+                return calendar
+            }(),
+            now: { IOSUIQualificationUsageScenario.now }
+        )
+        if scenario.hasWriteWarning {
+            owner.reportWriteFailure(
+                IOSTranscriptionUsageQualificationFixture
+                    .writeToken(revision: 1)
+            )
+        }
+        _stateOwner = State(initialValue: owner)
+    }
+
+    var body: some View {
+        NavigationStack {
+            IOSUsageEstimateView()
+                .environment(stateOwner)
+        }
+        .task(id: stateOwner.summary) {
+            guard scenario.hasResetFailure,
+                  stateOwner.summary?.isEmpty == false,
+                  stateOwner.operation == .idle else {
+                return
+            }
+            _ = await stateOwner.reset()
+        }
+        .accessibilityIdentifier("ios.qualification.usage")
+    }
+}
+
 private enum IOSUIQualificationSuspension {
     static func hold() async {
         do {
@@ -590,5 +793,7 @@ private enum IOSUIQualificationSuspension {
 private nonisolated enum IOSUIQualificationFailure: Error {
     case latestResultUnavailable
     case mutationBlocked
+    case usageLoadUnavailable
+    case usageResetUnavailable
 }
 #endif

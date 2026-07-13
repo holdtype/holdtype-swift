@@ -135,21 +135,24 @@ struct IOSContainingAppShellTests {
             IOSContainingAppRootPresentation.resolve(
                 hasSettingsStateOwner: true,
                 hasLibraryStateOwner: true,
-                hasOpenAISettingsStateOwner: true
+                hasOpenAISettingsStateOwner: true,
+                hasUsageEstimateStateOwner: true
             ) == .shell
         )
 
         for availability in [
-            (false, false, false),
-            (true, false, true),
-            (false, true, true),
-            (true, true, false),
+            (false, false, false, false),
+            (true, false, true, true),
+            (false, true, true, true),
+            (true, true, false, true),
+            (true, true, true, false),
         ] {
             #expect(
                 IOSContainingAppRootPresentation.resolve(
                     hasSettingsStateOwner: availability.0,
                     hasLibraryStateOwner: availability.1,
-                    hasOpenAISettingsStateOwner: availability.2
+                    hasOpenAISettingsStateOwner: availability.2,
+                    hasUsageEstimateStateOwner: availability.3
                 ) == .storageUnavailable
             )
         }

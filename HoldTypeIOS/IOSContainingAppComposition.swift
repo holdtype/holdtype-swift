@@ -35,7 +35,8 @@ final class IOSContainingAppComposition {
             URL,
             IOSAppSettingsStateOwner,
             IOSLibraryStateOwner,
-            IOSOpenAICredentialCoordinator?
+            IOSOpenAICredentialCoordinator?,
+            IOSTranscriptionUsageRecordingClient
         ) -> IOSFailedHistoryService
         let makeProviderConsentCoordinator: @MainActor (
             URL
@@ -49,7 +50,7 @@ final class IOSContainingAppComposition {
         let makeForegroundVoiceProcessor: @MainActor (
             IOSForegroundVoicePersistenceOwner,
             IOSProviderConsentCoordinator,
-            IOSTranscriptionUsageRepository,
+            IOSTranscriptionUsageRecordingClient,
             IOSOpenAICredentialCoordinator
         ) -> IOSForegroundVoiceProcessor
         var voiceFactories: IOSForegroundVoiceRuntime.Factories = .production
@@ -102,7 +103,8 @@ final class IOSContainingAppComposition {
                 applicationSupportDirectoryURL,
                 settingsStateOwner,
                 libraryStateOwner,
-                credentialCoordinator in
+                credentialCoordinator,
+                usageRecordingClient in
                 IOSFailedHistoryService(
                     applicationSupportDirectoryURL:
                         applicationSupportDirectoryURL,
@@ -114,7 +116,8 @@ final class IOSContainingAppComposition {
                         try await libraryStateOwner
                             .confirmedValueForProviderAction()
                     },
-                    credentialCoordinator: credentialCoordinator
+                    credentialCoordinator: credentialCoordinator,
+                    usageRecordingClient: usageRecordingClient
                 )
             },
             makeProviderConsentCoordinator: {
@@ -141,12 +144,12 @@ final class IOSContainingAppComposition {
             makeForegroundVoiceProcessor: {
                 persistenceOwner,
                 consentCoordinator,
-                usageRepository,
+                usageRecordingClient,
                 credentialCoordinator in
                 IOSForegroundVoiceProcessor(
                     persistenceOwner: persistenceOwner,
                     consentCoordinator: consentCoordinator,
-                    usageRepository: usageRepository,
+                    usageRecordingClient: usageRecordingClient,
                     credentialCoordinator: credentialCoordinator
                 )
             }
@@ -164,6 +167,7 @@ final class IOSContainingAppComposition {
     let foregroundVoicePersistenceOwner:
         IOSForegroundVoicePersistenceOwner?
     let transcriptionUsageRepository: IOSTranscriptionUsageRepository?
+    let usageEstimateStateOwner: IOSUsageEstimateStateOwner?
     let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
     let foregroundVoiceRuntime: IOSForegroundVoiceRuntime?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
@@ -195,6 +199,7 @@ final class IOSContainingAppComposition {
             providerConsentCoordinator = nil
             foregroundVoicePersistenceOwner = nil
             transcriptionUsageRepository = nil
+            usageEstimateStateOwner = nil
             foregroundVoiceProcessor = nil
             foregroundVoiceRuntime = nil
             availability = .storageUnavailable
@@ -241,6 +246,16 @@ final class IOSContainingAppComposition {
                 applicationSupportDirectoryURL
             )
         self.transcriptionUsageRepository = transcriptionUsageRepository
+        let usageEstimateStateOwner = IOSUsageEstimateStateOwner(
+            repository: transcriptionUsageRepository
+        )
+        self.usageEstimateStateOwner = usageEstimateStateOwner
+        let usageRecordingClient = IOSTranscriptionUsageRecordingClient(
+            repository: transcriptionUsageRepository,
+            reportFailure: { token in
+                await usageEstimateStateOwner.reportWriteFailure(token)
+            }
+        )
 
         let credentialCoordinator: IOSOpenAICredentialCoordinator?
         if let applicationIdentifierAccessGroup = factories
@@ -262,13 +277,14 @@ final class IOSContainingAppComposition {
             applicationSupportDirectoryURL,
             settingsStateOwner,
             libraryStateOwner,
-            credentialCoordinator
+            credentialCoordinator,
+            usageRecordingClient
         )
         let foregroundVoiceProcessor = credentialCoordinator.map {
             factories.makeForegroundVoiceProcessor(
                 foregroundVoicePersistenceOwner,
                 providerConsentCoordinator,
-                transcriptionUsageRepository,
+                usageRecordingClient,
                 $0
             )
         }
@@ -322,6 +338,7 @@ final class IOSContainingAppComposition {
         providerConsentCoordinator = nil
         foregroundVoicePersistenceOwner = nil
         transcriptionUsageRepository = nil
+        usageEstimateStateOwner = nil
         foregroundVoiceProcessor = nil
         foregroundVoiceRuntime = nil
         availability = .injected

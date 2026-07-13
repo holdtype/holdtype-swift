@@ -75,6 +75,7 @@ struct HoldTypeIOSRootView: View {
     let libraryStateOwner: IOSLibraryStateOwner?
     let openAISettingsStateOwner:
         IOSOpenAICredentialSettingsStateOwner?
+    let usageEstimateStateOwner: IOSUsageEstimateStateOwner?
     let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let layout: IOSContainingAppShellLayout
@@ -84,6 +85,7 @@ struct HoldTypeIOSRootView: View {
         libraryStateOwner: IOSLibraryStateOwner?,
         openAISettingsStateOwner:
             IOSOpenAICredentialSettingsStateOwner?,
+        usageEstimateStateOwner: IOSUsageEstimateStateOwner?,
         secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         layout: IOSContainingAppShellLayout = .current
@@ -91,6 +93,7 @@ struct HoldTypeIOSRootView: View {
         self.settingsStateOwner = settingsStateOwner
         self.libraryStateOwner = libraryStateOwner
         self.openAISettingsStateOwner = openAISettingsStateOwner
+        self.usageEstimateStateOwner = usageEstimateStateOwner
         self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
@@ -104,14 +107,17 @@ struct HoldTypeIOSRootView: View {
             hasLibraryStateOwner:
                 libraryStateOwner != nil,
             hasOpenAISettingsStateOwner:
-                openAISettingsStateOwner != nil
+                openAISettingsStateOwner != nil,
+            hasUsageEstimateStateOwner:
+                usageEstimateStateOwner != nil
         )
     }
 
     var body: some View {
         if let settingsStateOwner,
            let libraryStateOwner,
-           let openAISettingsStateOwner {
+           let openAISettingsStateOwner,
+           let usageEstimateStateOwner {
             IOSContainingAppShell(
                 secureProviderAvailability: secureProviderAvailability,
                 foregroundVoiceRuntimeAvailable:
@@ -121,6 +127,7 @@ struct HoldTypeIOSRootView: View {
                 .environment(settingsStateOwner)
                 .environment(libraryStateOwner)
                 .environment(openAISettingsStateOwner)
+                .environment(usageEstimateStateOwner)
         } else {
             IOSContainingAppStorageUnavailableView()
         }

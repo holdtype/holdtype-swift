@@ -3,9 +3,10 @@
 Status: active implementation roadmap; P0, P1, P2, and P3 are complete. P4A,
 P4B, P4C, P4D-0, P4D-1, P4D-2A, P4D-2B, P4D-3, and P4D-4 are complete. The
 containing app now includes the shared foreground Voice runtime and native
-Voice and Privacy presentation on iPhone and iPad. P4D-2C physical-device
-validation and the final P4D-5 release/runtime gates remain pending; updated
-2026-07-13.
+Voice and Privacy presentation on iPhone and iPad. P4D-5A local Release/runtime
+qualification is complete; P4D-2C and P4D-5B physical-device evidence remains
+pending. P5 is in progress, with the independent P5U Transcription Usage
+Estimate complete; updated 2026-07-13.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or
@@ -1522,6 +1523,16 @@ commands.
 Exit: force quit, process eviction, network loss, and provider errors do not
 lose a completed recording silently.
 
+P5U is complete. Settings now exposes a native, app-private Transcription Usage
+Estimate with today/average/30-day summaries, known/partial/unknown pricing,
+Cost and Minutes charts, local refresh, confirmed Reset, unreadable-data
+recovery, process-local write warnings, and iPhone/iPad accessibility evidence.
+Foreground Voice, failed-History Retry, and every scene use one mandatory
+composition-owned recording client over the exact same repository actor. P5
+History UI remains unavailable until provider-consent v2 and the neutral
+reader/consent-gated failed-Retry migration are complete; diagnostics follows
+as an independent later P5 slice.
+
 ### P6 — M0C Quick Session spike and production bridge
 
 Entry: M0B has passed on physical devices; Full Access and Quick Session
@@ -1730,12 +1741,22 @@ redacted drafts, automation-disabled Keychain access, truthful saved-state
 presentation, Dynamic Type, dark appearance, and keyboard isolation remain
 intact.
 
-P4 is in progress. P4A through P4D-4 are complete except for the separate
-P4D-2C physical-device recorder and foreground-audio matrix. P4D-5A local
-technical Release qualification is active; P4D-5B retains that physical-device
-evidence. No completed P4 slice adds background audio, Quick Session,
+P4 is in progress. P4A through P4D-4 and P4D-5A are complete except for the
+separate P4D-2C physical-device recorder and foreground-audio matrix. P4D-5B
+retains that physical-device evidence. No completed P4 slice adds background
+audio, Quick Session,
 directional App Group Voice state, keyboard provider dependencies, or
 external-app insertion.
+
+P5 is in progress. P5U is complete: the portable Domain usage summary, one
+process-owned repository/client/presentation graph, native Settings route,
+typed local failure and Reset fencing, DEBUG qualification gallery, and
+maximum-Dynamic-Type iPhone/iPad evidence are recorded in
+`docs/qa/runs/ios-transcription-usage-estimate-2026-07-13.md`. This slice adds
+no provider request, Keychain read, microphone request, History mutation,
+App Group field, or keyboard dependency. History presentation and failed-row
+Retry remain hidden until their consent-v2 and neutral-reader prerequisites
+land.
 
 Final P3 evidence lives in
 `docs/qa/runs/ios-containing-app-state-owners-2026-07-12.md`,

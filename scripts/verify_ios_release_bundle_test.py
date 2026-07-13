@@ -316,7 +316,8 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         app_executable = self.app / "HoldType-iOS"
         self.write_mach_o(
             app_executable,
-            b"KeyboardBridgeProbeViewIOSProviderConsentQualificationFixture",
+            b"KeyboardBridgeProbeViewIOSProviderConsentQualificationFixture"
+            b"IOSTranscriptionUsageQualificationFixture",
         )
         (self.app / "qualification.txt").write_text("Qualification Gallery")
 
@@ -326,7 +327,35 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         self.assertEqual(check.status, "fail")
         self.assertIn("KeyboardBridgeProbeView", check.message)
         self.assertIn("IOSProviderConsentQualificationFixture", check.message)
+        self.assertIn("IOSTranscriptionUsageQualificationFixture", check.message)
         self.assertIn("Qualification Gallery", check.message)
+
+    def test_rejects_usage_implementation_markers_in_keyboard(self) -> None:
+        keyboard = self.app / "PlugIns" / "HoldTypeKeyboard.appex"
+        self.write_mach_o(
+            keyboard / "HoldTypeKeyboard",
+            b"IOSTranscriptionUsage ios-transcription-usage.json",
+        )
+
+        def usage_contaminated_runner(command):
+            if command[0] == "strings":
+                return self.module.ToolResult(
+                    0,
+                    stdout="TranscriptionUsage\nUsageEstimate\n",
+                )
+            return self.runner(command)
+
+        checks = self.checks_by_name(runner=usage_contaminated_runner)
+
+        string_check = checks["keyboard:strings:forbidden"]
+        self.assertEqual(string_check.status, "fail")
+        self.assertIn("TranscriptionUsage", string_check.message)
+        self.assertIn("UsageEstimate", string_check.message)
+
+        byte_check = checks["keyboard:bytes:forbidden"]
+        self.assertEqual(byte_check.status, "fail")
+        self.assertIn("IOSTranscriptionUsage", byte_check.message)
+        self.assertIn("ios-transcription-usage.json", byte_check.message)
 
     def test_requires_exact_codesign_bundle_identifiers(self) -> None:
         def executable_identifier_runner(command):

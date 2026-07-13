@@ -42,6 +42,7 @@ public actor IOSTranscriptionUsageRepository {
     private let calendar: Calendar
     private let retentionDayCount: Int
     private let now: @Sendable () -> Date
+    private var writeAttemptRevision: UInt64 = 0
 
     /// The containing-app composition root must create and retain exactly one
     /// repository actor for its Application Support directory.
@@ -120,12 +121,45 @@ public actor IOSTranscriptionUsageRepository {
         return .inserted
     }
 
+    public func recordObserved(
+        _ usage: SuccessfulTranscriptionUsage
+    ) -> IOSTranscriptionUsageObservedRecordResult {
+        let token = nextWriteToken()
+        do {
+            switch try record(usage) {
+            case .inserted:
+                return .inserted(token)
+            case .duplicate:
+                return .duplicate(token)
+            }
+        } catch {
+            return .failed(token)
+        }
+    }
+
     public func reset() throws {
         do {
             try fileSystem.removeFileIfPresent(at: fileURL)
         } catch {
             throw IOSTranscriptionUsageRepositoryError.resetFailed
         }
+    }
+
+    public func resetWithWriteFence()
+        throws -> IOSTranscriptionUsageWriteToken {
+        try reset()
+        return IOSTranscriptionUsageWriteToken(
+            revision: writeAttemptRevision
+        )
+    }
+
+    private func nextWriteToken() -> IOSTranscriptionUsageWriteToken {
+        if writeAttemptRevision < UInt64.max {
+            writeAttemptRevision += 1
+        }
+        return IOSTranscriptionUsageWriteToken(
+            revision: writeAttemptRevision
+        )
     }
 
     private func loadAndCompact(referenceDate: Date) throws -> [TranscriptionUsageEvent] {

@@ -180,15 +180,14 @@ public actor IOSFailedHistoryAppBoundary {
     public init(
         applicationSupportDirectoryURL: URL,
         retrySessionProvider:
-            any IOSFailedHistoryRetrySessionProviding
+            any IOSFailedHistoryRetrySessionProviding,
+        usageRecordingClient: IOSTranscriptionUsageRecordingClient
     ) {
         coordinator = IOSAcceptedHistoryCoordinator(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
         self.retrySessionProvider = retrySessionProvider
-        usageRecorder = IOSTranscriptionUsageRepository(
-            applicationSupportDirectoryURL: applicationSupportDirectoryURL
-        )
+        usageRecorder = usageRecordingClient
     }
 
     init(

@@ -43,6 +43,11 @@ setup is complete.
   attempts approved by `ios-history-and-storage.md`.
 - Settings owns keyboard, transcription, correction, translation, voice,
   provider, storage, usage, privacy, diagnostics, and About configuration.
+- P5 exposes `Transcription Usage Estimate` as an independent Settings route.
+  It loads only device-local aggregate usage and remains reachable when secure
+  provider setup or the foreground Voice runtime is unavailable. Diagnostics,
+  History controls, Recording Cache, and keyboard controls remain absent until
+  their own owning slices are complete.
 - First-run setup may temporarily lead the experience, but completing or
   dismissing it returns the user to the normal destinations. Setup must not
   remain a separate permanent product mode.
@@ -292,6 +297,30 @@ The app guides setup in this order:
   listening status exposes its spoken elapsed value when focused, but elapsed
   ticks do not generate a new announcement every second. Headings, action
   labels, status values, and hints remain distinct at accessibility sizes.
+
+### P5U Transcription Usage Estimate
+
+- The composition root owns one usage repository and one observable usage
+  presentation owner for the process. Foreground Voice, failed-History Retry,
+  and every scene use that exact repository instance; a view never constructs
+  storage or derives a second source of truth.
+- The Settings row and destination remain available when the API key,
+  microphone, Voice runtime, or provider is unavailable. Opening the route
+  performs only a bounded local refresh. Multiwindow scenes share its aggregate
+  state, reset operation, and content-free write-failure notice.
+- The destination has explicit loading, empty, ready, load-failed, and
+  reset-failed presentations. A reset failure preserves the last confirmed
+  summary, or the unreadable presentation when no summary exists. An unreadable
+  source offers confirmed Reset in addition to Retry. An older load completion
+  cannot publish after its refresh task is cancelled, and competing commands
+  are rejected until the active command finishes.
+- Summary rows may wrap or stack at accessibility sizes. Cost and minutes are
+  both written as text; color and the chart are supplemental. The chart uses
+  native system marks and exposes each day/value pair to accessibility.
+- Reset is an explicit destructive confirmation. Refresh and Reset are
+  mutually excluded while either mutation is active, and no action reads
+  Keychain, requests permission, contacts OpenAI, changes History, or mutates
+  the keyboard/App Group.
 
 ## Quick Session Gate
 

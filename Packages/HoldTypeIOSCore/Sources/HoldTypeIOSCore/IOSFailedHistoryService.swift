@@ -15,7 +15,8 @@ public actor IOSFailedHistoryService {
         applicationSupportDirectoryURL: URL,
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
-        credentialCoordinator: IOSOpenAICredentialCoordinator?
+        credentialCoordinator: IOSOpenAICredentialCoordinator?,
+        usageRecordingClient: IOSTranscriptionUsageRecordingClient
     ) {
         let retrySessionProvider:
             any IOSFailedHistoryRetrySessionProviding
@@ -32,7 +33,31 @@ public actor IOSFailedHistoryService {
         }
         boundary = IOSFailedHistoryAppBoundary(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            retrySessionProvider: retrySessionProvider
+            retrySessionProvider: retrySessionProvider,
+            usageRecordingClient: usageRecordingClient
+        )
+    }
+
+    /// Test-only convenience. Production composition must inject its one
+    /// shared recording client explicitly.
+    init(
+        applicationSupportDirectoryURL: URL,
+        loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
+        loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        credentialCoordinator: IOSOpenAICredentialCoordinator?
+    ) {
+        let repository = IOSTranscriptionUsageRepository(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
+        self.init(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            loadSettings: loadSettings,
+            loadLibrary: loadLibrary,
+            credentialCoordinator: credentialCoordinator,
+            usageRecordingClient: IOSTranscriptionUsageRecordingClient(
+                repository: repository,
+                reportFailure: { _ in }
+            )
         )
     }
 
@@ -41,7 +66,8 @@ public actor IOSFailedHistoryService {
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
         credentialCoordinator: IOSOpenAICredentialCoordinator,
-        providerBuilder: any IOSFailedHistoryRetryProviderBuilding
+        providerBuilder: any IOSFailedHistoryRetryProviderBuilding,
+        usageRecordingClient: IOSTranscriptionUsageRecordingClient
     ) {
         let sessionFactory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: loadSettings,
@@ -51,7 +77,32 @@ public actor IOSFailedHistoryService {
         )
         boundary = IOSFailedHistoryAppBoundary(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
-            retrySessionProvider: sessionFactory
+            retrySessionProvider: sessionFactory,
+            usageRecordingClient: usageRecordingClient
+        )
+    }
+
+    /// Test-only convenience for injected provider builders.
+    init(
+        applicationSupportDirectoryURL: URL,
+        loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
+        loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        credentialCoordinator: IOSOpenAICredentialCoordinator,
+        providerBuilder: any IOSFailedHistoryRetryProviderBuilding
+    ) {
+        let repository = IOSTranscriptionUsageRepository(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
+        self.init(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL,
+            loadSettings: loadSettings,
+            loadLibrary: loadLibrary,
+            credentialCoordinator: credentialCoordinator,
+            providerBuilder: providerBuilder,
+            usageRecordingClient: IOSTranscriptionUsageRecordingClient(
+                repository: repository,
+                reportFailure: { _ in }
+            )
         )
     }
 
