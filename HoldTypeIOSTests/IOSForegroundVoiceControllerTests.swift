@@ -156,10 +156,9 @@ struct IOSForegroundVoiceControllerTests {
         let fixture = IOSForegroundVoiceControllerDropFixture()
         var controller: IOSForegroundVoiceController? =
             IOSForegroundVoiceController(client: fixture.makeClient())
-        let scene = try #require(
-            controller?.sceneRegistry.registerScene(
-                initialActivity: .active
-            )
+        let processRegistry = try #require(controller?.sceneRegistry)
+        let scene = processRegistry.registerScene(
+            initialActivity: .active
         )
         await controller?.activate()
         let command = try #require(
@@ -179,6 +178,7 @@ struct IOSForegroundVoiceControllerTests {
         }
         #expect(scene.promptPresentation == .available)
         #expect(fixture.finishCount == 1)
+        #expect(processRegistry.snapshot.registeredSceneCount == 1)
     }
 
     @Test func everyOperationClearsRecoveryAndRetryWaitsForProgress()

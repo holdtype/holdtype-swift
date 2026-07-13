@@ -12,6 +12,9 @@ enum IOSForegroundVoiceFailure: Equatable, Sendable {
     case operationFailed
     case localRecovery
     case unavailable
+    case microphonePermissionDenied
+    case microphoneUnavailable
+    case microphonePermissionTimedOut
     case tooShort
     case maximumDuration
 }
