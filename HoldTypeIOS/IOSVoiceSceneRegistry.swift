@@ -23,10 +23,34 @@ extension IOSVoiceSceneIdentity:
     }
 }
 
-nonisolated struct IOSVoiceSceneStartLease: Equatable, Hashable, Sendable {
+nonisolated struct IOSVoiceSceneStartLease: Hashable, Sendable {
     fileprivate let registryIdentity: ObjectIdentifier
     fileprivate let sceneValue: UInt64
     fileprivate let generation: UInt64
+    fileprivate let registry: IOSVoiceSceneRegistry
+
+    static func == (
+        lhs: IOSVoiceSceneStartLease,
+        rhs: IOSVoiceSceneStartLease
+    ) -> Bool {
+        lhs.registryIdentity == rhs.registryIdentity
+            && lhs.sceneValue == rhs.sceneValue
+            && lhs.generation == rhs.generation
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(registryIdentity)
+        hasher.combine(sceneValue)
+        hasher.combine(generation)
+    }
+
+    /// Retires this exact capability. Accepted Start work owns this call;
+    /// callers never need access to the registry's private identity fields.
+    @MainActor
+    @discardableResult
+    func finish() -> Bool {
+        registry.finishStartLease(self)
+    }
 }
 
 extension IOSVoiceSceneStartLease:
@@ -363,7 +387,8 @@ final class IOSVoiceSceneRegistry {
         return IOSVoiceSceneStartLease(
             registryIdentity: ObjectIdentifier(self),
             sceneValue: identity.value,
-            generation: generation
+            generation: generation,
+            registry: self
         )
     }
 

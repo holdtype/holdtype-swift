@@ -1,6 +1,7 @@
 import AudioToolbox
 import AVFAudio
 import Foundation
+import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 
 nonisolated struct IOSVoiceRecorderAttemptToken:
@@ -45,6 +46,7 @@ nonisolated enum IOSVoiceRecorderStopReason: Equatable, Sendable {
     case done
     case cancelled
     case interrupted
+    case maximumDuration
 }
 
 nonisolated enum IOSVoiceRecorderFailure: String, Error, Equatable, Sendable {
@@ -55,6 +57,14 @@ nonisolated enum IOSVoiceRecorderFailure: String, Error, Equatable, Sendable {
     case captureTransitionFailed
     case captureCompletionFailed
     case recorderEndedUnexpectedly
+}
+
+nonisolated enum IOSVoiceRecorderCompletedCaptureHandoffError:
+    Error,
+    Equatable,
+    Sendable
+{
+    case unavailable
 }
 
 nonisolated enum IOSVoiceRecorderDiagnostic: String, Equatable, Sendable {
@@ -70,27 +80,147 @@ nonisolated enum IOSVoiceRecorderDiagnostic: String, Equatable, Sendable {
 }
 
 @MainActor
+final class IOSVoiceRecorderCompletedCaptureHandoff: @unchecked Sendable {
+    typealias PreparePending = @MainActor @Sendable (
+        IOSForegroundVoicePersistenceOwner,
+        TranscriptionConfiguration
+    ) async throws -> IOSPendingRecording
+
+    private enum State {
+        case available
+        case preparing
+        case transferred
+        case released
+    }
+
+    private let preparePendingAction: PreparePending
+    private var releaseAction: (@MainActor @Sendable () -> Void)?
+    private var state = State.available
+    private var releaseWasRequested = false
+
+    init(
+        preparePending: @escaping PreparePending,
+        release: @escaping @MainActor @Sendable () -> Void
+    ) {
+        preparePendingAction = preparePending
+        releaseAction = release
+    }
+
+    func preparePending(
+        using owner: IOSForegroundVoicePersistenceOwner,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSPendingRecording {
+        guard case .available = state else {
+            throw IOSVoiceRecorderCompletedCaptureHandoffError.unavailable
+        }
+        state = .preparing
+        do {
+            let recording = try await preparePendingAction(
+                owner,
+                transcriptionConfiguration
+            )
+            state = .transferred
+            releaseOnce()
+            return recording
+        } catch {
+            // A failed or uncertain Persistence handoff keeps the exact
+            // completed source alive. The caller may retry this capability or
+            // release it into ordinary capture-source recovery.
+            if releaseWasRequested {
+                state = .released
+                releaseOnce()
+            } else {
+                state = .available
+            }
+            throw error
+        }
+    }
+
+    func release() {
+        switch state {
+        case .available:
+            state = .released
+            releaseOnce()
+        case .preparing:
+            releaseWasRequested = true
+        case .transferred, .released:
+            break
+        }
+    }
+
+    private func releaseOnce() {
+        let action = releaseAction
+        releaseAction = nil
+        action?()
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            guard case .available = state else { return }
+            state = .released
+            releaseOnce()
+        }
+    }
+}
+
+@MainActor
 final class IOSVoiceRecorderCompletedCapture: @unchecked Sendable {
     let durationMilliseconds: Int64
     let byteCount: Int64
 
-    private let releaseAction: @MainActor @Sendable () -> Void
-    private var wasReleased = false
+    private var handoff: IOSVoiceRecorderCompletedCaptureHandoff?
 
     init(
         durationMilliseconds: Int64,
         byteCount: Int64,
+        preparePending: @escaping
+            IOSVoiceRecorderCompletedCaptureHandoff.PreparePending = {
+                _, _ in
+                throw IOSVoiceRecorderCompletedCaptureHandoffError
+                    .unavailable
+            },
         release: @escaping @MainActor @Sendable () -> Void
     ) {
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
-        releaseAction = release
+        handoff = IOSVoiceRecorderCompletedCaptureHandoff(
+            preparePending: preparePending,
+            release: release
+        )
+    }
+
+    convenience init(capture: IOSForegroundVoiceCompletedCapture) {
+        self.init(
+            durationMilliseconds: capture.durationMilliseconds,
+            byteCount: capture.byteCount,
+            preparePending: { owner, configuration in
+                try await owner.prepareCompletedCapture(
+                    capture,
+                    transcriptionConfiguration: configuration
+                )
+            },
+            release: { capture.release() }
+        )
+    }
+
+    /// Transfers ownership of the opaque descriptor-bound capability once.
+    /// Neither this wrapper nor the handoff exposes the capture URL.
+    func claimPersistenceHandoff()
+        -> IOSVoiceRecorderCompletedCaptureHandoff? {
+        defer { handoff = nil }
+        return handoff
     }
 
     func release() {
-        guard !wasReleased else { return }
-        wasReleased = true
-        releaseAction()
+        handoff?.release()
+        handoff = nil
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            handoff?.release()
+            handoff = nil
+        }
     }
 }
 
@@ -100,6 +230,80 @@ nonisolated enum IOSVoiceRecorderStopResult: Sendable {
     case discarded
     case preserved(IOSVoiceRecorderFailure)
     case stale
+}
+
+nonisolated enum IOSVoiceRecorderTerminalCause: Equatable, Sendable {
+    case done
+    case cancelled
+    case interrupted
+    case maximumDuration
+    case recorderEndedUnexpectedly
+    case failed(IOSVoiceRecorderFailure)
+    case stale
+}
+
+nonisolated struct IOSVoiceRecorderTerminalEvent: Sendable {
+    let cause: IOSVoiceRecorderTerminalCause
+    let result: IOSVoiceRecorderStopResult
+
+    static let stale = Self(cause: .stale, result: .stale)
+}
+
+/// Single-use ownership of one terminal-event claim. Keeping or awaiting this
+/// handle never keeps the recorder adapter alive. Dropping or cancelling it
+/// releases an unfulfilled claim so a replacement workflow waiter can attach.
+@MainActor
+final class IOSVoiceRecorderTerminalWait: @unchecked Sendable {
+    typealias Wait = @MainActor @Sendable () async ->
+        IOSVoiceRecorderTerminalEvent
+    typealias Cancel = @MainActor @Sendable () -> Void
+
+    private enum State {
+        case available
+        case waiting
+        case resolved
+    }
+
+    private let waitAction: Wait
+    private var cancelAction: Cancel?
+    private var state = State.available
+
+    init(
+        wait: @escaping Wait,
+        cancel: Cancel? = nil
+    ) {
+        waitAction = wait
+        cancelAction = cancel
+    }
+
+    func value() async -> IOSVoiceRecorderTerminalEvent {
+        guard case .available = state else { return .stale }
+        state = .waiting
+        let event = await withTaskCancellationHandler {
+            await waitAction()
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancel()
+            }
+        }
+        state = .resolved
+        cancelAction = nil
+        return event
+    }
+
+    func cancel() {
+        if case .resolved = state { return }
+        state = .resolved
+        let action = cancelAction
+        cancelAction = nil
+        action?()
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            cancel()
+        }
+    }
 }
 
 @MainActor
@@ -203,6 +407,8 @@ final class IOSVoiceRecorderAdapter {
         var deferredRecorderEvent: IOSVoiceRecorderEvent?
         var pendingStopReason: InternalStopReason?
         var stopTask: Task<IOSVoiceRecorderStopResult, Never>?
+        var terminalCause: IOSVoiceRecorderTerminalCause?
+        var terminalWaiter: TerminalWaiter?
         var stopWaiters: [
             CheckedContinuation<IOSVoiceRecorderStopResult, Never>
         ] = []
@@ -232,16 +438,116 @@ final class IOSVoiceRecorderAdapter {
         }
     }
 
+    @MainActor
+    private final class TerminalWaiter: Sendable {
+        let identifier: UInt64
+        private var continuation:
+            CheckedContinuation<IOSVoiceRecorderTerminalEvent, Never>?
+        private var bufferedEvent: IOSVoiceRecorderTerminalEvent?
+        private var wasResolved = false
+
+        init(identifier: UInt64) {
+            self.identifier = identifier
+        }
+
+        func value() async -> IOSVoiceRecorderTerminalEvent {
+            if let bufferedEvent {
+                self.bufferedEvent = nil
+                return bufferedEvent
+            }
+            return await withCheckedContinuation { continuation in
+                guard !wasResolved else {
+                    continuation.resume(returning: .stale)
+                    return
+                }
+                self.continuation = continuation
+            }
+        }
+
+        func resolve(with event: IOSVoiceRecorderTerminalEvent) {
+            guard !wasResolved else { return }
+            wasResolved = true
+            if let continuation {
+                self.continuation = nil
+                continuation.resume(returning: event)
+            } else {
+                bufferedEvent = event
+            }
+        }
+    }
+
+    private final class WeakCompletedCapture {
+        weak var value: IOSVoiceRecorderCompletedCapture?
+
+        init(_ value: IOSVoiceRecorderCompletedCapture) {
+            self.value = value
+        }
+    }
+
+    private enum StoredTerminalResult {
+        case completed(WeakCompletedCapture)
+        case invalid(IOSForegroundVoiceCaptureInvalidReason)
+        case discarded
+        case preserved(IOSVoiceRecorderFailure)
+        case stale
+
+        init(_ result: IOSVoiceRecorderStopResult) {
+            switch result {
+            case let .completed(capture):
+                self = .completed(WeakCompletedCapture(capture))
+            case let .invalid(reason):
+                self = .invalid(reason)
+            case .discarded:
+                self = .discarded
+            case let .preserved(failure):
+                self = .preserved(failure)
+            case .stale:
+                self = .stale
+            }
+        }
+
+        func materialize() -> IOSVoiceRecorderStopResult? {
+            switch self {
+            case let .completed(reference):
+                reference.value.map(IOSVoiceRecorderStopResult.completed)
+            case let .invalid(reason):
+                .invalid(reason)
+            case .discarded:
+                .discarded
+            case let .preserved(failure):
+                .preserved(failure)
+            case .stale:
+                .stale
+            }
+        }
+    }
+
     private let captureSource: any IOSVoiceRecorderCaptureSourceSystem
     private let client: IOSVoiceRecorderClient
     private let diagnose: DiagnosticHandler
     private var phase = Phase.idle
     private var activeAttempt: Attempt?
     private var nextGeneration: UInt64 = 0
-    private var lastTerminal: (
-        token: IOSVoiceRecorderAttemptToken,
-        result: IOSVoiceRecorderStopResult
-    )?
+    private var nextTerminalWaiterIdentifier: UInt64 = 0
+    private var lastTerminal: LastTerminal?
+
+    private struct LastTerminal {
+        let token: IOSVoiceRecorderAttemptToken
+        let cause: IOSVoiceRecorderTerminalCause
+        let storedResult: StoredTerminalResult
+        var eventWasConsumed: Bool
+
+        func result() -> IOSVoiceRecorderStopResult {
+            storedResult.materialize() ?? .stale
+        }
+
+        func event() -> IOSVoiceRecorderTerminalEvent {
+            guard let result = storedResult.materialize() else {
+                return .stale
+            }
+            return IOSVoiceRecorderTerminalEvent(cause: cause, result: result)
+        }
+    }
 
     convenience init(
         lease: IOSForegroundVoiceCaptureSourceLease,
@@ -265,6 +571,20 @@ final class IOSVoiceRecorderAdapter {
         self.captureSource = captureSource
         self.client = client
         self.diagnose = diagnose
+    }
+
+    deinit {
+        MainActor.assumeIsolated {
+            guard let attempt = activeAttempt else { return }
+            attempt.maximumDurationTask?.cancel()
+            attempt.maximumDurationTask = nil
+            attempt.terminalWaiter?.resolve(with: .stale)
+            attempt.terminalWaiter = nil
+            if attempt.stopTask == nil {
+                _ = attempt.stopRecorderOnce()
+                _ = attempt.releaseSourceOnce(captureSource)
+            }
+        }
     }
 
     func start(
@@ -421,7 +741,7 @@ final class IOSVoiceRecorderAdapter {
     ) async -> IOSVoiceRecorderStopResult {
         guard let attempt = activeAttempt, attempt.token == token else {
             if let lastTerminal, lastTerminal.token == token {
-                return lastTerminal.result
+                return lastTerminal.result()
             }
             return .stale
         }
@@ -434,6 +754,8 @@ final class IOSVoiceRecorderAdapter {
             .cancelled
         case .interrupted:
             .interrupted
+        case .maximumDuration:
+            .maximumDuration
         }
 
         guard phase != .arming else {
@@ -445,6 +767,15 @@ final class IOSVoiceRecorderAdapter {
             }
         }
         return await beginStop(attempt, reason: internalReason)
+    }
+
+    /// Delivers the terminal event for an attempt exactly once. The event is
+    /// independent of the idempotent `stop` result so an internal watchdog or
+    /// delegate-owned stop cannot leave a workflow waiting in Listening.
+    func waitForTerminal(
+        for token: IOSVoiceRecorderAttemptToken
+    ) -> IOSVoiceRecorderTerminalWait {
+        claimTerminalWait(for: token)
     }
 
     func presentationCurrentTime(
@@ -470,6 +801,68 @@ final class IOSVoiceRecorderAdapter {
             return false
         }
         return attempt.recorder?.isRecording == true
+    }
+
+    private func claimTerminalWait(
+        for token: IOSVoiceRecorderAttemptToken
+    ) -> IOSVoiceRecorderTerminalWait {
+        guard !Task.isCancelled else {
+            return IOSVoiceRecorderTerminalWait(wait: { .stale })
+        }
+        if let attempt = activeAttempt, attempt.token == token {
+            guard attempt.terminalWaiter == nil else {
+                return IOSVoiceRecorderTerminalWait(wait: { .stale })
+            }
+            nextTerminalWaiterIdentifier &+= 1
+            if nextTerminalWaiterIdentifier == 0 {
+                nextTerminalWaiterIdentifier = 1
+            }
+            let waiter = TerminalWaiter(
+                identifier: nextTerminalWaiterIdentifier
+            )
+            attempt.terminalWaiter = waiter
+            let generation = attempt.generation
+            return IOSVoiceRecorderTerminalWait(
+                wait: { await waiter.value() },
+                cancel: { [weak self] in
+                    if let self {
+                        self.cancelTerminalWait(
+                            waiter,
+                            token: token,
+                            generation: generation
+                        )
+                    } else {
+                        waiter.resolve(with: .stale)
+                    }
+                }
+            )
+        }
+
+        guard var terminal = lastTerminal,
+              terminal.token == token,
+              !terminal.eventWasConsumed else {
+            return IOSVoiceRecorderTerminalWait(wait: { .stale })
+        }
+        terminal.eventWasConsumed = true
+        lastTerminal = terminal
+        let event = terminal.event()
+        return IOSVoiceRecorderTerminalWait(wait: { event })
+    }
+
+    private func cancelTerminalWait(
+        _ waiter: TerminalWaiter,
+        token: IOSVoiceRecorderAttemptToken,
+        generation: UInt64
+    ) {
+        guard let attempt = activeAttempt,
+              attempt.token == token,
+              attempt.generation == generation,
+              attempt.terminalWaiter === waiter else {
+            waiter.resolve(with: .stale)
+            return
+        }
+        attempt.terminalWaiter = nil
+        waiter.resolve(with: .stale)
     }
 
     private func failStart(
@@ -536,12 +929,7 @@ final class IOSVoiceRecorderAdapter {
                 attempt.pendingStopReason = .cancelled
             }
         case .recording:
-            Task { @MainActor [weak self] in
-                _ = await self?.beginStop(
-                    attempt,
-                    reason: .cancelled
-                )
-            }
+            _ = claimStopAuthority(attempt, reason: .cancelled)
         case .idle, .stopping:
             break
         }
@@ -551,21 +939,33 @@ final class IOSVoiceRecorderAdapter {
         _ attempt: Attempt,
         reason: InternalStopReason
     ) async -> IOSVoiceRecorderStopResult {
-        if let task = attempt.stopTask { return await task.value }
-        guard activeAttempt === attempt else {
+        guard let task = claimStopAuthority(attempt, reason: reason) else {
             return terminalResult(for: attempt.token)
         }
+        return await task.value
+    }
+
+    /// Claims terminal authority without suspension. Delegate, watchdog, and
+    /// explicit actions all use this gate so callback observation order is the
+    /// stop order even though source cleanup remains asynchronous.
+    private func claimStopAuthority(
+        _ attempt: Attempt,
+        reason: InternalStopReason
+    ) -> Task<IOSVoiceRecorderStopResult, Never>? {
+        if let task = attempt.stopTask { return task }
+        guard activeAttempt === attempt else { return nil }
 
         phase = .stopping
         attempt.maximumDurationTask?.cancel()
         attempt.maximumDurationTask = nil
+        attempt.terminalCause = terminalCause(for: reason)
         let task = Task { @MainActor [self, attempt] in
             let result = await executeStop(attempt, reason: reason)
             finishAttempt(attempt, result: result)
             return result
         }
         attempt.stopTask = task
-        return await task.value
+        return task
     }
 
     private func executeStop(
@@ -573,7 +973,7 @@ final class IOSVoiceRecorderAdapter {
         reason: InternalStopReason
     ) async -> IOSVoiceRecorderStopResult {
         switch reason {
-        case .done:
+        case .done, .interrupted:
             return await finalizeCompletedAttempt(attempt)
         case .preserveFailure(let failure):
             stopRecorder(attempt)
@@ -583,8 +983,7 @@ final class IOSVoiceRecorderAdapter {
             stopRecorder(attempt)
             preserveSource(attempt)
             return .preserved(.recorderEndedUnexpectedly)
-        case .cancelled, .interrupted, .maximumDuration,
-             .discardFailure:
+        case .cancelled, .maximumDuration, .discardFailure:
             return await discardAttempt(attempt, reason: reason)
         }
     }
@@ -667,12 +1066,25 @@ final class IOSVoiceRecorderAdapter {
         result: IOSVoiceRecorderStopResult
     ) {
         guard activeAttempt === attempt else { return }
+        attempt.stopTask = nil
         activeAttempt = nil
         phase = .idle
-        lastTerminal = (attempt.token, result)
+        let event = IOSVoiceRecorderTerminalEvent(
+            cause: attempt.terminalCause ?? .failed(.recorderEndedUnexpectedly),
+            result: result
+        )
+        let terminalWaiter = attempt.terminalWaiter
+        attempt.terminalWaiter = nil
+        lastTerminal = LastTerminal(
+            token: attempt.token,
+            cause: event.cause,
+            storedResult: StoredTerminalResult(result),
+            eventWasConsumed: terminalWaiter != nil
+        )
         let waiters = attempt.stopWaiters
         attempt.stopWaiters.removeAll()
         for waiter in waiters { waiter.resume(returning: result) }
+        terminalWaiter?.resolve(with: event)
     }
 
     private func terminalResult(
@@ -681,7 +1093,27 @@ final class IOSVoiceRecorderAdapter {
         guard let lastTerminal, lastTerminal.token == token else {
             return .stale
         }
-        return lastTerminal.result
+        return lastTerminal.result()
+    }
+
+    private func terminalCause(
+        for reason: InternalStopReason
+    ) -> IOSVoiceRecorderTerminalCause {
+        switch reason {
+        case .done:
+            .done
+        case .cancelled:
+            .cancelled
+        case .interrupted:
+            .interrupted
+        case .maximumDuration:
+            .maximumDuration
+        case .recorderEnded:
+            .recorderEndedUnexpectedly
+        case .preserveFailure(let failure),
+             .discardFailure(let failure):
+            .failed(failure)
+        }
     }
 
     private func receiveRecorderEvent(
@@ -710,12 +1142,7 @@ final class IOSVoiceRecorderAdapter {
                 attempt.pendingStopReason = .recorderEnded
             }
         case .recording:
-            Task { @MainActor [weak self] in
-                _ = await self?.beginStop(
-                    attempt,
-                    reason: .recorderEnded
-                )
-            }
+            _ = claimStopAuthority(attempt, reason: .recorderEnded)
         case .stopping:
             break
         case .idle:
@@ -736,7 +1163,7 @@ final class IOSVoiceRecorderAdapter {
                   self.phase == .recording else {
                 return
             }
-            _ = await self.beginStop(
+            _ = self.claimStopAuthority(
                 attempt,
                 reason: .maximumDuration
             )
@@ -778,13 +1205,7 @@ private final class IOSVoiceRecorderCaptureSourceLeaseSystem:
         -> IOSVoiceRecorderCaptureFinalization {
         switch try await lease.completeAfterRecorderClose() {
         case let .completed(capture):
-            return .completed(
-                IOSVoiceRecorderCompletedCapture(
-                    durationMilliseconds: capture.durationMilliseconds,
-                    byteCount: capture.byteCount,
-                    release: capture.release
-                )
-            )
+            return .completed(IOSVoiceRecorderCompletedCapture(capture: capture))
         case let .discarded(reason):
             return .discarded(reason)
         }
@@ -891,6 +1312,19 @@ extension IOSVoiceRecorderCompletedCapture:
     nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
+extension IOSVoiceRecorderCompletedCaptureHandoff:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    nonisolated var description: String {
+        "IOSVoiceRecorderCompletedCaptureHandoff(<redacted>)"
+    }
+
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 extension IOSVoiceRecorderStopResult:
     CustomStringConvertible,
     CustomDebugStringConvertible,
@@ -899,6 +1333,29 @@ extension IOSVoiceRecorderStopResult:
     var description: String { "IOSVoiceRecorderStopResult(<redacted>)" }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSVoiceRecorderTerminalEvent:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    var description: String { "IOSVoiceRecorderTerminalEvent(<redacted>)" }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSVoiceRecorderTerminalWait:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable
+{
+    nonisolated var description: String {
+        "IOSVoiceRecorderTerminalWait(<redacted>)"
+    }
+
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
 }
 
 extension IOSVoiceRecorderAdapter:

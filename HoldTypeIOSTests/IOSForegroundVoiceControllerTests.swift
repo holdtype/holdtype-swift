@@ -50,13 +50,19 @@ struct IOSForegroundVoiceControllerTests {
         )
         await controller.activate()
         let stale = try voiceCommand(.startStandard, in: controller)
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
 
         await controller.activate()
-        #expect(controller.submit(stale) == .stale)
+        #expect(controller.submit(stale, from: scene) == .stale)
+        #expect(scene.promptPresentation == .available)
 
         let current = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(current) == .accepted)
-        #expect(controller.submit(current) == .stale)
+        #expect(controller.submit(current, from: scene) == .accepted)
+        #expect(scene.promptPresentation == .ownedByThisScene)
+        #expect(controller.submit(current, from: scene) == .stale)
+        #expect(scene.promptPresentation == .ownedByThisScene)
         try await voiceEventually { fixture.runOperations.count == 1 }
         #expect(fixture.runOperations == [.start(.standard)])
 
@@ -69,6 +75,110 @@ struct IOSForegroundVoiceControllerTests {
         try await voiceEventually {
             controller.presentation.phase == .inactive
         }
+        #expect(scene.promptPresentation == .available)
+    }
+
+    @Test func startRequiresAndForwardsTheExactSceneLease() async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation()
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let command = try voiceCommand(.startStandard, in: controller)
+
+        #expect(controller.submit(command) == .unavailable)
+        #expect(controller.presentation.phase == .inactive)
+        #expect(fixture.runOperations.isEmpty)
+
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        #expect(controller.submit(command, from: scene) == .accepted)
+        try await voiceEventually { fixture.runOperations.count == 1 }
+        #expect(fixture.runOperations == [.start(.standard)])
+        let lease = try #require(fixture.startLeases.first)
+
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation()
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+        #expect(!lease.finish())
+        #expect(scene.promptPresentation == .available)
+    }
+
+    @Test func foreignOrInactiveSceneCannotAcquireTheProcessStartLease()
+        async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation()
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let command = try voiceCommand(.startStandard, in: controller)
+        let inactive = controller.sceneRegistry.registerScene(
+            initialActivity: .inactive
+        )
+        let foreignRegistry = IOSVoiceSceneRegistry()
+        let foreign = foreignRegistry.registerScene(initialActivity: .active)
+
+        #expect(controller.submit(command, from: inactive) == .unavailable)
+        #expect(controller.submit(command, from: foreign) == .unavailable)
+        #expect(fixture.runOperations.isEmpty)
+        #expect(inactive.promptPresentation == .unavailable)
+        #expect(foreign.promptPresentation == .available)
+
+        #expect(inactive.updateActivity(.active) == .accepted)
+        #expect(controller.submit(command, from: inactive) == .accepted)
+        try await voiceEventually { fixture.runOperations.count == 1 }
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation()
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+        #expect(inactive.promptPresentation == .available)
+        #expect(foreign.promptPresentation == .available)
+    }
+
+    @Test func droppingControllerCancelsWorkAndRetiresAcceptedSceneLease()
+        async throws {
+        let fixture = IOSForegroundVoiceControllerDropFixture()
+        var controller: IOSForegroundVoiceController? =
+            IOSForegroundVoiceController(client: fixture.makeClient())
+        let scene = try #require(
+            controller?.sceneRegistry.registerScene(
+                initialActivity: .active
+            )
+        )
+        await controller?.activate()
+        let command = try #require(
+            controller?.actionCommands.first {
+                $0.action == .startStandard
+            }
+        )
+        #expect(controller?.submit(command, from: scene) == .accepted)
+        try await voiceEventually { fixture.started }
+        #expect(scene.promptPresentation == .ownedByThisScene)
+
+        weak let releasedController = controller
+        controller = nil
+
+        try await voiceEventually {
+            releasedController == nil && fixture.cancelled
+        }
+        #expect(scene.promptPresentation == .available)
+        #expect(fixture.finishCount == 1)
     }
 
     @Test func everyOperationClearsRecoveryAndRetryWaitsForProgress()
@@ -160,7 +270,7 @@ struct IOSForegroundVoiceControllerTests {
                 testCase.action,
                 in: controller
             )
-            #expect(controller.submit(command) == .accepted)
+            #expect(submitVoiceCommand(command, in: controller) == .accepted)
             try await voiceEventually {
                 fixture.runOperations.count == 1
             }
@@ -207,7 +317,7 @@ struct IOSForegroundVoiceControllerTests {
         await controller.activate()
 
         let firstStart = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(firstStart) == .accepted)
+        #expect(submitVoiceCommand(firstStart, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         #expect(
             controller.presentation.latestAvailability
@@ -277,7 +387,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation == completed)
 
         let secondStart = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(secondStart) == .accepted)
+        #expect(submitVoiceCommand(secondStart, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 2 }
         let secondArming = controller.presentation
 
@@ -306,7 +416,7 @@ struct IOSForegroundVoiceControllerTests {
         )
         await controller.activate()
         let start = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(start) == .accepted)
+        #expect(submitVoiceCommand(start, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         fixture.sendProgress(.listening, at: 0)
 
@@ -314,7 +424,9 @@ struct IOSForegroundVoiceControllerTests {
             .finishUtterance,
             in: controller
         )
-        #expect(controller.submit(unavailableFinish) == .accepted)
+        #expect(
+            submitVoiceCommand(unavailableFinish, in: controller) == .accepted
+        )
         #expect(fixture.finishAuthorities.count == 1)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.failure == .operationFailed)
@@ -328,8 +440,10 @@ struct IOSForegroundVoiceControllerTests {
             .finishUtterance,
             in: controller
         )
-        #expect(controller.submit(acceptedFinish) == .accepted)
-        #expect(controller.submit(acceptedFinish) == .stale)
+        #expect(
+            submitVoiceCommand(acceptedFinish, in: controller) == .accepted
+        )
+        #expect(submitVoiceCommand(acceptedFinish, in: controller) == .stale)
         #expect(fixture.finishAuthorities.count == 2)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.failure == nil)
@@ -339,7 +453,7 @@ struct IOSForegroundVoiceControllerTests {
         )
 
         let cancel = try voiceCommand(.cancelUtterance, in: controller)
-        #expect(controller.submit(cancel) == .accepted)
+        #expect(submitVoiceCommand(cancel, in: controller) == .accepted)
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
@@ -416,7 +530,7 @@ struct IOSForegroundVoiceControllerTests {
             )
             await controller.activate()
             let start = try voiceCommand(.startStandard, in: controller)
-            #expect(controller.submit(start) == .accepted)
+            #expect(submitVoiceCommand(start, in: controller) == .accepted)
             try await voiceEventually {
                 fixture.runOperations.count == 1
             }
@@ -429,7 +543,7 @@ struct IOSForegroundVoiceControllerTests {
                 controller.presentation.stage == scenario.activeStage
             )
             let cancel = try voiceCommand(scenario.action, in: controller)
-            #expect(controller.submit(cancel) == .accepted)
+            #expect(submitVoiceCommand(cancel, in: controller) == .accepted)
             let waitingForCleanup = controller.presentation
 
             #expect(waitingForCleanup.phase == scenario.phase)
@@ -439,7 +553,7 @@ struct IOSForegroundVoiceControllerTests {
             try await voiceEventually {
                 fixture.cancellationAuthorities.count == 1
             }
-            #expect(controller.submit(cancel) == .stale)
+            #expect(submitVoiceCommand(cancel, in: controller) == .stale)
             #expect(controller.presentation.phase == scenario.phase)
 
             fixture.resolveRun(
@@ -495,10 +609,10 @@ struct IOSForegroundVoiceControllerTests {
         )
         await controller.activate()
         let start = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(start) == .accepted)
+        #expect(submitVoiceCommand(start, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         let cancel = try voiceCommand(.cancelStart, in: controller)
-        #expect(controller.submit(cancel) == .accepted)
+        #expect(submitVoiceCommand(cancel, in: controller) == .accepted)
 
         fixture.resolveRun(
             at: 0,
@@ -585,7 +699,7 @@ struct IOSForegroundVoiceControllerTests {
             )
             await controller.activate()
             let start = try voiceCommand(.startStandard, in: controller)
-            #expect(controller.submit(start) == .accepted)
+            #expect(submitVoiceCommand(start, in: controller) == .accepted)
             try await voiceEventually {
                 fixture.runOperations.count == 1
             }
@@ -633,7 +747,7 @@ struct IOSForegroundVoiceControllerTests {
         )
         await controller.activate()
         let recover = try voiceCommand(.recoverRecording, in: controller)
-        #expect(controller.submit(recover) == .accepted)
+        #expect(submitVoiceCommand(recover, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         #expect(fixture.runOperations == [.recoverRecording])
 
@@ -771,7 +885,7 @@ struct IOSForegroundVoiceControllerTests {
         )
         await controller.activate()
         let start = try voiceCommand(.startStandard, in: controller)
-        #expect(controller.submit(start) == .accepted)
+        #expect(submitVoiceCommand(start, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         fixture.sendProgress(.processing(.postProcessing), at: 0)
 
@@ -816,7 +930,7 @@ struct IOSForegroundVoiceControllerTests {
             .retryLocalCheckpoint,
             in: controller
         )
-        #expect(controller.submit(command) == .accepted)
+        #expect(submitVoiceCommand(command, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
         let authority = try #require(fixture.runAuthorities.first)
         let resolution = IOSForegroundVoiceResolution(
@@ -970,6 +1084,7 @@ private final class IOSForegroundVoiceClientFixture {
     private(set) var observeCallCount = 0
     private(set) var runOperations: [IOSForegroundVoiceOperation] = []
     private(set) var runAuthorities: [IOSForegroundVoiceAuthority] = []
+    private(set) var startLeases: [IOSVoiceSceneStartLease] = []
     private(set) var finishAuthorities: [IOSForegroundVoiceAuthority] = []
     private(set) var cancellationAuthorities:
         [IOSForegroundVoiceAuthority] = []
@@ -994,6 +1109,14 @@ private final class IOSForegroundVoiceClientFixture {
     func makeClient() -> IOSForegroundVoiceClient {
         IOSForegroundVoiceClient(
             observe: { await self.observe() },
+            runStart: { intent, lease, authority, progress in
+                await self.runStart(
+                    intent,
+                    lease: lease,
+                    authority: authority,
+                    progress: progress
+                )
+            },
             run: { operation, authority, progress in
                 await self.run(
                     operation,
@@ -1077,11 +1200,81 @@ private final class IOSForegroundVoiceClientFixture {
         }
     }
 
+    private func runStart(
+        _ intent: DictationOutputIntent,
+        lease: IOSVoiceSceneStartLease,
+        authority: IOSForegroundVoiceAuthority,
+        progress: @escaping IOSForegroundVoiceClient.Progress
+    ) async -> IOSForegroundVoiceResolution {
+        startLeases.append(lease)
+        let resolution = await run(
+            .start(intent),
+            authority: authority,
+            progress: progress
+        )
+        _ = lease.finish()
+        return resolution
+    }
+
     private func finish(
         _ authority: IOSForegroundVoiceAuthority
     ) -> IOSForegroundVoiceControlDisposition {
         finishAuthorities.append(authority)
         return finishDisposition
+    }
+}
+
+@MainActor
+private final class IOSForegroundVoiceControllerDropFixture {
+    private(set) var started = false
+    private(set) var cancelled = false
+    private(set) var finishCount = 0
+
+    private var continuation:
+        CheckedContinuation<Void, Never>?
+
+    func makeClient() -> IOSForegroundVoiceClient {
+        IOSForegroundVoiceClient(
+            observe: {
+                voiceObservation()
+            },
+            runStart: { _, lease, _, _ in
+                await self.runStart(lease: lease)
+            },
+            run: { _, _, _ in
+                IOSForegroundVoiceResolution(
+                    observation: voiceObservation()
+                )
+            },
+            finishUtterance: { _ in .unavailable }
+        )
+    }
+
+    private func runStart(
+        lease: IOSVoiceSceneStartLease
+    ) async -> IOSForegroundVoiceResolution {
+        started = true
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.finishCancelledStart(lease: lease)
+            }
+        }
+        return IOSForegroundVoiceResolution(
+            observation: voiceObservation()
+        )
+    }
+
+    private func finishCancelledStart(lease: IOSVoiceSceneStartLease) {
+        guard !cancelled else { return }
+        cancelled = true
+        if lease.finish() { finishCount += 1 }
+        let continuation = continuation
+        self.continuation = nil
+        continuation?.resume()
     }
 }
 
@@ -1125,6 +1318,30 @@ private func voiceCommand(
     try #require(
         controller.actionCommands.first { $0.action == action }
     )
+}
+
+@MainActor
+private func submitVoiceCommand(
+    _ command: IOSForegroundVoiceActionCommand,
+    in controller: IOSForegroundVoiceController
+) -> IOSForegroundVoiceActionAdmission {
+    switch command.action {
+    case .startStandard, .startTranslation:
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        return controller.submit(command, from: scene)
+    case .cancelStart,
+         .finishUtterance,
+         .cancelUtterance,
+         .cancelProcessing,
+         .recoverRecording,
+         .retryPending,
+         .discard,
+         .retrySavingResult,
+         .retryLocalCheckpoint:
+        return controller.submit(command)
+    }
 }
 
 @MainActor

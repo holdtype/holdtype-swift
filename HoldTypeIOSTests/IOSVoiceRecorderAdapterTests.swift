@@ -1,8 +1,9 @@
 import AudioToolbox
 import AVFAudio
 import Foundation
+import HoldTypeDomain
 import Testing
-@_spi(HoldTypeIOSCore) import HoldTypePersistence
+@_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 @testable import HoldTypeIOS
 
 @MainActor
@@ -255,6 +256,238 @@ struct IOSVoiceRecorderAdapterTests {
         #expect(fixture.source.completedReleaseCount == 1)
     }
 
+    @Test func completedCapabilityIsClaimedOnceAndFailedPreparePreservesIt()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+        guard case let .completed(completed) = await adapter.stop(
+            for: token,
+            reason: .done
+        ) else {
+            Issue.record("Expected a completed capture.")
+            return
+        }
+
+        let handoff = try #require(completed.claimPersistenceHandoff())
+        #expect(completed.claimPersistenceHandoff() == nil)
+        let persistenceOwner = IOSForegroundVoicePersistenceOwner(
+            applicationSupportDirectoryURL: URL(
+                fileURLWithPath: "/tmp/holdtype-recorder-handoff-tests",
+                isDirectory: true
+            )
+        )
+        await #expect(throws: VoiceRecorderFixtureError.self) {
+            _ = try await handoff.preparePending(
+                using: persistenceOwner,
+                transcriptionConfiguration: .defaults
+            )
+        }
+        #expect(fixture.source.completedPrepareCallCount == 1)
+        #expect(fixture.source.completedReleaseCount == 0)
+
+        handoff.release()
+        handoff.release()
+        completed.release()
+        #expect(fixture.source.completedReleaseCount == 1)
+    }
+
+    @Test func completedPayloadDropReleasesWhileAdapterRemainsAlive()
+        async {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+
+        weak var weakCapture: IOSVoiceRecorderCompletedCapture?
+        do {
+            let result = await adapter.stop(for: token, reason: .done)
+            guard case let .completed(completed) = result else {
+                Issue.record("Expected a completed capture.")
+                return
+            }
+            weakCapture = completed
+            #expect(fixture.source.completedReleaseCount == 0)
+        }
+
+        #expect(weakCapture == nil)
+        #expect(fixture.source.completedReleaseCount == 1)
+        #expect(
+            (await adapter.stop(for: token, reason: .done)).isStale
+        )
+        #expect(String(describing: adapter).contains("<redacted>"))
+    }
+
+    @Test func handoffSuccessReleasesExactlyOnceAndCannotBeReused()
+        async throws {
+        let pending = try makePendingRecording()
+        let fixture = CompletedCaptureHandoffFixture(
+            prepare: { _, _ in pending }
+        )
+        let completed = fixture.makeCompletedCapture()
+        let handoff = try #require(completed.claimPersistenceHandoff())
+
+        #expect(
+            try await handoff.preparePending(
+                using: makePassivePersistenceOwner(),
+                transcriptionConfiguration: .defaults
+            ) == pending
+        )
+        #expect(fixture.prepareCount == 1)
+        #expect(fixture.releaseCount == 1)
+        await #expect(
+            throws: IOSVoiceRecorderCompletedCaptureHandoffError.unavailable
+        ) {
+            _ = try await handoff.preparePending(
+                using: makePassivePersistenceOwner(),
+                transcriptionConfiguration: .defaults
+            )
+        }
+        handoff.release()
+        completed.release()
+        #expect(fixture.releaseCount == 1)
+    }
+
+    @Test func failedHandoffCanRetryAndReleasesOnlyAfterSuccess()
+        async throws {
+        let pending = try makePendingRecording()
+        let fixture = CompletedCaptureHandoffFixture(
+            prepare: { _, callCount in
+                if callCount == 1 { throw VoiceRecorderFixtureError() }
+                return pending
+            }
+        )
+        let completed = fixture.makeCompletedCapture()
+        let handoff = try #require(completed.claimPersistenceHandoff())
+
+        await #expect(throws: VoiceRecorderFixtureError.self) {
+            _ = try await handoff.preparePending(
+                using: makePassivePersistenceOwner(),
+                transcriptionConfiguration: .defaults
+            )
+        }
+        #expect(fixture.releaseCount == 0)
+        #expect(
+            try await handoff.preparePending(
+                using: makePassivePersistenceOwner(),
+                transcriptionConfiguration: .defaults
+            ) == pending
+        )
+        #expect(fixture.prepareCount == 2)
+        #expect(fixture.releaseCount == 1)
+    }
+
+    @Test func captureAndClaimedHandoffDropsHaveDistinctOwnership()
+        async throws {
+        let beforeClaim = CompletedCaptureHandoffFixture()
+        var unclaimed: IOSVoiceRecorderCompletedCapture? =
+            beforeClaim.makeCompletedCapture()
+        weak let weakUnclaimed = unclaimed
+        unclaimed = nil
+        #expect(weakUnclaimed == nil)
+        #expect(beforeClaim.releaseCount == 1)
+
+        let afterClaim = CompletedCaptureHandoffFixture()
+        var completed: IOSVoiceRecorderCompletedCapture? =
+            afterClaim.makeCompletedCapture()
+        var handoff: IOSVoiceRecorderCompletedCaptureHandoff? = try #require(
+            completed?.claimPersistenceHandoff()
+        )
+        weak let weakHandoff = handoff
+        completed = nil
+        #expect(afterClaim.releaseCount == 0)
+        handoff = nil
+        #expect(weakHandoff == nil)
+        #expect(afterClaim.releaseCount == 1)
+    }
+
+    @Test func releaseDuringPrepareConvergesExactlyOnceForSuccessAndFailure()
+        async throws {
+        for shouldSucceed in [true, false] {
+            let latch = CompletedCapturePrepareLatch()
+            let pending = try makePendingRecording()
+            let fixture = CompletedCaptureHandoffFixture(
+                prepare: { _, _ in
+                    await latch.wait()
+                    if !shouldSucceed { throw VoiceRecorderFixtureError() }
+                    return pending
+                }
+            )
+            let completed = fixture.makeCompletedCapture()
+            let handoff = try #require(completed.claimPersistenceHandoff())
+            let task = Task {
+                try await handoff.preparePending(
+                    using: makePassivePersistenceOwner(),
+                    transcriptionConfiguration: .defaults
+                )
+            }
+            try await recorderEventually { fixture.prepareCount == 1 }
+
+            handoff.release()
+            handoff.release()
+            #expect(fixture.releaseCount == 0)
+            latch.open()
+            if shouldSucceed {
+                #expect(try await task.value == pending)
+            } else {
+                await #expect(throws: VoiceRecorderFixtureError.self) {
+                    _ = try await task.value
+                }
+            }
+            #expect(fixture.releaseCount == 1)
+            await #expect(
+                throws: IOSVoiceRecorderCompletedCaptureHandoffError.unavailable
+            ) {
+                _ = try await handoff.preparePending(
+                    using: makePassivePersistenceOwner(),
+                    transcriptionConfiguration: .defaults
+                )
+            }
+        }
+    }
+
+    @Test func interruptionFinalizesValidPartialAndDiscardsShortPartial()
+        async {
+        let shortFixture = VoiceRecorderFixture()
+        shortFixture.source.finalizationInvalidReason = .tooShort
+        let shortAdapter = shortFixture.makeAdapter()
+        let shortToken = IOSVoiceRecorderAttemptToken()
+        #expect(await shortAdapter.start(for: shortToken) == .recording)
+        let short = await shortAdapter.stop(
+            for: shortToken,
+            reason: .interrupted
+        )
+        #expect(short.invalidReason == .tooShort)
+        assertOrdered(
+            [.beginFinalizing, .stop, .complete],
+            in: shortFixture.log.calls
+        )
+        #expect(!shortFixture.log.calls.contains(.beginDiscarding))
+
+        let validFixture = VoiceRecorderFixture()
+        validFixture.source.completedDurationMilliseconds = 300
+        let validAdapter = validFixture.makeAdapter()
+        let validToken = IOSVoiceRecorderAttemptToken()
+        #expect(await validAdapter.start(for: validToken) == .recording)
+        let valid = await validAdapter.stop(
+            for: validToken,
+            reason: .interrupted
+        )
+        guard case let .completed(completed) = valid else {
+            Issue.record("Expected a recoverable completed partial.")
+            return
+        }
+        #expect(completed.durationMilliseconds == 300)
+        assertOrdered(
+            [.beginFinalizing, .stop, .complete],
+            in: validFixture.log.calls
+        )
+        #expect(!validFixture.log.calls.contains(.beginDiscarding))
+        completed.release()
+        #expect(validFixture.source.completedReleaseCount == 1)
+    }
+
     @Test func cancelDiscardsBeforeStopAndRepeatedStopIsIdempotent() async {
         let fixture = VoiceRecorderFixture()
         let adapter = fixture.makeAdapter()
@@ -315,6 +548,172 @@ struct IOSVoiceRecorderAdapterTests {
         await Task.yield()
         #expect(maximumFixture.recorder.stopCount == 1)
         #expect(maximumDiagnostics.values.contains(.staleCallbackIgnored))
+    }
+
+    @Test func internalMaximumPublishesOneExplicitTerminalAndCannotRecover()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+        let terminalTask = Task {
+            await adapter.waitForTerminal(for: token).value()
+        }
+        try await recorderEventually { fixture.sleep.waiterCount == 1 }
+
+        fixture.sleep.fire()
+        let terminal = await terminalTask.value
+        #expect(terminal.cause == .maximumDuration)
+        #expect(terminal.result.invalidReason == .maximumDurationReached)
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+        #expect(
+            (await adapter.stop(for: token, reason: .done)).invalidReason
+                == .maximumDurationReached
+        )
+        #expect(!fixture.log.calls.contains(.beginFinalizing))
+        assertOrdered(
+            [.beginDiscarding, .stop, .finishDiscard],
+            in: fixture.log.calls
+        )
+    }
+
+    @Test func delegateTerminalWakesOneWaiterAndRejectsSecondClaim()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+        let first = Task {
+            await adapter.waitForTerminal(for: token).value()
+        }
+        await Task.yield()
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+
+        fixture.recorder.emit(.encodeError)
+        let terminal = await first.value
+        #expect(terminal.cause == .recorderEndedUnexpectedly)
+        #expect(
+            terminal.result.preservedFailure
+                == .recorderEndedUnexpectedly
+        )
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+    }
+
+    @Test func cancelledTerminalWaitReleasesClaimForReplacement()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+        let cancelledWait = Task {
+            await adapter.waitForTerminal(for: token).value()
+        }
+        await Task.yield()
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+
+        cancelledWait.cancel()
+        #expect((await cancelledWait.value).cause == .stale)
+
+        let replacement = Task {
+            await adapter.waitForTerminal(for: token).value()
+        }
+        await Task.yield()
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+        fixture.recorder.emit(.encodeError)
+        let event = await replacement.value
+        #expect(event.cause == .recorderEndedUnexpectedly)
+        #expect(
+            event.result.preservedFailure == .recorderEndedUnexpectedly
+        )
+    }
+
+    @Test func droppingAdapterResolvesTerminalWaitAndPreservesSource()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        var adapter: IOSVoiceRecorderAdapter? = fixture.makeAdapter()
+        weak let weakAdapter = adapter
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter?.start(for: token) == .recording)
+        let terminalWait = try #require(
+            adapter?.waitForTerminal(for: token)
+        )
+        let terminalTask = Task { await terminalWait.value() }
+        await Task.yield()
+        let duplicate = adapter?.waitForTerminal(for: token)
+        #expect((await duplicate?.value())?.cause == .stale)
+
+        adapter = nil
+        #expect((await terminalTask.value).cause == .stale)
+        #expect(weakAdapter == nil)
+        #expect(fixture.recorder.stopCount == 1)
+        #expect(fixture.source.releaseCount == 1)
+    }
+
+    @Test func droppingUnawaitedTerminalWaitReleasesClaimForReplacement()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+
+        var abandoned: IOSVoiceRecorderTerminalWait? =
+            adapter.waitForTerminal(for: token)
+        weak let weakAbandoned = abandoned
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
+        abandoned = nil
+        #expect(weakAbandoned == nil)
+
+        let replacement = adapter.waitForTerminal(for: token)
+        fixture.recorder.emit(.encodeError)
+        let event = await replacement.value()
+        #expect(event.cause == .recorderEndedUnexpectedly)
+        #expect(
+            event.result.preservedFailure == .recorderEndedUnexpectedly
+        )
+    }
+
+    @Test func observedDelegateFailureWinsOverLaterMaximumAndDone()
+        async throws {
+        let fixture = VoiceRecorderFixture()
+        let adapter = fixture.makeAdapter()
+        let token = IOSVoiceRecorderAttemptToken()
+        #expect(await adapter.start(for: token) == .recording)
+        let terminalTask = Task {
+            await adapter.waitForTerminal(for: token).value()
+        }
+        try await recorderEventually { fixture.sleep.waiterCount == 1 }
+
+        fixture.recorder.emit(.finished(successfully: false))
+        fixture.sleep.fire()
+        let doneTask = Task {
+            await adapter.stop(for: token, reason: .done)
+        }
+        let terminal = await terminalTask.value
+        let repeated = await doneTask.value
+
+        #expect(terminal.cause == .recorderEndedUnexpectedly)
+        #expect(
+            terminal.result.preservedFailure == .recorderEndedUnexpectedly
+        )
+        #expect(repeated.preservedFailure == .recorderEndedUnexpectedly)
+        #expect(!fixture.log.calls.contains(.beginDiscarding))
+        #expect(!fixture.log.calls.contains(.beginFinalizing))
+        #expect(fixture.recorder.stopCount == 1)
+        #expect(
+            (await adapter.waitForTerminal(for: token).value()).cause == .stale
+        )
     }
 
     @Test func delegateIsAnIndependentAuthorityButLateCallbacksAreStale()
@@ -403,7 +802,7 @@ struct IOSVoiceRecorderAdapterTests {
         )
     }
 
-    @Test func publicDescriptionsAndMirrorsStayPayloadFree() async {
+    @Test func publicDescriptionsAndMirrorsStayPayloadFree() async throws {
         let fixture = VoiceRecorderFixture()
         let adapter = fixture.makeAdapter()
         let token = IOSVoiceRecorderAttemptToken(
@@ -413,6 +812,16 @@ struct IOSVoiceRecorderAdapterTests {
         )
         let result = IOSVoiceRecorderStopResult.preserved(
             .checkpointFailed
+        )
+        let terminal = IOSVoiceRecorderTerminalEvent(
+            cause: .failed(.checkpointFailed),
+            result: result
+        )
+        let captureFixture = CompletedCaptureHandoffFixture()
+        let completed = captureFixture.makeCompletedCapture()
+        let handoff = try #require(completed.claimPersistenceHandoff())
+        let terminalWait = adapter.waitForTerminal(
+            for: IOSVoiceRecorderAttemptToken()
         )
         let canary = token.rawValue.uuidString.lowercased()
 
@@ -425,6 +834,14 @@ struct IOSVoiceRecorderAdapterTests {
             String(reflecting: adapter),
             String(describing: result),
             String(reflecting: result),
+            String(describing: terminal),
+            String(reflecting: terminal),
+            String(describing: completed),
+            String(reflecting: completed),
+            String(describing: handoff),
+            String(reflecting: handoff),
+            String(describing: terminalWait),
+            String(reflecting: terminalWait),
         ] {
             #expect(value.contains("<redacted>"))
             #expect(!value.lowercased().contains(canary))
@@ -434,7 +851,103 @@ struct IOSVoiceRecorderAdapterTests {
         #expect(Mirror(reflecting: fixture.client).children.isEmpty)
         #expect(Mirror(reflecting: adapter).children.isEmpty)
         #expect(Mirror(reflecting: result).children.isEmpty)
+        #expect(Mirror(reflecting: terminal).children.isEmpty)
+        #expect(Mirror(reflecting: completed).children.isEmpty)
+        #expect(Mirror(reflecting: handoff).children.isEmpty)
+        #expect(Mirror(reflecting: terminalWait).children.isEmpty)
+        handoff.release()
+        #expect(captureFixture.releaseCount == 1)
     }
+}
+
+@MainActor
+private final class CompletedCaptureHandoffFixture {
+    typealias Prepare = @MainActor @Sendable (
+        TranscriptionConfiguration,
+        Int
+    ) async throws -> IOSPendingRecording
+
+    private let prepare: Prepare
+    private(set) var prepareCount = 0
+    private(set) var releaseCount = 0
+
+    init(
+        prepare: @escaping Prepare = { _, _ in
+            throw VoiceRecorderFixtureError()
+        }
+    ) {
+        self.prepare = prepare
+    }
+
+    func makeCompletedCapture() -> IOSVoiceRecorderCompletedCapture {
+        IOSVoiceRecorderCompletedCapture(
+            durationMilliseconds: 1_000,
+            byteCount: 2_000,
+            preparePending: { [weak self] _, configuration in
+                guard let self else { throw VoiceRecorderFixtureError() }
+                prepareCount += 1
+                return try await prepare(configuration, prepareCount)
+            },
+            release: { [weak self] in
+                self?.releaseCount += 1
+            }
+        )
+    }
+}
+
+@MainActor
+private final class CompletedCapturePrepareLatch {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { continuation in
+            if isOpen {
+                continuation.resume()
+            } else {
+                self.continuation = continuation
+            }
+        }
+    }
+
+    func open() {
+        guard !isOpen else { return }
+        isOpen = true
+        let continuation = continuation
+        self.continuation = nil
+        continuation?.resume()
+    }
+}
+
+@MainActor
+private func makePassivePersistenceOwner()
+    -> IOSForegroundVoicePersistenceOwner {
+    IOSForegroundVoicePersistenceOwner(
+        applicationSupportDirectoryURL: URL(
+            fileURLWithPath: "/tmp/holdtype-recorder-handoff-tests",
+            isDirectory: true
+        )
+    )
+}
+
+private func makePendingRecording() throws -> IOSPendingRecording {
+    let attemptID = UUID()
+    let now = Date(timeIntervalSinceReferenceDate: 1_000)
+    return try IOSPendingRecording(
+        attemptID: attemptID,
+        audioRelativeIdentifier: IOSPendingRecordingStorageLocation
+            .relativeAudioIdentifier(for: attemptID, format: .m4a),
+        createdAt: now,
+        updatedAt: now,
+        phase: .readyForTranscription,
+        outputIntent: .standard,
+        transcriptionID: nil,
+        transcriptionModel: TranscriptionConfiguration.defaultModel,
+        transcriptionLanguageCode: nil,
+        durationMilliseconds: 1_000,
+        byteCount: 2_000
+    )
 }
 
 @MainActor
@@ -515,6 +1028,7 @@ private final class VoiceRecorderCaptureSourceFixture:
     private(set) var suspendedCheckpointCount: Int?
     private(set) var releaseCount = 0
     private(set) var completedReleaseCount = 0
+    private(set) var completedPrepareCallCount = 0
     var checkpointFailureAt: Int?
     var suspendedCheckpoint: Int?
     var failurePoint: FailurePoint?
@@ -579,6 +1093,10 @@ private final class VoiceRecorderCaptureSourceFixture:
             IOSVoiceRecorderCompletedCapture(
                 durationMilliseconds: completedDurationMilliseconds,
                 byteCount: completedByteCount,
+                preparePending: { [weak self] _, _ in
+                    self?.completedPrepareCallCount += 1
+                    throw VoiceRecorderFixtureError()
+                },
                 release: { [weak self] in
                     self?.completedReleaseCount += 1
                 }
@@ -706,6 +1224,11 @@ private final class VoiceRecorderDiagnosticCapture {
 }
 
 private extension IOSVoiceRecorderStopResult {
+    var isCompleted: Bool {
+        if case .completed = self { return true }
+        return false
+    }
+
     var isDiscarded: Bool {
         if case .discarded = self { return true }
         return false

@@ -156,6 +156,12 @@ struct IOSForegroundVoiceClient: Sendable {
     typealias Progress = @MainActor @Sendable (
         IOSForegroundVoiceProgress
     ) -> Void
+    typealias RunStart = @Sendable (
+        DictationOutputIntent,
+        IOSVoiceSceneStartLease,
+        IOSForegroundVoiceAuthority,
+        @escaping Progress
+    ) async -> IOSForegroundVoiceResolution
     typealias Run = @Sendable (
         IOSForegroundVoiceOperation,
         IOSForegroundVoiceAuthority,
@@ -166,15 +172,18 @@ struct IOSForegroundVoiceClient: Sendable {
     ) -> IOSForegroundVoiceControlDisposition
 
     let observe: Observe
+    let runStart: RunStart
     let run: Run
     let finishUtterance: FinishUtterance
 
     init(
         observe: @escaping Observe,
+        runStart: @escaping RunStart,
         run: @escaping Run,
         finishUtterance: @escaping FinishUtterance
     ) {
         self.observe = observe
+        self.runStart = runStart
         self.run = run
         self.finishUtterance = finishUtterance
     }
@@ -187,6 +196,8 @@ final class IOSForegroundVoiceController {
 
     @ObservationIgnored
     private let client: IOSForegroundVoiceClient
+    @ObservationIgnored
+    let sceneRegistry: IOSVoiceSceneRegistry
     @ObservationIgnored
     private var activeTask: Task<Void, Never>?
     @ObservationIgnored
@@ -211,8 +222,19 @@ final class IOSForegroundVoiceController {
     @ObservationIgnored
     private var finishRequested = false
 
-    init(client: IOSForegroundVoiceClient) {
+    convenience init(client: IOSForegroundVoiceClient) {
+        self.init(
+            client: client,
+            sceneRegistry: IOSVoiceSceneRegistry()
+        )
+    }
+
+    init(
+        client: IOSForegroundVoiceClient,
+        sceneRegistry: IOSVoiceSceneRegistry
+    ) {
         self.client = client
+        self.sceneRegistry = sceneRegistry
     }
 
     deinit {
@@ -271,7 +293,8 @@ final class IOSForegroundVoiceController {
 
     @discardableResult
     func submit(
-        _ command: IOSForegroundVoiceActionCommand
+        _ command: IOSForegroundVoiceActionCommand,
+        from initiatingScene: IOSVoiceSceneFacade? = nil
     ) -> IOSForegroundVoiceActionAdmission {
         guard command.presentationRevision == presentationRevision else {
             return .stale
@@ -282,19 +305,31 @@ final class IOSForegroundVoiceController {
 
         switch command.action {
         case .startStandard:
-            begin(.start(.standard))
+            guard let initiatingScene,
+                  let startLease = sceneRegistry.acquireStartLease(
+                    initiatingScene: initiatingScene.identity
+                  ),
+                  begin(.start(.standard), startLease: startLease) else {
+                return .unavailable
+            }
         case .startTranslation:
-            begin(.start(.translate))
+            guard let initiatingScene,
+                  let startLease = sceneRegistry.acquireStartLease(
+                    initiatingScene: initiatingScene.identity
+                  ),
+                  begin(.start(.translate), startLease: startLease) else {
+                return .unavailable
+            }
         case .retryPending:
-            begin(.retryPending)
+            guard begin(.retryPending) else { return .unavailable }
         case .recoverRecording:
-            begin(.recoverRecording)
+            guard begin(.recoverRecording) else { return .unavailable }
         case .discard:
-            begin(.discard)
+            guard begin(.discard) else { return .unavailable }
         case .retrySavingResult:
-            begin(.retrySavingResult)
+            guard begin(.retrySavingResult) else { return .unavailable }
         case .retryLocalCheckpoint:
-            begin(.retryLocalCheckpoint)
+            guard begin(.retryLocalCheckpoint) else { return .unavailable }
         case .finishUtterance:
             finishCurrentUtterance()
         case .cancelStart, .cancelUtterance:
@@ -305,8 +340,14 @@ final class IOSForegroundVoiceController {
         return .accepted
     }
 
-    private func begin(_ operation: IOSForegroundVoiceOperation) {
-        guard activeWork == nil else { return }
+    private func begin(
+        _ operation: IOSForegroundVoiceOperation,
+        startLease: IOSVoiceSceneStartLease? = nil
+    ) -> Bool {
+        guard activeWork == nil else {
+            startLease?.finish()
+            return false
+        }
 
         let authority = IOSForegroundVoiceAuthority(value: nextSerial())
         activeAuthority = authority
@@ -338,13 +379,25 @@ final class IOSForegroundVoiceController {
             self?.receive(progress, authority: authority)
         }
         activeTask = Task { @MainActor [weak self] in
-            let resolution = await client.run(
-                operation,
-                authority,
-                progress
-            )
+            let resolution: IOSForegroundVoiceResolution
+            if case let .start(intent) = operation,
+               let startLease {
+                resolution = await client.runStart(
+                    intent,
+                    startLease,
+                    authority,
+                    progress
+                )
+            } else {
+                resolution = await client.run(
+                    operation,
+                    authority,
+                    progress
+                )
+            }
             self?.complete(resolution, authority: authority)
         }
+        return true
     }
 
     private func finishCurrentUtterance() {
