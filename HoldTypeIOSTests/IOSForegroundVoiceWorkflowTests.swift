@@ -80,7 +80,6 @@ struct IOSForegroundVoiceWorkflowTests {
         assertOrdered(
             [
                 "capture-reconcile",
-                "lifecycle-recover",
                 "pending-load",
                 "latest-load",
                 "settings-load",
@@ -102,6 +101,142 @@ struct IOSForegroundVoiceWorkflowTests {
             in: values
         )
         #expect(!values.contains("provider-process"))
+        #expect(!values.contains { $0.hasPrefix("lifecycle-recover-") })
+    }
+
+    @Test
+    func lifecycleRecoveryOwnsExactOrderAndForegroundOpportunity()
+        async throws {
+        let fixture = try await WorkflowFixture(permission: .granted)
+
+        let result = await fixture.workflow.recoverLifecycle(.foreground)
+
+        #expect(result.disposition == .complete)
+        assertOrdered(
+            [
+                "capture-reconcile",
+                "lifecycle-recover-foreground",
+                "pending-load",
+                "latest-load",
+            ],
+            in: fixture.events.values
+        )
+        #expect(fixture.events.count("capture-reconcile") == 1)
+        #expect(fixture.events.count("lifecycle-recover-foreground") == 1)
+        #expect(fixture.events.count("pending-load") == 1)
+        #expect(fixture.events.count("latest-load") == 1)
+    }
+
+    @Test
+    func cancelledCaptureReconcileCannotStartHistoryOrDurableLoads()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            suspensionTrigger: WorkflowEventTrigger("capture-reconcile")
+        )
+        let task = Task {
+            await fixture.workflow.recoverLifecycle(.processLaunch)
+        }
+        try await waitUntil {
+            fixture.events.contains("capture-reconcile")
+        }
+
+        task.cancel()
+        let result = await task.value
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(fixture.events.contains("capture-reconcile-cancelled"))
+        #expect(
+            !fixture.events.values.contains {
+                $0.hasPrefix("lifecycle-recover-")
+            }
+        )
+        #expect(fixture.events.count("pending-load") == 0)
+        #expect(fixture.events.count("latest-load") == 0)
+    }
+
+    @Test
+    func cancelledPendingLoadCannotStartLatestLoad() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            suspensionTrigger: WorkflowEventTrigger("pending-load")
+        )
+        let task = Task {
+            await fixture.workflow.recoverLifecycle(.processLaunch)
+        }
+        try await waitUntil { fixture.events.contains("pending-load") }
+
+        task.cancel()
+        let result = await task.value
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(fixture.events.contains("pending-load-cancelled"))
+        #expect(fixture.events.count("latest-load") == 0)
+        #expect(fixture.events.count("settings-load") == 0)
+    }
+
+    @Test
+    func cancelledHistoryRecoveryCannotStartPendingOrLatestLoads()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            suspensionTrigger: WorkflowEventTrigger(
+                "lifecycle-recover-process-launch"
+            )
+        )
+        let task = Task {
+            await fixture.workflow.recoverLifecycle(.processLaunch)
+        }
+        try await waitUntil {
+            fixture.events.contains("lifecycle-recover-process-launch")
+        }
+
+        task.cancel()
+        let result = await task.value
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(
+            fixture.events.contains(
+                "lifecycle-recover-process-launch-cancelled"
+            )
+        )
+        #expect(fixture.events.count("pending-load") == 0)
+        #expect(fixture.events.count("latest-load") == 0)
+    }
+
+    @Test
+    func cancelledSettingsLoadCannotStartLibraryLoad() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            suspensionTrigger: WorkflowEventTrigger("settings-load")
+        )
+        let task = Task {
+            await fixture.workflow.recoverLifecycle(.foreground)
+        }
+        try await waitUntil { fixture.events.contains("settings-load") }
+
+        task.cancel()
+        let result = await task.value
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(fixture.events.contains("settings-load-cancelled"))
+        #expect(fixture.events.count("library-load") == 0)
+    }
+
+    @Test
+    func lifecycleLocalConfigurationLoadFailureIsPendingAndFailClosed()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            settingsLoads: [.failure],
+            permission: .granted
+        )
+
+        let result = await fixture.workflow.recoverLifecycle(.foreground)
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(result.observation.setup == .unavailable)
+        #expect(fixture.events.count("settings-load") == 1)
+        #expect(fixture.events.count("library-load") == 0)
     }
 
     @Test
@@ -2616,11 +2751,18 @@ private final class WorkflowFixture {
                 sceneRegistry: registry,
                 reconcileCaptureSources: {
                     events.record("capture-reconcile")
+                    await applyHook("capture-reconcile")
                     return await owner.reconcileCaptureSourcesAtLaunch()
                 },
-                recoverContainingAppLifecycle: {
-                    events.record("lifecycle-recover")
-                    return true
+                recoverContainingAppLifecycle: { opportunity in
+                    let name = switch opportunity {
+                    case .processLaunch: "process-launch"
+                    case .foreground: "foreground"
+                    }
+                    let event = "lifecycle-recover-\(name)"
+                    events.record(event)
+                    await applyHook(event)
+                    return .complete
                 },
                 loadPending: {
                     events.record("pending-load")

@@ -1,5 +1,6 @@
 import HoldTypeDomain
 import Observation
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
 
 enum IOSForegroundVoiceSetup: Equatable, Sendable {
     case unknown
@@ -224,6 +225,8 @@ final class IOSForegroundVoiceController {
     private var cancellationKind: CancellationKind?
     @ObservationIgnored
     private var finishRequested = false
+    @ObservationIgnored
+    private var lifecycleRefreshIsWaiting = false
 
     convenience init(client: IOSForegroundVoiceClient) {
         self.init(
@@ -258,7 +261,7 @@ final class IOSForegroundVoiceController {
             await activeTask?.value
             return
         }
-        guard activeWork == nil else { return }
+        guard activeWork == nil, !lifecycleRefreshIsWaiting else { return }
 
         let serial = nextSerial()
         activeWork = .activation(serial)
@@ -292,6 +295,68 @@ final class IOSForegroundVoiceController {
         }
         activeTask = task
         await task.value
+    }
+
+    /// Serializes lifecycle recovery behind the exact active Voice task. The
+    /// terminal Voice publication completes before this method atomically
+    /// claims activation ownership, so recovery never mutates presentation
+    /// during a primary operation and a new Start cannot race the refresh.
+    func performLifecycleRefresh(
+        _ refresh: @escaping @MainActor @Sendable () async
+            -> IOSForegroundVoiceLifecycleRefresh
+    ) async -> IOSContainingAppRecoveryDisposition {
+        if activeWork != nil { lifecycleRefreshIsWaiting = true }
+        while let activeWork {
+            guard let currentTask = activeTask else {
+                lifecycleRefreshIsWaiting = false
+                return .pendingLocalRecovery
+            }
+            await currentTask.value
+            guard !Task.isCancelled else {
+                lifecycleRefreshIsWaiting = false
+                return .pendingLocalRecovery
+            }
+            if self.activeWork == activeWork {
+                lifecycleRefreshIsWaiting = false
+                return .pendingLocalRecovery
+            }
+        }
+
+        guard !Task.isCancelled else {
+            lifecycleRefreshIsWaiting = false
+            return .pendingLocalRecovery
+        }
+        let serial = nextSerial()
+        activeWork = .activation(serial)
+        lifecycleRefreshIsWaiting = false
+        let storage = LifecycleRefreshStorage()
+        let task = Task { @MainActor in
+            storage.result = await refresh()
+        }
+        activeTask = task
+
+        return await withTaskCancellationHandler {
+            await task.value
+            guard activeWork == .activation(serial) else {
+                return .pendingLocalRecovery
+            }
+            activeTask = nil
+            activeWork = nil
+            guard !Task.isCancelled, let result = storage.result else {
+                return .pendingLocalRecovery
+            }
+            apply(
+                result.observation,
+                stage: result.observation.stage,
+                outcome: activationOutcome(
+                    for: result.observation.recovery
+                ),
+                failure: nil
+            )
+            return result.disposition
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     @discardableResult
@@ -347,7 +412,7 @@ final class IOSForegroundVoiceController {
         _ operation: IOSForegroundVoiceOperation,
         startLease: IOSVoiceSceneStartLease? = nil
     ) -> Bool {
-        guard activeWork == nil else {
+        guard activeWork == nil, !lifecycleRefreshIsWaiting else {
             startLease?.finish()
             return false
         }
@@ -954,6 +1019,10 @@ final class IOSForegroundVoiceController {
     private enum ActiveWork: Equatable {
         case activation(UInt64)
         case primary(IOSForegroundVoiceAuthority)
+    }
+
+    private final class LifecycleRefreshStorage {
+        var result: IOSForegroundVoiceLifecycleRefresh?
     }
 
     private enum CancellationKind {

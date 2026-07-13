@@ -52,6 +52,7 @@ final class IOSContainingAppComposition {
             IOSTranscriptionUsageRepository,
             IOSOpenAICredentialCoordinator
         ) -> IOSForegroundVoiceProcessor
+        var voiceFactories: IOSForegroundVoiceRuntime.Factories = .production
 
         static let production = Factories(
             resolveApplicationSupportDirectoryURL: {
@@ -164,6 +165,7 @@ final class IOSContainingAppComposition {
         IOSForegroundVoicePersistenceOwner?
     let transcriptionUsageRepository: IOSTranscriptionUsageRepository?
     let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
+    let foregroundVoiceRuntime: IOSForegroundVoiceRuntime?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
     let availability: IOSContainingAppCompositionAvailability
 
@@ -193,6 +195,7 @@ final class IOSContainingAppComposition {
             foregroundVoicePersistenceOwner = nil
             transcriptionUsageRepository = nil
             foregroundVoiceProcessor = nil
+            foregroundVoiceRuntime = nil
             availability = .storageUnavailable
             lifecycleScheduler = IOSContainingAppLifecycleScheduler { _ in
                 .pendingLocalRecovery
@@ -259,7 +262,7 @@ final class IOSContainingAppComposition {
             libraryStateOwner,
             credentialCoordinator
         )
-        foregroundVoiceProcessor = credentialCoordinator.map {
+        let foregroundVoiceProcessor = credentialCoordinator.map {
             factories.makeForegroundVoiceProcessor(
                 foregroundVoicePersistenceOwner,
                 providerConsentCoordinator,
@@ -267,15 +270,25 @@ final class IOSContainingAppComposition {
                 $0
             )
         }
+        self.foregroundVoiceProcessor = foregroundVoiceProcessor
         availability = credentialCoordinator == nil
             ? .credentialUnavailable
             : .ready
-        lifecycleScheduler = IOSContainingAppLifecycleScheduler {
-            opportunity in
-            await historyCoordinator.recoverContainingAppLifecycle(
-                opportunity
-            )
-        }
+        let foregroundVoiceRuntime = IOSForegroundVoiceRuntime(
+            settingsStateOwner: settingsStateOwner,
+            libraryStateOwner: libraryStateOwner,
+            providerConsentCoordinator: providerConsentCoordinator,
+            persistenceOwner: foregroundVoicePersistenceOwner,
+            historyCoordinator: historyCoordinator,
+            credentialCoordinator: credentialCoordinator,
+            processor: foregroundVoiceProcessor,
+            factories: factories.voiceFactories
+        )
+        self.foregroundVoiceRuntime = foregroundVoiceRuntime
+        lifecycleScheduler = IOSContainingAppLifecycleScheduler(
+            recover: foregroundVoiceRuntime.lifecycleCoordinator
+                .schedulerRecovery
+        )
         scheduleStartup(
             scheduleProviderStartupMaintenance:
                 scheduleProviderStartupMaintenance,
@@ -303,6 +316,7 @@ final class IOSContainingAppComposition {
         foregroundVoicePersistenceOwner = nil
         transcriptionUsageRepository = nil
         foregroundVoiceProcessor = nil
+        foregroundVoiceRuntime = nil
         availability = .injected
         lifecycleScheduler = IOSContainingAppLifecycleScheduler(
             recover: recoverContainingAppLifecycle

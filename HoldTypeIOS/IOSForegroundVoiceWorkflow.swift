@@ -387,7 +387,9 @@ final class IOSForegroundVoiceWorkflowAudioLease {
 struct IOSForegroundVoiceWorkflowDependencies {
     typealias ObserveCapture = @Sendable () async ->
         IOSForegroundVoiceCaptureRecoveryObservation
-    typealias RecoverLifecycle = @Sendable () async -> Bool
+    typealias RecoverLifecycle = @Sendable (
+        IOSContainingAppRecoveryOpportunity
+    ) async -> IOSContainingAppRecoveryDisposition
     typealias LoadPending = @Sendable () async throws ->
         IOSPendingRecordingObservation?
     typealias LoadLatest = @Sendable () async throws ->
@@ -571,7 +573,6 @@ final class IOSForegroundVoiceWorkflow {
     private var latestAvailability = IOSForegroundVoiceLatestAvailability.unknown
     private var lastConfiguration: IOSForegroundVoiceWorkflowConfiguration?
     private var passiveConfigurationSetupOverride: IOSForegroundVoiceSetup?
-    private var didCompleteLaunchRecovery = false
     private var activeControllerAuthority: IOSForegroundVoiceAuthority?
     private var activeControllerToken: IOSForegroundVoiceWorkflowAttemptToken?
     private var isRunningRecoveryOperation = false
@@ -702,15 +703,81 @@ final class IOSForegroundVoiceWorkflow {
         includeConfiguration: Bool = true
     ) async -> IOSForegroundVoiceObservation {
         let capture = await dependencies.reconcileCaptureSources()
-        if !didCompleteLaunchRecovery {
-            guard await dependencies.recoverContainingAppLifecycle() else {
-                return applyDurableFailure(capture: capture)
-            }
-            didCompleteLaunchRecovery = true
+        return await loadDurableObservation(
+            capture: capture,
+            includeConfiguration: includeConfiguration
+        ).observation
+    }
+
+    /// Sole process-lifecycle recovery owner. The controller lifecycle lease
+    /// guarantees this cannot overlap primary Voice work; the guard remains a
+    /// fail-closed defense for direct test or future internal callers.
+    func recoverLifecycle(
+        _ opportunity: IOSContainingAppRecoveryOpportunity
+    ) async -> IOSForegroundVoiceLifecycleRefresh {
+        guard activeAttempt == nil,
+              !isRunningRecoveryOperation,
+              !Task.isCancelled else {
+            return IOSForegroundVoiceLifecycleRefresh(
+                observation: Self.unavailableObservation,
+                disposition: .pendingLocalRecovery
+            )
         }
+        isRunningRecoveryOperation = true
+        defer { isRunningRecoveryOperation = false }
+
+        let capture = await dependencies.reconcileCaptureSources()
+        guard !Task.isCancelled else {
+            return cancelledLifecycleRefresh(capture: capture)
+        }
+        let historyDisposition = await dependencies
+            .recoverContainingAppLifecycle(opportunity)
+        guard !Task.isCancelled else {
+            return cancelledLifecycleRefresh(capture: capture)
+        }
+        let durable = await loadDurableObservation(
+            capture: capture,
+            includeConfiguration: true,
+            continueIf: { !Task.isCancelled }
+        )
+        let isBlockedUnknown = capture.status == .blockedUnknown
+        let disposition: IOSContainingAppRecoveryDisposition =
+            historyDisposition == .complete
+                && durable.localLoadsSucceeded
+                && !isBlockedUnknown
+                && !Task.isCancelled
+            ? .complete
+            : .pendingLocalRecovery
+        return IOSForegroundVoiceLifecycleRefresh(
+            observation: durable.observation,
+            disposition: disposition
+        )
+    }
+
+    private func cancelledLifecycleRefresh(
+        capture: IOSForegroundVoiceCaptureRecoveryObservation
+    ) -> IOSForegroundVoiceLifecycleRefresh {
+        IOSForegroundVoiceLifecycleRefresh(
+            observation: applyDurableFailure(capture: capture),
+            disposition: .pendingLocalRecovery
+        )
+    }
+
+    private struct DurableObservationResolution {
+        let observation: IOSForegroundVoiceObservation
+        let localLoadsSucceeded: Bool
+    }
+
+    private func loadDurableObservation(
+        capture: IOSForegroundVoiceCaptureRecoveryObservation,
+        includeConfiguration: Bool,
+        continueIf: @MainActor () -> Bool = { true }
+    ) async -> DurableObservationResolution {
         do {
             let pending = try await dependencies.loadPending()
+            guard continueIf() else { throw CancellationError() }
             let latest = try await dependencies.loadLatest()
+            guard continueIf() else { throw CancellationError() }
             let durable = IOSForegroundVoiceWorkflowDurableObservation(
                 capture: capture,
                 pending: pending,
@@ -722,26 +789,39 @@ final class IOSForegroundVoiceWorkflow {
                 pending: pending,
                 latest: latest
             ) == .none {
-                switch await loadConfiguration(.standard) {
+                switch await loadConfiguration(
+                    .standard,
+                    continueIf: continueIf
+                ) {
                 case .available(let configuration):
                     lastConfiguration = configuration
                     passiveConfigurationSetupOverride = nil
                 case .settingsUnavailable, .libraryUnavailable:
                     lastConfiguration = nil
                     passiveConfigurationSetupOverride = .unavailable
+                    return DurableObservationResolution(
+                        observation: apply(durable),
+                        localLoadsSucceeded: false
+                    )
                 case .invalid(let destination):
                     lastConfiguration = nil
                     passiveConfigurationSetupOverride =
                         .needsSetup(destination)
                 }
             }
-            return apply(durable)
+            return DurableObservationResolution(
+                observation: apply(durable),
+                localLoadsSucceeded: true
+            )
         } catch {
             if includeConfiguration {
                 lastConfiguration = nil
                 passiveConfigurationSetupOverride = .unavailable
             }
-            return applyDurableFailure(capture: capture)
+            return DurableObservationResolution(
+                observation: applyDurableFailure(capture: capture),
+                localLoadsSucceeded: false
+            )
         }
     }
 

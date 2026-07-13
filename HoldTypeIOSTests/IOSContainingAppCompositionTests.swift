@@ -228,6 +228,24 @@ struct IOSContainingAppCompositionTests {
             composition.foregroundVoiceProcessor
                 === capturedForegroundProcessor
         )
+        let voiceRuntime = try #require(
+            composition.foregroundVoiceRuntime
+        )
+        #expect(
+            voiceRuntime.controller.sceneRegistry
+                === voiceRuntime.sceneRegistry
+        )
+        let firstVoiceController = voiceRuntime.controller
+        let secondVoiceController = composition.foregroundVoiceRuntime?
+            .controller
+        #expect(firstVoiceController === secondVoiceController)
+        _ = voiceRuntime.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        _ = voiceRuntime.sceneRegistry.registerScene(
+            initialActivity: .background
+        )
+        #expect(voiceRuntime.sceneRegistry.snapshot.registeredSceneCount == 2)
         #expect(firstScene.presentation == .shell)
         #expect(secondScene.presentation == .shell)
         #expect(
@@ -378,6 +396,18 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.foregroundVoicePersistenceOwner != nil)
         #expect(composition.transcriptionUsageRepository != nil)
         #expect(composition.foregroundVoiceProcessor == nil)
+        let voiceRuntime = try #require(
+            composition.foregroundVoiceRuntime
+        )
+        guard case .unavailable = await voiceRuntime.providerBridge
+                .resolveCredential() else {
+            Issue.record("Expected unavailable Voice credential owner.")
+            return
+        }
+        #expect(
+            voiceRuntime.controller.sceneRegistry
+                === voiceRuntime.sceneRegistry
+        )
         #expect(credentialFactoryCalls == 0)
         #expect(serviceCredentialWasNil)
         #expect(providerConsentFactoryCalls == 1)
@@ -499,6 +529,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.foregroundVoicePersistenceOwner != nil)
         #expect(composition.transcriptionUsageRepository != nil)
         #expect(composition.foregroundVoiceProcessor == nil)
+        #expect(composition.foregroundVoiceRuntime != nil)
         #expect(providerConsentFactoryCalls == 1)
         #expect(foregroundPersistenceFactoryCalls == 1)
         #expect(usageRepositoryFactoryCalls == 1)
@@ -608,6 +639,7 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.foregroundVoicePersistenceOwner == nil)
         #expect(composition.transcriptionUsageRepository == nil)
         #expect(composition.foregroundVoiceProcessor == nil)
+        #expect(composition.foregroundVoiceRuntime == nil)
         #expect(
             composition.lifecycleScheduler.latestDisposition
                 == .pendingLocalRecovery
@@ -646,6 +678,7 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.foregroundVoicePersistenceOwner == nil)
         #expect(app.composition.transcriptionUsageRepository == nil)
         #expect(app.composition.foregroundVoiceProcessor == nil)
+        #expect(app.composition.foregroundVoiceRuntime == nil)
         #expect(app.composition.lifecycleScheduler.latestDisposition == .complete)
     }
 
