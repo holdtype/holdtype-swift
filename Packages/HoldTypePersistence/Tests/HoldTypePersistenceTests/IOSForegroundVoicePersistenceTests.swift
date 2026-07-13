@@ -15,6 +15,7 @@ struct IOSForegroundVoicePersistenceTests {
             !preparation.deliveryPreparation
                 .automaticInsertionPreferenceEnabled
         )
+        #expect(preparation.deliveryPreparation.keepLatestResult)
         #expect(preparation.deliveryPreparation.historyWrite == nil)
         #expect(preparation.deliveryPreparation.historyCapture == nil)
         #expect(preparation.historyMode == .appOnly)
@@ -38,7 +39,6 @@ struct IOSForegroundVoicePersistenceTests {
             transcriptID: UUID(),
             rawAcceptedText: "MODE-SECRET-TEXT",
             outputIntent: .standard,
-            keepLatestResult: true,
             historyMode: enabledMode
         )
         #expect(enabled.historyMode == enabledMode)
@@ -59,13 +59,13 @@ struct IOSForegroundVoicePersistenceTests {
             transcriptID: UUID(),
             rawAcceptedText: "accepted",
             outputIntent: .translate,
-            keepLatestResult: false,
             historyMode: disabledMode
         )
         #expect(disabled.historyMode == disabledMode)
         #expect(
             disabled.deliveryPreparation.historyCapture == captures.disabled
         )
+        #expect(disabled.deliveryPreparation.keepLatestResult)
         #expect(disabled.deliveryPreparation.historyWrite == nil)
 
         func requireSendable<Value: Sendable>(_ value: Value) -> Value {
@@ -94,7 +94,6 @@ struct IOSForegroundVoicePersistenceTests {
             transcriptID: try #require(output.transcriptionID),
             rawAcceptedText: "captured accepted text",
             outputIntent: output.outputIntent,
-            keepLatestResult: true,
             historyMode: .captured(capture)
         )
 
@@ -985,6 +984,11 @@ struct IOSForegroundVoicePersistenceTests {
                 recording: output
             )
         ).requireReady()
+        fixture.clock.date = accepted.expiresAt.addingTimeInterval(1)
+        let relaunched = fixture.makeRelaunchedFacade()
+        #expect(
+            try await relaunched.loadLatestResult() == .resultReady(accepted)
+        )
 
         let stale = try IOSAcceptedOutputDeliveryRecord(
             revision: accepted.revision + 1,
@@ -1012,13 +1016,13 @@ struct IOSForegroundVoicePersistenceTests {
         }
 
         #expect(
-            try await fixture.facade.clearLatestResult(
+            try await relaunched.clearLatestResult(
                 expected: IOSAcceptedOutputDeliveryExpectation(
                     record: accepted
                 )
             ) == .cleared
         )
-        #expect(try await fixture.facade.loadLatestResult() == .absent)
+        #expect(try await relaunched.loadLatestResult() == .absent)
     }
 
     @Test func confirmedClearTombstoneHidesTextWhileCleanupRetries()
@@ -1255,6 +1259,7 @@ struct IOSForegroundVoicePersistenceTests {
                 recording: firstOutput
             )
         ).requireReady()
+        fixture.clock.date = first.expiresAt.addingTimeInterval(1)
 
         let secondOutput = try await fixture.makeOutputDelivery()
         let second = try await fixture.facade.accept(
@@ -1523,7 +1528,7 @@ struct IOSForegroundVoicePersistenceTests {
         #expect(fixture.executor.callCount == 1)
     }
 
-    @Test func expiryAfterDestinationCommitResumesOnlyLocalCleanup()
+    @Test func legacyDeadlineAfterDestinationCommitStillFinishesLatestCleanup()
         async throws {
         let fixture = ForegroundVoicePersistenceFixture()
         let output = try await fixture.makeOutputDelivery()
@@ -1536,17 +1541,15 @@ struct IOSForegroundVoicePersistenceTests {
         ).requireSaving()
         fixture.clock.date = Date(timeIntervalSince1970: 1_800_086_500)
 
-        let result = try await fixture.facade.retrySavingResult(
+        let record = try await fixture.facade.retrySavingResult(
             expected: saving
-        )
-        guard case .expired = result else {
-            throw ForegroundVoiceTestError.unexpectedResult
-        }
+        ).requireReady()
+        #expect(record.acceptedText == "accepted")
         #expect(fixture.executor.callCount == 1)
         #expect(fixture.pendingJournal.recording == nil)
     }
 
-    @Test func rollbackAfterDestinationCommitResumesOnlyLocalCleanup()
+    @Test func clockRollbackAfterDestinationCommitStillFinishesLatestCleanup()
         async throws {
         let fixture = ForegroundVoicePersistenceFixture()
         let output = try await fixture.makeOutputDelivery()
@@ -1559,17 +1562,15 @@ struct IOSForegroundVoicePersistenceTests {
         ).requireSaving()
         fixture.clock.date = Date(timeIntervalSince1970: 1_799_999_000)
 
-        let result = try await fixture.facade.retrySavingResult(
+        let record = try await fixture.facade.retrySavingResult(
             expected: saving
-        )
-        guard case .clockRollbackAmbiguous = result else {
-            throw ForegroundVoiceTestError.unexpectedResult
-        }
+        ).requireReady()
+        #expect(record.acceptedText == "accepted")
         #expect(fixture.executor.callCount == 1)
         #expect(fixture.pendingJournal.recording == nil)
     }
 
-    @Test func rollbackBeforeReplacementKeepsExactSavingWork()
+    @Test func clockRollbackBeforeReplacementStillReplacesLatest()
         async throws {
         let fixture = ForegroundVoicePersistenceFixture()
         let firstOutput = try await fixture.makeOutputDelivery()
@@ -1582,7 +1583,7 @@ struct IOSForegroundVoicePersistenceTests {
         let secondOutput = try await fixture.makeOutputDelivery()
         fixture.clock.date = Date(timeIntervalSince1970: 1_799_999_000)
 
-        let saving = try await fixture.facade.accept(
+        let second = try await fixture.facade.accept(
             try fixture.preparation(
                 for: secondOutput,
                 acceptedText: "second"
@@ -1590,16 +1591,6 @@ struct IOSForegroundVoicePersistenceTests {
             expectedPending: IOSPendingRecordingCASExpectation(
                 recording: secondOutput
             )
-        ).requireSaving()
-        #expect(
-            try await fixture.facade.loadLatestResult()
-                == .savingResult(saving, priorResult: nil)
-        )
-        #expect(await fixture.state.current() != nil)
-
-        fixture.clock.date = Date(timeIntervalSince1970: 1_800_000_000)
-        let second = try await fixture.facade.retrySavingResult(
-            expected: saving
         ).requireReady()
         #expect(second.acceptedText == "second")
         #expect(fixture.executor.callCount == 2)
@@ -1716,8 +1707,7 @@ private func makeForegroundPreparation(
         attemptID: attemptID,
         transcriptID: transcriptID,
         rawAcceptedText: rawAcceptedText,
-        outputIntent: outputIntent,
-        keepLatestResult: true
+        outputIntent: outputIntent
     )
 }
 
@@ -1906,7 +1896,6 @@ private final class ForegroundVoicePersistenceFixture: @unchecked Sendable {
             transcriptID: try #require(pending.transcriptionID),
             rawAcceptedText: "captured accepted text",
             outputIntent: pending.outputIntent,
-            keepLatestResult: true,
             historyMode: .captured(capture)
         )
     }

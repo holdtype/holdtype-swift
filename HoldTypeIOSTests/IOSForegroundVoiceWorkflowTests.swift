@@ -2163,7 +2163,7 @@ struct IOSForegroundVoiceWorkflowTests {
     func retryPendingRevalidatesFrozenConfigurationAndFinalProviderProofs()
         async throws {
         var changedSettings = IOSAppSettings.defaults
-        changedSettings.keepLatestResult.toggle()
+        changedSettings.localTextCleanupEnabled.toggle()
         var changedLibrary = IOSLibraryContent.defaults
         changedLibrary.replacementRules = [
             TextReplacementRule(search: "one", replacement: "two")

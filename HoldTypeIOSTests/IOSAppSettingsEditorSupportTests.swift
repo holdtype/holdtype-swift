@@ -325,7 +325,6 @@ struct IOSAppSettingsEditorSupportTests {
         expected = base
         expected.voiceSessionPreferences = voice
         #expect(voiceResult == expected)
-        #expect(voiceResult.keepLatestResult == base.keepLatestResult)
     }
 
     @Test func presentationNamesCoverEveryPortableChoice() {
@@ -490,7 +489,6 @@ struct IOSAppSettingsEditorSupportTests {
                 actionPreferenceEnabled: true,
                 targetLanguage: .english
             ),
-            keepLatestResult: false,
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1

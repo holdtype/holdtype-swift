@@ -77,8 +77,7 @@ struct IOSForegroundVoiceProcessorTests {
     @Test func capturedHistoryModeSurvivesProviderFreeAcceptanceRetry()
         async throws {
         let fixture = try await ProcessorFixture(
-            outputIntent: .standard,
-            usesHistoryDisclosureV2: true
+            outputIntent: .standard
         )
         defer { fixture.removeFiles() }
         let historyMode = try await fixture.capturedHistoryMode()
@@ -140,7 +139,10 @@ struct IOSForegroundVoiceProcessorTests {
 
     @Test func capturedHistoryModeRequiresDisclosureTwoBeforePendingDispatch()
         async throws {
-        let fixture = try await ProcessorFixture(outputIntent: .standard)
+        let fixture = try await ProcessorFixture(
+            outputIntent: .standard,
+            usesLegacyHistoryDisclosureV1: true
+        )
         defer { fixture.removeFiles() }
         let historyMode = try await fixture.capturedHistoryMode()
         let persistence = CapturingHistoryModeForegroundPersistence(
@@ -1201,7 +1203,10 @@ struct IOSForegroundVoiceProcessorTests {
 
     @Test func capturedRetainedBeginningRequiresDisclosureTwo()
         async throws {
-        let versionOne = try await ProcessorFixture(outputIntent: .standard)
+        let versionOne = try await ProcessorFixture(
+            outputIntent: .standard,
+            usesLegacyHistoryDisclosureV1: true
+        )
         defer { versionOne.removeFiles() }
         let versionOneMode = try await versionOne.capturedHistoryMode()
         let versionOneCalls = ProcessorCallLog()
@@ -1241,8 +1246,7 @@ struct IOSForegroundVoiceProcessorTests {
         )
 
         let versionTwo = try await ProcessorFixture(
-            outputIntent: .standard,
-            usesHistoryDisclosureV2: true
+            outputIntent: .standard
         )
         defer { versionTwo.removeFiles() }
         let versionTwoMode = try await versionTwo.capturedHistoryMode()
@@ -1756,7 +1760,7 @@ private final class ProcessorFixture: @unchecked Sendable {
         outputIntent: DictationOutputIntent,
         settings: IOSAppSettings = .defaults,
         library: IOSLibraryContent = .defaults,
-        usesHistoryDisclosureV2: Bool = false
+        usesLegacyHistoryDisclosureV1: Bool = false
     ) async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "ios-foreground-processor-\(UUID().uuidString)",
@@ -1807,9 +1811,9 @@ private final class ProcessorFixture: @unchecked Sendable {
             )
             throw error
         }
-        if usesHistoryDisclosureV2 {
+        if usesLegacyHistoryDisclosureV1 {
             consentCoordinator = IOSProviderConsentProcessingQualificationFixture
-                .foregroundHistoryCoordinator(
+                .legacyForegroundCoordinator(
                     applicationSupportDirectoryURL: root
                 )
         } else {
@@ -1914,7 +1918,6 @@ private final class ProcessorFixture: @unchecked Sendable {
                     library.emojiCommandsConfiguration,
                 customDictionary: library.customDictionary
             ),
-            keepLatestResult: settings.keepLatestResult,
             historyMode: historyMode,
             credential: credential,
             consentObservation: acceptedConsent,

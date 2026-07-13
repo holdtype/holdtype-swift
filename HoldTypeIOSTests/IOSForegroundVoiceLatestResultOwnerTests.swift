@@ -9,15 +9,12 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
     @Test func constructionIsPassiveAndEveryDurableStateMapsWithoutIdentity()
         async throws {
         let record = try latestResultRecord(text: "exact accepted text")
-        let expectation = IOSAcceptedOutputDeliveryExpectation(record: record)
         let saving = try latestSavingExpectation()
         let probe = LatestResultClientProbe(
             loads: [
                 .value(.resultReady(record)),
                 .value(.savingResult(saving, priorResult: record)),
                 .value(.savingResult(saving, priorResult: nil)),
-                .value(.expired(expectation)),
-                .value(.clockRollbackAmbiguous(expectation)),
                 .value(.clearedCleanupPending),
                 .value(.absent),
             ]
@@ -49,15 +46,6 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         #expect(owner.presentation.text == nil)
 
         _ = try await owner.loadForVoiceWorkflow()
-        #expect(owner.presentation.status == .expired)
-        #expect(owner.clearCommand == nil)
-
-        _ = try await owner.loadForVoiceWorkflow()
-        #expect(owner.presentation.status == .clockRollbackAmbiguous)
-        #expect(owner.presentation.text == nil)
-        #expect(owner.clearCommand != nil)
-
-        _ = try await owner.loadForVoiceWorkflow()
         #expect(owner.presentation.status == .cleanupPending)
         #expect(owner.presentation.text == nil)
 
@@ -67,7 +55,7 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         let mappedSnapshot = await probe.snapshot()
         #expect(
             mappedSnapshot == .init(
-                loads: 7,
+                loads: 5,
                 clears: [],
                 maximumConcurrentCalls: 1
             )
@@ -150,15 +138,11 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
 
     @Test func contentCommandIsUnavailableForEveryContentFreeState()
         async throws {
-        let record = try latestResultRecord(text: "never expose indirectly")
-        let expectation = IOSAcceptedOutputDeliveryExpectation(record: record)
         let saving = try latestSavingExpectation()
         let probe = LatestResultClientProbe(
             loads: [
                 .value(.absent),
                 .value(.savingResult(saving, priorResult: nil)),
-                .value(.expired(expectation)),
-                .value(.clockRollbackAmbiguous(expectation)),
                 .value(.clearedCleanupPending),
                 .failure,
             ]
@@ -168,8 +152,6 @@ struct IOSForegroundVoiceLatestResultOwnerTests {
         for expectedStatus in [
             IOSForegroundVoiceLatestResultStatus.absent,
             .savingWithoutPrior,
-            .expired,
-            .clockRollbackAmbiguous,
             .cleanupPending,
         ] {
             _ = try await owner.loadForVoiceWorkflow()
@@ -723,8 +705,7 @@ private func latestSavingExpectation()
         attemptID: UUID(),
         transcriptID: UUID(),
         rawAcceptedText: "saving",
-        outputIntent: .standard,
-        keepLatestResult: true
+        outputIntent: .standard
     )
     return IOSForegroundVoiceSavingResultExpectation(
         preparation: preparation.deliveryPreparation

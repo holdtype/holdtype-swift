@@ -40,8 +40,6 @@ enum IOSForegroundVoiceLatestAvailability: Equatable, Sendable {
     case absent
     case available
     case priorAvailableWhileSaving
-    case expired
-    case clockRollbackAmbiguous
     case cleanupPending
     case unavailable
 }

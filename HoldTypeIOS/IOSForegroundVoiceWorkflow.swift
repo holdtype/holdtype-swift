@@ -2264,13 +2264,6 @@ final class IOSForegroundVoiceWorkflow {
                 stage: .outputDelivery,
                 failure: .localRecovery
             )
-        case .expired:
-            return IOSForegroundVoiceResolution(observation: observation)
-        case .clockRollbackAmbiguous:
-            return IOSForegroundVoiceResolution(
-                observation: observation,
-                failure: .localRecovery
-            )
         }
     }
 
@@ -2753,8 +2746,6 @@ final class IOSForegroundVoiceWorkflow {
         case .resultReady: .available
         case .savingResult(_, let prior):
             prior == nil ? .unknown : .priorAvailableWhileSaving
-        case .expired: .expired
-        case .clockRollbackAmbiguous: .clockRollbackAmbiguous
         case .clearedCleanupPending: .cleanupPending
         }
     }

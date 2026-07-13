@@ -62,6 +62,7 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
                 .contextEchoGuardText == nil
         )
         #expect(first.configuration.translationConfiguration == nil)
+        #expect(first.configuration.keepLatestResult)
 
         var updatedSettings = initialSettings
         updatedSettings.transcriptionConfiguration = TranscriptionConfiguration(

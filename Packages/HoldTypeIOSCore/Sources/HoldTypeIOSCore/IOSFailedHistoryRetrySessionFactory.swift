@@ -87,7 +87,7 @@ actor IOSFailedHistoryRetrySessionFactory:
                 settings.textCorrectionConfiguration,
             postProcessingConfiguration: postProcessingConfiguration,
             translationConfiguration: translationConfiguration,
-            keepLatestResult: settings.keepLatestResult
+            keepLatestResult: true
         ) else {
             return outputIntent == .translate
                 ? .setupRequired(.translation)

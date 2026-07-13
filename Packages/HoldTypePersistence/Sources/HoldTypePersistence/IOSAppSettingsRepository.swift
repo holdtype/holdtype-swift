@@ -100,6 +100,7 @@ private enum IOSAppSettingsWireCodec {
         "textCorrection",
         "localTextCleanupEnabled",
         "translation",
+        // Tolerated only so V1 settings decode after the always-on Latest cutover.
         "keepLatestResult",
         "voice",
     ]
@@ -199,10 +200,6 @@ private enum IOSAppSettingsWireCodec {
                 defaultValue: IOSAppSettings.defaults.localTextCleanupEnabled
             ),
             translationConfiguration: try decodeTranslation(from: root),
-            keepLatestResult: try root.boolean(
-                "keepLatestResult",
-                defaultValue: IOSAppSettings.defaults.keepLatestResult
-            ),
             voiceSessionPreferences: try decodeVoice(from: root)
         )
     }
@@ -405,7 +402,6 @@ private struct IOSAppSettingsWireV1: Encodable {
     let textCorrection: TextCorrectionWireV1
     let localTextCleanupEnabled: Bool
     let translation: TranslationWireV1
-    let keepLatestResult: Bool
     let voice: VoiceWireV1
 
     init(settings: IOSAppSettings) {
@@ -435,7 +431,6 @@ private struct IOSAppSettingsWireV1: Encodable {
             model: settings.translationConfiguration.model,
             prompt: settings.translationConfiguration.prompt
         )
-        keepLatestResult = settings.keepLatestResult
         voice = VoiceWireV1(
             audioCuesEnabled: settings.voiceSessionPreferences.audioCuesEnabled,
             recordingStopTailDuration:

@@ -332,9 +332,8 @@ struct IOSVoiceHomeView: View {
         switch latestResultOwner.presentation.status {
         case .notLoaded, .absent:
             false
-        case .ready, .priorWhileSaving, .savingWithoutPrior, .expired,
-             .clockRollbackAmbiguous, .clearing, .cleanupPending,
-             .unavailable:
+        case .ready, .priorWhileSaving, .savingWithoutPrior, .clearing,
+             .cleanupPending, .unavailable:
             true
         }
     }
@@ -840,22 +839,6 @@ struct IOSVoiceLatestStatusPresentation {
                 systemImage: "externaldrive",
                 tone: .neutral,
                 showsProgress: true
-            )
-        case .expired:
-            Self(
-                title: "Latest Result Expired",
-                detail: "The previous one-shot result is no longer available.",
-                systemImage: "clock.badge.exclamationmark",
-                tone: .warning,
-                showsProgress: false
-            )
-        case .clockRollbackAmbiguous:
-            Self(
-                title: "Latest Result Needs Review",
-                detail: "The device clock changed, so text stays hidden.",
-                systemImage: "clock.badge.questionmark",
-                tone: .warning,
-                showsProgress: false
             )
         case .clearing:
             Self(

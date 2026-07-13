@@ -3562,6 +3562,11 @@ private extension IOSAcceptedOutputDeliveryStore {
     private func temporalState(
         for record: IOSAcceptedOutputDeliveryRecord
     ) -> TemporalState {
+        // V1.1 Latest is app-private and remains until Clear or replacement.
+        // Its legacy wire deadline stays parseable until bounded H4 cleanup.
+        if record.isForegroundVoiceAppOnlyRecord {
+            return .active
+        }
         guard let wallNow = try? IOSAcceptedOutputDeliveryTimestampCodec
             .canonicalDate(from: now()) else {
             return .rollbackAmbiguous
@@ -4015,6 +4020,11 @@ private extension IOSAcceptedOutputDeliveryStore {
     func mutationNow(
         for record: IOSAcceptedOutputDeliveryRecord
     ) throws -> Date {
+        // Reuse the sealed timestamp so an app-only Clear remains valid after
+        // the now-inert legacy deadline or a device-clock rollback.
+        if record.isForegroundVoiceAppOnlyRecord {
+            return record.updatedAt
+        }
         let timestamp = try IOSAcceptedOutputDeliveryTimestampCodec
             .canonicalDate(from: now())
         guard timestamp >= record.updatedAt,

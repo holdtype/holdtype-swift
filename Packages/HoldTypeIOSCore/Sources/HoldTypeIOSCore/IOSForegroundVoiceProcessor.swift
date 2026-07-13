@@ -1062,7 +1062,6 @@ public actor IOSForegroundVoiceProcessor {
                 transcriptID: context.transcriptionID,
                 rawAcceptedText: text.text,
                 outputIntent: context.outputIntent,
-                keepLatestResult: context.keepLatestResult,
                 historyMode: context.historyMode
             )
         } catch {
@@ -1738,7 +1737,6 @@ public actor IOSForegroundVoiceProcessor {
             translationConfiguration: translation,
             postProcessingConfiguration: postProcessing,
             promptComposition: prompt,
-            keepLatestResult: request.settings.keepLatestResult,
             historyMode: request.historyMode,
             credential: request.credential,
             consentObservation: request.consentObservation,
@@ -1797,7 +1795,6 @@ struct IOSForegroundVoiceProviderContext: Sendable {
     let postProcessingConfiguration:
         TranscriptPostProcessingConfiguration
     let promptComposition: TranscriptionPromptComposition
-    let keepLatestResult: Bool
     let historyMode: IOSForegroundVoiceHistoryMode
     let credential: IOSResolvedOpenAICredential
     let consentObservation: IOSProviderConsentObservation
@@ -1810,7 +1807,6 @@ struct IOSForegroundVoiceProviderContext: Sendable {
             transcriptionID: transcriptionID,
             deliveryID: deliveryID,
             outputIntent: pendingRecording.outputIntent,
-            keepLatestResult: keepLatestResult,
             historyMode: historyMode
         )
     }
@@ -1839,7 +1835,6 @@ struct IOSForegroundVoiceProviderContext: Sendable {
             translationConfiguration: translationConfiguration,
             postProcessingConfiguration: postProcessingConfiguration,
             promptComposition: promptComposition,
-            keepLatestResult: keepLatestResult,
             historyMode: historyMode,
             credential: authorization.credential,
             consentObservation: authorization.consentObservation,
@@ -1860,7 +1855,6 @@ struct IOSForegroundVoiceProviderFreeContext: Sendable {
     let transcriptionID: UUID
     let deliveryID: UUID
     let outputIntent: DictationOutputIntent
-    let keepLatestResult: Bool
     let historyMode: IOSForegroundVoiceHistoryMode
 }
 

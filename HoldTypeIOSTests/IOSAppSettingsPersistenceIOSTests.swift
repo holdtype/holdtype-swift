@@ -11,7 +11,6 @@ struct IOSAppSettingsPersistenceIOSTests {
         #expect(settings.textCorrectionConfiguration == .defaults)
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
-        #expect(settings.keepLatestResult)
         #expect(settings.voiceSessionPreferences == .defaults)
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
@@ -168,7 +167,6 @@ struct IOSAppSettingsPersistenceIOSTests {
                 model: "translate-model",
                 prompt: "translate"
             ),
-            keepLatestResult: false,
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1

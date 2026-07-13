@@ -99,6 +99,18 @@ public enum IOSProviderConsentQualificationFixture {
 /// is separate from the content-free presentation observations above.
 @_spi(HoldTypeIOSCore)
 public enum IOSProviderConsentProcessingQualificationFixture {
+    public static func legacyForegroundCoordinator(
+        applicationSupportDirectoryURL: URL
+    ) -> IOSProviderConsentCoordinator {
+        IOSProviderConsentCoordinator(
+            journal: FoundationIOSProviderConsentJournalRepository(
+                applicationSupportDirectoryURL:
+                    applicationSupportDirectoryURL
+            ),
+            currentDisclosureVersion: 1
+        )
+    }
+
     public static func foregroundHistoryCoordinator(
         applicationSupportDirectoryURL: URL
     ) -> IOSProviderConsentCoordinator {

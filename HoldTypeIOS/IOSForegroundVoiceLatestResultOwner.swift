@@ -8,8 +8,6 @@ nonisolated enum IOSForegroundVoiceLatestResultStatus: Equatable, Sendable {
     case ready
     case priorWhileSaving
     case savingWithoutPrior
-    case expired
-    case clockRollbackAmbiguous
     case clearing
     case cleanupPending
     case unavailable
@@ -271,8 +269,7 @@ final class IOSForegroundVoiceLatestResultOwner {
     var clearCommand: IOSForegroundVoiceLatestResultClearCommand? {
         guard clearTask == nil,
               clearExpectation != nil,
-              presentation.status == .ready
-                || presentation.status == .clockRollbackAmbiguous else {
+              presentation.status == .ready else {
             return nil
         }
         return IOSForegroundVoiceLatestResultClearCommand(
@@ -560,26 +557,6 @@ final class IOSForegroundVoiceLatestResultOwner {
                 selection: selection,
                 clearExpectation: nil
             )
-        case .expired:
-            return Projection(
-                presentation: IOSForegroundVoiceLatestResultPresentation(
-                    status: .expired,
-                    text: nil,
-                    notice: nil
-                ),
-                selection: nil,
-                clearExpectation: nil
-            )
-        case .clockRollbackAmbiguous(let expectation):
-            return Projection(
-                presentation: IOSForegroundVoiceLatestResultPresentation(
-                    status: .clockRollbackAmbiguous,
-                    text: nil,
-                    notice: nil
-                ),
-                selection: nil,
-                clearExpectation: expectation
-            )
         case .clearedCleanupPending:
             return Projection(
                 presentation: IOSForegroundVoiceLatestResultPresentation(
@@ -605,9 +582,7 @@ final class IOSForegroundVoiceLatestResultOwner {
             guard let priorResult else { return .resultChanged }
             return IOSAcceptedOutputDeliveryExpectation(record: priorResult)
                 == expected ? .clearFailed : .resultChanged
-        case .clockRollbackAmbiguous(let current):
-            return current == expected ? .clearFailed : .resultChanged
-        case .absent, .expired, .clearedCleanupPending:
+        case .absent, .clearedCleanupPending:
             return nil
         }
     }
@@ -623,8 +598,8 @@ final class IOSForegroundVoiceLatestResultOwner {
                 return false
             }
             return visibleText.utf8.elementsEqual(selectedText.utf8)
-        case .notLoaded, .absent, .savingWithoutPrior, .expired,
-             .clockRollbackAmbiguous, .cleanupPending, .unavailable:
+        case .notLoaded, .absent, .savingWithoutPrior, .cleanupPending,
+             .unavailable:
             return false
         }
     }

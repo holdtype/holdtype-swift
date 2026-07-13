@@ -21,9 +21,6 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
     public var outputIntent: DictationOutputIntent {
         deliveryPreparation.outputIntent
     }
-    public var keepLatestResult: Bool {
-        deliveryPreparation.keepLatestResult
-    }
 
     @_spi(HoldTypeIOSCore)
     public var historyMode: IOSForegroundVoiceHistoryMode {
@@ -39,8 +36,7 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
         attemptID: UUID,
         transcriptID: UUID,
         rawAcceptedText: String,
-        outputIntent: DictationOutputIntent,
-        keepLatestResult: Bool
+        outputIntent: DictationOutputIntent
     ) throws {
         deliveryPreparation = try IOSAcceptedOutputDeliveryPreparation(
             deliveryID: deliveryID,
@@ -50,7 +46,7 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
             rawAcceptedText: rawAcceptedText,
             outputIntent: outputIntent,
             automaticInsertionPreferenceEnabled: false,
-            keepLatestResult: keepLatestResult,
+            keepLatestResult: true,
             historyWrite: nil
         )
     }
@@ -63,7 +59,6 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
         transcriptID: UUID,
         rawAcceptedText: String,
         outputIntent: DictationOutputIntent,
-        keepLatestResult: Bool,
         historyMode: IOSForegroundVoiceHistoryMode
     ) throws {
         switch historyMode {
@@ -76,7 +71,7 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
                 rawAcceptedText: rawAcceptedText,
                 outputIntent: outputIntent,
                 automaticInsertionPreferenceEnabled: false,
-                keepLatestResult: keepLatestResult,
+                keepLatestResult: true,
                 historyWrite: nil
             )
         case .captured(let capture):
@@ -88,7 +83,7 @@ public struct IOSForegroundVoiceAcceptedOutputPreparation: Equatable, Sendable {
                 rawAcceptedText: rawAcceptedText,
                 outputIntent: outputIntent,
                 automaticInsertionPreferenceEnabled: false,
-                keepLatestResult: keepLatestResult,
+                keepLatestResult: true,
                 historyCapture: capture
             )
         }
@@ -119,8 +114,6 @@ public enum IOSForegroundVoiceAcceptanceResult: Equatable, Sendable {
         notice: IOSForegroundVoiceAcceptanceNotice? = nil
     )
     case savingResult(IOSForegroundVoiceSavingResultExpectation)
-    case expired(IOSAcceptedOutputDeliveryExpectation)
-    case clockRollbackAmbiguous(IOSAcceptedOutputDeliveryExpectation)
 }
 
 public enum IOSForegroundVoiceLatestResultObservation: Equatable, Sendable {
@@ -130,8 +123,6 @@ public enum IOSForegroundVoiceLatestResultObservation: Equatable, Sendable {
         IOSForegroundVoiceSavingResultExpectation,
         priorResult: IOSAcceptedOutputDeliveryRecord?
     )
-    case expired(IOSAcceptedOutputDeliveryExpectation)
-    case clockRollbackAmbiguous(IOSAcceptedOutputDeliveryExpectation)
     case clearedCleanupPending
 }
 
@@ -383,7 +374,6 @@ extension IOSAcceptedOutputDeliveryRecord {
               publicationGeneration == 0,
               !automaticInsertionPreferenceEnabled,
               deliveryState == .pending,
-              keepLatestResult == preparation.keepLatestResult,
               hasSameAcceptance(as: preparation) else {
             return false
         }
@@ -415,7 +405,7 @@ extension IOSAcceptedOutputDeliveryRecord {
             rawAcceptedText: acceptedText,
             outputIntent: outputIntent,
             automaticInsertionPreferenceEnabled: false,
-            keepLatestResult: keepLatestResult,
+            keepLatestResult: true,
             historyWrite: nil
         )
     }
@@ -651,10 +641,6 @@ public struct IOSForegroundVoicePersistence: Sendable {
                         switch completed {
                         case .resultReady(let record, _):
                             return .resultReady(record)
-                        case .expired(let expectation):
-                            return .expired(expectation)
-                        case .clockRollbackAmbiguous(let expectation):
-                            return .clockRollbackAmbiguous(expectation)
                         case .savingResult:
                             throw IOSForegroundVoicePersistenceError
                                 .savingResultPending
@@ -748,10 +734,8 @@ public struct IOSForegroundVoicePersistence: Sendable {
                     return .clearedCleanupPending
                 }
                 return .resultReady(record)
-            case .expired(let expectation):
-                return .expired(expectation)
-            case .clockRollbackAmbiguous(let expectation):
-                return .clockRollbackAmbiguous(expectation)
+            case .expired, .clockRollbackAmbiguous:
+                throw IOSAcceptedOutputDeliveryError.invalidTransition
             }
         }
     }
@@ -770,8 +754,6 @@ public struct IOSForegroundVoicePersistence: Sendable {
         switch observation {
         case .resultReady(let record):
             guard record.isForegroundVoiceAppOnlyRecord,
-                  (!record.keepLatestResult
-                    || preparation.keepLatestResult),
                   record.hasSameAcceptance(
                       as: preparation.deliveryPreparation
                   ) else { return nil }
@@ -780,14 +762,6 @@ public struct IOSForegroundVoicePersistence: Sendable {
             guard hasExactWork,
                   expectation.matches(preparation) else { return nil }
             return .savingResult(expectation)
-        case .expired(let expectation):
-            guard hasExactWork,
-                  expectation.matches(preparation) else { return nil }
-            return .expired(expectation)
-        case .clockRollbackAmbiguous(let expectation):
-            guard hasExactWork,
-                  expectation.matches(preparation) else { return nil }
-            return .clockRollbackAmbiguous(expectation)
         case .absent, .clearedCleanupPending:
             return nil
         }
@@ -974,7 +948,7 @@ public struct IOSForegroundVoicePersistence: Sendable {
                 notice = await appendHistory(from: record)
             }
             return .resultReady(record, notice: notice)
-        case .savingResult, .expired, .clockRollbackAmbiguous:
+        case .savingResult:
             return result
         }
     }
@@ -989,7 +963,7 @@ public struct IOSForegroundVoicePersistence: Sendable {
                 record,
                 notice: existingNotice ?? notice
             )
-        case .savingResult, .expired, .clockRollbackAmbiguous:
+        case .savingResult:
             return result
         }
     }
@@ -1009,16 +983,6 @@ public struct IOSForegroundVoicePersistence: Sendable {
                 && record.isForegroundVoiceAppOnlyRecord
                 && record.deliveryState != .discarded:
             return .resultReady(record)
-        case .expired(let expectation)?
-            where expectation.matchesForegroundVoiceIdentity(
-                work.preparation
-            ):
-            return .expired(expectation)
-        case .clockRollbackAmbiguous(let expectation)?
-            where expectation.matchesForegroundVoiceIdentity(
-                work.preparation
-            ):
-            return .clockRollbackAmbiguous(expectation)
         case .none, .active, .expired, .clockRollbackAmbiguous:
             throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
         }
@@ -1266,7 +1230,6 @@ private extension IOSAcceptedOutputDeliveryPreparation {
             && !candidate.automaticInsertionPreferenceEnabled
             && historyWrite == nil
             && candidate.historyWrite == nil
-            && (!keepLatestResult || candidate.keepLatestResult)
     }
 
     func failedRetrySafeIdentityMatches(

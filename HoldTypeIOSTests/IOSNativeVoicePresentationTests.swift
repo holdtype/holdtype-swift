@@ -12,8 +12,6 @@ struct IOSNativeVoicePresentationTests {
             .ready,
             .priorWhileSaving,
             .savingWithoutPrior,
-            .expired,
-            .clockRollbackAmbiguous,
             .clearing,
             .cleanupPending,
             .unavailable,

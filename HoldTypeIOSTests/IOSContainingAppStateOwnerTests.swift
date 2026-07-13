@@ -138,7 +138,7 @@ struct IOSContainingAppStateOwnerTests {
 
         let firstMutation = Task {
             try await fifoOwner.update {
-                $0.keepLatestResult = false
+                $0.voiceSessionPreferences.audioCuesEnabled = false
             }
         }
         try await stateOwnerEventually {
@@ -164,15 +164,15 @@ struct IOSContainingAppStateOwnerTests {
         await fifoRepository.resumeCommit()
         _ = try await firstMutation.value
         let providerValue = try await providerSnapshot.value
-        #expect(!providerValue.keepLatestResult)
+        #expect(!providerValue.voiceSessionPreferences.audioCuesEnabled)
         _ = try await secondMutation.value
 
         let committed = await fifoRepository.storedValue()
-        #expect(!committed.keepLatestResult)
+        #expect(!committed.voiceSessionPreferences.audioCuesEnabled)
         #expect(!committed.localTextCleanupEnabled)
         let candidates = await fifoRepository.committedCandidates()
         #expect(candidates.count == 2)
-        #expect(!candidates[1].keepLatestResult)
+        #expect(!candidates[1].voiceSessionPreferences.audioCuesEnabled)
         #expect(!candidates[1].localTextCleanupEnabled)
 
         let rollbackRepository = StateOwnerRepositoryFixture(
@@ -188,7 +188,7 @@ struct IOSContainingAppStateOwnerTests {
 
         let failedMutation = Task {
             try await rollbackOwner.update {
-                $0.keepLatestResult = false
+                $0.voiceSessionPreferences.audioCuesEnabled = false
             }
         }
         try await stateOwnerEventually {
@@ -216,7 +216,7 @@ struct IOSContainingAppStateOwnerTests {
             Issue.record("Expected a ready Settings value after retry.")
             return
         }
-        #expect(recoveredValue.keepLatestResult)
+        #expect(recoveredValue.voiceSessionPreferences.audioCuesEnabled)
         #expect(!recoveredValue.localTextCleanupEnabled)
         #expect(await rollbackRepository.storedValue() == recoveredValue)
     }
@@ -235,7 +235,6 @@ struct IOSContainingAppStateOwnerTests {
             translationConfiguration: TranslationConfiguration(
                 targetLanguage: .english
             ),
-            keepLatestResult: false,
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1
@@ -298,7 +297,6 @@ struct IOSContainingAppStateOwnerTests {
             stored.localTextCleanupEnabled
                 == initial.localTextCleanupEnabled
         )
-        #expect(stored.keepLatestResult == initial.keepLatestResult)
         #expect(
             stored.voiceSessionPreferences
                 == initial.voiceSessionPreferences
@@ -409,7 +407,7 @@ struct IOSContainingAppStateOwnerTests {
 
         let acquired = Task {
             try await owner.update {
-                $0.keepLatestResult = false
+                $0.voiceSessionPreferences.audioCuesEnabled = false
             }
         }
         try await stateOwnerEventually {
@@ -435,7 +433,7 @@ struct IOSContainingAppStateOwnerTests {
             Issue.record("Expected acquired commit to finish truthfully.")
             return
         }
-        #expect(!committed.keepLatestResult)
+        #expect(!committed.voiceSessionPreferences.audioCuesEnabled)
         #expect(committed.localTextCleanupEnabled)
         #expect(await repository.storedValue() == committed)
         #expect(await repository.commitCallCount() == 1)
@@ -452,7 +450,7 @@ struct IOSContainingAppStateOwnerTests {
 
         let firstMutation = Task {
             try await owner.update {
-                $0.keepLatestResult = false
+                $0.voiceSessionPreferences.audioCuesEnabled = false
             }
         }
         try await stateOwnerEventually {
@@ -479,7 +477,7 @@ struct IOSContainingAppStateOwnerTests {
             Issue.record("Expected the second mutation to publish ready state.")
             return
         }
-        #expect(!finalValue.keepLatestResult)
+        #expect(!finalValue.voiceSessionPreferences.audioCuesEnabled)
         #expect(!finalValue.localTextCleanupEnabled)
         #expect(owner.state == .ready(finalValue))
         #expect(committer.callCount() == 2)

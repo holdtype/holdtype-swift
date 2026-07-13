@@ -228,7 +228,7 @@ Only after a positive K1 result, replace the probe with:
 | --- | --- |
 | R0 Scope reset and stable baseline | Completed 2026-07-13 |
 | H1 Compact History repository | In progress |
-| H2 Production append and Latest semantics | Not started |
+| H2 Production append and Latest semantics | Completed 2026-07-13 |
 | H3 Finished History surface | Not started |
 | H4 Bounded legacy cleanup | Not started |
 | K1 Signed keyboard voice gate | Not started |

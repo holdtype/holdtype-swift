@@ -11,7 +11,6 @@ struct IOSAppSettingsRepositoryTests {
         #expect(settings.textCorrectionConfiguration == .defaults)
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
-        #expect(settings.keepLatestResult)
         #expect(settings.voiceSessionPreferences == .defaults)
         #expect(settings == IOSAppSettings())
         requireSendable(IOSAppSettings.self)
@@ -49,7 +48,7 @@ struct IOSAppSettingsRepositoryTests {
         try await repository.save(settings)
 
         let expected =
-            #"{"keepLatestResult":false,"localTextCleanupEnabled":false,"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"actionPreferenceEnabled":false,"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
+            #"{"localTextCleanupEnabled":false,"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"actionPreferenceEnabled":false,"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
         #expect(fileSystem.data == Data(expected.utf8))
         #expect(try await repository.load() == settings)
 
@@ -63,7 +62,6 @@ struct IOSAppSettingsRepositoryTests {
             "textCorrection",
             "localTextCleanupEnabled",
             "translation",
-            "keepLatestResult",
             "voice",
         ])
     }
@@ -104,7 +102,6 @@ struct IOSAppSettingsRepositoryTests {
         expected.textCorrectionConfiguration.isEnabled = true
         expected.localTextCleanupEnabled = false
         expected.translationConfiguration.targetLanguage = .english
-        expected.keepLatestResult = false
         expected.voiceSessionPreferences.audioCuesEnabled = false
 
         #expect(loaded == expected)
@@ -225,7 +222,6 @@ struct IOSAppSettingsRepositoryTests {
             ["textCorrection", "isEnabled"],
             ["localTextCleanupEnabled"],
             ["translation", "actionPreferenceEnabled"],
-            ["keepLatestResult"],
             ["voice", "audioCuesEnabled"],
         ]
         let allPaths = groupPaths + stringAndEnumPaths + booleanPaths
@@ -637,7 +633,6 @@ struct IOSAppSettingsRepositoryTests {
                 model: " translation-model ",
                 prompt: " translation prompt "
             ),
-            keepLatestResult: false,
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1_5

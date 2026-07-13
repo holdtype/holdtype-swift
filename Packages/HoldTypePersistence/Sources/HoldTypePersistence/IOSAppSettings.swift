@@ -8,7 +8,6 @@ public struct IOSAppSettings: Equatable, Sendable {
     public var textCorrectionConfiguration: TextCorrectionConfiguration
     public var localTextCleanupEnabled: Bool
     public var translationConfiguration: TranslationConfiguration
-    public var keepLatestResult: Bool
     public var voiceSessionPreferences: VoiceSessionPreferences
 
     public init(
@@ -16,14 +15,12 @@ public struct IOSAppSettings: Equatable, Sendable {
         textCorrectionConfiguration: TextCorrectionConfiguration = .defaults,
         localTextCleanupEnabled: Bool = true,
         translationConfiguration: TranslationConfiguration = .defaults,
-        keepLatestResult: Bool = true,
         voiceSessionPreferences: VoiceSessionPreferences = .defaults
     ) {
         self.transcriptionConfiguration = transcriptionConfiguration
         self.textCorrectionConfiguration = textCorrectionConfiguration
         self.localTextCleanupEnabled = localTextCleanupEnabled
         self.translationConfiguration = translationConfiguration
-        self.keepLatestResult = keepLatestResult
         self.voiceSessionPreferences = voiceSessionPreferences
     }
 }
