@@ -286,6 +286,35 @@ public extension IOSAcceptedHistoryCoordinator {
     func accept(
         _ preparation: IOSAcceptedOutputDeliveryPreparation
     ) async throws -> IOSAcceptedHistoryAcceptanceResult {
+        let operationGate = operationGate
+        do {
+            return try await operationGate.perform {
+                operationLeaseAuthorization in
+                try await self.accept(
+                    preparation,
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                )
+            }
+        } catch IOSPersistenceOperationGate.AcquisitionError.cancelledBeforeLease {
+            throw IOSAcceptedHistoryCoordinatorError.cancelledBeforeOperation
+        } catch IOSPersistenceOperationGate.AcquisitionError.reentrantOperation {
+            throw IOSAcceptedHistoryCoordinatorError.reentrantOperation
+        }
+    }
+
+    /// Executes acceptance under the exact active root lease already held by a
+    /// larger persistence transaction. It never reacquires the operation gate.
+    internal func accept(
+        _ preparation: IOSAcceptedOutputDeliveryPreparation,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSAcceptedHistoryAcceptanceResult {
+        guard operationLeaseAuthorization.provesActiveLease(
+            for: operationGate.identity
+        ) else {
+            throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        }
         let policyStore = policyStore
         let acceptedHistoryStore = acceptedHistoryStore
         let failedHistoryStore = failedHistoryStore
@@ -305,180 +334,171 @@ public extension IOSAcceptedHistoryCoordinator {
         let repositoryIdentityState = repositoryIdentityState
         let repositoryRegistration = repositoryRegistration
 
+        guard await foregroundVoicePersistenceState.current() == nil
+        else {
+            throw IOSAcceptedHistoryCoordinatorError
+                .localRecoveryPending
+        }
+        guard await failedHistoryRetryState.hasLiveOwner() == false
+        else {
+            throw IOSAcceptedHistoryCoordinatorError
+                .localRecoveryPending
+        }
+        guard !failedHistoryMutationInterlock.isBlocked else {
+            throw IOSAcceptedHistoryCoordinatorError
+                .localRecoveryPending
+        }
+        guard await failedHistoryTransferState.current() == nil else {
+            throw IOSAcceptedHistoryCoordinatorError
+                .localRecoveryPending
+        }
+        let repositoryBinding = repositoryRegistration?.revalidate()
+        guard !repositoryIdentityState.isConflicted else {
+            throw IOSAcceptedHistoryCoordinatorError
+                .repositoryIdentityConflict
+        }
         do {
-            return try await operationGate.perform {
-                operationLeaseAuthorization in
-                guard await foregroundVoicePersistenceState.current() == nil
-                else {
-                    throw IOSAcceptedHistoryCoordinatorError
-                        .localRecoveryPending
+            guard try await failedHistoryStore
+                .hasPendingJournalRetirement(
+                    operationLeaseAuthorization:
+                        operationLeaseAuthorization
+                ) == false else {
+                throw IOSAcceptedHistoryCoordinatorError
+                    .localRecoveryPending
+            }
+            guard await outboxWorkerState.current() == nil else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            guard await policyCutoverState.current() == nil else {
+                throw IOSAcceptedOutputDeliveryError.commitUncertain
+            }
+            try Self.validateHistoryPreparation(
+                preparation: preparation,
+                ownerIdentity: ownerIdentity
+            )
+            let result: IOSAcceptedHistoryAcceptanceResult
+            if let retained = await acceptanceState.current() {
+                guard await pendingReplacementState.current() == nil else {
+                    throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
-                guard await failedHistoryRetryState.hasLiveOwner() == false
-                else {
-                    throw IOSAcceptedHistoryCoordinatorError
-                        .localRecoveryPending
+                guard retained.mayResume(with: preparation) else {
+                    throw IOSAcceptedOutputDeliveryError.commitUncertain
                 }
-                guard !failedHistoryMutationInterlock.isBlocked else {
-                    throw IOSAcceptedHistoryCoordinatorError
-                        .localRecoveryPending
-                }
-                guard await failedHistoryTransferState.current() == nil else {
-                    throw IOSAcceptedHistoryCoordinatorError
-                        .localRecoveryPending
-                }
-                let repositoryBinding = repositoryRegistration?.revalidate()
-                guard !repositoryIdentityState.isConflicted else {
-                    throw IOSAcceptedHistoryCoordinatorError
-                        .repositoryIdentityConflict
-                }
-                do {
-                    guard try await failedHistoryStore
-                        .hasPendingJournalRetirement(
-                            operationLeaseAuthorization:
-                                operationLeaseAuthorization
-                        ) == false else {
-                        throw IOSAcceptedHistoryCoordinatorError
-                            .localRecoveryPending
+                result = await Self.resume(
+                    retained,
+                    policyStore: policyStore,
+                    acceptedHistoryStore: acceptedHistoryStore,
+                    deliveryStore: deliveryStore,
+                    acceptanceState: acceptanceState
+                ).result
+            } else {
+                let acceptance: IOSAcceptedOutputDeliveryAcceptance
+                if let replacement = await pendingReplacementState
+                    .current() {
+                    guard replacement.preparation == preparation else {
+                        throw IOSAcceptedOutputDeliveryError
+                            .commitUncertain
                     }
-                    guard await outboxWorkerState.current() == nil else {
-                        throw IOSAcceptedOutputDeliveryError.commitUncertain
-                    }
-                    guard await policyCutoverState.current() == nil else {
-                        throw IOSAcceptedOutputDeliveryError.commitUncertain
-                    }
-                    try Self.validateHistoryPreparation(
-                        preparation: preparation,
-                        ownerIdentity: ownerIdentity
-                    )
-                    let result: IOSAcceptedHistoryAcceptanceResult
-                    if let retained = await acceptanceState.current() {
-                        guard await pendingReplacementState.current() == nil else {
-                            throw IOSAcceptedOutputDeliveryError.commitUncertain
-                        }
-                        guard retained.mayResume(with: preparation) else {
-                            throw IOSAcceptedOutputDeliveryError.commitUncertain
-                        }
-                        result = await Self.resume(
-                            retained,
+                    acceptance = try await Self
+                        .resumePendingReplacement(
+                            replacement,
                             policyStore: policyStore,
-                            acceptedHistoryStore: acceptedHistoryStore,
+                            outboxStore: outboxStore,
                             deliveryStore: deliveryStore,
-                            acceptanceState: acceptanceState
-                        ).result
-                    } else {
-                        let acceptance: IOSAcceptedOutputDeliveryAcceptance
-                        if let replacement = await pendingReplacementState
-                            .current() {
-                            guard replacement.preparation == preparation else {
-                                throw IOSAcceptedOutputDeliveryError
-                                    .commitUncertain
-                            }
+                            replacementState: pendingReplacementState,
+                            operationLeaseAuthorization:
+                                operationLeaseAuthorization,
+                            ownerIdentity: ownerIdentity
+                        )
+                } else {
+                    do {
+                        acceptance = try await deliveryStore
+                            .acceptForHistoryCoordinator(preparation)
+                    } catch IOSAcceptedOutputDeliveryError
+                        .historyTransferRequired {
+                        switch try await Self
+                            .resolveHistoryTransferRequirement(
+                                preparation: preparation,
+                                outboxStore: outboxStore,
+                                deliveryStore: deliveryStore,
+                                operationLeaseAuthorization:
+                                    operationLeaseAuthorization
+                            ) {
+                        case .accepted(let resolved):
+                            acceptance = resolved
+                        case .pendingDecision:
+                            let replacement =
+                                IOSAcceptedHistoryPendingReplacementWork(
+                                    ownerIdentity: ownerIdentity,
+                                    preparation: preparation,
+                                    phase: .observingCurrentDelivery
+                                )
+                            await pendingReplacementState.store(
+                                replacement
+                            )
                             acceptance = try await Self
                                 .resumePendingReplacement(
                                     replacement,
                                     policyStore: policyStore,
                                     outboxStore: outboxStore,
                                     deliveryStore: deliveryStore,
-                                    replacementState: pendingReplacementState,
+                                    replacementState:
+                                        pendingReplacementState,
                                     operationLeaseAuthorization:
                                         operationLeaseAuthorization,
                                     ownerIdentity: ownerIdentity
                                 )
-                        } else {
-                            do {
-                                acceptance = try await deliveryStore
-                                    .acceptForHistoryCoordinator(preparation)
-                            } catch IOSAcceptedOutputDeliveryError
-                                .historyTransferRequired {
-                                switch try await Self
-                                    .resolveHistoryTransferRequirement(
-                                        preparation: preparation,
-                                        outboxStore: outboxStore,
-                                        deliveryStore: deliveryStore,
-                                        operationLeaseAuthorization:
-                                            operationLeaseAuthorization
-                                    ) {
-                                case .accepted(let resolved):
-                                    acceptance = resolved
-                                case .pendingDecision:
-                                    let replacement =
-                                        IOSAcceptedHistoryPendingReplacementWork(
-                                            ownerIdentity: ownerIdentity,
-                                            preparation: preparation,
-                                            phase: .observingCurrentDelivery
-                                        )
-                                    await pendingReplacementState.store(
-                                        replacement
-                                    )
-                                    acceptance = try await Self
-                                        .resumePendingReplacement(
-                                            replacement,
-                                            policyStore: policyStore,
-                                            outboxStore: outboxStore,
-                                            deliveryStore: deliveryStore,
-                                            replacementState:
-                                                pendingReplacementState,
-                                            operationLeaseAuthorization:
-                                                operationLeaseAuthorization,
-                                            ownerIdentity: ownerIdentity
-                                        )
-                                }
-                            }
-                        }
-                        let record = acceptance.record
-                        if let resolution = Self.terminalResolution(
-                            for: record
-                        ) {
-                            result = IOSAcceptedHistoryAcceptanceResult(
-                                deliveryRecord: record,
-                                resolution: resolution
-                            )
-                        } else {
-                            let work = Self.acceptanceWork(
-                                for: acceptance,
-                                preparation: preparation
-                            )
-                            await acceptanceState.store(work)
-                            result = await Self.resume(
-                                work,
-                                policyStore: policyStore,
-                                acceptedHistoryStore: acceptedHistoryStore,
-                                deliveryStore: deliveryStore,
-                                acceptanceState: acceptanceState
-                            ).result
                         }
                     }
-                    guard Self.repositoryBindingIsValid(
-                        repositoryBinding,
-                        registration: repositoryRegistration,
-                        identityState: repositoryIdentityState
-                    ) else {
-                        return IOSAcceptedHistoryAcceptanceResult(
-                            deliveryRecord: result.deliveryRecord,
-                            resolution: .pendingLocalRecovery
-                        )
-                    }
-                    if result.resolution != .pendingLocalRecovery {
-                        await acceptanceState.clear()
-                    }
-                    return result
-                } catch {
-                    if let repositoryBinding {
-                        _ = repositoryRegistration?.revalidate(
-                            expectedBinding: repositoryBinding
-                        )
-                    }
-                    if repositoryIdentityState.isConflicted {
-                        throw IOSAcceptedHistoryCoordinatorError
-                            .repositoryIdentityConflict
-                    }
-                    throw error
+                }
+                let record = acceptance.record
+                if let resolution = Self.terminalResolution(
+                    for: record
+                ) {
+                    result = IOSAcceptedHistoryAcceptanceResult(
+                        deliveryRecord: record,
+                        resolution: resolution
+                    )
+                } else {
+                    let work = Self.acceptanceWork(
+                        for: acceptance,
+                        preparation: preparation
+                    )
+                    await acceptanceState.store(work)
+                    result = await Self.resume(
+                        work,
+                        policyStore: policyStore,
+                        acceptedHistoryStore: acceptedHistoryStore,
+                        deliveryStore: deliveryStore,
+                        acceptanceState: acceptanceState
+                    ).result
                 }
             }
-        } catch IOSPersistenceOperationGate.AcquisitionError.cancelledBeforeLease {
-            throw IOSAcceptedHistoryCoordinatorError.cancelledBeforeOperation
-        } catch IOSPersistenceOperationGate.AcquisitionError.reentrantOperation {
-            throw IOSAcceptedHistoryCoordinatorError.reentrantOperation
+            guard Self.repositoryBindingIsValid(
+                repositoryBinding,
+                registration: repositoryRegistration,
+                identityState: repositoryIdentityState
+            ) else {
+                return IOSAcceptedHistoryAcceptanceResult(
+                    deliveryRecord: result.deliveryRecord,
+                    resolution: .pendingLocalRecovery
+                )
+            }
+            if result.resolution != .pendingLocalRecovery {
+                await acceptanceState.clear()
+            }
+            return result
+        } catch {
+            if let repositoryBinding {
+                _ = repositoryRegistration?.revalidate(
+                    expectedBinding: repositoryBinding
+                )
+            }
+            if repositoryIdentityState.isConflicted {
+                throw IOSAcceptedHistoryCoordinatorError
+                    .repositoryIdentityConflict
+            }
+            throw error
         }
     }
 

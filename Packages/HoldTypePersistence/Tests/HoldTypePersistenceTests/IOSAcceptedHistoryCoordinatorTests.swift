@@ -1575,6 +1575,104 @@ struct IOSAcceptedHistoryCoordinatorTests {
         #expect(!rendered.contains(preparation.acceptedText))
     }
 
+    @Test func withinLeaseAcceptanceUsesExactlyOneGateLease() async throws {
+        let probe = CoordinatorGateProbe()
+        let gate = IOSPersistenceOperationGate { event in
+            probe.record(event)
+        }
+        let fixture = CoordinatorFixture(gate: gate)
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let preparation = try await coordinatorPreparation(using: coordinator)
+        let grantedBefore = probe.grantedCount
+        let releasedBefore = probe.releasedCount
+
+        let result = try await gate.perform { lease in
+            try await coordinator.accept(
+                preparation,
+                operationLeaseAuthorization: lease
+            )
+        }
+
+        #expect(result.resolution == .committed)
+        #expect(result.deliveryRecord.historyWrite?.state == .committed)
+        #expect(fixture.delivery.currentRecord == result.deliveryRecord)
+        #expect(fixture.accepted.currentEnvelope?.entries.count == 1)
+        #expect(probe.grantedCount == grantedBefore + 1)
+        #expect(probe.releasedCount == releasedBefore + 1)
+    }
+
+    @Test func withinLeaseAcceptanceRejectsForeignAndExpiredLeaseBeforeIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let preparation = try await coordinatorPreparation(using: coordinator)
+        let counts = (
+            fixture.policy.loadCount,
+            fixture.policy.replaceCount,
+            fixture.accepted.loadCount,
+            fixture.outbox.loadCount,
+            fixture.delivery.loadCount
+        )
+        let foreignGate = IOSPersistenceOperationGate()
+
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            _ = try await foreignGate.perform { lease in
+                try await coordinator.accept(
+                    preparation,
+                    operationLeaseAuthorization: lease
+                )
+            }
+        }
+        let expiredLease = try await fixture.gate.perform { lease in lease }
+        await #expect(
+            throws: IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+        ) {
+            _ = try await coordinator.accept(
+                preparation,
+                operationLeaseAuthorization: expiredLease
+            )
+        }
+
+        #expect(fixture.policy.loadCount == counts.0)
+        #expect(fixture.policy.replaceCount == counts.1)
+        #expect(fixture.accepted.loadCount == counts.2)
+        #expect(fixture.outbox.loadCount == counts.3)
+        #expect(fixture.delivery.loadCount == counts.4)
+    }
+
+    @Test func publicAcceptanceRejectsReentrancyBeforeRepositoryIO()
+        async throws {
+        let fixture = CoordinatorFixture()
+        fixture.policy.install(.baseline)
+        let coordinator = fixture.coordinator()
+        let preparation = try await coordinatorPreparation(using: coordinator)
+        let counts = (
+            fixture.policy.loadCount,
+            fixture.policy.replaceCount,
+            fixture.accepted.loadCount,
+            fixture.outbox.loadCount,
+            fixture.delivery.loadCount
+        )
+
+        await #expect(
+            throws: IOSAcceptedHistoryCoordinatorError.reentrantOperation
+        ) {
+            _ = try await fixture.gate.perform {
+                try await coordinator.accept(preparation)
+            }
+        }
+
+        #expect(fixture.policy.loadCount == counts.0)
+        #expect(fixture.policy.replaceCount == counts.1)
+        #expect(fixture.accepted.loadCount == counts.2)
+        #expect(fixture.outbox.loadCount == counts.3)
+        #expect(fixture.delivery.loadCount == counts.4)
+    }
+
     @Test func disabledCaptureReturnsNotRequestedWithoutHistoryIO() async throws {
         let fixture = CoordinatorFixture()
         fixture.policy.install(
