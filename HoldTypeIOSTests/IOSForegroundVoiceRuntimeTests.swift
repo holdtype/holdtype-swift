@@ -91,8 +91,25 @@ struct IOSForegroundVoiceRuntimeTests {
 
         let dependencies = try #require(factories.dependencies)
         let lease = try #require(firstScene.acquireStartLease())
-        let consent = await consentCoordinator.observe()
-        #expect(await dependencies.continueConsent(lease, consent) == nil)
+        let consent = await dependencies.observeConsent()
+        let continuation = Task { @MainActor in
+            await dependencies.continueConsent(lease, consent)
+        }
+        for _ in 0..<100 where runtime.providerConsentPresentationOwner
+            .voicePrompt == nil {
+            await Task.yield()
+        }
+        let prompt = try #require(
+            runtime.providerConsentPresentationOwner.voicePrompt
+        )
+        let capability = try #require(
+            firstScene.promptDecisionCapability()
+        )
+        runtime.providerConsentPresentationOwner.dismissVoicePrompt(
+            prompt.id,
+            from: capability
+        )
+        #expect(await continuation.value == nil)
         #expect(lease.finish())
         #expect(factories.platformEffectCount == 0)
 

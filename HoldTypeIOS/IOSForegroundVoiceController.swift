@@ -174,22 +174,30 @@ struct IOSForegroundVoiceClient: Sendable {
     typealias FinishUtterance = @MainActor @Sendable (
         IOSForegroundVoiceAuthority
     ) -> IOSForegroundVoiceControlDisposition
+    typealias ProviderConsentInvalidated = @MainActor @Sendable (
+        IOSForegroundVoiceAuthority
+    ) -> IOSForegroundVoiceControlDisposition
 
     let observe: Observe
     let runStart: RunStart
     let run: Run
     let finishUtterance: FinishUtterance
+    let providerConsentInvalidated: ProviderConsentInvalidated
 
     init(
         observe: @escaping Observe,
         runStart: @escaping RunStart,
         run: @escaping Run,
-        finishUtterance: @escaping FinishUtterance
+        finishUtterance: @escaping FinishUtterance,
+        providerConsentInvalidated: @escaping ProviderConsentInvalidated = {
+            _ in .unavailable
+        }
     ) {
         self.observe = observe
         self.runStart = runStart
         self.run = run
         self.finishUtterance = finishUtterance
+        self.providerConsentInvalidated = providerConsentInvalidated
     }
 }
 
@@ -225,6 +233,8 @@ final class IOSForegroundVoiceController {
     private var cancellationKind: CancellationKind?
     @ObservationIgnored
     private var finishRequested = false
+    @ObservationIgnored
+    private var providerConsentInvalidationRequested = false
     @ObservationIgnored
     private var lifecycleRefreshIsWaiting = false
 
@@ -425,6 +435,7 @@ final class IOSForegroundVoiceController {
         cancellationRequested = false
         cancellationKind = nil
         finishRequested = false
+        providerConsentInvalidationRequested = false
 
         let initial = initialPresentation(for: operation)
         activeProgressPosition = initialProgressPosition(
@@ -514,6 +525,32 @@ final class IOSForegroundVoiceController {
         activeTask?.cancel()
     }
 
+    /// Stops provider-capable work after the consent gate has already closed.
+    /// A Start follows the workflow's interruption path so valid capture stays
+    /// recoverable. Other provider work settles through the already-closed
+    /// provider gate; it is never reinterpreted as ordinary user cancellation
+    /// because accepted output may already be durable.
+    func providerConsentDidInvalidate() {
+        guard !providerConsentInvalidationRequested,
+              !cancellationRequested,
+              case .primary(let authority)? = activeWork,
+              activeAuthority == authority else {
+            return
+        }
+        providerConsentInvalidationRequested = true
+        publish(
+            phase: presentation.phase,
+            stage: presentation.stage,
+            outcome: presentation.outcome,
+            setup: presentation.setup,
+            failure: presentation.failure,
+            recovery: presentation.recovery,
+            latestAvailability: presentation.latestAvailability
+        )
+
+        _ = client.providerConsentInvalidated(authority)
+    }
+
     private func receive(
         _ progress: IOSForegroundVoiceProgress,
         authority: IOSForegroundVoiceAuthority
@@ -521,6 +558,7 @@ final class IOSForegroundVoiceController {
         guard activeWork == .primary(authority),
               activeAuthority == authority,
               !cancellationRequested,
+              !providerConsentInvalidationRequested,
               let projection = progressProjection(for: progress),
               let activeProgressPosition,
               projection.position.rawValue
@@ -565,6 +603,7 @@ final class IOSForegroundVoiceController {
         cancellationRequested = false
         cancellationKind = nil
         finishRequested = false
+        providerConsentInvalidationRequested = false
         apply(
             projection.observation,
             stage: projection.stage,
@@ -637,7 +676,9 @@ final class IOSForegroundVoiceController {
         translationAvailable: Bool
     ) -> [IOSForegroundVoiceAction] {
         if case .activation? = activeWork { return [] }
-        if cancellationRequested { return [] }
+        if cancellationRequested || providerConsentInvalidationRequested {
+            return []
+        }
         if case .primary? = activeWork {
             switch phase {
             case .arming:

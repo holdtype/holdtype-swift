@@ -97,6 +97,12 @@ final class IOSForegroundVoiceSceneHostOwner:
         controller.actionCommands
     }
 
+    func promptDecisionCapability()
+        -> IOSVoiceScenePromptDecisionCapability? {
+        guard !isRetired, let sceneFacade else { return nil }
+        return sceneFacade.promptDecisionCapability()
+    }
+
     /// Creates this host's one and only opaque scene facade. Once unregistered,
     /// the owner is permanently retired and cannot manufacture a new identity.
     @discardableResult

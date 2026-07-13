@@ -901,6 +901,52 @@ struct IOSProviderConsentCoordinatorTests {
         #expect(reacceptedRecord.state == .accepted)
     }
 
+    @Test func withdrawalNotifiesAfterGateCloseAndBeforeRepositoryMutation()
+        async throws {
+        let record = try fixtureRecord(state: .accepted, revision: 1)
+        let journal = IOSProviderConsentJournalFake(record: record)
+        let coordinator = makeCoordinator(journal: journal)
+        let accepted = await coordinator.observe()
+        let authorization = try #require(
+            coordinator.makeAuthorization(from: accepted)
+        )
+        let cancellation = LockedCounter()
+        let registration = try #require(
+            await coordinator.registerProviderDispatch(
+                authorization,
+                for: .transcription,
+                onCancellation: { cancellation.increment() }
+            )
+        )
+        let mutationCountAtNotification = LockedBox<Int?>(nil)
+        let cancellationCountAtNotification = LockedBox<Int?>(nil)
+        let callbackGate = IOSProviderConsentAsyncGate()
+
+        let withdrawal = Task {
+            try await coordinator.withdraw(
+                using: accepted,
+                authorizationDidClose: {
+                    mutationCountAtNotification.set(journal.replaceCallCount)
+                    cancellationCountAtNotification.set(cancellation.value)
+                    await callbackGate.pauseUntilReleased()
+                }
+            )
+        }
+        await callbackGate.waitUntilPaused()
+
+        #expect(mutationCountAtNotification.value == 0)
+        #expect(cancellationCountAtNotification.value == 1)
+        #expect(journal.replaceCallCount == 0)
+        await callbackGate.release()
+        _ = try await withdrawal.value
+        #expect(journal.replaceCallCount == 1)
+        let didLaunch = await coordinator.launchProviderDispatch(
+            registration,
+            launch: {}
+        )
+        #expect(!didLaunch)
+    }
+
     @Test func alreadyWithdrawnDecisionIsAnExactNoOp() async throws {
         let record = try fixtureRecord(state: .withdrawn, revision: 9)
         let journal = IOSProviderConsentJournalFake(record: record)
@@ -1531,6 +1577,7 @@ struct IOSProviderConsentCoordinatorTests {
         let journal = IOSProviderConsentJournalFake(record: record)
         let coordinator = makeCoordinator(journal: journal)
         let accepted = await coordinator.observe()
+        #expect(coordinator.isAuthorizationReady(for: accepted))
         let authorization = try #require(
             coordinator.makeAuthorization(from: accepted)
         )
@@ -1564,7 +1611,24 @@ struct IOSProviderConsentCoordinatorTests {
         }
 
         let fresh = await coordinator.observe()
+        #expect(fresh.status == .acceptedCurrentDisclosure)
+        #expect(fresh == accepted)
+        #expect(
+            !coordinator.hasSameObservationAuthority(
+                accepted,
+                as: fresh
+            )
+        )
+        #expect(!coordinator.isAuthorizationReady(for: fresh))
+        #expect(coordinator.makeAuthorization(from: fresh) == nil)
         let reopened = try await coordinator.accept(using: fresh)
+        #expect(coordinator.isAuthorizationReady(for: reopened))
+        #expect(
+            coordinator.hasSameObservationAuthority(
+                reopened,
+                as: reopened
+            )
+        )
         #expect(coordinator.makeAuthorization(from: reopened) != nil)
     }
 
@@ -2181,6 +2245,37 @@ private final class IOSProviderConsentJournalLoadBlock: @unchecked Sendable {
 
     func release() {
         releaseSignal.signal()
+    }
+}
+
+private actor IOSProviderConsentAsyncGate {
+    private var isPaused = false
+    private var isReleased = false
+    private var pauseWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+
+    func pauseUntilReleased() async {
+        isPaused = true
+        let waiters = pauseWaiters
+        pauseWaiters.removeAll()
+        for waiter in waiters { waiter.resume() }
+        guard !isReleased else { return }
+        await withCheckedContinuation { continuation in
+            releaseWaiter = continuation
+        }
+    }
+
+    func waitUntilPaused() async {
+        guard !isPaused else { return }
+        await withCheckedContinuation { continuation in
+            pauseWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        isReleased = true
+        releaseWaiter?.resume()
+        releaseWaiter = nil
     }
 }
 

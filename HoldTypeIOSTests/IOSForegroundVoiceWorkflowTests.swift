@@ -41,6 +41,42 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func providerConsentInvalidationInterruptsAndPreservesCaptureRecovery()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            preserveCaptureOnInterruptedStop: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(
+            controller.actionCommands.first {
+                $0.action == .startStandard
+            }
+        )
+        #expect(controller.submit(start, from: fixture.facade) == .accepted)
+        try await waitUntil { controller.presentation.phase == .listening }
+
+        controller.providerConsentDidInvalidate()
+        try await waitUntil { controller.presentation.phase == .inactive }
+
+        #expect(fixture.stopReasons == [.interrupted])
+        #expect(
+            controller.presentation.recovery == .captureRecoverOrDiscard
+        )
+        #expect(
+            controller.presentation.availableActions
+                == [.recoverRecording, .discard]
+        )
+        #expect(!fixture.events.contains("provider-process"))
+        #expect(!fixture.events.contains("recording-stop-cancelled"))
+    }
+
+    @Test
     func startRunsFrozenPreflightOrderAndDoneReachesExactRecorder() async throws {
         let fixture = try await WorkflowFixture(permission: .undetermined)
         let token = IOSForegroundVoiceWorkflowAttemptToken()
@@ -2615,6 +2651,7 @@ private final class WorkflowFixture {
             IOSForegroundVoiceWorkflowCaptureStopReason? = nil,
         completedCapture: Bool = false,
         preserveCaptureOnCancelledStop: Bool = false,
+        preserveCaptureOnInterruptedStop: Bool = false,
         pendingPrepareSuspendsUntilCancelled: Bool = false,
         expireFinalizationImmediately: Bool = false,
         expireFinalizationAtStopBoundary: Bool = false,
@@ -2752,6 +2789,15 @@ private final class WorkflowFixture {
                 reconcileCaptureSources: {
                     events.record("capture-reconcile")
                     await applyHook("capture-reconcile")
+                    if preserveCaptureOnInterruptedStop,
+                       events.contains("recording-stop-interrupted") {
+                        return IOSForegroundVoiceCaptureRecoveryObservation(
+                            status: .activeNeedsRecovery,
+                            examinedEntryCount: 1,
+                            removedEntryCount: 0,
+                            removedLogicalByteCount: 0
+                        )
+                    }
                     return await owner.reconcileCaptureSourcesAtLaunch()
                 },
                 recoverContainingAppLifecycle: { opportunity in
@@ -2926,6 +2972,15 @@ private final class WorkflowFixture {
                             self?.stopReasons.append(reason)
                             if preserveCaptureOnCancelledStop,
                                reason == .cancelled {
+                                let capture = try? await owner.createCapture(
+                                    attemptID: UUID(),
+                                    outputIntent: .standard
+                                )
+                                capture?.release()
+                                return .preserved
+                            }
+                            if preserveCaptureOnInterruptedStop,
+                               reason == .interrupted {
                                 let capture = try? await owner.createCapture(
                                     attemptID: UUID(),
                                     outputIntent: .standard

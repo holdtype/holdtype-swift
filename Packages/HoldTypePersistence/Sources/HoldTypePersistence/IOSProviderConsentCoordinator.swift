@@ -159,11 +159,15 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
         }
     }
 
-    /// Closes provider authority synchronously before repository ownership can suspend.
+    /// Closes provider authority synchronously before repository ownership can
+    /// suspend. The content-free callback runs after that close and before the
+    /// durable mutation so the containing app can stop local work without
+    /// weakening the consent fence.
     @discardableResult
     public func withdraw(
         using observation: IOSProviderConsentObservation,
-        decisionAt: Date = Date()
+        decisionAt: Date = Date(),
+        authorizationDidClose: @escaping @Sendable () async -> Void = {}
     ) async throws -> IOSProviderConsentObservation {
         guard revalidateRepositoryOrCloseGate() else {
             throw IOSProviderConsentError.localDataUnavailable
@@ -172,6 +176,7 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
               let closedFence = gate.close(observedAt: observationFence) else {
             throw IOSProviderConsentError.staleObservation
         }
+        await authorizationDidClose()
         let saved = try await owner.withdraw(
             using: observation,
             decisionAt: decisionAt
@@ -187,9 +192,12 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
     }
 
     /// Deletes only the exact unreadable physical revision in the observation.
+    /// The callback follows the same close-before-durable-work ordering as
+    /// withdrawal.
     @discardableResult
     public func resetUnreadableConsentData(
-        using observation: IOSProviderConsentObservation
+        using observation: IOSProviderConsentObservation,
+        authorizationDidClose: @escaping @Sendable () async -> Void = {}
     ) async throws -> IOSProviderConsentObservation {
         guard revalidateRepositoryOrCloseGate() else {
             throw IOSProviderConsentError.localDataUnavailable
@@ -198,6 +206,7 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
               let closedFence = gate.close(observedAt: observationFence) else {
             throw IOSProviderConsentError.staleObservation
         }
+        await authorizationDidClose()
         let saved = try await owner.resetUnreadable(using: observation)
         guard revalidateRepositoryOrCloseGate() else {
             throw IOSProviderConsentError.localDataUnavailable
@@ -221,6 +230,38 @@ public final class IOSProviderConsentCoordinator: @unchecked Sendable {
             for: binding,
             observedAt: observationFence
         )
+    }
+
+    /// Content-free readiness projection for presentation code. Unlike
+    /// `makeAuthorization`, this never manufactures a provider capability.
+    public func isAuthorizationReady(
+        for observation: IOSProviderConsentObservation
+    ) -> Bool {
+        guard revalidateRepositoryOrCloseGate(),
+              let observationFence = observation.gateFence,
+              let binding = authorizationBinding(for: observation) else {
+            return false
+        }
+        return gate.isAuthorizationReady(
+            for: binding,
+            observedAt: observationFence
+        )
+    }
+
+    /// Content-free comparison for one exact coordinator observation. Public
+    /// semantic equality intentionally omits the opaque gate fence; prompt
+    /// continuation must use this stricter check instead.
+    public func hasSameObservationAuthority(
+        _ candidate: IOSProviderConsentObservation,
+        as current: IOSProviderConsentObservation
+    ) -> Bool {
+        guard let candidateFence = candidate.gateFence,
+              let currentFence = current.gateFence else {
+            return false
+        }
+        return candidate.ownerIdentity == current.ownerIdentity
+            && candidate.source == current.source
+            && candidateFence == currentFence
     }
 
     /// Registers cancellation before a provider task is allowed to launch.
@@ -1460,6 +1501,17 @@ final class IOSProviderConsentAuthorizationGate: @unchecked Sendable {
                 binding: requestedBinding,
                 gateGeneration: generation
             )
+        }
+    }
+
+    func isAuthorizationReady(
+        for requestedBinding: IOSProviderConsentAuthorizationBinding,
+        observedAt observationFence: IOSProviderConsentObservationFence
+    ) -> Bool {
+        lock.withLock {
+            fence == observationFence
+                && binding == requestedBinding
+                && !requiresExplicitAcceptance
         }
     }
 

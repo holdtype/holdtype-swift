@@ -620,6 +620,10 @@ final class IOSForegroundVoiceWorkflow {
             finishUtterance: { [weak self] authority in
                 self?.finishControllerUtterance(authority)
                     ?? .unavailable
+            },
+            providerConsentInvalidated: { [weak self] authority in
+                self?.providerConsentDidInvalidate(authority)
+                    ?? .unavailable
             }
         )
     }
@@ -663,6 +667,18 @@ final class IOSForegroundVoiceWorkflow {
             return .unavailable
         }
         return finishUtterance(token)
+    }
+
+    private func providerConsentDidInvalidate(
+        _ authority: IOSForegroundVoiceAuthority
+    ) -> IOSForegroundVoiceControlDisposition {
+        guard activeControllerAuthority == authority,
+              activeControllerToken != nil,
+              let attempt = activeAttempt else {
+            return .unavailable
+        }
+        requestStop(.interrupted, for: attempt)
+        return .accepted
     }
 
     /// Runs the exact scene-bound Start path. The returned token is also the

@@ -53,6 +53,30 @@ nonisolated struct IOSVoiceSceneStartLease: Hashable, Sendable {
     }
 }
 
+/// Opaque, short-lived proof that the invoking scene owns the exact current
+/// Start prompt. The registry revalidates it at every decision; retaining a
+/// capability cannot transfer ownership to a later attempt.
+nonisolated struct IOSVoiceScenePromptDecisionCapability:
+    Equatable,
+    Hashable,
+    Sendable {
+    fileprivate let registryIdentity: ObjectIdentifier
+    fileprivate let sceneValue: UInt64
+    fileprivate let generation: UInt64
+}
+
+extension IOSVoiceScenePromptDecisionCapability:
+    CustomDebugStringConvertible,
+    CustomReflectable,
+    CustomStringConvertible {
+    var description: String { "IOSVoiceScenePromptDecisionCapability" }
+    var debugDescription: String { description }
+
+    var customMirror: Mirror {
+        Mirror(self, children: ["capability": "opaque"])
+    }
+}
+
 extension IOSVoiceSceneStartLease:
     CustomDebugStringConvertible,
     CustomReflectable,
@@ -234,6 +258,11 @@ final class IOSVoiceSceneFacade:
 
     func acquireStartLease() -> IOSVoiceSceneStartLease? {
         registry?.acquireStartLease(initiatingScene: identity)
+    }
+
+    func promptDecisionCapability()
+        -> IOSVoiceScenePromptDecisionCapability? {
+        registry?.makePromptDecisionCapability(for: identity)
     }
 }
 
@@ -443,6 +472,20 @@ final class IOSVoiceSceneRegistry {
         }
     }
 
+    func validatePromptDecision(
+        _ capability: IOSVoiceScenePromptDecisionCapability,
+        for lease: IOSVoiceSceneStartLease
+    ) -> Bool {
+        guard capability.registryIdentity == ObjectIdentifier(self),
+              capability.sceneValue == lease.sceneValue,
+              capability.generation == lease.generation,
+              let owner = exactOwner(for: lease) else {
+            return false
+        }
+        return owner.sceneValue == capability.sceneValue
+            && owner.generation == capability.generation
+    }
+
     @discardableResult
     func beginExpectedMicrophonePermissionPrompt(
         _ lease: IOSVoiceSceneStartLease
@@ -587,6 +630,21 @@ final class IOSVoiceSceneRegistry {
             return nil
         }
         return promptOwner
+    }
+
+    fileprivate func makePromptDecisionCapability(
+        for identity: IOSVoiceSceneIdentity
+    ) -> IOSVoiceScenePromptDecisionCapability? {
+        guard owns(identity),
+              let owner = promptOwner,
+              owner.sceneValue == identity.value else {
+            return nil
+        }
+        return IOSVoiceScenePromptDecisionCapability(
+            registryIdentity: ObjectIdentifier(self),
+            sceneValue: owner.sceneValue,
+            generation: owner.generation
+        )
     }
 
     private func reconcilePromptOwnerAfterSceneMutation(

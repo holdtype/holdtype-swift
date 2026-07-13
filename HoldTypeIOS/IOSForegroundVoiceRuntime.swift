@@ -91,6 +91,8 @@ final class IOSForegroundVoiceRuntime {
     let sceneRegistry: IOSVoiceSceneRegistry
     let permissionAdapter: IOSMicrophonePermissionAdapter
     let permissionOwner: IOSForegroundVoiceWorkflowPermissionOwner
+    let providerConsentPresentationOwner:
+        IOSProviderConsentPresentationOwner
     let audioAdapter: IOSAudioSessionAdapter
     let audioOwner: IOSForegroundVoiceWorkflowAudioOwner
     let feedbackBridge: IOSForegroundVoiceFeedbackBridge
@@ -124,6 +126,14 @@ final class IOSForegroundVoiceRuntime {
             permissionAdapter
         )
         self.permissionOwner = permissionOwner
+        let providerConsentPresentationOwner =
+            IOSProviderConsentPresentationOwner(
+                coordinator: providerConsentCoordinator,
+                sceneRegistry: sceneRegistry,
+                permissionAdapter: permissionAdapter
+            )
+        self.providerConsentPresentationOwner =
+            providerConsentPresentationOwner
 
         let audioAdapter = factories.makeAudioAdapter()
         self.audioAdapter = audioAdapter
@@ -177,12 +187,14 @@ final class IOSForegroundVoiceRuntime {
                     .confirmedValueForProviderAction()
             },
             observeConsent: {
-                await providerConsentCoordinator.observe()
+                await providerConsentPresentationOwner
+                    .observeForVoicePreflight()
             },
-            continueConsent: { _, _ in
-                // P4D-3 has no scene-owned consent presenter. A missing
-                // decision remains blocked without a prompt or side effect.
-                nil
+            continueConsent: { lease, observation in
+                await providerConsentPresentationOwner.continueVoiceStart(
+                    lease: lease,
+                    observation: observation
+                )
             },
             revalidateConsent: { observation in
                 providerConsentCoordinator.makeAuthorization(
@@ -265,6 +277,10 @@ final class IOSForegroundVoiceRuntime {
             sceneRegistry
         )
         self.controller = controller
+        providerConsentPresentationOwner.bindVoiceInvalidation {
+            [weak controller] in
+            controller?.providerConsentDidInvalidate()
+        }
         lifecycleCoordinator = IOSForegroundVoiceProcessLifecycleCoordinator(
             workflow: workflow,
             controller: controller

@@ -40,6 +40,80 @@ struct IOSForegroundVoiceControllerTests {
         )
     }
 
+    @Test func withdrawalCannotHideCommittedStartResult() async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation()
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        let start = try voiceCommand(.startStandard, in: controller)
+        #expect(controller.submit(start, from: scene) == .accepted)
+        try await voiceEventually { fixture.runOperations.count == 1 }
+
+        controller.providerConsentDidInvalidate()
+        #expect(fixture.providerConsentInvalidationAuthorities.count == 1)
+        #expect(fixture.cancellationAuthorities.isEmpty)
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation(
+                    latest: .available
+                ),
+                outcome: .resultReady
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+
+        #expect(controller.presentation.outcome == .resultReady)
+        #expect(controller.presentation.latestAvailability == .available)
+        #expect(controller.presentation.recovery == .none)
+        #expect(fixture.cancellationAuthorities.isEmpty)
+    }
+
+    @Test func withdrawalCannotHideCommittedRetryResult() async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation(
+                recovery: .pendingRetryOrDiscard,
+                stage: .transcription
+            )
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let retry = try voiceCommand(.retryPending, in: controller)
+        #expect(controller.submit(retry) == .accepted)
+        try await voiceEventually { fixture.runOperations.count == 1 }
+
+        controller.providerConsentDidInvalidate()
+        #expect(fixture.providerConsentInvalidationAuthorities.count == 1)
+        #expect(fixture.cancellationAuthorities.isEmpty)
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation(
+                    latest: .available
+                ),
+                outcome: .resultReady
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+
+        #expect(controller.presentation.outcome == .resultReady)
+        #expect(controller.presentation.latestAvailability == .available)
+        #expect(controller.presentation.recovery == .none)
+        #expect(fixture.cancellationAuthorities.isEmpty)
+    }
+
     @Test func staleAndDuplicateStartCommandsAreRejected()
         async throws {
         let fixture = IOSForegroundVoiceClientFixture(
@@ -1091,6 +1165,8 @@ private final class IOSForegroundVoiceClientFixture {
     private(set) var finishAuthorities: [IOSForegroundVoiceAuthority] = []
     private(set) var cancellationAuthorities:
         [IOSForegroundVoiceAuthority] = []
+    private(set) var providerConsentInvalidationAuthorities:
+        [IOSForegroundVoiceAuthority] = []
 
     private var suspendNextObservation: Bool
     private var observationContinuation:
@@ -1129,6 +1205,10 @@ private final class IOSForegroundVoiceClientFixture {
             },
             finishUtterance: { authority in
                 self.finish(authority)
+            },
+            providerConsentInvalidated: { authority in
+                self.providerConsentInvalidationAuthorities.append(authority)
+                return .unavailable
             }
         )
     }
