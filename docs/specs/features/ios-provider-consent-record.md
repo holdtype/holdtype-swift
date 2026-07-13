@@ -1,5 +1,10 @@
 # iOS Provider Consent Record
 
+Status: legacy strict-schema reference. V1.1 keeps provider-stage authorization
+but moves consent to one standalone versioned record and updates disclosure for
+local History under `ios-v1-release.md`; the old History-aware capability
+context and disclosure-v1 claim below are not current product behavior.
+
 ## Goal
 
 Make OpenAI-processing consent a strict, app-private, revisioned authority so a

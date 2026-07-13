@@ -1,17 +1,14 @@
 # HoldType iOS Keyboard Development Plan
 
-Status: active feasibility work; canonical roadmap P3 and P4A through P4D-4 are
-complete. P4D-5A local technical Release qualification and the independent P5U
-containing-app Usage surface are complete. The docs-only P5H-0 app-private
-History contract freeze and hidden P5H-1 failed-Retry reader/consent migration
-are also complete, while P4D-2C, P4D-5B, and keyboard M0B/M0C remain
-physical-device gates. Started 2026-07-09 and updated 2026-07-13.
+Status: feasibility and physical-device appendix as of 2026-07-13. This file no
+longer defines implementation order. Preserve its platform findings and gate
+evidence, but use `docs/specs/features/ios-v1-release.md` for product behavior
+and `docs/ios-v1-development-plan.md` for current work.
 
-The complete containing-app, settings, data, privacy, and macOS feature
-portability roadmap lives in `docs/ios-product-portability-plan.md`. This file
-keeps ownership of the keyboard-specific feasibility and typing milestones.
-The P0-P8 order in that roadmap is canonical; milestone numbers here describe
-keyboard dependency lanes, not a competing chronological implementation order.
+The historical complete portability roadmap lives in
+`docs/ios-product-portability-plan.md`. This file keeps platform evidence and
+the detailed keyboard feasibility record, but its milestones are not the
+current delivery sequence.
 
 ## Decision
 

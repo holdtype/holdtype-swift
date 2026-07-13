@@ -1,5 +1,9 @@
 # iOS Privacy And Permissions
 
+Status: legacy pre-V1.1 privacy contract. Current History disclosure, keyboard
+handoff, Full Access, App Group, and background-session behavior is governed by
+`ios-v1-release.md`.
+
 ## Goal
 
 Make microphone capture, third-party keyboard access, Full Access, OpenAI

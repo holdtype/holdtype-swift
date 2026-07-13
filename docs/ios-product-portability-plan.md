@@ -1,13 +1,10 @@
 # HoldType iOS Full Product Portability Plan
 
-Status: active implementation roadmap; P0, P1, P2, and P3 are complete. P4A,
-P4B, P4C, P4D-0, P4D-1, P4D-2A, P4D-2B, P4D-3, and P4D-4 are complete. The
-containing app now includes the shared foreground Voice runtime and native
-Voice and Privacy presentation on iPhone and iPad. P4D-5A local Release/runtime
-qualification is complete; P4D-2C and P4D-5B physical-device evidence remains
-pending. P5 is in progress, with the independent P5U Transcription Usage
-Estimate, the docs-only P5H-0 History contract freeze, and the hidden P5H-1
-failed-Retry safety migration complete; updated 2026-07-13.
+Status: superseded as an implementation roadmap on 2026-07-13. This file is
+historical research and implementation evidence only. Do not continue P5H or
+use the P0-P8 order for current work. The canonical product contract is
+`docs/specs/features/ios-v1-release.md`; the current implementation order is
+`docs/ios-v1-development-plan.md`.
 
 This document plans the complete iPhone and iPad companion product around the
 HoldType keyboard. It does not authorize Swift, target, entitlement, or

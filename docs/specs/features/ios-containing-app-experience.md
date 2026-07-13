@@ -1,5 +1,9 @@
 # iOS Containing App Experience
 
+Status: legacy expanded containing-app contract. For current V1.1 navigation,
+History, Quick Session, and release scope, use `ios-v1-release.md`; retain this
+file only as implementation evidence where the canonical contract agrees.
+
 ## Goal
 
 Define the native iPhone and iPad app that owns HoldType setup, voice capture,

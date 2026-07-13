@@ -5,6 +5,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 
 | Area | Spec | Read When |
 | --- | --- | --- |
+| iOS V1.1 release | `features/ios-v1-release.md` | Any current iOS product, keyboard, Voice, History, Settings, Library, privacy, or release-scope work; this contract wins conflicts with legacy iOS specs |
 | Menu bar shell | `features/menu-bar-app-shell.md` | Menu bar lifecycle, primary controls, app shell state, status text |
 | Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |
 | OpenAI transcription | `features/openai-transcription.md` | Transcription request/response behavior, model settings, timeout/error policy |
@@ -28,21 +29,21 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | Backlog grooming | `features/backlog-grooming-automation.md` | Backlog task creation/refinement behavior |
 | Blocked tasks | `features/blocked-task-resolution-automation.md` | Blocked-task resolver behavior and resolution contracts |
 | Automation recovery | `features/automation-prompt-recovery.md` | Installed automation/runbook recovery behavior |
-| iOS feasibility | `features/ios-keyboard-feasibility.md` | Platform boundary, device spike, go/no-go gate, containing-app/extension split |
-| iOS keyboard UX | `features/ios-keyboard-experience.md` | Typing parity, voice states, insertion safety, iPhone/iPad behavior |
-| iOS shared state | `features/ios-keyboard-shared-state.md` | App Group record, expiry, privacy boundary, insertion eligibility |
-| iOS containing app | `features/ios-containing-app-experience.md` | iPhone/iPad navigation, setup, Voice, Library, History, Settings, practice flow |
+| iOS feasibility evidence | `features/ios-keyboard-feasibility.md` | Historical platform findings supporting the immediate V1.1 signed-device gate |
+| iOS keyboard UX appendix | `features/ios-keyboard-experience.md` | Detailed typing research that does not expand V1.1 voice, prediction, or iPad scope |
+| iOS shared state (legacy) | `features/ios-keyboard-shared-state.md` | Historical Phase-0 App Group and automatic-delivery evidence; current snapshot is in the V1.1 release contract |
+| iOS containing app (legacy) | `features/ios-containing-app-experience.md` | Historical expanded iPhone/iPad, Quick Session, and navigation contract; current scope is in V1.1 |
 | iOS settings/secrets | `features/ios-settings-and-secret-storage.md` | iOS defaults, persistence, migrations, Keychain, truthful setup status |
-| iOS voice/audio | `features/ios-voice-session-and-audio.md` | Foreground recording, Quick Session, audio lifecycle, journaling, M0C |
-| iOS history/storage | `features/ios-history-and-storage.md` | Durable local history, failed retry, pending journal, recording cache |
-| iOS privacy | `features/ios-privacy-and-permissions.md` | Microphone, provider and Quick Session consent, Full Access, privacy manifests |
-| iOS provider consent | `features/ios-provider-consent-record.md` | Strict app-private consent record, CAS, withdrawal, provider-stage authorization |
+| iOS voice/audio reference | `features/ios-voice-session-and-audio.md` | Foreground recording and audio invariants only; Quick Session is excluded from V1.1 |
+| iOS history/storage (legacy) | `features/ios-history-and-storage.md` | Historical P5H durable History, failed retry, pending journal, and recording-cache decisions; not current V1.1 scope |
+| iOS privacy (legacy) | `features/ios-privacy-and-permissions.md` | Historical Quick Session and disclosure contract; use V1.1 for current History, Full Access, and App Group behavior |
+| iOS provider consent (legacy schema) | `features/ios-provider-consent-record.md` | Historical strict schema; V1.1 keeps provider-stage authorization in one standalone record |
 | iOS diagnostics | `features/ios-diagnostics.md` | Redacted runtime events, app-owned diagnostics, explicit local export |
 | iOS keyboard settings | `features/ios-keyboard-settings-snapshot.md` | One-way non-secret preference snapshot, fallback, M0B read gate |
-| iOS output actions | `features/ios-output-actions.md` | Latest result, Copy/Share, insertion eligibility, acknowledgement, recovery |
-| iOS accepted output delivery | `features/ios-accepted-output-delivery-record.md` | App-private accepted-text recovery, CAS, History handoff, expiry |
-| iOS accepted History foundation | `features/ios-accepted-history-foundation.md` | App-private History policy, accepted rows, strict FIFO outbox recovery, terminal-History proof protection, policy-generation cutover |
-| iOS failed History and retry audio | `features/ios-failed-history-and-retry-audio.md` | Bounded failed rows, PendingRecording ownership transfer, retry-only audio cleanup, explicit Retry, History cutover integration |
+| iOS output actions (legacy) | `features/ios-output-actions.md` | Historical automatic insertion and acknowledgement contract; use V1.1 for Latest and explicit Insert |
+| iOS accepted output delivery (legacy) | `features/ios-accepted-output-delivery-record.md` | Historical capability train; use V1.1 compact Pending, Latest, and History instead |
+| iOS accepted History foundation (deferred) | `features/ios-accepted-history-foundation.md` | Historical app-private policy, accepted-row, outbox, and generation-cutover contract; do not continue for V1.1 |
+| iOS failed History and retry audio (deferred) | `features/ios-failed-history-and-retry-audio.md` | Historical failed-row and retry-audio contract; explicitly excluded from V1.1 |
 | iOS usage estimate | `features/ios-usage-estimate.md` | Local successful-transcription estimate, 30-day summary/chart, pricing gaps, Reset |
 
 ## Source Hints

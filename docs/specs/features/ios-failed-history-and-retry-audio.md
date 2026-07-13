@@ -1,5 +1,10 @@
 # iOS Failed History And Retry Audio
 
+Status: deferred beyond V1.1 as of 2026-07-13. Failed rows, retry-audio
+ownership, policy cutover, and their UI are not current product scope. V1.1
+retains one pending attempt with explicit Retry or Discard under
+`ios-v1-release.md`.
+
 ## Goal
 
 Keep a small, local queue of provider failures that a person can retry after

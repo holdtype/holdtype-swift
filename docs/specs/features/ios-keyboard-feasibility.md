@@ -1,5 +1,9 @@
 # iOS Keyboard Feasibility
 
+Status: physical-device feasibility evidence. The current product scope and
+implementation order are `ios-v1-release.md` and
+`docs/ios-v1-development-plan.md`; this file does not reactivate P0-P8 work.
+
 ## Goal
 
 Establish the supported product boundary for an iOS HoldType keyboard before

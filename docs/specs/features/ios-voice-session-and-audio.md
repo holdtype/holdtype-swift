@@ -1,5 +1,9 @@
 # iOS Voice Session And Audio
 
+Status: foreground-audio reference for V1.1. `ios-v1-release.md` supersedes any
+conflicting Quick Session or background-audio requirement; those behaviors are
+deferred until a new product review after the signed keyboard gate.
+
 ## Goal
 
 Provide reliable foreground dictation in the iOS app and validate a bounded,

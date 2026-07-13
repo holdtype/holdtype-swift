@@ -1,5 +1,9 @@
 # iOS Output Actions
 
+Status: legacy automatic-delivery contract. V1.1 does not use automatic
+insertion, acknowledgement, or wrong-field matching; current Latest and
+explicit Insert behavior is governed by `ios-v1-release.md`.
+
 ## Goal
 
 Define how final accepted HoldType text becomes recoverable and reaches an iOS

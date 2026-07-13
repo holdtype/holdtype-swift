@@ -1,5 +1,10 @@
 # iOS Accepted History Foundation
 
+Status: deferred historical contract as of 2026-07-13. Do not continue this
+transactional foundation for V1.1. The current release contract is
+`ios-v1-release.md`, which replaces it with one compact accepted-text History
+repository.
+
 ## Goal
 
 Keep accepted iOS History durable without allowing Clear History, disabling

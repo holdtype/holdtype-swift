@@ -1,5 +1,10 @@
 # iOS History And Storage
 
+Status: superseded for V1.1 by `ios-v1-release.md`. The accepted/failed History
+generation, retry-audio, outbox, and cache contracts below are historical and
+must not drive current implementation. V1.1 uses one pending attempt, one
+Latest Result, and compact text-only accepted History.
+
 ## Goal
 
 Keep completed iOS dictations and recoverable provider failures available after

@@ -1,5 +1,10 @@
 # iOS Accepted Output Delivery Record
 
+Status: legacy delivery/recovery contract. V1.1 replaces its History-coupled
+capability train with compact Pending, Latest Result, and text-only History
+repositories under `ios-v1-release.md`. Retain only safety invariants explicitly
+adopted by that contract.
+
 ## Goal
 
 Prevent an accepted iOS transcript from being lost, repeated, or published

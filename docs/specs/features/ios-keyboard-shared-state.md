@@ -1,5 +1,9 @@
 # iOS Keyboard Shared State
 
+Status: legacy Phase-0 shared-state contract. The V1.1 physical gate and
+minimal accepted-result snapshot in `ios-v1-release.md` supersede listening,
+transcribing, command, acknowledgement, and automatic-delivery state here.
+
 ## Goal
 
 Define the smallest privacy-preserving record shared by the iOS containing app

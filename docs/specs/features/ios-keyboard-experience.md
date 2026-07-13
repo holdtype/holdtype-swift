@@ -1,5 +1,10 @@
 # iOS Keyboard Experience
 
+Status: detailed design appendix. For V1.1, `ios-v1-release.md` controls the
+required first locale, prediction/autocorrection scope, voice handoff, explicit
+insertion, and background-session exclusions. Do not resume the Quick Session
+state train from this file without a new approved spec.
+
 ## Goal
 
 Make HoldType feel like a dependable everyday iPhone keyboard with an added

@@ -17,16 +17,13 @@ HoldType Swift is a new Swift project for a small native macOS menu bar
 dictation utility. The MVP records microphone input, sends audio to the OpenAI
 transcription API, and inserts returned text into the active app.
 
-The macOS product remains shipped behavior that must not regress. A direct
-autonomous iOS portability goal is also active: the containing app, shared
-portable layers, keyboard bridge, and gated keyboard work follow
-`docs/ios-product-portability-plan.md` and the `ios-*` feature specs. Physical-
-device M0 gates still control claims that cannot be proven in the simulator.
-The current app-private History policy, accepted-row, retry-outbox, failed-row,
-and retry-audio contracts live in
-[`features/ios-accepted-history-foundation.md`](features/ios-accepted-history-foundation.md)
-and
-[`features/ios-failed-history-and-retry-audio.md`](features/ios-failed-history-and-retry-audio.md).
+The macOS product remains shipped behavior that must not regress. The current
+iOS scope is the compact V1.1 product contract in
+[`features/ios-v1-release.md`](features/ios-v1-release.md), implemented in the
+order defined by `docs/ios-v1-development-plan.md`. The former P0-P8
+portability roadmap and detailed accepted/failed History transaction specs are
+historical evidence, not active implementation queues. Physical-device gates
+still control claims that cannot be proven in the simulator.
 
 Early specs were seeded from the repository description and
 `docs/openwhispr_swiftui_codex_tz.md`. The current checkout now contains real
