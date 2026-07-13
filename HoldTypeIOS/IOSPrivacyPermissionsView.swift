@@ -260,7 +260,9 @@ struct IOSPrivacyPermissionsView: View {
             )
             privacyBoundary(
                 "The keyboard extension does not receive your API key, "
-                    + "recordings, prompts, History, or Latest Result.",
+                    + "recordings, prompts, or History. It can read one "
+                    + "app-written Latest Result for 10 minutes without "
+                    + "Full Access.",
                 image: "keyboard"
             )
             privacyBoundary(

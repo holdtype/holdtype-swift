@@ -5,30 +5,6 @@ import Testing
 
 @MainActor
 struct IOSKeyboardSnapshotPublisherTests {
-    @Test func unqualifiedProductionGateIsClosedWithoutDebugOptIn() {
-        #expect(!KeyboardBridgeConfiguration.productionProjectionIsQualified)
-        #expect(
-            !IOSKeyboardSnapshotProductionGate.isEnabled(environment: [:])
-        )
-        #if DEBUG
-        #expect(
-            IOSKeyboardSnapshotProductionGate.isEnabled(
-                environment: [
-                    IOSKeyboardSnapshotProductionGate.debugEnvironmentKey: "1"
-                ]
-            )
-        )
-        #else
-        #expect(
-            !IOSKeyboardSnapshotProductionGate.isEnabled(
-                environment: [
-                    IOSKeyboardSnapshotProductionGate.debugEnvironmentKey: "1"
-                ]
-            )
-        )
-        #endif
-    }
-
     @Test func publishesExactLatestWithSourceBasedExpiry() async throws {
         let fixture = try PublisherStoreFixture()
         defer { fixture.remove() }

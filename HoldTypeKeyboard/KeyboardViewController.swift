@@ -20,6 +20,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        showsInputModeSwitchKey = needsInputModeSwitchKey
         reloadSharedSnapshot()
     }
 
@@ -97,17 +98,6 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func reloadSharedSnapshot() {
-        guard Self.resultProjectionIsEnabled else {
-            latestItem = nil
-            render()
-            return
-        }
-        guard hasFullAccess else {
-            latestItem = nil
-            render()
-            return
-        }
-
         do {
             let store = try KeyboardBridgeStore.appGroup()
             guard let snapshot = try store.load() else {
@@ -123,18 +113,10 @@ final class KeyboardViewController: UIInputViewController {
         render()
     }
 
-    private static var resultProjectionIsEnabled: Bool {
-        #if DEBUG
-        true
-        #else
-        KeyboardBridgeConfiguration.productionProjectionIsQualified
-        #endif
-    }
-
     private func render(statusOverride: KeyboardTopRailStatus? = nil) {
         keyboardView.render(
             BrandStageKeyboardPresentation(
-                status: statusOverride ?? status,
+                status: statusOverride ?? .ready,
                 latestIsEnabled: latestItem != nil,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
@@ -145,13 +127,6 @@ final class KeyboardViewController: UIInputViewController {
                 showsInputModeSwitchKey: showsInputModeSwitchKey
             )
         )
-    }
-
-    private var status: KeyboardTopRailStatus {
-        if !hasFullAccess {
-            return .fullAccess
-        }
-        return .ready
     }
 
     private var returnIsEnabled: Bool {

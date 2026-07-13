@@ -1,220 +1,162 @@
-# iOS Brand Stage Keyboard Implementation Plan
+# iOS Brand Stage Keyboard Implementation Record
 
-Status: active direct-chat execution plan, 2026-07-13.
+Status: active completion record, updated 2026-07-14.
 
-Product behavior remains governed by `docs/specs/features/ios-v1-release.md`
-and `docs/specs/features/ios-keyboard-experience.md`. This file is the bounded
-engineering sequence for replacing the Phase-0 probe. It is not a backlog and
-does not revive the retired persistence architecture.
+Product behavior is governed by `docs/specs/features/ios-v1-release.md` and
+`docs/specs/features/ios-keyboard-experience.md`. This file records what is
+implemented, what remains to be qualified, and why keyboard voice is still a
+release no-go. It is not a backlog.
 
-## Outcome
+## Product Decision
 
-Deliver the selected Brand Stage Adaptive command surface with:
+The selected keyboard is Brand Stage Adaptive:
 
-- stable Light and Dark compositions;
-- local punctuation, Globe, Space cursor movement, Delete repeat, and adaptive
-  Return;
-- explicit Latest and at most five recent-result insertions;
-- one bounded app-written, extension-read-only App Group snapshot;
-- honest voice availability with no private or undocumented production launch;
-- automated coverage plus Simulator and signed-device evidence where required.
+- no QWERTY, alphabet, number, prediction, or autocorrection engine;
+- no transcript, History row, preview, or detail inside the keyboard;
+- `History` is a navigation control for the containing app;
+- `Latest` is the only text-bearing shared projection;
+- the centered label is `Ready` or the brief failure `Open failed`;
+- Light and Dark Mode keep identical geometry;
+- the microphone remains non-interactive until a public, App-Review-compatible
+  HoldType handoff exists.
 
-This work does not add QWERTY, alphabet or number layouts, prediction,
-autocorrection, keyboard dictionaries, background recording, automatic return,
-or automatic text insertion.
+The former plan for five recent results and an in-keyboard History panel is
+retired. Schema 3 contains at most one Latest item.
 
-## Baseline And K1 Decision
+## Platform Gate
 
-The 2026-07-13 baseline passes:
-
-- `HoldType-iOS` Debug build on the iOS 26.5 iPhone Simulator;
-- all six existing `KeyboardBridgeIOSTests`.
-
-The K1 documentation gate does not qualify an actionable production microphone:
+The public production voice handoff is not qualified:
 
 - custom keyboard extensions cannot access the microphone;
-- `NSExtensionContext.open` is public, but iOS support is documented for Today
-  and iMessage extension points, not custom keyboards;
-- App Review Guideline 4.4.1 says keyboard extensions must not launch apps other
-  than Settings;
+- Apple documents `NSExtensionContext.open` support on iOS for Today and
+  iMessage extension points, not custom keyboards;
+- App Review Guideline 4.4.1 says keyboard extensions must not launch apps
+  other than Settings;
 - there is no public host-identity or automatic-return contract.
 
-A custom URL may work one-way on some iOS versions, but that does not make it a
-documented or review-safe production keyboard API. No physical device is
-currently connected, so the signed K1 spike cannot run in this checkpoint.
-Production code therefore adds no URL launch, responder-chain trampoline,
-private selector, host-bundle discovery, or optimistic `Listening` state. Until
-an explicit product rescope or Apple clarification, Brand Stage renders voice as
-visibly unavailable and non-interactive. That is not K1 completion.
+A one-way custom URL may work on a particular OS build. That proves only
+observed runtime behavior, not a supported API or App Review compliance. The
+same rule applies to the requested History launch. Production uses no private
+selector, responder-chain trampoline, host discovery, or fabricated recording
+state.
 
-## Complexity Budget
+## Implemented Surface
 
-- Keep UIKit in the extension; add no UI framework or third-party dependency.
-- Keep shared presentation logic UIKit-independent and small.
-- Use one App Group JSON file and one containing-app writer.
-- Add no transaction coordinator, outbox, receipt, acknowledgement, consumed-ID
-  log, tombstone, lease, policy generation, or retry queue.
-- Prefer three focused keyboard files and one app publisher over a new package or
-  service family.
-- Every checkpoint reports source/test line movement and has a direct
-  user-visible or verification purpose.
+The Phase-0 probe has been replaced with:
 
-## B0 — Contract And Gate
+1. Top rail: equal-width `History` and `Latest` controls around the centered
+   transparent HoldType mark and compact status.
+2. Voice stage: approximately 80-point branded microphone treatment and static
+   waveform, disabled while the platform gate is unresolved.
+3. Correction row: `.`, `,`, `?`, and `!`.
+4. Editing row: conditional Globe, wide Space, Delete, and adaptive Return.
 
-Record the current public-API and App Review result in the active release,
-keyboard UX, and feasibility specs. Preserve the selected composition while
-making unavailable voice behavior explicit. Do not silently declare an app-only
-fallback to be V1.1; that product decision remains separate.
+The surface includes:
 
-Exit:
+- stable Light/Dark semantic colors and rounded keyboard top corners;
+- minimum 44-point targets and VoiceOver labels;
+- Dynamic Type-safe labels, Increase Contrast, and Reduce Transparency support;
+- bounded iPad content width;
+- no `A`, Refresh, giant Latest button, settings gear, or opaque mode icon.
 
-- the implementation plan is committed;
-- no active spec asks production code to manufacture a positive K1 result;
-- the baseline build and bridge tests are recorded.
+## Editing Semantics
 
-## B1 — Bounded Snapshot V2
+- Punctuation inserts one literal character per tap.
+- Space tap inserts one space.
+- Long-press and horizontal drag on Space adjusts the cursor and does not also
+  insert a space.
+- Delete fires on touch-down and repeats with bounded acceleration until every
+  end or cancellation path stops it.
+- Return derives its visible meaning from the host's public `UIReturnKeyType`.
+- Globe uses the system input-mode API and is synchronized before first
+  presentation as well as after host text changes.
+- No host text or keystroke content is logged or persisted.
 
-Replace the Phase-0 transient/session envelope with one projection:
+## Latest-Only Shared Boundary
+
+The containing app is the only writer. The extension is read-only.
 
 ```text
-schemaVersion = 2
+schemaVersion = 3
 revision
 publishedAt
-historyEnabled
 latest?
   resultID
   text
   createdAt
-  expiresAt
-recentResults[0...5]
-  resultID
-  text
-  createdAt
-  expiresAt
+  expiresAt = createdAt + 10 minutes
 ```
 
 Rules:
 
-- Latest expires 10 minutes after its canonical creation time; republishing
-  never extends it.
-- Recent items expire after 24 hours, are newest first, unique by result id, and
-  capped at five.
-- `expiresAt == now` is expired.
-- Preserve accepted text exactly; reject empty, oversized, or unsafe control
-  content rather than trimming or silently rewriting it.
-- Bound file size and decode failures. Missing, corrupt, incompatible, and
-  inaccessible records are not successful empty History.
-- The first V2 save atomically replaces the Phase-0 V1 file.
+- publication is enabled in production and occurs from canonical Latest state;
+- an already-expired result is omitted and republishing never extends expiry;
+- exact accepted text is preserved subject to bounded size and safe-control
+  validation;
+- schema 1/2 payloads are atomically replaced with an empty schema 3 cache;
+- no History, recent-result array, prompt, credential, provider payload, audio,
+  settings, host context, outbox, receipt, tombstone, or consumed-ID log enters
+  the snapshot;
+- `Latest` performs one `insertText` call for each explicit valid tap and never
+  inserts on refresh, appearance, host change, or app return.
 
-Tests cover exact text, round trip, limits, ordering, deduplication, both expiry
-boundaries, disabled History, corrupt/oversized/incompatible data, and strictly
-increasing revisions.
+Apple permits read-only access to the containing app's shared containers in the
+restricted keyboard sandbox. The extension therefore declares
+`RequestsOpenAccess = false`, does not gate reading on `hasFullAccess`, performs
+no network access, and never writes to App Group.
 
-## B2 — One Production Publisher
+## History Boundary
 
-Add one app-owned actor that loads canonical Latest and compact History, derives
-the snapshot, and atomically replaces the shared file. It owns no durable state.
+The keyboard always renders the separate History control, but no History data
+enters the extension. The containing app owns the strict `holdtype://history`
+route and real History destination.
 
-Publish after:
+The keyboard currently uses only public `NSExtensionContext.open` for the
+requested one-way launch and shows `Open failed` when the completion reports
+failure. This implementation remains a technical probe and release gate because
+Apple does not document it for keyboard extensions and Guideline 4.4.1 forbids
+launching the containing app. No technical success may be recorded as public or
+review-safe qualification.
 
-- successful acceptance and compact History append;
-- launch or foreground reconciliation;
-- Clear Latest;
-- History Delete, Clear All, enable, and disable-and-clear.
+## Verification
 
-Projection failure never changes successful dictation into provider failure and
-never recreates provider work. A destructive History action must not report that
-the shared copy is gone when publication failed; retry republishes current
-canonical state. Remove the DEBUG sample writer after production wiring.
+Automated evidence must cover:
 
-## B3 — Brand Stage Adaptive UI
+- exact schema, size, expiry, legacy cutover, and increasing revision behavior;
+- app publication and extension read-only insertion semantics;
+- restricted `RequestsOpenAccess = false` metadata;
+- cursor thresholds, Delete repeat bounds, Return presentation, and insertion
+  event gating;
+- strict containing-app History route parsing;
+- iOS Debug/Release builds, macOS regression build, and diff hygiene.
 
-Replace the probe controller with:
+Simulator evidence must cover:
 
-1. Top rail: History, centered HoldType mark/status, Latest.
-2. Voice stage: a 56–60 point branded microphone treatment and restrained static
-   waveform. It is disabled while K1 is unresolved and has no fake tap action.
-3. Correction row: `.`, `,`, `?`, `!`.
-4. Editing row: conditional Globe, wide Space, Delete, adaptive Return.
+- iPhone Light/Dark portrait and compact landscape;
+- iPad Light/Dark bounded layout;
+- punctuation, Space/cursor drag, Delete tap/hold, Return, Globe, and Latest;
+- no automatic insertion, no transcript rendering, and concise status;
+- accessibility labels and relevant appearance settings where exposed.
 
-Implementation details:
+A signed physical iPhone remains required for matching App Group signing,
+restricted-mode Latest reading, secure/phone-field fallback, host rejection,
+process eviction, system Dictation behavior, Data Protection, and real-host
+editing. A device may also record the History URL result, but it cannot override
+the public-API and App Review no-go.
 
-- semantic dynamic colors with HoldType blue `#5165E8` and purple `#844DF2`
-  limited to brand/status accents;
-- minimum 44-point targets, Dynamic Type-safe labels, VoiceOver names and hints,
-  Reduce Motion, Increase Contrast, and Reduce Transparency behavior;
-- show Globe only when `needsInputModeSwitchKey` requires it;
-- keep `hasDictationKey = false` while HoldType voice is unavailable;
-- no `A`, `Refresh`, giant Latest button, alphabet deck, settings gear, or opaque
-  mode icon.
+## Completion Dashboard
 
-## B4 — Editing Semantics
+| Slice | Result |
+| --- | --- |
+| Contract and K1 evidence | Complete; production handoff is a documented no-go |
+| Schema 3 Latest-only snapshot | Complete |
+| Production publisher and app wiring | Complete in code; signed-device proof pending |
+| Brand Stage UI and editing | Complete in code; runtime matrix pending |
+| History app route | App-side complete; keyboard launch not release-qualified |
+| Public HoldType microphone handoff | Not achievable under current Apple contract |
+| Signed-device release evidence | Pending |
 
-- Punctuation inserts one literal scalar per tap.
-- Space tap inserts one space.
-- A 0.30-second Space long press enters cursor mode; horizontal drag emits
-  bounded character offsets and never also inserts a space.
-- Delete fires once on touch-down, repeats after about 0.42 seconds, and
-  accelerates only within the bounded 85–45 ms cadence. Every end, cancel,
-  disappearance, and deinit path stops repeat.
-- Return maps current public `UIReturnKeyType` to an honest label and inserts
-  `"\n"`; host-specific submit behavior remains device QA.
-- No host text or keystroke content is logged or persisted.
-
-Pure tests cover cursor thresholds/reset, repeat timing bounds/cancellation,
-Return presentation, and one-event insertion gating. UIKit integration remains
-Simulator/device evidence because the iOS test target does not compile the
-extension controller.
-
-## B5 — Latest And Recent Results
-
-- Reload the snapshot at normal extension lifecycle boundaries; add no Refresh
-  control and treat no file event as a wake-up mechanism.
-- Latest inserts only a valid unexpired item with one `insertText` call per tap.
-- History replaces the voice stage with at most five newest valid items and an
-  explicit close action; the editing row remains available.
-- A recent item inserts only on its explicit tap. Reload, host change, app return,
-  or process recreation never replays it.
-- Disabled, empty, missing, corrupt, incompatible, and inaccessible History are
-  distinct compact states.
-- Full 20-entry History and destructive controls remain in the containing app.
-
-## B6 — Verification And Evidence
-
-Automated:
-
-- focused shared model, publisher, owner/wiring, and presentation tests;
-- Debug and Release iOS builds;
-- extension dependency and entitlement isolation;
-- macOS build regression;
-- `git diff --check`.
-
-Simulator with sanitized automation environment:
-
-- enable and select HoldType Keyboard;
-- capture Light/Dark portrait and compact-landscape evidence;
-- verify punctuation, Space, cursor drag, Delete tap/hold, Return, Globe, Latest,
-  recent-result selection, and no automatic insertion;
-- inspect Dynamic Type, Reduce Motion, Increase Contrast, and accessibility
-  labels where Simulator exposes them.
-
-Signed physical iPhone remains required for effective App Group/Full Access,
-secure and phone fields, host rejection, eviction, system footer,
-`hasDictationKey`, Return behavior, Data Protection, and review-facing metadata.
-A device test may prove a one-way URL technically works, but it cannot alone make
-that undocumented keyboard behavior App-Review-safe.
-
-## Checkpoint Order
-
-| Checkpoint | Deliverable | Status |
-| --- | --- | --- |
-| B0 | Plan, K1 evidence, active spec alignment | In progress |
-| B1 | Snapshot V2 and focused tests | Not started |
-| B2 | Production publisher and app wiring | Not started |
-| B3-B4 | Brand Stage UI and editing semantics | Not started |
-| B5 | Latest/History consumption | Not started |
-| B6 | Builds, Simulator QA, evidence, release assessment | Not started |
-
-Engineering completion means every non-blocked slice is green and the keyboard
-contains no misleading or prohibited voice action. Release completion still
-requires an explicit product decision for K1 plus remaining signed-device checks.
+Engineering work may close the remaining runtime coverage, but the full
+keyboard-plus-voice release cannot be called complete until the product is
+explicitly rescoped, Apple changes the supported contract, or the review risk is
+explicitly accepted.

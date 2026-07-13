@@ -13,8 +13,6 @@ nonisolated enum KeyboardBridgeConfiguration {
     // V3 removes the obsolete recent-results payload at the same cache URL.
     static let snapshotFilename = "keyboard-bridge-v1.json"
     static let maximumSnapshotBytes = 32 * 1_024
-    /// Flip only after signed-device Full Access qualification is recorded.
-    static let productionProjectionIsQualified = false
     static let maximumTextUTF8Bytes = 16 * 1_024
     static let latestLifetime: TimeInterval = 10 * 60
 }

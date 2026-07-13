@@ -1,6 +1,6 @@
 # HoldType iOS V1.1 Release Contract
 
-Status: canonical iOS product contract; approved and revised 2026-07-13.
+Status: canonical iOS product contract; approved and revised 2026-07-14.
 
 `V1.1` is the first planned iOS release designation. It does not imply that an
 iOS V1.0 was previously shipped.
@@ -9,8 +9,9 @@ This spec supersedes conflicting P5H-P8 behavior for V1.1. Detailed legacy iOS
 specs remain research and implementation evidence, but they do not expand this
 release unless this file explicitly links to that behavior.
 
-K1 update, 2026-07-13: current Apple documentation and App Review Guideline
-4.4.1 do not qualify a review-safe keyboard-to-containing-app launch. Apple may
+K1 update, 2026-07-14: current Apple documentation and App Review Guideline
+4.4.1 do not qualify a review-safe keyboard-to-containing-app launch, including
+the requested History launch. Apple may
 show its own Dictation key while `hasDictationKey` is false; that is a public
 system speech path, not the HoldType/OpenAI pipeline. The non-blocked keyboard
 UI, editing, and Latest work may proceed, but the HoldType keyboard-plus-voice
@@ -95,8 +96,8 @@ release-complete until the finished History destination is restored.
   physical-device test proves the exact action.
 - Setup explains that normal typing remains on the user's system keyboard and
   that Globe switches between it and HoldType.
-- Punctuation, Space, Delete, Return, and Globe remain available when provider
-  setup, microphone permission, network, or Full Access is unavailable.
+- Punctuation, Space, Delete, Return, Globe, and read-only Latest insertion do
+  not require provider setup, microphone permission, network, or Full Access.
 
 ## Foreground Voice
 
@@ -227,9 +228,9 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   does not use HoldType/OpenAI and provides no result callback to the extension.
 - The user explicitly returns to the host app and invokes `Insert Result`.
   V1.1 does not promise private automatic return or automatic insertion.
-- The app may publish one bounded keyboard snapshot to App Group storage only
-  after the physical gate proves the required Full Access state. The extension
-  is read-only.
+- The app publishes one bounded keyboard snapshot to App Group storage. The
+  extension is read-only and never requires Full Access merely to read or insert
+  that app-written Latest item.
 - The projection is a replaceable cache, not a second History repository or a
   delivery transaction. It has one app writer and no outbox, receipt,
   acknowledgement, tombstone, or replay protocol.
@@ -238,8 +239,7 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   text, creation time, and expiry. No History row, secret, audio, prompt,
   dictionary, provider response, setting, or host context enters the snapshot.
 - An already-expired result is omitted from publication. Legacy schema 1/2
-  cache files are atomically replaced by an empty schema 3 cache at app startup,
-  independently of the production Latest gate.
+  cache files are atomically replaced by an empty schema 3 cache at app startup.
 - `Latest` inserts only a valid unexpired item and the keyboard never renders or
   previews its text. Full 20-entry History, detail, Share, Delete, Clear All,
   and retention settings remain in the containing app.
@@ -251,8 +251,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The same still-valid result may be inserted again only after another explicit
   user tap. Relaunch, refresh, host-field change, or app return never inserts or
   replays it automatically; V1.1 therefore needs no durable consumed-ID log.
-- If App Group or Full Access is unavailable, app-dependent actions show an
-  honest compact fallback while punctuation, editing controls, and Globe remain
+- If the App Group snapshot is unavailable or invalid, `Latest` is disabled
+  while punctuation, editing controls, Globe, and the `Ready` surface remain
   usable.
 - Secure fields, phone pads, and hosts that reject custom keyboards fall back
   to system behavior. HoldType does not claim to bypass that policy.
@@ -265,9 +265,12 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The History-aware local-retention disclosure is contract version `2`.
   Acceptance of the former no-History version `1` requires explicit review
   before another provider request.
-- Keyboard setup and Privacy explain that, after the qualified Full Access path
-  is enabled, one 10-minute Latest item may be copied into the local shared
-  container for explicit keyboard insertion.
+- `RequestsOpenAccess` is false. The keyboard uses neither network nor write
+  access to the shared container; Apple permits read-only access to the
+  containing app's shared containers in the restricted keyboard sandbox.
+- Keyboard setup and Privacy explain that one 10-minute Latest item may be
+  copied by the containing app into the local shared container for explicit
+  keyboard insertion.
 - The extension receives no API key or provider client.
 - Pending audio and the canonical 20-entry History remain app-private,
   protected, and backup-excluded according to their data type. Only the
@@ -316,14 +319,15 @@ V1.1 is not release-complete until a recorded device pass proves:
 - keyboard enablement and Globe switching;
 - punctuation and editing controls in Notes, Messages, Mail, Safari, and two
   third-party apps;
-- Full Access off and on behavior;
+- restricted-mode keyboard operation with no Full Access request, including
+  read-only App Group Latest insertion;
 - secure-field, phone-pad, and host-opt-out fallback;
 - the honest unavailable microphone state, public History handoff result, and
   absence of a private launch workaround;
 - app foreground recording, Done, Cancel, interruption, and provider timeout;
 - explicit return and Latest insertion exactly once per tap, with no automatic
-  or wrong-field replay; History opens the containing app at History and never
-  inserts text;
+  or wrong-field replay; the actual keyboard-originated History launch result is
+  recorded without treating technical success as App Review qualification;
 - process termination preserves Latest or the one pending attempt;
 - effective Keychain and Data Protection behavior.
 - after explicit user authorization with a configured provider key, one manual

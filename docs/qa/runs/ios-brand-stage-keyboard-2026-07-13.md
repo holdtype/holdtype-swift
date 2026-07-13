@@ -1,6 +1,6 @@
 # iOS Brand Stage Keyboard QA
 
-Date: 2026-07-13
+Date: 2026-07-13; restricted-access correction verified 2026-07-14
 
 Scope: production Brand Stage composition, concise status contract, Latest-only
 shared cache, and containing-app History route.
@@ -14,7 +14,7 @@ History row, card, preview, or QWERTY layout is rendered inside the extension.
 The centered label is intentionally limited to:
 
 - `Ready` when the local keyboard controls are usable;
-- one short problem label, currently `Full Access` or `Open failed`.
+- `Open failed` briefly after an unsuccessful History request.
 
 It does not show action narration such as `Latest ready`, `Inserted`, or
 `Opening History`. Latest availability is represented by the Latest button.
@@ -30,7 +30,9 @@ Approved source:
 | iPhone 16, iOS 18.6 | [Screenshot](assets/ios-brand-stage-keyboard-2026-07-13/iphone-light.png) | [Screenshot](assets/ios-brand-stage-keyboard-2026-07-13/iphone-dark.png) |
 | iPad Pro 11-inch, iOS 26.0 | [Screenshot](assets/ios-brand-stage-keyboard-2026-07-13/ipad-light.png) | [Screenshot](assets/ios-brand-stage-keyboard-2026-07-13/ipad-dark.png) |
 
-The four captures verify:
+The four captures verify geometry and theme adaptation. They predate the
+2026-07-14 restricted-access correction and must not be used as current status
+copy evidence. They verify:
 
 - equal History and Latest geometry;
 - a centered transparent HoldType mark with no square background;
@@ -60,10 +62,15 @@ also says keyboard extensions must not launch apps other than Settings.
 ## Shared Cache Boundary
 
 - The snapshot contains schema/revision metadata and at most one Latest item.
+- Production publication is enabled. The containing app is the only writer and
+  the keyboard is read-only.
+- `RequestsOpenAccess` is false. Apple documents read-only access to the
+  containing app's shared containers in the restricted keyboard sandbox, so
+  Latest is not gated by `hasFullAccess` and HoldType requests no Full Access.
 - An already-expired Latest result is omitted instead of copying its text into
   App Group storage.
 - App startup atomically replaces legacy schema 1/2 payloads with an empty
-  schema 3 snapshot even while production Latest publication is gated.
+  schema 3 snapshot.
 - History, recent-result arrays, settings, prompts, audio, provider payloads,
   and credentials never enter this snapshot.
 
@@ -71,8 +78,8 @@ also says keyboard extensions must not launch apps other than Settings.
 
 - Full `HoldType-iOS` iPhone Simulator test run: 1,006 passed, 0 failed,
   0 skipped.
-- Focused `KeyboardBridgeIOSTests` and
-  `IOSKeyboardSnapshotPublisherTests`: passed.
+- Focused bridge, publisher, command-surface, plist, and composition run on
+  iPhone 17 / iOS 26.5: 30 passed, 0 failed.
 - `HoldType-iOS` generic Simulator Release build: passed.
 - `HoldType` macOS build: passed.
 - `git diff --check`: passed.
@@ -82,7 +89,12 @@ Keychain prompt, microphone capture, or OpenAI request was used.
 
 ## Remaining Gate
 
-A signed physical iPhone still must verify the Full Access off/on boundary,
-host-app fallbacks, Latest insertion, and the public History-launch result. The
-Simulator failure is honest evidence that the current review-safe public path
-does not satisfy the requested direct History launch on its own.
+A signed physical iPhone still must verify matching App Group signing,
+restricted-mode Latest reading and insertion, host-app fallbacks, and process
+eviction. Compact-landscape and accessibility-setting captures also remain.
+
+The public History-launch result remains a separate technical observation and
+review gate. Apple documents `NSExtensionContext.open` support on iOS for Today
+and iMessage, not custom keyboards, and Guideline 4.4.1 forbids keyboard
+extensions from launching apps other than Settings. A simulator or device
+success therefore cannot qualify History or voice handoff as App-Review-safe.

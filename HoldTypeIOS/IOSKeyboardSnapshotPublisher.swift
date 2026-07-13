@@ -1,21 +1,6 @@
 import Foundation
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 
-nonisolated enum IOSKeyboardSnapshotProductionGate {
-    static let debugEnvironmentKey =
-        "HOLDTYPE_ENABLE_UNQUALIFIED_KEYBOARD_PROJECTION"
-
-    static func isEnabled(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> Bool {
-        #if DEBUG
-        environment[debugEnvironmentKey] == "1"
-        #else
-        KeyboardBridgeConfiguration.productionProjectionIsQualified
-        #endif
-    }
-}
-
 /// Rebuilds the keyboard's bounded App Group cache from canonical app-owned
 /// state. This actor is the cache's only writer; it owns no durable state of
 /// its own.

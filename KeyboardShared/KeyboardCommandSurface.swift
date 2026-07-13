@@ -9,7 +9,6 @@ import Foundation
 
 enum KeyboardTopRailStatus: String, CaseIterable, Equatable, Sendable {
     case ready = "Ready"
-    case fullAccess = "Full Access"
     case openFailed = "Open failed"
 }
 

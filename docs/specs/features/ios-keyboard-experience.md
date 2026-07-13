@@ -1,6 +1,7 @@
 # iOS Keyboard Experience
 
-Status: active V1.1 UX contract; Brand Stage Adaptive selected 2026-07-13.
+Status: active V1.1 UX contract; Brand Stage Adaptive selected and restricted
+keyboard access confirmed 2026-07-14.
 `ios-v1-release.md` wins any conflict.
 
 Current K1 result: Apple does not document containing-app launch for custom
@@ -75,8 +76,8 @@ alphabet layout, number deck, Shift, Caps Lock, `123`, prediction row, settings
 gear, or opaque mode icon.
 
 The top-rail status is deliberately terse: `Ready` when the local command
-surface is usable, or one short problem label such as `Full Access` or `Open
-failed`. Latest availability is communicated by the `Latest` button itself and
+surface is usable, or `Open failed` after an unsuccessful History request.
+Latest availability is communicated by the `Latest` button itself and
 is never repeated in the centered status. `Ready` describes the keyboard
 surface only; it never claims that HoldType recording has started or that the
 unqualified microphone handoff is available. Successful taps and in-progress
@@ -107,11 +108,10 @@ focus, and small active-state accents; the whole background is never a gradient.
 
 ## Status Contract
 
-The centered label has only two categories:
+The centered label has only two values:
 
 - `Ready` while the local keyboard controls are usable;
-- one short problem label when the user must understand a failure or missing
-  requirement, currently `Full Access` or `Open failed`.
+- `Open failed` briefly after the public History request reports failure.
 
 Button enablement communicates Latest availability. Successful insertion has
 no text confirmation inside the keyboard because the inserted text is already
@@ -146,6 +146,9 @@ handoff must revise this spec before adding any new keyboard status vocabulary.
 
 - The containing app is the only writer of the bounded App Group keyboard
   snapshot. The extension is read-only.
+- The extension declares `RequestsOpenAccess = false`. Apple permits read-only
+  access to the containing app's shared containers without Full Access, so
+  Latest reading and insertion never depend on `hasFullAccess`.
 - `Latest` is enabled only for a valid unexpired accepted item. One tap performs
   one `insertText` call. It never inserts on appearance, refresh, app return, or
   host-field change.
@@ -155,9 +158,8 @@ handoff must revise this spec before adding any new keyboard status vocabulary.
   snapshot. An item that expires after publication becomes ineligible for
   insertion immediately and is removed on the next app publication.
 - App startup atomically replaces legacy schema 1/2 cache payloads with an
-  empty schema 3 snapshot even while production Latest publication remains
-  release-gated. Legacy History or recent-result fields are never retained for
-  later keyboard use.
+  empty schema 3 snapshot. Legacy History or recent-result fields are never
+  retained for later keyboard use.
 - Latest text is never rendered or previewed by the keyboard. It enters the host
   field only after an explicit `Latest` tap.
 - Full History, previews, detail, Share, Delete, Clear All, and retention
@@ -188,8 +190,9 @@ handoff must revise this spec before adding any new keyboard status vocabulary.
 
 - Secure fields, selected phone pads, and host-app rejection fall back to system
   behavior; HoldType does not claim to bypass iOS policy.
-- Offline, provider failure, or missing Full Access disables only app-dependent
-  voice/result actions. Local editing and Globe remain usable.
+- Offline or provider failure does not affect local editing, Globe, or an
+  already-published valid Latest item. A missing or invalid shared snapshot
+  disables only `Latest`.
 - Expired or invalid Latest never inserts. Repeated lifecycle refreshes never
   replay a previous result.
 - The keyboard never requests an API key, microphone permission, long-form
@@ -224,9 +227,10 @@ Automated and simulator coverage must prove composition, Light/Dark adaptation,
 the containing-app History route, editing semantics, honest state reduction,
 bounded snapshot decoding, and one explicit insertion per tap.
 
-Signed-device evidence must additionally prove Globe, Full Access off/on,
-cursor movement, Delete repeat, host field traits, secure/phone-field fallback,
-Latest insertion, system Dictation presence/absence, and process eviction.
+Signed-device evidence must additionally prove Globe, restricted-mode read-only
+App Group access with no Full Access request, cursor movement, Delete repeat,
+host field traits, secure/phone-field fallback, Latest insertion, system
+Dictation presence/absence, and process eviction.
 Current documentation does not qualify HoldType microphone handoff; the system
 Dictation and punctuation/editing paths are real keyboard input, but approval is
 not assumed.

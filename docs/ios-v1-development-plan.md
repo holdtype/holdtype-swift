@@ -1,7 +1,7 @@
 # HoldType iOS V1.1 Completion Plan
 
 Status: canonical execution plan; reduced, reprioritized, and updated for Brand
-Stage Adaptive and the K1 documentation result on 2026-07-13.
+Stage Adaptive and the restricted keyboard boundary on 2026-07-14.
 
 Product behavior is governed by
 `docs/specs/features/ios-v1-release.md`. Historical P0-P8, P5H, accepted-
@@ -36,20 +36,26 @@ Working and retained:
 - Dictionary, Voice Emoji Commands, and Replacement Rules;
 - API key, transcription, correction, translation, recording, privacy, and
   Usage Estimate settings;
-- containing-app practice field and a Phase-0 extension whose Globe, basic
-  document-proxy editing, App Group sample, and explicit insertion work in the
-  simulator.
+- containing-app practice field and the Brand Stage extension with punctuation,
+  cursor Space, Delete repeat, adaptive Return, Globe, Light/Dark styling, and
+  explicit Latest insertion;
+- one production app-written, extension-read-only schema 3 snapshot containing
+  at most one 10-minute Latest item;
+- the real containing-app History route plus a keyboard History request whose
+  App Review and device result remain separately gated.
 
 Remaining release work:
 
-1. The keyboard is a Phase-0 probe, not the selected Brand Stage surface.
-2. Current Apple documentation does not qualify containing-app launch as a
+1. Current Apple documentation does not qualify containing-app launch as a
    supported custom-keyboard action, and App Review 4.4.1 forbids keyboard
-   extensions from launching apps other than Settings. The production
-   Latest-only App Group writer and History route qualification are unfinished.
-3. Cursor Space, Delete repeat, punctuation, adaptive Return, voice states,
-   Light/Dark polish, final setup/privacy copy, and signed physical-iPhone
-   qualification remain.
+   extensions from launching apps other than Settings. That blocks a production
+   HoldType microphone handoff and also leaves the requested History launch
+   unqualified.
+2. The production Latest path is implemented without Full Access, but matching
+   App Group signing, restricted-mode reading, insertion, and process eviction
+   still require a signed physical-iPhone pass.
+3. Compact landscape, real-host editing behavior, accessibility settings, and
+   the remaining signed physical-iPhone matrix require runtime evidence.
 
 ## Execution Rules
 
@@ -285,7 +291,9 @@ K3 state while local editing and Globe keep working.
 - publish one real accepted Latest with a 10-minute expiry to one bounded
   app-written, extension-read-only App Group snapshot;
 - omit already-expired results and replace legacy schema 1/2 payloads with an
-  empty current-schema cache before the production projection gate opens;
+  empty current-schema cache at app startup;
+- declare `RequestsOpenAccess = false`; the extension reads the app-written
+  snapshot in Apple's restricted keyboard sandbox and never writes to App Group;
 - keep full 20-entry History and every destructive History action app-private;
 - keep the projection as one replaceable cache with one app writer; add no
   outbox, receipt, acknowledgement, tombstone, or delivery transaction;
@@ -294,7 +302,7 @@ K3 state while local editing and Globe keep working.
 - register and test the containing-app History route, wire the keyboard History
   control through public extension APIs only, and record the separate
   device/review qualification result;
-- finalize setup, Full Access, privacy, and fallback copy;
+- finalize setup, restricted-access privacy, and fallback copy;
 - run Debug/Release dependency checks, simulator appearance/accessibility checks,
   and the signed physical-iPhone matrix;
 - perform one explicitly authorized live Standard smoke only when a configured
@@ -321,9 +329,9 @@ K3 state while local editing and Globe keep working.
 | H4 Bounded legacy cleanup | Completed 2026-07-13 |
 | P1-P6 Persistence simplification and legacy retirement | Completed 2026-07-13 |
 | K1 Voice activation platform gate | Not qualified for production, 2026-07-13 |
-| K2 Production Brand Stage Adaptive | In progress 2026-07-13 |
-| K3 Latest snapshot and History route qualification | In progress 2026-07-13 |
+| K2 Production Brand Stage Adaptive | Engineering complete; runtime matrix pending 2026-07-14 |
+| K3 Latest snapshot and History route qualification | Latest engineering complete; History/device gate pending 2026-07-14 |
 
-Compact History is complete. K2-K3 may finish the safe keyboard surface, but
-V1.1 is not release-complete until K1 and the remaining signed-device gates are
-resolved.
+Compact History and the non-launching Brand Stage surface are complete in code.
+V1.1 is not release-complete until K1 is explicitly rescoped or Apple changes
+the platform contract, and the remaining signed-device gates are resolved.

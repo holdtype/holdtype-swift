@@ -82,9 +82,8 @@ response, or accepted/failed History transaction capability.
   backup-excluded. The app may derive only the bounded accepted-text projection
   allowed by `ios-v1-release.md` for explicit keyboard insertion.
 - That separate app-written, extension-read-only keyboard snapshot is the only
-  App Group text record. It contains one 10-minute Latest item and at most five
-  accepted texts with a 24-hour expiry, never Pending state or the canonical
-  History record.
+  App Group text record. It contains at most one 10-minute Latest item, never
+  additional accepted texts, Pending state, or the canonical History record.
 - Product logs redact text, paths, identifiers, prompts, provider payloads,
   credentials, and audio contents.
 

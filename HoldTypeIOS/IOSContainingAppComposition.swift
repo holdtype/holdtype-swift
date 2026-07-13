@@ -127,9 +127,6 @@ final class IOSContainingAppComposition {
                 persistenceOwner in
                 let store = try? KeyboardBridgeStore.appGroup()
                 _ = try? store?.replaceLegacySnapshotIfNeeded()
-                guard IOSKeyboardSnapshotProductionGate.isEnabled() else {
-                    return nil
-                }
                 return IOSKeyboardSnapshotPublisher(
                     store: store,
                     loadLatest: {
