@@ -176,6 +176,25 @@ struct IOSVoiceHomePresentationTests {
         #expect(recovery.setupDestination == nil)
     }
 
+    @Test func historyRecoveryWarningPreservesReadyResultCopy() {
+        let resolved = IOSVoiceHomePresentation.resolve(
+            voicePresentation(
+                outcome: .resultReady,
+                warning: .historyRecoveryPending
+            )
+        )
+
+        #expect(resolved.title == "Result ready")
+        #expect(
+            resolved.detail
+                == "Latest Result is ready. History recovery will continue locally."
+        )
+        #expect(resolved.systemImage == "clock.arrow.circlepath")
+        #expect(resolved.tone == .warning)
+        #expect(!resolved.showsProgress)
+        #expect(resolved.setupDestination == nil)
+    }
+
     @Test func everyReferencedSystemImageExistsOnTheDeploymentRuntime() {
         let actions: [IOSForegroundVoiceAction] = [
             .startStandard,
@@ -209,7 +228,8 @@ private func voicePresentation(
     outcome: VoiceAttemptOutcome? = nil,
     setup: IOSForegroundVoiceSetup = .ready,
     failure: IOSForegroundVoiceFailure? = nil,
-    recovery: IOSForegroundVoiceRecovery = .none
+    recovery: IOSForegroundVoiceRecovery = .none,
+    warning: IOSForegroundVoiceWarning? = nil
 ) -> IOSForegroundVoicePresentation {
     IOSForegroundVoicePresentation(
         phase: phase,
@@ -219,7 +239,8 @@ private func voicePresentation(
         failure: failure,
         recovery: recovery,
         availableActions: [],
-        latestAvailability: .absent
+        latestAvailability: .absent,
+        warning: warning
     )
 }
 
@@ -275,5 +296,11 @@ private func voiceStatusFixtures() -> [IOSForegroundVoicePresentation] {
         .interrupted,
         .expired,
     ].map { voicePresentation(outcome: $0) }
+    values.append(
+        voicePresentation(
+            outcome: .resultReady,
+            warning: .historyRecoveryPending
+        )
+    )
     return values
 }

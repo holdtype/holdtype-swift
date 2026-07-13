@@ -227,6 +227,9 @@ enum IOSVoiceHomePresentation {
         if let failure = presentation.failure {
             return failureStatus(failure)
         }
+        if let warning = presentation.warning {
+            return warningStatus(warning)
+        }
         if let outcome = presentation.outcome {
             return outcomeStatus(outcome)
         }
@@ -334,6 +337,20 @@ enum IOSVoiceHomePresentation {
             tone: .warning,
             setupDestination: destination
         )
+    }
+
+    private static func warningStatus(
+        _ warning: IOSForegroundVoiceWarning
+    ) -> IOSVoiceStatusPresentation {
+        switch warning {
+        case .historyRecoveryPending:
+            status(
+                "Result ready",
+                detail: "Latest Result is ready. History recovery will continue locally.",
+                image: "clock.arrow.circlepath",
+                tone: .warning
+            )
+        }
     }
 
     private static func recoveryStatus(

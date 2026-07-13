@@ -20,6 +20,10 @@ enum IOSForegroundVoiceFailure: Equatable, Sendable {
     case maximumDuration
 }
 
+enum IOSForegroundVoiceWarning: Equatable, Sendable {
+    case historyRecoveryPending
+}
+
 enum IOSForegroundVoiceRecovery: Equatable, Sendable {
     case none
     case captureRecoverOrDiscard
@@ -74,9 +78,32 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
     let outcome: VoiceAttemptOutcome?
     let setup: IOSForegroundVoiceSetup
     let failure: IOSForegroundVoiceFailure?
+    let warning: IOSForegroundVoiceWarning?
     let recovery: IOSForegroundVoiceRecovery
     let availableActions: [IOSForegroundVoiceAction]
     let latestAvailability: IOSForegroundVoiceLatestAvailability
+
+    init(
+        phase: VoiceWorkPhase,
+        stage: VoiceAttemptStage?,
+        outcome: VoiceAttemptOutcome?,
+        setup: IOSForegroundVoiceSetup,
+        failure: IOSForegroundVoiceFailure?,
+        recovery: IOSForegroundVoiceRecovery,
+        availableActions: [IOSForegroundVoiceAction],
+        latestAvailability: IOSForegroundVoiceLatestAvailability,
+        warning: IOSForegroundVoiceWarning? = nil
+    ) {
+        self.phase = phase
+        self.stage = stage
+        self.outcome = outcome
+        self.setup = setup
+        self.failure = failure
+        self.warning = warning
+        self.recovery = recovery
+        self.availableActions = availableActions
+        self.latestAvailability = latestAvailability
+    }
 
     static let initial = IOSForegroundVoicePresentation(
         phase: .inactive,
@@ -86,7 +113,8 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         failure: nil,
         recovery: .none,
         availableActions: [],
-        latestAvailability: .unknown
+        latestAvailability: .unknown,
+        warning: nil
     )
 }
 
@@ -132,17 +160,20 @@ struct IOSForegroundVoiceResolution: Equatable, Sendable {
     let stage: VoiceAttemptStage?
     let outcome: VoiceAttemptOutcome?
     let failure: IOSForegroundVoiceFailure?
+    let warning: IOSForegroundVoiceWarning?
 
     init(
         observation: IOSForegroundVoiceObservation,
         stage: VoiceAttemptStage? = nil,
         outcome: VoiceAttemptOutcome? = nil,
-        failure: IOSForegroundVoiceFailure? = nil
+        failure: IOSForegroundVoiceFailure? = nil,
+        warning: IOSForegroundVoiceWarning? = nil
     ) {
         self.observation = observation
         self.stage = stage
         self.outcome = outcome
         self.failure = failure
+        self.warning = warning
     }
 }
 
@@ -608,7 +639,8 @@ final class IOSForegroundVoiceController {
             projection.observation,
             stage: projection.stage,
             outcome: projection.outcome,
-            failure: projection.failure
+            failure: projection.failure,
+            warning: projection.warning
         )
     }
 
@@ -616,7 +648,8 @@ final class IOSForegroundVoiceController {
         _ observation: IOSForegroundVoiceObservation,
         stage: VoiceAttemptStage?,
         outcome: VoiceAttemptOutcome?,
-        failure: IOSForegroundVoiceFailure?
+        failure: IOSForegroundVoiceFailure?,
+        warning: IOSForegroundVoiceWarning? = nil
     ) {
         publish(
             phase: .inactive,
@@ -630,7 +663,8 @@ final class IOSForegroundVoiceController {
             failure: failure,
             recovery: observation.recovery,
             latestAvailability: observation.latestAvailability,
-            translationAvailable: observation.translationAvailable
+            translationAvailable: observation.translationAvailable,
+            warning: warning
         )
     }
 
@@ -642,7 +676,8 @@ final class IOSForegroundVoiceController {
         failure: IOSForegroundVoiceFailure?,
         recovery: IOSForegroundVoiceRecovery,
         latestAvailability: IOSForegroundVoiceLatestAvailability,
-        translationAvailable: Bool? = nil
+        translationAvailable: Bool? = nil,
+        warning: IOSForegroundVoiceWarning? = nil
     ) {
         presentationRevision &+= 1
         let translationAvailable = translationAvailable
@@ -663,7 +698,8 @@ final class IOSForegroundVoiceController {
             failure: failure,
             recovery: recovery,
             availableActions: availableActions,
-            latestAvailability: latestAvailability
+            latestAvailability: latestAvailability,
+            warning: warning
         )
     }
 
@@ -817,7 +853,8 @@ final class IOSForegroundVoiceController {
             observation: resolution.observation,
             stage: reportedStage,
             outcome: outcome,
-            failure: failure
+            failure: failure,
+            warning: resolution.warning
         )
     }
 
@@ -1091,6 +1128,21 @@ final class IOSForegroundVoiceController {
         let stage: VoiceAttemptStage?
         let outcome: VoiceAttemptOutcome?
         let failure: IOSForegroundVoiceFailure?
+        let warning: IOSForegroundVoiceWarning?
+
+        init(
+            observation: IOSForegroundVoiceObservation,
+            stage: VoiceAttemptStage?,
+            outcome: VoiceAttemptOutcome?,
+            failure: IOSForegroundVoiceFailure?,
+            warning: IOSForegroundVoiceWarning? = nil
+        ) {
+            self.observation = observation
+            self.stage = stage
+            self.outcome = outcome
+            self.failure = failure
+            self.warning = warning
+        }
     }
 }
 
@@ -1122,6 +1174,12 @@ extension IOSForegroundVoiceSetup: IOSForegroundVoiceRedactedValue {
 
 extension IOSForegroundVoiceFailure: IOSForegroundVoiceRedactedValue {
     nonisolated var description: String { "IOSForegroundVoiceFailure(<redacted>)" }
+}
+
+extension IOSForegroundVoiceWarning: IOSForegroundVoiceRedactedValue {
+    nonisolated var description: String {
+        "IOSForegroundVoiceWarning(<redacted>)"
+    }
 }
 
 extension IOSForegroundVoiceRecovery: IOSForegroundVoiceRedactedValue {

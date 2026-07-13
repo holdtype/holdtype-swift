@@ -1095,6 +1095,48 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func acceptedHistoryWarningUsesDurableLatestAvailability() async throws {
+        let record = try makeAcceptedDeliveryRecord()
+        let available = try await WorkflowFixture(
+            pendingLoads: [.value(nil)],
+            latestLoads: [.value(.resultReady(record))],
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .acceptance(
+                .acceptedHistoryRecoveryPending(record)
+            ),
+            preacceptConsent: true
+        )
+        let availableResolution = try await finishCompletedCapture(available)
+
+        #expect(availableResolution.warning == .historyRecoveryPending)
+        #expect(availableResolution.outcome == .resultReady)
+        #expect(availableResolution.observation.recovery == .none)
+        #expect(
+            availableResolution.observation.latestAvailability == .available
+        )
+        #expect(!available.events.contains("saving-retry"))
+
+        let absent = try await WorkflowFixture(
+            pendingLoads: [.value(nil)],
+            latestLoads: [.value(.absent)],
+            permission: .granted,
+            completedCapture: true,
+            processorResolution: .acceptance(
+                .acceptedHistoryRecoveryPending(record)
+            ),
+            preacceptConsent: true
+        )
+        let absentResolution = try await finishCompletedCapture(absent)
+
+        #expect(absentResolution.warning == .historyRecoveryPending)
+        #expect(absentResolution.outcome == nil)
+        #expect(absentResolution.observation.recovery == .none)
+        #expect(absentResolution.observation.latestAvailability == .absent)
+        #expect(!absent.events.contains("saving-retry"))
+    }
+
+    @Test
     func typedPreflightFailuresRemainDistinctAndStopImmediately() async throws {
         let denied = try await WorkflowFixture(permission: .denied)
         let deniedResolution = await denied.workflow.start(
@@ -2740,6 +2782,10 @@ private final class WorkflowFixture {
         libraryLoads: [WorkflowLoad<IOSLibraryContent>] = [
             .value(.defaults)
         ],
+        pendingLoads:
+            [WorkflowLoad<IOSPendingRecordingObservation?>]? = nil,
+        latestLoads:
+            [WorkflowLoad<IOSForegroundVoiceLatestResultObservation>]? = nil,
         loadPendingFailsWhenCancelled: Bool = false,
         permission: IOSMicrophonePermissionStatus,
         permissionOutcome:
@@ -2852,6 +2898,8 @@ private final class WorkflowFixture {
             settingsLoads ?? [.value(settings)]
         )
         let librarySequence = WorkflowLoadSequence(libraryLoads)
+        let pendingLoadSequence = pendingLoads.map(WorkflowLoadSequence.init)
+        let latestLoadSequence = latestLoads.map(WorkflowLoadSequence.init)
         let consentValidationSequence = WorkflowValueSequence(
             consentRevalidation
         )
@@ -2958,6 +3006,9 @@ private final class WorkflowFixture {
                         events.record("pending-load-cancelled")
                         throw CancellationError()
                     }
+                    if let pendingLoadSequence {
+                        return try pendingLoadSequence.next()
+                    }
                     if let pending = pendingBox.load() {
                         return IOSPendingRecordingObservation(
                             recording: pending,
@@ -2968,6 +3019,9 @@ private final class WorkflowFixture {
                 },
                 loadLatest: {
                     events.record("latest-load")
+                    if let latestLoadSequence {
+                        return try latestLoadSequence.next()
+                    }
                     return try await owner.loadLatestResult()
                 },
                 loadSettings: {
@@ -3359,6 +3413,26 @@ private func driveToLocalCheckpoint(
         controller.presentation.recovery
             == .localCheckpoint(expectedStage)
     }
+}
+
+@MainActor
+private func finishCompletedCapture(
+    _ fixture: WorkflowFixture
+) async throws -> IOSForegroundVoiceResolution {
+    let token = IOSForegroundVoiceWorkflowAttemptToken()
+    let task = Task { @MainActor in
+        await fixture.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: fixture.lease
+            ),
+            token: token,
+            progress: { _ in }
+        )
+    }
+    try await waitUntil { fixture.events.contains("recording-start") }
+    #expect(fixture.workflow.finishUtterance(token) == .accepted)
+    return await task.value
 }
 
 private func makeAcceptedDeliveryRecord()

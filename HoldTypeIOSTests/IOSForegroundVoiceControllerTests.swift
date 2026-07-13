@@ -77,6 +77,47 @@ struct IOSForegroundVoiceControllerTests {
         #expect(fixture.cancellationAuthorities.isEmpty)
     }
 
+    @Test func historyRecoveryWarningKeepsResultAndNextStartAvailable()
+        async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation()
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        let start = try voiceCommand(.startStandard, in: controller)
+        #expect(controller.submit(start, from: scene) == .accepted)
+        try await voiceEventually { fixture.runOperations.count == 1 }
+
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation(latest: .available),
+                outcome: .resultReady,
+                warning: .historyRecoveryPending
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+
+        #expect(controller.presentation.outcome == .resultReady)
+        #expect(controller.presentation.warning == .historyRecoveryPending)
+        #expect(controller.presentation.recovery == .none)
+        #expect(controller.presentation.latestAvailability == .available)
+        #expect(
+            controller.presentation.availableActions == [.startStandard]
+        )
+        #expect(
+            !controller.presentation.availableActions
+                .contains(.retrySavingResult)
+        )
+    }
+
     @Test func withdrawalCannotHideCommittedRetryResult() async throws {
         let fixture = IOSForegroundVoiceClientFixture(
             observation: voiceObservation(
@@ -1024,6 +1065,10 @@ struct IOSForegroundVoiceControllerTests {
             (
                 IOSForegroundVoiceFailure.localRecovery,
                 "IOSForegroundVoiceFailure(<redacted>)"
+            ),
+            (
+                IOSForegroundVoiceWarning.historyRecoveryPending,
+                "IOSForegroundVoiceWarning(<redacted>)"
             ),
             (
                 IOSForegroundVoiceRecovery.localCheckpoint(
