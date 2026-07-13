@@ -10,10 +10,12 @@ specs remain research and implementation evidence, but they do not expand this
 release unless this file explicitly links to that behavior.
 
 K1 update, 2026-07-13: current Apple documentation and App Review Guideline
-4.4.1 do not qualify a review-safe keyboard-to-containing-app launch. The
-non-blocked keyboard UI, editing, Latest, and recent-result work may proceed, but
-the keyboard-plus-voice V1.1 release claim remains unresolved until an explicit
-product rescope, new Apple guidance, or explicit acceptance of the review risk.
+4.4.1 do not qualify a review-safe keyboard-to-containing-app launch. Apple may
+show its own Dictation key while `hasDictationKey` is false; that is a public
+system speech path, not the HoldType/OpenAI pipeline. The non-blocked keyboard
+UI, editing, and Latest work may proceed, but the HoldType keyboard-plus-voice
+claim remains unresolved until an explicit product rescope, new Apple guidance,
+or explicit acceptance of the review risk.
 
 ## Goal
 
@@ -39,8 +41,7 @@ V1.1 includes:
 - up to 20 successful text-only History entries;
 - one production-quality iPhone voice-command keyboard surface;
 - a dedicated keyboard voice action and explicit Insert Result path;
-- a bounded keyboard projection of Latest and up to five accepted texts from the
-  previous 24 hours;
+- a bounded keyboard projection of one short-lived Latest item only;
 - the existing Usage Estimate kept unchanged as an informational Settings
   route;
 - the existing iPad containing-app adaptation as best-effort compatibility UI,
@@ -189,8 +190,8 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with `History` on the left, the HoldType mark plus honest
-  status in the center, and `Latest` on the right;
+- a compact top row with the HoldType mark plus honest status centered and
+  `Latest` as the only result action;
 - one medium microphone control and a restrained waveform/status stage; the
   microphone is the only primary action and never becomes a full-width button;
 - one correction row containing `.`, `,`, `?`, and `!`;
@@ -218,6 +219,9 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - Current K1 evidence does not prove a supported containing-app handoff. The
   production extension therefore adds no custom URL/private launch path and
   exposes no actionable microphone or optimistic `Listening` state.
+- `hasDictationKey` remains false so iOS may show its own system Dictation key.
+  System Dictation may insert speech directly into the active host field, but it
+  does not use HoldType/OpenAI and provides no result callback to the extension.
 - The user explicitly returns to the host app and invokes `Insert Result`.
   V1.1 does not promise private automatic return or automatic insertion.
 - The app may publish one bounded keyboard snapshot to App Group storage only
@@ -226,21 +230,15 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The projection is a replaceable cache, not a second History repository or a
   delivery transaction. It has one app writer and no outbox, receipt,
   acknowledgement, tombstone, or replay protocol.
-- The snapshot contains schema version, revision, one Latest item with a
-  10-minute insertion expiry, and up to five recent accepted-text items with a
-  24-hour expiry. Each item contains only result id, accepted text, creation
-  time, and expiry. No secret, audio, prompt, dictionary, provider response,
-  setting, or host context enters the snapshot.
-- `Latest` inserts only a valid unexpired Latest item. `History` presents the
-  bounded recent projection newest first; full 20-entry History, Delete, Clear
-  All, and retention settings remain in the containing app.
-- Turning Save History off or deleting app History removes the affected recent
-  projection before that destructive action reports success. A projection-clear
-  failure is visible and does not pretend the shared copy was removed. Every
-  projected recent item expires after 24 hours regardless. Missing or invalid
-  shared state is never rendered as an empty successful History.
-- Every Latest or recent-result selection is an explicit insertion. One tap
-  calls `textDocumentProxy` once; re-entrant handling of that tap is suppressed.
+- The snapshot contains schema version, revision, and one optional Latest item
+  with a 10-minute insertion expiry. It contains only result id, exact accepted
+  text, creation time, and expiry. No History row, secret, audio, prompt,
+  dictionary, provider response, setting, or host context enters the snapshot.
+- `Latest` inserts only a valid unexpired item and the keyboard never renders or
+  previews its text. Full 20-entry History, detail, Share, Delete, Clear All,
+  and retention settings remain in the containing app.
+- Every Latest selection is an explicit insertion. One tap calls
+  `textDocumentProxy` once; re-entrant handling of that tap is suppressed.
 - The same still-valid result may be inserted again only after another explicit
   user tap. Relaunch, refresh, host-field change, or app return never inserts or
   replays it automatically; V1.1 therefore needs no durable consumed-ID log.
@@ -259,13 +257,12 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   Acceptance of the former no-History version `1` requires explicit review
   before another provider request.
 - Keyboard setup and Privacy explain that, after the qualified Full Access path
-  is enabled, one 10-minute Latest item and up to five accepted texts from the
-  previous 24 hours may be copied into the local shared container for explicit
-  keyboard insertion.
+  is enabled, one 10-minute Latest item may be copied into the local shared
+  container for explicit keyboard insertion.
 - The extension receives no API key or provider client.
-- Pending audio and the canonical 20-entry History remain app-private, protected,
-  and backup-excluded according to their data type. Only the bounded derived
-  accepted-text projection described above enters App Group storage.
+- Pending audio and the canonical 20-entry History remain app-private,
+  protected, and backup-excluded according to their data type. Only the
+  short-lived Latest cache described above enters App Group storage.
 - Product logs contain no accepted text, prompt, dictionary content, API key,
   provider body, raw audio, or host document context.
 - External calls have bounded timeouts.

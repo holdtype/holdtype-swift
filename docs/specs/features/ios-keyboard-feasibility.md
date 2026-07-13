@@ -24,9 +24,9 @@ reuse Apple's keyboard. Its supported architecture is:
   voice-state presentation, and explicit accepted-text insertion through
   `UITextDocumentProxy`;
 - the app is the only writer of a small versioned App Group snapshot containing
-  a 10-minute Latest item and at most five accepted texts with a 24-hour expiry;
+  only one optional 10-minute Latest item;
 - the extension is read-only and never records audio, reads Keychain, calls
-  OpenAI, or mutates canonical History.
+  OpenAI, renders History, or mutates canonical History.
 
 Apple documents `NSExtensionContext.open` on iOS for Today and iMessage
 extension points, not custom keyboards. App Review Guideline 4.4.1 also says a
@@ -40,8 +40,8 @@ production action. HoldType does not use a private launch or return workaround.
 The production target is the Brand Stage Adaptive command surface defined in
 `ios-keyboard-experience.md`:
 
-- one dedicated microphone action with app-confirmed state;
-- compact History and Latest actions;
+- one non-interactive branded voice state while HoldType handoff is unavailable;
+- Apple's own Dictation key when iOS supplies it and one compact Latest action;
 - `.`, `,`, `?`, `!`, Globe, wide Space, Delete, and adaptive Return;
 - long-press and drag on Space for cursor movement;
 - system-driven Light and Dark appearances with stable composition;
@@ -69,7 +69,9 @@ This proves target composition and simulator interaction only. The probe `A`,
 manual `Refresh`, and large `Insert latest` button are not product UI and are
 removed by K2.
 
-`hasDictationKey` remains false in the spike. `RequestsOpenAccess`,
+`hasDictationKey` remains false so iOS may supply its own system Dictation key.
+That key is Apple-owned speech entry, not a HoldType/OpenAI action.
+`RequestsOpenAccess`,
 `PrimaryLanguage`, and `IsASCIICapable` are release metadata to verify in K1;
 the current `en-US` value is not a product language promise.
 
@@ -77,11 +79,11 @@ the current `en-US` value is not a product language promise.
 
 - The containing app is the only writer and replaces the bounded snapshot
   atomically.
-- The extension reads only schema/revision metadata, accepted result identifiers,
-  accepted text, creation dates, Latest expiry, and compact voice status proven
-  necessary by K1.
+- The extension reads only schema/revision metadata and one optional Latest
+  result identifier, exact accepted text, creation date, and 10-minute expiry.
 - Raw audio, API keys, prompts, keystrokes, host identity, provider payloads,
-  canonical settings, and the 20-entry History repository never enter App Group.
+  canonical settings, recent results, and the History repository never enter
+  App Group.
 - Publication is not a wake-up mechanism. Missing, stale, corrupt, oversized,
   or incompatible state is unavailable and never causes insertion.
 - Full Access requirements and actual shared-container behavior are established
@@ -93,6 +95,8 @@ the current `en-US` value is not a product language promise.
   contexts, and a host app may reject all third-party keyboards.
 - Full Access does not grant a documented microphone entitlement to a custom
   keyboard.
+- With `hasDictationKey == false`, iOS may show an Apple-owned Dictation key.
+  The extension neither receives its audio nor controls whether it appears.
 - A keyboard must expose the next-keyboard control whenever iOS requires it.
 - App Review 4.4.1 requires keyboard input functionality, a next-keyboard path,
   and useful behavior without network access; punctuation and editing controls
@@ -111,8 +115,6 @@ Signed physical iPhone qualification is still required for the non-blocked
 keyboard behavior:
 
 - one explicit Latest insertion without wrong-field replay;
-- the bounded recent-results projection and explicit insertion of one selected
-  item;
 - Globe, punctuation, Space cursor movement, Delete repeat, and adaptive Return
   in representative first- and third-party hosts;
 - Full Access off/on, real App Group entitlements, app and extension eviction,
@@ -120,7 +122,8 @@ keyboard behavior:
 - secure fields, phone fields, host rejection, interruption, and provider timeout
   fail safely;
 - `PrimaryLanguage`, `IsASCIICapable`, `RequestsOpenAccess`, and
-  `hasDictationKey` produce truthful system and review behavior.
+  `hasDictationKey` produce truthful system and review behavior, including the
+  system Dictation key's device- and host-dependent presence.
 
 The existing fallback is the containing-app Voice flow plus Copy and the user's
 system keyboard. Brand Stage editing and result insertion may be completed, but
@@ -149,6 +152,10 @@ physical-device QA recorded in `docs/qa/runs/`.
   `https://developer.apple.com/app-store/review/guidelines/`
 - Apple `NSExtensionContext.open` support discussion, reviewed 2026-07-13:
   `https://developer.apple.com/documentation/foundation/nsextensioncontext/open(_:completionhandler:)`
+- Apple `UIInputViewController.hasDictationKey`, reviewed 2026-07-13:
+  `https://developer.apple.com/documentation/uikit/uiinputviewcontroller/hasdictationkey`
+- Apple Dictation user guide, reviewed 2026-07-13:
+  `https://support.apple.com/guide/iphone/iph2c0651d2/ios`
 - Apple App Extension Programming Guide, reviewed 2026-07-13:
   `https://developer.apple.com/library/archive/documentation/General/Conceptual/ExtensibilityPG/ExtensionOverview.html`
 - Apple DTS on the absence of a public keyboard-to-host round trip, reviewed

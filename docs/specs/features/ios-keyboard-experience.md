@@ -12,38 +12,43 @@ instruction-only fake action.
 
 ## Goal
 
-Provide a polished HoldType voice-command keyboard that complements the user's
-system keyboards. It starts only the physically verified voice flow, exposes
-accepted results for explicit insertion, and keeps the small editing controls
-needed to finish a sentence without building a multilingual QWERTY engine.
+Provide a polished HoldType command keyboard that complements the user's system
+keyboards. It preserves Apple's system Dictation path when iOS offers it,
+exposes only Latest for explicit HoldType-result insertion, and keeps the small
+editing controls needed to finish a sentence without building a multilingual
+QWERTY engine.
 
 ## Product Role
 
-- HoldType is selected with Globe when the user wants voice input or a recent
-  HoldType result.
+- HoldType is selected with Globe when the user wants system Dictation, the
+  latest HoldType result, or the compact editing controls.
 - The system keyboard remains the normal alphabetic, numeric, emoji, and
   language-layout keyboard.
 - HoldType inserts accepted Unicode text in any transcription language supported
   by the containing app. It has no keyboard-locale promise.
 - The extension never records audio, contacts OpenAI, reads Keychain, or owns
   app settings, Library data, Pending audio, or canonical History.
-- Voice is the only primary action. `History` and `Latest` are compact secondary
-  actions, not competing call-to-action buttons.
+- Apple's system Dictation is the only actionable microphone path currently
+  qualified. `Latest` is a compact secondary action.
+- Canonical History and every History row remain in the containing app. The
+  keyboard never renders transcript text, History lists, previews, or detail.
 
 ## Brand Stage Adaptive Composition
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: `History` at leading, the HoldType mark and current state centered,
-   and `Latest` at trailing.
+1. Top rail: the HoldType mark and current state centered, with `Latest` as the
+   only result action.
 2. Voice stage: one medium circular microphone control with a restrained
    waveform or progress treatment.
 3. Correction row: `.`, `,`, `?`, and `!`.
 4. Editing row: Globe, wide Space, Delete, and adaptive Return.
 
 The HoldType mark is decorative identity plus status context. It is never an
-unlabelled action. The microphone is visually primary but does not fill the
-keyboard width. The interface contains no `A` probe key, manual `Refresh`,
+unlabelled action. The branded microphone treatment is non-interactive while
+HoldType handoff is unavailable and does not compete with the separate system
+Dictation key when iOS displays one. The interface contains no `A` probe key,
+manual `Refresh`,
 alphabet layout, number deck, Shift, Caps Lock, `123`, prediction row, settings
 gear, or opaque mode icon.
 
@@ -87,8 +92,8 @@ The centered brand/status and voice stage show only these user-visible states:
 
 The UI never uses `Ready`, `Recording`, or `Listening` as optimism. Each label
 must correspond to app-confirmed state. Cancel and Finish are visually separate
-and cannot be mistaken for History, Latest, or editing keys. Reduce Motion turns
-waveform animation into a static level/status treatment.
+and cannot be mistaken for Latest or editing keys. Reduce Motion turns waveform
+animation into a static level/status treatment.
 
 ## Voice Activation Contract
 
@@ -107,31 +112,27 @@ waveform animation into a static level/status treatment.
   launch and shows no `ready`, `handoffRequested`, `recording`, or `processing`
   state. The branded voice stage is disabled, explains that dictation starts in
   the containing app, and is ignored as an action by assistive technology.
+- `hasDictationKey` remains `false`. Apple may then provide its own Dictation
+  key outside the extension. That Apple-owned path may insert speech into the
+  host field, but it does not run HoldType/OpenAI, expose audio to the extension,
+  or provide a HoldType completion callback.
 
-## Latest And Keyboard History
+## Latest
 
 - The containing app is the only writer of the bounded App Group keyboard
   snapshot. The extension is read-only.
 - `Latest` is enabled only for a valid unexpired accepted item. One tap performs
   one `insertText` call. It never inserts on appearance, refresh, app return, or
   host-field change.
-- `History` opens an in-keyboard recent-results view, newest first, containing at
-  most five app-published accepted texts from the previous 24 hours. Expired
-  items are never rendered. Selecting an item is an explicit one-tap insertion.
-- The recent-results view replaces the voice stage temporarily; the editing row
-  stays available and an explicit close action restores the voice stage.
-- Full 20-entry History, detail, Share, Delete, Clear All, and Save History
-  controls remain in the containing app.
-- The projection contains result id, text, creation date, and expiry only. It
-  contains no audio, Pending metadata, prompt, provider payload, settings,
-  dictionary, deletion command, or canonical History file.
-- Save History off produces a truthful disabled History state. A missing,
-  corrupt, unsupported, or inaccessible projection produces a compact retry or
-  setup state; it is never labelled as an empty successful History and never
-  says merely `Unavailable in this build`.
-- A new Latest item or recent-results projection is observed at normal extension
-  lifecycle boundaries. There is no manual Refresh button and App Group
-  publication is not treated as a wake-up mechanism.
+- The snapshot contains only schema/revision metadata and one optional Latest
+  item: result id, exact accepted text, creation date, and 10-minute expiry.
+- Latest text is never rendered or previewed by the keyboard. It enters the host
+  field only after an explicit `Latest` tap.
+- Full History, previews, detail, Share, Delete, Clear All, and retention
+  controls remain in the containing app and never enter the keyboard snapshot.
+- A new Latest item is observed at normal extension lifecycle boundaries. There
+  is no manual Refresh button and App Group publication is not a wake-up
+  mechanism.
 
 ## Failure And Fallback
 
@@ -142,20 +143,20 @@ waveform animation into a static level/status treatment.
 - Expired or invalid Latest never inserts. Repeated lifecycle refreshes never
   replay a previous result.
 - The keyboard never requests an API key, microphone permission, long-form
-  consent, or destructive History action inline.
+  consent, or History action inline.
 - System emoji and ordinary typing remain available by switching with Globe.
 
 ## Accessibility And Appearance
 
 - Every interactive target is at least 44 by 44 points.
 - VoiceOver names the action and current state, including `Insert latest`,
-  `Open recent results`, `Start voice input`, `Next keyboard`, `Space`, `Delete`,
-  and the adaptive Return action.
+  `Next keyboard`, `Space`, `Delete`, and the adaptive Return action. The
+  unavailable branded microphone treatment is not exposed as a button.
 - Recording, processing, success, and failure do not rely on color alone.
 - Increase Contrast strengthens boundaries without changing hierarchy. Reduce
   Transparency replaces material effects with opaque system colors.
 - Dynamic Type may enlarge labels without moving or shrinking the editing row;
-  truncation never hides whether an action is History, Latest, Cancel, or Finish.
+  truncation never hides whether an action is Latest, Cancel, or Finish.
 - Theme follows system appearance automatically. There is no keyboard-local
   Light/Dark toggle.
 
@@ -174,10 +175,12 @@ explicit insertion per tap.
 
 Signed-device evidence must additionally prove Globe, Full Access off/on,
 cursor movement, Delete repeat, host field traits, secure/phone-field fallback,
-Latest, recent-result insertion, and process eviction. Current documentation
-does not qualify public microphone handoff; the punctuation/editing surface is
-real keyboard input, but approval is not assumed.
+Latest insertion, system Dictation presence/absence, and process eviction.
+Current documentation does not qualify HoldType microphone handoff; the system
+Dictation and punctuation/editing paths are real keyboard input, but approval is
+not assumed.
 
-After K1, the production controller may set `hasDictationKey = true` only if
-physical QA confirms that HoldType's dedicated voice control should suppress a
-duplicate system Dictation key. Until then it remains false.
+`hasDictationKey` remains `false` so HoldType does not suppress Apple's own
+Dictation key. It may become `true` only after a separate, physically qualified
+HoldType microphone action exists and product explicitly chooses to replace the
+system path.
