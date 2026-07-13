@@ -1395,6 +1395,54 @@ public actor IOSPendingRecordingStore {
         )
     }
 
+    /// Live-process retirement for a foreground destination accepted through
+    /// the captured History path. The dedicated capability keeps the P4
+    /// app-only authorization and predicates unchanged.
+    func removeForegroundVoiceCapturedAcceptedOutputAudio(
+        expected: IOSPendingRecording,
+        destinationAuthorization:
+            IOSForegroundVoiceCapturedDestinationAuthorization,
+        deliveryStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws -> IOSForegroundVoicePendingAudioRemovalAuthorization {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              expected.phase == .outputDelivery,
+              destinationAuthorization.provesDestination(
+                  for: expected,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        let current = try performRepositoryBoundary { _ in
+            try journal.load()
+        }
+        if let current {
+            guard current == expected else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+            try retireForegroundVoiceDispatch(for: current)
+        } else {
+            guard let transcriptionID = expected.transcriptionID,
+                  activeDispatchIdentity == nil,
+                  liveOwnerRegistry.isRetired(
+                      attemptID: expected.attemptID,
+                      transcriptionID: transcriptionID
+                  ) else {
+                throw IOSPendingRecordingError.compareAndSwapFailed
+            }
+        }
+        return try await performForegroundVoiceAcceptedOutputAudioRemoval(
+            expected: expected,
+            processLossAuthorization: nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
     /// Explicit relaunch-only path. A surviving live process owner prevents
     /// admission; a fresh process may retire only the exact destination-bound
     /// outputDelivery owner under the current root lease.
@@ -1475,6 +1523,49 @@ public actor IOSPendingRecordingStore {
         expected: IOSPendingRecording,
         destinationAuthorization:
             IOSForegroundVoiceAcceptedDestinationAuthorization,
+        audioRemovalAuthorization:
+            IOSForegroundVoicePendingAudioRemovalAuthorization,
+        deliveryStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) async throws {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              expected.phase == .outputDelivery,
+              destinationAuthorization.provesDestination(
+                  for: expected,
+                  storeIdentity: deliveryStoreIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ),
+              audioRemovalAuthorization.provesRemoval(
+                  for: expected,
+                  storeIdentity: storeIdentity,
+                  ownerIdentity: capabilityOwnerIdentity,
+                  operationLeaseAuthorization:
+                      operationLeaseAuthorization
+              ),
+              activeDispatchIdentity == nil,
+              let transcriptionID = expected.transcriptionID,
+              liveOwnerRegistry.isRetired(
+                  attemptID: expected.attemptID,
+                  transcriptionID: transcriptionID
+              ) else {
+            throw IOSPendingRecordingError.invalidTransition
+        }
+        try await performForegroundVoiceAcceptedOutputJournalRetirement(
+            expected: expected,
+            audioRemovalAuthorization: audioRemovalAuthorization,
+            processLossAuthorization: nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
+    func retireForegroundVoiceCapturedAcceptedOutputJournal(
+        expected: IOSPendingRecording,
+        destinationAuthorization:
+            IOSForegroundVoiceCapturedDestinationAuthorization,
         audioRemovalAuthorization:
             IOSForegroundVoicePendingAudioRemovalAuthorization,
         deliveryStoreIdentity:

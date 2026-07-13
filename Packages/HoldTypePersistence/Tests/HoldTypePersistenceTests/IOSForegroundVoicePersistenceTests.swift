@@ -116,6 +116,350 @@ struct IOSForegroundVoicePersistenceTests {
         #expect(fixture.audio.isPresent)
     }
 
+    @Test func capturedHistoryDestinationRetiresPendingWithoutDeliveryRewrite()
+        async throws {
+        let fixture = ForegroundVoicePersistenceFixture()
+        let output = try await fixture.makeOutputDelivery()
+        let preparation = try await fixture.capturedPreparation(
+            for: output,
+            historyEnabled: true
+        )
+
+        try await fixture.operationGate.perform { lease in
+            let accepted = try await fixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    preparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            let acceptance = IOSAcceptedHistoryAcceptanceResult(
+                deliveryRecord: accepted,
+                resolution: .pendingLocalRecovery
+            )
+            let replacementCount = fixture.deliveryJournal
+                .replacementCallCount
+            let firstDestination = try await fixture.deliveryStore
+                .authorizeForegroundVoiceCapturedDestination(
+                    acceptance: acceptance,
+                    preparation: preparation.deliveryPreparation,
+                    pendingRecording: output,
+                    operationLeaseAuthorization: lease
+                )
+
+            #expect(
+                firstDestination.description
+                    == "IOSForegroundVoiceCapturedDestinationAuthorization(redacted)"
+            )
+            #expect(firstDestination.customMirror.children.isEmpty)
+            #expect(
+                fixture.deliveryJournal.replacementCallCount
+                    == replacementCount
+            )
+            let audioRemoval = try await fixture.pendingStore
+                .removeForegroundVoiceCapturedAcceptedOutputAudio(
+                    expected: output,
+                    destinationAuthorization: firstDestination,
+                    deliveryStoreIdentity: fixture.deliveryStore.storeIdentity,
+                    operationLeaseAuthorization: lease
+                )
+            let secondDestination = try await fixture.deliveryStore
+                .authorizeForegroundVoiceCapturedDestination(
+                    acceptance: acceptance,
+                    preparation: preparation.deliveryPreparation,
+                    pendingRecording: output,
+                    operationLeaseAuthorization: lease
+                )
+            #expect(
+                fixture.deliveryJournal.replacementCallCount
+                    == replacementCount
+            )
+            try await fixture.pendingStore
+                .retireForegroundVoiceCapturedAcceptedOutputJournal(
+                    expected: output,
+                    destinationAuthorization: secondDestination,
+                    audioRemovalAuthorization: audioRemoval,
+                    deliveryStoreIdentity: fixture.deliveryStore.storeIdentity,
+                    operationLeaseAuthorization: lease
+                )
+        }
+
+        #expect(fixture.deliveryJournal.record?.historyWrite?.state == .pending)
+        #expect(fixture.pendingJournal.recording == nil)
+        #expect(!fixture.audio.isPresent)
+    }
+
+    @Test func capturedDisabledDestinationRemainsCaptureBoundAndRetiresPending()
+        async throws {
+        let fixture = ForegroundVoicePersistenceFixture()
+        let output = try await fixture.makeOutputDelivery()
+        let preparation = try await fixture.capturedPreparation(
+            for: output,
+            historyEnabled: false
+        )
+
+        try await fixture.operationGate.perform { lease in
+            let accepted = try await fixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    preparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            #expect(accepted.historyWrite == nil)
+            let acceptance = IOSAcceptedHistoryAcceptanceResult(
+                deliveryRecord: accepted,
+                resolution: .notRequested
+            )
+            let destination = try await fixture.deliveryStore
+                .authorizeForegroundVoiceCapturedDestination(
+                    acceptance: acceptance,
+                    preparation: preparation.deliveryPreparation,
+                    pendingRecording: output,
+                    operationLeaseAuthorization: lease
+                )
+            let audioRemoval = try await fixture.pendingStore
+                .removeForegroundVoiceCapturedAcceptedOutputAudio(
+                    expected: output,
+                    destinationAuthorization: destination,
+                    deliveryStoreIdentity: fixture.deliveryStore.storeIdentity,
+                    operationLeaseAuthorization: lease
+                )
+            let revalidated = try await fixture.deliveryStore
+                .authorizeForegroundVoiceCapturedDestination(
+                    acceptance: acceptance,
+                    preparation: preparation.deliveryPreparation,
+                    pendingRecording: output,
+                    operationLeaseAuthorization: lease
+                )
+            try await fixture.pendingStore
+                .retireForegroundVoiceCapturedAcceptedOutputJournal(
+                    expected: output,
+                    destinationAuthorization: revalidated,
+                    audioRemovalAuthorization: audioRemoval,
+                    deliveryStoreIdentity: fixture.deliveryStore.storeIdentity,
+                    operationLeaseAuthorization: lease
+                )
+        }
+
+        #expect(fixture.pendingJournal.recording == nil)
+        #expect(!fixture.audio.isPresent)
+    }
+
+    @Test func capturedDestinationAuthorizationRejectsResolutionAndMetadataDrift()
+        async throws {
+        let resolutionFixture = ForegroundVoicePersistenceFixture()
+        let resolutionOutput = try await resolutionFixture.makeOutputDelivery()
+        let resolutionPreparation = try await resolutionFixture
+            .capturedPreparation(
+                for: resolutionOutput,
+                historyEnabled: true
+            )
+        try await resolutionFixture.operationGate.perform { lease in
+            let accepted = try await resolutionFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    resolutionPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await resolutionFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: accepted,
+                            resolution: .committed
+                        ),
+                        preparation:
+                            resolutionPreparation.deliveryPreparation,
+                        pendingRecording: resolutionOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+
+        let metadataFixture = ForegroundVoicePersistenceFixture()
+        let metadataOutput = try await metadataFixture.makeOutputDelivery()
+        let metadataPreparation = try await metadataFixture
+            .capturedPreparation(
+                for: metadataOutput,
+                historyEnabled: true,
+                transcriptionModel: "different-model"
+            )
+        try await metadataFixture.operationGate.perform { lease in
+            let accepted = try await metadataFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    metadataPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await metadataFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: accepted,
+                            resolution: .pendingLocalRecovery
+                        ),
+                        preparation: metadataPreparation.deliveryPreparation,
+                        pendingRecording: metadataOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+    }
+
+    @Test func pendingRecoveryAllowsMarkerAdvanceButRejectsAcceptanceDrift()
+        async throws {
+        let advancedFixture = ForegroundVoicePersistenceFixture()
+        let advancedOutput = try await advancedFixture.makeOutputDelivery()
+        let advancedPreparation = try await advancedFixture
+            .capturedPreparation(
+                for: advancedOutput,
+                historyEnabled: true
+            )
+        try await advancedFixture.operationGate.perform { lease in
+            let pending = try await advancedFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    advancedPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            _ = try advancedFixture.deliveryJournal.replaceCurrentForTesting(
+                historyState: .committed
+            )
+            let replacementCount = advancedFixture.deliveryJournal
+                .replacementCallCount
+            let destination = try await advancedFixture.deliveryStore
+                .authorizeForegroundVoiceCapturedDestination(
+                    acceptance: IOSAcceptedHistoryAcceptanceResult(
+                        deliveryRecord: pending,
+                        resolution: .pendingLocalRecovery
+                    ),
+                    preparation: advancedPreparation.deliveryPreparation,
+                    pendingRecording: advancedOutput,
+                    operationLeaseAuthorization: lease
+                )
+            #expect(destination.record.historyWrite?.state == .committed)
+            #expect(
+                advancedFixture.deliveryJournal.replacementCallCount
+                    == replacementCount
+            )
+        }
+
+        let collisionFixture = ForegroundVoicePersistenceFixture()
+        let collisionOutput = try await collisionFixture.makeOutputDelivery()
+        let collisionPreparation = try await collisionFixture
+            .capturedPreparation(
+                for: collisionOutput,
+                historyEnabled: true
+            )
+        try await collisionFixture.operationGate.perform { lease in
+            let pending = try await collisionFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    collisionPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            let colliding = try collisionFixture.deliveryJournal
+                .replaceCurrentForTesting(
+                    acceptedText: "colliding text"
+                )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await collisionFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: pending,
+                            resolution: .pendingLocalRecovery
+                        ),
+                        preparation: collisionPreparation.deliveryPreparation,
+                        pendingRecording: collisionOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+            collisionFixture.deliveryJournal.installCurrentForTesting(
+                pending
+            )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await collisionFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: colliding,
+                            resolution: .pendingLocalRecovery
+                        ),
+                        preparation: collisionPreparation.deliveryPreparation,
+                        pendingRecording: collisionOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+
+        let unrelatedFixture = ForegroundVoicePersistenceFixture()
+        let unrelatedOutput = try await unrelatedFixture.makeOutputDelivery()
+        let unrelatedPreparation = try await unrelatedFixture
+            .capturedPreparation(
+                for: unrelatedOutput,
+                historyEnabled: true
+            )
+        try await unrelatedFixture.operationGate.perform { lease in
+            let pending = try await unrelatedFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    unrelatedPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                ).record
+            _ = try unrelatedFixture.deliveryJournal.replaceCurrentForTesting(
+                attemptID: UUID(),
+                transcriptID: UUID()
+            )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await unrelatedFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: pending,
+                            resolution: .pendingLocalRecovery
+                        ),
+                        preparation: unrelatedPreparation.deliveryPreparation,
+                        pendingRecording: unrelatedOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+
+        let terminalFixture = ForegroundVoicePersistenceFixture()
+        let terminalOutput = try await terminalFixture.makeOutputDelivery()
+        let terminalPreparation = try await terminalFixture
+            .capturedPreparation(
+                for: terminalOutput,
+                historyEnabled: true
+            )
+        try await terminalFixture.operationGate.perform { lease in
+            _ = try await terminalFixture.deliveryStore
+                .acceptForHistoryCoordinator(
+                    terminalPreparation.deliveryPreparation,
+                    operationLeaseAuthorization: lease
+                )
+            let committed = try terminalFixture.deliveryJournal
+                .replaceCurrentForTesting(historyState: .committed)
+            _ = try terminalFixture.deliveryJournal.replaceCurrentForTesting(
+                historyState: .cancelled
+            )
+            await #expect(
+                throws: IOSAcceptedOutputDeliveryError.invalidTransition
+            ) {
+                _ = try await terminalFixture.deliveryStore
+                    .authorizeForegroundVoiceCapturedDestination(
+                        acceptance: IOSAcceptedHistoryAcceptanceResult(
+                            deliveryRecord: committed,
+                            resolution: .committed
+                        ),
+                        preparation: terminalPreparation.deliveryPreparation,
+                        pendingRecording: terminalOutput,
+                        operationLeaseAuthorization: lease
+                    )
+            }
+        }
+    }
+
     @Test func happyPathCommitsGenerationZeroThenRetiresExactPending()
         async throws {
         let fixture = ForegroundVoicePersistenceFixture()
@@ -1392,6 +1736,48 @@ private final class ForegroundVoicePersistenceFixture: @unchecked Sendable {
         )
     }
 
+    func capturedPreparation(
+        for pending: IOSPendingRecording,
+        historyEnabled: Bool,
+        transcriptionModel: String? = nil
+    ) async throws -> IOSForegroundVoiceAcceptedOutputPreparation {
+        let state = try IOSHistoryPolicyState(
+            revision: 1,
+            historyEnabled: historyEnabled,
+            policyGeneration: 1
+        )
+        let receipt = try await IOSHistoryPolicyStore(
+            journal: AcceptedDeliveryPolicyFakeJournal(state: state),
+            capabilityOwnerIdentity: ownerIdentity
+        ).confirm(expected: IOSHistoryPolicyExpectation(state: state))
+        let historyWrite: IOSAcceptedOutputHistoryWrite? = if historyEnabled {
+            try IOSAcceptedOutputHistoryWrite(
+                policyGeneration: state.policyGeneration,
+                transcriptionModel:
+                    transcriptionModel ?? pending.transcriptionModel,
+                transcriptionLanguageCode:
+                    pending.transcriptionLanguageCode,
+                durationMilliseconds: pending.durationMilliseconds
+            )
+        } else {
+            nil
+        }
+        let capture = IOSAcceptedOutputHistoryCapture(
+            testingPolicyReceipt: receipt,
+            historyWrite: historyWrite
+        )
+        return try IOSForegroundVoiceAcceptedOutputPreparation(
+            deliveryID: UUID(),
+            sessionID: UUID(),
+            attemptID: pending.attemptID,
+            transcriptID: try #require(pending.transcriptionID),
+            rawAcceptedText: "captured accepted text",
+            outputIntent: pending.outputIntent,
+            keepLatestResult: true,
+            historyMode: .captured(capture)
+        )
+    }
+
     func makeAdditionalFacade() -> IOSForegroundVoicePersistence {
         IOSForegroundVoicePersistence(
             operationGate: operationGate,
@@ -1885,6 +2271,9 @@ private final class ForegroundVoiceDeliveryJournal:
         lock.withLock { snapshot?.record }
     }
     var createCallCount: Int { lock.withLock { storedCreateCallCount } }
+    var replacementCallCount: Int {
+        lock.withLock { storedReplacementRecords.count }
+    }
     var replacedWithDiscardedBeforeLatest: Bool {
         lock.withLock {
             guard storedReplacementRecords.count > 1 else { return false }
@@ -1924,6 +2313,57 @@ private final class ForegroundVoiceDeliveryJournal:
 
     func removeCurrentRecordForTesting() {
         lock.withLock { snapshot = nil }
+    }
+
+    func installCurrentForTesting(
+        _ record: IOSAcceptedOutputDeliveryRecord
+    ) {
+        lock.withLock { snapshot = makeSnapshot(record) }
+    }
+
+    func replaceCurrentForTesting(
+        historyState: IOSAcceptedOutputHistoryWriteState? = nil,
+        acceptedText replacementAcceptedText: String? = nil,
+        attemptID replacementAttemptID: UUID? = nil,
+        transcriptID replacementTranscriptID: UUID? = nil
+    ) throws -> IOSAcceptedOutputDeliveryRecord {
+        try lock.withLock {
+            guard let current = snapshot?.record else {
+                throw IOSAcceptedOutputDeliveryError.compareAndSwapFailed
+            }
+            let historyWrite: IOSAcceptedOutputHistoryWrite?
+            if let historyState {
+                guard let marker = current.historyWrite else {
+                    throw IOSAcceptedOutputDeliveryError.invalidTransition
+                }
+                historyWrite = try marker.replacingState(historyState)
+            } else {
+                historyWrite = current.historyWrite
+            }
+            let replacement = try IOSAcceptedOutputDeliveryRecord(
+                revision: current.revision + 1,
+                deliveryID: current.deliveryID,
+                sessionID: current.sessionID,
+                attemptID: replacementAttemptID ?? current.attemptID,
+                transcriptID:
+                    replacementTranscriptID ?? current.transcriptID,
+                failedRetryID: current.failedRetryID,
+                acceptedText:
+                    replacementAcceptedText ?? current.acceptedText,
+                outputIntent: current.outputIntent,
+                createdAt: current.createdAt,
+                updatedAt: current.updatedAt,
+                expiresAt: current.expiresAt,
+                deliveryState: current.deliveryState,
+                automaticInsertionPreferenceEnabled:
+                    current.automaticInsertionPreferenceEnabled,
+                keepLatestResult: current.keepLatestResult,
+                publicationGeneration: current.publicationGeneration,
+                historyWrite: historyWrite
+            )
+            snapshot = makeSnapshot(replacement)
+            return replacement
+        }
     }
 
     func load() throws -> IOSAcceptedOutputDeliveryJournalSnapshot? {

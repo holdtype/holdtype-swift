@@ -248,6 +248,47 @@ struct IOSForegroundVoiceAcceptedDestinationAuthorization: Sendable {
     }
 }
 
+/// Exact current-process proof that the accepted-History coordinator already
+/// committed the mandatory foreground destination for one captured attempt.
+/// Unlike the P4 authorization, this proof never performs an identical
+/// delivery rewrite because a retained History recovery capability may still
+/// be bound to the current physical snapshot. This is current-process
+/// authority only; relaunch retirement continues through canonical destination
+/// evidence instead of reconstructing a captured capability.
+struct IOSForegroundVoiceCapturedDestinationAuthorization: Sendable {
+    let record: IOSAcceptedOutputDeliveryRecord
+    let snapshot: IOSAcceptedOutputDeliveryJournalSnapshot
+    let preparation: IOSAcceptedOutputDeliveryPreparation
+    let storeIdentity: IOSAcceptedOutputDeliveryStoreIdentity
+    let ownerIdentity: IOSAcceptedHistoryCapabilityOwnerIdentity
+    let operationLeaseAuthorization:
+        IOSPersistenceOperationLeaseAuthorization
+
+    func provesDestination(
+        for recording: IOSPendingRecording,
+        storeIdentity expectedStoreIdentity:
+            IOSAcceptedOutputDeliveryStoreIdentity,
+        ownerIdentity expectedOwnerIdentity:
+            IOSAcceptedHistoryCapabilityOwnerIdentity,
+        operationLeaseAuthorization expectedLease:
+            IOSPersistenceOperationLeaseAuthorization
+    ) -> Bool {
+        record == snapshot.record
+            && storeIdentity == expectedStoreIdentity
+            && operationLeaseAuthorization.provesSameActiveLease(
+                as: expectedLease
+            )
+            && ownerIdentity == expectedOwnerIdentity
+            && preparation.historyCapture?.ownerIdentity == ownerIdentity
+            && preparation.historyCapture?.policyReceipt
+                .capabilityOwnerIdentity == ownerIdentity
+            && record.isExactForegroundVoiceCapturedDestination(
+                for: recording,
+                preparation: preparation
+            )
+    }
+}
+
 struct IOSForegroundVoiceNoDestinationAuthorization: Sendable {
     let preparation: IOSAcceptedOutputDeliveryPreparation
     let pendingRecording: IOSPendingRecording
@@ -319,6 +360,37 @@ extension IOSAcceptedOutputDeliveryRecord {
             && attemptID == recording.attemptID
             && transcriptID == recording.transcriptionID
             && outputIntent == recording.outputIntent
+    }
+
+    func isExactForegroundVoiceCapturedDestination(
+        for recording: IOSPendingRecording,
+        preparation: IOSAcceptedOutputDeliveryPreparation
+    ) -> Bool {
+        guard preparation.historyCapture != nil,
+              !preparation.automaticInsertionPreferenceEnabled,
+              preparation.attemptID == recording.attemptID,
+              preparation.transcriptID == recording.transcriptionID,
+              preparation.outputIntent == recording.outputIntent,
+              recording.phase == .outputDelivery,
+              failedRetryID == nil,
+              publicationGeneration == 0,
+              !automaticInsertionPreferenceEnabled,
+              deliveryState == .pending,
+              keepLatestResult == preparation.keepLatestResult,
+              hasSameAcceptance(as: preparation) else {
+            return false
+        }
+        guard let historyWrite else {
+            return preparation.historyWrite == nil
+        }
+        return IOSAcceptedOutputDeliveryValidation.bytesEqual(
+            historyWrite.transcriptionModel,
+            recording.transcriptionModel
+        )
+            && historyWrite.transcriptionLanguageCode
+                == recording.transcriptionLanguageCode
+            && historyWrite.durationMilliseconds
+                == recording.durationMilliseconds
     }
 
     func foregroundVoicePreparation()
@@ -1240,6 +1312,17 @@ extension IOSForegroundVoiceAcceptedDestinationAuthorization:
     CustomReflectable {
     var description: String {
         "IOSForegroundVoiceAcceptedDestinationAuthorization(redacted)"
+    }
+    var debugDescription: String { description }
+    var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+extension IOSForegroundVoiceCapturedDestinationAuthorization:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    var description: String {
+        "IOSForegroundVoiceCapturedDestinationAuthorization(redacted)"
     }
     var debugDescription: String { description }
     var customMirror: Mirror { Mirror(self, children: [:]) }

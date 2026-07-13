@@ -2377,6 +2377,62 @@ public actor IOSAcceptedOutputDeliveryStore {
         )
     }
 
+    /// Mints a captured-foreground retirement proof from the coordinator's
+    /// durable acceptance result without rewriting the delivery journal. A
+    /// History recovery operation may still retain authority tied to the
+    /// current physical snapshot, so an identical confirmation write here
+    /// would revoke the capability needed to finish that local recovery.
+    func authorizeForegroundVoiceCapturedDestination(
+        acceptance: IOSAcceptedHistoryAcceptanceResult,
+        preparation: IOSAcceptedOutputDeliveryPreparation,
+        pendingRecording: IOSPendingRecording,
+        operationLeaseAuthorization:
+            IOSPersistenceOperationLeaseAuthorization
+    ) throws -> IOSForegroundVoiceCapturedDestinationAuthorization {
+        guard operationGateBinding.proves(operationLeaseAuthorization),
+              preparation.historyCapture != nil,
+              !preparation.automaticInsertionPreferenceEnabled,
+              preparation.attemptID == pendingRecording.attemptID,
+              preparation.transcriptID
+                == pendingRecording.transcriptionID,
+              preparation.outputIntent == pendingRecording.outputIntent,
+              pendingRecording.phase == .outputDelivery else {
+            throw IOSAcceptedOutputDeliveryError.invalidPreparation
+        }
+        try requirePreparationOwner(preparation)
+        try requireFailedRetryRelationDisposition(
+            nil,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+        let current = try requireCurrentSnapshot()
+        try requireActive(current.record)
+        guard acceptance.deliveryRecord
+                .isExactForegroundVoiceCapturedDestination(
+                    for: pendingRecording,
+                    preparation: preparation
+                ),
+              current.record.isExactForegroundVoiceCapturedDestination(
+                  for: pendingRecording,
+                  preparation: preparation
+              ),
+              resolutionIsCoherentForCapturedForegroundRetirement(
+                  acceptance.resolution,
+                  acceptanceRecord: acceptance.deliveryRecord,
+                  currentRecord: current.record,
+                  preparation: preparation
+              ) else {
+            throw IOSAcceptedOutputDeliveryError.invalidTransition
+        }
+        return IOSForegroundVoiceCapturedDestinationAuthorization(
+            record: current.record,
+            snapshot: current,
+            preparation: preparation,
+            storeIdentity: storeIdentity,
+            ownerIdentity: capabilityOwnerIdentity,
+            operationLeaseAuthorization: operationLeaseAuthorization
+        )
+    }
+
     func loadForegroundVoiceLatestResult(
         operationLeaseAuthorization:
             IOSPersistenceOperationLeaseAuthorization
@@ -2401,6 +2457,28 @@ public actor IOSAcceptedOutputDeliveryStore {
             return .active(current.record)
         }
         return observation(for: current.record)
+    }
+
+    private func resolutionIsCoherentForCapturedForegroundRetirement(
+        _ resolution: IOSAcceptedHistoryAcceptanceResolution,
+        acceptanceRecord: IOSAcceptedOutputDeliveryRecord,
+        currentRecord: IOSAcceptedOutputDeliveryRecord,
+        preparation: IOSAcceptedOutputDeliveryPreparation
+    ) -> Bool {
+        switch resolution {
+        case .notRequested:
+            acceptanceRecord.historyWrite == nil
+                && currentRecord.historyWrite == nil
+                && preparation.historyWrite == nil
+        case .committed:
+            acceptanceRecord.historyWrite?.state == .committed
+                && currentRecord.historyWrite?.state == .committed
+        case .cancelled:
+            acceptanceRecord.historyWrite?.state == .cancelled
+                && currentRecord.historyWrite?.state == .cancelled
+        case .pendingLocalRecovery:
+            true
+        }
     }
 
     func loadForegroundVoiceLatestResultWhileSaving(
