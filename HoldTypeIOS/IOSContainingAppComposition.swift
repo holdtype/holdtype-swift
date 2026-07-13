@@ -35,6 +35,7 @@ final class IOSContainingAppComposition {
             URL,
             IOSAppSettingsStateOwner,
             IOSLibraryStateOwner,
+            IOSProviderConsentCoordinator,
             IOSOpenAICredentialCoordinator?,
             IOSTranscriptionUsageRecordingClient
         ) -> IOSFailedHistoryService
@@ -103,6 +104,7 @@ final class IOSContainingAppComposition {
                 applicationSupportDirectoryURL,
                 settingsStateOwner,
                 libraryStateOwner,
+                providerConsentCoordinator,
                 credentialCoordinator,
                 usageRecordingClient in
                 IOSFailedHistoryService(
@@ -116,6 +118,8 @@ final class IOSContainingAppComposition {
                         try await libraryStateOwner
                             .confirmedValueForProviderAction()
                     },
+                    providerConsentCoordinator:
+                        providerConsentCoordinator,
                     credentialCoordinator: credentialCoordinator,
                     usageRecordingClient: usageRecordingClient
                 )
@@ -277,6 +281,7 @@ final class IOSContainingAppComposition {
             applicationSupportDirectoryURL,
             settingsStateOwner,
             libraryStateOwner,
+            providerConsentCoordinator,
             credentialCoordinator,
             usageRecordingClient
         )

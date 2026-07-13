@@ -87,6 +87,7 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
+                    providerConsentCoordinator,
                     credentialCoordinator,
                     usageRecordingClient in
                     events.append("failed-history")
@@ -94,6 +95,10 @@ struct IOSContainingAppCompositionTests {
                     #expect(
                         credentialCoordinator
                             === capturedCredentialCoordinator
+                    )
+                    #expect(
+                        providerConsentCoordinator
+                            === capturedProviderConsentCoordinator
                     )
                     #expect(
                         settingsStateOwner
@@ -114,6 +119,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
+                        providerConsentCoordinator:
+                            providerConsentCoordinator,
                         credentialCoordinator: credentialCoordinator,
                         usageRecordingClient: usageRecordingClient
                     )
@@ -390,6 +397,7 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
+                    providerConsentCoordinator,
                     coordinator,
                     usageRecordingClient in
                     serviceCredentialWasNil = coordinator == nil
@@ -403,6 +411,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
+                        providerConsentCoordinator:
+                            providerConsentCoordinator,
                         credentialCoordinator: coordinator,
                         usageRecordingClient: usageRecordingClient
                     )
@@ -529,6 +539,7 @@ struct IOSContainingAppCompositionTests {
                     resolvedRoot,
                     settingsStateOwner,
                     libraryStateOwner,
+                    providerConsentCoordinator,
                     coordinator,
                     usageRecordingClient in
                     serviceCredentialWasNil = coordinator == nil
@@ -542,6 +553,8 @@ struct IOSContainingAppCompositionTests {
                             try await libraryStateOwner
                                 .confirmedValueForProviderAction()
                         },
+                        providerConsentCoordinator:
+                            providerConsentCoordinator,
                         credentialCoordinator: coordinator,
                         usageRecordingClient: usageRecordingClient
                     )
@@ -648,7 +661,7 @@ struct IOSContainingAppCompositionTests {
                     credentialFactoryCalls += 1
                     throw CompositionFixtureError.unexpectedFactoryCall
                 },
-                makeFailedHistoryService: { _, _, _, _, _ in
+                makeFailedHistoryService: { _, _, _, _, _, _ in
                     serviceFactoryCalls += 1
                     preconditionFailure("Service must not be constructed.")
                 },

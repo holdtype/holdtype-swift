@@ -19,10 +19,14 @@ struct IOSFailedHistoryServiceTests {
                 )
             )
         )
+        let providerConsentCoordinator = IOSProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
         let service = IOSFailedHistoryService(
             applicationSupportDirectoryURL: root,
             loadSettings: { .defaults },
             loadLibrary: { .defaults },
+            providerConsentCoordinator: providerConsentCoordinator,
             credentialCoordinator: credentialCoordinator
         )
 
@@ -37,10 +41,14 @@ struct IOSFailedHistoryServiceTests {
         async throws {
         let root = try failedHistoryServiceTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root) }
+        let providerConsentCoordinator = IOSProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
         let service = IOSFailedHistoryService(
             applicationSupportDirectoryURL: root,
             loadSettings: { .defaults },
             loadLibrary: { .defaults },
+            providerConsentCoordinator: providerConsentCoordinator,
             credentialCoordinator: nil
         )
 

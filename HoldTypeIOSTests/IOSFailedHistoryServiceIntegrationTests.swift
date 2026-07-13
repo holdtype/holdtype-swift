@@ -49,6 +49,30 @@ struct IOSFailedHistoryServiceIntegrationTests {
         #expect(delivery.attemptID == fixture.attemptID)
     }
 
+    @Test func missingConsentStopsBeforeReservationCredentialAndProvider()
+        async throws {
+        let fixture = try await FailedHistoryServiceIntegrationFixture.make(
+            providerMode: .success("must not run"),
+            acceptConsent: false
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let item = try #require(
+            try await fixture.onlyFailedHistoryItem()
+        )
+
+        #expect(
+            await fixture.service.retryFailedHistory(item.id)
+                == .setupRequired(.microphoneAndPrivacy)
+        )
+        #expect(await fixture.provider.transcriptionCallCount() == 0)
+        #expect(await fixture.keyStore.loadCallCount() == 0)
+        let unchanged = try #require(
+            try await fixture.onlyFailedHistoryItem()
+        )
+        #expect(unchanged.retryCount == item.retryCount)
+        #expect(try await fixture.context.deliveryStore.load() == nil)
+    }
+
     @Test func fixedServiceCancellationAfterDispatchPublishesNoResult()
         async throws {
         let fixture = try await FailedHistoryServiceIntegrationFixture.make(
@@ -76,6 +100,49 @@ struct IOSFailedHistoryServiceIntegrationTests {
         #expect(remaining.map(\.id).contains(item.id))
         #expect(await fixture.keyStore.loadCallCount() == 0)
     }
+
+    @Test func withdrawalRejectsLateProviderResultAndCredentialFailure()
+        async throws {
+        let fixture = try await FailedHistoryServiceIntegrationFixture.make(
+            providerMode: .waitForRelease(.failure(.credentialRejected))
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let item = try #require(
+            try await fixture.onlyFailedHistoryItem()
+        )
+        let acceptedConsent = try #require(
+            fixture.acceptedConsentObservation
+        )
+        let retryTask = Task {
+            await fixture.service.retryFailedHistory(item.id)
+        }
+        try await failedHistoryServiceEventually {
+            await fixture.provider.transcriptionCallCount() == 1
+        }
+
+        _ = try await fixture.providerConsentCoordinator.withdraw(
+            using: acceptedConsent
+        )
+        #expect(
+            await retryTask.value
+                == .setupRequired(.microphoneAndPrivacy)
+        )
+        #expect(try await fixture.context.deliveryStore.load() == nil)
+        let remaining = try #require(
+            try await fixture.onlyFailedHistoryItem()
+        )
+        #expect(remaining.retryCount == item.retryCount + 1)
+
+        await fixture.provider.release()
+        for _ in 0..<8 { await Task.yield() }
+        #expect(try await fixture.context.deliveryStore.load() == nil)
+        let credentialOutcome = try await fixture.credentialCoordinator
+            .resolve(for: .voicePreflight)
+        guard case .available = credentialOutcome.resolution else {
+            Issue.record("Late rejected output must not poison the credential.")
+            return
+        }
+    }
 }
 
 @MainActor
@@ -86,11 +153,15 @@ private struct FailedHistoryServiceIntegrationFixture {
     let service: IOSFailedHistoryService
     let settingsStateOwner: IOSAppSettingsStateOwner
     let libraryStateOwner: IOSLibraryStateOwner
+    let providerConsentCoordinator: IOSProviderConsentCoordinator
+    let acceptedConsentObservation: IOSProviderConsentObservation?
+    let credentialCoordinator: IOSOpenAICredentialCoordinator
     let provider: FailedHistoryServiceProvider
     let keyStore: FailedHistoryServiceKeyStore
 
     static func make(
-        providerMode: FailedHistoryServiceProvider.Mode
+        providerMode: FailedHistoryServiceProvider.Mode,
+        acceptConsent: Bool = true
     ) async throws -> Self {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "ios-failed-history-service-integration-\(UUID().uuidString)",
@@ -148,6 +219,18 @@ private struct FailedHistoryServiceIntegrationFixture {
             _ = try await credentialCoordinator.saveOrReplace(
                 "sk-fixed-service-integration"
             )
+            let providerConsentCoordinator = IOSProviderConsentCoordinator(
+                applicationSupportDirectoryURL: root
+            )
+            let acceptedConsentObservation:
+                IOSProviderConsentObservation?
+            if acceptConsent {
+                let initial = await providerConsentCoordinator.observe()
+                acceptedConsentObservation = try await
+                    providerConsentCoordinator.accept(using: initial)
+            } else {
+                acceptedConsentObservation = nil
+            }
             let provider = FailedHistoryServiceProvider(mode: providerMode)
             let service = IOSFailedHistoryService(
                 applicationSupportDirectoryURL: root,
@@ -159,6 +242,7 @@ private struct FailedHistoryServiceIntegrationFixture {
                     try await libraryStateOwner
                         .confirmedValueForProviderAction()
                 },
+                providerConsentCoordinator: providerConsentCoordinator,
                 credentialCoordinator: credentialCoordinator,
                 providerBuilder: FailedHistoryServiceProviderBuilder(
                     provider: provider
@@ -195,6 +279,9 @@ private struct FailedHistoryServiceIntegrationFixture {
                 service: service,
                 settingsStateOwner: settingsStateOwner,
                 libraryStateOwner: libraryStateOwner,
+                providerConsentCoordinator: providerConsentCoordinator,
+                acceptedConsentObservation: acceptedConsentObservation,
+                credentialCoordinator: credentialCoordinator,
                 provider: provider,
                 keyStore: keyStore
             )
@@ -292,12 +379,17 @@ private actor FailedHistoryServiceProvider:
     enum Mode: Sendable {
         case success(String)
         case waitForCancellation
+        case waitForRelease(IOSFailedHistoryRetryProviderTextOutcome)
     }
 
     private let mode: Mode
     private var transcriptionCalls = 0
     private var lastRequest:
         IOSFailedHistoryRetryTranscriptionRequest?
+    private var releaseContinuation: CheckedContinuation<
+        IOSFailedHistoryRetryProviderTextOutcome,
+        Never
+    >?
 
     init(mode: Mode) {
         self.mode = mode
@@ -317,6 +409,10 @@ private actor FailedHistoryServiceProvider:
                 return .failure(.unknown)
             } catch {
                 return .failure(.cancelled)
+            }
+        case .waitForRelease:
+            return await withCheckedContinuation { continuation in
+                releaseContinuation = continuation
             }
         }
     }
@@ -340,6 +436,13 @@ private actor FailedHistoryServiceProvider:
     func lastTranscriptionRequest()
         -> IOSFailedHistoryRetryTranscriptionRequest? {
         lastRequest
+    }
+
+    func release() {
+        guard case .waitForRelease(let outcome) = mode else { return }
+        let continuation = releaseContinuation
+        releaseContinuation = nil
+        continuation?.resume(returning: outcome)
     }
 }
 

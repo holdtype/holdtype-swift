@@ -15,6 +15,7 @@ public actor IOSFailedHistoryService {
         applicationSupportDirectoryURL: URL,
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        providerConsentCoordinator: IOSProviderConsentCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         usageRecordingClient: IOSTranscriptionUsageRecordingClient
     ) {
@@ -24,6 +25,7 @@ public actor IOSFailedHistoryService {
             retrySessionProvider = IOSFailedHistoryRetrySessionFactory(
                 loadSettings: loadSettings,
                 loadLibrary: loadLibrary,
+                consentCoordinator: providerConsentCoordinator,
                 credentialCoordinator: credentialCoordinator,
                 providerBuilder: IOSOpenAIFailedHistoryRetryProviderBuilder()
             )
@@ -44,6 +46,7 @@ public actor IOSFailedHistoryService {
         applicationSupportDirectoryURL: URL,
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        providerConsentCoordinator: IOSProviderConsentCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator?
     ) {
         let repository = IOSTranscriptionUsageRepository(
@@ -53,6 +56,7 @@ public actor IOSFailedHistoryService {
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             loadSettings: loadSettings,
             loadLibrary: loadLibrary,
+            providerConsentCoordinator: providerConsentCoordinator,
             credentialCoordinator: credentialCoordinator,
             usageRecordingClient: IOSTranscriptionUsageRecordingClient(
                 repository: repository,
@@ -65,6 +69,7 @@ public actor IOSFailedHistoryService {
         applicationSupportDirectoryURL: URL,
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        providerConsentCoordinator: IOSProviderConsentCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator,
         providerBuilder: any IOSFailedHistoryRetryProviderBuilding,
         usageRecordingClient: IOSTranscriptionUsageRecordingClient
@@ -72,6 +77,7 @@ public actor IOSFailedHistoryService {
         let sessionFactory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: loadSettings,
             loadLibrary: loadLibrary,
+            consentCoordinator: providerConsentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -87,6 +93,7 @@ public actor IOSFailedHistoryService {
         applicationSupportDirectoryURL: URL,
         loadSettings: @escaping @Sendable () async throws -> IOSAppSettings,
         loadLibrary: @escaping @Sendable () async throws -> IOSLibraryContent,
+        providerConsentCoordinator: IOSProviderConsentCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator,
         providerBuilder: any IOSFailedHistoryRetryProviderBuilding
     ) {
@@ -97,6 +104,7 @@ public actor IOSFailedHistoryService {
             applicationSupportDirectoryURL: applicationSupportDirectoryURL,
             loadSettings: loadSettings,
             loadLibrary: loadLibrary,
+            providerConsentCoordinator: providerConsentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder,
             usageRecordingClient: IOSTranscriptionUsageRecordingClient(

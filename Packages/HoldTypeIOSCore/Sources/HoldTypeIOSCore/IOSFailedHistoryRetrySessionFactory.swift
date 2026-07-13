@@ -18,17 +18,20 @@ actor IOSFailedHistoryRetrySessionFactory:
 
     private let loadSettings: SettingsLoader
     private let loadLibrary: LibraryLoader
+    private let consentCoordinator: IOSProviderConsentCoordinator
     private let credentialCoordinator: IOSOpenAICredentialCoordinator
     private let providerBuilder: any IOSFailedHistoryRetryProviderBuilding
 
     init(
         loadSettings: @escaping SettingsLoader,
         loadLibrary: @escaping LibraryLoader,
+        consentCoordinator: IOSProviderConsentCoordinator,
         credentialCoordinator: IOSOpenAICredentialCoordinator,
         providerBuilder: any IOSFailedHistoryRetryProviderBuilding
     ) {
         self.loadSettings = loadSettings
         self.loadLibrary = loadLibrary
+        self.consentCoordinator = consentCoordinator
         self.credentialCoordinator = credentialCoordinator
         self.providerBuilder = providerBuilder
     }
@@ -92,6 +95,23 @@ actor IOSFailedHistoryRetrySessionFactory:
         }
         guard !Task.isCancelled else { return .cancelled }
 
+        let initialConsentObservation = await consentCoordinator.observe()
+        guard !Task.isCancelled else { return .cancelled }
+        if let blocked = Self.blockedConsentResolution(
+            for: initialConsentObservation.status
+        ) {
+            return blocked
+        }
+        guard consentCoordinator.makeAuthorization(
+            from: initialConsentObservation
+        ) != nil else {
+            let currentConsentObservation = await consentCoordinator.observe()
+            guard !Task.isCancelled else { return .cancelled }
+            return Self.blockedConsentResolution(
+                for: currentConsentObservation.status
+            ) ?? .temporarilyUnavailable
+        }
+
         let credential: IOSResolvedOpenAICredential
         do {
             let outcome = try await credentialCoordinator.resolve(
@@ -115,8 +135,31 @@ actor IOSFailedHistoryRetrySessionFactory:
         let builtProvider = await providerBuilder
             .makeFailedHistoryRetryProvider(credential: credential)
         guard !Task.isCancelled else { return .cancelled }
+
+        let refreshedConsentObservation = await consentCoordinator.observe()
+        guard !Task.isCancelled else { return .cancelled }
+        if let blocked = Self.blockedConsentResolution(
+            for: refreshedConsentObservation.status
+        ) {
+            return blocked
+        }
+        guard consentCoordinator.hasSameObservationAuthority(
+            refreshedConsentObservation,
+            as: initialConsentObservation
+        ), consentCoordinator.makeAuthorization(
+            from: refreshedConsentObservation
+        ) != nil else {
+            return .temporarilyUnavailable
+        }
+
+        let consentProvider =
+            IOSProviderConsentFailedHistoryRetryProvider(
+                provider: builtProvider,
+                consentObservation: refreshedConsentObservation,
+                consentCoordinator: consentCoordinator
+            )
         let provider = IOSFailedHistoryRetryCredentialTrackingProvider(
-            provider: builtProvider,
+            provider: consentProvider,
             credentialCoordinator: credentialCoordinator,
             credentialGeneration: credential.generation
         )
@@ -126,6 +169,19 @@ actor IOSFailedHistoryRetrySessionFactory:
                 provider: provider
             )
         )
+    }
+
+    nonisolated static func blockedConsentResolution(
+        for status: IOSProviderConsentStatus
+    ) -> IOSFailedHistoryRetrySessionResolution? {
+        switch status {
+        case .acceptedCurrentDisclosure:
+            nil
+        case .notReviewed, .reviewRequired, .withdrawn:
+            .setupRequired(.microphoneAndPrivacy)
+        case .localDataUnavailable, .mutationNotSaved:
+            .temporarilyUnavailable
+        }
     }
 }
 

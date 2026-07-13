@@ -32,10 +32,14 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
                 )
             )
         )
+        let consentCoordinator = try await acceptedRetryConsentCoordinator(
+            in: root
+        )
         let providerBuilder = RetryFactoryProviderBuilder()
         let factory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: { await configurationStore.loadSettings() },
             loadLibrary: { await configurationStore.loadLibrary() },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -112,10 +116,14 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
                 )
             )
         )
+        let consentCoordinator = try await acceptedRetryConsentCoordinator(
+            in: root
+        )
         let providerBuilder = RetryFactoryProviderBuilder()
         let factory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: { .defaults },
             loadLibrary: { .defaults },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -141,6 +149,7 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         let invalidTranslationFactory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: { .defaults },
             loadLibrary: { .defaults },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: configuredCoordinator,
             providerBuilder: providerBuilder
         )
@@ -170,6 +179,9 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             )
         )
         let providerBuilder = RetryFactoryProviderBuilder()
+        let consentCoordinator = IOSProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
         let settingsFailure = IOSFailedHistoryRetrySessionFactory(
             loadSettings: {
                 throw RetryFactoryConfigurationLoadError.scripted
@@ -178,6 +190,7 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
                 Issue.record("Library must not load after Settings failure.")
                 return .defaults
             },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -186,6 +199,7 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             loadLibrary: {
                 throw RetryFactoryConfigurationLoadError.scripted
             },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -198,6 +212,87 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
         guard case .temporarilyUnavailable = await libraryFailure
             .makeFailedHistoryRetrySession(for: .standard) else {
             Issue.record("Expected Library load failure to stay local.")
+            return
+        }
+        #expect(await keyStore.loadCallCount() == 0)
+        #expect(await providerBuilder.resolvedKeys().isEmpty)
+    }
+
+    @Test func consentStatusMappingFailsClosedBeforeCredentialResolution() {
+        for status in [
+            IOSProviderConsentStatus.notReviewed,
+            .reviewRequired,
+            .withdrawn,
+        ] {
+            guard let resolution = IOSFailedHistoryRetrySessionFactory
+                    .blockedConsentResolution(for: status),
+                  case .setupRequired(.microphoneAndPrivacy) = resolution else {
+                Issue.record("Expected Privacy setup for stale consent.")
+                continue
+            }
+        }
+
+        for status in [
+            IOSProviderConsentStatus.localDataUnavailable,
+            .mutationNotSaved,
+        ] {
+            guard let resolution = IOSFailedHistoryRetrySessionFactory
+                    .blockedConsentResolution(for: status),
+                  case .temporarilyUnavailable = resolution else {
+                Issue.record("Expected unavailable mutation state to fail closed.")
+                continue
+            }
+        }
+
+        #expect(
+            IOSFailedHistoryRetrySessionFactory.blockedConsentResolution(
+                for: .acceptedCurrentDisclosure
+            ) == nil
+        )
+    }
+
+    @Test func unreviewedAndWithdrawnConsentStopBeforeKeychainAndProvider()
+        async throws {
+        let root = try retryFactoryTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let keyStore = RetryFactoryAPIKeyStore(
+            storedKey: "sk-consent-blocked"
+        )
+        let credentialCoordinator = IOSOpenAICredentialCoordinator(
+            keychainStorage: keyStore,
+            markerRepository: CredentialPresenceMarkerRepository(
+                fileURL: IOSCredentialPresenceMarkerStorageLocation.fileURL(
+                    in: root
+                )
+            )
+        )
+        let consentCoordinator = IOSProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
+        let providerBuilder = RetryFactoryProviderBuilder()
+        let factory = IOSFailedHistoryRetrySessionFactory(
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
+            consentCoordinator: consentCoordinator,
+            credentialCoordinator: credentialCoordinator,
+            providerBuilder: providerBuilder
+        )
+
+        guard case .setupRequired(.microphoneAndPrivacy) = await factory
+            .makeFailedHistoryRetrySession(for: .standard) else {
+            Issue.record("Expected unreviewed consent to route to Privacy.")
+            return
+        }
+        #expect(await keyStore.loadCallCount() == 0)
+        #expect(await providerBuilder.resolvedKeys().isEmpty)
+
+        let absent = await consentCoordinator.observe()
+        let accepted = try await consentCoordinator.accept(using: absent)
+        _ = try await consentCoordinator.withdraw(using: accepted)
+
+        guard case .setupRequired(.microphoneAndPrivacy) = await factory
+            .makeFailedHistoryRetrySession(for: .standard) else {
+            Issue.record("Expected withdrawn consent to route to Privacy.")
             return
         }
         #expect(await keyStore.loadCallCount() == 0)
@@ -219,9 +314,13 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             )
         )
         let providerBuilder = RetryFactoryProviderBuilder()
+        let consentCoordinator = IOSProviderConsentCoordinator(
+            applicationSupportDirectoryURL: root
+        )
         let factory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: { await settingsGate.load() },
             loadLibrary: { IOSLibraryContent.defaults },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -257,9 +356,13 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
             )
         )
         let providerBuilder = RetryFactorySuspendingProviderBuilder()
+        let consentCoordinator = try await acceptedRetryConsentCoordinator(
+            in: root
+        )
         let factory = IOSFailedHistoryRetrySessionFactory(
             loadSettings: { .defaults },
             loadLibrary: { .defaults },
+            consentCoordinator: consentCoordinator,
             credentialCoordinator: credentialCoordinator,
             providerBuilder: providerBuilder
         )
@@ -275,6 +378,52 @@ struct IOSFailedHistoryRetrySessionFactoryTests {
 
         guard case .cancelled = await task.value else {
             Issue.record("Expected cancellation after provider construction.")
+            return
+        }
+        #expect(await providerBuilder.buildCount() == 1)
+    }
+
+    @Test func consentChangeDuringProviderBuildCannotReturnReady()
+        async throws {
+        let root = try retryFactoryTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let keyStore = RetryFactoryAPIKeyStore(
+            storedKey: "sk-consent-changed"
+        )
+        let credentialCoordinator = IOSOpenAICredentialCoordinator(
+            keychainStorage: keyStore,
+            markerRepository: CredentialPresenceMarkerRepository(
+                fileURL: IOSCredentialPresenceMarkerStorageLocation.fileURL(
+                    in: root
+                )
+            )
+        )
+        let consentCoordinator = try await acceptedRetryConsentCoordinator(
+            in: root
+        )
+        let acceptedObservation = await consentCoordinator.observe()
+        let providerBuilder = RetryFactorySuspendingProviderBuilder()
+        let factory = IOSFailedHistoryRetrySessionFactory(
+            loadSettings: { .defaults },
+            loadLibrary: { .defaults },
+            consentCoordinator: consentCoordinator,
+            credentialCoordinator: credentialCoordinator,
+            providerBuilder: providerBuilder
+        )
+
+        let task = Task {
+            await factory.makeFailedHistoryRetrySession(for: .standard)
+        }
+        while await providerBuilder.hasStarted() == false {
+            await Task.yield()
+        }
+        _ = try await consentCoordinator.withdraw(
+            using: acceptedObservation
+        )
+        await providerBuilder.resume()
+
+        guard case .setupRequired(.microphoneAndPrivacy) = await task.value else {
+            Issue.record("Expected changed consent to invalidate the session.")
             return
         }
         #expect(await providerBuilder.buildCount() == 1)
@@ -549,6 +698,17 @@ private func expectProviderRejected(
 
 private enum RetryFactoryTestError: Error {
     case missingCredential
+}
+
+private func acceptedRetryConsentCoordinator(
+    in root: URL
+) async throws -> IOSProviderConsentCoordinator {
+    let coordinator = IOSProviderConsentCoordinator(
+        applicationSupportDirectoryURL: root
+    )
+    let observation = await coordinator.observe()
+    _ = try await coordinator.accept(using: observation)
+    return coordinator
 }
 
 private func retryFactoryTemporaryRoot() throws -> URL {
