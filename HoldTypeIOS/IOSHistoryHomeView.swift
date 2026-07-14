@@ -2,6 +2,35 @@ import HoldTypePersistence
 import SwiftUI
 import UIKit
 
+@MainActor
+struct IOSHistoryRowActions {
+    private let copyText: (String) -> Void
+    private let isPlaybackAvailable: (UUID) -> Bool
+    private let playRecording: (UUID) -> Void
+
+    init(
+        copyText: @escaping (String) -> Void,
+        isPlaybackAvailable: @escaping (UUID) -> Bool = { _ in false },
+        playRecording: @escaping (UUID) -> Void = { _ in }
+    ) {
+        self.copyText = copyText
+        self.isPlaybackAvailable = isPlaybackAvailable
+        self.playRecording = playRecording
+    }
+
+    func copy(_ text: String) {
+        copyText(text)
+    }
+
+    func canPlay(resultID: UUID) -> Bool {
+        isPlaybackAvailable(resultID)
+    }
+
+    func play(resultID: UUID) {
+        playRecording(resultID)
+    }
+}
+
 struct IOSHistoryHomeView: View {
     @Environment(IOSAcceptedTextHistoryStateOwner.self)
     private var stateOwner
@@ -9,6 +38,18 @@ struct IOSHistoryHomeView: View {
         IOSAcceptedTextHistorySnapshotToken?
     @State private var pendingDisableToken:
         IOSAcceptedTextHistorySnapshotToken?
+
+    private let rowActions: IOSHistoryRowActions
+
+    init() {
+        rowActions = IOSHistoryRowActions(
+            copyText: { UIPasteboard.general.string = $0 }
+        )
+    }
+
+    init(rowActions: IOSHistoryRowActions) {
+        self.rowActions = rowActions
+    }
 
     var body: some View {
         Group {
@@ -30,7 +71,7 @@ struct IOSHistoryHomeView: View {
         .navigationTitle("History")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                refreshToolbarItem
+                historyManagementMenu
             }
         }
         .task {
@@ -96,19 +137,62 @@ struct IOSHistoryHomeView: View {
         )
     }
 
-    @ViewBuilder
-    private var refreshToolbarItem: some View {
-        if stateOwner.isBusy {
-            ProgressView()
-                .accessibilityLabel("Updating History")
-        } else {
+    private var historyManagementMenu: some View {
+        Menu {
             Button {
                 Task { await stateOwner.refresh() }
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
             .accessibilityIdentifier("ios.history.refresh")
+
+            if let record = stateOwner.confirmedRecord {
+                Divider()
+
+                Toggle(
+                    "Save History",
+                    isOn: saveHistoryBinding(record)
+                )
+                .accessibilityIdentifier("ios.history.save-history")
+
+                Button("Clear All History", role: .destructive) {
+                    pendingClearToken = IOSAcceptedTextHistorySnapshotToken(
+                        record: record
+                    )
+                }
+                .disabled(record.entries.isEmpty)
+                .accessibilityIdentifier("ios.history.clear-all")
+            }
+        } label: {
+            Label("History Options", systemImage: "ellipsis.circle")
         }
+        .disabled(stateOwner.isBusy)
+        .accessibilityIdentifier("ios.history.menu")
+    }
+
+    private func saveHistoryBinding(
+        _ record: IOSAcceptedTextHistoryRecord
+    ) -> Binding<Bool> {
+        Binding(
+            get: { record.isEnabled },
+            set: { requestedValue in
+                guard requestedValue != record.isEnabled else { return }
+
+                let token = IOSAcceptedTextHistorySnapshotToken(
+                    record: record
+                )
+                if requestedValue {
+                    Task {
+                        await stateOwner.setEnabled(
+                            true,
+                            ifCurrent: token
+                        )
+                    }
+                } else {
+                    pendingDisableToken = token
+                }
+            }
+        )
     }
 
     private func historyList(
@@ -117,8 +201,6 @@ struct IOSHistoryHomeView: View {
         isStale: Bool
     ) -> some View {
         List {
-            saveHistorySection(record)
-
             if let notice = stateOwner.notice {
                 Section {
                     Label {
@@ -164,31 +246,9 @@ struct IOSHistoryHomeView: View {
                 }
                 .accessibilityIdentifier("ios.history.empty")
             case .entries:
-                Section("Recent Results") {
-                    ForEach(record.entries) { entry in
-                        historyRow(entry)
-                    }
+                ForEach(record.entries) { entry in
+                    historyRow(entry)
                 }
-
-                Section {
-                    Button("Clear All History", role: .destructive) {
-                        pendingClearToken = IOSAcceptedTextHistorySnapshotToken(
-                            record: record
-                        )
-                    }
-                    .disabled(stateOwner.isBusy)
-                    .accessibilityIdentifier("ios.history.clear-all")
-                }
-            }
-
-            Section {
-                Text(
-                    "History stores only the 20 newest successful texts "
-                        + "locally on this device. It never stores audio, API "
-                        + "keys, prompts, or failed attempts."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
         }
         .refreshable {
@@ -197,145 +257,63 @@ struct IOSHistoryHomeView: View {
         }
     }
 
-    private func saveHistorySection(
-        _ record: IOSAcceptedTextHistoryRecord
-    ) -> some View {
-        Section {
-            Toggle(
-                "Save History",
-                isOn: Binding(
-                    get: { record.isEnabled },
-                    set: { requestedValue in
-                        guard requestedValue != record.isEnabled else {
-                            return
-                        }
-                        let token = IOSAcceptedTextHistorySnapshotToken(
-                            record: record
-                        )
-                        if requestedValue {
-                            Task {
-                                await stateOwner.setEnabled(
-                                    true,
-                                    ifCurrent: token
-                                )
-                            }
-                        } else {
-                            pendingDisableToken = token
-                        }
-                    }
-                )
-            )
-            .disabled(stateOwner.isBusy)
-            .accessibilityIdentifier("ios.history.save-history")
-        } footer: {
-            Text("When on, successful texts are saved locally after Latest Result is ready.")
-        }
-    }
-
     private func historyRow(
         _ entry: IOSAcceptedTextHistoryEntry
     ) -> some View {
-        NavigationLink {
-            IOSHistoryDetailView(resultID: entry.resultID)
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(entry.text)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(entry.createdAt, format: .dateTime.day().month().year().hour().minute())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 8) {
+            Text(entry.text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 0) {
+                if rowActions.canPlay(resultID: entry.resultID) {
+                    historyActionButton(
+                        title: "Play Recording",
+                        systemImage: "play.fill"
+                    ) {
+                        rowActions.play(resultID: entry.resultID)
+                    }
+                    .accessibilityIdentifier(
+                        "ios.history.play.\(entry.resultID.uuidString)"
+                    )
+                }
+
+                historyActionButton(
+                    title: "Copy Text",
+                    systemImage: "doc.on.doc"
+                ) {
+                    rowActions.copy(entry.text)
+                }
+                .accessibilityHint("Copies this text to the clipboard")
+                .accessibilityIdentifier(
+                    "ios.history.copy.\(entry.resultID.uuidString)"
+                )
             }
-            .padding(.vertical, 4)
         }
-        .swipeActions(edge: .trailing) {
+        .padding(.vertical, 4)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button("Delete", role: .destructive) {
                 Task { await stateOwner.delete(resultID: entry.resultID) }
             }
             .disabled(stateOwner.isBusy)
         }
-        .contextMenu {
-            Button("Copy") {
-                UIPasteboard.general.string = entry.text
-            }
-            ShareLink(item: entry.text)
-            Button("Delete", role: .destructive) {
-                Task { await stateOwner.delete(resultID: entry.resultID) }
-            }
-        }
-        .accessibilityIdentifier("ios.history.entry.\(entry.resultID.uuidString)")
-    }
-}
-
-private struct IOSHistoryDetailView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(IOSAcceptedTextHistoryStateOwner.self)
-    private var stateOwner
-
-    let resultID: UUID
-
-    var body: some View {
-        Group {
-            if let entry = currentEntry {
-                List {
-                    Section("Text") {
-                        Text(entry.text)
-                            .textSelection(.enabled)
-                    }
-                    Section("Saved") {
-                        Text(
-                            entry.createdAt,
-                            format: .dateTime
-                                .day()
-                                .month()
-                                .year()
-                                .hour()
-                                .minute()
-                                .second()
-                        )
-                    }
-                    Section {
-                        Button("Copy") {
-                            UIPasteboard.general.string = entry.text
-                        }
-                        ShareLink("Share", item: entry.text)
-                        Button("Delete", role: .destructive) {
-                            Task {
-                                if await stateOwner.delete(
-                                    resultID: resultID
-                                ) {
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .disabled(stateOwner.isBusy)
-                    }
-                }
-            } else {
-                ContentUnavailableView {
-                    Label(
-                        "History Result Removed",
-                        systemImage: "trash"
-                    )
-                } description: {
-                    Text(
-                        "This result is no longer in the confirmed History."
-                    )
-                } actions: {
-                    Button("Back") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        .navigationTitle("History Result")
-        .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("ios.history.detail")
+        .accessibilityIdentifier(
+            "ios.history.entry.\(entry.resultID.uuidString)"
+        )
     }
 
-    private var currentEntry: IOSAcceptedTextHistoryEntry? {
-        stateOwner.confirmedRecord?.entries.first {
-            $0.resultID == resultID
+    private func historyActionButton(
+        title: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
