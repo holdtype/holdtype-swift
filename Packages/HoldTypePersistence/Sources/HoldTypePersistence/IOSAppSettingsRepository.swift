@@ -100,6 +100,7 @@ private enum IOSAppSettingsWireCodec {
         "textCorrection",
         "localTextCleanupEnabled",
         "translation",
+        "recordingCache",
         // Tolerated only so V1 settings decode after the always-on Latest cutover.
         "keepLatestResult",
         "voice",
@@ -129,6 +130,10 @@ private enum IOSAppSettingsWireCodec {
     private static let voiceFields: Set<String> = [
         "audioCuesEnabled",
         "recordingStopTailDuration",
+    ]
+    private static let recordingCacheFields: Set<String> = [
+        "mode",
+        "retainedRecordingLimit",
     ]
 
     static func encode(_ settings: IOSAppSettings) throws -> Data {
@@ -200,7 +205,8 @@ private enum IOSAppSettingsWireCodec {
                 defaultValue: IOSAppSettings.defaults.localTextCleanupEnabled
             ),
             translationConfiguration: try decodeTranslation(from: root),
-            voiceSessionPreferences: try decodeVoice(from: root)
+            voiceSessionPreferences: try decodeVoice(from: root),
+            recordingCachePolicy: try decodeRecordingCache(from: root)
         )
     }
 
@@ -315,6 +321,37 @@ private enum IOSAppSettingsWireCodec {
             )
         )
     }
+
+    private static func decodeRecordingCache(
+        from root: WireObjectReader
+    ) throws -> RecordingCachePolicy {
+        guard let reader = try root.object("recordingCache") else {
+            return .deleteImmediately
+        }
+        try reader.rejectUnexpectedFields(allowing: recordingCacheFields)
+
+        let mode = try reader.enumeration(
+            "mode",
+            defaultValue: RecordingCachePolicyModeWireV1.deleteImmediately
+        )
+        let retainedRecordingLimit = try reader.integer(
+            "retainedRecordingLimit",
+            defaultValue: RecordingCachePolicy.defaultRetainedRecordingLimit
+        )
+
+        switch mode {
+        case .deleteImmediately:
+            return .deleteImmediately
+        case .keepLast:
+            return .keepLast(
+                RecordingCachePolicy.normalizedRetainedRecordingLimit(
+                    retainedRecordingLimit
+                )
+            )
+        case .unlimited:
+            return .unlimited
+        }
+    }
 }
 
 private struct WireObjectReader {
@@ -370,6 +407,13 @@ private struct WireObjectReader {
         return integer
     }
 
+    func integer(_ key: String, defaultValue: Int) throws -> Int {
+        guard object.keys.contains(key) else {
+            return defaultValue
+        }
+        return try integer(key)
+    }
+
     func enumeration<Value>(
         _ key: String,
         defaultValue: Value
@@ -403,6 +447,7 @@ private struct IOSAppSettingsWireV1: Encodable {
     let localTextCleanupEnabled: Bool
     let translation: TranslationWireV1
     let voice: VoiceWireV1
+    let recordingCache: RecordingCacheWireV1
 
     init(settings: IOSAppSettings) {
         schemaVersion = 1
@@ -436,6 +481,9 @@ private struct IOSAppSettingsWireV1: Encodable {
             recordingStopTailDuration:
                 settings.voiceSessionPreferences.recordingStopTailDuration.rawValue
         )
+        recordingCache = RecordingCacheWireV1(
+            policy: settings.recordingCachePolicy
+        )
     }
 }
 
@@ -467,4 +515,28 @@ private struct TranslationWireV1: Encodable {
 private struct VoiceWireV1: Encodable {
     let audioCuesEnabled: Bool
     let recordingStopTailDuration: String
+}
+
+private enum RecordingCachePolicyModeWireV1: String, Encodable {
+    case deleteImmediately
+    case keepLast
+    case unlimited
+}
+
+private struct RecordingCacheWireV1: Encodable {
+    let mode: RecordingCachePolicyModeWireV1
+    let retainedRecordingLimit: Int
+
+    init(policy: RecordingCachePolicy) {
+        retainedRecordingLimit = policy.retainedRecordingLimit
+
+        switch policy.normalized {
+        case .deleteImmediately:
+            mode = .deleteImmediately
+        case .keepLast:
+            mode = .keepLast
+        case .unlimited:
+            mode = .unlimited
+        }
+    }
 }

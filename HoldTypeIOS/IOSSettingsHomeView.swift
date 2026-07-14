@@ -123,6 +123,7 @@ struct IOSSettingsHomeView: View {
         case .voiceRecording:
             IOSVoiceRecordingSettingsView(
                 preferences: settings.voiceSessionPreferences,
+                recordingCachePolicy: settings.recordingCachePolicy,
                 hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
             )
         }
@@ -309,7 +310,11 @@ private struct IOSSettingsSummaryList: View {
         let tail = stopTailName(
             settings.voiceSessionPreferences.recordingStopTailDuration
         )
-        return cues + " · Tail " + tail
+        return cues
+            + " · Tail "
+            + tail
+            + " · "
+            + settings.recordingCachePolicy.iosSettingsSummary
     }
 
     private var openAISummary: String {

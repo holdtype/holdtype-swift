@@ -317,13 +317,18 @@ struct IOSAppSettingsEditorSupportTests {
             audioCuesEnabled: true,
             recordingStopTailDuration: .seconds2
         )
+        let voiceDraft = IOSVoiceRecordingSettingsDraft(
+            preferences: voice,
+            recordingCachePolicy: .keepLast(25)
+        )
         var voiceResult = base
         IOSAppSettingsEditorMutation.applyVoiceAndRecording(
-            voice,
+            voiceDraft,
             to: &voiceResult
         )
         expected = base
         expected.voiceSessionPreferences = voice
+        expected.recordingCachePolicy = .keepLast(25)
         #expect(voiceResult == expected)
     }
 
@@ -349,6 +354,58 @@ struct IOSAppSettingsEditorSupportTests {
             RecordingStopTailDuration.allCases.allSatisfy {
                 !$0.iosSettingsDisplayName.isEmpty
             }
+        )
+        #expect(
+            IOSRecordingCacheRetentionMode.allCases == [.keepLast, .unlimited]
+        )
+        #expect(
+            RecordingCachePolicy.deleteImmediately.iosSettingsSummary
+                == "Cache off"
+        )
+        #expect(
+            RecordingCachePolicy.keepLast(25).iosSettingsSummary
+                == "Cache last 25"
+        )
+        #expect(
+            RecordingCachePolicy.unlimited.iosSettingsSummary
+                == "Cache unlimited"
+        )
+        #expect(
+            RecordingCachePolicy.deleteImmediately.iosSettingsRetentionMode
+                == .keepLast
+        )
+        #expect(
+            RecordingCachePolicy.unlimited.iosSettingsRetentionMode
+                == .unlimited
+        )
+    }
+
+    @Test func recordingCacheEditorUsesExplicitOffLastTenAndUnlimitedPolicies() {
+        #expect(
+            IOSRecordingCachePolicyEditor.policyAfterSettingEnabled(false)
+                == .deleteImmediately
+        )
+        #expect(
+            IOSRecordingCachePolicyEditor.policyAfterSettingEnabled(true)
+                == .keepLast(10)
+        )
+        #expect(
+            IOSRecordingCachePolicyEditor.policyAfterSelectingRetention(
+                .unlimited,
+                currentPolicy: .keepLast(25)
+            ) == .unlimited
+        )
+        #expect(
+            IOSRecordingCachePolicyEditor.policyAfterSelectingRetention(
+                .keepLast,
+                currentPolicy: .unlimited
+            ) == .keepLast(10)
+        )
+        #expect(
+            IOSRecordingCachePolicyEditor.policyAfterSelectingRetention(
+                .keepLast,
+                currentPolicy: .keepLast(25)
+            ) == .keepLast(25)
         )
     }
 
@@ -492,7 +549,8 @@ struct IOSAppSettingsEditorSupportTests {
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1
-            )
+            ),
+            recordingCachePolicy: .keepLast(3)
         )
     }
 }

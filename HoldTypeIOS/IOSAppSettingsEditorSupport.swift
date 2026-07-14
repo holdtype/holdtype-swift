@@ -160,6 +160,38 @@ struct IOSWritingCorrectionSettingsDraft: Equatable, Sendable {
     var localTextCleanupEnabled: Bool
 }
 
+struct IOSVoiceRecordingSettingsDraft: Equatable, Sendable {
+    var preferences: VoiceSessionPreferences
+    var recordingCachePolicy: RecordingCachePolicy
+}
+
+enum IOSRecordingCacheRetentionMode: String, CaseIterable, Hashable {
+    case keepLast
+    case unlimited
+}
+
+enum IOSRecordingCachePolicyEditor {
+    nonisolated static func policyAfterSettingEnabled(
+        _ isEnabled: Bool
+    ) -> RecordingCachePolicy {
+        isEnabled
+            ? .keepLast(RecordingCachePolicy.defaultRetainedRecordingLimit)
+            : .deleteImmediately
+    }
+
+    nonisolated static func policyAfterSelectingRetention(
+        _ mode: IOSRecordingCacheRetentionMode,
+        currentPolicy: RecordingCachePolicy
+    ) -> RecordingCachePolicy {
+        switch mode {
+        case .keepLast:
+            .keepLast(currentPolicy.retainedRecordingLimit)
+        case .unlimited:
+            .unlimited
+        }
+    }
+}
+
 extension IOSWritingCorrectionSettingsDraft: CustomStringConvertible,
     CustomDebugStringConvertible,
     CustomReflectable {
@@ -241,10 +273,11 @@ enum IOSAppSettingsEditorMutation {
     }
 
     nonisolated static func applyVoiceAndRecording(
-        _ preferences: VoiceSessionPreferences,
+        _ draft: IOSVoiceRecordingSettingsDraft,
         to settings: inout IOSAppSettings
     ) {
-        settings.voiceSessionPreferences = preferences
+        settings.voiceSessionPreferences = draft.preferences
+        settings.recordingCachePolicy = draft.recordingCachePolicy.normalized
     }
 }
 
@@ -344,6 +377,23 @@ extension RecordingStopTailDuration {
         case .seconds1_5: "1.5 seconds"
         case .seconds2: "2 seconds"
         }
+    }
+}
+
+extension RecordingCachePolicy {
+    nonisolated var iosSettingsSummary: String {
+        switch normalized {
+        case .deleteImmediately:
+            "Cache off"
+        case .keepLast(let count):
+            "Cache last \(count)"
+        case .unlimited:
+            "Cache unlimited"
+        }
+    }
+
+    nonisolated var iosSettingsRetentionMode: IOSRecordingCacheRetentionMode {
+        self == .unlimited ? .unlimited : .keepLast
     }
 }
 

@@ -12,6 +12,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
         #expect(settings.voiceSessionPreferences == .defaults)
+        #expect(settings.recordingCachePolicy == .deleteImmediately)
         #expect(settings == IOSAppSettings())
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
@@ -48,7 +49,7 @@ struct IOSAppSettingsRepositoryTests {
         try await repository.save(settings)
 
         let expected =
-            #"{"localTextCleanupEnabled":false,"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"actionPreferenceEnabled":false,"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
+            #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"actionPreferenceEnabled":false,"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
         #expect(fileSystem.data == Data(expected.utf8))
         #expect(try await repository.load() == settings)
 
@@ -61,6 +62,7 @@ struct IOSAppSettingsRepositoryTests {
             "transcription",
             "textCorrection",
             "localTextCleanupEnabled",
+            "recordingCache",
             "translation",
             "voice",
         ])
@@ -103,6 +105,7 @@ struct IOSAppSettingsRepositoryTests {
         expected.localTextCleanupEnabled = false
         expected.translationConfiguration.targetLanguage = .english
         expected.voiceSessionPreferences.audioCuesEnabled = false
+        expected.recordingCachePolicy = .deleteImmediately
 
         #expect(loaded == expected)
         #expect(partialFileSystem.data == partialData)
@@ -200,6 +203,7 @@ struct IOSAppSettingsRepositoryTests {
             ["textCorrection"],
             ["translation"],
             ["voice"],
+            ["recordingCache"],
         ]
         let stringAndEnumPaths = [
             ["transcription", "model"],
@@ -217,6 +221,7 @@ struct IOSAppSettingsRepositoryTests {
             ["translation", "model"],
             ["translation", "prompt"],
             ["voice", "recordingStopTailDuration"],
+            ["recordingCache", "mode"],
         ]
         let booleanPaths = [
             ["textCorrection", "isEnabled"],
@@ -224,7 +229,10 @@ struct IOSAppSettingsRepositoryTests {
             ["translation", "actionPreferenceEnabled"],
             ["voice", "audioCuesEnabled"],
         ]
-        let allPaths = groupPaths + stringAndEnumPaths + booleanPaths
+        let integerPaths = [
+            ["recordingCache", "retainedRecordingLimit"],
+        ]
+        let allPaths = groupPaths + stringAndEnumPaths + booleanPaths + integerPaths
 
         for path in allPaths {
             let data = try replacingValue(in: validData, at: path, with: NSNull())
@@ -255,6 +263,13 @@ struct IOSAppSettingsRepositoryTests {
                 expectedError: .invalidValueType(path: path.joined(separator: "."))
             )
         }
+        for path in integerPaths {
+            let data = try replacingValue(in: validData, at: path, with: "10")
+            await expectLoadFailure(
+                data: data,
+                expectedError: .invalidValueType(path: path.joined(separator: "."))
+            )
+        }
     }
 
     @Test func unexpectedFieldsAtEveryLevelUseTypedErrorsAndPreserveBytes() async throws {
@@ -265,6 +280,7 @@ struct IOSAppSettingsRepositoryTests {
             (["textCorrection", "futureField"], "textCorrection"),
             (["translation", "futureField"], "translation"),
             (["voice", "futureField"], "voice"),
+            (["recordingCache", "futureField"], "recordingCache"),
         ]
 
         for (path, errorLocation) in pathsAndErrorLocations {
@@ -321,6 +337,7 @@ struct IOSAppSettingsRepositoryTests {
             ["translation", "sourceLanguage"],
             ["translation", "targetLanguage"],
             ["voice", "recordingStopTailDuration"],
+            ["recordingCache", "mode"],
         ]
 
         for path in enumPaths {
@@ -542,6 +559,20 @@ struct IOSAppSettingsRepositoryTests {
         #expect(fileSystem.maximumConcurrentOperationCount == 1)
     }
 
+    @Test func recordingCacheModesRoundTripAndCountsNormalize() async throws {
+        let fileSystem = IOSAppSettingsFileSystemFake()
+        let repository = makeRepository(fileSystem: fileSystem)
+        var settings = IOSAppSettings.defaults
+
+        settings.recordingCachePolicy = .unlimited
+        try await repository.save(settings)
+        #expect(try await repository.load().recordingCachePolicy == .unlimited)
+
+        settings.recordingCachePolicy = .keepLast(0)
+        try await repository.save(settings)
+        #expect(try await repository.load().recordingCachePolicy == .keepLast(1))
+    }
+
     private func canonicalDefaultsData() async throws -> Data {
         let fileSystem = IOSAppSettingsFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -636,7 +667,8 @@ struct IOSAppSettingsRepositoryTests {
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1_5
-            )
+            ),
+            recordingCachePolicy: .keepLast(25)
         )
     }
 

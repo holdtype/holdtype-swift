@@ -9,19 +9,22 @@ public struct IOSAppSettings: Equatable, Sendable {
     public var localTextCleanupEnabled: Bool
     public var translationConfiguration: TranslationConfiguration
     public var voiceSessionPreferences: VoiceSessionPreferences
+    public var recordingCachePolicy: RecordingCachePolicy
 
     public init(
         transcriptionConfiguration: TranscriptionConfiguration = .defaults,
         textCorrectionConfiguration: TextCorrectionConfiguration = .defaults,
         localTextCleanupEnabled: Bool = true,
         translationConfiguration: TranslationConfiguration = .defaults,
-        voiceSessionPreferences: VoiceSessionPreferences = .defaults
+        voiceSessionPreferences: VoiceSessionPreferences = .defaults,
+        recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
     ) {
         self.transcriptionConfiguration = transcriptionConfiguration
         self.textCorrectionConfiguration = textCorrectionConfiguration
         self.localTextCleanupEnabled = localTextCleanupEnabled
         self.translationConfiguration = translationConfiguration
         self.voiceSessionPreferences = voiceSessionPreferences
+        self.recordingCachePolicy = recordingCachePolicy
     }
 }
 

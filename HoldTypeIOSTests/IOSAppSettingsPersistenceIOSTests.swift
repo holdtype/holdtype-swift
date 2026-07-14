@@ -12,6 +12,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
         #expect(settings.voiceSessionPreferences == .defaults)
+        #expect(settings.recordingCachePolicy == .deleteImmediately)
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
         #expect(((settings as Any) is any Decodable) == false)
@@ -170,7 +171,8 @@ struct IOSAppSettingsPersistenceIOSTests {
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
                 recordingStopTailDuration: .seconds1
-            )
+            ),
+            recordingCachePolicy: .unlimited
         )
     }
 
