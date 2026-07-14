@@ -238,7 +238,7 @@ keyboard.
 | --- | --- | --- | --- |
 | KBD-MVP-0 | Product contract and execution plan | Completed 2026-07-14 | — |
 | KBD-MVP-1 | Settings action and normal app shell | Completed 2026-07-14 | KBD-MVP-0 |
-| KBD-MVP-2 | Signed-device background-session feasibility | Pending | KBD-MVP-1 |
+| KBD-MVP-2 | Signed-device background-session feasibility | Failed — stop 2026-07-14 | KBD-MVP-1 |
 | KBD-MVP-3 | Real recorder, OpenAI, and safe insertion | Pending | KBD-MVP-2 pass |
 | KBD-MVP-4 | Setup, failure states, and release UX | Pending | KBD-MVP-3 |
 | KBD-MVP-5 | Device qualification and TestFlight candidate | Pending | KBD-MVP-4 |
@@ -323,6 +323,8 @@ the change.
 
 ## KBD-MVP-2 — Physical Background-Session Feasibility
 
+Status: Failed — stop (2026-07-14).
+
 ### Purpose
 
 Prove the only risky platform boundary before connecting production provider or
@@ -392,6 +394,20 @@ and actual results, and privacy/energy observations. The dashboard marks either
 `Passed` or `Failed — stop`; it never says complete from partial evidence. A
 failed spike removes its incomplete production implementation before commit and
 commits only the spec/QA/status evidence needed to preserve the decision.
+
+### Evidence
+
+- KBD-MVP-1 was committed at `d5b2c0a` on `master` before this spike began.
+- `xcrun devicectl list devices` returned `No devices found`; `xcrun xcdevice
+  list` showed only Simulator devices and the development Mac, with no physical
+  iOS device available for trust, signing, installation, or runtime proof.
+- The source targets use automatic signing and declare the same
+  `group.app.holdtype.HoldType.shared` App Group, but matching signed
+  entitlements could not be validated on installed physical-device products.
+- No production spike implementation was started, no Simulator result was used
+  as substitute evidence, and no OpenAI/provider path ran.
+- Full evidence and the exact rerun precondition are recorded in
+  [the KBD-MVP-2 QA note](qa/runs/kbd-mvp-2-physical-feasibility-2026-07-14.md).
 
 ### Ready-to-use goal prompt
 
