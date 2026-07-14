@@ -38,7 +38,9 @@ Observed unavailable presentation:
 
 - the keyboard contained no permanent Settings button;
 - the HoldType microphone and waveforms were absent;
-- the top status was `Full Access required`;
+- the centered HoldType mark had no duplicated status caption;
+- the voice stage communicated the required action once through `Enable Full
+  Access` and the complete recovery route;
 - the stage title was `Enable Full Access`;
 - the stage displayed the complete route through iPhone Settings and then back
   to HoldType to start a keyboard session;

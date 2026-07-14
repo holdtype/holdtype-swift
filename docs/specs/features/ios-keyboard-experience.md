@@ -54,13 +54,18 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: balanced space on the left, HoldType identity and terse status
-   centered, and `Latest` on the right.
+1. Top rail: balanced space on the left, the HoldType mark centered without any
+   status text, and `Latest` on the right.
 2. Voice stage: either one medium actionable microphone, a processing
    indicator, or a complete recovery instruction. An unavailable microphone is
    never left on screen as decoration.
 3. Correction row: `.`, `,`, `?`, and `!`.
 4. Editing row: Globe, wide Space, Delete, and adaptive Return.
+
+The HoldType mark is identity only. No state label appears under or beside it.
+Ready, unavailable, listening, starting, processing, and failure information
+belongs exclusively to the voice stage so the interface never repeats the same
+state in two places.
 
 The approved Option 2 reference remains the geometry source of truth. On iPhone
 the surface uses approximately 18-point side insets, 8-point key gaps, an

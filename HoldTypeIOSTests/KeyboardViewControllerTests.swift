@@ -543,10 +543,10 @@ private func button(
 @MainActor
 private func statusText(in root: UIView) -> String? {
     descendant(
-        UILabel.self,
-        identifier: "keyboard.brand-stage.status",
+        UIView.self,
+        identifier: "keyboard.brand-stage.stage",
         in: root
-    )?.text
+    )?.accessibilityValue
 }
 
 @MainActor

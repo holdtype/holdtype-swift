@@ -20,6 +20,8 @@ app-owned recording.
 - Remove the permanent keyboard `Settings` button. It neither resolves a
   stopped app-owned session nor has physical-device evidence that it opens the
   intended destination reliably.
+- Keep the centered HoldType mark free of status text. It is identity only;
+  every state and recovery message belongs to the voice stage and appears once.
 - Keep Settings and every setup editor in the containing app.
 - Replace the microphone and decorative waveform with a complete instruction
   when Full Access is unavailable, the app-owned session is stopped or expired,
@@ -97,6 +99,7 @@ brief and must not promise a one-hour background session.
 - No unavailable state displays the active microphone or waveform.
 - Every unavailable state contains a complete recovery instruction.
 - No permanent Settings control remains in the keyboard.
+- No status text appears under or beside the HoldType mark.
 - Full Access guidance is consistent between Voice, Privacy, specs, and tests.
 - `hasDictationKey` is enabled so the Apple-owned Dictation key is disabled or
   suppressed while HoldType supplies its voice action; Simulator may retain the

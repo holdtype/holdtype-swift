@@ -9,8 +9,8 @@ import Testing
 
 struct KeyboardCommandSurfaceIOSTests {
 
-    @Test func topRailStatusUsesOnlyShortProductLabels() {
-        #expect(KeyboardTopRailStatus.allCases.map(\.rawValue) == [
+    @Test func voiceStatusUsesOnlyShortProductLabels() {
+        #expect(KeyboardVoiceStatus.allCases.map(\.rawValue) == [
             "Ready",
             "Full Access required",
             "Starting…",
@@ -21,9 +21,9 @@ struct KeyboardCommandSurfaceIOSTests {
             "No Network",
             "Dictation failed",
         ])
-        #expect(KeyboardTopRailStatus.ready.accessibilityAnnouncement == nil)
+        #expect(KeyboardVoiceStatus.ready.accessibilityAnnouncement == nil)
         #expect(
-            KeyboardTopRailStatus.sessionNotRunning.accessibilityAnnouncement
+            KeyboardVoiceStatus.sessionNotRunning.accessibilityAnnouncement
                 == "Session not running"
         )
     }

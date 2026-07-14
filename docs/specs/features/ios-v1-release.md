@@ -262,8 +262,8 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with balanced space on the left, the HoldType mark plus
-  terse status centered, and `Latest` insertion on the right;
+- a compact top row with balanced space on the left, the HoldType mark centered
+  without status text, and `Latest` insertion on the right;
 - one medium actionable microphone only while an app-owned Keyboard Dictation
   Session can start or finish real recording; unavailable states show complete
   recovery copy and processing shows progress instead of a disabled microphone;
@@ -280,7 +280,9 @@ The first-release surface provides:
 - local punctuation and editing controls that work without network or Full
   Access, even when voice dictation is unavailable.
 
-The HoldType mark is identity and status, not an unlabeled button. The keyboard
+The HoldType mark is identity only, not a button or status surface. No state
+label appears under or beside it; all state and recovery information lives in
+the voice stage. The keyboard
 contains no alphabet, number deck, `A` probe key, `Refresh`, Shift, Caps Lock,
 `123`, predictions, or autocorrection. Accepted results may contain arbitrary
 Unicode; ordinary free typing and system emoji remain available through Globe.

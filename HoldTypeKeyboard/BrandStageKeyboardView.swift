@@ -1,7 +1,7 @@
 import UIKit
 
 struct BrandStageKeyboardPresentation: Equatable {
-    let status: KeyboardTopRailStatus
+    let status: KeyboardVoiceStatus
     let voiceStage: KeyboardVoiceStagePresentation
     let latestIsEnabled: Bool
     let cancelIsVisible: Bool
@@ -32,7 +32,6 @@ final class BrandStageKeyboardView: UIView {
     private let punctuationRow = UIStackView()
     private let topLeadingSpacer = UIView()
     private let latestButton = UIButton(type: .system)
-    private let statusLabel = UILabel()
     private let logoImageView = UIImageView()
     private let stageContainer = UIView()
     private let voiceStage = UIStackView()
@@ -63,7 +62,7 @@ final class BrandStageKeyboardView: UIView {
     private var showsGlobeInEditingRow: Bool?
     private var punctuationButtons: [UIButton] = []
     private var reduceTransparencyObserver: NSObjectProtocol?
-    private var renderedStatus: KeyboardTopRailStatus?
+    private var renderedStatus: KeyboardVoiceStatus?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -109,8 +108,7 @@ final class BrandStageKeyboardView: UIView {
     }
 
     func render(_ presentation: BrandStageKeyboardPresentation) {
-        statusLabel.text = presentation.status.rawValue
-        statusLabel.accessibilityValue = presentation.status.rawValue
+        stageContainer.accessibilityValue = presentation.status.rawValue
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(
             presentation.voiceStage,
@@ -273,6 +271,7 @@ final class BrandStageKeyboardView: UIView {
         configureRecoveryStage()
         configureProgressStage()
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
+        stageContainer.accessibilityIdentifier = "keyboard.brand-stage.stage"
         let stageViews = [voiceStage, recoveryStage, progressStage]
         for stageView in stageViews {
             stageContainer.addSubview(stageView)
@@ -411,26 +410,7 @@ final class BrandStageKeyboardView: UIView {
             .alwaysOriginal
         )
         logoImageView.isAccessibilityElement = false
-        statusLabel.font = UIFontMetrics(forTextStyle: .caption1).scaledFont(
-            for: UIFont.systemFont(ofSize: 12, weight: .semibold),
-            maximumPointSize: 15
-        )
-        statusLabel.adjustsFontForContentSizeCategory = true
-        statusLabel.adjustsFontSizeToFitWidth = true
-        statusLabel.minimumScaleFactor = 0.8
-        statusLabel.textAlignment = .center
-        statusLabel.numberOfLines = 1
-        statusLabel.isAccessibilityElement = true
-        statusLabel.accessibilityLabel = "Keyboard status"
-        statusLabel.accessibilityTraits.insert(.updatesFrequently)
-        statusLabel.accessibilityIdentifier = "keyboard.brand-stage.status"
-
-        let identity = UIStackView(
-            arrangedSubviews: [logoImageView, statusLabel]
-        )
-        identity.axis = .vertical
-        identity.alignment = .center
-        identity.spacing = 2
+        logoImageView.accessibilityIdentifier = "keyboard.brand-stage.logo"
         let logoWidth = logoImageView.widthAnchor.constraint(
             equalToConstant: 34
         )
@@ -445,7 +425,7 @@ final class BrandStageKeyboardView: UIView {
         ])
 
         let rail = UIStackView(
-            arrangedSubviews: [topLeadingSpacer, identity, latestButton]
+            arrangedSubviews: [topLeadingSpacer, logoImageView, latestButton]
         )
         rail.axis = .horizontal
         rail.alignment = .center
@@ -919,7 +899,6 @@ final class BrandStageKeyboardView: UIView {
             with: traitCollection
         ).cgColor
         layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
-        statusLabel.textColor = Self.statusForeground
         recoveryTitleLabel.textColor = Self.keyForeground
         recoveryDetailLabel.textColor = Self.statusForeground
         progressTitleLabel.textColor = Self.keyForeground

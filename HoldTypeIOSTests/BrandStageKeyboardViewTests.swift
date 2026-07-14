@@ -36,15 +36,19 @@ struct BrandStageKeyboardViewTests {
         )
         layout(view)
 
-        let status = try #require(
+        let stage = try #require(
+            view.descendant(
+                UIView.self,
+                identifier: "keyboard.brand-stage.stage"
+            )
+        )
+        #expect(stage.accessibilityValue == "Ready")
+        #expect(
             view.descendant(
                 UILabel.self,
                 identifier: "keyboard.brand-stage.status"
-            )
+            ) == nil
         )
-        #expect(status.text == "Ready")
-        #expect(status.accessibilityLabel == "Keyboard status")
-        #expect(status.accessibilityValue == "Ready")
 
         #expect(
             view.descendant(
@@ -294,17 +298,11 @@ struct BrandStageKeyboardViewTests {
                     showsInputModeSwitchKey: showsGlobe
                 )
                 let view = fixture.view
-                let status = try #require(
-                    view.descendant(
-                        UILabel.self,
-                        identifier: "keyboard.brand-stage.status"
-                    )
-                )
-                let identity = try #require(status.superview as? UIStackView)
                 let logo = try #require(
-                    identity.arrangedSubviews.compactMap { subview in
-                        subview as? UIImageView
-                    }.first
+                    view.descendant(
+                        UIImageView.self,
+                        identifier: "keyboard.brand-stage.logo"
+                    )
                 )
                 let voice = try #require(
                     view.descendant(
@@ -317,9 +315,8 @@ struct BrandStageKeyboardViewTests {
                     in: view
                 )
 
-                #expect(status.text == "Ready")
                 #expect(
-                    abs(frame(of: status, in: view).midX - view.bounds.midX) < 1
+                    abs(frame(of: logo, in: view).midX - view.bounds.midX) < 1
                 )
                 #expect(logo.bounds.width >= 24)
                 #expect(logo.bounds.height >= 24)
@@ -332,7 +329,7 @@ struct BrandStageKeyboardViewTests {
                 let visibleIdentifiers = compactControlIdentifiers(
                     showsGlobe: showsGlobe
                 )
-                var boundedViews: [UIView] = [status, logo, voice]
+                var boundedViews: [UIView] = [logo, voice]
                 for identifier in visibleIdentifiers {
                     let control = try button(identifier, in: view)
                     #expect(control.bounds.width >= 43.9)
@@ -579,7 +576,7 @@ struct BrandStageKeyboardViewTests {
     }
 
     private func presentation(
-        status: KeyboardTopRailStatus = .ready,
+        status: KeyboardVoiceStatus = .ready,
         voiceStage: KeyboardVoiceStagePresentation = .ready,
         latestIsEnabled: Bool = false,
         cancelIsVisible: Bool = false,

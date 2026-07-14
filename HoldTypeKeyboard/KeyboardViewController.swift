@@ -245,7 +245,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private var currentDictationPresentation: (
-        status: KeyboardTopRailStatus,
+        status: KeyboardVoiceStatus,
         voiceStage: KeyboardVoiceStagePresentation,
         cancelIsVisible: Bool
     ) {

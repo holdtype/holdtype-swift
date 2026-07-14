@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum KeyboardTopRailStatus: String, CaseIterable, Equatable, Sendable {
+enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
     case ready = "Ready"
     case fullAccessRequired = "Full Access required"
     case starting = "Starting…"
