@@ -111,7 +111,6 @@
 		D4A175022FF0000000000002 /* Exceptions for "HoldTypeKeyboard" folder in "HoldTypeKeyboard" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				HoldTypeKeyboard.entitlements,
 				Info.plist,
 			);
 			target = D4A1750A2FF000000000000A /* HoldTypeKeyboard */;
@@ -119,7 +118,6 @@
 		D4A175102FF0000000000010 /* Exceptions for "HoldTypeIOS" folder in "HoldType-iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				HoldTypeIOS.entitlements,
 				Info.plist,
 			);
 			target = 9DB749A62FE7A0000053C3F3 /* HoldType-iOS */;
@@ -128,7 +126,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Assets.xcassets,
-				HoldTypeKeyboard.entitlements,
 				Info.plist,
 				PrivacyInfo.xcprivacy,
 			);
@@ -173,26 +170,6 @@
 			path = HoldTypeIOSTests;
 			sourceTree = "<group>";
 		};
-		D4A177012FF2000000000001 /* HoldTypeDomainTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeDomain/Tests/HoldTypeDomainTests;
-			sourceTree = "<group>";
-		};
-		D4A178012FF3000000000001 /* HoldTypePersistenceTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests;
-			sourceTree = "<group>";
-		};
-		D4A179012FF4000000000001 /* HoldTypeOpenAITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests;
-			sourceTree = "<group>";
-		};
-		D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests;
-			sourceTree = "<group>";
-		};
 		D4A175032FF0000000000003 /* HoldTypeKeyboard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -205,6 +182,26 @@
 		D4A175042FF0000000000004 /* KeyboardShared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = KeyboardShared;
+			sourceTree = "<group>";
+		};
+		D4A177012FF2000000000001 /* Packages/HoldTypeDomain/Tests/HoldTypeDomainTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypeDomain/Tests/HoldTypeDomainTests;
+			sourceTree = "<group>";
+		};
+		D4A178012FF3000000000001 /* Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests;
+			sourceTree = "<group>";
+		};
+		D4A179012FF4000000000001 /* Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests;
+			sourceTree = "<group>";
+		};
+		D4A180012FF5000000000001 /* Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -278,10 +275,10 @@
 				D4A175032FF0000000000003 /* HoldTypeKeyboard */,
 				D4A175042FF0000000000004 /* KeyboardShared */,
 				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
-				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
-				D4A179012FF4000000000001 /* HoldTypeOpenAITests */,
-				D4A178012FF3000000000001 /* HoldTypePersistenceTests */,
-				D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */,
+				D4A177012FF2000000000001 /* Packages/HoldTypeDomain/Tests/HoldTypeDomainTests */,
+				D4A179012FF4000000000001 /* Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests */,
+				D4A178012FF3000000000001 /* Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests */,
+				D4A180012FF5000000000001 /* Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests */,
 				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
 				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
 				9DB7496A2FE6D7300053C3F3 /* Products */,
@@ -423,13 +420,13 @@
 			);
 			fileSystemSynchronizedGroups = (
 				9DB749AA2FE7B0000053C3F3 /* Shared */,
-				D4A175042FF0000000000004 /* KeyboardShared */,
-				D4A175032FF0000000000003 /* HoldTypeKeyboard */,
 				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
-				D4A177012FF2000000000001 /* HoldTypeDomainTests */,
-				D4A179012FF4000000000001 /* HoldTypeOpenAITests */,
-				D4A178012FF3000000000001 /* HoldTypePersistenceTests */,
-				D4A180012FF5000000000001 /* HoldTypeIOSCoreTests */,
+				D4A175032FF0000000000003 /* HoldTypeKeyboard */,
+				D4A175042FF0000000000004 /* KeyboardShared */,
+				D4A177012FF2000000000001 /* Packages/HoldTypeDomain/Tests/HoldTypeDomainTests */,
+				D4A178012FF3000000000001 /* Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests */,
+				D4A179012FF4000000000001 /* Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests */,
+				D4A180012FF5000000000001 /* Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests */,
 			);
 			name = HoldTypeIOSTests;
 			packageProductDependencies = (
@@ -492,11 +489,11 @@
 					9DB749B52FE800000053C3F3 = {
 						CreatedOnToolsVersion = 26.5;
 					};
-					D4A1750A2FF000000000000A = {
-						CreatedOnToolsVersion = 26.5;
-					};
 					D4A174052FEF174000000005 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					D4A1750A2FF000000000000A = {
+						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -510,10 +507,10 @@
 			mainGroup = 9DB749602FE6D7300053C3F3;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */,
-				D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */,
-				D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "HoldTypePersistence" */,
-				D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */,
+				D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */,
+				D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */,
+				D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */,
+				D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeIOSCore" */,
 				D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -675,104 +672,6 @@
 			targetProxy = D4A181012FF6000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/HoldTypeDomain;
-		};
-		D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "HoldTypePersistence" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/HoldTypePersistence;
-		};
-		D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/HoldTypeOpenAI;
-		};
-		D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/HoldTypeIOSCore;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.9.4;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		D4A1740D2FEF17400000000D /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
-		};
-		D4A176012FF1000000000001 /* HoldTypeDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
-			productName = HoldTypeDomain;
-		};
-		D4A176022FF1000000000002 /* HoldTypeDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
-			productName = HoldTypeDomain;
-		};
-		D4A176032FF1000000000003 /* HoldTypeDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
-			productName = HoldTypeDomain;
-		};
-		D4A176082FF1000000000008 /* HoldTypeDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "HoldTypeDomain" */;
-			productName = HoldTypeDomain;
-		};
-		D4A178022FF3000000000002 /* HoldTypePersistence */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "HoldTypePersistence" */;
-			productName = HoldTypePersistence;
-		};
-		D4A178032FF3000000000003 /* HoldTypePersistence */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "HoldTypePersistence" */;
-			productName = HoldTypePersistence;
-		};
-		D4A179022FF4000000000002 /* HoldTypeOpenAI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */;
-			productName = HoldTypeOpenAI;
-		};
-		D4A179032FF4000000000003 /* HoldTypeOpenAI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */;
-			productName = HoldTypeOpenAI;
-		};
-		D4A179042FF4000000000004 /* HoldTypeOpenAI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */;
-			productName = HoldTypeOpenAI;
-		};
-		D4A179052FF4000000000005 /* HoldTypeOpenAI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "HoldTypeOpenAI" */;
-			productName = HoldTypeOpenAI;
-		};
-		D4A180022FF5000000000002 /* HoldTypeIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */;
-			productName = HoldTypeIOSCore;
-		};
-		D4A180032FF5000000000003 /* HoldTypeIOSCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "HoldTypeIOSCore" */;
-			productName = HoldTypeIOSCore;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		9DB749882FE6D7320053C3F3 /* Debug */ = {
@@ -1161,6 +1060,20 @@
 			};
 			name = Release;
 		};
+		D4A174062FEF174000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Debug;
+		};
+		D4A174072FEF174000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+			};
+			name = Release;
+		};
 		D4A1750D2FF000000000000D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1229,20 +1142,6 @@
 			};
 			name = Release;
 		};
-		D4A174062FEF174000000006 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-			};
-			name = Debug;
-		};
-		D4A174072FEF174000000007 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1300,15 +1199,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D4A1750F2FF000000000000F /* Build configuration list for PBXNativeTarget "HoldTypeKeyboard" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				D4A1750D2FF000000000000D /* Debug */,
-				D4A1750E2FF000000000000E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		D4A174082FEF174000000008 /* Build configuration list for PBXAggregateTarget "Stabilize HoldType TCC Identity" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1318,8 +1208,114 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D4A1750F2FF000000000000F /* Build configuration list for PBXNativeTarget "HoldTypeKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4A1750D2FF000000000000D /* Debug */,
+				D4A1750E2FF000000000000E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HoldTypeDomain;
+		};
+		D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HoldTypePersistence;
+		};
+		D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HoldTypeOpenAI;
+		};
+		D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeIOSCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HoldTypeIOSCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D4A1740D2FEF17400000000D /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A1740C2FEF17400000000C /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		D4A176012FF1000000000001 /* HoldTypeDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */;
+			productName = HoldTypeDomain;
+		};
+		D4A176022FF1000000000002 /* HoldTypeDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */;
+			productName = HoldTypeDomain;
+		};
+		D4A176032FF1000000000003 /* HoldTypeDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */;
+			productName = HoldTypeDomain;
+		};
+		D4A176082FF1000000000008 /* HoldTypeDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */;
+			productName = HoldTypeDomain;
+		};
+		D4A178022FF3000000000002 /* HoldTypePersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
+			productName = HoldTypePersistence;
+		};
+		D4A178032FF3000000000003 /* HoldTypePersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
+			productName = HoldTypePersistence;
+		};
+		D4A179022FF4000000000002 /* HoldTypeOpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */;
+			productName = HoldTypeOpenAI;
+		};
+		D4A179032FF4000000000003 /* HoldTypeOpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */;
+			productName = HoldTypeOpenAI;
+		};
+		D4A179042FF4000000000004 /* HoldTypeOpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */;
+			productName = HoldTypeOpenAI;
+		};
+		D4A179052FF4000000000005 /* HoldTypeOpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A179002FF4000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeOpenAI" */;
+			productName = HoldTypeOpenAI;
+		};
+		D4A180022FF5000000000002 /* HoldTypeIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeIOSCore" */;
+			productName = HoldTypeIOSCore;
+		};
+		D4A180032FF5000000000003 /* HoldTypeIOSCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A180002FF5000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeIOSCore" */;
+			productName = HoldTypeIOSCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9DB749612FE6D7300053C3F3 /* Project object */;
 }
