@@ -782,7 +782,10 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
     private let repository: IOSVoiceStateRepository
     private let captureOwner: IOSV1VoiceCaptureOwner
     private let historyRepository: IOSAcceptedTextHistoryRepository
+    private let acceptedAudioCache: IOSAcceptedAudioCache
     private let audioFileSystem: any IOSV1ForegroundVoiceAudioFileSystem
+    private let recordingCachePolicy:
+        @Sendable () async -> RecordingCachePolicy
     private let now: @Sendable () -> Date
 
     private var operationActive = false
@@ -804,11 +807,15 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         historyRepository = IOSAcceptedTextHistoryRepository(
             applicationSupportDirectoryURL: applicationSupportDirectoryURL
         )
+        acceptedAudioCache = IOSAcceptedAudioCache(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
         audioFileSystem = IOSV1ForegroundVoiceDarwinAudioFileSystem(
             directoryURL: IOSVoiceStateStorageLocation.directoryURL(
                 in: applicationSupportDirectoryURL
             )
         )
+        recordingCachePolicy = { .deleteImmediately }
         now = { Date() }
     }
 
@@ -829,11 +836,45 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
             mediaValidator: IOSV1VoiceCaptureMediaValidator()
         )
         historyRepository = acceptedTextHistoryRepository
+        acceptedAudioCache = IOSAcceptedAudioCache(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
         audioFileSystem = IOSV1ForegroundVoiceDarwinAudioFileSystem(
             directoryURL: IOSVoiceStateStorageLocation.directoryURL(
                 in: applicationSupportDirectoryURL
             )
         )
+        recordingCachePolicy = { .deleteImmediately }
+        now = { Date() }
+    }
+
+    public init(
+        applicationSupportDirectoryURL: URL,
+        acceptedTextHistoryRepository: IOSAcceptedTextHistoryRepository,
+        acceptedAudioCache: IOSAcceptedAudioCache,
+        recordingCachePolicy: @escaping @Sendable () async
+            -> RecordingCachePolicy
+    ) {
+        let repository = IOSVoiceStateRepository(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
+        self.repository = repository
+        captureOwner = IOSV1VoiceCaptureOwner(
+            repository: repository,
+            directoryURL: IOSVoiceStateStorageLocation.directoryURL(
+                in: applicationSupportDirectoryURL
+            ),
+            fileSystem: IOSV1VoiceCaptureDarwinFileSystem(),
+            mediaValidator: IOSV1VoiceCaptureMediaValidator()
+        )
+        historyRepository = acceptedTextHistoryRepository
+        self.acceptedAudioCache = acceptedAudioCache
+        audioFileSystem = IOSV1ForegroundVoiceDarwinAudioFileSystem(
+            directoryURL: IOSVoiceStateStorageLocation.directoryURL(
+                in: applicationSupportDirectoryURL
+            )
+        )
+        self.recordingCachePolicy = recordingCachePolicy
         now = { Date() }
     }
 
@@ -841,13 +882,18 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         repository: IOSVoiceStateRepository,
         captureOwner: IOSV1VoiceCaptureOwner,
         historyRepository: IOSAcceptedTextHistoryRepository,
+        acceptedAudioCache: IOSAcceptedAudioCache,
         audioFileSystem: any IOSV1ForegroundVoiceAudioFileSystem,
+        recordingCachePolicy: @escaping @Sendable () async
+            -> RecordingCachePolicy = { .deleteImmediately },
         now: @escaping @Sendable () -> Date
     ) {
         self.repository = repository
         self.captureOwner = captureOwner
         self.historyRepository = historyRepository
+        self.acceptedAudioCache = acceptedAudioCache
         self.audioFileSystem = audioFileSystem
+        self.recordingCachePolicy = recordingCachePolicy
         self.now = now
     }
 
@@ -1322,6 +1368,10 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         pending: IOSV1PendingRecording,
         record: IOSV1AcceptedOutputDeliveryRecord
     ) async throws {
+        try await retainAcceptedAudioIfNeeded(
+            pending: pending,
+            record: record
+        )
         try unlinkAudio(for: pending, allowMissing: true)
         do {
             _ = try await repository.finishAcceptedCleanup(
@@ -1341,6 +1391,67 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
             return .historyWriteFailedAndLocalCleanupPending
         case .localCleanupPending, nil:
             return .localCleanupPending
+        }
+    }
+
+    private func retainAcceptedAudioIfNeeded(
+        pending: IOSV1PendingRecording,
+        record: IOSV1AcceptedOutputDeliveryRecord
+    ) async throws {
+        let policy = (await recordingCachePolicy()).normalized
+        guard policy.keepsRecordings else {
+            do {
+                try await acceptedAudioCache.reconcile(policy: policy)
+            } catch is IOSAcceptedAudioCacheError {
+                // Recording Cache is optional and cannot invalidate acceptance.
+            }
+            return
+        }
+        guard let handle = try audioFileSystem.openPendingAudio(
+            attemptID: pending.attemptID,
+            relativeIdentifier: pending.audioRelativeIdentifier,
+            expectedByteCount: pending.byteCount
+        ) else {
+            do {
+                try await acceptedAudioCache.reconcile(policy: policy)
+            } catch is IOSAcceptedAudioCacheError {
+                // A missing optional cache never owns Pending cleanup.
+            }
+            return
+        }
+        defer { audioFileSystem.close(handle) }
+
+        var data = Data()
+        data.reserveCapacity(Int(handle.byteCount))
+        var offset: Int64 = 0
+        while offset < handle.byteCount {
+            let part = try audioFileSystem.read(
+                handle,
+                atOffset: offset,
+                maximumByteCount:
+                    IOSV1PendingTranscriptionAudio.maximumReadByteCount
+            )
+            guard !part.isEmpty else {
+                throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+            }
+            data.append(part)
+            offset += Int64(part.count)
+        }
+        guard Int64(data.count) == handle.byteCount else {
+            throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+        }
+        let fileExtension = pending.audioRelativeIdentifier.hasSuffix(".wav")
+            ? "wav" : "m4a"
+        do {
+            _ = try await acceptedAudioCache.retainAcceptedAudio(
+                data,
+                resultID: record.resultID,
+                fileExtension: fileExtension,
+                createdAt: record.createdAt,
+                policy: policy
+            )
+        } catch is IOSAcceptedAudioCacheError {
+            // Text acceptance succeeds even when optional playback cannot cache.
         }
     }
 

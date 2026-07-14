@@ -280,6 +280,97 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(try await fixture.history.load().entries.count == 1)
     }
 
+    @Test func relaunchReusesCachedAcceptedAudioBeforePendingUnlink()
+        async throws {
+        let fixture = FacadeFixture(
+            recordingCachePolicy: .keepLast(10)
+        )
+        let expected = try await fixture.moveToOutputDelivery()
+        fixture.audio.failNextUnlink = true
+
+        let result = try await fixture.owner.accept(
+            try fixture.acceptance(),
+            expectedPending: expected
+        )
+
+        guard case .resultReady(_, let notice) = result else {
+            Issue.record("Expected a ready result")
+            return
+        }
+        #expect(notice == .localCleanupPending)
+        let cachedURL = try #require(
+            await fixture.acceptedAudioCache
+                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+        )
+        #expect(try Data(contentsOf: cachedURL) == Data([1, 2, 3, 4]))
+        #expect(try await fixture.repository.load().pending != nil)
+
+        #expect(
+            await fixture.owner.recoverContainingAppLifecycle(.processLaunch)
+                == .complete
+        )
+        #expect(try await fixture.repository.load().pending == nil)
+        #expect(!fixture.audio.contains(FacadeIDs.attempt))
+        #expect(
+            await fixture.acceptedAudioCache
+                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+                == cachedURL
+        )
+    }
+
+    @Test func optionalCacheFailureDoesNotBlockAcceptedCleanup()
+        async throws {
+        let fixture = FacadeFixture(
+            recordingCachePolicy: .keepLast(10)
+        )
+        try Data([9]).write(to: fixture.cacheDirectoryURL)
+        let expected = try await fixture.moveToOutputDelivery()
+
+        let result = try await fixture.owner.accept(
+            try fixture.acceptance(),
+            expectedPending: expected
+        )
+
+        guard case .resultReady(_, let notice) = result else {
+            Issue.record("Expected a ready result")
+            return
+        }
+        #expect(notice == nil)
+        #expect(try await fixture.repository.load().pending == nil)
+        #expect(!fixture.audio.contains(FacadeIDs.attempt))
+    }
+
+    @Test func cacheOffReconcilesOldManagedFilesThenAcceptsNormally()
+        async throws {
+        let fixture = FacadeFixture()
+        _ = try await fixture.acceptedAudioCache.retainAcceptedAudio(
+            Data([8]),
+            resultID: FacadeIDs.previousResult,
+            fileExtension: "m4a",
+            createdAt: FacadeDates.created,
+            policy: .unlimited
+        )
+        let expected = try await fixture.moveToOutputDelivery()
+
+        _ = try await fixture.owner.accept(
+            try fixture.acceptance(),
+            expectedPending: expected
+        )
+
+        #expect(
+            await fixture.acceptedAudioCache
+                .cachedAudioFileURLIfAvailable(
+                    resultID: FacadeIDs.previousResult
+                ) == nil
+        )
+        #expect(
+            await fixture.acceptedAudioCache
+                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+                == nil
+        )
+        #expect(try await fixture.repository.load().pending == nil)
+    }
+
     @Test func captureRelaunchOffersRecoverOrDiscardWithoutProvider()
         async throws {
         let recoverable = FacadeFixture()
@@ -406,9 +497,14 @@ private final class FacadeFixture: @unchecked Sendable {
     let repository: IOSVoiceStateRepository
     let history: IOSAcceptedTextHistoryRepository
     let audio: FacadeAudioFileSystem
+    let acceptedAudioCache: IOSAcceptedAudioCache
     let owner: IOSV1ForegroundVoicePersistenceOwner
+    let cacheDirectoryURL: URL
 
-    init(audioBytes: [UInt8] = [1, 2, 3, 4]) {
+    init(
+        audioBytes: [UInt8] = [1, 2, 3, 4],
+        recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
+    ) {
         voiceMetadata = FacadeMetadataFileSystem(
             event: "voice-write",
             events: events
@@ -431,6 +527,14 @@ private final class FacadeFixture: @unchecked Sendable {
             initial: [FacadeIDs.attempt: Data(audioBytes)]
         )
         audio = FacadeAudioFileSystem(store: audioStore, events: events)
+        cacheDirectoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "ios-accepted-audio-cache-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        acceptedAudioCache = IOSAcceptedAudioCache(
+            directoryURL: cacheDirectoryURL
+        )
         let captureOwner = IOSV1VoiceCaptureOwner(
             repository: repository,
             directoryURL: root,
@@ -441,9 +545,15 @@ private final class FacadeFixture: @unchecked Sendable {
             repository: repository,
             captureOwner: captureOwner,
             historyRepository: history,
+            acceptedAudioCache: acceptedAudioCache,
             audioFileSystem: audio,
+            recordingCachePolicy: { recordingCachePolicy },
             now: { FacadeDates.accepted }
         )
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: cacheDirectoryURL)
     }
 
     func installReady(byteCount: Int64 = 4) async throws
@@ -729,6 +839,9 @@ private enum FacadeIDs {
     )!
     static let result = UUID(
         uuidString: "DDDDDDDD-DDDD-4DDD-8DDD-DDDDDDDDDDDD"
+    )!
+    static let previousResult = UUID(
+        uuidString: "DDDDDDDD-DDDD-4DDD-8DDD-DDDDDDDDDDDC"
     )!
     static let session = UUID(
         uuidString: "EEEEEEEE-EEEE-4EEE-8EEE-EEEEEEEEEEEE"
