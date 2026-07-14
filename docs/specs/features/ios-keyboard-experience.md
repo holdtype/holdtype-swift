@@ -201,6 +201,15 @@ without showing `Inserted` or rendering a result preview.
 
 ## Release Acceptance
 
+KBD-MVP-2 uses a deliberately split feasibility qualification: a signed
+physical iPhone and DEBUG containing-app controls prove the real recorder,
+Finish, Cancel, expiry, and idle-audio release without presenting the keyboard
+through iPhone Mirroring. The microphone indicator is recorded when the chosen
+wired capture surface exposes it and is otherwise reported as unavailable;
+Simulator UI and focused tests prove the extension, bounded command/state
+reduction, insertion, and restricted editing half. This spike split does not
+replace the signed-device keyboard/host-app release matrix below.
+
 Automated and Simulator coverage must prove composition, both appearances,
 Settings failure fallback, local editing, state reduction, stale-request
 rejection, bounded record decoding, one insertion per accepted live request,

@@ -79,6 +79,8 @@ struct BrandStageKeyboardViewTests {
         let returnButton = try button("keyboard.brand-stage.return", in: view)
 
         #expect(latest.isEnabled)
+        assertFullTopActionTitle(settings)
+        assertFullTopActionTitle(latest)
         #expect(returnButton.configuration?.title == "Send")
         #expect(returnButton.accessibilityLabel == "Send")
 
@@ -137,8 +139,10 @@ struct BrandStageKeyboardViewTests {
         let delete = try button("keyboard.brand-stage.delete", in: view)
         let returnButton = try button("keyboard.brand-stage.return", in: view)
 
-        #expect(settings.bounds.width >= 111.9)
+        #expect(settings.bounds.width >= 95.9)
         #expect(latest.bounds.width == settings.bounds.width)
+        assertFullTopActionTitle(settings)
+        assertFullTopActionTitle(latest)
         #expect(settings.configuration?.title == "Settings")
         #expect(settings.configuration?.image == UIImage(systemName: "gearshape"))
         #expect(latest.configuration?.title == "Latest")
@@ -154,6 +158,28 @@ struct BrandStageKeyboardViewTests {
             returnButton.configuration?.preferredSymbolConfigurationForImage?
                 .isEqual(boundedSymbol) == true
         )
+    }
+
+    @Test func topActionsUseIntrinsicTextWidthOnNarrowPhones() throws {
+        for width: CGFloat in [320, 375, 393, 430] {
+            let view = makeView(width: width)
+            view.render(presentation(latestIsEnabled: true))
+            layout(view)
+
+            let settings = try button(
+                "keyboard.brand-stage.settings",
+                in: view
+            )
+            let latest = try button(
+                "keyboard.brand-stage.latest",
+                in: view
+            )
+
+            #expect(settings.bounds.width >= 95.9)
+            #expect(latest.bounds.width == settings.bounds.width)
+            assertFullTopActionTitle(settings)
+            assertFullTopActionTitle(latest)
+        }
     }
 
     @Test func dynamicColorsChangeWithoutChangingControlGeometry() throws {
@@ -518,6 +544,17 @@ struct BrandStageKeyboardViewTests {
     ) throws -> UIButton {
         try #require(
             view.descendant(UIButton.self, identifier: identifier)
+        )
+    }
+
+    private func assertFullTopActionTitle(_ button: UIButton) {
+        guard let titleLabel = button.titleLabel else {
+            Issue.record("Top action is missing its title label")
+            return
+        }
+        #expect(
+            titleLabel.bounds.width + 0.5
+                >= titleLabel.intrinsicContentSize.width
         )
     }
 

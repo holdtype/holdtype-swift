@@ -46,7 +46,6 @@ final class BrandStageKeyboardView: UIView {
     private let microphoneImageView = UIImageView()
     private let waveformStack = UIStackView()
     private var preferredHeightConstraint: NSLayoutConstraint?
-    private var topActionWidthConstraint: NSLayoutConstraint?
     private var logoWidthConstraint: NSLayoutConstraint?
     private var logoHeightConstraint: NSLayoutConstraint?
     private var rootTopConstraint: NSLayoutConstraint?
@@ -137,8 +136,6 @@ final class BrandStageKeyboardView: UIView {
     func updatePreferredHeight(for traitCollection: UITraitCollection) {
         let isCompactPhone = traitCollection.userInterfaceIdiom == .phone
             && traitCollection.verticalSizeClass == .compact
-        topActionWidthConstraint?.constant = traitCollection
-            .preferredContentSizeCategory.isAccessibilityCategory ? 112 : 100
         updateAdaptiveLayout(isCompactPhone: isCompactPhone)
         let baseHeight: CGFloat
         if isCompactPhone {
@@ -404,12 +401,19 @@ final class BrandStageKeyboardView: UIView {
         rail.alignment = .center
         rail.distribution = .equalCentering
         rail.spacing = 8
-        let topActionWidth = settingsButton.widthAnchor.constraint(
-            equalToConstant: 100
+        let topActionMinimumWidth = settingsButton.widthAnchor.constraint(
+            greaterThanOrEqualToConstant: 96
         )
-        topActionWidthConstraint = topActionWidth
+        settingsButton.setContentCompressionResistancePriority(
+            .required,
+            for: .horizontal
+        )
+        latestButton.setContentCompressionResistancePriority(
+            .required,
+            for: .horizontal
+        )
         NSLayoutConstraint.activate([
-            topActionWidth,
+            topActionMinimumWidth,
             latestButton.widthAnchor.constraint(equalTo: settingsButton.widthAnchor),
             settingsButton.heightAnchor.constraint(equalToConstant: 44),
             latestButton.heightAnchor.constraint(equalToConstant: 44),
@@ -775,8 +779,7 @@ final class BrandStageKeyboardView: UIView {
             }
         button.configuration = configuration
         button.titleLabel?.numberOfLines = 1
-        button.titleLabel?.adjustsFontSizeToFitWidth = true
-        button.titleLabel?.minimumScaleFactor = 0.82
+        button.titleLabel?.adjustsFontSizeToFitWidth = false
         button.accessibilityTraits.remove(.keyboardKey)
         button.accessibilityTraits.insert(.button)
     }

@@ -496,11 +496,15 @@ struct IOSVoiceHomeView: View {
                 )
 
             Text(
-                "This signed-device probe keeps one app-owned session available for up to 60 seconds. Audio starts only after Start on HoldType Keyboard."
+                "This signed-device probe keeps one app-owned session available for up to 60 seconds. The containing app alone owns microphone recording."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+
+            #if DEBUG
+            keyboardDictationRecordingProbeControls
+            #endif
 
             switch keyboardSession.presentation {
             case .stopped, .failed:
@@ -515,7 +519,7 @@ struct IOSVoiceHomeView: View {
             case .preparing:
                 ProgressView()
                     .accessibilityLabel("Preparing keyboard session")
-            case .ready, .listening, .processing:
+            case .ready, .listening, .processing, .resultReady:
                 Button("Stop Keyboard Session", role: .destructive) {
                     keyboardSession.stopSession()
                 }
@@ -525,6 +529,44 @@ struct IOSVoiceHomeView: View {
             }
         }
     }
+
+    #if DEBUG
+    @ViewBuilder
+    private var keyboardDictationRecordingProbeControls: some View {
+        switch keyboardSession.presentation {
+        case .ready:
+            Button("Start Recording Probe") {
+                keyboardSession.startRecordingProbe()
+            }
+            .accessibilityIdentifier(
+                "ios.voice.keyboard-session.probe-start"
+            )
+        case .listening:
+            Button("Finish Recording Probe") {
+                keyboardSession.finishRecordingProbe()
+            }
+            .accessibilityIdentifier(
+                "ios.voice.keyboard-session.probe-finish"
+            )
+
+            Button("Cancel Recording Probe", role: .destructive) {
+                keyboardSession.cancelRecordingProbe()
+            }
+            .accessibilityIdentifier(
+                "ios.voice.keyboard-session.probe-cancel"
+            )
+        case .processing:
+            ProgressView()
+                .accessibilityLabel("Finishing recording probe")
+        case .resultReady:
+            Text("Deterministic non-provider result is ready.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        case .stopped, .preparing, .failed:
+            EmptyView()
+        }
+    }
+    #endif
 
     private func scheduleAccessibilityAnnouncement(
         _ message: String,

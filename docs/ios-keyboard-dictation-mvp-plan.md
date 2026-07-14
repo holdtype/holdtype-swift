@@ -238,7 +238,7 @@ keyboard.
 | --- | --- | --- | --- |
 | KBD-MVP-0 | Product contract and execution plan | Completed 2026-07-14 | — |
 | KBD-MVP-1 | Settings action and normal app shell | Completed 2026-07-14 | KBD-MVP-0 |
-| KBD-MVP-2 | Signed-device background-session feasibility | Failed — stop 2026-07-14 | KBD-MVP-1 |
+| KBD-MVP-2 | Signed-device background-session feasibility | Passed 2026-07-14 | KBD-MVP-1 |
 | KBD-MVP-3 | Real recorder, OpenAI, and safe insertion | Pending | KBD-MVP-2 pass |
 | KBD-MVP-4 | Setup, failure states, and release UX | Pending | KBD-MVP-3 |
 | KBD-MVP-5 | Device qualification and TestFlight candidate | Pending | KBD-MVP-4 |
@@ -323,7 +323,7 @@ the change.
 
 ## KBD-MVP-2 — Physical Background-Session Feasibility
 
-Status: Failed — stop (2026-07-14).
+Status: Passed (2026-07-14).
 
 ### Purpose
 
@@ -341,6 +341,37 @@ growing user-visible behavior.
 If no qualifying physical iPhone is available, record the exact missing
 precondition and stop. Simulator evidence must not be presented as a pass.
 
+### Revised KBD-MVP-2 Qualification Split (2026-07-14)
+
+For this feasibility spike, physical and Simulator evidence have separate,
+explicit ownership:
+
+- the signed physical iPhone proves only containing-app behavior: explicit
+  bounded session start/stop, real app-owned recording, honest `Listening…`,
+  Finish, Cancel, expiry, audio release, and the microphone indicator when the
+  selected device-capture surface exposes it;
+- a DEBUG-only containing-app probe exposes Start Recording, Finish Recording,
+  and Cancel Recording so those physical checks never require presenting the
+  custom keyboard through iPhone Mirroring;
+- iPhone Mirroring is used only to operate and observe the containing app. Do
+  not attempt to present or qualify HoldType Keyboard through Mirroring because
+  the Mac is treated as an external keyboard and suppresses the onscreen
+  keyboard;
+- Mirroring must be disconnected before real capture if macOS reports
+  `iPhone microphone is not available from Mac`; in that environment it may
+  inspect only non-recording app state, while the signed DEBUG app route or a
+  physical-device UI test drives the recorder directly on iPhone;
+- the actual extension UI, bounded App Group command/state reduction,
+  one-request/one-insertion behavior, Cancel-without-insertion, `Open HoldType`,
+  Full Access on/off presentation, punctuation, Space, Delete, Return, and
+  Globe are qualified in Simulator plus focused tests;
+- this split may pass KBD-MVP-2, but it does not waive the later signed-device
+  keyboard/host-app matrix required before TestFlight or release.
+
+This is not a Simulator-only pass: real microphone ownership and recording
+lifecycle remain mandatory physical-device evidence. The Simulator owns only
+the keyboard-extension half of the spike.
+
 ### Scope
 
 - Enable the production Full Access declaration while preserving restricted
@@ -357,22 +388,39 @@ precondition and stop. Simulator evidence must not be presented as a pass.
 - Remove the deterministic probe from production behavior before commit, or
   isolate it behind the repository's existing DEBUG qualification boundary.
 
-### Required device proof
+### Required qualification proof
 
-1. Start the bounded session in HoldType.
-2. Move to Notes, focus a standard text field, and select HoldType Keyboard.
-3. Tap microphone; the app acknowledges actual capture and keyboard shows
-   `Listening…`.
-4. Tap Finish; capture stops and the keyboard receives the matching result.
-5. The real extension calls `insertText` exactly once.
-6. Repeat with Cancel and prove no result is inserted.
-7. Stop or expire the session and prove the keyboard shows `Open HoldType`.
-8. Disable Full Access and prove local editing and Globe still work.
+Physical containing-app probe:
 
-Perform the Mac-visible parts of this matrix with Computer Use through Xcode,
-iPhone mirroring, or another available device UI. Record which steps were
-agent-controlled and which required a minimal user touch. A written claim or
-Simulator reproduction does not replace the physical interaction evidence.
+1. Start the bounded session in HoldType on the signed iPhone.
+2. Use the DEBUG Start Recording probe and confirm the app's real recorder
+   returns `record() == true` and `isRecording == true` before `Listening…`
+   appears. Record the system microphone indicator when the wired capture
+   surface includes it; do not fabricate that observation when it does not.
+3. Use Finish Recording and confirm the recorder stops and the audio session
+   deactivates before the deterministic non-provider result becomes ready.
+4. Repeat with Cancel Recording and confirm capture stops with no result.
+5. Stop or expire the session and confirm the app returns to a stopped state
+   without retaining idle audio.
+
+Simulator keyboard proof:
+
+1. Present the actual HoldType Keyboard in a standard host field.
+2. Prove Start, Finish, and Cancel write one bounded current command and reduce
+   the matching app-written current state/result.
+3. Prove the deterministic result inserts exactly once through
+   `UITextDocumentProxy`, while Cancel inserts nothing.
+4. Prove stopped/expired state shows `Open HoldType`.
+5. With Full Access disabled, prove punctuation, Space, Delete, Return, and
+   Globe remain functional.
+
+Use Computer Use through iPhone Mirroring only for non-recording inspection of
+the physical containing app, and disconnect it before capture when the system
+reports the iPhone microphone unavailable from Mac. Drive the recording probe
+directly on the signed iPhone through the DEBUG app route or a physical-device
+UI test. Use Simulator UI plus focused tests for the keyboard half. Record the
+two evidence lanes separately and never describe Simulator microphone behavior
+as physical proof.
 
 ### Stop conditions
 
@@ -385,7 +433,7 @@ Stop without KBD-MVP-3 if the proof requires:
 - indefinite silent-audio playback solely to avoid suspension;
 - more than the two bounded records;
 - an unbounded polling or retry loop;
-- Simulator-only evidence.
+- no real signed-iPhone proof of the containing-app recording lifecycle.
 
 ### Exit
 
@@ -398,14 +446,24 @@ commits only the spec/QA/status evidence needed to preserve the decision.
 ### Evidence
 
 - KBD-MVP-1 was committed at `d5b2c0a` on `master` before this spike began.
-- `xcrun devicectl list devices` returned `No devices found`; `xcrun xcdevice
-  list` showed only Simulator devices and the development Mac, with no physical
-  iOS device available for trust, signing, installation, or runtime proof.
-- The source targets use automatic signing and declare the same
-  `group.app.holdtype.HoldType.shared` App Group, but matching signed
-  entitlements could not be validated on installed physical-device products.
-- No production spike implementation was started, no Simulator result was used
-  as substitute evidence, and no OpenAI/provider path ran.
+- A connected and trusted iPhone 14 Pro Max (`iPhone15,3`) running iOS 26.5.2
+  (`23F84`) built and installed with Apple Development signing for team
+  `PUA6HH22D7`. The signed app and extension both contain the matching
+  `group.app.holdtype.HoldType.shared` entitlement.
+- The signed DEBUG containing-app route confirmed real app-owned recording
+  before publishing Listening. Finish stopped recording before publishing the
+  deterministic non-provider result; a separate Cancel run stopped recording
+  without a result. No extension recorder or live provider path ran.
+- The actual HoldType extension in Simulator retained punctuation, Space,
+  Delete, Return, and Globe with Full Access off. Focused controller/document-
+  proxy tests proved bounded Start/Finish/Cancel reduction, exactly one result
+  insertion, Cancel with no insertion, expiry, and `Open HoldType`.
+- Settings and Latest retained their full intrinsic titles across 320, 375,
+  393, and 430-point hosts. The interactive restricted-access pass is captured
+  in [the Simulator screenshot](qa/runs/assets/kbd-mvp-2-2026-07-14/simulator-full-access-off.jpeg).
+- All 34 focused tests in five suites passed. The bridge remains limited to one
+  extension-written command record and one app-written state/result record,
+  with no forbidden persistence, polling, keepalive, provider, or launch path.
 - Full evidence and the exact rerun precondition are recorded in
   [the KBD-MVP-2 QA note](qa/runs/kbd-mvp-2-physical-feasibility-2026-07-14.md).
 

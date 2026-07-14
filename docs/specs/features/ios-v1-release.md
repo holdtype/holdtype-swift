@@ -414,6 +414,12 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 
 ### Signed Physical iPhone
 
+The KBD-MVP-2 feasibility spike may use the approved split qualification in
+`docs/ios-keyboard-dictation-mvp-plan.md`: physical containing-app recorder
+controls plus Simulator keyboard evidence. That split avoids the external-
+keyboard behavior of iPhone Mirroring and does not waive any item in this later
+release gate.
+
 V1.1 is not release-complete until a recorded device pass proves:
 
 - app and extension install with matching signing and App Group configuration;

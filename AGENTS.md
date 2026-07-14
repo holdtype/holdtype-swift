@@ -263,6 +263,13 @@ entire UI session so system idle timers cannot sleep or lock the Mac, then stop
 that process when the UI session finishes. Do not begin UI automation without
 this guard.
 
+Agents must perform every interface action that is available through Computer
+Use or another approved automation surface themselves. Do not ask the operator
+to click buttons, navigate menus, dismiss prompts, or enter ordinary values on
+the agent's behalf. Request operator action only when the required physical or
+authentication gesture is genuinely unavailable to automation, and continue
+all independent work instead of stopping while that action is pending.
+
 For UI tests, Computer Use, and automated runtime QA, HoldType must launch with
 live Keychain access disabled. Use the UI-test launch helper or
 `script/build_and_run.sh --verify`, which launches the app with a sanitized

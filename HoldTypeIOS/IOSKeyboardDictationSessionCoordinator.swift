@@ -1,6 +1,7 @@
 import AVFAudio
 import Combine
 import Foundation
+import SwiftUI
 import UIKit
 
 /// DEBUG feasibility owner for KBD-MVP-2. The containing app alone owns the
@@ -13,6 +14,7 @@ final class IOSKeyboardDictationSessionCoordinator: ObservableObject {
         case ready(Date)
         case listening(Date)
         case processing
+        case resultReady
         case failed(String)
 
         var title: String {
@@ -27,6 +29,8 @@ final class IOSKeyboardDictationSessionCoordinator: ObservableObject {
                 return "Listening…"
             case .processing:
                 return "Finishing…"
+            case .resultReady:
+                return "Probe result ready"
             case let .failed(message):
                 return message
             }
@@ -133,6 +137,23 @@ final class IOSKeyboardDictationSessionCoordinator: ObservableObject {
         stopSession(publishUnavailable: true)
     }
 
+    #if DEBUG
+    func startRecordingProbe() {
+        guard let requestID, let deadline, deadline > Date() else { return }
+        startRecording(requestID: requestID, deadline: deadline)
+    }
+
+    func finishRecordingProbe() {
+        guard let requestID, let deadline, deadline > Date() else { return }
+        finishRecording(requestID: requestID, deadline: deadline)
+    }
+
+    func cancelRecordingProbe() {
+        guard let requestID, let deadline, deadline > Date() else { return }
+        cancelRecording(requestID: requestID, deadline: deadline)
+    }
+    #endif
+
     private func receiveCurrentCommand() {
         guard let store,
               let requestID,
@@ -232,6 +253,7 @@ final class IOSKeyboardDictationSessionCoordinator: ObservableObject {
             failAndStop("Session unavailable")
             return
         }
+        presentation = .resultReady
         #else
         failAndStop("Probe unavailable")
         #endif
@@ -360,3 +382,96 @@ final class IOSKeyboardDictationSessionCoordinator: ObservableObject {
         }
     }
 }
+
+#if DEBUG
+enum IOSKeyboardDictationPhysicalProbeAction: String {
+    case finish
+    case cancel
+
+    static var current: Self? {
+        if let environmentValue = ProcessInfo.processInfo.environment[
+            "HOLDTYPE_KBD_MVP2_PHYSICAL_PROBE"
+        ], let action = Self(rawValue: environmentValue) {
+            return action
+        }
+        let prefix = "holdtype-kbd-mvp2-physical-probe="
+        return ProcessInfo.processInfo.arguments.lazy.compactMap { argument in
+            let normalized = argument.hasPrefix("--")
+                ? String(argument.dropFirst(2))
+                : argument
+            guard normalized.hasPrefix(prefix) else { return nil }
+            return Self(
+                rawValue: String(normalized.dropFirst(prefix.count))
+            )
+        }.first
+    }
+}
+
+struct IOSKeyboardDictationPhysicalProbeView: View {
+    @StateObject private var coordinator =
+        IOSKeyboardDictationSessionCoordinator()
+
+    let action: IOSKeyboardDictationPhysicalProbeAction
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Keyboard Dictation Physical Probe")
+                .font(.headline)
+            Text(coordinator.presentation.title)
+                .accessibilityIdentifier(
+                    "ios.voice.keyboard-session.physical-probe-status"
+                )
+            Text("Action: \(action.rawValue)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .task {
+            await run()
+        }
+    }
+
+    private func run() async {
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        print("KBD-MVP-2 physical probe: session start")
+        await coordinator.startSession()
+        guard case .ready = coordinator.presentation else {
+            logFailure()
+            return
+        }
+
+        coordinator.startRecordingProbe()
+        guard case .listening = coordinator.presentation else {
+            logFailure()
+            return
+        }
+        print("KBD-MVP-2 physical probe: confirmed listening")
+
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        switch action {
+        case .finish:
+            coordinator.finishRecordingProbe()
+            guard coordinator.presentation == .resultReady else {
+                logFailure()
+                return
+            }
+            print("KBD-MVP-2 physical probe: finish stopped recording")
+            print("KBD-MVP-2 physical probe: deterministic result ready")
+        case .cancel:
+            coordinator.cancelRecordingProbe()
+            guard coordinator.presentation == .stopped else {
+                logFailure()
+                return
+            }
+            print("KBD-MVP-2 physical probe: cancel stopped without result")
+        }
+    }
+
+    private func logFailure() {
+        print(
+            "KBD-MVP-2 physical probe: FAILED "
+                + coordinator.presentation.title
+        )
+    }
+}
+#endif
