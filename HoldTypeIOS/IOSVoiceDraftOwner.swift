@@ -1,0 +1,325 @@
+import Foundation
+import Observation
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
+
+struct IOSVoiceDraftClient: Sendable {
+    let load: @Sendable () async throws -> IOSVoiceDraftRecord
+    let append: @Sendable (IOSVoiceDraftSegment) async throws
+        -> IOSVoiceDraftAppendResult
+    let replace: @Sendable (
+        IOSVoiceDraftRecord,
+        IOSVoiceDraftSnapshotToken
+    ) async throws -> IOSVoiceDraftMutationResult
+
+    init(repository: IOSVoiceDraftRepository) {
+        load = { try await repository.load() }
+        append = { try await repository.append($0) }
+        replace = { try await repository.replace($0, ifCurrent: $1) }
+    }
+
+    init(
+        load: @escaping @Sendable () async throws -> IOSVoiceDraftRecord,
+        append: @escaping @Sendable (IOSVoiceDraftSegment) async throws
+            -> IOSVoiceDraftAppendResult,
+        replace: @escaping @Sendable (
+            IOSVoiceDraftRecord,
+            IOSVoiceDraftSnapshotToken
+        ) async throws -> IOSVoiceDraftMutationResult
+    ) {
+        self.load = load
+        self.append = append
+        self.replace = replace
+    }
+}
+
+enum IOSVoiceDraftState: Equatable, Sendable {
+    case notLoaded
+    case ready(IOSVoiceDraftRecord)
+    case loadFailed(lastConfirmed: IOSVoiceDraftRecord?)
+
+    var lastConfirmed: IOSVoiceDraftRecord? {
+        switch self {
+        case .notLoaded:
+            nil
+        case .ready(let record), .loadFailed(.some(let record)):
+            record
+        case .loadFailed(lastConfirmed: nil):
+            nil
+        }
+    }
+}
+
+enum IOSVoiceDraftOperation: Equatable, Sendable {
+    case idle
+    case refreshing
+    case appending
+    case clearing
+    case undoing
+    case redoing
+}
+
+enum IOSVoiceDraftNotice: Equatable, Sendable {
+    case appendFailed
+    case draftFull
+    case clearFailed
+    case undoFailed
+    case redoFailed
+    case draftChanged
+
+    var message: String {
+        switch self {
+        case .appendFailed:
+            "The result is safe in Latest and History, but it couldn't be added to this Draft."
+        case .draftFull:
+            "This Draft is full. Copy or clear it before adding another dictation."
+        case .clearFailed:
+            "The Draft couldn't be cleared. Its confirmed text remains available."
+        case .undoFailed:
+            "Undo couldn't be saved. The confirmed Draft remains available."
+        case .redoFailed:
+            "Redo couldn't be saved. The confirmed Draft remains available."
+        case .draftChanged:
+            "The Draft changed while that action was running. Review it and try again."
+        }
+    }
+}
+
+@MainActor
+@Observable
+final class IOSVoiceDraftOwner {
+    private static let maximumUndoCount = 20
+
+    private(set) var state = IOSVoiceDraftState.notLoaded
+    private(set) var operation = IOSVoiceDraftOperation.idle
+    private(set) var notice: IOSVoiceDraftNotice?
+
+    @ObservationIgnored
+    private let client: IOSVoiceDraftClient
+    @ObservationIgnored
+    private var undoStack: [IOSVoiceDraftRecord] = []
+    @ObservationIgnored
+    private var redoStack: [IOSVoiceDraftRecord] = []
+
+    init(client: IOSVoiceDraftClient) {
+        self.client = client
+    }
+
+    convenience init(repository: IOSVoiceDraftRepository) {
+        self.init(client: IOSVoiceDraftClient(repository: repository))
+    }
+
+    var confirmedRecord: IOSVoiceDraftRecord? { state.lastConfirmed }
+    var text: String { confirmedRecord?.text ?? "" }
+    var isLoaded: Bool { confirmedRecord != nil }
+    var isAvailableForMutation: Bool {
+        if case .ready = state { return true }
+        return false
+    }
+    var isFull: Bool { confirmedRecord?.isFull == true }
+    var canUndo: Bool { !undoStack.isEmpty && operation == .idle }
+    var canRedo: Bool { !redoStack.isEmpty && operation == .idle }
+    var isBusy: Bool { operation != .idle }
+
+    @discardableResult
+    func refresh() async -> Bool {
+        guard begin(.refreshing) else { return false }
+        let previous = state.lastConfirmed
+        do {
+            let record = try await client.load()
+            guard complete() else { return false }
+            state = .ready(record)
+            notice = nil
+            return true
+        } catch is CancellationError {
+            _ = complete()
+            return false
+        } catch {
+            guard complete() else { return false }
+            state = .loadFailed(lastConfirmed: previous)
+            return false
+        }
+    }
+
+    @discardableResult
+    func appendAccepted(
+        _ accepted: IOSV1AcceptedOutputDeliveryRecord
+    ) async -> Bool {
+        guard await beginAcceptedAppend() else { return false }
+        let previous = state.lastConfirmed
+        let segment: IOSVoiceDraftSegment
+        do {
+            segment = try IOSVoiceDraftSegment(
+                resultID: accepted.resultID,
+                text: accepted.acceptedText
+            )
+        } catch {
+            _ = complete()
+            notice = .appendFailed
+            return false
+        }
+
+        do {
+            let result = try await client.append(segment)
+            guard complete() else { return false }
+            switch result {
+            case .inserted(let record):
+                if let previous { recordUndo(previous) }
+                redoStack.removeAll()
+                state = .ready(record)
+                notice = nil
+                return true
+            case .duplicate(let record):
+                state = .ready(record)
+                notice = nil
+                return true
+            case .full(let record):
+                state = .ready(record)
+                notice = .draftFull
+                return false
+            }
+        } catch is CancellationError {
+            _ = complete()
+            return false
+        } catch {
+            guard complete() else { return false }
+            if let previous { state = .ready(previous) }
+            notice = .appendFailed
+            return false
+        }
+    }
+
+    @discardableResult
+    func clear() async -> Bool {
+        guard let current = confirmedRecord,
+              !current.isEmpty else {
+            return false
+        }
+        return await replaceCurrent(
+            with: .empty,
+            operation: .clearing,
+            failureNotice: .clearFailed,
+            onSuccess: {
+                self.recordUndo(current)
+                self.redoStack.removeAll()
+            }
+        )
+    }
+
+    @discardableResult
+    func undo() async -> Bool {
+        guard let current = confirmedRecord,
+              let target = undoStack.last else {
+            return false
+        }
+        return await replaceCurrent(
+            with: target,
+            operation: .undoing,
+            failureNotice: .undoFailed,
+            onSuccess: {
+                _ = self.undoStack.popLast()
+                self.redoStack.append(current)
+                self.trim(&self.redoStack)
+            }
+        )
+    }
+
+    @discardableResult
+    func redo() async -> Bool {
+        guard let current = confirmedRecord,
+              let target = redoStack.last else {
+            return false
+        }
+        return await replaceCurrent(
+            with: target,
+            operation: .redoing,
+            failureNotice: .redoFailed,
+            onSuccess: {
+                _ = self.redoStack.popLast()
+                self.recordUndo(current)
+            }
+        )
+    }
+
+    func dismissNotice() {
+        notice = nil
+    }
+
+    private func replaceCurrent(
+        with updated: IOSVoiceDraftRecord,
+        operation: IOSVoiceDraftOperation,
+        failureNotice: IOSVoiceDraftNotice,
+        onSuccess: @escaping () -> Void
+    ) async -> Bool {
+        guard let current = confirmedRecord,
+              begin(operation) else {
+            return false
+        }
+        do {
+            let result = try await client.replace(
+                updated,
+                IOSVoiceDraftSnapshotToken(record: current)
+            )
+            guard complete() else { return false }
+            switch result {
+            case .confirmed(let record):
+                state = .ready(record)
+                notice = nil
+                onSuccess()
+                return true
+            case .stale(let record):
+                state = .ready(record)
+                undoStack.removeAll()
+                redoStack.removeAll()
+                notice = .draftChanged
+                return false
+            }
+        } catch is CancellationError {
+            _ = complete()
+            return false
+        } catch {
+            guard complete() else { return false }
+            state = .ready(current)
+            notice = failureNotice
+            return false
+        }
+    }
+
+    private func recordUndo(_ record: IOSVoiceDraftRecord) {
+        undoStack.append(record)
+        trim(&undoStack)
+    }
+
+    private func trim(_ stack: inout [IOSVoiceDraftRecord]) {
+        if stack.count > Self.maximumUndoCount {
+            stack.removeFirst(stack.count - Self.maximumUndoCount)
+        }
+    }
+
+    private func begin(_ requested: IOSVoiceDraftOperation) -> Bool {
+        guard operation == .idle else { return false }
+        operation = requested
+        return true
+    }
+
+    private func beginAcceptedAppend() async -> Bool {
+        while !begin(.appending) {
+            guard !Task.isCancelled else { return false }
+            await Task.yield()
+        }
+        return true
+    }
+
+    @discardableResult
+    private func complete() -> Bool {
+        guard operation != .idle else { return false }
+        operation = .idle
+        return true
+    }
+}
+
+extension IOSVoiceDraftOwner: CustomStringConvertible,
+    CustomDebugStringConvertible, CustomReflectable {
+    nonisolated var description: String { "IOSVoiceDraftOwner(<redacted>)" }
+    nonisolated var debugDescription: String { description }
+    nonisolated var customMirror: Mirror { Mirror(self, children: [:]) }
+}

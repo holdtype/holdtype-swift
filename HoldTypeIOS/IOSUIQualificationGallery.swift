@@ -423,6 +423,7 @@ private nonisolated enum IOSUIQualificationLatestResult: Sendable {
 private final class IOSUIQualificationVoiceFixture {
     let sceneOwner: IOSForegroundVoiceSceneHostOwner
     let latestResultOwner: IOSForegroundVoiceLatestResultOwner
+    let draftOwner: IOSVoiceDraftOwner
     let consentOwner: IOSProviderConsentPresentationOwner
     let keyboardSession = IOSKeyboardDictationSessionCoordinator(
         qualificationOnly: true
@@ -491,6 +492,29 @@ private final class IOSUIQualificationVoiceFixture {
             },
             clear: { _ in .alreadyAbsent }
         )
+        let draftStore = IOSUIQualificationDraftStore(
+            initial: IOSVoiceDraftRecord(
+                segments: [
+                    try! IOSVoiceDraftSegment(
+                        resultID: UUID(),
+                        text: "This is the current composed Draft. It stays "
+                            + "read-only so the keyboard never appears."
+                    ),
+                    try! IOSVoiceDraftSegment(
+                        resultID: UUID(),
+                        text: "Each accepted dictation is appended here and "
+                            + "can be copied in one tap."
+                    ),
+                ]
+            )
+        )
+        draftOwner = IOSVoiceDraftOwner(
+            client: IOSVoiceDraftClient(
+                load: { await draftStore.load() },
+                append: { await draftStore.append($0) },
+                replace: { await draftStore.replace($0, expected: $1) }
+            )
+        )
         consentOwner = IOSUIQualificationConsentFixture.makeOwner(
             sceneRegistry: registry,
             scenario: .ready
@@ -508,6 +532,7 @@ private final class IOSUIQualificationVoiceFixture {
             // The failure route intentionally renders the owner's fail-closed
             // presentation; no external work or retry follows this error.
         }
+        _ = await draftOwner.refresh()
 
         guard scenario.startsOperation,
               let command = sceneOwner.actionCommands.first(where: {
@@ -531,21 +556,66 @@ private struct IOSUIQualificationVoiceHost: View {
     }
 
     var body: some View {
-        NavigationStack {
-            IOSVoiceHomeView(
-                practiceText: $practiceText,
-                secureProviderAvailability: .available,
-                openSettings: { _ in }
-            )
-            .environment(fixture.sceneOwner)
-            .environment(fixture.latestResultOwner)
-            .environment(fixture.consentOwner)
-            .environment(fixture.keyboardSession)
+        TabView {
+            NavigationStack {
+                IOSVoiceHomeView(
+                    practiceText: $practiceText,
+                    secureProviderAvailability: .available,
+                    openSettings: { _ in }
+                )
+                .environment(fixture.sceneOwner)
+                .environment(fixture.latestResultOwner)
+                .environment(fixture.draftOwner)
+                .environment(fixture.consentOwner)
+                .environment(fixture.keyboardSession)
+            }
+            .tabItem { Label("Voice", systemImage: "mic.fill") }
+
+            Text("Library")
+                .tabItem { Label("Library", systemImage: "books.vertical") }
+            Text("History")
+                .tabItem { Label("History", systemImage: "clock") }
+            Text("Settings")
+                .tabItem { Label("Settings", systemImage: "gearshape") }
         }
         .task {
             await fixture.prepare()
         }
         .accessibilityIdentifier("ios.qualification.voice")
+    }
+}
+
+private actor IOSUIQualificationDraftStore {
+    private var record: IOSVoiceDraftRecord
+
+    init(initial: IOSVoiceDraftRecord) {
+        record = initial
+    }
+
+    func load() -> IOSVoiceDraftRecord { record }
+
+    func append(
+        _ segment: IOSVoiceDraftSegment
+    ) -> IOSVoiceDraftAppendResult {
+        if let existing = record.segments.first(where: {
+            $0.resultID == segment.resultID
+        }) {
+            return existing == segment ? .duplicate(record) : .full(record)
+        }
+        guard !record.isFull else { return .full(record) }
+        record = IOSVoiceDraftRecord(segments: record.segments + [segment])
+        return .inserted(record)
+    }
+
+    func replace(
+        _ updated: IOSVoiceDraftRecord,
+        expected: IOSVoiceDraftSnapshotToken
+    ) -> IOSVoiceDraftMutationResult {
+        guard expected == IOSVoiceDraftSnapshotToken(record: record) else {
+            return .stale(record)
+        }
+        record = updated
+        return .confirmed(record)
     }
 }
 

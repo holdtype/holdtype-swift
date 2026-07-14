@@ -5,12 +5,17 @@ import HoldTypeDomain
 
 nonisolated enum IOSKeyboardSnapshotAcceptancePublication {
     typealias Publish = @Sendable () async -> Void
+    typealias AcceptDraft = @Sendable (
+        IOSV1AcceptedOutputDeliveryRecord
+    ) async -> Void
 
     static func apply(
         to resolution: IOSForegroundVoiceProcessingResolution,
+        acceptDraft: @escaping AcceptDraft = { _ in },
         publish: @escaping Publish
     ) async -> IOSForegroundVoiceProcessingResolution {
-        if case .acceptance = resolution {
+        if case .acceptance(.resultReady(let record, _)) = resolution {
+            await acceptDraft(record)
             await publish()
         }
         return resolution
@@ -120,6 +125,7 @@ final class IOSForegroundVoiceRuntime {
         historyPlaybackArbitrator as? IOSHistoryAudioPlaybackOwner
     }
     let latestResultOwner: IOSForegroundVoiceLatestResultOwner
+    let voiceDraftOwner: IOSVoiceDraftOwner
     let workflow: IOSForegroundVoiceWorkflow
     let keyboardDictationSession: IOSKeyboardDictationSessionCoordinator
     let controller: IOSForegroundVoiceController
@@ -131,6 +137,7 @@ final class IOSForegroundVoiceRuntime {
         libraryStateOwner: IOSLibraryStateOwner,
         providerConsentCoordinator: IOSV1ProviderConsentCoordinator,
         persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
+        voiceDraftOwner: IOSVoiceDraftOwner,
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         processor: IOSForegroundVoiceProcessor?,
         publishKeyboardSnapshot: @escaping @Sendable () async -> Bool = {
@@ -183,6 +190,7 @@ final class IOSForegroundVoiceRuntime {
             publishKeyboardSnapshot: publishKeyboardSnapshot
         )
         self.latestResultOwner = latestResultOwner
+        self.voiceDraftOwner = voiceDraftOwner
 
         let dependencies = IOSForegroundVoiceWorkflowDependencies(
             sceneRegistry: sceneRegistry,
@@ -265,6 +273,9 @@ final class IOSForegroundVoiceRuntime {
                 )
                 return await IOSKeyboardSnapshotAcceptancePublication.apply(
                     to: resolution,
+                    acceptDraft: { record in
+                        _ = await voiceDraftOwner.appendAccepted(record)
+                    },
                     publish: {
                         await latestResultOwner.refreshKeyboardProjection()
                     }

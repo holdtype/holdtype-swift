@@ -2,8 +2,7 @@ import SwiftUI
 import UIKit
 
 struct IOSContainingAppShell: View {
-    @SceneStorage("ios.containing-app.selected-destination")
-    private var selectedDestinationRawValue =
+    @State private var selectedDestinationRawValue =
         IOSContainingAppDestination.voice.rawValue
 
     @State private var settingsNavigationPath = NavigationPath()

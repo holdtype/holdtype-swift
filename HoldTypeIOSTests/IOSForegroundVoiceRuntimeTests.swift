@@ -11,6 +11,7 @@ struct IOSForegroundVoiceRuntimeTests {
         let publication = IOSVoiceRuntimeKeyboardPublicationProbe(
             result: false
         )
+        let draft = IOSVoiceRuntimeDraftAcceptanceProbe()
         let record = try IOSV1AcceptedOutputDeliveryRecord(
             resultID: UUID(),
             sourceAttemptID: UUID(),
@@ -23,20 +24,24 @@ struct IOSForegroundVoiceRuntimeTests {
 
         let preserved = await IOSKeyboardSnapshotAcceptancePublication.apply(
             to: acceptance,
+            acceptDraft: { await draft.accept($0) },
             publish: { _ = await publication.publish() }
         )
         #expect(preserved == acceptance)
         #expect(await publication.callCount == 1)
+        #expect(await draft.records == [record])
 
         let notStarted = IOSForegroundVoiceProcessingResolution.notStarted(
             .providerUnavailable
         )
         let unchanged = await IOSKeyboardSnapshotAcceptancePublication.apply(
             to: notStarted,
+            acceptDraft: { await draft.accept($0) },
             publish: { _ = await publication.publish() }
         )
         #expect(unchanged == notStarted)
         #expect(await publication.callCount == 1)
+        #expect(await draft.records == [record])
     }
 
     @Test func constructionBuildsOnePassiveGraphForEveryScene() async throws {
@@ -78,6 +83,11 @@ struct IOSForegroundVoiceRuntimeTests {
             libraryStateOwner: libraryStateOwner,
             providerConsentCoordinator: consentCoordinator,
             persistenceOwner: persistenceOwner,
+            voiceDraftOwner: IOSVoiceDraftOwner(
+                repository: IOSVoiceDraftRepository(
+                    applicationSupportDirectoryURL: root
+                )
+            ),
             credentialCoordinator: nil,
             processor: nil,
             factories: factories.value
@@ -164,6 +174,14 @@ struct IOSForegroundVoiceRuntimeTests {
             return
         }
         #expect(factories.platformEffectCount == 0)
+    }
+}
+
+private actor IOSVoiceRuntimeDraftAcceptanceProbe {
+    private(set) var records: [IOSV1AcceptedOutputDeliveryRecord] = []
+
+    func accept(_ record: IOSV1AcceptedOutputDeliveryRecord) {
+        records.append(record)
     }
 }
 

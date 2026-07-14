@@ -8,6 +8,8 @@ struct IOSVoiceHomeView: View {
     private var sceneOwner
     @Environment(IOSForegroundVoiceLatestResultOwner.self)
     private var latestResultOwner
+    @Environment(IOSVoiceDraftOwner.self)
+    private var draftOwner
     @Environment(IOSProviderConsentPresentationOwner.self)
     private var consentOwner
     @Environment(IOSKeyboardDictationSessionCoordinator.self)
@@ -21,6 +23,8 @@ struct IOSVoiceHomeView: View {
         IOSForegroundVoiceLatestResultClearCommand?
     @State private var shareItem: IOSVoiceShareItem?
     @State private var latestActionNotice: String?
+    @State private var draftActionNotice: String?
+    @State private var showsKeyboardTools = false
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
     @State private var accessibilityAnnouncementCandidate:
         IOSAccessibilityAnnouncementCandidate?
@@ -30,35 +34,59 @@ struct IOSVoiceHomeView: View {
     let openSettings: (IOSSettingsRoute) -> Void
 
     var body: some View {
-        List {
-            voiceHeader
-
-            if dictationHasPriority {
-                dictationSection
-                if latestSectionIsVisible {
-                    latestResultSection
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 14) {
+                    draftSurface
+                        .frame(minHeight: 250, maxHeight: 340)
+                    voiceStatusSurface
+                    Spacer(minLength: 0)
+                    primaryVoiceSurface
                 }
-                if showsGettingStarted {
-                    gettingStartedSection
-                }
-            } else {
-                if showsGettingStarted {
-                    gettingStartedSection
-                }
-                dictationSection
-                if latestSectionIsVisible {
-                    latestResultSection
-                }
+                .frame(
+                    minHeight: max(0, geometry.size.height - 22),
+                    alignment: .top
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             }
-
-            keyboardDictationSessionSection
-            keyboardPracticeSection
+            .scrollBounceBehavior(.basedOnSize)
         }
-        .listStyle(.insetGrouped)
-        .contentMargins(.top, 0, for: .scrollContent)
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("HoldType")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    if let translationCommand = sceneOwner.actionCommands
+                        .first(where: { $0.action == .startTranslation }) {
+                        let presentation = IOSVoiceActionPresentation.resolve(
+                            translationCommand.action
+                        )
+                        Button {
+                            performVoiceCommand(translationCommand)
+                        } label: {
+                            Label(
+                                presentation.title,
+                                systemImage: presentation.systemImage
+                            )
+                        }
+                    }
+                    Button {
+                        showsKeyboardTools = true
+                    } label: {
+                        Label(
+                            "Keyboard Session",
+                            systemImage: "keyboard.badge.ellipsis"
+                        )
+                    }
+                    .accessibilityIdentifier("ios.voice.keyboard-tools")
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+                .accessibilityIdentifier("ios.voice.more")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     openSettings(.privacyAndPermissions)
@@ -74,6 +102,11 @@ struct IOSVoiceHomeView: View {
         .accessibilityIdentifier(
             IOSContainingAppDestination.voice.accessibilityIdentifier
         )
+        .task {
+            if case .notLoaded = draftOwner.state {
+                await draftOwner.refresh()
+            }
+        }
         .task {
             let environment = ProcessInfo.processInfo.environment
             guard environment["HOLDTYPE_AUTOMATION"] == "1",
@@ -208,6 +241,23 @@ struct IOSVoiceHomeView: View {
         .sheet(item: $shareItem) { item in
             IOSVoiceActivityView(items: [item.text])
         }
+        .sheet(isPresented: $showsKeyboardTools) {
+            NavigationStack {
+                Form {
+                    keyboardDictationSessionSection
+                    keyboardPracticeSection
+                }
+                .navigationTitle("Keyboard Session")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            showsKeyboardTools = false
+                        }
+                    }
+                }
+            }
+        }
         .sheet(
             isPresented: voiceConsentSheetBinding,
             onDismiss: dismissVisibleVoiceConsent
@@ -220,6 +270,216 @@ struct IOSVoiceHomeView: View {
                 )
             }
         }
+    }
+
+    private var draftSurface: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                Text("Current text")
+                    .font(.headline)
+                Spacer(minLength: 12)
+                draftActionButtons
+            }
+
+            Divider()
+
+            Group {
+                switch draftOwner.state {
+                case .notLoaded:
+                    ProgressView("Loading Draft…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .loadFailed(lastConfirmed: nil):
+                    ContentUnavailableView {
+                        Label(
+                            "Draft Unavailable",
+                            systemImage: "doc.badge.exclamationmark"
+                        )
+                    } description: {
+                        Text(
+                            "HoldType couldn't safely load the current Draft."
+                        )
+                    } actions: {
+                        Button("Try Again") {
+                            Task { await draftOwner.refresh() }
+                        }
+                    }
+                case .ready, .loadFailed(lastConfirmed: .some):
+                    ScrollView {
+                        if draftOwner.text.isEmpty {
+                            ContentUnavailableView(
+                                "Ready for your first dictation",
+                                systemImage: "text.page",
+                                description: Text(
+                                    "Your accepted text will appear here."
+                                )
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 28)
+                        } else {
+                            Text(draftOwner.text)
+                                .font(.body)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    alignment: .topLeading
+                                )
+                                .accessibilityLabel("Current Draft")
+                                .accessibilityValue(draftOwner.text)
+                        }
+                    }
+                    .scrollIndicators(.visible)
+                }
+            }
+
+            if let message = draftActionNotice ?? draftOwner.notice?.message {
+                Label(message, systemImage: noticeSystemImage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("ios.voice.draft.notice")
+            }
+        }
+        .padding(18)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+        )
+        .accessibilityIdentifier("ios.voice.draft")
+    }
+
+    @ViewBuilder
+    private var draftActionButtons: some View {
+        HStack(spacing: 4) {
+            Button {
+                draftActionNotice = nil
+                Task { await draftOwner.undo() }
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(!draftOwner.canUndo)
+            .accessibilityLabel("Undo Draft Change")
+
+            Button {
+                draftActionNotice = nil
+                Task { await draftOwner.redo() }
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(!draftOwner.canRedo)
+            .accessibilityLabel("Redo Draft Change")
+
+            Button {
+                guard !draftOwner.text.isEmpty else { return }
+                IOSVoiceClipboard.copy(draftOwner.text)
+                draftActionNotice = "Copied"
+                IOSAccessibilityAnnouncement.post("Current Draft copied")
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(draftOwner.text.isEmpty)
+            .accessibilityLabel("Copy Draft")
+
+            Button(role: .destructive) {
+                draftActionNotice = nil
+                Task { await draftOwner.clear() }
+            } label: {
+                Image(systemName: "trash")
+                    .frame(width: 36, height: 36)
+            }
+            .disabled(draftOwner.text.isEmpty || draftOwner.isBusy)
+            .accessibilityLabel("Clear Draft")
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var noticeSystemImage: String {
+        draftActionNotice == "Copied"
+            ? "checkmark.circle"
+            : "exclamationmark.triangle"
+    }
+
+    private var voiceStatusSurface: some View {
+        let status = IOSVoiceHomePresentation.resolve(
+            sceneOwner.presentation
+        )
+        let recoveryCommands = sceneOwner.actionCommands.filter {
+            !isPrimaryVoiceAction($0.action)
+                && $0.action != .startTranslation
+        }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            IOSVoiceStatusRow(
+                status: status,
+                listeningStartedAt: listeningStartedAt
+            )
+            .accessibilityIdentifier("ios.voice.status")
+
+            if !recoveryCommands.isEmpty {
+                IOSVoiceActionLayout(
+                    commands: recoveryCommands,
+                    perform: performVoiceCommand
+                )
+            } else if let destination = status.setupDestination,
+                      let setupAction = setupAction(for: destination) {
+                Button(setupAction.title) {
+                    setupAction.perform()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("ios.voice.setup-action")
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var primaryVoiceSurface: some View {
+        let status = IOSVoiceHomePresentation.resolve(
+            sceneOwner.presentation
+        )
+        let command = sceneOwner.actionCommands.first {
+            isPrimaryVoiceAction($0.action)
+        }
+        let presentation = command.map {
+            IOSVoiceActionPresentation.resolve($0.action)
+        }
+        let startIsBlockedByDraft = command?.action == .startStandard
+            && (!draftOwner.isAvailableForMutation || draftOwner.isFull)
+        let isEnabled = command != nil && !startIsBlockedByDraft
+        let title = presentation?.title ?? "Start Dictation"
+        let systemImage = presentation?.systemImage ?? "mic.fill"
+
+        return VStack(spacing: 4) {
+            IOSVoiceRecordButton(
+                title: title,
+                systemImage: systemImage,
+                isEnabled: isEnabled,
+                showsProgress: status.showsProgress && command == nil,
+                isListening: sceneOwner.presentation.phase == .listening,
+                action: {
+                    guard let command, isEnabled else { return }
+                    performVoiceCommand(command)
+                }
+            )
+            .accessibilityIdentifier("ios.voice.primary-action")
+
+            if startIsBlockedByDraft {
+                Text(
+                    draftOwner.isFull
+                        ? "Copy or clear this Draft before adding more."
+                        : "Restore Draft access before starting dictation."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    private func isPrimaryVoiceAction(
+        _ action: IOSForegroundVoiceAction
+    ) -> Bool {
+        action == .startStandard || action == .finishUtterance
     }
 
     private var voiceHeader: some View {

@@ -43,6 +43,7 @@ V1.1 includes:
 - existing optional correction and translation;
 - one recoverable pending recording;
 - one Latest Result;
+- one app-private composed Voice Draft governed by `ios-voice-draft.md`;
 - up to 20 successful text-only History entries;
 - an optional app-private Recording Cache for local History playback;
 - one production-quality iPhone command-keyboard surface with actionable Start,
@@ -95,7 +96,8 @@ alphabetic layouts.
 
 The containing app exposes four useful destinations only:
 
-- `Voice`: record, recover one pending attempt, and work with Latest Result;
+- `Voice`: record, recover one pending attempt, and work with one composed
+  read-only Draft while Latest remains the last accepted result;
 - `Library`: Dictionary, Voice Emoji Commands, and Replacement Rules;
 - `History`: successful accepted text only;
 - `Settings`: provider, language/writing, recording, privacy, and setup.
@@ -104,6 +106,10 @@ A destination must not ship as a placeholder. During implementation, History
 is removed from navigation until the compact screen is ready. V1.1 is not
 release-complete until the finished History destination is restored.
 
+Voice is the first destination on every cold launch or newly created scene.
+Returning an existing scene from the background preserves its current
+destination. History remains a separate tab and is not previewed on Voice.
+
 ## Setup
 
 - Setup explains how to add and switch to HoldType Keyboard and enable Allow
@@ -111,7 +117,8 @@ release-complete until the finished History destination is restored.
 - Provider setup owns API-key entry and current OpenAI processing consent.
 - Microphone permission is requested by the containing app only when the user
   starts the first recording or explicitly reviews permission setup.
-- The app exposes one practice field for keyboard switching and insertion.
+- The app exposes one practice field for keyboard switching and insertion in a
+  compact Voice toolbar sheet rather than the primary Voice canvas.
 - Setup exposes one plain `Start Keyboard Session` action, a visible session
   state, and a Stop action. Starting a session alone neither creates a recording
   nor contacts the provider.
@@ -145,6 +152,9 @@ release-complete until the finished History destination is restored.
   correction, and translation apply in their documented order.
 - A successful result becomes Latest Result even if compact History append
   fails.
+- Every accepted result is also offered exactly once to the separate composed
+  Voice Draft. Draft failure never rolls back Latest, History, or Pending
+  cleanup.
 - No local recovery action repeats provider work automatically.
 
 ## Pending Recovery

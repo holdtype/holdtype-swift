@@ -1,0 +1,176 @@
+import Foundation
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
+import Testing
+@testable import HoldTypeIOS
+
+@MainActor
+struct IOSVoiceDraftOwnerTests {
+    @Test func refreshAppendAndRestartPreserveOnlyTheConfirmedDraft()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            #expect(owner.text.isEmpty)
+            #expect(!owner.canUndo)
+
+            let first = try accepted(1, text: "First paragraph")
+            let second = try accepted(2, text: "Second paragraph")
+            #expect(await owner.appendAccepted(first))
+            #expect(await owner.appendAccepted(first))
+            #expect(await owner.appendAccepted(second))
+            #expect(owner.text == "First paragraph\n\nSecond paragraph")
+
+            let relaunched = IOSVoiceDraftOwner(repository: repository)
+            #expect(await relaunched.refresh())
+            #expect(relaunched.text == owner.text)
+            #expect(!relaunched.canUndo)
+            #expect(!relaunched.canRedo)
+        }
+    }
+
+    @Test func clearUndoRedoAndNewBranchHaveSessionLocalSemantics()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            let first = try accepted(1, text: "One")
+            let second = try accepted(2, text: "Two")
+            let third = try accepted(3, text: "Three")
+            #expect(await owner.appendAccepted(first))
+            #expect(await owner.appendAccepted(second))
+
+            #expect(await owner.clear())
+            #expect(owner.text.isEmpty)
+            #expect(owner.canUndo)
+            #expect(await owner.undo())
+            #expect(owner.text == "One\n\nTwo")
+            #expect(owner.canRedo)
+            #expect(await owner.redo())
+            #expect(owner.text.isEmpty)
+
+            #expect(await owner.undo())
+            #expect(await owner.appendAccepted(third))
+            #expect(owner.text == "One\n\nTwo\n\nThree")
+            #expect(!owner.canRedo)
+        }
+    }
+
+    @Test func failedMutationKeepsLastConfirmedTextAndReportsRecovery()
+        async throws {
+        try await withRepository { repository in
+            _ = try await repository.append(
+                IOSVoiceDraftSegment(
+                    resultID: identifier(1),
+                    text: "Confirmed text"
+                )
+            )
+            let client = IOSVoiceDraftClient(
+                load: { try await repository.load() },
+                append: { try await repository.append($0) },
+                replace: { _, _ in throw DraftOwnerTestError.writeFailed }
+            )
+            let owner = IOSVoiceDraftOwner(client: client)
+            #expect(await owner.refresh())
+
+            #expect(!(await owner.clear()))
+            #expect(owner.text == "Confirmed text")
+            #expect(owner.notice == .clearFailed)
+            #expect(owner.operation == .idle)
+        }
+    }
+
+    @Test func externalChangeRejectsAStaleClearAndRefreshesVisibleDraft()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            let first = try accepted(1, text: "One")
+            #expect(await owner.appendAccepted(first))
+            _ = try await repository.append(
+                IOSVoiceDraftSegment(resultID: identifier(2), text: "External")
+            )
+
+            #expect(!(await owner.clear()))
+            #expect(owner.text == "One\n\nExternal")
+            #expect(owner.notice == .draftChanged)
+            #expect(!owner.canUndo)
+            #expect(!owner.canRedo)
+        }
+    }
+
+    @Test func acceptedResultWaitsForAnOverlappingClearInsteadOfBeingLost()
+        async throws {
+        try await withRepository { repository in
+            _ = try await repository.append(
+                IOSVoiceDraftSegment(resultID: identifier(1), text: "Old")
+            )
+            let client = IOSVoiceDraftClient(
+                load: { try await repository.load() },
+                append: { try await repository.append($0) },
+                replace: { record, token in
+                    try await Task.sleep(for: .milliseconds(30))
+                    return try await repository.replace(
+                        record,
+                        ifCurrent: token
+                    )
+                }
+            )
+            let owner = IOSVoiceDraftOwner(client: client)
+            #expect(await owner.refresh())
+            let accepted = try accepted(2, text: "New")
+
+            let clear = Task { @MainActor in await owner.clear() }
+            while owner.operation != .clearing { await Task.yield() }
+            let append = Task { @MainActor in
+                await owner.appendAccepted(accepted)
+            }
+
+            #expect(await clear.value)
+            #expect(await append.value)
+            #expect(owner.text == "New")
+            #expect(try await repository.load().text == "New")
+        }
+    }
+
+    private func withRepository(
+        operation: (IOSVoiceDraftRepository) async throws -> Void
+    ) async throws {
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "holdtype-draft-owner-\(UUID().uuidString)",
+            directoryHint: .isDirectory
+        )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        try await operation(
+            IOSVoiceDraftRepository(applicationSupportDirectoryURL: root)
+        )
+    }
+
+    private func accepted(
+        _ index: Int,
+        text: String
+    ) throws -> IOSV1AcceptedOutputDeliveryRecord {
+        try IOSV1AcceptedOutputDeliveryRecord(
+            resultID: identifier(index),
+            sourceAttemptID: UUID(),
+            acceptedText: text,
+            createdAt: Date(timeIntervalSince1970: TimeInterval(index))
+        )
+    }
+
+    private func identifier(_ index: Int) -> UUID {
+        UUID(
+            uuidString: String(
+                format: "00000000-0000-0000-0000-%012d",
+                index
+            )
+        )!
+    }
+}
+
+private enum DraftOwnerTestError: Error {
+    case writeFailed
+}
