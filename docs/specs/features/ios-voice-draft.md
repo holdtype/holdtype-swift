@@ -16,7 +16,8 @@ without opening the custom keyboard.
   alive.
 - History remains a separate containing-app tab. Voice contains no History
   list or preview and adds no duplicate History toolbar action.
-- Translate and Correction are visible one-shot actions above the Draft.
+- Translate and Correction are visible one-shot actions in the Draft action
+  row.
   Keyboard Dictation Session and the practice field remain reachable from the
   compact Voice More menu; the keyboard tools are presented as a sheet and
   none of them occupies the primary Voice canvas.
@@ -60,8 +61,12 @@ without opening the custom keyboard.
 
 ## One-Shot Processing Actions
 
-- Translate and Correction are secondary buttons above the Draft, with native
-  symbols and labels. They remain visible but unavailable unless the shared
+- Translate and Correction are compact icon-only buttons at the leading edge
+  of the Draft action row. A flexible gap separates them from Undo, Redo,
+  Copy, and Clear at the trailing edge. The row has no visible title because
+  the Draft surface itself already supplies the necessary context. VoiceOver
+  still exposes a text label for each icon.
+- Translate and Correction remain visible but unavailable unless the shared
   Voice controller admits the corresponding Start action.
 - Translate starts one new dictation with the saved Translation route. It is
   enabled only while Voice is ready and the current translation target and

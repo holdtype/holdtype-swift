@@ -37,7 +37,6 @@ struct IOSVoiceHomeView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 14) {
-                    oneShotVoiceActions
                     draftSurface
                         .frame(minHeight: 250, maxHeight: 340)
                     voiceStatusSurface
@@ -259,21 +258,7 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private var oneShotVoiceActions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                oneShotVoiceButton(.startTranslation)
-                oneShotVoiceButton(.startCorrection)
-            }
-            VStack(spacing: 8) {
-                oneShotVoiceButton(.startTranslation)
-                oneShotVoiceButton(.startCorrection)
-            }
-        }
-        .accessibilityIdentifier("ios.voice.one-shot-actions")
-    }
-
-    private func oneShotVoiceButton(
+    private func oneShotVoiceIconButton(
         _ action: IOSForegroundVoiceAction
     ) -> some View {
         let presentation = IOSVoiceActionPresentation.resolve(action)
@@ -286,28 +271,24 @@ struct IOSVoiceHomeView: View {
             guard let command, isEnabled else { return }
             performVoiceCommand(command)
         } label: {
-            Label(
-                presentation.title,
-                systemImage: presentation.systemImage
-            )
-            .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity, minHeight: 28)
+            Image(systemName: presentation.systemImage)
+                .frame(width: 36, height: 36)
         }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.roundedRectangle(radius: 14))
-        .controlSize(.large)
+        .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .accessibilityLabel(presentation.title)
         .accessibilityIdentifier(presentation.accessibilityIdentifier)
     }
 
     private var draftSurface: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
-                Text("Current text")
-                    .font(.headline)
+            HStack(alignment: .center, spacing: 4) {
+                oneShotVoiceIconButton(.startTranslation)
+                oneShotVoiceIconButton(.startCorrection)
                 Spacer(minLength: 12)
                 draftActionButtons
             }
+            .accessibilityIdentifier("ios.voice.draft-actions")
 
             Divider()
 
@@ -415,6 +396,7 @@ struct IOSVoiceHomeView: View {
             } label: {
                 Image(systemName: "trash")
                     .frame(width: 36, height: 36)
+                    .foregroundStyle(.red)
             }
             .disabled(draftOwner.text.isEmpty || draftOwner.isBusy)
             .accessibilityLabel("Clear Draft")
