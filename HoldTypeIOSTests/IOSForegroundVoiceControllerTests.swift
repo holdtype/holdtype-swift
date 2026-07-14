@@ -225,6 +225,47 @@ struct IOSForegroundVoiceControllerTests {
         #expect(scene.promptPresentation == .available)
     }
 
+    @Test func configuredStartFreezesAllSessionModesIntoOneOperation()
+        async throws {
+        let fixture = IOSForegroundVoiceClientFixture(
+            observation: voiceObservation(translationAvailable: true)
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.makeClient()
+        )
+        await controller.activate()
+        let scene = controller.sceneRegistry.registerScene(
+            initialActivity: .active
+        )
+        let command = try voiceCommand(.startStandard, in: controller)
+        let modes = IOSVoiceSessionModes(
+            appendsToDraft: true,
+            translates: true,
+            corrects: true
+        )
+
+        #expect(
+            controller.submitStart(
+                command,
+                modes: modes,
+                from: scene
+            ) == .accepted
+        )
+        try await voiceEventually { fixture.runOperations.count == 1 }
+        #expect(fixture.runOperations == [.start(.configured(modes))])
+        #expect(fixture.startForcesTextCorrection == [true])
+
+        fixture.resolveRun(
+            at: 0,
+            with: IOSForegroundVoiceResolution(
+                observation: voiceObservation(translationAvailable: true)
+            )
+        )
+        try await voiceEventually {
+            controller.presentation.phase == .inactive
+        }
+    }
+
     @Test func foreignOrInactiveSceneCannotAcquireTheProcessStartLease()
         async throws {
         let fixture = IOSForegroundVoiceClientFixture(

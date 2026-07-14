@@ -541,8 +541,8 @@ private final class IOSUIQualificationVoiceFixture {
                     ),
                     try! IOSVoiceDraftSegment(
                         resultID: UUID(),
-                        text: "Each accepted dictation is appended here and "
-                            + "can be copied in one tap."
+                        text: "A new dictation replaces this text unless "
+                            + "Append is enabled."
                     ),
                 ]
             )
@@ -550,7 +550,7 @@ private final class IOSUIQualificationVoiceFixture {
         draftOwner = IOSVoiceDraftOwner(
             client: IOSVoiceDraftClient(
                 load: { await draftStore.load() },
-                append: { await draftStore.append($0) },
+                accept: { await draftStore.accept($0, mode: $1) },
                 replace: { await draftStore.replace($0, expected: $1) }
             )
         )
@@ -633,21 +633,30 @@ private actor IOSUIQualificationDraftStore {
 
     func load() -> IOSVoiceDraftRecord { record }
 
-    func append(
-        _ segment: IOSVoiceDraftSegment
+    func accept(
+        _ segment: IOSVoiceDraftSegment,
+        mode: IOSVoiceDraftInsertionMode
     ) -> IOSVoiceDraftAppendResult {
         if let existing = record.segments.first(where: {
             $0.resultID == segment.resultID
         }) {
             return existing == segment ? .duplicate(record) : .full(record)
         }
-        guard !record.isFull else { return .full(record) }
-        record = IOSVoiceDraftRecord(
-            text: record.text.isEmpty
-                ? segment.text
-                : record.text + "\n\n" + segment.text,
-            segments: record.segments + [segment]
-        )
+        switch mode {
+        case .replace:
+            record = IOSVoiceDraftRecord(
+                text: segment.text,
+                segments: [segment]
+            )
+        case .append:
+            guard !record.isFull else { return .full(record) }
+            record = IOSVoiceDraftRecord(
+                text: record.text.isEmpty
+                    ? segment.text
+                    : record.text + "\n\n" + segment.text,
+                segments: record.segments + [segment]
+            )
+        }
         return .inserted(record)
     }
 

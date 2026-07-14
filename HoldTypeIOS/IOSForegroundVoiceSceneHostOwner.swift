@@ -167,4 +167,17 @@ final class IOSForegroundVoiceSceneHostOwner:
         guard !isRetired, let sceneFacade else { return .unavailable }
         return controller.submit(command, from: sceneFacade)
     }
+
+    @discardableResult
+    func submitStart(
+        _ command: IOSForegroundVoiceActionCommand,
+        modes: IOSVoiceSessionModes
+    ) -> IOSForegroundVoiceActionAdmission {
+        guard !isRetired, let sceneFacade else { return .unavailable }
+        return controller.submitStart(
+            command,
+            modes: modes,
+            from: sceneFacade
+        )
+    }
 }

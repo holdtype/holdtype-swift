@@ -9,6 +9,11 @@ public enum IOSVoiceDraftRecordError: Error, Equatable, Sendable {
     case tooManyAcceptedResults
 }
 
+public enum IOSVoiceDraftInsertionMode: String, Equatable, Sendable {
+    case replace
+    case append
+}
+
 public struct IOSVoiceDraftSegment: Equatable, Identifiable, Sendable {
     public let resultID: UUID
     public let text: String

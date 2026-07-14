@@ -28,6 +28,8 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
     public let updatedAt: Date
     public let phase: IOSV1PendingRecordingPhase
     public let outputIntent: DictationOutputIntent
+    public let draftInsertionMode: IOSVoiceDraftInsertionMode
+    public let forcesTextCorrection: Bool
     public let transcriptionID: UUID?
     public let transcriptionModel: String
     public let transcriptionLanguageCode: String?
@@ -43,6 +45,8 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
         createdAt = state.createdAt
         updatedAt = state.updatedAt
         outputIntent = state.outputIntent
+        draftInsertionMode = state.draftInsertionMode
+        forcesTextCorrection = state.forcesTextCorrection
         transcriptionModel = state.transcriptionModel
         transcriptionLanguageCode = state.transcriptionLanguageCode
         durationMilliseconds = state.durationMilliseconds
@@ -71,6 +75,8 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
     public static func qualificationFixture(
         attemptID: UUID = UUID(),
         outputIntent: DictationOutputIntent = .standard,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false,
         phase: IOSV1PendingRecordingPhase = .readyForTranscription,
         transcriptionID: UUID? = nil,
         transcriptionConfiguration: TranscriptionConfiguration = .init(),
@@ -114,6 +120,8 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
                 createdAt: createdAt,
                 updatedAt: createdAt,
                 outputIntent: outputIntent,
+                draftInsertionMode: draftInsertionMode,
+                forcesTextCorrection: forcesTextCorrection,
                 transcriptionModel:
                     transcriptionConfiguration.resolvedModel,
                 transcriptionLanguageCode:
@@ -899,13 +907,17 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
 
     public func createCapture(
         attemptID: UUID,
-        outputIntent: DictationOutputIntent
+        outputIntent: DictationOutputIntent,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false
     ) async throws -> IOSV1ForegroundVoiceCaptureLease {
         await acquireOperation()
         defer { releaseOperation() }
         let lease = try await captureOwner.createCapture(
             attemptID: attemptID,
             outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
             createdAt: now()
         )
         return IOSV1ForegroundVoiceCaptureLease(
@@ -934,6 +946,9 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 == promoted.audioRelativeIdentifier,
               canonical.phase == .readyForTranscription,
               canonical.outputIntent == promoted.outputIntent,
+              canonical.draftInsertionMode == promoted.draftInsertionMode,
+              canonical.forcesTextCorrection
+                == promoted.forcesTextCorrection,
               canonical.transcriptionID == nil,
               canonical.transcriptionModel == promoted.transcriptionModel,
               canonical.transcriptionLanguageCode

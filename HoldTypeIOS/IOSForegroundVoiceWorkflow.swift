@@ -60,15 +60,18 @@ nonisolated struct IOSForegroundVoiceWorkflowStartRequest: Sendable {
     let outputIntent: DictationOutputIntent
     let sceneLease: IOSVoiceSceneStartLease
     let forcesTextCorrection: Bool
+    let draftInsertionMode: IOSVoiceDraftInsertionMode
 
     init(
         outputIntent: DictationOutputIntent,
         sceneLease: IOSVoiceSceneStartLease,
-        forcesTextCorrection: Bool = false
+        forcesTextCorrection: Bool = false,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace
     ) {
         self.outputIntent = outputIntent
         self.sceneLease = sceneLease
         self.forcesTextCorrection = forcesTextCorrection
+        self.draftInsertionMode = draftInsertionMode
     }
 }
 
@@ -130,6 +133,7 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
     let credential: IOSForegroundVoiceWorkflowCredentialProof
     let consentObservation: IOSV1ProviderConsentObservation
     let forcesTextCorrection: Bool
+    let draftInsertionMode: IOSVoiceDraftInsertionMode
 
     init(
         sessionID: UUID,
@@ -138,7 +142,8 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
         configuration: IOSForegroundVoiceWorkflowConfiguration,
         credential: IOSForegroundVoiceWorkflowCredentialProof,
         consentObservation: IOSV1ProviderConsentObservation,
-        forcesTextCorrection: Bool = false
+        forcesTextCorrection: Bool = false,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace
     ) {
         self.sessionID = sessionID
         self.pendingRecording = pendingRecording
@@ -147,6 +152,7 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
         self.credential = credential
         self.consentObservation = consentObservation
         self.forcesTextCorrection = forcesTextCorrection
+        self.draftInsertionMode = draftInsertionMode
     }
 }
 
@@ -490,7 +496,9 @@ struct IOSForegroundVoiceWorkflowDependencies {
     typealias PlayStopBoundary = @MainActor @Sendable (Bool) async -> Void
     typealias MakeRecording = @MainActor @Sendable (
         UUID,
-        DictationOutputIntent
+        DictationOutputIntent,
+        IOSVoiceDraftInsertionMode,
+        Bool
     ) async throws -> IOSForegroundVoiceWorkflowRecording
     typealias BeginFinalization = @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
@@ -595,6 +603,7 @@ final class IOSForegroundVoiceWorkflow {
         let token: IOSForegroundVoiceWorkflowAttemptToken
         let origin: Origin
         let forcesTextCorrection: Bool
+        let draftInsertionMode: IOSVoiceDraftInsertionMode
         var recordingAttemptID: UUID?
         var stopContinuation: CheckedContinuation<StopTrigger, Never>?
         var tailContinuation:
@@ -619,11 +628,13 @@ final class IOSForegroundVoiceWorkflow {
         init(
             token: IOSForegroundVoiceWorkflowAttemptToken,
             origin: Origin,
-            forcesTextCorrection: Bool = false
+            forcesTextCorrection: Bool = false,
+            draftInsertionMode: IOSVoiceDraftInsertionMode = .replace
         ) {
             self.token = token
             self.origin = origin
             self.forcesTextCorrection = forcesTextCorrection
+            self.draftInsertionMode = draftInsertionMode
             switch origin {
             case .foreground:
                 requiresInitiatingScene = true
@@ -789,7 +800,8 @@ final class IOSForegroundVoiceWorkflow {
             IOSForegroundVoiceWorkflowStartRequest(
                 outputIntent: action.outputIntent,
                 sceneLease: sceneLease,
-                forcesTextCorrection: action.forcesTextCorrection
+                forcesTextCorrection: action.forcesTextCorrection,
+                draftInsertionMode: action.draftInsertionMode
             ),
             token: token,
             progress: progress
@@ -836,6 +848,7 @@ final class IOSForegroundVoiceWorkflow {
             origin: .foreground(leaseOwner),
             token: token,
             forcesTextCorrection: request.forcesTextCorrection,
+            draftInsertionMode: request.draftInsertionMode,
             progress: progress
         )
     }
@@ -1089,6 +1102,7 @@ final class IOSForegroundVoiceWorkflow {
         origin: Attempt.Origin,
         token: IOSForegroundVoiceWorkflowAttemptToken,
         forcesTextCorrection: Bool = false,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
         if case .foreground(let sceneLeaseOwner) = origin,
@@ -1101,7 +1115,8 @@ final class IOSForegroundVoiceWorkflow {
         let attempt = Attempt(
             token: token,
             origin: origin,
-            forcesTextCorrection: forcesTextCorrection
+            forcesTextCorrection: forcesTextCorrection,
+            draftInsertionMode: draftInsertionMode
         )
         activeAttempt = attempt
         if case .foreground = origin {
@@ -1380,7 +1395,9 @@ final class IOSForegroundVoiceWorkflow {
             attempt.recordingAttemptID = recordingAttemptID
             attempt.recording = try await dependencies.makeRecording(
                 recordingAttemptID,
-                intent
+                intent,
+                attempt.draftInsertionMode,
+                attempt.forcesTextCorrection
             )
         } catch {
             return await blockedPreflight(failure: .localRecovery)
@@ -1709,7 +1726,8 @@ final class IOSForegroundVoiceWorkflow {
                     configuration: configuration,
                     credential: credential,
                     consentObservation: consent,
-                    forcesTextCorrection: attempt.forcesTextCorrection
+                    forcesTextCorrection: pending.forcesTextCorrection,
+                    draftInsertionMode: pending.draftInsertionMode
                 ),
                 attempt: attempt,
                 progress: progress
@@ -2002,7 +2020,8 @@ final class IOSForegroundVoiceWorkflow {
                 configuration: configuration,
                 credential: credential,
                 consentObservation: consent,
-                forcesTextCorrection: false
+                forcesTextCorrection: pending.recording.forcesTextCorrection,
+                draftInsertionMode: pending.recording.draftInsertionMode
             ),
             authority: authority,
             registry: registry,

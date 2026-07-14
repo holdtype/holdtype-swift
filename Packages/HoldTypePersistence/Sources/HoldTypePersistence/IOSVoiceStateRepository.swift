@@ -47,6 +47,8 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
     let audioRelativeIdentifier: String
     let createdAt: Date
     let outputIntent: DictationOutputIntent
+    let draftInsertionMode: IOSVoiceDraftInsertionMode
+    let forcesTextCorrection: Bool
     let phase: IOSVoiceStateCapturePhase
     let durationMilliseconds: Int64?
     let byteCount: Int64?
@@ -56,6 +58,8 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
         audioRelativeIdentifier: String,
         createdAt: Date,
         outputIntent: DictationOutputIntent,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false,
         phase: IOSVoiceStateCapturePhase,
         durationMilliseconds: Int64? = nil,
         byteCount: Int64? = nil
@@ -78,6 +82,8 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
         self.audioRelativeIdentifier = audioRelativeIdentifier
         self.createdAt = createdAt
         self.outputIntent = outputIntent
+        self.draftInsertionMode = draftInsertionMode
+        self.forcesTextCorrection = forcesTextCorrection
         self.phase = phase
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
@@ -93,6 +99,8 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
             audioRelativeIdentifier: audioRelativeIdentifier,
             createdAt: createdAt,
             outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
             phase: phase,
             durationMilliseconds: durationMilliseconds,
             byteCount: byteCount
@@ -106,6 +114,8 @@ struct IOSVoiceStatePending: Equatable, Sendable {
     let createdAt: Date
     let updatedAt: Date
     let outputIntent: DictationOutputIntent
+    let draftInsertionMode: IOSVoiceDraftInsertionMode
+    let forcesTextCorrection: Bool
     let transcriptionModel: String
     let transcriptionLanguageCode: String?
     let durationMilliseconds: Int64
@@ -118,6 +128,8 @@ struct IOSVoiceStatePending: Equatable, Sendable {
         createdAt: Date,
         updatedAt: Date,
         outputIntent: DictationOutputIntent,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false,
         transcriptionModel: String,
         transcriptionLanguageCode: String?,
         durationMilliseconds: Int64,
@@ -152,6 +164,8 @@ struct IOSVoiceStatePending: Equatable, Sendable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.outputIntent = outputIntent
+        self.draftInsertionMode = draftInsertionMode
+        self.forcesTextCorrection = forcesTextCorrection
         self.transcriptionModel = transcriptionModel
         self.transcriptionLanguageCode = transcriptionLanguageCode
         self.durationMilliseconds = durationMilliseconds
@@ -169,6 +183,8 @@ struct IOSVoiceStatePending: Equatable, Sendable {
             createdAt: createdAt,
             updatedAt: updatedAt,
             outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
             transcriptionModel: transcriptionModel,
             transcriptionLanguageCode: transcriptionLanguageCode,
             durationMilliseconds: durationMilliseconds,
@@ -192,6 +208,8 @@ struct IOSVoiceStatePending: Equatable, Sendable {
             createdAt: createdAt,
             updatedAt: updatedAt,
             outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
             transcriptionModel: transcriptionConfiguration.resolvedModel,
             transcriptionLanguageCode:
                 transcriptionConfiguration.resolvedLanguageCode,
@@ -399,6 +417,8 @@ actor IOSVoiceStateRepository {
             createdAt: capture.createdAt,
             updatedAt: mutationDate(after: capture.createdAt),
             outputIntent: capture.outputIntent,
+            draftInsertionMode: capture.draftInsertionMode,
+            forcesTextCorrection: capture.forcesTextCorrection,
             transcriptionModel: transcriptionConfiguration.resolvedModel,
             transcriptionLanguageCode:
                 transcriptionConfiguration.resolvedLanguageCode,
@@ -782,20 +802,26 @@ private enum IOSVoiceStateValidation {
 }
 
 private enum IOSVoiceStateWireCodec {
-    private static let schemaVersion = 1
+    private static let schemaVersion = 2
     private static let rootKeys: Set<String> = [
         "schemaVersion", "capture", "pending", "latest",
     ]
-    private static let captureKeys: Set<String> = [
+    private static let captureV1Keys: Set<String> = [
         "attemptID", "audioRelativeIdentifier", "createdAtMilliseconds",
         "outputIntent", "phase", "durationMilliseconds", "byteCount",
     ]
-    private static let pendingKeys: Set<String> = [
+    private static let captureKeys = captureV1Keys.union([
+        "draftInsertionMode", "forcesTextCorrection",
+    ])
+    private static let pendingV1Keys: Set<String> = [
         "attemptID", "audioRelativeIdentifier", "createdAtMilliseconds",
         "updatedAtMilliseconds", "outputIntent", "transcriptionModel",
         "transcriptionLanguageCode", "durationMilliseconds", "byteCount",
         "status",
     ]
+    private static let pendingKeys = pendingV1Keys.union([
+        "draftInsertionMode", "forcesTextCorrection",
+    ])
     private static let statusKeys: Set<String> = [
         "kind", "stage", "operationID", "accepted",
     ]
@@ -854,16 +880,16 @@ private enum IOSVoiceStateWireCodec {
             throw IOSVoiceStateRepositoryError.invalidRecord
         }
         let version = try integer(object["schemaVersion"])
-        guard version == schemaVersion else {
+        guard version == 1 || version == schemaVersion else {
             throw IOSVoiceStateRepositoryError.unsupportedSchemaVersion
         }
         try validateOptionalObject(
             object["capture"],
-            keys: captureKeys
+            keys: version == 1 ? captureV1Keys : captureKeys
         )
         try validateOptionalObject(
             object["pending"],
-            keys: pendingKeys,
+            keys: version == 1 ? pendingV1Keys : pendingKeys,
             nested: { pending in
                 try validateOptionalObject(
                     pending["status"],
@@ -886,13 +912,18 @@ private enum IOSVoiceStateWireCodec {
         } catch {
             throw IOSVoiceStateRepositoryError.invalidRecord
         }
-        guard wire.schemaVersion == schemaVersion else {
+        guard wire.schemaVersion == 1
+                || wire.schemaVersion == schemaVersion else {
             throw IOSVoiceStateRepositoryError.unsupportedSchemaVersion
         }
         do {
             let snapshot = IOSVoiceStateSnapshot(
-                capture: try wire.capture?.value(),
-                pending: try wire.pending?.value(),
+                capture: try wire.capture?.value(
+                    schemaVersion: wire.schemaVersion
+                ),
+                pending: try wire.pending?.value(
+                    schemaVersion: wire.schemaVersion
+                ),
                 latest: try wire.latest?.latestValue()
             )
             guard snapshot.capture == nil || snapshot.pending == nil else {
@@ -968,6 +999,8 @@ private enum IOSVoiceStateWireCodec {
         let audioRelativeIdentifier: String
         let createdAtMilliseconds: Int64
         let outputIntent: String
+        let draftInsertionMode: String?
+        let forcesTextCorrection: Bool?
         let phase: String
         let durationMilliseconds: Int64?
         let byteCount: Int64?
@@ -979,17 +1012,35 @@ private enum IOSVoiceStateWireCodec {
                 from: capture.createdAt
             )
             outputIntent = capture.outputIntent.rawValue
+            draftInsertionMode = capture.draftInsertionMode.rawValue
+            forcesTextCorrection = capture.forcesTextCorrection
             phase = capture.phase.rawValue
             durationMilliseconds = capture.durationMilliseconds
             byteCount = capture.byteCount
         }
 
-        func value() throws -> IOSVoiceStateCapture {
+        func value(schemaVersion: Int) throws -> IOSVoiceStateCapture {
             guard let identifier = UUID(uuidString: attemptID),
                   identifier.uuidString == attemptID,
                   let output = DictationOutputIntent(rawValue: outputIntent),
                   let phase = IOSVoiceStateCapturePhase(rawValue: phase) else {
                 throw IOSVoiceStateRepositoryError.invalidRecord
+            }
+            let insertionMode: IOSVoiceDraftInsertionMode
+            let correction: Bool
+            if schemaVersion == 1 {
+                insertionMode = .append
+                correction = false
+            } else {
+                guard let rawMode = draftInsertionMode,
+                      let mode = IOSVoiceDraftInsertionMode(
+                          rawValue: rawMode
+                      ),
+                      let forcesTextCorrection else {
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
+                insertionMode = mode
+                correction = forcesTextCorrection
             }
             return try IOSVoiceStateCapture(
                 attemptID: identifier,
@@ -998,6 +1049,8 @@ private enum IOSVoiceStateWireCodec {
                     from: createdAtMilliseconds
                 ),
                 outputIntent: output,
+                draftInsertionMode: insertionMode,
+                forcesTextCorrection: correction,
                 phase: phase,
                 durationMilliseconds: durationMilliseconds,
                 byteCount: byteCount
@@ -1009,6 +1062,8 @@ private enum IOSVoiceStateWireCodec {
             case audioRelativeIdentifier
             case createdAtMilliseconds
             case outputIntent
+            case draftInsertionMode
+            case forcesTextCorrection
             case phase
             case durationMilliseconds
             case byteCount
@@ -1026,6 +1081,14 @@ private enum IOSVoiceStateWireCodec {
                 forKey: .createdAtMilliseconds
             )
             try container.encode(outputIntent, forKey: .outputIntent)
+            try container.encode(
+                draftInsertionMode,
+                forKey: .draftInsertionMode
+            )
+            try container.encode(
+                forcesTextCorrection,
+                forKey: .forcesTextCorrection
+            )
             try container.encode(phase, forKey: .phase)
             if let durationMilliseconds {
                 try container.encode(
@@ -1049,6 +1112,8 @@ private enum IOSVoiceStateWireCodec {
         let createdAtMilliseconds: Int64
         let updatedAtMilliseconds: Int64
         let outputIntent: String
+        let draftInsertionMode: String?
+        let forcesTextCorrection: Bool?
         let transcriptionModel: String
         let transcriptionLanguageCode: String?
         let durationMilliseconds: Int64
@@ -1061,6 +1126,8 @@ private enum IOSVoiceStateWireCodec {
             case createdAtMilliseconds
             case updatedAtMilliseconds
             case outputIntent
+            case draftInsertionMode
+            case forcesTextCorrection
             case transcriptionModel
             case transcriptionLanguageCode
             case durationMilliseconds
@@ -1078,6 +1145,8 @@ private enum IOSVoiceStateWireCodec {
                 from: pending.updatedAt
             )
             outputIntent = pending.outputIntent.rawValue
+            draftInsertionMode = pending.draftInsertionMode.rawValue
+            forcesTextCorrection = pending.forcesTextCorrection
             transcriptionModel = pending.transcriptionModel
             transcriptionLanguageCode = pending.transcriptionLanguageCode
             durationMilliseconds = pending.durationMilliseconds
@@ -1102,6 +1171,14 @@ private enum IOSVoiceStateWireCodec {
             )
             try container.encode(outputIntent, forKey: .outputIntent)
             try container.encode(
+                draftInsertionMode,
+                forKey: .draftInsertionMode
+            )
+            try container.encode(
+                forcesTextCorrection,
+                forKey: .forcesTextCorrection
+            )
+            try container.encode(
                 transcriptionModel,
                 forKey: .transcriptionModel
             )
@@ -1121,13 +1198,29 @@ private enum IOSVoiceStateWireCodec {
             try container.encode(status, forKey: .status)
         }
 
-        func value() throws -> IOSVoiceStatePending {
+        func value(schemaVersion: Int) throws -> IOSVoiceStatePending {
             guard let attemptID = UUID(uuidString: attemptID),
                   attemptID.uuidString == self.attemptID,
                   let outputIntent = DictationOutputIntent(
                       rawValue: outputIntent
                   ) else {
                 throw IOSVoiceStateRepositoryError.invalidRecord
+            }
+            let insertionMode: IOSVoiceDraftInsertionMode
+            let correction: Bool
+            if schemaVersion == 1 {
+                insertionMode = .append
+                correction = false
+            } else {
+                guard let rawMode = draftInsertionMode,
+                      let mode = IOSVoiceDraftInsertionMode(
+                          rawValue: rawMode
+                      ),
+                      let forcesTextCorrection else {
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
+                insertionMode = mode
+                correction = forcesTextCorrection
             }
             return try IOSVoiceStatePending(
                 attemptID: attemptID,
@@ -1139,6 +1232,8 @@ private enum IOSVoiceStateWireCodec {
                     from: updatedAtMilliseconds
                 ),
                 outputIntent: outputIntent,
+                draftInsertionMode: insertionMode,
+                forcesTextCorrection: correction,
                 transcriptionModel: transcriptionModel,
                 transcriptionLanguageCode: transcriptionLanguageCode,
                 durationMilliseconds: durationMilliseconds,

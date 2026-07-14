@@ -24,19 +24,21 @@ struct IOSForegroundVoiceRuntimeTests {
 
         let preserved = await IOSKeyboardSnapshotAcceptancePublication.apply(
             to: acceptance,
-            acceptDraft: { await draft.accept($0) },
+            draftInsertionMode: .append,
+            acceptDraft: { await draft.accept($0, mode: $1) },
             publish: { _ = await publication.publish() }
         )
         #expect(preserved == acceptance)
         #expect(await publication.callCount == 1)
         #expect(await draft.records == [record])
+        #expect(await draft.modes == [.append])
 
         let notStarted = IOSForegroundVoiceProcessingResolution.notStarted(
             .providerUnavailable
         )
         let unchanged = await IOSKeyboardSnapshotAcceptancePublication.apply(
             to: notStarted,
-            acceptDraft: { await draft.accept($0) },
+            acceptDraft: { await draft.accept($0, mode: $1) },
             publish: { _ = await publication.publish() }
         )
         #expect(unchanged == notStarted)
@@ -179,9 +181,14 @@ struct IOSForegroundVoiceRuntimeTests {
 
 private actor IOSVoiceRuntimeDraftAcceptanceProbe {
     private(set) var records: [IOSV1AcceptedOutputDeliveryRecord] = []
+    private(set) var modes: [IOSVoiceDraftInsertionMode] = []
 
-    func accept(_ record: IOSV1AcceptedOutputDeliveryRecord) {
+    func accept(
+        _ record: IOSV1AcceptedOutputDeliveryRecord,
+        mode: IOSVoiceDraftInsertionMode
+    ) {
         records.append(record)
+        modes.append(mode)
     }
 }
 

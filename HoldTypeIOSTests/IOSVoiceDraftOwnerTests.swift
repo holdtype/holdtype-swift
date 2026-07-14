@@ -5,6 +5,27 @@ import Testing
 
 @MainActor
 struct IOSVoiceDraftOwnerTests {
+    @Test func defaultReplacementCreatesOneUndoableAtomicDraft() async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            let old = try accepted(1, text: "Old")
+            let replacement = try accepted(2, text: "New attempt")
+            #expect(await owner.appendAccepted(old))
+
+            #expect(
+                await owner.accept(
+                    replacement,
+                    mode: .replace
+                )
+            )
+            #expect(owner.text == "New attempt")
+            #expect(owner.confirmedRecord?.segments.count == 1)
+            #expect(await owner.undo())
+            #expect(owner.text == "Old")
+        }
+    }
+
     @Test func refreshAppendAndRestartPreserveOnlyTheConfirmedDraft()
         async throws {
         try await withRepository { repository in
@@ -122,7 +143,7 @@ struct IOSVoiceDraftOwnerTests {
         try await withRepository { repository in
             let client = IOSVoiceDraftClient(
                 load: { try await repository.load() },
-                append: { try await repository.append($0) },
+                accept: { try await repository.accept($0, mode: $1) },
                 replace: { record, token in
                     try await Task.sleep(for: .milliseconds(30))
                     return try await repository.replace(
@@ -161,7 +182,7 @@ struct IOSVoiceDraftOwnerTests {
             )
             let client = IOSVoiceDraftClient(
                 load: { try await repository.load() },
-                append: { try await repository.append($0) },
+                accept: { try await repository.accept($0, mode: $1) },
                 replace: { _, _ in throw DraftOwnerTestError.writeFailed }
             )
             let owner = IOSVoiceDraftOwner(client: client)
@@ -201,7 +222,7 @@ struct IOSVoiceDraftOwnerTests {
             )
             let client = IOSVoiceDraftClient(
                 load: { try await repository.load() },
-                append: { try await repository.append($0) },
+                accept: { try await repository.accept($0, mode: $1) },
                 replace: { record, token in
                     try await Task.sleep(for: .milliseconds(30))
                     return try await repository.replace(

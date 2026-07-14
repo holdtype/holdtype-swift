@@ -16,8 +16,9 @@ without opening the custom keyboard.
   alive.
 - History remains a separate containing-app tab. Voice contains no History
   list or preview and adds no duplicate History toolbar action.
-- Translate and Correction are visible one-shot actions in the Draft action
-  row.
+- Append, Auto Translate, and Auto Correction are session modes in the bottom
+  Draft settings row. The existing one-shot Translate and Correction actions,
+  plus Undo, Redo, Copy, and Clear, remain in the top action row.
   Keyboard Dictation Session and the practice field remain reachable from the
   compact Voice More menu; the keyboard tools are presented as a sheet and
   none of them occupies the primary Voice canvas.
@@ -38,8 +39,17 @@ without opening the custom keyboard.
 - Starting, Listening, Finalizing, or Processing makes the editor read-only and
   cannot summon the keyboard. Draft mutation controls remain unavailable while
   an edit is active.
-- Each accepted Voice or keyboard-controlled dictation appends exactly once by
-  accepted `resultID`. Accepted chunks are separated by one blank line.
+- A newly accepted containing-app Voice dictation replaces the visible Draft
+  by default. The previous Draft remains visible until the new result is
+  accepted; Cancel, failure, and recoverable Pending never clear it early.
+- Append is an explicit session mode. While enabled, each newly accepted
+  containing-app Voice dictation appends exactly once by accepted `resultID`,
+  with one blank line between the existing Draft and the new text.
+- Keyboard-controlled dictation follows the containing app's safe default and
+  replaces the Draft unless a future keyboard contract exposes Append.
+- Replace and Append are atomic Draft mutations. Both preserve exact-once
+  accepted-result handling, create one process-local Undo snapshot, and never
+  roll back Latest, History, or Pending cleanup when Draft persistence fails.
 - The current Draft survives relaunch. Its canonical editable text is stored
   separately from the bounded accepted result identifiers used for exact-once
   append. It contains no audio, provider payload, prompt, credential, host
@@ -48,9 +58,9 @@ without opening the custom keyboard.
 - Clear atomically replaces the current Draft with empty. It never changes
   Latest, History, Pending, Recording Cache, usage, settings, or the keyboard
   projection.
-- Undo and Redo cover successful append, committed edit, and Clear mutations in
-  the current process only. They are bounded to twenty snapshots and are not
-  persisted.
+- Undo and Redo cover successful replace, append, committed edit, and Clear
+  mutations in the current process only. They are bounded to twenty snapshots
+  and are not persisted.
   A cold launch restores the current Draft but no hidden prior text.
 - New mutation after Undo removes the forward Redo branch.
 - The durable Draft is one bounded protected atomic record with at most one
@@ -123,29 +133,32 @@ without opening the custom keyboard.
 - Reduce Motion replaces rotating and pulsing phases with their corresponding
   complete static recording or recognition artwork, preserving truthful state.
 
-## One-Shot Processing Actions
+## Voice Session Modes
 
-- Translate and Correction are compact icon-only buttons at the leading edge
-  of the Draft action row. A flexible gap separates them from Undo, Redo,
-  Copy, and Clear at the trailing edge. The row has no visible title because
-  the Draft surface itself already supplies the necessary context. VoiceOver
-  still exposes a text label for each icon.
-- Translate and Correction remain visible but unavailable unless the shared
-  Voice controller admits the corresponding Start action.
-- Translate starts one new dictation with the saved Translation route. It is
-  enabled only while Voice is ready and the current translation target and
-  source route are valid.
-- Correction starts one new standard-output dictation and forces the saved
-  Writing & Correction model and prompt for that request only. It does not
-  change the durable correction preference and retains the existing safe
-  fallback to the accepted transcript.
-- Neither action transforms the text already shown in Draft. An accepted
-  result appends through the same exact-once Draft path as standard dictation.
-- The selected action is frozen at Start. Translate and Correction are not
-  toggles, expose no selected state, and do not change Settings. Once started,
-  the existing Done and Cancel controls own the attempt.
+- Append, Auto Translate, and Auto Correction are compact icon-only toggles
+  below the text editor. A divider separates this settings row from the editable
+  text. Each control has a minimum 44-point target, a visible selected state,
+  and an accessibility label.
+- All three modes start off on cold launch. They remain selected for subsequent
+  containing-app Voice attempts in the current process until the user turns
+  them off. They do not rewrite durable Settings.
+- A one-shot Translate or Correction action forces that option for its new
+  attempt without changing the persistent selected state of the bottom settings
+  row; the other selected session modes still apply to that attempt.
+- Translate uses the saved Translation route and is selectable only when the
+  current target and source route are valid.
+- Correction forces the saved Writing & Correction model and prompt for each
+  selected attempt without changing the durable correction preference. It
+  retains the existing safe fallback to the accepted transcript.
+- Translate and Correction may be enabled together. The existing processing
+  order remains correction before translation.
+- The exact selected modes are frozen at Start and carried by recoverable
+  Pending state so Retry and relaunch cannot change the meaning of that attempt.
+- None of the modes transforms text already visible in Draft. Replace or Append
+  happens only after the new result is accepted.
 - Starting, Listening, Finalizing, Processing, recovery, setup, unavailable,
-  or non-writable Draft states keep both actions visible and disabled.
+  editing, or non-writable Draft states keep all three controls visible and
+  disabled.
 
 ## Recovery
 
@@ -177,6 +190,8 @@ without opening the custom keyboard.
   and names every available action and disabled reason.
 - Dynamic Type may move actions vertically without clipping the Draft or
   recovery explanation.
+- Draft body text uses a larger scalable reading size in both editing and
+  read-only presentation; the default size is approximately 20 points.
 - Light and Dark use the same geometry. Increase Contrast strengthens native
   boundaries; Reduce Transparency removes nonessential glow.
 - Every activity PNG preserves transparent outer pixels and is rendered without

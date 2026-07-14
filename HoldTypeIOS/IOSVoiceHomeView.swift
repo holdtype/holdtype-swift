@@ -32,6 +32,7 @@ struct IOSVoiceHomeView: View {
         IOSAccessibilityAnnouncementCandidate?
     @State private var draftEditSaveTask: Task<Void, Never>?
     @State private var automaticallyOpenedSetup: RecoveryDestination?
+    @State private var sessionModes = IOSVoiceSessionModes()
     @FocusState private var practiceFieldIsFocused: Bool
     @FocusState private var draftEditorIsFocused: Bool
 
@@ -182,11 +183,15 @@ struct IOSVoiceHomeView: View {
             routeToSetupIfNeeded(setup)
         }
         .onChange(of: sceneOwner.actionCommands) { _, commands in
-            guard let pendingVoiceCommand,
-                  !commands.contains(pendingVoiceCommand) else {
-                return
+            if !commands.contains(where: {
+                $0.action == .startTranslation
+            }) {
+                sessionModes.translates = false
             }
-            self.pendingVoiceCommand = nil
+            if let pendingVoiceCommand,
+               !commands.contains(pendingVoiceCommand) {
+                self.pendingVoiceCommand = nil
+            }
         }
         .onChange(of: latestResultOwner.presentation) { old, new in
             latestActionNotice = nil
@@ -325,7 +330,7 @@ struct IOSVoiceHomeView: View {
 
         return Button {
             guard let command, isEnabled else { return }
-            performVoiceCommand(command)
+            performOneShotVoiceCommand(command)
         } label: {
             Image(systemName: presentation.systemImage)
                 .frame(width: 36, height: 36)
@@ -373,6 +378,10 @@ struct IOSVoiceHomeView: View {
                 }
             }
 
+            Divider()
+
+            voiceSessionModeBar
+
             if let message = draftActionNotice ?? draftOwner.notice?.message {
                 Label(message, systemImage: noticeSystemImage)
                     .font(.footnote)
@@ -394,7 +403,7 @@ struct IOSVoiceHomeView: View {
         if draftEditorCanFocus {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: draftEditingBinding)
-                    .font(.body)
+                    .font(.title3)
                     .scrollContentBackground(.hidden)
                     .focused($draftEditorIsFocused)
                     .accessibilityLabel("Current Draft")
@@ -431,7 +440,7 @@ struct IOSVoiceHomeView: View {
                     .padding(.top, 28)
                 } else {
                     Text(draftOwner.visibleText)
-                        .font(.body)
+                        .font(.title3)
                         .frame(
                             maxWidth: .infinity,
                             alignment: .topLeading
@@ -530,6 +539,85 @@ struct IOSVoiceHomeView: View {
             : "exclamationmark.triangle"
     }
 
+    private var voiceSessionModeBar: some View {
+        HStack(spacing: 4) {
+            voiceSessionModeButton(
+                title: "Append",
+                systemImage: "text.badge.plus",
+                isSelected: sessionModes.appendsToDraft,
+                isEnabled: voiceSessionModesAreEnabled
+            ) {
+                sessionModes.appendsToDraft.toggle()
+            }
+            voiceSessionModeButton(
+                title: "Translate",
+                systemImage: "character.book.closed",
+                isSelected: sessionModes.translates,
+                isEnabled: voiceSessionModesAreEnabled
+                    && translationModeIsAvailable
+            ) {
+                sessionModes.translates.toggle()
+            }
+            voiceSessionModeButton(
+                title: "Correct",
+                systemImage: "wand.and.stars",
+                isSelected: sessionModes.corrects,
+                isEnabled: voiceSessionModesAreEnabled
+            ) {
+                sessionModes.corrects.toggle()
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityIdentifier("ios.voice.session-modes")
+    }
+
+    private func voiceSessionModeButton(
+        title: String,
+        systemImage: String,
+        isSelected: Bool,
+        isEnabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .medium))
+                .frame(width: 44, height: 44)
+                .foregroundStyle(
+                    isSelected ? Color.accentColor : Color.secondary
+                )
+                .background(
+                    isSelected
+                        ? Color.accentColor.opacity(0.14)
+                        : Color.clear,
+                    in: RoundedRectangle(
+                        cornerRadius: 10,
+                        style: .continuous
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.45)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "On" : "Off")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier(
+            "ios.voice.mode.\(title.lowercased())"
+        )
+    }
+
+    private var voiceSessionModesAreEnabled: Bool {
+        sceneOwner.presentation.phase == .inactive
+            && draftOwner.isAvailableForMutation
+            && !draftOwner.isEditing
+    }
+
+    private var translationModeIsAvailable: Bool {
+        sceneOwner.actionCommands.contains {
+            $0.action == .startTranslation
+        }
+    }
+
     private var voiceStatusSurface: some View {
         let status = IOSVoiceHomePresentation.resolve(
             sceneOwner.presentation
@@ -621,7 +709,7 @@ struct IOSVoiceHomeView: View {
             accessibilityLabel: presentation.title,
             isEnabled: true,
             workPhase: sceneOwner.presentation.phase,
-            action: { performVoiceCommand(command) }
+            action: { performPrimaryVoiceCommand(command) }
         )
         .accessibilityIdentifier("ios.voice.primary-action")
     }
@@ -673,7 +761,9 @@ struct IOSVoiceHomeView: View {
             break
         }
 
-        if draftOwner.isFull { return .draftFull }
+        if draftOwner.isFull && sessionModes.appendsToDraft {
+            return .draftFull
+        }
         if primaryVoiceCommand == nil { return .voiceChecking }
         return .available
     }
@@ -794,7 +884,8 @@ struct IOSVoiceHomeView: View {
     }
 
     private var draftBlocksNewDictation: Bool {
-        !draftOwner.isAvailableForMutation || draftOwner.isFull
+        !draftOwner.isAvailableForMutation
+            || (draftOwner.isFull && sessionModes.appendsToDraft)
     }
 
     private func copyDraft() {
@@ -1173,6 +1264,36 @@ struct IOSVoiceHomeView: View {
         } else {
             _ = sceneOwner.submit(command)
         }
+    }
+
+    private func performPrimaryVoiceCommand(
+        _ command: IOSForegroundVoiceActionCommand
+    ) {
+        guard command.action == .startStandard else {
+            performVoiceCommand(command)
+            return
+        }
+        _ = sceneOwner.submitStart(command, modes: sessionModes)
+    }
+
+    private func performOneShotVoiceCommand(
+        _ command: IOSForegroundVoiceActionCommand
+    ) {
+        guard let standard = sceneOwner.actionCommands.first(where: {
+            $0.action == .startStandard
+        }) else {
+            return
+        }
+        var modes = sessionModes
+        switch command.action {
+        case .startTranslation:
+            modes.translates = true
+        case .startCorrection:
+            modes.corrects = true
+        default:
+            return
+        }
+        _ = sceneOwner.submitStart(standard, modes: modes)
     }
 
     private func setupAction(

@@ -4,7 +4,10 @@ import Observation
 
 struct IOSVoiceDraftClient: Sendable {
     let load: @Sendable () async throws -> IOSVoiceDraftRecord
-    let append: @Sendable (IOSVoiceDraftSegment) async throws
+    let accept: @Sendable (
+        IOSVoiceDraftSegment,
+        IOSVoiceDraftInsertionMode
+    ) async throws
         -> IOSVoiceDraftAppendResult
     let replace: @Sendable (
         IOSVoiceDraftRecord,
@@ -13,13 +16,16 @@ struct IOSVoiceDraftClient: Sendable {
 
     init(repository: IOSVoiceDraftRepository) {
         load = { try await repository.load() }
-        append = { try await repository.append($0) }
+        accept = { try await repository.accept($0, mode: $1) }
         replace = { try await repository.replace($0, ifCurrent: $1) }
     }
 
     init(
         load: @escaping @Sendable () async throws -> IOSVoiceDraftRecord,
-        append: @escaping @Sendable (IOSVoiceDraftSegment) async throws
+        accept: @escaping @Sendable (
+            IOSVoiceDraftSegment,
+            IOSVoiceDraftInsertionMode
+        ) async throws
             -> IOSVoiceDraftAppendResult,
         replace: @escaping @Sendable (
             IOSVoiceDraftRecord,
@@ -27,7 +33,7 @@ struct IOSVoiceDraftClient: Sendable {
         ) async throws -> IOSVoiceDraftMutationResult
     ) {
         self.load = load
-        self.append = append
+        self.accept = accept
         self.replace = replace
     }
 }
@@ -156,8 +162,9 @@ final class IOSVoiceDraftOwner {
     }
 
     @discardableResult
-    func appendAccepted(
-        _ accepted: IOSV1AcceptedOutputDeliveryRecord
+    func accept(
+        _ accepted: IOSV1AcceptedOutputDeliveryRecord,
+        mode: IOSVoiceDraftInsertionMode
     ) async -> Bool {
         guard await beginAcceptedAppend() else { return false }
         let previous = state.lastConfirmed
@@ -174,7 +181,7 @@ final class IOSVoiceDraftOwner {
         }
 
         do {
-            let result = try await client.append(segment)
+            let result = try await client.accept(segment, mode)
             guard complete() else { return false }
             switch result {
             case .inserted(let record):
@@ -201,6 +208,13 @@ final class IOSVoiceDraftOwner {
             notice = .appendFailed
             return false
         }
+    }
+
+    @discardableResult
+    func appendAccepted(
+        _ accepted: IOSV1AcceptedOutputDeliveryRecord
+    ) async -> Bool {
+        await accept(accepted, mode: .append)
     }
 
     @discardableResult

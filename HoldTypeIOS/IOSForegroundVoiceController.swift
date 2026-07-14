@@ -67,6 +67,16 @@ enum IOSForegroundVoiceActionAdmission: Equatable, Sendable {
     case unavailable
 }
 
+struct IOSVoiceSessionModes: Equatable, Sendable {
+    var appendsToDraft = false
+    var translates = false
+    var corrects = false
+
+    var draftInsertionMode: IOSVoiceDraftInsertionMode {
+        appendsToDraft ? .append : .replace
+    }
+}
+
 struct IOSForegroundVoicePresentation: Equatable, Sendable {
     let phase: VoiceWorkPhase
     let stage: VoiceAttemptStage?
@@ -139,6 +149,7 @@ enum IOSForegroundVoiceStartAction: Equatable, Sendable {
     case standard
     case translate
     case correction
+    case configured(IOSVoiceSessionModes)
 
     var outputIntent: DictationOutputIntent {
         switch self {
@@ -146,6 +157,8 @@ enum IOSForegroundVoiceStartAction: Equatable, Sendable {
             .standard
         case .translate:
             .translate
+        case .configured(let modes):
+            modes.translates ? .translate : .standard
         }
     }
 
@@ -155,6 +168,17 @@ enum IOSForegroundVoiceStartAction: Equatable, Sendable {
             false
         case .correction:
             true
+        case .configured(let modes):
+            modes.corrects
+        }
+    }
+
+    var draftInsertionMode: IOSVoiceDraftInsertionMode {
+        switch self {
+        case .standard, .translate, .correction:
+            .replace
+        case .configured(let modes):
+            modes.draftInsertionMode
         }
     }
 }
@@ -478,6 +502,29 @@ final class IOSForegroundVoiceController {
             cancelCurrentOperation(kind: .ordinary)
         case .cancelProcessing:
             cancelCurrentOperation(kind: .processing)
+        }
+        return .accepted
+    }
+
+    @discardableResult
+    func submitStart(
+        _ command: IOSForegroundVoiceActionCommand,
+        modes: IOSVoiceSessionModes,
+        from initiatingScene: IOSVoiceSceneFacade?
+    ) -> IOSForegroundVoiceActionAdmission {
+        guard command.presentationRevision == presentationRevision else {
+            return .stale
+        }
+        guard command.action == .startStandard,
+              presentation.availableActions.contains(.startStandard),
+              !modes.translates
+                || presentation.availableActions.contains(.startTranslation),
+              let initiatingScene,
+              let startLease = sceneRegistry.acquireStartLease(
+                  initiatingScene: initiatingScene.identity
+              ),
+              begin(.start(.configured(modes)), startLease: startLease) else {
+            return .unavailable
         }
         return .accepted
     }

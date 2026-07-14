@@ -150,19 +150,23 @@ destination. History remains a separate tab and is not previewed on Voice.
   provider request.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
-- Standard dictation is always the primary action. Compact icon-only Translate
-  and Correction actions at the leading edge of the Voice Draft action row are
-  one-shot starts, never modes. A flexible gap separates them from Undo, Redo,
-  Copy, and Clear. Translate is available only when its current route is valid,
-  while Correction forces the saved correction configuration for that request
-  only. Neither action changes Settings or transforms the existing Draft.
+- Standard dictation is always the primary action. Append, Auto Translate, and
+  Auto Correction are session-only icon toggles in the settings row below the
+  Voice Draft editor. The existing one-shot Translate and Correction actions,
+  plus Undo, Redo, Copy, and Clear, stay in the action row above it. All three
+  settings start off on cold launch, remain selected for subsequent
+  containing-app attempts until turned off, and never rewrite durable Settings.
+  Auto Translate is available only when its current route is valid, while Auto
+  Correction forces the saved correction configuration for the selected
+  attempts. Both may be enabled together.
 - Current Dictionary, Voice Emoji Commands, Replacement Rules, cleanup,
   correction, and translation apply in their documented order.
 - A successful result becomes Latest Result even if compact History append
   fails.
-- Every accepted result is also offered exactly once to the separate composed
-  Voice Draft. Draft failure never rolls back Latest, History, or Pending
-  cleanup.
+- Every accepted result is also offered exactly once to the separate Voice
+  Draft. The safe default replaces the Draft only after acceptance; Append mode
+  joins the new text with one blank line. Draft failure never rolls back Latest,
+  History, or Pending cleanup.
 - The Draft is editable only while Voice is inactive. It starts unfocused, so
   cold launch never opens the keyboard; a direct tap provides normal selection,
   typing, paste, and emoji input. One completed edit is one app-level Undo

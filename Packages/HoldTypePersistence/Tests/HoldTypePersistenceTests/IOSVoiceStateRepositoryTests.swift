@@ -56,6 +56,52 @@ struct IOSVoiceStateRepositoryTests {
         #expect(snapshot.pending?.status == .acceptedCleanup(accepted))
     }
 
+    @Test func sessionModesRoundTripFromCaptureThroughPending() async throws {
+        let fileSystem = VoiceStateFileSystem()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let capture = try makeCapture(
+            draftInsertionMode: .append,
+            forcesTextCorrection: true
+        )
+        _ = try await repository.installCapture(capture)
+        _ = try await repository.transitionCapture(
+            attemptID: capture.attemptID,
+            to: .finalizing
+        )
+        _ = try await repository.completeCapture(
+            attemptID: capture.attemptID,
+            durationMilliseconds: 1_250,
+            byteCount: 4_096
+        )
+
+        let pending = try await repository.promoteCapture(
+            attemptID: capture.attemptID,
+            transcriptionConfiguration: .defaults
+        )
+
+        #expect(pending.draftInsertionMode == .append)
+        #expect(pending.forcesTextCorrection)
+        let relaunched = try await makeRepository(
+            fileSystem: fileSystem
+        ).load()
+        #expect(relaunched.pending?.draftInsertionMode == .append)
+        #expect(relaunched.pending?.forcesTextCorrection == true)
+    }
+
+    @Test func versionOnePendingMigratesWithLegacyAppendSemantics() async throws {
+        let bytes = Data(
+            """
+            {"capture":null,"latest":null,"pending":{"attemptID":"AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA","audioRelativeIdentifier":"VoiceState/pending-v1-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.m4a","createdAtMilliseconds":1700000000000,"updatedAtMilliseconds":1700000000000,"outputIntent":"standard","transcriptionModel":"gpt-4o-transcribe","transcriptionLanguageCode":"en","durationMilliseconds":1250,"byteCount":4096,"status":{"kind":"ready","stage":null,"operationID":null,"accepted":null}},"schemaVersion":1}
+            """.utf8
+        )
+        let snapshot = try await makeRepository(
+            fileSystem: VoiceStateFileSystem(bytes: bytes)
+        ).load()
+
+        #expect(snapshot.pending?.draftInsertionMode == .append)
+        #expect(snapshot.pending?.forcesTextCorrection == false)
+    }
+
     @Test func onlyOnePendingSlotMayBeInstalled() async throws {
         let repository = makeRepository()
         _ = try await repository.installPending(try makePending())
@@ -407,7 +453,7 @@ struct IOSVoiceStateRepositoryTests {
             (Data("not-json".utf8), IOSVoiceStateRepositoryError.malformedData),
             (
                 Data(
-                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":2}"
+                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":3}"
                         .utf8
                 ),
                 IOSVoiceStateRepositoryError.unsupportedSchemaVersion
@@ -506,7 +552,9 @@ struct IOSVoiceStateRepositoryTests {
 }
 
 private func makeCapture(
-    attemptID: UUID = IDs.attempt
+    attemptID: UUID = IDs.attempt,
+    draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+    forcesTextCorrection: Bool = false
 ) throws -> IOSVoiceStateCapture {
     try IOSVoiceStateCapture(
         attemptID: attemptID,
@@ -516,6 +564,8 @@ private func makeCapture(
             ),
         createdAt: Dates.created,
         outputIntent: .standard,
+        draftInsertionMode: draftInsertionMode,
+        forcesTextCorrection: forcesTextCorrection,
         phase: .recording
     )
 }

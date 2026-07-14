@@ -3,6 +3,54 @@ import Testing
 @_spi(HoldTypeIOSCore) @testable import HoldTypePersistence
 
 struct IOSVoiceDraftRepositoryTests {
+    @Test func replaceIsAtomicAndAppendRemainsOptIn() async throws {
+        let repository = makeRepository(DraftFileSystemFake())
+        _ = try await repository.append(try makeSegment(1, text: "First"))
+        _ = try await repository.append(try makeSegment(2, text: "Second"))
+
+        let replacement = try makeSegment(3, text: "Fresh attempt")
+        #expect(
+            try await repository.accept(replacement, mode: .replace) ==
+                .inserted(
+                    IOSVoiceDraftRecord(
+                        text: "Fresh attempt",
+                        segments: [replacement]
+                    )
+                )
+        )
+        #expect(try await repository.load().text == "Fresh attempt")
+
+        _ = try await repository.accept(
+            try makeSegment(4, text: "Continued"),
+            mode: .append
+        )
+        #expect(
+            try await repository.load().text ==
+                "Fresh attempt\n\nContinued"
+        )
+    }
+
+    @Test func duplicateReplacementNeverOverwritesManualEdits() async throws {
+        let repository = makeRepository(DraftFileSystemFake())
+        let accepted = try makeSegment(1, text: "Accepted")
+        _ = try await repository.accept(accepted, mode: .replace)
+        let current = try await repository.load()
+        let edited = IOSVoiceDraftRecord(
+            text: "Accepted, manually edited",
+            segments: current.segments
+        )
+        _ = try await repository.replace(
+            edited,
+            ifCurrent: IOSVoiceDraftSnapshotToken(record: current)
+        )
+
+        #expect(
+            try await repository.accept(accepted, mode: .replace) ==
+                .duplicate(edited)
+        )
+        #expect(try await repository.load() == edited)
+    }
+
     @Test func storageContractIsBoundedProtectedAndRedacted() throws {
         let root = URL(
             fileURLWithPath: "/private/app/Library/Application Support",

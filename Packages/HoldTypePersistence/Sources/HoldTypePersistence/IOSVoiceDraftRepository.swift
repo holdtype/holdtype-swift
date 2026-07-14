@@ -74,6 +74,13 @@ public actor IOSVoiceDraftRepository {
     public func append(
         _ segment: IOSVoiceDraftSegment
     ) throws -> IOSVoiceDraftAppendResult {
+        try accept(segment, mode: .append)
+    }
+
+    public func accept(
+        _ segment: IOSVoiceDraftSegment,
+        mode: IOSVoiceDraftInsertionMode
+    ) throws -> IOSVoiceDraftAppendResult {
         let record = try load()
         if let existing = record.segments.first(where: {
             $0.resultID == segment.resultID
@@ -83,15 +90,23 @@ public actor IOSVoiceDraftRepository {
             }
             return .duplicate(record)
         }
-        guard !record.isFull else { return .full(record) }
-
-        let appendedText = record.text.isEmpty
-            ? segment.text
-            : record.text + "\n\n" + segment.text
-        let updated = IOSVoiceDraftRecord(
-            text: appendedText,
-            segments: record.segments + [segment]
-        )
+        let updated: IOSVoiceDraftRecord
+        switch mode {
+        case .replace:
+            updated = IOSVoiceDraftRecord(
+                text: segment.text,
+                segments: [segment]
+            )
+        case .append:
+            guard !record.isFull else { return .full(record) }
+            let appendedText = record.text.isEmpty
+                ? segment.text
+                : record.text + "\n\n" + segment.text
+            updated = IOSVoiceDraftRecord(
+                text: appendedText,
+                segments: record.segments + [segment]
+            )
+        }
         try replace(updated)
         return .inserted(updated)
     }

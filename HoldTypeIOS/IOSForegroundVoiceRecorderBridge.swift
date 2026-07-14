@@ -72,7 +72,9 @@ nonisolated struct IOSForegroundVoiceRecorderBridgeDriver: Sendable {
 final class IOSForegroundVoiceRecorderBridge {
     typealias MakeDriver = @MainActor @Sendable (
         UUID,
-        DictationOutputIntent
+        DictationOutputIntent,
+        IOSVoiceDraftInsertionMode,
+        Bool
     ) async throws -> IOSForegroundVoiceRecorderBridgeDriver
     typealias PreparePending = @MainActor @Sendable (
         IOSVoiceRecorderCompletedCaptureHandoff,
@@ -91,10 +93,16 @@ final class IOSForegroundVoiceRecorderBridge {
             _ in
         }
     ) {
-        makeDriver = { attemptID, outputIntent in
+        makeDriver = {
+            attemptID,
+            outputIntent,
+            draftInsertionMode,
+            forcesTextCorrection in
             let lease = try await persistenceOwner.createCapture(
                 attemptID: attemptID,
-                outputIntent: outputIntent
+                outputIntent: outputIntent,
+                draftInsertionMode: draftInsertionMode,
+                forcesTextCorrection: forcesTextCorrection
             )
             let adapter = IOSVoiceRecorderAdapter(
                 lease: lease,
@@ -124,9 +132,16 @@ final class IOSForegroundVoiceRecorderBridge {
 
     func makeRecording(
         attemptID: UUID,
-        outputIntent: DictationOutputIntent
+        outputIntent: DictationOutputIntent,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false
     ) async throws -> IOSForegroundVoiceWorkflowRecording {
-        let driver = try await makeDriver(attemptID, outputIntent)
+        let driver = try await makeDriver(
+            attemptID,
+            outputIntent,
+            draftInsertionMode,
+            forcesTextCorrection
+        )
         let owner = AttemptOwner(
             driver: driver,
             preparePending: preparePending,

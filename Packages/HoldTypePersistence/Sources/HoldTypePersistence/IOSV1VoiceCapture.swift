@@ -304,6 +304,8 @@ actor IOSV1VoiceCaptureOwner {
     func createCapture(
         attemptID: UUID,
         outputIntent: DictationOutputIntent,
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        forcesTextCorrection: Bool = false,
         createdAt: Date = Date()
     ) async throws -> IOSV1VoiceCaptureLease {
         if let liveLease, liveLease.isOpen {
@@ -327,6 +329,8 @@ actor IOSV1VoiceCaptureOwner {
                 audioRelativeIdentifier: relativeIdentifier,
                 createdAt: createdAt,
                 outputIntent: outputIntent,
+                draftInsertionMode: draftInsertionMode,
+                forcesTextCorrection: forcesTextCorrection,
                 phase: .recording
             )
             _ = try await repository.installCapture(record)

@@ -2335,6 +2335,55 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func configuredForegroundModesReachTheAcceptedAttemptTogether()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: true,
+            targetLanguage: .french
+        )
+        let fixture = try await WorkflowFixture(
+            settings: settings,
+            permission: .granted,
+            completedCapture: true,
+            processorAcceptedText: "Combined mode result",
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let start = try #require(controller.actionCommands.first {
+            $0.action == .startStandard
+        })
+        let modes = IOSVoiceSessionModes(
+            appendsToDraft: true,
+            translates: true,
+            corrects: true
+        )
+
+        #expect(
+            controller.submitStart(
+                start,
+                modes: modes,
+                from: fixture.facade
+            ) == .accepted
+        )
+        try await waitUntil { controller.presentation.phase == .listening }
+        let finish = try #require(controller.actionCommands.first {
+            $0.action == .finishUtterance
+        })
+        #expect(controller.submit(finish) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+
+        #expect(fixture.events.contains("provider-force-correction-true"))
+        #expect(fixture.events.contains("provider-output-translate"))
+        #expect(fixture.events.contains("provider-draft-insertion-append"))
+    }
+
+    @Test
     func keyboardTranslationCapabilityUsesCurrentValidatedSettings()
         async throws {
         let unavailable = try await WorkflowFixture(permission: .granted)
@@ -2833,7 +2882,11 @@ private final class WorkflowFixture {
                         self?.finalizationExpirationHandler?()
                     }
                 },
-                makeRecording: { [weak self] attemptID, intent in
+                makeRecording: {
+                    [weak self] attemptID,
+                    intent,
+                    draftInsertionMode,
+                    forcesTextCorrection in
                     events.record("recording-make")
                     if deactivateSceneDuringMakeRecording {
                         _ = self?.facade.updateActivity(.inactive)
@@ -2898,6 +2951,10 @@ private final class WorkflowFixture {
                                         let pending = try makePendingRecording(
                                             attemptID: attemptID,
                                             outputIntent: intent,
+                                            draftInsertionMode:
+                                                draftInsertionMode,
+                                            forcesTextCorrection:
+                                                forcesTextCorrection,
                                             phase: .readyForTranscription,
                                             configuration: configuration
                                         )
@@ -2938,6 +2995,14 @@ private final class WorkflowFixture {
                     events.record(
                         "provider-force-correction-"
                             + String(request.forcesTextCorrection)
+                    )
+                    events.record(
+                        "provider-output-"
+                            + request.pendingRecording.outputIntent.rawValue
+                    )
+                    events.record(
+                        "provider-draft-insertion-"
+                            + request.draftInsertionMode.rawValue
                     )
                     if let processorInitialProgress {
                         await progress(processorInitialProgress)
@@ -3255,6 +3320,8 @@ private final class WorkflowPendingBox: @unchecked Sendable {
 private func makePendingRecording(
     attemptID: UUID = UUID(),
     outputIntent: DictationOutputIntent,
+    draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+    forcesTextCorrection: Bool = false,
     phase: IOSV1PendingRecordingPhase,
     configuration: TranscriptionConfiguration
 ) throws -> IOSV1PendingRecording {
@@ -3267,6 +3334,8 @@ private func makePendingRecording(
     return try IOSV1PendingRecording.qualificationFixture(
         attemptID: attemptID,
         outputIntent: outputIntent,
+        draftInsertionMode: draftInsertionMode,
+        forcesTextCorrection: forcesTextCorrection,
         phase: phase,
         transcriptionID: transcriptionID,
         transcriptionConfiguration: configuration

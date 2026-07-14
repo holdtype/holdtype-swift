@@ -130,7 +130,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             isActivelyRecording: { _ in true }
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
-            makeDriver: { _, _ in driver },
+            makeDriver: { _, _, _, _ in driver },
             preparePending: { handoff, configuration in
                 try await handoff.preparePending(
                     using: IOSV1ForegroundVoicePersistenceOwner(
@@ -301,7 +301,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             isActivelyRecording: { _ in true }
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
-            makeDriver: { _, _ in driver },
+            makeDriver: { _, _, _, _ in driver },
             preparePending: { _, _ in throw RecorderBridgeError.failed },
             feedback: feedback
         )
@@ -420,7 +420,11 @@ private final class RecorderBridgeFixture {
         feedback: IOSForegroundVoiceFeedbackBridge? = nil
     ) -> IOSForegroundVoiceRecorderBridge {
         IOSForegroundVoiceRecorderBridge(
-            makeDriver: { [weak self] attemptID, outputIntent in
+            makeDriver: {
+                [weak self] attemptID,
+                outputIntent,
+                _,
+                _ in
                 guard let self else { throw RecorderBridgeError.failed }
                 createdAttemptID = attemptID
                 createdOutputIntent = outputIntent

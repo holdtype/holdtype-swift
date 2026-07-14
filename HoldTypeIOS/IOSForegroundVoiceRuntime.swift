@@ -6,16 +6,18 @@ import HoldTypeDomain
 nonisolated enum IOSKeyboardSnapshotAcceptancePublication {
     typealias Publish = @Sendable () async -> Void
     typealias AcceptDraft = @Sendable (
-        IOSV1AcceptedOutputDeliveryRecord
+        IOSV1AcceptedOutputDeliveryRecord,
+        IOSVoiceDraftInsertionMode
     ) async -> Void
 
     static func apply(
         to resolution: IOSForegroundVoiceProcessingResolution,
-        acceptDraft: @escaping AcceptDraft = { _ in },
+        draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
+        acceptDraft: @escaping AcceptDraft = { _, _ in },
         publish: @escaping Publish
     ) async -> IOSForegroundVoiceProcessingResolution {
         if case .acceptance(.resultReady(let record, _)) = resolution {
-            await acceptDraft(record)
+            await acceptDraft(record, draftInsertionMode)
             await publish()
         }
         return resolution
@@ -257,10 +259,16 @@ final class IOSForegroundVoiceRuntime {
                     audioCuesEnabled: audioCuesEnabled
                 )
             },
-            makeRecording: { attemptID, outputIntent in
+            makeRecording: {
+                attemptID,
+                outputIntent,
+                draftInsertionMode,
+                forcesTextCorrection in
                 try await recorderBridge.makeRecording(
                     attemptID: attemptID,
-                    outputIntent: outputIntent
+                    outputIntent: outputIntent,
+                    draftInsertionMode: draftInsertionMode,
+                    forcesTextCorrection: forcesTextCorrection
                 )
             },
             beginFinalization: { onExpiration in
@@ -273,8 +281,9 @@ final class IOSForegroundVoiceRuntime {
                 )
                 return await IOSKeyboardSnapshotAcceptancePublication.apply(
                     to: resolution,
-                    acceptDraft: { record in
-                        _ = await voiceDraftOwner.appendAccepted(record)
+                    draftInsertionMode: request.draftInsertionMode,
+                    acceptDraft: { record, mode in
+                        _ = await voiceDraftOwner.accept(record, mode: mode)
                     },
                     publish: {
                         await latestResultOwner.refreshKeyboardProjection()
