@@ -64,20 +64,27 @@ without opening the custom keyboard.
 ## Primary Voice Control
 
 - A large Start Dictation action stays below the Draft in the lower thumb
-  region. Its decorative HoldType bubble is an image asset; its microphone,
-  label, progress, and accessibility state remain native controls.
-- Ready shows active `Start Dictation`.
+  region. It uses the same text-free HoldType activity artwork and motion as
+  the macOS floating indicator instead of placing a microphone, progress
+  spinner, or action label over the artwork. Its action name and state remain
+  available to VoiceOver.
+- Ready shows the static idle activity mark as an active Start Dictation
+  control.
 - Listening uses the same primary location for Done, shows elapsed time plus a
-  separate Cancel action, and displays mirrored native level bars beside the
-  primary control. The bars react only to ephemeral recorder metering, retain
-  no audio information, and stop with capture.
-- Arming and processing keep the primary control visible but unavailable and
-  show their exact progress. Cancel appears only when the controller admits it.
+  separate Cancel action, and switches the control to the cyan recording
+  phase: two rotating orbit lines, an orbiting point, and a subtle pulse.
+- Finalizing and provider processing switch the unavailable primary control to
+  the purple recognition phase: a rotating particle ring and slower subtle
+  pulse. The status row continues to distinguish local finalization,
+  transcription, refinement, and result saving in text.
+- Arming keeps the static primary control visible but unavailable while the
+  status row shows exact progress. Cancel appears only when the controller
+  admits it.
 - Setup, Pending recovery, blocked local recovery, and unavailable runtime
-  keep a grey Start Dictation control plus the exact corrective actions.
+  keep a grey static control plus the exact corrective actions.
 - No unavailable state fabricates readiness or starts provider work.
-- Reduce Motion removes spring-like interpolation while preserving a truthful
-  visible Listening indication.
+- Reduce Motion replaces rotating and pulsing phases with their corresponding
+  complete static recording or recognition artwork, preserving truthful state.
 
 ## One-Shot Processing Actions
 

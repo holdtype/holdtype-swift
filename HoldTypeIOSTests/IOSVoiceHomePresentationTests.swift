@@ -69,6 +69,15 @@ struct IOSVoiceHomePresentationTests {
         }
     }
 
+    @Test func primaryActivityUsesListeningThenRecognitionVisuals() {
+        #expect(IOSVoiceActivityPhase.resolve(.inactive) == .idle)
+        #expect(IOSVoiceActivityPhase.resolve(.arming) == .idle)
+        #expect(IOSVoiceActivityPhase.resolve(.ready) == .idle)
+        #expect(IOSVoiceActivityPhase.resolve(.listening) == .listening)
+        #expect(IOSVoiceActivityPhase.resolve(.finalizing) == .recognizing)
+        #expect(IOSVoiceActivityPhase.resolve(.processing) == .recognizing)
+    }
+
     @Test func everySetupDestinationOwnsItsVisibleRecoveryCopy() {
         let destinations: [RecoveryDestination] = [
             .openAI,

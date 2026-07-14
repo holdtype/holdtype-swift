@@ -576,17 +576,13 @@ struct IOSVoiceHomeView: View {
         let startIsBlockedByDraft = command?.action == .startStandard
             && draftBlocksNewDictation
         let isEnabled = command != nil && !startIsBlockedByDraft
-        let title = presentation?.title ?? "Start Dictation"
-        let systemImage = presentation?.systemImage ?? "mic.fill"
+        let accessibilityLabel = presentation?.title ?? status.title
 
         return VStack(spacing: 4) {
             IOSVoiceRecordButton(
-                title: title,
-                systemImage: systemImage,
+                accessibilityLabel: accessibilityLabel,
                 isEnabled: isEnabled,
-                showsProgress: status.showsProgress && command == nil,
-                isListening: sceneOwner.presentation.phase == .listening,
-                inputLevel: { sceneOwner.inputLevel },
+                workPhase: sceneOwner.presentation.phase,
                 action: {
                     guard let command, isEnabled else { return }
                     performVoiceCommand(command)
