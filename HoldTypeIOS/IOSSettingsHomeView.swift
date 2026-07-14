@@ -345,8 +345,6 @@ private struct IOSSettingsSummaryList: View {
                     IOSGeneralSettingsDestination.voiceRecording
                         .rowAccessibilityIdentifier
                 )
-
-                LabeledContent("Maximum Utterance", value: "5 minutes")
             }
 
             if foregroundVoiceRuntimeAvailable {
@@ -380,27 +378,11 @@ private struct IOSSettingsSummaryList: View {
                 )
             }
 
-            Section {
-                Text(
-                    "Prompts and complete settings stay in HoldType’s private "
-                        + "storage and are never copied into the keyboard "
-                        + "extension."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 
     private var transcriptionSummary: String {
-        let configuration = settings.transcriptionConfiguration
-        return transcriptionLanguageName(configuration)
-            + " · "
-            + IOSSettingsModelPresentation.summary(
-                rawModel: configuration.model,
-                defaultModel: TranscriptionConfiguration.defaultModel
-            )
+        transcriptionLanguageName(settings.transcriptionConfiguration)
     }
 
     private var writingSummary: String {
@@ -421,7 +403,7 @@ private struct IOSSettingsSummaryList: View {
             settings.voiceSessionPreferences.recordingStopTailDuration
         )
         return cues
-            + " · Tail "
+            + " · Finish buffer "
             + tail
             + " · "
             + settings.recordingCachePolicy.iosSettingsSummary
@@ -430,9 +412,9 @@ private struct IOSSettingsSummaryList: View {
     private var openAISummary: String {
         switch openAISettingsStateOwner.state {
         case .unavailable:
-            return "Secure storage unavailable"
+            return "Saved key unavailable"
         case .notLoaded:
-            return "Open to view saved-key status"
+            return "Open to check your key"
         case .ready(let status):
             return status.primary.settingsSummary
         }
@@ -441,7 +423,7 @@ private struct IOSSettingsSummaryList: View {
     private var usageSummary: String {
         switch usageEstimateStateOwner.state {
         case .notLoaded:
-            "Device-local estimate"
+            "Estimate from this iPhone"
         case .ready(let summary):
             summary.isEmpty
                 ? "No successful transcriptions yet"
@@ -449,7 +431,7 @@ private struct IOSSettingsSummaryList: View {
                     summary.totalDurationSeconds
                 ) + " in the last 30 days"
         case .loadFailed:
-            "Local estimate needs attention"
+            "Couldn’t load estimate"
         case .resetFailed:
             "Reset needs attention"
         }
@@ -523,15 +505,15 @@ private extension IOSOpenAICredentialPrimaryStatus {
         case .notConfigured:
             "Not configured"
         case .notCheckedInThisProcess:
-            "Not checked in this process"
+            "Key status not checked"
         case .savedLastKnown:
-            "Saved, last known"
+            "Key saved"
         case .availableInThisProcess:
-            "Available in this process"
+            "Key ready"
         case .unavailableWhileLocked:
-            "Unavailable while locked"
+            "Unlock to check"
         case .providerRejected:
-            "Provider rejected"
+            "Key rejected"
         }
     }
 }

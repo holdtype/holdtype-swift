@@ -48,7 +48,7 @@ struct IOSVoiceRecordingSettingsView: View {
 
             Section("Recording") {
                 Picker(
-                    "Tail after Stop",
+                    "Keep Listening After Stop",
                     selection: binding(
                         \.preferences.recordingStopTailDuration
                     )
@@ -60,13 +60,9 @@ struct IOSVoiceRecordingSettingsView: View {
                 }
 
                 Text(
-                    "A short tail helps keep final words from being cut off."
+                    "A short finish buffer helps keep final words from being "
+                        + "cut off."
                 )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-                LabeledContent("Maximum Utterance", value: "5 minutes")
-                Text("The per-utterance safety limit is fixed.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }

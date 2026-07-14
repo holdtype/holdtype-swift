@@ -19,7 +19,7 @@ struct IOSPrivacyPermissionsView: View {
         List {
             microphoneSection
             providerConsentSection
-            dataBoundarySection
+            localDataSection
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Privacy & Permissions")
@@ -250,35 +250,19 @@ struct IOSPrivacyPermissionsView: View {
         }
     }
 
-    private var dataBoundarySection: some View {
-        Section("Data Boundaries") {
-            privacyBoundary(
-                "Save History is on by default and keeps up to 20 successful "
-                    + "texts in protected app-private storage. It stores no "
-                    + "audio or failed attempts.",
-                image: "clock"
-            )
-            privacyBoundary(
-                "The keyboard extension does not receive your API key, "
-                    + "recordings, prompts, or History. Full Access is required "
-                    + "only for keyboard-controlled voice commands. Without "
-                    + "Full Access, local editing remains available and the "
-                    + "keyboard can read one app-written Latest Result from "
-                    + "the local shared container for explicit insertion. "
-                    + "Insertion eligibility expires after 10 minutes; the "
-                    + "next app publication removes the shared text.",
-                image: "keyboard"
-            )
-            privacyBoundary(
-                "Withdrawing consent closes OpenAI provider authority before "
-                    + "the decision is written to local storage.",
-                image: "lock.shield"
-            )
-            privacyBoundary(
-                "Consent changes do not delete settings, History, Latest "
-                    + "Result, usage, or your API key.",
-                image: "externaldrive"
-            )
+    private var localDataSection: some View {
+        Section("On This iPhone") {
+            Label {
+                Text(
+                    "History keeps up to 20 successful transcriptions. "
+                        + "Recordings and failed attempts are not added."
+                )
+                .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "clock")
+                    .foregroundStyle(.tint)
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 
@@ -321,20 +305,6 @@ struct IOSPrivacyPermissionsView: View {
             token: token,
             action: .acceptCurrentDisclosure
         )
-    }
-
-    private func privacyBoundary(
-        _ text: String,
-        image: String
-    ) -> some View {
-        Label {
-            Text(text)
-                .fixedSize(horizontal: false, vertical: true)
-        } icon: {
-            Image(systemName: image)
-                .foregroundStyle(.tint)
-        }
-        .accessibilityElement(children: .combine)
     }
 
     private func scheduleAccessibilityAnnouncement(
@@ -384,8 +354,8 @@ private struct IOSProviderConsentPrivacyReviewSheet: View {
                 Section {
                     Label {
                         Text(
-                            "Review what an explicit Voice action sends, what "
-                                + "stays local, and how P4 retains results."
+                            "See what HoldType sends to OpenAI and what stays "
+                                + "on this iPhone."
                         )
                         .fixedSize(horizontal: false, vertical: true)
                     } icon: {
@@ -460,8 +430,7 @@ struct IOSMicrophonePrivacyPresentation {
         case .undetermined:
             Self(
                 title: "Not Requested",
-                detail:
-                    "HoldType asks only after an explicit Start Dictation action.",
+                detail: "Asked the first time you start dictation.",
                 systemImage: "mic.badge.plus",
                 color: .secondary
             )
@@ -476,15 +445,14 @@ struct IOSMicrophonePrivacyPresentation {
         case .granted:
             Self(
                 title: "Access Granted",
-                detail:
-                    "HoldType may record only during an explicit Voice attempt.",
+                detail: "Used only while you record.",
                 systemImage: "mic.fill",
                 color: .green
             )
         case .unavailable:
             Self(
                 title: "Status Unavailable",
-                detail: "The system microphone status could not be read safely.",
+                detail: "HoldType couldn’t read microphone access.",
                 systemImage: "mic.slash",
                 color: .red
             )
@@ -504,10 +472,8 @@ struct IOSConsentPrivacyPresentation {
     ) -> Self {
         if snapshot.requiresExplicitAcceptance {
             return Self(
-                title: "Acceptance Required",
-                detail:
-                    "The saved decision remains readable, but provider authority "
-                    + "is closed until you accept again.",
+                title: "Review Required",
+                detail: "Review the updated disclosure before using Voice.",
                 systemImage: "hand.raised",
                 color: .orange,
                 action: .acceptCurrentDisclosure
@@ -518,7 +484,7 @@ struct IOSConsentPrivacyPresentation {
         case .notReviewed:
             Self(
                 title: "Not Reviewed",
-                detail: "Review the OpenAI processing disclosure before Voice.",
+                detail: "Review what HoldType sends before using Voice.",
                 systemImage: "hand.raised",
                 color: .secondary,
                 action: .acceptCurrentDisclosure
@@ -526,7 +492,7 @@ struct IOSConsentPrivacyPresentation {
         case .acceptedCurrentDisclosure:
             Self(
                 title: "Accepted",
-                detail: "OpenAI processing is allowed for explicit Voice actions.",
+                detail: "Voice can send recordings to OpenAI for processing.",
                 systemImage: "checkmark.shield.fill",
                 color: .green,
                 action: .withdraw
@@ -542,16 +508,15 @@ struct IOSConsentPrivacyPresentation {
         case .withdrawn:
             Self(
                 title: "Withdrawn",
-                detail: "OpenAI provider authority is closed.",
+                detail: "Voice will not send requests to OpenAI.",
                 systemImage: "hand.raised.slash",
                 color: .orange,
                 action: .acceptCurrentDisclosure
             )
         case .localDataUnavailable:
             Self(
-                title: "Consent Data Unavailable",
-                detail:
-                    "HoldType cannot safely read the local consent record.",
+                title: "Consent Unavailable",
+                detail: "HoldType couldn’t read your saved consent.",
                 systemImage: "exclamationmark.triangle",
                 color: .red,
                 action: nil
@@ -559,8 +524,7 @@ struct IOSConsentPrivacyPresentation {
         case .mutationNotSaved:
             Self(
                 title: "Decision Not Saved",
-                detail:
-                    "The previous durable decision remains active until retry.",
+                detail: "Couldn’t save this change. Try again.",
                 systemImage: "externaldrive.badge.exclamationmark",
                 color: .orange,
                 action: nil
@@ -619,15 +583,14 @@ private extension IOSProviderConsentPrivacyAction {
     var confirmationMessage: String {
         switch self {
         case .acceptCurrentDisclosure:
-            "This allows OpenAI processing only for explicit Voice actions."
+            "This allows Voice to send recordings to OpenAI for processing."
         case .withdraw:
-            "Provider authority closes immediately. Any valid partial recording "
-                + "remains available for Recover or Discard. Other app data is "
-                + "not deleted. A request already received by OpenAI cannot "
-                + "be recalled."
+            "This stops future OpenAI requests. A recording already captured "
+                + "stays available for Recover or Discard. Requests already "
+                + "received by OpenAI cannot be recalled."
         case .resetUnreadableData:
-            "This removes only the exact unreadable consent record. It does "
-                + "not delete your API key, settings, History, or results."
+            "This removes only the unreadable consent decision. Your API key, "
+                + "settings, History, and results stay unchanged."
         }
     }
 
@@ -675,13 +638,13 @@ private extension IOSProviderConsentPresentationFailure {
     var detail: String {
         switch self {
         case .statusChanged:
-            "Consent changed in another operation. Review the current status."
+            "Consent changed elsewhere. Review the current status."
         case .localDataUnavailable:
-            "The local consent record could not be verified safely."
+            "HoldType couldn’t read your saved consent."
         case .decisionNotSaved:
-            "The decision was not saved. The prior durable state remains."
+            "The decision wasn’t saved. Try again."
         case .operationFailed:
-            "The consent action failed without changing unrelated app data."
+            "The consent change failed. Try again."
         }
     }
 }

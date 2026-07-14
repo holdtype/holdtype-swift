@@ -26,9 +26,8 @@ struct IOSKeyboardSetupView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Not currently verified")
                     Text(
-                        "Open HoldType Keyboard below after changing Settings. "
-                            + "The containing app cannot read Apple’s Full "
-                            + "Access switch directly."
+                        "Use the practice field below after changing Settings "
+                            + "to verify HoldType Keyboard."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -123,10 +122,9 @@ struct IOSKeyboardSetupView: View {
     private var privacySection: some View {
         Section("Why Full Access") {
             Text(
-                "Full Access lets the keyboard exchange one bounded voice "
-                    + "command and an expiring Latest result with HoldType. "
-                    + "The extension never receives your API key, recording, "
-                    + "prompts, or History."
+                "Full Access is needed only for HoldType voice actions. "
+                    + "Ordinary typing works without it, and the keyboard "
+                    + "doesn’t receive your API key or recordings."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)

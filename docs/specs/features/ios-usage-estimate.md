@@ -68,7 +68,8 @@ complete provider-usage dashboard.
   available without a saved API key, microphone permission, Full Access, a
   running Voice session, or a live provider request.
 - Settings labels the destination `Transcription Usage Estimate` and explains
-  that values come only from successful transcriptions made by this device.
+  in plain language that values come from successful transcriptions on this
+  iPhone. The screen does not expose repository or persistence terminology.
 - The summary shows `Today`, `Average per day`, `Last 30 days`, and `Estimated
   30-day cost`. Duration is always available in minutes when valid events
   exist.

@@ -104,40 +104,40 @@ struct IOSTranslationSettingsView: View {
                 routeStatus
             }
 
-            Section("OpenAI Translation") {
-                TextField("Model ID", text: binding(\.model))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+            Section {
+                DisclosureGroup("Advanced") {
+                    TextField("Model ID", text: binding(\.model))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
 
-                if usesDefaultModel {
-                    Label(
-                        "Blank uses HoldType’s default translation model.",
-                        systemImage: "info.circle"
+                    if usesDefaultModel {
+                        Text("Uses HoldType’s standard translation model.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    IOSSettingsMultilineField(
+                        title: "Additional Instructions",
+                        prompt: "Optional translation guidance",
+                        text: translationInstructionsBinding,
+                        lineLimit: 3...8
                     )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+
+                    Button {
+                        resetPrompt()
+                    } label: {
+                        Label(
+                            "Use Standard Instructions",
+                            systemImage: "arrow.counterclockwise"
+                        )
+                    }
+                    .disabled(usesStandardInstructions)
+
+                    Text("Leave blank to use HoldType’s standard translation.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-
-                IOSSettingsMultilineField(
-                    title: "Prompt",
-                    prompt: "Translation instructions",
-                    text: binding(\.prompt),
-                    lineLimit: 6...14
-                )
-
-                Button {
-                    resetPrompt()
-                } label: {
-                    Label("Reset Standard Prompt", systemImage: "arrow.counterclockwise")
-                }
-                .disabled(configuration.isPromptDefault)
-
-                Text(
-                    "The model and prompt stay editable while the action is "
-                        + "off. Reset changes only this unsaved draft."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("ios.settings.translation.advanced")
             }
         }
         .disabled(session.isSaving)
@@ -198,6 +198,33 @@ struct IOSTranslationSettingsView: View {
             )
     }
 
+    private var usesStandardInstructions: Bool {
+        IOSProviderInstructionsPresentation.usesStandardBehavior(
+            storedValue: configuration.prompt,
+            defaultValue: TranslationConfiguration.defaultPrompt
+        )
+    }
+
+    private var translationInstructionsBinding: Binding<String> {
+        Binding(
+            get: {
+                IOSProviderInstructionsPresentation.displayedValue(
+                    storedValue: configuration.prompt,
+                    defaultValue: TranslationConfiguration.defaultPrompt
+                )
+            },
+            set: { value in
+                session.set(
+                    IOSProviderInstructionsPresentation.storedValue(
+                        from: value,
+                        defaultValue: TranslationConfiguration.defaultPrompt
+                    ),
+                    at: \.prompt
+                )
+            }
+        )
+    }
+
     private var sourceCodeInputState: IOSCustomLanguageCodeInputState? {
         guard configuration.sourceMode == .override,
               configuration.sourceLanguage == .custom else {
@@ -225,20 +252,18 @@ struct IOSTranslationSettingsView: View {
                 color: .orange
             )
         case nil:
-            Label(routeDescription, systemImage: "arrow.right.circle")
+            Label(readyRouteDescription, systemImage: "checkmark.circle")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var routeDescription: String {
-        let target = configuration.resolvedTargetLanguageCode ?? "target"
-        let source = configuration.sourceMode == .sameAsTranscription
-            ? "transcription"
-            : configuration.sourceLanguage.apiLanguageCode(
-                customCode: configuration.customSourceLanguageCode
-            ) ?? "source"
-        return "Translation route: \(source) → \(target)"
+    private var readyRouteDescription: String {
+        let target = IOSLanguageSelectionPresentation.title(
+            for: configuration.targetLanguage,
+            automaticTitle: "selected language"
+        )
+        return "Ready to translate to \(target)."
     }
 
     @ViewBuilder
@@ -296,7 +321,7 @@ struct IOSTranslationSettingsView: View {
         updated.resetPrompt()
         session.set(updated.prompt, at: \.prompt)
         iosAnnounceSettingsStatus(
-            "Standard translation prompt restored in draft. Not saved."
+            "Standard translation instructions restored. Not saved."
         )
     }
 

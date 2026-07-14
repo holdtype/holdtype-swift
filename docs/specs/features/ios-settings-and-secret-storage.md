@@ -652,8 +652,10 @@ result after the operation returns.
 - Empty model fields resolve to their documented defaults.
 - Dictionary entries trim surrounding whitespace, ignore empty values, and
   deduplicate case-insensitively while preserving the first spelling.
-- Correction and translation prompts remain editable while their remote stage
-  is off and provide Reset to the standard prompt.
+- Correction and translation expert controls remain available while their
+  remote stage is off. Model identifiers and optional provider instructions
+  appear only inside an `Advanced` disclosure. Reset restores standard provider
+  behavior without exposing the complete built-in prompt as ordinary content.
 - Translation remains visible but unavailable with an in-app route to
   Translation setup until its target configuration is valid. The app may
   project one bounded boolean Translation-available capability to the keyboard
@@ -703,9 +705,10 @@ result after the operation returns.
   value remains authoritative and the older draft stays visibly unsaved as
   `changed elsewhere`. A transition to either warning posts one content-free
   accessibility announcement.
-- Blank transcription, correction, or translation model fields visibly use
-  their documented default. Transcription Custom with an empty code visibly
-  falls back to Auto. A non-empty custom language code must be two or three
+- Blank transcription, correction, or translation model fields use their
+  documented default inside the relevant `Advanced` disclosure. Transcription
+  Custom with an empty code visibly falls back to Auto. A non-empty custom
+  language code must be two or three
   ASCII letters before Save is enabled. Language choices use a dedicated
   searchable list rather than a long menu, including an explicit Custom row.
   Translation may be saved while its route is incomplete; the action remains
@@ -713,12 +716,13 @@ result after the operation returns.
   configuration is missing. Custom-code fields expose a content-free
   accessibility hint and announce invalid-to-valid transitions without
   reading the entered value.
-- Correction and Translation prompts and models remain editable while their
-  remote stage or action preference is off. Reset restores the exact shared
-  standard prompt in the draft, announces that the draft is not saved, and
-  does not save until the user taps `Save`.
-- Voice & Recording exposes recording cues, stop tail, the fixed five-minute
-  utterance limit explanation, and Recording Cache controls. Cache is off by
+- Correction and Translation models and optional instructions remain editable
+  inside `Advanced` while their remote stage or action preference is off.
+  Reset restores standard provider behavior in the draft, announces that the
+  change is not saved, and does not save until the user taps `Save`.
+- Voice & Recording exposes recording cues, an outcome-oriented stop-tail
+  control, and Recording Cache controls. The fixed five-minute safety limit is
+  enforced but is not presented as an editable setting. Cache is off by
   default; enabling it starts at the last 10 recordings, and unlimited
   retention is an explicit choice. `Keep Latest Result` is not
   editable in P3: turning it off requires coordinated accepted-output,

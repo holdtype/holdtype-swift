@@ -92,6 +92,12 @@ struct IOSNativeVoicePresentationTests {
             "Access Granted",
             "Status Unavailable",
         ])
+        #expect(values.map(\.detail) == [
+            "Asked the first time you start dictation.",
+            "Allow microphone access in System Settings before recording.",
+            "Used only while you record.",
+            "HoldType couldn’t read microphone access.",
+        ])
         for value in values {
             #expect(!value.detail.isEmpty)
             #expect(UIImage(systemName: value.systemImage) != nil)
@@ -128,6 +134,8 @@ struct IOSNativeVoicePresentationTests {
             #expect(!resolved.title.isEmpty)
             #expect(!resolved.detail.isEmpty)
             #expect(UIImage(systemName: resolved.systemImage) != nil)
+            #expect(!resolved.detail.contains("provider authority"))
+            #expect(!resolved.detail.contains("durable"))
         }
     }
 

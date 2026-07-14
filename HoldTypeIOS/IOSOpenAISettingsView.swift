@@ -178,14 +178,13 @@ struct IOSOpenAISettingsView: View {
     private var unavailableSection: some View {
         Section("Saved Key") {
             Label(
-                "Secure credential storage is unavailable in this build.",
+                "Saved key unavailable",
                 systemImage: "key.slash"
             )
             .foregroundStyle(.secondary)
 
             Text(
-                "Your other HoldType settings and dictation rules remain available. "
-                + "This state does not mean that no key is saved."
+                "Other HoldType settings remain available. Try again later."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -197,7 +196,7 @@ struct IOSOpenAISettingsView: View {
         Section("Saved Key") {
             HStack(spacing: 12) {
                 ProgressView()
-                Text("Reading local credential status…")
+                Text("Checking saved key…")
             }
         }
         .accessibilityIdentifier("ios.settings.openai.loading")
@@ -232,7 +231,7 @@ struct IOSOpenAISettingsView: View {
 
             if status.statusNeedsRefresh {
                 Label(
-                    "Credential status needs refresh.",
+                    "Check the key to refresh its status.",
                     systemImage: "arrow.clockwise.circle"
                 )
                 .font(.footnote)
@@ -241,8 +240,7 @@ struct IOSOpenAISettingsView: View {
 
             if status.localMarkerIssue != nil {
                 Label(
-                    "The local status record is unavailable. The saved key "
-                    + "was not exposed or replaced.",
+                    "HoldType couldn’t check the saved key. Try again.",
                     systemImage: "externaldrive.badge.exclamationmark"
                 )
                 .font(.footnote)
@@ -317,10 +315,7 @@ struct IOSOpenAISettingsView: View {
         } header: {
             Text("Add or Replace Key")
         } footer: {
-            Text(
-                "Press Done or leave the field to save a non-empty key. "
-                + "Typing alone never writes to Keychain."
-            )
+            Text("Save with Done or Paste and Save.")
         }
     }
 
@@ -352,9 +347,8 @@ struct IOSOpenAISettingsView: View {
     private var privacySection: some View {
         Section("Privacy") {
             Text(
-                "The key is stored in this app’s private Keychain item. It "
-                + "is never included in dictation rules, History, diagnostics, "
-                + "shared settings, or the keyboard extension."
+                "Your key is stored securely on this iPhone. The keyboard "
+                    + "doesn’t receive it."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -401,34 +395,34 @@ private extension IOSOpenAICredentialPrimaryStatus {
     var title: String {
         switch self {
         case .notConfigured:
-            "Not configured"
+            "No key saved"
         case .notCheckedInThisProcess:
-            "Not checked in this process"
+            "Key status not checked"
         case .savedLastKnown:
-            "Saved, last known"
+            "Key saved"
         case .availableInThisProcess:
-            "Available in this process"
+            "Key ready"
         case .unavailableWhileLocked:
-            "Unavailable while locked"
+            "Unlock to check"
         case .providerRejected:
-            "Provider rejected"
+            "Key rejected"
         }
     }
 
     var explanation: String {
         switch self {
         case .notConfigured:
-            "No saved key is currently recorded."
+            "Add an OpenAI API key to use Voice."
         case .notCheckedInThisProcess:
-            "HoldType has not read Keychain in this app process."
+            "Tap Check Saved Key to confirm it is available."
         case .savedLastKnown:
-            "The local marker reports a saved key; Keychain is not checked."
+            "A key is saved on this iPhone."
         case .availableInThisProcess:
-            "An explicit action read the saved key successfully."
+            "HoldType can use the saved key for Voice."
         case .unavailableWhileLocked:
             "Unlock this device, then check the saved key again."
         case .providerRejected:
-            "Replace the current key before the next OpenAI request."
+            "Replace the key before using Voice again."
         }
     }
 

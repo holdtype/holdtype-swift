@@ -51,68 +51,67 @@ struct IOSWritingCorrectionSettingsView: View {
                 )
 
                 Text(
-                    "Runs one additional provider request after "
-                        + "transcription. Off by default."
+                    "Uses OpenAI after transcription. Off by default."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-
-                Picker(
-                    "Correction Model",
-                    selection: configurationBinding(\.modelPreset)
-                ) {
-                    ForEach(TextCorrectionModelPreset.allCases, id: \.self) {
-                        preset in
-                        Text(preset.iosSettingsDisplayName).tag(preset)
-                    }
-                }
-
-                Label(
-                    selectedModelDetail,
-                    systemImage: "info.circle"
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-                if configuration.modelPreset == .custom {
-                    TextField(
-                        "Custom model ID",
-                        text: configurationBinding(\.customModel)
-                    )
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                    if usesDefaultCustomModel {
-                        Text(
-                            "Blank uses HoldType’s default correction model."
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    }
-                }
             }
 
-            Section("Correction Prompt") {
-                IOSSettingsMultilineField(
-                    title: "Prompt",
-                    prompt: "Correction instructions",
-                    text: configurationBinding(\.prompt),
-                    lineLimit: 6...14
-                )
+            Section {
+                DisclosureGroup("Advanced") {
+                    Picker(
+                        "Correction Model",
+                        selection: configurationBinding(\.modelPreset)
+                    ) {
+                        ForEach(
+                            TextCorrectionModelPreset.allCases,
+                            id: \.self
+                        ) { preset in
+                            Text(preset.iosSettingsDisplayName).tag(preset)
+                        }
+                    }
 
-                Button {
-                    resetPrompt()
-                } label: {
-                    Label("Reset Standard Prompt", systemImage: "arrow.counterclockwise")
+                    Text(selectedModelDetail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    if configuration.modelPreset == .custom {
+                        TextField(
+                            "Custom model ID",
+                            text: configurationBinding(\.customModel)
+                        )
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                        if usesDefaultCustomModel {
+                            Text("Uses HoldType’s standard correction model.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    IOSSettingsMultilineField(
+                        title: "Additional Instructions",
+                        prompt: "Optional correction guidance",
+                        text: correctionInstructionsBinding,
+                        lineLimit: 3...8
+                    )
+
+                    Button {
+                        resetPrompt()
+                    } label: {
+                        Label(
+                            "Use Standard Instructions",
+                            systemImage: "arrow.counterclockwise"
+                        )
+                    }
+                    .disabled(usesStandardInstructions)
+
+                    Text("Leave blank to use HoldType’s standard correction.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .disabled(configuration.isPromptDefault)
-
-                Text(
-                    "The model and prompt stay editable while correction "
-                        + "is off. Reset changes only this unsaved draft."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("ios.settings.correction.advanced")
             }
         }
         .disabled(session.isSaving)
@@ -162,6 +161,32 @@ struct IOSWritingCorrectionSettingsView: View {
             .isEmpty
     }
 
+    private var usesStandardInstructions: Bool {
+        IOSProviderInstructionsPresentation.usesStandardBehavior(
+            storedValue: configuration.prompt,
+            defaultValue: TextCorrectionConfiguration.defaultPrompt
+        )
+    }
+
+    private var correctionInstructionsBinding: Binding<String> {
+        Binding(
+            get: {
+                IOSProviderInstructionsPresentation.displayedValue(
+                    storedValue: configuration.prompt,
+                    defaultValue: TextCorrectionConfiguration.defaultPrompt
+                )
+            },
+            set: { value in
+                var updated = configuration
+                updated.prompt = IOSProviderInstructionsPresentation.storedValue(
+                    from: value,
+                    defaultValue: TextCorrectionConfiguration.defaultPrompt
+                )
+                session.set(updated, at: \.configuration)
+            }
+        )
+    }
+
     private func binding<Field: Equatable>(
         _ keyPath: WritableKeyPath<
             IOSWritingCorrectionSettingsDraft,
@@ -192,7 +217,7 @@ struct IOSWritingCorrectionSettingsView: View {
         updated.resetPrompt()
         session.set(updated, at: \.configuration)
         iosAnnounceSettingsStatus(
-            "Standard correction prompt restored in draft. Not saved."
+            "Standard correction instructions restored. Not saved."
         )
     }
 

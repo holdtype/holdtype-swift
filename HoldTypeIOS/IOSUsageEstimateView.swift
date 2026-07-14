@@ -47,9 +47,8 @@ struct IOSUsageEstimateView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "This removes only HoldType’s device-local usage estimate. "
-                    + "It does not change OpenAI billing or other HoldType "
-                    + "data."
+                "This removes only the estimate on this iPhone. It does not "
+                    + "change OpenAI billing or other HoldType data."
             )
         }
         .accessibilityIdentifier("ios.settings.usage-estimate")
@@ -99,11 +98,9 @@ struct IOSUsageEstimateView: View {
 
     private var unavailableMessage: String {
         if case .resetFailed(lastConfirmed: nil) = stateOwner.state {
-            return "HoldType couldn’t reset the unreadable device-local "
-                + "estimate. Stored data was preserved; you can try again."
+            return "HoldType couldn’t reset the estimate. Try again."
         }
-        return "HoldType couldn’t read the device-local estimate. Stored "
-            + "data was not replaced with an empty result."
+        return "HoldType couldn’t load the estimate. Try again."
     }
 
     @ViewBuilder
@@ -188,8 +185,8 @@ struct IOSUsageEstimateView: View {
 
             Section {
                 Text(
-                    "This is a device-local estimate of successful audio "
-                        + "transcriptions. Actual OpenAI billing may differ. "
+                    "Estimated from successful transcriptions on this iPhone. "
+                        + "Your OpenAI bill may differ. "
                         + "Correction and translation are not included."
                 )
                 .font(.footnote)

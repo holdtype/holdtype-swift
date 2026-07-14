@@ -107,6 +107,24 @@ A destination must not ship as a placeholder. During implementation, History
 is removed from navigation until the compact screen is ready. V1.1 is not
 release-complete until the finished History destination is restored.
 
+### Settings Content Contract
+
+- Settings prioritizes the current state and the next useful action. A normal
+  section uses at most one short explanatory sentence before optional details.
+- Product copy describes outcomes in user language. Internal state-machine,
+  persistence, milestone, and transport terms such as process markers, durable
+  decisions, provider authority, App Group schemas, atomic replacement, and
+  implementation phase names do not appear in the primary interface.
+- Technical privacy guarantees remain enforced and documented, but the main
+  Privacy & Permissions screen summarizes them as local History, OpenAI
+  processing, and keyboard access. A user may open concise disclosure details
+  without reading the implementation architecture to understand status or act.
+- Model identifiers and provider instructions are expert controls. They live in
+  an `Advanced` disclosure on the matching editor and never displace language,
+  writing, translation, or recording controls from the first view.
+- Default provider instructions are not presented as ordinary content to edit.
+  An expert may add optional instructions or restore the standard behavior.
+
 Voice is the first destination on every cold launch or newly created scene.
 Returning an existing scene from the background preserves its current
 destination. History remains a separate tab and is not previewed on Voice.
@@ -420,15 +438,25 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The History-aware local-retention disclosure is contract version `2`.
   Acceptance of the former no-History version `1` requires explicit review
   before another provider request.
+- The main Privacy & Permissions screen shows microphone status, OpenAI
+  processing status and action, and one concise local-data summary. It does not
+  display transport schemas, process authority, storage implementation, or
+  milestone names.
+- The OpenAI consent review answers four product questions in concise language:
+  what is sent, why it is sent, who processes it, and what remains on the
+  device. Ordinary keystrokes and surrounding host-field text are explicitly
+  excluded. Detailed implementation guarantees are not required reading for
+  acceptance.
 - `RequestsOpenAccess` is true for the production dictation keyboard. Setup and
   Privacy explain why Allow Full Access is needed for keyboard-to-app command
   exchange. The extension itself does not contact OpenAI or transmit host
   keystrokes.
 - With Full Access disabled, voice commands are unavailable but local editing,
   Globe, and any safe restricted-mode Latest access remain functional.
-- Keyboard setup and Privacy explain that one expiring command/state pair and
-  one 10-minute Latest item may enter the local shared container. Each is a
-  replaceable bounded record, not a durable transcript history.
+- Keyboard setup explains that Full Access is needed only for HoldType voice
+  actions and that ordinary typing remains available without it. The underlying
+  bounded command and Latest-result transport remains an implementation and
+  verification contract rather than primary setup copy.
 - The extension receives no API key or provider client.
 - Pending audio and the canonical 20-entry History remain app-private,
   protected, and backup-excluded according to their data type. Raw audio never

@@ -424,8 +424,7 @@ struct IOSSettingsEditorStatusSection: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
                         Text(
-                            "HoldType kept this draft for retry. Shared "
-                                + "settings still use the last saved value."
+                            "Your changes are still here. Try saving again."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -446,8 +445,7 @@ struct IOSSettingsEditorStatusSection: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
                         Text(
-                            "This draft is not saved. Saving applies this "
-                                + "screen to the latest settings."
+                            "Review your changes before saving again."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -472,14 +470,14 @@ private struct IOSSettingsEditorPersistentStatus: View {
         switch phase {
         case .saveFailed:
             statusLabel(
-                "Not Saved — draft retained",
+                "Not Saved",
                 systemImage: "exclamationmark.triangle.fill",
                 color: .red,
                 identifier: "ios.settings.editor.persistent-save-failed"
             )
         case .changedElsewhere:
             statusLabel(
-                "Changed Elsewhere — draft not saved",
+                "Changed Elsewhere",
                 systemImage: "arrow.triangle.2.circlepath",
                 color: .orange,
                 identifier: "ios.settings.editor.persistent-changed"
@@ -530,6 +528,39 @@ struct IOSSettingsWarningLabel: View {
                 .foregroundStyle(color)
         }
         .font(.footnote)
+    }
+}
+
+enum IOSProviderInstructionsPresentation {
+    static func displayedValue(
+        storedValue: String,
+        defaultValue: String
+    ) -> String {
+        let trimmed = storedValue.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        return trimmed.isEmpty || storedValue == defaultValue
+            ? ""
+            : storedValue
+    }
+
+    static func storedValue(
+        from displayedValue: String,
+        defaultValue: String
+    ) -> String {
+        displayedValue.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).isEmpty ? defaultValue : displayedValue
+    }
+
+    static func usesStandardBehavior(
+        storedValue: String,
+        defaultValue: String
+    ) -> Bool {
+        displayedValue(
+            storedValue: storedValue,
+            defaultValue: defaultValue
+        ).isEmpty
     }
 }
 

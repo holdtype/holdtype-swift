@@ -25,21 +25,6 @@ struct IOSTranscriptionSettingsView: View {
         Form {
             IOSSettingsEditorStatusSection(phase: session.phase)
 
-            Section("Model") {
-                TextField("Model ID", text: binding(\.model))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                if usesDefaultModel {
-                    Label(
-                        "Blank uses HoldType’s default transcription model.",
-                        systemImage: "info.circle"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
-            }
-
             Section("Language") {
                 NavigationLink {
                     IOSLanguageSelectionView(
@@ -72,20 +57,32 @@ struct IOSTranscriptionSettingsView: View {
                 }
             }
 
-            Section("Transcription Prompt") {
-                IOSSettingsMultilineField(
-                    title: "Prompt",
-                    prompt: "Optional vocabulary or style guidance",
-                    text: binding(\.freeformPrompt),
-                    lineLimit: 3...10
-                )
+            Section {
+                DisclosureGroup("Advanced") {
+                    TextField("Model ID", text: binding(\.model))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
 
-                Text(
-                    "The prompt is sent with transcription requests after "
-                        + "provider consent. It never enters the keyboard."
+                    if usesDefaultModel {
+                        Text("Uses HoldType’s standard model.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    IOSSettingsMultilineField(
+                        title: "Additional Instructions",
+                        prompt: "Optional vocabulary or style guidance",
+                        text: binding(\.freeformPrompt),
+                        lineLimit: 3...10
+                    )
+
+                    Text("Instructions are sent only with your transcriptions.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityIdentifier(
+                    "ios.settings.transcription.advanced"
                 )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
             }
         }
         .disabled(session.isSaving)

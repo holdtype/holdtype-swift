@@ -493,6 +493,41 @@ struct IOSAppSettingsEditorSupportTests {
         #expect(!translation.actionPreferenceEnabled)
     }
 
+    @Test func standardProviderInstructionsStayHiddenUntilCustomized() {
+        let defaultPrompt = "internal standard prompt"
+
+        #expect(
+            IOSProviderInstructionsPresentation.displayedValue(
+                storedValue: defaultPrompt,
+                defaultValue: defaultPrompt
+            ).isEmpty
+        )
+        #expect(
+            IOSProviderInstructionsPresentation.displayedValue(
+                storedValue: "  ",
+                defaultValue: defaultPrompt
+            ).isEmpty
+        )
+        #expect(
+            IOSProviderInstructionsPresentation.displayedValue(
+                storedValue: "Keep names unchanged",
+                defaultValue: defaultPrompt
+            ) == "Keep names unchanged"
+        )
+        #expect(
+            IOSProviderInstructionsPresentation.storedValue(
+                from: "  ",
+                defaultValue: defaultPrompt
+            ) == defaultPrompt
+        )
+        #expect(
+            IOSProviderInstructionsPresentation.storedValue(
+                from: "Keep names unchanged",
+                defaultValue: defaultPrompt
+            ) == "Keep names unchanged"
+        )
+    }
+
     @Test func privatePromptsStayOutOfDraftAndViewReflection() {
         let sentinel = "PRIVATE-PROMPT-MUST-NOT-BE-REFLECTED"
         let configuration = TranscriptionConfiguration(

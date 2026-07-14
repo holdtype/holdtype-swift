@@ -125,64 +125,45 @@ struct IOSProviderConsentVoiceSheet: View {
 struct IOSProviderConsentDisclosureSections: View {
     var body: some View {
         Group {
-            Section("Sent to OpenAI") {
+            Section("What OpenAI Receives") {
                 disclosurePoint(
-                    "The current recording is sent directly to OpenAI for "
-                        + "transcription.",
+                    "The recording you choose to transcribe, along with your "
+                        + "selected language and optional instructions.",
                     image: "waveform"
                 )
                 disclosurePoint(
-                    "The selected model and language, transcription prompt, "
-                        + "dictionary spelling guidance, and enabled emoji "
-                        + "hints may be included.",
-                    image: "text.bubble"
-                )
-                disclosurePoint(
-                    "Enabled correction or translation may send the transcript "
-                        + "and selected prompt in additional requests. "
-                        + "Translation also sends the resolved language route.",
+                    "If correction or translation is enabled, the transcript "
+                        + "may be sent again to complete that action.",
                     image: "character.bubble"
                 )
                 disclosurePoint(
-                    "Your API key is read from the containing app’s Keychain "
-                        + "and sent directly to OpenAI to authenticate requests.",
+                    "Your saved API key is used to send these requests directly "
+                        + "to OpenAI.",
                     image: "key.fill"
                 )
             }
 
-            Section("Not Sent") {
+            Section("What Stays Private") {
                 disclosurePoint(
-                    "Ordinary keystrokes and surrounding text from the host "
-                        + "field are not sent.",
+                    "Ordinary typing and surrounding text from other apps are "
+                        + "not sent to OpenAI.",
                     image: "keyboard"
                 )
                 disclosurePoint(
-                    "Local emoji definitions and replacement rules are not sent "
-                        + "as correction or translation configuration.",
+                    "The keyboard never receives your API key or recordings.",
                     image: "lock.shield"
-                )
-                disclosurePoint(
-                    "HoldType does not copy the API key into the keyboard, App "
-                        + "Group, logs, or a HoldType server.",
-                    image: "server.rack"
                 )
             }
 
-            Section("Local Retention") {
+            Section("On This iPhone") {
                 disclosurePoint(
-                    "Completed audio is protected locally until accepted-output "
-                        + "cleanup, or until you choose Pending Retry or Discard.",
+                    "A recording is kept only while it is needed for processing "
+                        + "or recovery.",
                     image: "waveform.badge.exclamationmark"
                 )
                 disclosurePoint(
-                    "Accepted text stays in app-private Latest Result until "
-                        + "confirmed Clear or atomic replacement.",
-                    image: "doc.text"
-                )
-                disclosurePoint(
-                    "Save History is on by default and keeps up to 20 "
-                        + "successful texts in app-private storage. It stores "
-                        + "no audio or failed attempts.",
+                    "History keeps up to 20 successful transcriptions and does "
+                        + "not include recordings or failed attempts.",
                     image: "clock.arrow.circlepath"
                 )
             }
