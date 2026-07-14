@@ -7,8 +7,17 @@ struct KeyboardQuickInsertCatalogIOSTests {
                 == [".", ",", "?", "!", ":", ";", "—", "…"]
         )
         #expect(
-            KeyboardQuickInsertCatalog.emoji.map(\.text)
+            KeyboardQuickInsertCatalog.emojiPrimary.map(\.text)
                 == ["🙂", "😂", "❤️", "👍", "🙏", "🔥", "✅", "✨"]
+        )
+        #expect(
+            KeyboardQuickInsertCatalog.emojiSecondary.map(\.text)
+                == ["😊", "😍", "🤔", "👏", "💯", "🎉", "🚀", "👀"]
+        )
+        #expect(
+            KeyboardQuickInsertCatalog.emoji
+                == KeyboardQuickInsertCatalog.emojiPrimary
+                    + KeyboardQuickInsertCatalog.emojiSecondary
         )
     }
 

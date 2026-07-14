@@ -74,6 +74,12 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.quick-insert"
             )
         )
+        #expect(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.quick-insert-title"
+            ) == nil
+        )
         let microphone = try button("keyboard.brand-stage.voice", in: view)
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(translate.isEnabled)
@@ -107,8 +113,15 @@ struct BrandStageKeyboardViewTests {
 
         latest.sendActions(for: .touchUpInside)
         period.sendActions(for: .touchUpInside)
+        layout(view)
+        #expect(isEffectivelyHidden(quickInsertStage))
+        #expect(!isEffectivelyHidden(microphone))
+
+        quickInsertToggle.sendActions(for: .touchUpInside)
+        layout(view)
         laugh.sendActions(for: .touchUpInside)
-        #expect(!isEffectivelyHidden(quickInsertStage))
+        layout(view)
+        #expect(isEffectivelyHidden(quickInsertStage))
         translate.sendActions(for: .touchUpInside)
         improve.sendActions(for: .touchUpInside)
         layout(view)
@@ -252,9 +265,17 @@ struct BrandStageKeyboardViewTests {
                 #expect(control.bounds.width >= 43.9)
                 #expect(control.bounds.height >= 43.9)
             }
-            for item in KeyboardQuickInsertCatalog.emoji {
+            for item in KeyboardQuickInsertCatalog.emojiPrimary {
                 let control = try button(
                     "keyboard.brand-stage.quick-insert.emoji.\(item.id)",
+                    in: view
+                )
+                #expect(control.bounds.width >= 43.9)
+                #expect(control.bounds.height >= 43.9)
+            }
+            for item in KeyboardQuickInsertCatalog.emojiSecondary {
+                let control = try button(
+                    "keyboard.brand-stage.quick-insert.emoji-secondary.\(item.id)",
                     in: view
                 )
                 #expect(control.bounds.width >= 43.9)

@@ -273,7 +273,9 @@ The first-release surface provides:
   recovery copy and processing shows progress instead of a disabled microphone;
 - one direct, reversible Quick Insert workspace containing bundled local
   punctuation and emoji; it replaces the Voice workspace without an
-  intermediate launcher and closes back to the exact underlying Voice state;
+  intermediate launcher, has no visible title, shows two emoji rows in regular
+  height, and closes back to the exact underlying Voice state after any
+  insertion;
 - one-tap Translate and Improve starts with no menu or dialog: Translate is
   disabled until its saved route is valid, while Improve forces the saved
   correction configuration for that request without changing the durable

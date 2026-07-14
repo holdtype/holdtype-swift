@@ -50,7 +50,7 @@ enum KeyboardQuickInsertCatalog {
         ),
     ]
 
-    static let emoji: [KeyboardQuickInsertItem] = [
+    static let emojiPrimary: [KeyboardQuickInsertItem] = [
         KeyboardQuickInsertItem(
             id: "smile",
             text: "🙂",
@@ -92,4 +92,49 @@ enum KeyboardQuickInsertCatalog {
             accessibilityLabel: "Sparkles"
         ),
     ]
+
+    static let emojiSecondary: [KeyboardQuickInsertItem] = [
+        KeyboardQuickInsertItem(
+            id: "smiling-eyes",
+            text: "😊",
+            accessibilityLabel: "Smiling face with smiling eyes"
+        ),
+        KeyboardQuickInsertItem(
+            id: "heart-eyes",
+            text: "😍",
+            accessibilityLabel: "Heart eyes"
+        ),
+        KeyboardQuickInsertItem(
+            id: "thinking",
+            text: "🤔",
+            accessibilityLabel: "Thinking face"
+        ),
+        KeyboardQuickInsertItem(
+            id: "clapping-hands",
+            text: "👏",
+            accessibilityLabel: "Clapping hands"
+        ),
+        KeyboardQuickInsertItem(
+            id: "hundred-points",
+            text: "💯",
+            accessibilityLabel: "Hundred points"
+        ),
+        KeyboardQuickInsertItem(
+            id: "party-popper",
+            text: "🎉",
+            accessibilityLabel: "Party popper"
+        ),
+        KeyboardQuickInsertItem(
+            id: "rocket",
+            text: "🚀",
+            accessibilityLabel: "Rocket"
+        ),
+        KeyboardQuickInsertItem(
+            id: "eyes",
+            text: "👀",
+            accessibilityLabel: "Eyes"
+        ),
+    ]
+
+    static let emoji = emojiPrimary + emojiSecondary
 }

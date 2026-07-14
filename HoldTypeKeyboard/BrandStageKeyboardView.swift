@@ -88,9 +88,10 @@ final class BrandStageKeyboardView: UIView {
     private let progressTitleLabel = UILabel()
     private let progressCancelButton = UIButton(type: .system)
     private let quickInsertStage = UIStackView()
-    private let quickInsertTitleLabel = UILabel()
     private let quickInsertPunctuationScrollView = UIScrollView()
-    private let quickInsertEmojiScrollView = UIScrollView()
+    private let quickInsertEmojiPrimaryScrollView = UIScrollView()
+    private let quickInsertEmojiSecondaryScrollView = UIScrollView()
+    private let quickInsertEmojiCompactScrollView = UIScrollView()
     private let editingRow = UIStackView()
     private let spaceButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
@@ -296,7 +297,9 @@ final class BrandStageKeyboardView: UIView {
         voiceStage.spacing = isCompactPhone ? 0 : 6
         voiceTitleLabel.isHidden = isCompactPhone
         quickInsertStage.spacing = isCompactPhone ? 6 : 8
-        quickInsertTitleLabel.isHidden = isCompactPhone
+        quickInsertEmojiPrimaryScrollView.isHidden = isCompactPhone
+        quickInsertEmojiSecondaryScrollView.isHidden = isCompactPhone
+        quickInsertEmojiCompactScrollView.isHidden = !isCompactPhone
         logoWidthConstraint?.constant = isCompactPhone ? 28 : 34
         logoHeightConstraint?.constant = isCompactPhone ? 28 : 34
         rootTopConstraint?.constant = isCompactPhone ? 8 : 10
@@ -795,31 +798,38 @@ final class BrandStageKeyboardView: UIView {
         quickInsertStage.accessibilityIdentifier =
             "keyboard.brand-stage.quick-insert"
 
-        quickInsertTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
-            .scaledFont(
-                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                maximumPointSize: 20
-            )
-        quickInsertTitleLabel.adjustsFontForContentSizeCategory = true
-        quickInsertTitleLabel.textAlignment = .center
-        quickInsertTitleLabel.text = "Quick Insert"
-        quickInsertTitleLabel.accessibilityIdentifier =
-            "keyboard.brand-stage.quick-insert-title"
-
         configureQuickInsertRow(
             quickInsertPunctuationScrollView,
             items: KeyboardQuickInsertCatalog.punctuation,
             category: "punctuation"
         )
         configureQuickInsertRow(
-            quickInsertEmojiScrollView,
-            items: KeyboardQuickInsertCatalog.emoji,
+            quickInsertEmojiPrimaryScrollView,
+            items: KeyboardQuickInsertCatalog.emojiPrimary,
             category: "emoji"
         )
+        configureQuickInsertRow(
+            quickInsertEmojiSecondaryScrollView,
+            items: KeyboardQuickInsertCatalog.emojiSecondary,
+            category: "emoji-secondary"
+        )
+        configureQuickInsertRow(
+            quickInsertEmojiCompactScrollView,
+            items: KeyboardQuickInsertCatalog.emoji,
+            category: "emoji-compact"
+        )
+        quickInsertEmojiCompactScrollView.isHidden = true
 
-        quickInsertStage.addArrangedSubview(quickInsertTitleLabel)
         quickInsertStage.addArrangedSubview(quickInsertPunctuationScrollView)
-        quickInsertStage.addArrangedSubview(quickInsertEmojiScrollView)
+        quickInsertStage.addArrangedSubview(
+            quickInsertEmojiPrimaryScrollView
+        )
+        quickInsertStage.addArrangedSubview(
+            quickInsertEmojiSecondaryScrollView
+        )
+        quickInsertStage.addArrangedSubview(
+            quickInsertEmojiCompactScrollView
+        )
         quickInsertStage.isHidden = true
     }
 
@@ -855,7 +865,7 @@ final class BrandStageKeyboardView: UIView {
                 "keyboard.brand-stage.quick-insert.\(category).\(item.id)"
             button.widthAnchor.constraint(equalToConstant: 44).isActive = true
             button.addAction(UIAction { [weak self] _ in
-                self?.onQuickInsertRequested?(item.text)
+                self?.handleQuickInsertSelection(item.text)
             }, for: .touchUpInside)
             quickInsertButtons.append(button)
             row.addArrangedSubview(button)
@@ -1199,7 +1209,6 @@ final class BrandStageKeyboardView: UIView {
         recoveryShortcutLabel.textColor = Self.statusForeground
         progressTitleLabel.textColor = Self.keyForeground
         voiceTitleLabel.textColor = Self.keyForeground
-        quickInsertTitleLabel.textColor = Self.keyForeground
         progressIndicator.color = Self.voiceForeground
         microphoneView.backgroundColor = Self.microphoneBackground
         microphoneImageView.tintColor = Self.voiceForeground
@@ -1271,24 +1280,33 @@ final class BrandStageKeyboardView: UIView {
         UIAccessibility.post(
             notification: .layoutChanged,
             argument: quickInsertIsPresented
-                ? quickInsertTitleLabel
+                ? quickInsertButtons.first
                 : activeVoiceAccessibilityTarget
         )
     }
 
     @objc private func translateTapped() {
         guard translateButton.isEnabled else { return }
-        closeQuickInsertForVoiceAction()
+        closeQuickInsert()
         onTranslateRequested?()
     }
 
     @objc private func improveTapped() {
         guard improveButton.isEnabled else { return }
-        closeQuickInsertForVoiceAction()
+        closeQuickInsert()
         onImproveRequested?()
     }
 
-    private func closeQuickInsertForVoiceAction() {
+    private func handleQuickInsertSelection(_ text: String) {
+        onQuickInsertRequested?(text)
+        closeQuickInsert()
+        UIAccessibility.post(
+            notification: .layoutChanged,
+            argument: activeVoiceAccessibilityTarget
+        )
+    }
+
+    private func closeQuickInsert() {
         guard quickInsertIsPresented else { return }
         quickInsertIsPresented = false
         updateWorkspaceVisibility()

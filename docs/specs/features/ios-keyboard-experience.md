@@ -110,14 +110,19 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   is visible.
 - Quick Insert opens and closes in one tap. It never shows a mode chooser or a
   second confirmation step.
+- Quick Insert has no visible title or explanatory label; the available keys
+  fill the workspace.
 - The punctuation row contains `.`, `,`, `?`, `!`, `:`, `;`, `—`, and `…`.
-- The emoji row contains the bundled set `🙂`, `😂`, `❤️`, `👍`, `🙏`, `🔥`,
-  `✅`, and `✨`. These are fixed keyboard-local Unicode values, not copied
-  Apple artwork or user Library data.
-- Each selection performs exactly one local `insertText` call and leaves Quick
-  Insert open for additional selections until the user closes it.
+- Two emoji rows contain the bundled set `🙂`, `😂`, `❤️`, `👍`, `🙏`, `🔥`,
+  `✅`, `✨`, `😊`, `😍`, `🤔`, `👏`, `💯`, `🎉`, `🚀`, and `👀`. These are fixed
+  keyboard-local Unicode values, not copied Apple artwork or user Library data.
+- Each selection performs exactly one local `insertText` call and closes Quick
+  Insert immediately, restoring the underlying Voice or recovery workspace.
 - Rows may scroll horizontally on narrow layouts, but every item keeps at least
   a 44-by-44-point target.
+- Compact-height landscape may combine both emoji sets into one horizontally
+  scrolling row so punctuation and every emoji remain reachable without making
+  the keyboard taller.
 - Quick Insert remains available without provider setup, network, microphone
   permission, or Full Access. Opening it may temporarily cover recovery copy;
   closing it restores that copy unchanged.
