@@ -655,9 +655,10 @@ result after the operation returns.
 - Correction and translation prompts remain editable while their remote stage
   is off and provide Reset to the standard prompt.
 - Translation remains visible but unavailable with an in-app route to
-  Translation setup until its target configuration is valid. The keyboard can
-  only instruct the user to configure Translation in HoldType; it cannot launch
-  the containing app.
+  Translation setup until its target configuration is valid. The app may
+  project one bounded boolean Translation-available capability to the keyboard
+  session; language codes, route details, model, prompt, and other settings
+  remain app-private. The keyboard cannot launch the containing app.
 - Local usage is labelled `Transcription Usage Estimate`, is device-local, and
   is never presented as the user's OpenAI invoice or balance.
 - Usage presentation, retention, and Reset behavior follow

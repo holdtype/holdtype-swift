@@ -2210,7 +2210,7 @@ struct IOSForegroundVoiceWorkflowTests {
         let requestID = UUID()
         let client = fixture.workflow.keyboardDictationClient
         let task = Task {
-            await client.run(requestID) { progress.append($0) }
+            await client.run(requestID, .improve) { progress.append($0) }
         }
 
         try await waitUntil {
@@ -2224,7 +2224,32 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(progress.contains(.processing))
         #expect(fixture.events.count("recording-make") == 1)
         #expect(fixture.events.count("provider-process") == 1)
+        #expect(fixture.events.contains("provider-force-correction-true"))
         #expect(fixture.permissionRequestCount == 0)
+    }
+
+    @Test
+    func keyboardTranslationCapabilityUsesCurrentValidatedSettings()
+        async throws {
+        let unavailable = try await WorkflowFixture(permission: .granted)
+        #expect(
+            await unavailable.workflow.keyboardDictationClient
+                .loadTranslationAvailability() == false
+        )
+
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: true,
+            targetLanguage: .french
+        )
+        let available = try await WorkflowFixture(
+            settings: settings,
+            permission: .granted
+        )
+        #expect(
+            await available.workflow.keyboardDictationClient
+                .loadTranslationAvailability()
+        )
     }
 
     @Test
@@ -2237,7 +2262,7 @@ struct IOSForegroundVoiceWorkflowTests {
         let keyboardRequestID = UUID()
         let keyboardClient = fixture.workflow.keyboardDictationClient
         let keyboardTask = Task {
-            await keyboardClient.run(keyboardRequestID) { _ in }
+            await keyboardClient.run(keyboardRequestID, .standard) { _ in }
         }
         try await waitUntil {
             fixture.events.contains("recording-start")
@@ -2281,7 +2306,8 @@ struct IOSForegroundVoiceWorkflowTests {
         }
 
         let keyboard = await fixture.workflow.keyboardDictationClient.run(
-            UUID()
+            UUID(),
+            .standard
         ) { _ in }
 
         #expect(keyboard == .failed)
@@ -2302,7 +2328,7 @@ struct IOSForegroundVoiceWorkflowTests {
         let requestID = UUID()
         let client = fixture.workflow.keyboardDictationClient
         let task = Task {
-            await client.run(requestID) { _ in }
+            await client.run(requestID, .standard) { _ in }
         }
         try await waitUntil {
             fixture.events.contains("recording-start")
@@ -2696,7 +2722,7 @@ private final class WorkflowFixture {
                         self?.finalizationExpirationHandler?()
                     }
                 },
-                makeRecording: { [weak self] attemptID, _ in
+                makeRecording: { [weak self] attemptID, intent in
                     events.record("recording-make")
                     if deactivateSceneDuringMakeRecording {
                         _ = self?.facade.updateActivity(.inactive)
@@ -2760,7 +2786,7 @@ private final class WorkflowFixture {
                                         }
                                         let pending = try makePendingRecording(
                                             attemptID: attemptID,
-                                            outputIntent: .standard,
+                                            outputIntent: intent,
                                             phase: .readyForTranscription,
                                             configuration: configuration
                                         )
@@ -2798,6 +2824,10 @@ private final class WorkflowFixture {
                 },
                 process: { request, progress in
                     events.record("provider-process")
+                    events.record(
+                        "provider-force-correction-"
+                            + String(request.forcesTextCorrection)
+                    )
                     if let processorInitialProgress {
                         await progress(processorInitialProgress)
                     }

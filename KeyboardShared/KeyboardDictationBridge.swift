@@ -20,21 +20,31 @@ nonisolated enum KeyboardDictationCommandKind: String, Codable, Sendable {
     case cancel
 }
 
+/// One bounded per-request mode. It contains no settings, prompt, language,
+/// provider, or host-document content.
+nonisolated enum KeyboardVoiceAction: String, Codable, Sendable {
+    case standard
+    case translate
+    case improve
+}
+
 nonisolated struct KeyboardDictationCommandRecord:
     Codable,
     Equatable,
     Sendable {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
 
     let schemaVersion: Int
     let requestID: UUID
     let kind: KeyboardDictationCommandKind
+    let action: KeyboardVoiceAction
     let issuedAt: Date
     let expiresAt: Date
 
     init?(
         requestID: UUID,
         kind: KeyboardDictationCommandKind,
+        action: KeyboardVoiceAction = .standard,
         issuedAt: Date,
         expiresAt: Date
     ) {
@@ -48,6 +58,7 @@ nonisolated struct KeyboardDictationCommandRecord:
         schemaVersion = Self.schemaVersion
         self.requestID = requestID
         self.kind = kind
+        self.action = action
         self.issuedAt = issuedAt
         self.expiresAt = expiresAt
     }
@@ -76,11 +87,12 @@ nonisolated struct KeyboardDictationStateRecord:
     Codable,
     Equatable,
     Sendable {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
 
     let schemaVersion: Int
     let requestID: UUID
     let phase: KeyboardDictationStatePhase
+    let translationAvailable: Bool
     let result: String?
     let publishedAt: Date
     let expiresAt: Date
@@ -88,6 +100,7 @@ nonisolated struct KeyboardDictationStateRecord:
     init?(
         requestID: UUID,
         phase: KeyboardDictationStatePhase,
+        translationAvailable: Bool = false,
         result: String? = nil,
         publishedAt: Date,
         expiresAt: Date
@@ -109,6 +122,7 @@ nonisolated struct KeyboardDictationStateRecord:
         schemaVersion = Self.schemaVersion
         self.requestID = requestID
         self.phase = phase
+        self.translationAvailable = translationAvailable
         self.result = result
         self.publishedAt = publishedAt
         self.expiresAt = expiresAt

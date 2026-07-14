@@ -161,6 +161,26 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(rejected.values == [fixture.credential.generation])
     }
 
+    @Test func oneShotImprovementForcesCorrectionWithoutChangingSettings()
+        async throws {
+        let fixture = try await ProcessorFixture()
+        defer { fixture.removeFiles() }
+        #expect(!fixture.settings.textCorrectionConfiguration.isEnabled)
+        let processor = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in "original transcript" },
+                correct: { _, _, _ in "Improved transcript" }
+            )
+        )
+
+        let record = try await processor.process(
+            fixture.request(forcesTextCorrection: true)
+        ).requireReady()
+
+        #expect(record.acceptedText == "Improved transcript")
+        #expect(!fixture.settings.textCorrectionConfiguration.isEnabled)
+    }
+
     @Test func translationFailurePersistsFailedForExplicitRetry()
         async throws {
         var settings = IOSAppSettings.defaults
@@ -353,7 +373,8 @@ private final class ProcessorFixture: @unchecked Sendable {
     func request(
         pendingRecording: IOSV1PendingRecording? = nil,
         mode: IOSForegroundVoiceProcessingMode = .initial,
-        settings: IOSAppSettings? = nil
+        settings: IOSAppSettings? = nil,
+        forcesTextCorrection: Bool = false
     ) -> IOSForegroundVoiceProcessingRequest {
         IOSForegroundVoiceProcessingRequest(
             sessionID: UUID(),
@@ -362,7 +383,8 @@ private final class ProcessorFixture: @unchecked Sendable {
             settings: settings ?? self.settings,
             library: library,
             credential: credential,
-            consentObservation: acceptedConsent
+            consentObservation: acceptedConsent,
+            forcesTextCorrection: forcesTextCorrection
         )
     }
 

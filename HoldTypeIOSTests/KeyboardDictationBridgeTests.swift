@@ -13,6 +13,7 @@ struct KeyboardDictationBridgeTests {
             KeyboardDictationCommandRecord(
                 requestID: requestID,
                 kind: .start,
+                action: .translate,
                 issuedAt: now,
                 expiresAt: now.addingTimeInterval(5)
             )
@@ -21,6 +22,7 @@ struct KeyboardDictationBridgeTests {
             KeyboardDictationStateRecord(
                 requestID: requestID,
                 phase: .listening,
+                translationAvailable: true,
                 publishedAt: now,
                 expiresAt: now.addingTimeInterval(60)
             )
@@ -31,6 +33,8 @@ struct KeyboardDictationBridgeTests {
 
         #expect(try store.loadCommand(at: now) == command)
         #expect(try store.loadState(at: now) == state)
+        #expect(command.action == .translate)
+        #expect(state.translationAvailable)
         #expect(
             try store.loadCommand(at: now.addingTimeInterval(5)) == nil
         )

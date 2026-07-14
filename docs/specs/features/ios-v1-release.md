@@ -265,15 +265,19 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with a smile-icon Quick Insert toggle on the left, the
-  HoldType mark centered without status text, and `Latest` insertion on the
-  right;
+- a compact top row with a three-icon Quick Insert, Translate, and Improve
+  utility group on the left, the HoldType mark centered without status text,
+  and `Latest` insertion on the right;
 - one medium actionable microphone only while an app-owned Keyboard Dictation
   Session can start or finish real recording; unavailable states show complete
   recovery copy and processing shows progress instead of a disabled microphone;
 - one direct, reversible Quick Insert workspace containing bundled local
   punctuation and emoji; it replaces the Voice workspace without an
   intermediate launcher and closes back to the exact underlying Voice state;
+- one-tap Translate and Improve starts with no menu or dialog: Translate is
+  disabled until its saved route is valid, while Improve forces the saved
+  correction configuration for that request without changing the durable
+  correction preference;
 - one editing row containing Globe, a wide Space key, Delete, and adaptive
   Return;
 - short-tap Space insertion plus long-press and drag cursor movement without an
@@ -285,7 +289,8 @@ The first-release surface provides:
   appearances;
 - local Quick Insert and editing controls that work without network or Full
   Access, even when voice dictation is unavailable; active Starting, Listening,
-  and Processing states keep Voice visible and disable the workspace toggle.
+  and Processing states keep Voice visible and disable all three utility
+  actions.
 
 The HoldType mark is identity only, not a button or status surface. No state
 label appears under or beside it; all state and recovery information lives in
@@ -314,9 +319,11 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The extension declares HoldType dictation support. iOS disables or suppresses
   its own Dictation key; a retained disabled icon in the system strip remains
   Apple-owned and is not a HoldType action.
-- The first microphone tap writes Start for one request id. `Listening…`
-  appears only after the app acknowledges real capture. A second tap writes
-  Finish; Cancel ends the request without provider processing.
+- Microphone, Translate, and Improve may each write Start for one request id.
+  Start also freezes that request's standard, translation, or forced-correction
+  action. `Listening…` appears only after the app acknowledges real capture. A
+  second microphone tap writes Finish; Cancel ends the request without provider
+  processing.
 - After capture stops, `Processing…` reflects the app-owned provider chain.
   Provider work has explicit timeout and cancellation and never starts
   automatically after relaunch.
@@ -332,7 +339,9 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   canonical Latest and optional History path. The user may later select
   `Latest` explicitly.
 - The extension writes one replaceable command record and the app writes one
-  replaceable state/result record. Both are bounded and expiring. They are not
+  replaceable state/result record. The command carries only a bounded action
+  enum; state may carry only a boolean Translation-available capability. Both
+  are bounded and expiring. They are not
   a delivery transaction, History store, outbox, receipt, acknowledgement
   family, tombstone, lease, or replay queue.
 - The app publishes one separate bounded Latest snapshot to App Group storage.

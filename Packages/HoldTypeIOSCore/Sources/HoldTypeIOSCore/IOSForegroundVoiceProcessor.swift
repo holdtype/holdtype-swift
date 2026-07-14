@@ -724,13 +724,16 @@ public actor IOSForegroundVoiceProcessor {
             }
             translation = request.settings.translationConfiguration
         }
+        var correction = request.settings.textCorrectionConfiguration
+        if request.forcesTextCorrection {
+            correction.isEnabled = true
+        }
         return IOSForegroundVoicePipelineContext(
             sessionID: request.sessionID,
             pendingRecording: pending,
             mode: request.mode,
             transcriptionConfiguration: transcription,
-            correctionConfiguration:
-                request.settings.textCorrectionConfiguration,
+            correctionConfiguration: correction,
             translationConfiguration: translation,
             postProcessingConfiguration:
                 TranscriptPostProcessingConfiguration(

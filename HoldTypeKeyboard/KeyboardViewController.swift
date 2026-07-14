@@ -181,6 +181,12 @@ final class KeyboardViewController: UIInputViewController {
         keyboardView.onQuickInsertRequested = { [weak self] text in
             self?.insertText(text)
         }
+        keyboardView.onTranslateRequested = { [weak self] in
+            self?.beginDictation(action: .translate)
+        }
+        keyboardView.onImproveRequested = { [weak self] in
+            self?.beginDictation(action: .improve)
+        }
         keyboardView.onSpaceRequested = { [weak self] in
             self?.insertText(" ")
         }
@@ -232,6 +238,8 @@ final class KeyboardViewController: UIInputViewController {
                 status: dictationPresentation.status,
                 voiceStage: dictationPresentation.voiceStage,
                 latestIsEnabled: latestItem != nil,
+                translationIsEnabled: dictationState?.translationAvailable
+                    == true && dictationPresentation.voiceStage == .ready,
                 cancelIsVisible: dictationPresentation.cancelIsVisible,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
@@ -380,13 +388,7 @@ final class KeyboardViewController: UIInputViewController {
         guard let state = dictationState else { return }
         switch state.phase {
         case .ready:
-            activeDictationRequestID = state.requestID
-            activeDictationOwnership = DictationRequestOwnership(
-                requestID: state.requestID,
-                extensionLifetimeID: extensionLifetimeID,
-                hostContextGeneration: hostContextGeneration
-            )
-            sendDictationCommand(.start)
+            beginDictation(action: .standard)
         case .listening:
             sendDictationCommand(.finish)
         case .processing, .resultReady, .unavailable, .failed:
@@ -394,7 +396,25 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    private func sendDictationCommand(_ kind: KeyboardDictationCommandKind) {
+    private func beginDictation(action: KeyboardVoiceAction) {
+        guard let state = dictationState,
+              state.phase == .ready,
+              action != .translate || state.translationAvailable else {
+            return
+        }
+        activeDictationRequestID = state.requestID
+        activeDictationOwnership = DictationRequestOwnership(
+            requestID: state.requestID,
+            extensionLifetimeID: extensionLifetimeID,
+            hostContextGeneration: hostContextGeneration
+        )
+        sendDictationCommand(.start, action: action)
+    }
+
+    private func sendDictationCommand(
+        _ kind: KeyboardDictationCommandKind,
+        action: KeyboardVoiceAction = .standard
+    ) {
         guard hasSharedContainerAccess,
               let state = dictationState,
               state.expiresAt > dependencies.now(),
@@ -406,6 +426,7 @@ final class KeyboardViewController: UIInputViewController {
         guard let command = KeyboardDictationCommandRecord(
             requestID: state.requestID,
             kind: kind,
+            action: action,
             issuedAt: now,
             expiresAt: now.addingTimeInterval(
                 KeyboardDictationBridgeConfiguration.commandLifetime

@@ -4,6 +4,7 @@ struct BrandStageKeyboardPresentation: Equatable {
     let status: KeyboardVoiceStatus
     let voiceStage: KeyboardVoiceStagePresentation
     let latestIsEnabled: Bool
+    let translationIsEnabled: Bool
     let cancelIsVisible: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
@@ -53,6 +54,8 @@ final class BrandStageKeyboardView: UIView {
     var onMicrophoneRequested: (() -> Void)?
     var onCancelRequested: (() -> Void)?
     var onQuickInsertRequested: ((String) -> Void)?
+    var onTranslateRequested: (() -> Void)?
+    var onImproveRequested: (() -> Void)?
     var onSpaceRequested: (() -> Void)?
     var onSpaceCursorGesture: ((UIGestureRecognizer.State, CGFloat) -> Void)?
     var onCursorStepRequested: ((Int) -> Void)?
@@ -66,6 +69,8 @@ final class BrandStageKeyboardView: UIView {
     private let bodyStack = UIStackView()
     private let commandStack = UIStackView()
     private let quickInsertButton = UIButton(type: .system)
+    private let translateButton = UIButton(type: .system)
+    private let improveButton = UIButton(type: .system)
     private let topLeadingContainer = UIView()
     private let latestButton = UIButton(type: .system)
     private let logoImageView = UIImageView()
@@ -160,6 +165,9 @@ final class BrandStageKeyboardView: UIView {
         }
         quickInsertButton.isEnabled = !presentation.voiceStage
             .keepsVoiceWorkspaceVisible
+        translateButton.isEnabled = presentation.translationIsEnabled
+            && presentation.voiceStage == .ready
+        improveButton.isEnabled = presentation.voiceStage == .ready
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(
             presentation.voiceStage,
@@ -459,7 +467,7 @@ final class BrandStageKeyboardView: UIView {
         ])
     }
 
-    private func makeTopRail() -> UIStackView {
+    private func makeTopRail() -> UIView {
         configureKey(
             quickInsertButton,
             systemImage: "face.smiling",
@@ -469,6 +477,26 @@ final class BrandStageKeyboardView: UIView {
         quickInsertButton.accessibilityTraits.insert(.button)
         quickInsertButton.accessibilityIdentifier =
             "keyboard.brand-stage.quick-insert-toggle"
+
+        configureKey(
+            translateButton,
+            systemImage: "character.book.closed",
+            accessibilityLabel: "Translate dictation"
+        )
+        translateButton.accessibilityTraits.remove(.keyboardKey)
+        translateButton.accessibilityTraits.insert(.button)
+        translateButton.accessibilityIdentifier =
+            "keyboard.brand-stage.translate"
+
+        configureKey(
+            improveButton,
+            systemImage: "wand.and.stars",
+            accessibilityLabel: "Improve dictation"
+        )
+        improveButton.accessibilityTraits.remove(.keyboardKey)
+        improveButton.accessibilityTraits.insert(.button)
+        improveButton.accessibilityIdentifier =
+            "keyboard.brand-stage.improve"
 
         configureTopAction(
             latestButton,
@@ -500,40 +528,78 @@ final class BrandStageKeyboardView: UIView {
             logoHeight,
         ])
 
-        topLeadingContainer.addSubview(quickInsertButton)
-        quickInsertButton.translatesAutoresizingMaskIntoConstraints = false
+        let utilityStack = UIStackView(
+            arrangedSubviews: [
+                quickInsertButton,
+                translateButton,
+                improveButton,
+            ]
+        )
+        utilityStack.translatesAutoresizingMaskIntoConstraints = false
+        utilityStack.axis = .horizontal
+        utilityStack.alignment = .center
+        utilityStack.distribution = .fillEqually
+        utilityStack.spacing = 0
+        utilityStack.accessibilityIdentifier =
+            "keyboard.brand-stage.utility-actions"
+        topLeadingContainer.addSubview(utilityStack)
         NSLayoutConstraint.activate([
-            quickInsertButton.leadingAnchor.constraint(
+            utilityStack.leadingAnchor.constraint(
                 equalTo: topLeadingContainer.leadingAnchor
             ),
-            quickInsertButton.centerYAnchor.constraint(
+            utilityStack.trailingAnchor.constraint(
+                equalTo: topLeadingContainer.trailingAnchor
+            ),
+            utilityStack.centerYAnchor.constraint(
                 equalTo: topLeadingContainer.centerYAnchor
             ),
+            utilityStack.heightAnchor.constraint(equalToConstant: 44),
             quickInsertButton.widthAnchor.constraint(equalToConstant: 44),
-            quickInsertButton.heightAnchor.constraint(equalToConstant: 44),
+            translateButton.widthAnchor.constraint(equalToConstant: 44),
+            improveButton.widthAnchor.constraint(equalToConstant: 44),
         ])
 
-        let rail = UIStackView(
-            arrangedSubviews: [topLeadingContainer, logoImageView, latestButton]
-        )
-        rail.axis = .horizontal
-        rail.alignment = .center
-        rail.distribution = .equalCentering
-        rail.spacing = 8
+        let rail = UIView()
+        rail.translatesAutoresizingMaskIntoConstraints = false
+        rail.addSubview(topLeadingContainer)
+        rail.addSubview(logoImageView)
+        rail.addSubview(latestButton)
+        topLeadingContainer.translatesAutoresizingMaskIntoConstraints = false
+        latestButton.translatesAutoresizingMaskIntoConstraints = false
         latestButton.setContentCompressionResistancePriority(
             .required,
             for: .horizontal
         )
+        let centersLogo = logoImageView.centerXAnchor.constraint(
+            equalTo: rail.centerXAnchor
+        )
+        centersLogo.priority = UILayoutPriority(998)
         NSLayoutConstraint.activate([
-            topLeadingContainer.widthAnchor.constraint(
-                equalTo: latestButton.widthAnchor
+            topLeadingContainer.leadingAnchor.constraint(
+                equalTo: rail.leadingAnchor
             ),
             topLeadingContainer.widthAnchor.constraint(
-                greaterThanOrEqualToConstant: 96
+                equalToConstant: 132
+            ),
+            topLeadingContainer.centerYAnchor.constraint(
+                equalTo: rail.centerYAnchor
             ),
             topLeadingContainer.heightAnchor.constraint(equalToConstant: 44),
+            logoImageView.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
+            centersLogo,
+            topLeadingContainer.trailingAnchor.constraint(
+                lessThanOrEqualTo: logoImageView.leadingAnchor,
+                constant: -3
+            ),
+            latestButton.trailingAnchor.constraint(equalTo: rail.trailingAnchor),
+            latestButton.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
+            latestButton.leadingAnchor.constraint(
+                greaterThanOrEqualTo: logoImageView.trailingAnchor,
+                constant: 3
+            ),
             latestButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
             latestButton.heightAnchor.constraint(equalToConstant: 44),
+            rail.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
         ])
         return rail
     }
@@ -947,6 +1013,16 @@ final class BrandStageKeyboardView: UIView {
             action: #selector(quickInsertToggled),
             for: .touchUpInside
         )
+        translateButton.addTarget(
+            self,
+            action: #selector(translateTapped),
+            for: .touchUpInside
+        )
+        improveButton.addTarget(
+            self,
+            action: #selector(improveTapped),
+            for: .touchUpInside
+        )
         latestButton.addTarget(
             self,
             action: #selector(latestTapped),
@@ -1171,7 +1247,10 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func keyBackground(for button: UIButton) -> UIColor {
-        if button === latestButton || button === quickInsertButton {
+        if button === latestButton
+            || button === quickInsertButton
+            || button === translateButton
+            || button === improveButton {
             return Self.topActionBackground
         }
         if quickInsertButtons.contains(where: { $0 === button }) {
@@ -1195,6 +1274,25 @@ final class BrandStageKeyboardView: UIView {
                 ? quickInsertTitleLabel
                 : activeVoiceAccessibilityTarget
         )
+    }
+
+    @objc private func translateTapped() {
+        guard translateButton.isEnabled else { return }
+        closeQuickInsertForVoiceAction()
+        onTranslateRequested?()
+    }
+
+    @objc private func improveTapped() {
+        guard improveButton.isEnabled else { return }
+        closeQuickInsertForVoiceAction()
+        onImproveRequested?()
+    }
+
+    private func closeQuickInsertForVoiceAction() {
+        guard quickInsertIsPresented else { return }
+        quickInsertIsPresented = false
+        updateWorkspaceVisibility()
+        updateQuickInsertButtonPresentation()
     }
 
     private func updateQuickInsertButtonPresentation() {

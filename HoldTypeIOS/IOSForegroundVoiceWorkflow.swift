@@ -118,6 +118,25 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
     let configuration: IOSForegroundVoiceWorkflowConfiguration
     let credential: IOSForegroundVoiceWorkflowCredentialProof
     let consentObservation: IOSV1ProviderConsentObservation
+    let forcesTextCorrection: Bool
+
+    init(
+        sessionID: UUID,
+        pendingRecording: IOSV1PendingRecording,
+        mode: IOSForegroundVoiceProcessingMode,
+        configuration: IOSForegroundVoiceWorkflowConfiguration,
+        credential: IOSForegroundVoiceWorkflowCredentialProof,
+        consentObservation: IOSV1ProviderConsentObservation,
+        forcesTextCorrection: Bool = false
+    ) {
+        self.sessionID = sessionID
+        self.pendingRecording = pendingRecording
+        self.mode = mode
+        self.configuration = configuration
+        self.credential = credential
+        self.consentObservation = consentObservation
+        self.forcesTextCorrection = forcesTextCorrection
+    }
 }
 
 nonisolated struct IOSForegroundVoiceWorkflowDurableObservation: Sendable {
@@ -144,10 +163,30 @@ nonisolated struct IOSKeyboardDictationWorkflowClient: Sendable {
 
     let run: @Sendable (
         UUID,
+        KeyboardVoiceAction,
         @escaping Progress
     ) async -> IOSKeyboardDictationWorkflowResolution
     let finish: @MainActor @Sendable (UUID) -> Bool
     let cancel: @MainActor @Sendable (UUID) -> Bool
+    let loadTranslationAvailability: @Sendable () async -> Bool
+
+    init(
+        run: @escaping @Sendable (
+            UUID,
+            KeyboardVoiceAction,
+            @escaping Progress
+        ) async -> IOSKeyboardDictationWorkflowResolution,
+        finish: @escaping @MainActor @Sendable (UUID) -> Bool,
+        cancel: @escaping @MainActor @Sendable (UUID) -> Bool,
+        loadTranslationAvailability: @escaping @Sendable () async -> Bool = {
+            false
+        }
+    ) {
+        self.run = run
+        self.finish = finish
+        self.cancel = cancel
+        self.loadTranslationAvailability = loadTranslationAvailability
+    }
 }
 
 nonisolated enum IOSForegroundVoiceWorkflowCaptureStopReason:
@@ -540,6 +579,7 @@ final class IOSForegroundVoiceWorkflow {
 
         let token: IOSForegroundVoiceWorkflowAttemptToken
         let origin: Origin
+        let forcesTextCorrection: Bool
         var recordingAttemptID: UUID?
         var stopContinuation: CheckedContinuation<StopTrigger, Never>?
         var tailContinuation:
@@ -563,10 +603,12 @@ final class IOSForegroundVoiceWorkflow {
 
         init(
             token: IOSForegroundVoiceWorkflowAttemptToken,
-            origin: Origin
+            origin: Origin,
+            forcesTextCorrection: Bool = false
         ) {
             self.token = token
             self.origin = origin
+            self.forcesTextCorrection = forcesTextCorrection
             switch origin {
             case .foreground:
                 requiresInitiatingScene = true
@@ -662,10 +704,11 @@ final class IOSForegroundVoiceWorkflow {
 
     var keyboardDictationClient: IOSKeyboardDictationWorkflowClient {
         IOSKeyboardDictationWorkflowClient(
-            run: { [weak self] requestID, progress in
+            run: { [weak self] requestID, action, progress in
                 guard let self else { return .failed }
                 return await self.runKeyboardDictation(
                     requestID: requestID,
+                    action: action,
                     progress: progress
                 )
             },
@@ -674,8 +717,22 @@ final class IOSForegroundVoiceWorkflow {
             },
             cancel: { [weak self] requestID in
                 self?.cancelKeyboardDictation(requestID: requestID) ?? false
+            },
+            loadTranslationAvailability: { [weak self] in
+                await self?.loadKeyboardTranslationAvailability() ?? false
             }
         )
+    }
+
+    private func loadKeyboardTranslationAvailability() async -> Bool {
+        guard let settings = try? await dependencies.loadSettings() else {
+            return false
+        }
+        guard !settings.transcriptionConfiguration
+            .customLanguageCodeValidation.isInvalid else {
+            return false
+        }
+        return settings.translationConfiguration.canRunAction
     }
 
     private func runControllerStart(
@@ -767,6 +824,7 @@ final class IOSForegroundVoiceWorkflow {
 
     private func runKeyboardDictation(
         requestID: UUID,
+        action: KeyboardVoiceAction,
         progress: @escaping IOSKeyboardDictationWorkflowClient.Progress
     ) async -> IOSKeyboardDictationWorkflowResolution {
         guard activeAttempt == nil,
@@ -774,10 +832,14 @@ final class IOSForegroundVoiceWorkflow {
             return .failed
         }
         let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let intent: DictationOutputIntent = action == .translate
+            ? .translate
+            : .standard
         let resolution = await runStart(
-            .standard,
+            intent,
             origin: .keyboard(requestID),
             token: token,
+            forcesTextCorrection: action == .improve,
             progress: { value in
                 switch value {
                 case .listening:
@@ -987,6 +1049,7 @@ final class IOSForegroundVoiceWorkflow {
         _ intent: DictationOutputIntent,
         origin: Attempt.Origin,
         token: IOSForegroundVoiceWorkflowAttemptToken,
+        forcesTextCorrection: Bool = false,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
         if case .foreground(let sceneLeaseOwner) = origin,
@@ -998,7 +1061,8 @@ final class IOSForegroundVoiceWorkflow {
 
         let attempt = Attempt(
             token: token,
-            origin: origin
+            origin: origin,
+            forcesTextCorrection: forcesTextCorrection
         )
         activeAttempt = attempt
         if case .foreground = origin {
@@ -1590,7 +1654,8 @@ final class IOSForegroundVoiceWorkflow {
                     mode: .initial,
                     configuration: configuration,
                     credential: credential,
-                    consentObservation: consent
+                    consentObservation: consent,
+                    forcesTextCorrection: attempt.forcesTextCorrection
                 ),
                 attempt: attempt,
                 progress: progress
@@ -1880,7 +1945,8 @@ final class IOSForegroundVoiceWorkflow {
                 mode: .retry,
                 configuration: configuration,
                 credential: credential,
-                consentObservation: consent
+                consentObservation: consent,
+                forcesTextCorrection: false
             ),
             authority: authority,
             registry: registry,

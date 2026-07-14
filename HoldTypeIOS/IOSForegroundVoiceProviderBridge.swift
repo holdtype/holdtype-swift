@@ -154,7 +154,8 @@ actor IOSForegroundVoiceProviderBridge {
                 settings: request.configuration.settings,
                 library: request.configuration.library,
                 credential: credential,
-                consentObservation: request.consentObservation
+                consentObservation: request.consentObservation,
+                forcesTextCorrection: request.forcesTextCorrection
             ),
             progress
         )

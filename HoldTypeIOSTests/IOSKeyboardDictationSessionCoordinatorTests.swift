@@ -12,7 +12,11 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         await coordinator.startSession()
         let requestID = try #require(harness.states.last?.requestID)
 
-        harness.command = harness.command(.start, requestID: requestID)
+        harness.command = harness.command(
+            .start,
+            requestID: requestID,
+            action: .improve
+        )
         coordinator.receiveCurrentCommand()
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
@@ -24,6 +28,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually { coordinator.presentation == .resultReady }
 
         #expect(harness.workflow.finishRequestIDs == [requestID])
+        #expect(harness.workflow.runActions == [.improve])
         #expect(harness.states.map(\.phase) == [
             .ready,
             .listening,
@@ -31,6 +36,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
             .resultReady,
         ])
         #expect(harness.states.last?.result == "Processed keyboard text")
+        #expect(harness.states.allSatisfy { $0.translationAvailable })
         #expect(harness.postCount == 4)
     }
 
@@ -146,12 +152,14 @@ private final class KeyboardSessionHarness {
     func command(
         _ kind: HoldTypeIOS.KeyboardDictationCommandKind,
         requestID: UUID,
+        action: HoldTypeIOS.KeyboardVoiceAction = .standard,
         issuedAt: Date? = nil
     ) -> HoldTypeIOS.KeyboardDictationCommandRecord {
         let issuedAt = issuedAt ?? now
         return HoldTypeIOS.KeyboardDictationCommandRecord(
             requestID: requestID,
             kind: kind,
+            action: action,
             issuedAt: issuedAt,
             expiresAt: issuedAt.addingTimeInterval(5)
         )!
@@ -164,14 +172,19 @@ private final class KeyboardWorkflowHarness {
     private var continuation:
         CheckedContinuation<IOSKeyboardDictationWorkflowResolution, Never>?
     private(set) var runRequestIDs: [UUID] = []
+    private(set) var runActions: [HoldTypeIOS.KeyboardVoiceAction] = []
     private(set) var finishRequestIDs: [UUID] = []
     private(set) var cancelRequestIDs: [UUID] = []
 
     var client: IOSKeyboardDictationWorkflowClient {
         IOSKeyboardDictationWorkflowClient(
-            run: { [weak self] requestID, progress in
+            run: { [weak self] requestID, action, progress in
                 guard let self else { return .failed }
-                return await self.run(requestID, progress: progress)
+                return await self.run(
+                    requestID,
+                    action: action,
+                    progress: progress
+                )
             },
             finish: { [weak self] requestID in
                 self?.finishRequestIDs.append(requestID)
@@ -180,7 +193,8 @@ private final class KeyboardWorkflowHarness {
             cancel: { [weak self] requestID in
                 self?.cancelRequestIDs.append(requestID)
                 return self?.runRequestIDs.last == requestID
-            }
+            },
+            loadTranslationAvailability: { true }
         )
     }
 
@@ -196,9 +210,11 @@ private final class KeyboardWorkflowHarness {
 
     private func run(
         _ requestID: UUID,
+        action: HoldTypeIOS.KeyboardVoiceAction,
         progress: @escaping IOSKeyboardDictationWorkflowClient.Progress
     ) async -> IOSKeyboardDictationWorkflowResolution {
         runRequestIDs.append(requestID)
+        runActions.append(action)
         self.progress = progress
         return await withCheckedContinuation { continuation in
             self.continuation = continuation

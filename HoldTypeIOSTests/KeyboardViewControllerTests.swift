@@ -290,6 +290,48 @@ struct KeyboardViewControllerTests {
         #expect(statusText(in: controller.view) == "Session not running")
     }
 
+    @Test func utilityVoiceActionsCarryOneShotModeAndGateTranslation() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let requestID = UUID()
+        let deadline = now.addingTimeInterval(60)
+        let harness = KeyboardControllerHarness(
+            now: now,
+            dictationState: try #require(
+                KeyboardDictationStateRecord(
+                    requestID: requestID,
+                    phase: .ready,
+                    translationAvailable: true,
+                    publishedAt: now,
+                    expiresAt: deadline
+                )
+            )
+        )
+        let controller = harness.makeController()
+        controller.loadViewIfNeeded()
+
+        controller.keyboardView.onTranslateRequested?()
+        #expect(harness.savedCommands.map(\.action) == [.translate])
+
+        harness.savedCommands.removeAll()
+        controller.textDidChange(nil)
+        controller.keyboardView.onImproveRequested?()
+        #expect(harness.savedCommands.map(\.action) == [.improve])
+
+        harness.savedCommands.removeAll()
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                requestID: UUID(),
+                phase: .ready,
+                translationAvailable: false,
+                publishedAt: now,
+                expiresAt: deadline
+            )
+        )
+        controller.textDidChange(nil)
+        controller.keyboardView.onTranslateRequested?()
+        #expect(harness.savedCommands.isEmpty)
+    }
+
     @Test func hostContextLossSuppressesAutomaticInsertion() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()

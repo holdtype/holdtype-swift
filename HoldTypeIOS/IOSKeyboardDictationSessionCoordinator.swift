@@ -68,6 +68,7 @@ final class IOSKeyboardDictationSessionCoordinator {
     private var lastHandledCommand: KeyboardDictationCommandRecord?
     private var workflowTask: Task<Void, Never>?
     private var workflowGeneration: UInt64 = 0
+    private var translationAvailable = false
 
     convenience init(
         workflow: IOSKeyboardDictationWorkflowClient,
@@ -126,7 +127,7 @@ final class IOSKeyboardDictationSessionCoordinator {
         self.init(
             dependencies: IOSKeyboardDictationSessionDependencies(
                 workflow: IOSKeyboardDictationWorkflowClient(
-                    run: { _, _ in .failed },
+                    run: { _, _, _ in .failed },
                     finish: { _ in false },
                     cancel: { _ in false }
                 ),
@@ -201,6 +202,8 @@ final class IOSKeyboardDictationSessionCoordinator {
         )
         self.requestID = requestID
         self.deadline = deadline
+        translationAvailable = await dependencies.workflow
+            .loadTranslationAvailability()
         lastHandledCommand = nil
         beginBackgroundTask()
         scheduleExpiry(at: deadline)
@@ -239,7 +242,11 @@ final class IOSKeyboardDictationSessionCoordinator {
 
         switch command.kind {
         case .start:
-            startRecording(requestID: requestID, deadline: deadline)
+            startRecording(
+                requestID: requestID,
+                deadline: deadline,
+                action: command.action
+            )
         case .finish:
             finishRecording(requestID: requestID, deadline: deadline)
         case .cancel:
@@ -247,16 +254,21 @@ final class IOSKeyboardDictationSessionCoordinator {
         }
     }
 
-    private func startRecording(requestID: UUID, deadline: Date) {
+    private func startRecording(
+        requestID: UUID,
+        deadline: Date,
+        action: KeyboardVoiceAction
+    ) {
         guard workflowTask == nil,
-              case .ready = presentation else {
+              case .ready = presentation,
+              action != .translate || translationAvailable else {
             return
         }
         workflowGeneration &+= 1
         let generation = workflowGeneration
         let workflow = dependencies.workflow
         workflowTask = Task { @MainActor [weak self] in
-            let resolution = await workflow.run(requestID) {
+            let resolution = await workflow.run(requestID, action) {
                 [weak self] progress in
                 self?.receive(
                     progress,
@@ -447,6 +459,7 @@ final class IOSKeyboardDictationSessionCoordinator {
         guard let record = KeyboardDictationStateRecord(
             requestID: requestID,
             phase: phase,
+            translationAvailable: translationAvailable,
             result: result,
             publishedAt: publicationDate,
             expiresAt: expiresAt
@@ -487,6 +500,7 @@ final class IOSKeyboardDictationSessionCoordinator {
         expiryTimer = nil
         requestID = nil
         deadline = nil
+        translationAvailable = false
         lastHandledCommand = nil
         if cancelWorkflowTask {
             workflowTask?.cancel()

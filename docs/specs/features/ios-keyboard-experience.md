@@ -54,8 +54,10 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: a smile-icon Quick Insert toggle on the left, the HoldType mark
-   centered without any status text, and `Latest` on the right.
+1. Top rail: a compact three-button utility group on the left, the HoldType
+   mark centered without any status text, and `Latest` on the right. The group
+   contains Quick Insert, Translate, and Improve actions represented by the
+   standard smile, translation, and magic-wand symbols.
 2. Workspace: either the Voice stage or Quick Insert. One toggle tap replaces
    Voice directly with Quick Insert; there is no intermediate launcher, task
    picker, menu, or containing-app transition. The close icon restores the
@@ -103,8 +105,9 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 
 ## Quick Insert And Editing Controls
 
-- The top-left control shows a smile icon while Voice is visible and a close
-  icon while Quick Insert is visible.
+- The left utility group remains one stable visual unit. Its first control
+  shows a smile icon while Voice is visible and a close icon while Quick Insert
+  is visible.
 - Quick Insert opens and closes in one tap. It never shows a mode chooser or a
   second confirmation step.
 - The punctuation row contains `.`, `,`, `?`, `!`, `:`, `;`, `—`, and `…`.
@@ -132,6 +135,27 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - Quick Insert, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest remain useful without provider setup, network, or Full
   Access.
+
+## One-Shot Voice Actions
+
+- Translate and Improve are secondary one-tap starts beside Quick Insert. They
+  do not open a menu, mode chooser, confirmation, settings sheet, or containing
+  app transition.
+- Translate starts the next keyboard dictation with the saved Translation
+  route. It is enabled only while the keyboard session is Ready and the
+  containing app reports that Translation is enabled with a valid target and
+  source route. Otherwise it remains visible and disabled.
+- Improve starts the next keyboard dictation in standard output mode and forces
+  the saved Writing & Correction model and prompt for that request only. It
+  does not change the durable correction preference. Correction retains its
+  existing safe fallback to the accepted transcript when the correction stage
+  cannot produce a safe result.
+- A Translate or Improve tap closes Quick Insert if necessary, starts exactly
+  one request, and then uses the existing microphone for Finish and the
+  existing Cancel action. Starting, Listening, and Processing disable all
+  three utility controls.
+- The action chosen at Start is frozen for that request. Later taps or settings
+  changes do not change an active request.
 
 ## Keyboard Dictation Session
 
@@ -189,16 +213,19 @@ without showing `Inserted` or rendering a result preview.
 
 - Keyboard-controlled dictation requires `RequestsOpenAccess = true`, but the
   extension itself does not contact OpenAI or transmit host keystrokes.
-- The extension writes one bounded current command; the app writes one bounded
-  current state/result. Each record has exactly one writer, one current request
+- The extension writes one bounded current command, including the selected
+  one-shot voice action for Start; the app writes one bounded current
+  state/result. Each record has exactly one writer, one current request
   identifier, an expiry, and no history or append-only log.
 - Signalling may wake an already-running app-owned session, but App Group files
   are not treated as a general background-launch mechanism.
 - Commands and state use atomic replacement. They add no outbox, receipt,
   acknowledgement family, tombstone, lease, policy generation, transaction
   coordinator, or replay queue.
-- App Group state contains no API key, prompt, dictionary, canonical History,
-  raw audio, provider body, or durable host context.
+- App Group state may include only a boolean Translation-available capability.
+  It contains no language codes, translation route, model, API key, prompt,
+  dictionary, canonical History, raw audio, provider body, or durable host
+  context.
 - Existing bounded Latest remains a separate app-written projection. It stays
   available for explicit insertion when automatic insertion is unsafe.
 
@@ -229,8 +256,8 @@ without showing `Inserted` or rendering a result preview.
 
 ## Accessibility And Appearance
 
-- VoiceOver names the recovery instruction, microphone state/action, Latest, Globe, Space,
-  Delete, and adaptive Return.
+- VoiceOver names Quick Insert, Translate, Improve, the recovery instruction,
+  microphone state/action, Latest, Globe, Space, Delete, and adaptive Return.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
   material effects with opaque system colors.

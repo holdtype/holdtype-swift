@@ -15,6 +15,8 @@ struct BrandStageKeyboardViewTests {
     @Test func renderExposesTheApprovedControlsAndRoutesEachActionOnce() throws {
         let view = makeView(width: 393)
         var latestCount = 0
+        var translateCount = 0
+        var improveCount = 0
         var quickInsertions: [String] = []
         var spaceCount = 0
         var deleteStartCount = 0
@@ -22,6 +24,8 @@ struct BrandStageKeyboardViewTests {
         var returnCount = 0
 
         view.onLatestRequested = { latestCount += 1 }
+        view.onTranslateRequested = { translateCount += 1 }
+        view.onImproveRequested = { improveCount += 1 }
         view.onQuickInsertRequested = { quickInsertions.append($0) }
         view.onSpaceRequested = { spaceCount += 1 }
         view.onDeleteStarted = { deleteStartCount += 1 }
@@ -31,6 +35,7 @@ struct BrandStageKeyboardViewTests {
         view.render(
             presentation(
                 latestIsEnabled: true,
+                translationIsEnabled: true,
                 returnKey: .title("Send")
             )
         )
@@ -61,6 +66,8 @@ struct BrandStageKeyboardViewTests {
             "keyboard.brand-stage.quick-insert-toggle",
             in: view
         )
+        let translate = try button("keyboard.brand-stage.translate", in: view)
+        let improve = try button("keyboard.brand-stage.improve", in: view)
         let quickInsertStage = try #require(
             view.descendant(
                 UIStackView.self,
@@ -69,6 +76,8 @@ struct BrandStageKeyboardViewTests {
         )
         let microphone = try button("keyboard.brand-stage.voice", in: view)
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
+        #expect(translate.isEnabled)
+        #expect(improve.isEnabled)
         #expect(isEffectivelyHidden(quickInsertStage))
         #expect(!isEffectivelyHidden(microphone))
 
@@ -100,7 +109,8 @@ struct BrandStageKeyboardViewTests {
         period.sendActions(for: .touchUpInside)
         laugh.sendActions(for: .touchUpInside)
         #expect(!isEffectivelyHidden(quickInsertStage))
-        quickInsertToggle.sendActions(for: .touchUpInside)
+        translate.sendActions(for: .touchUpInside)
+        improve.sendActions(for: .touchUpInside)
         layout(view)
         space.sendActions(for: .touchUpInside)
         delete.sendActions(for: .touchDown)
@@ -108,6 +118,8 @@ struct BrandStageKeyboardViewTests {
         returnButton.sendActions(for: .touchUpInside)
 
         #expect(latestCount == 1)
+        #expect(translateCount == 1)
+        #expect(improveCount == 1)
         #expect(quickInsertions == [".", "😂"])
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(isEffectivelyHidden(quickInsertStage))
@@ -187,6 +199,12 @@ struct BrandStageKeyboardViewTests {
 
         #expect(isEffectivelyHidden(quickInsert))
         #expect(!toggle.isEnabled)
+        #expect(
+            !(try button("keyboard.brand-stage.translate", in: view)).isEnabled
+        )
+        #expect(
+            !(try button("keyboard.brand-stage.improve", in: view)).isEnabled
+        )
         #expect(toggle.accessibilityLabel == "Open Quick Insert")
         let microphone = try button("keyboard.brand-stage.voice", in: view)
         #expect(!isEffectivelyHidden(microphone))
@@ -201,6 +219,8 @@ struct BrandStageKeyboardViewTests {
 
             for identifier in [
                 "keyboard.brand-stage.quick-insert-toggle",
+                "keyboard.brand-stage.translate",
+                "keyboard.brand-stage.improve",
                 "keyboard.brand-stage.next-keyboard",
                 "keyboard.brand-stage.delete",
                 "keyboard.brand-stage.return",
@@ -739,6 +759,7 @@ struct BrandStageKeyboardViewTests {
         status: KeyboardVoiceStatus = .ready,
         voiceStage: KeyboardVoiceStagePresentation = .ready,
         latestIsEnabled: Bool = false,
+        translationIsEnabled: Bool = false,
         cancelIsVisible: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
         showsInputModeSwitchKey: Bool = true
@@ -747,6 +768,7 @@ struct BrandStageKeyboardViewTests {
             status: status,
             voiceStage: voiceStage,
             latestIsEnabled: latestIsEnabled,
+            translationIsEnabled: translationIsEnabled,
             cancelIsVisible: cancelIsVisible,
             returnKey: returnKey,
             returnIsEnabled: true,
@@ -790,6 +812,8 @@ struct BrandStageKeyboardViewTests {
     private func compactControlIdentifiers(showsGlobe: Bool) -> [String] {
         var identifiers = [
             "keyboard.brand-stage.quick-insert-toggle",
+            "keyboard.brand-stage.translate",
+            "keyboard.brand-stage.improve",
             "keyboard.brand-stage.latest",
             "keyboard.brand-stage.space",
             "keyboard.brand-stage.delete",
