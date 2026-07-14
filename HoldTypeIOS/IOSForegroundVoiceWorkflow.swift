@@ -59,6 +59,17 @@ final class IOSForegroundVoiceWorkflowObservation {
 nonisolated struct IOSForegroundVoiceWorkflowStartRequest: Sendable {
     let outputIntent: DictationOutputIntent
     let sceneLease: IOSVoiceSceneStartLease
+    let forcesTextCorrection: Bool
+
+    init(
+        outputIntent: DictationOutputIntent,
+        sceneLease: IOSVoiceSceneStartLease,
+        forcesTextCorrection: Bool = false
+    ) {
+        self.outputIntent = outputIntent
+        self.sceneLease = sceneLease
+        self.forcesTextCorrection = forcesTextCorrection
+    }
 }
 
 nonisolated struct IOSForegroundVoiceWorkflowAttemptToken:
@@ -665,7 +676,11 @@ final class IOSForegroundVoiceWorkflow {
                 }
                 return await self.observe()
             },
-            runStart: { [weak self] intent, lease, authority, progress in
+            runStart: {
+                [weak self] action,
+                lease,
+                authority,
+                progress in
                 guard let self else {
                     return await MainActor.run {
                         lease.finish()
@@ -673,7 +688,7 @@ final class IOSForegroundVoiceWorkflow {
                     }
                 }
                 return await self.runControllerStart(
-                    intent,
+                    action,
                     sceneLease: lease,
                     authority: authority,
                     progress: progress
@@ -736,7 +751,7 @@ final class IOSForegroundVoiceWorkflow {
     }
 
     private func runControllerStart(
-        _ intent: DictationOutputIntent,
+        _ action: IOSForegroundVoiceStartAction,
         sceneLease: IOSVoiceSceneStartLease,
         authority: IOSForegroundVoiceAuthority,
         progress: @escaping IOSForegroundVoiceClient.Progress
@@ -758,8 +773,9 @@ final class IOSForegroundVoiceWorkflow {
         }
         return await start(
             IOSForegroundVoiceWorkflowStartRequest(
-                outputIntent: intent,
-                sceneLease: sceneLease
+                outputIntent: action.outputIntent,
+                sceneLease: sceneLease,
+                forcesTextCorrection: action.forcesTextCorrection
             ),
             token: token,
             progress: progress
@@ -805,6 +821,7 @@ final class IOSForegroundVoiceWorkflow {
             request.outputIntent,
             origin: .foreground(leaseOwner),
             token: token,
+            forcesTextCorrection: request.forcesTextCorrection,
             progress: progress
         )
     }

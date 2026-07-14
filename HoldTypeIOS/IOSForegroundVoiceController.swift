@@ -43,6 +43,7 @@ enum IOSForegroundVoiceLatestAvailability: Equatable, Sendable {
 enum IOSForegroundVoiceAction: Equatable, Sendable {
     case startStandard
     case startTranslation
+    case startCorrection
     case cancelStart
     case finishUtterance
     case cancelUtterance
@@ -132,8 +133,32 @@ struct IOSForegroundVoiceObservation: Equatable, Sendable {
     }
 }
 
+enum IOSForegroundVoiceStartAction: Equatable, Sendable {
+    case standard
+    case translate
+    case correction
+
+    var outputIntent: DictationOutputIntent {
+        switch self {
+        case .standard, .correction:
+            .standard
+        case .translate:
+            .translate
+        }
+    }
+
+    var forcesTextCorrection: Bool {
+        switch self {
+        case .standard, .translate:
+            false
+        case .correction:
+            true
+        }
+    }
+}
+
 enum IOSForegroundVoiceOperation: Equatable, Sendable {
-    case start(DictationOutputIntent)
+    case start(IOSForegroundVoiceStartAction)
     case retryPending
     case recoverRecording
     case discard
@@ -182,7 +207,7 @@ struct IOSForegroundVoiceClient: Sendable {
         IOSForegroundVoiceProgress
     ) -> Void
     typealias RunStart = @Sendable (
-        DictationOutputIntent,
+        IOSForegroundVoiceStartAction,
         IOSVoiceSceneStartLease,
         IOSForegroundVoiceAuthority,
         @escaping Progress
@@ -419,6 +444,14 @@ final class IOSForegroundVoiceController {
                   begin(.start(.translate), startLease: startLease) else {
                 return .unavailable
             }
+        case .startCorrection:
+            guard let initiatingScene,
+                  let startLease = sceneRegistry.acquireStartLease(
+                    initiatingScene: initiatingScene.identity
+                  ),
+                  begin(.start(.correction), startLease: startLease) else {
+                return .unavailable
+            }
         case .retryPending:
             guard begin(.retryPending) else { return .unavailable }
         case .recoverRecording:
@@ -476,10 +509,10 @@ final class IOSForegroundVoiceController {
         }
         activeTask = Task { @MainActor [weak self] in
             let resolution: IOSForegroundVoiceResolution
-            if case let .start(intent) = operation,
+            if case let .start(action) = operation,
                let startLease {
                 resolution = await client.runStart(
-                    intent,
+                    action,
                     startLease,
                     authority,
                     progress
@@ -736,6 +769,7 @@ final class IOSForegroundVoiceController {
             if translationAvailable {
                 actions.append(.startTranslation)
             }
+            actions.append(.startCorrection)
             return actions
         }
     }

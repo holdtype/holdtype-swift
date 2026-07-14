@@ -2229,6 +2229,39 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func foregroundCorrectionActionForcesCorrectionInProviderRequest()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorAcceptedText: "Corrected foreground result",
+            preacceptConsent: true,
+            acquireLease: false
+        )
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let correction = try #require(controller.actionCommands.first {
+            $0.action == .startCorrection
+        })
+
+        #expect(
+            controller.submit(correction, from: fixture.facade) == .accepted
+        )
+        try await waitUntil { controller.presentation.phase == .listening }
+        let finish = try #require(controller.actionCommands.first {
+            $0.action == .finishUtterance
+        })
+        #expect(controller.submit(finish) == .accepted)
+        try await waitUntil { controller.presentation.phase == .inactive }
+
+        #expect(fixture.events.count("provider-process") == 1)
+        #expect(fixture.events.contains("provider-force-correction-true"))
+    }
+
+    @Test
     func keyboardTranslationCapabilityUsesCurrentValidatedSettings()
         async throws {
         let unavailable = try await WorkflowFixture(permission: .granted)

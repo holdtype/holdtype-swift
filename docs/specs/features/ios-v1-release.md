@@ -146,8 +146,11 @@ destination. History remains a separate tab and is not previewed on Voice.
   provider request.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
-- Standard dictation is always the primary action. Translation is available
-  only when its current target is valid.
+- Standard dictation is always the primary action. Visible Translate and
+  Correction actions above the Voice Draft are one-shot starts, never modes:
+  Translate is available only when its current route is valid, while
+  Correction forces the saved correction configuration for that request only.
+  Neither action changes Settings or transforms the existing Draft.
 - Current Dictionary, Voice Emoji Commands, Replacement Rules, cleanup,
   correction, and translation apply in their documented order.
 - A successful result becomes Latest Result even if compact History append

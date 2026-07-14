@@ -37,6 +37,7 @@ struct IOSVoiceHomeView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 14) {
+                    oneShotVoiceActions
                     draftSurface
                         .frame(minHeight: 250, maxHeight: 340)
                     voiceStatusSurface
@@ -59,20 +60,6 @@ struct IOSVoiceHomeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
-                    if let translationCommand = sceneOwner.actionCommands
-                        .first(where: { $0.action == .startTranslation }) {
-                        let presentation = IOSVoiceActionPresentation.resolve(
-                            translationCommand.action
-                        )
-                        Button {
-                            performVoiceCommand(translationCommand)
-                        } label: {
-                            Label(
-                                presentation.title,
-                                systemImage: presentation.systemImage
-                            )
-                        }
-                    }
                     Button {
                         showsKeyboardTools = true
                     } label: {
@@ -272,6 +259,47 @@ struct IOSVoiceHomeView: View {
         }
     }
 
+    private var oneShotVoiceActions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                oneShotVoiceButton(.startTranslation)
+                oneShotVoiceButton(.startCorrection)
+            }
+            VStack(spacing: 8) {
+                oneShotVoiceButton(.startTranslation)
+                oneShotVoiceButton(.startCorrection)
+            }
+        }
+        .accessibilityIdentifier("ios.voice.one-shot-actions")
+    }
+
+    private func oneShotVoiceButton(
+        _ action: IOSForegroundVoiceAction
+    ) -> some View {
+        let presentation = IOSVoiceActionPresentation.resolve(action)
+        let command = sceneOwner.actionCommands.first {
+            $0.action == action
+        }
+        let isEnabled = command != nil && !draftBlocksNewDictation
+
+        return Button {
+            guard let command, isEnabled else { return }
+            performVoiceCommand(command)
+        } label: {
+            Label(
+                presentation.title,
+                systemImage: presentation.systemImage
+            )
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 28)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.roundedRectangle(radius: 14))
+        .controlSize(.large)
+        .disabled(!isEnabled)
+        .accessibilityIdentifier(presentation.accessibilityIdentifier)
+    }
+
     private var draftSurface: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center) {
@@ -407,6 +435,7 @@ struct IOSVoiceHomeView: View {
         let recoveryCommands = sceneOwner.actionCommands.filter {
             !isPrimaryVoiceAction($0.action)
                 && $0.action != .startTranslation
+                && $0.action != .startCorrection
         }
 
         return VStack(alignment: .leading, spacing: 10) {
@@ -444,7 +473,7 @@ struct IOSVoiceHomeView: View {
             IOSVoiceActionPresentation.resolve($0.action)
         }
         let startIsBlockedByDraft = command?.action == .startStandard
-            && (!draftOwner.isAvailableForMutation || draftOwner.isFull)
+            && draftBlocksNewDictation
         let isEnabled = command != nil && !startIsBlockedByDraft
         let title = presentation?.title ?? "Start Dictation"
         let systemImage = presentation?.systemImage ?? "mic.fill"
@@ -480,6 +509,10 @@ struct IOSVoiceHomeView: View {
         _ action: IOSForegroundVoiceAction
     ) -> Bool {
         action == .startStandard || action == .finishUtterance
+    }
+
+    private var draftBlocksNewDictation: Bool {
+        !draftOwner.isAvailableForMutation || draftOwner.isFull
     }
 
     private var voiceHeader: some View {

@@ -45,7 +45,14 @@ struct IOSVoiceActionPresentation: Equatable, Sendable {
             makeAction(
                 action,
                 title: "Translate",
-                image: "character.bubble.fill",
+                image: "character.book.closed",
+                prominence: .secondary
+            )
+        case .startCorrection:
+            makeAction(
+                action,
+                title: "Correction",
+                image: "wand.and.stars",
                 prominence: .secondary
             )
         case .cancelStart:
@@ -124,6 +131,7 @@ struct IOSVoiceActionPresentation: Equatable, Sendable {
         switch action {
         case .startStandard: "start-standard"
         case .startTranslation: "start-translation"
+        case .startCorrection: "start-correction"
         case .cancelStart: "cancel-start"
         case .finishUtterance: "finish-utterance"
         case .cancelUtterance: "cancel-utterance"

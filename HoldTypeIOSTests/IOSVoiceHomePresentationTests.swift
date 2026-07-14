@@ -9,6 +9,7 @@ struct IOSVoiceHomePresentationTests {
         let actions: [IOSForegroundVoiceAction] = [
             .startStandard,
             .startTranslation,
+            .startCorrection,
             .cancelStart,
             .finishUtterance,
             .cancelUtterance,
@@ -22,6 +23,7 @@ struct IOSVoiceHomePresentationTests {
         #expect(presentations.map(\.title) == [
             "Start Dictation",
             "Translate",
+            "Correction",
             "Cancel Start",
             "Done",
             "Cancel Utterance",
@@ -33,12 +35,12 @@ struct IOSVoiceHomePresentationTests {
         #expect(
             presentations.enumerated().filter {
                 $0.element.requiresConfirmation
-            }.map(\.offset) == [8]
+            }.map(\.offset) == [9]
         )
         #expect(
-            Set(presentations.map(\.accessibilityIdentifier)).count == 9
+            Set(presentations.map(\.accessibilityIdentifier)).count == 10
         )
-        #expect(presentations[8].prominence == .destructive)
+        #expect(presentations[9].prominence == .destructive)
     }
 
     @Test func activePhasesRemainDistinctAndUnderstandable() {
@@ -223,6 +225,7 @@ struct IOSVoiceHomePresentationTests {
         let actions: [IOSForegroundVoiceAction] = [
             .startStandard,
             .startTranslation,
+            .startCorrection,
             .cancelStart,
             .finishUtterance,
             .cancelUtterance,

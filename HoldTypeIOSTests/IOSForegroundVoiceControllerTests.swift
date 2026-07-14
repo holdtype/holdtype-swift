@@ -36,7 +36,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.phase == .inactive)
         #expect(
             controller.presentation.availableActions
-                == [.startStandard]
+                == [.startStandard, .startCorrection]
         )
     }
 
@@ -110,7 +110,8 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.recovery == .none)
         #expect(controller.presentation.latestAvailability == .available)
         #expect(
-            controller.presentation.availableActions == [.startStandard]
+            controller.presentation.availableActions
+                == [.startStandard, .startCorrection]
         )
     }
 
@@ -314,6 +315,15 @@ struct IOSForegroundVoiceControllerTests {
                 actions: [.cancelStart]
             ),
             VoiceOperationCase(
+                observation: voiceObservation(),
+                action: .startCorrection,
+                operation: .start(.correction),
+                phase: .arming,
+                stage: nil,
+                actions: [.cancelStart],
+                forcesTextCorrection: true
+            ),
+            VoiceOperationCase(
                 observation: voiceObservation(
                     recovery: .captureRecoverOrDiscard
                 ),
@@ -364,6 +374,12 @@ struct IOSForegroundVoiceControllerTests {
             }
 
             #expect(fixture.runOperations == [testCase.operation])
+            if case .start = testCase.operation {
+                #expect(
+                    fixture.startForcesTextCorrection
+                        == [testCase.forcesTextCorrection]
+                )
+            }
             #expect(controller.presentation.phase == testCase.phase)
             #expect(controller.presentation.stage == testCase.stage)
             #expect(controller.presentation.recovery == .none)
@@ -845,14 +861,18 @@ struct IOSForegroundVoiceControllerTests {
         let cases = [
             VoiceActionCase(
                 observation: voiceObservation(),
-                actions: [.startStandard],
+                actions: [.startStandard, .startCorrection],
                 stage: nil
             ),
             VoiceActionCase(
                 observation: voiceObservation(
                     translationAvailable: true
                 ),
-                actions: [.startStandard, .startTranslation],
+                actions: [
+                    .startStandard,
+                    .startTranslation,
+                    .startCorrection,
+                ],
                 stage: nil
             ),
             VoiceActionCase(
@@ -1078,6 +1098,7 @@ private struct VoiceOperationCase {
     let stage: VoiceAttemptStage?
     let actions: [IOSForegroundVoiceAction]
     var proofProgress: IOSForegroundVoiceProgress?
+    let forcesTextCorrection: Bool
 
     init(
         observation: IOSForegroundVoiceObservation,
@@ -1086,7 +1107,8 @@ private struct VoiceOperationCase {
         phase: VoiceWorkPhase,
         stage: VoiceAttemptStage?,
         actions: [IOSForegroundVoiceAction],
-        proofProgress: IOSForegroundVoiceProgress? = nil
+        proofProgress: IOSForegroundVoiceProgress? = nil,
+        forcesTextCorrection: Bool = false
     ) {
         self.observation = observation
         self.action = action
@@ -1095,6 +1117,7 @@ private struct VoiceOperationCase {
         self.stage = stage
         self.actions = actions
         self.proofProgress = proofProgress
+        self.forcesTextCorrection = forcesTextCorrection
     }
 }
 
@@ -1134,6 +1157,7 @@ private final class IOSForegroundVoiceClientFixture {
     private(set) var runOperations: [IOSForegroundVoiceOperation] = []
     private(set) var runAuthorities: [IOSForegroundVoiceAuthority] = []
     private(set) var startLeases: [IOSVoiceSceneStartLease] = []
+    private(set) var startForcesTextCorrection: [Bool] = []
     private(set) var finishAuthorities: [IOSForegroundVoiceAuthority] = []
     private(set) var cancellationAuthorities:
         [IOSForegroundVoiceAuthority] = []
@@ -1160,9 +1184,13 @@ private final class IOSForegroundVoiceClientFixture {
     func makeClient() -> IOSForegroundVoiceClient {
         IOSForegroundVoiceClient(
             observe: { await self.observe() },
-            runStart: { intent, lease, authority, progress in
+            runStart: {
+                action,
+                lease,
+                authority,
+                progress in
                 await self.runStart(
-                    intent,
+                    action,
                     lease: lease,
                     authority: authority,
                     progress: progress
@@ -1256,14 +1284,15 @@ private final class IOSForegroundVoiceClientFixture {
     }
 
     private func runStart(
-        _ intent: DictationOutputIntent,
+        _ action: IOSForegroundVoiceStartAction,
         lease: IOSVoiceSceneStartLease,
         authority: IOSForegroundVoiceAuthority,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
         startLeases.append(lease)
+        startForcesTextCorrection.append(action.forcesTextCorrection)
         let resolution = await run(
-            .start(intent),
+            .start(action),
             authority: authority,
             progress: progress
         )
@@ -1379,7 +1408,7 @@ private func submitVoiceCommand(
     in controller: IOSForegroundVoiceController
 ) -> IOSForegroundVoiceActionAdmission {
     switch command.action {
-    case .startStandard, .startTranslation:
+    case .startStandard, .startTranslation, .startCorrection:
         let scene = controller.sceneRegistry.registerScene(
             initialActivity: .active
         )
