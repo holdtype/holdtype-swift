@@ -148,7 +148,8 @@ struct KeyboardViewControllerTests {
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        controller.keyboardView.onPunctuationRequested?("?")
+        controller.keyboardView.onQuickInsertRequested?("?")
+        controller.keyboardView.onQuickInsertRequested?("🙂")
         controller.keyboardView.onSpaceRequested?()
         controller.keyboardView.onReturnRequested?()
         controller.keyboardView.onCursorStepRequested?(-1)
@@ -158,7 +159,7 @@ struct KeyboardViewControllerTests {
         controller.keyboardView.onDeleteStarted?()
         controller.keyboardView.onDeleteStopped?()
 
-        #expect(harness.proxy.insertedTexts == ["?", " ", "\n"])
+        #expect(harness.proxy.insertedTexts == ["?", "🙂", " ", "\n"])
         #expect(harness.proxy.cursorOffsets == [-1, 1])
         #expect(harness.proxy.deleteBackwardCount == 1)
     }
@@ -430,7 +431,7 @@ struct KeyboardViewControllerTests {
         let restricted = KeyboardControllerHarness(fullAccessOverride: false)
         let restrictedController = restricted.makeController()
         restrictedController.loadViewIfNeeded()
-        restrictedController.keyboardView.onPunctuationRequested?(".")
+        restrictedController.keyboardView.onQuickInsertRequested?(".")
         restrictedController.keyboardView.onSpaceRequested?()
         restrictedController.keyboardView.onDeleteStarted?()
         restrictedController.keyboardView.onDeleteStopped?()

@@ -15,14 +15,14 @@ struct BrandStageKeyboardViewTests {
     @Test func renderExposesTheApprovedControlsAndRoutesEachActionOnce() throws {
         let view = makeView(width: 393)
         var latestCount = 0
-        var punctuation: [String] = []
+        var quickInsertions: [String] = []
         var spaceCount = 0
         var deleteStartCount = 0
         var deleteStopCount = 0
         var returnCount = 0
 
         view.onLatestRequested = { latestCount += 1 }
-        view.onPunctuationRequested = { punctuation.append($0) }
+        view.onQuickInsertRequested = { quickInsertions.append($0) }
         view.onSpaceRequested = { spaceCount += 1 }
         view.onDeleteStarted = { deleteStartCount += 1 }
         view.onDeleteStopped = { deleteStopCount += 1 }
@@ -57,20 +57,30 @@ struct BrandStageKeyboardViewTests {
             ) == nil
         )
         let latest = try button("keyboard.brand-stage.latest", in: view)
+        let quickInsertToggle = try button(
+            "keyboard.brand-stage.quick-insert-toggle",
+            in: view
+        )
+        let quickInsertStage = try #require(
+            view.descendant(
+                UIStackView.self,
+                identifier: "keyboard.brand-stage.quick-insert"
+            )
+        )
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
+        #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
+        #expect(isEffectivelyHidden(quickInsertStage))
+        #expect(!isEffectivelyHidden(microphone))
+
+        quickInsertToggle.sendActions(for: .touchUpInside)
+        layout(view)
+
         let period = try button(
-            "keyboard.brand-stage.punctuation.period",
+            "keyboard.brand-stage.quick-insert.punctuation.period",
             in: view
         )
-        let comma = try button(
-            "keyboard.brand-stage.punctuation.comma",
-            in: view
-        )
-        let question = try button(
-            "keyboard.brand-stage.punctuation.question mark",
-            in: view
-        )
-        let exclamation = try button(
-            "keyboard.brand-stage.punctuation.exclamation mark",
+        let laugh = try button(
+            "keyboard.brand-stage.quick-insert.emoji.laugh",
             in: view
         )
         let space = try button("keyboard.brand-stage.space", in: view)
@@ -78,6 +88,9 @@ struct BrandStageKeyboardViewTests {
         let returnButton = try button("keyboard.brand-stage.return", in: view)
 
         #expect(latest.isEnabled)
+        #expect(quickInsertToggle.accessibilityLabel == "Close Quick Insert")
+        #expect(!isEffectivelyHidden(quickInsertStage))
+        #expect(isEffectivelyHidden(microphone))
         assertFullTopActionTitle(latest)
         #expect(space.configuration?.title == "space")
         #expect(returnButton.configuration?.title == "Send")
@@ -85,20 +98,98 @@ struct BrandStageKeyboardViewTests {
 
         latest.sendActions(for: .touchUpInside)
         period.sendActions(for: .touchUpInside)
-        comma.sendActions(for: .touchUpInside)
-        question.sendActions(for: .touchUpInside)
-        exclamation.sendActions(for: .touchUpInside)
+        laugh.sendActions(for: .touchUpInside)
+        #expect(!isEffectivelyHidden(quickInsertStage))
+        quickInsertToggle.sendActions(for: .touchUpInside)
+        layout(view)
         space.sendActions(for: .touchUpInside)
         delete.sendActions(for: .touchDown)
         delete.sendActions(for: .touchUpInside)
         returnButton.sendActions(for: .touchUpInside)
 
         #expect(latestCount == 1)
-        #expect(punctuation == [".", ",", "?", "!"])
+        #expect(quickInsertions == [".", "😂"])
+        #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
+        #expect(isEffectivelyHidden(quickInsertStage))
+        #expect(!isEffectivelyHidden(microphone))
         #expect(spaceCount == 1)
         #expect(deleteStartCount == 1)
         #expect(deleteStopCount == 1)
         #expect(returnCount == 1)
+    }
+
+    @Test func quickInsertClosesBackToTheRenderedRecoveryState() throws {
+        let view = makeView(width: 393)
+        view.render(
+            presentation(
+                status: .fullAccessRequired,
+                voiceStage: .recovery(.enableFullAccess)
+            )
+        )
+        layout(view)
+
+        let toggle = try button(
+            "keyboard.brand-stage.quick-insert-toggle",
+            in: view
+        )
+        let recovery = try #require(
+            view.descendant(
+                UIStackView.self,
+                identifier: "keyboard.brand-stage.recovery"
+            )
+        )
+        let quickInsert = try #require(
+            view.descendant(
+                UIStackView.self,
+                identifier: "keyboard.brand-stage.quick-insert"
+            )
+        )
+
+        #expect(!isEffectivelyHidden(recovery))
+        toggle.sendActions(for: .touchUpInside)
+        layout(view)
+        #expect(isEffectivelyHidden(recovery))
+        #expect(!isEffectivelyHidden(quickInsert))
+
+        toggle.sendActions(for: .touchUpInside)
+        layout(view)
+        #expect(!isEffectivelyHidden(recovery))
+        #expect(isEffectivelyHidden(quickInsert))
+    }
+
+    @Test func activeVoiceClosesAndDisablesQuickInsert() throws {
+        let view = makeView(width: 393)
+        view.render(presentation())
+        layout(view)
+
+        let toggle = try button(
+            "keyboard.brand-stage.quick-insert-toggle",
+            in: view
+        )
+        let quickInsert = try #require(
+            view.descendant(
+                UIStackView.self,
+                identifier: "keyboard.brand-stage.quick-insert"
+            )
+        )
+        toggle.sendActions(for: .touchUpInside)
+        layout(view)
+        #expect(!isEffectivelyHidden(quickInsert))
+
+        view.render(
+            presentation(
+                status: .listening,
+                voiceStage: .listening,
+                cancelIsVisible: true
+            )
+        )
+        layout(view)
+
+        #expect(isEffectivelyHidden(quickInsert))
+        #expect(!toggle.isEnabled)
+        #expect(toggle.accessibilityLabel == "Open Quick Insert")
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
+        #expect(!isEffectivelyHidden(microphone))
     }
 
     @Test func narrowPhoneKeepsEveryEditingControlAtLeast44PointsWide()
@@ -109,6 +200,7 @@ struct BrandStageKeyboardViewTests {
             layout(view)
 
             for identifier in [
+                "keyboard.brand-stage.quick-insert-toggle",
                 "keyboard.brand-stage.next-keyboard",
                 "keyboard.brand-stage.delete",
                 "keyboard.brand-stage.return",
@@ -117,6 +209,38 @@ struct BrandStageKeyboardViewTests {
                 #expect(control.bounds.width >= 43.9)
                 #expect(control.bounds.height >= 43.9)
             }
+        }
+    }
+
+    @Test func quickInsertRowsKeepEveryChoiceAtLeast44PointsSquare() throws {
+        for width: CGFloat in [320, 375, 393, 430] {
+            let view = makeView(width: width)
+            view.render(presentation())
+            layout(view)
+            let toggle = try button(
+                "keyboard.brand-stage.quick-insert-toggle",
+                in: view
+            )
+            toggle.sendActions(for: .touchUpInside)
+            layout(view)
+
+            for item in KeyboardQuickInsertCatalog.punctuation {
+                let control = try button(
+                    "keyboard.brand-stage.quick-insert.punctuation.\(item.id)",
+                    in: view
+                )
+                #expect(control.bounds.width >= 43.9)
+                #expect(control.bounds.height >= 43.9)
+            }
+            for item in KeyboardQuickInsertCatalog.emoji {
+                let control = try button(
+                    "keyboard.brand-stage.quick-insert.emoji.\(item.id)",
+                    in: view
+                )
+                #expect(control.bounds.width >= 43.9)
+                #expect(control.bounds.height >= 43.9)
+            }
+            assertVisibleHierarchyHasNoAmbiguity(view)
         }
     }
 
@@ -380,13 +504,10 @@ struct BrandStageKeyboardViewTests {
                     boundedViews.append(control)
                 }
 
-                let period = try button(
-                    "keyboard.brand-stage.punctuation.period",
-                    in: view
-                )
+                let space = try button("keyboard.brand-stage.space", in: view)
                 #expect(
                     frame(of: voice, in: view).maxX
-                        < frame(of: period, in: view).minX
+                        < frame(of: space, in: view).minX
                 )
                 assertViewsStayInBounds(boundedViews, of: view)
                 assertVisibleHierarchyHasNoAmbiguity(view)
@@ -447,15 +568,12 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.voice"
             )
         )
-        let period = try button(
-            "keyboard.brand-stage.punctuation.period",
-            in: view
-        )
+        let space = try button("keyboard.brand-stage.space", in: view)
         let initialFrames = controlFrames(in: view)
 
         #expect(
             frame(of: voice, in: view).maxX
-                < frame(of: period, in: view).minX
+                < frame(of: space, in: view).minX
         )
 
         fixture.host.frame.size.height = 302
@@ -466,7 +584,7 @@ struct BrandStageKeyboardViewTests {
 
         #expect(
             frame(of: voice, in: view).maxY
-                < frame(of: period, in: view).minY
+                < frame(of: space, in: view).minY
         )
         #expect(!isEffectivelyHidden(voice))
 
@@ -479,7 +597,7 @@ struct BrandStageKeyboardViewTests {
         #expect(controlFrames(in: view) == initialFrames)
         #expect(
             frame(of: voice, in: view).maxX
-                < frame(of: period, in: view).minX
+                < frame(of: space, in: view).minX
         )
 
         let safeAreaFixture = makeSafeAreaLandscapeFixture(
@@ -671,11 +789,8 @@ struct BrandStageKeyboardViewTests {
 
     private func compactControlIdentifiers(showsGlobe: Bool) -> [String] {
         var identifiers = [
+            "keyboard.brand-stage.quick-insert-toggle",
             "keyboard.brand-stage.latest",
-            "keyboard.brand-stage.punctuation.period",
-            "keyboard.brand-stage.punctuation.comma",
-            "keyboard.brand-stage.punctuation.question mark",
-            "keyboard.brand-stage.punctuation.exclamation mark",
             "keyboard.brand-stage.space",
             "keyboard.brand-stage.delete",
             "keyboard.brand-stage.return",

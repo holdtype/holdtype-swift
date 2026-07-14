@@ -10,13 +10,49 @@ struct BrandStageKeyboardPresentation: Equatable {
     let showsInputModeSwitchKey: Bool
 }
 
+private extension KeyboardVoiceStagePresentation {
+    var isVoice: Bool {
+        switch self {
+        case .ready, .listening:
+            true
+        case .recovery, .starting, .processing:
+            false
+        }
+    }
+
+    var isRecovery: Bool {
+        if case .recovery = self {
+            return true
+        }
+        return false
+    }
+
+    var isProgress: Bool {
+        switch self {
+        case .starting, .processing:
+            true
+        case .recovery, .ready, .listening:
+            false
+        }
+    }
+
+    var keepsVoiceWorkspaceVisible: Bool {
+        switch self {
+        case .starting, .listening, .processing:
+            true
+        case .recovery, .ready:
+            false
+        }
+    }
+}
+
 /// The selected Brand Stage Adaptive composition. The controller owns document
 /// proxy behavior; this view owns only layout, appearance, and touch routing.
 final class BrandStageKeyboardView: UIView {
     var onLatestRequested: (() -> Void)?
     var onMicrophoneRequested: (() -> Void)?
     var onCancelRequested: (() -> Void)?
-    var onPunctuationRequested: ((String) -> Void)?
+    var onQuickInsertRequested: ((String) -> Void)?
     var onSpaceRequested: (() -> Void)?
     var onSpaceCursorGesture: ((UIGestureRecognizer.State, CGFloat) -> Void)?
     var onCursorStepRequested: ((Int) -> Void)?
@@ -29,12 +65,14 @@ final class BrandStageKeyboardView: UIView {
     private let rootStack = UIStackView()
     private let bodyStack = UIStackView()
     private let commandStack = UIStackView()
-    private let punctuationRow = UIStackView()
-    private let topLeadingSpacer = UIView()
+    private let quickInsertButton = UIButton(type: .system)
+    private let topLeadingContainer = UIView()
     private let latestButton = UIButton(type: .system)
     private let logoImageView = UIImageView()
     private let stageContainer = UIView()
     private let voiceStage = UIStackView()
+    private let voiceTitleLabel = UILabel()
+    private let voiceContentStack = UIStackView()
     private let recoveryStage = UIStackView()
     private let recoveryTitleLabel = UILabel()
     private let recoveryDetailLabel = UILabel()
@@ -44,6 +82,10 @@ final class BrandStageKeyboardView: UIView {
     private let progressIndicator = UIActivityIndicatorView(style: .medium)
     private let progressTitleLabel = UILabel()
     private let progressCancelButton = UIButton(type: .system)
+    private let quickInsertStage = UIStackView()
+    private let quickInsertTitleLabel = UILabel()
+    private let quickInsertPunctuationScrollView = UIScrollView()
+    private let quickInsertEmojiScrollView = UIScrollView()
     private let editingRow = UIStackView()
     private let spaceButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
@@ -62,9 +104,11 @@ final class BrandStageKeyboardView: UIView {
     private var editingRowWithGlobeConstraints: [NSLayoutConstraint] = []
     private var editingRowWithoutGlobeConstraints: [NSLayoutConstraint] = []
     private var showsGlobeInEditingRow: Bool?
-    private var punctuationButtons: [UIButton] = []
+    private var quickInsertButtons: [UIButton] = []
     private var reduceTransparencyObserver: NSObjectProtocol?
     private var renderedStatus: KeyboardVoiceStatus?
+    private var renderedVoiceStage: KeyboardVoiceStagePresentation = .ready
+    private var quickInsertIsPresented = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -110,7 +154,12 @@ final class BrandStageKeyboardView: UIView {
     }
 
     func render(_ presentation: BrandStageKeyboardPresentation) {
-        stageContainer.accessibilityValue = presentation.status.rawValue
+        renderedVoiceStage = presentation.voiceStage
+        if presentation.voiceStage.keepsVoiceWorkspaceVisible {
+            quickInsertIsPresented = false
+        }
+        quickInsertButton.isEnabled = !presentation.voiceStage
+            .keepsVoiceWorkspaceVisible
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(
             presentation.voiceStage,
@@ -130,15 +179,14 @@ final class BrandStageKeyboardView: UIView {
             )
         }
         renderedStatus = presentation.status
+        updateWorkspaceVisibility()
+        updateQuickInsertButtonPresentation()
     }
 
     private func renderVoiceStage(
         _ presentation: KeyboardVoiceStagePresentation,
         cancelIsVisible: Bool
     ) {
-        voiceStage.isHidden = true
-        recoveryStage.isHidden = true
-        progressStage.isHidden = true
         microphoneView.isEnabled = false
         cancelButton.isHidden = true
         cancelButton.isEnabled = false
@@ -155,36 +203,41 @@ final class BrandStageKeyboardView: UIView {
             recoveryShortcutLabel.isHidden = recovery.shortcutInstruction == nil
             recoveryStage.accessibilityLabel = recovery.title
             recoveryStage.accessibilityValue = recovery.instruction
-            recoveryStage.isHidden = false
-
         case .ready:
             microphoneView.isEnabled = true
             microphoneImageView.image = UIImage(systemName: "mic.fill")
             microphoneView.accessibilityLabel = "Start keyboard dictation"
-            voiceStage.isHidden = false
-
         case .listening:
             microphoneView.isEnabled = true
             microphoneImageView.image = UIImage(systemName: "stop.fill")
             microphoneView.accessibilityLabel = "Finish keyboard dictation"
             cancelButton.isHidden = !cancelIsVisible
             cancelButton.isEnabled = cancelIsVisible
-            voiceStage.isHidden = false
-
         case .starting:
             progressTitleLabel.text = "Starting…"
             progressStage.accessibilityLabel = "Starting keyboard dictation"
             progressCancelButton.isHidden = !cancelIsVisible
             progressCancelButton.isEnabled = cancelIsVisible
-            progressStage.isHidden = false
-
         case .processing:
             progressTitleLabel.text = "Processing…"
             progressStage.accessibilityLabel = "Processing keyboard dictation"
             progressCancelButton.isHidden = !cancelIsVisible
             progressCancelButton.isEnabled = cancelIsVisible
-            progressStage.isHidden = false
         }
+    }
+
+    private func updateWorkspaceVisibility() {
+        quickInsertStage.isHidden = !quickInsertIsPresented
+        voiceStage.isHidden = quickInsertIsPresented
+            || !renderedVoiceStage.isVoice
+        recoveryStage.isHidden = quickInsertIsPresented
+            || !renderedVoiceStage.isRecovery
+        progressStage.isHidden = quickInsertIsPresented
+            || !renderedVoiceStage.isProgress
+
+        stageContainer.accessibilityValue = quickInsertIsPresented
+            ? "Quick Insert"
+            : renderedStatus?.rawValue
     }
 
     func updatePreferredHeight(for traitCollection: UITraitCollection) {
@@ -232,6 +285,10 @@ final class BrandStageKeyboardView: UIView {
         bodyStack.axis = isCompactPhone ? .horizontal : .vertical
         bodyStack.spacing = isCompactPhone ? 8 : 10
         commandStack.spacing = isCompactPhone ? 8 : 10
+        voiceStage.spacing = isCompactPhone ? 0 : 6
+        voiceTitleLabel.isHidden = isCompactPhone
+        quickInsertStage.spacing = isCompactPhone ? 6 : 8
+        quickInsertTitleLabel.isHidden = isCompactPhone
         logoWidthConstraint?.constant = isCompactPhone ? 28 : 34
         logoHeightConstraint?.constant = isCompactPhone ? 28 : 34
         rootTopConstraint?.constant = isCompactPhone ? 8 : 10
@@ -276,9 +333,15 @@ final class BrandStageKeyboardView: UIView {
         configureVoiceStage()
         configureRecoveryStage()
         configureProgressStage()
+        configureQuickInsertStage()
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
         stageContainer.accessibilityIdentifier = "keyboard.brand-stage.stage"
-        let stageViews = [voiceStage, recoveryStage, progressStage]
+        let stageViews = [
+            voiceStage,
+            recoveryStage,
+            progressStage,
+            quickInsertStage,
+        ]
         for stageView in stageViews {
             stageContainer.addSubview(stageView)
         }
@@ -314,13 +377,11 @@ final class BrandStageKeyboardView: UIView {
         }
         NSLayoutConstraint.activate(stageConstraints)
 
-        let punctuationRow = makePunctuationRow()
         let editingRow = makeEditingRow()
         commandStack.axis = .vertical
         commandStack.alignment = .fill
         commandStack.distribution = .fill
         commandStack.spacing = 10
-        commandStack.addArrangedSubview(punctuationRow)
         commandStack.addArrangedSubview(editingRow)
 
         bodyStack.axis = .vertical
@@ -394,12 +455,21 @@ final class BrandStageKeyboardView: UIView {
             rootBottom,
             height,
             topRail.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
-            punctuationRow.heightAnchor.constraint(equalToConstant: 44),
             editingRow.heightAnchor.constraint(equalToConstant: 52),
         ])
     }
 
     private func makeTopRail() -> UIStackView {
+        configureKey(
+            quickInsertButton,
+            systemImage: "face.smiling",
+            accessibilityLabel: "Open Quick Insert"
+        )
+        quickInsertButton.accessibilityTraits.remove(.keyboardKey)
+        quickInsertButton.accessibilityTraits.insert(.button)
+        quickInsertButton.accessibilityIdentifier =
+            "keyboard.brand-stage.quick-insert-toggle"
+
         configureTopAction(
             latestButton,
             title: "Latest",
@@ -430,8 +500,21 @@ final class BrandStageKeyboardView: UIView {
             logoHeight,
         ])
 
+        topLeadingContainer.addSubview(quickInsertButton)
+        quickInsertButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            quickInsertButton.leadingAnchor.constraint(
+                equalTo: topLeadingContainer.leadingAnchor
+            ),
+            quickInsertButton.centerYAnchor.constraint(
+                equalTo: topLeadingContainer.centerYAnchor
+            ),
+            quickInsertButton.widthAnchor.constraint(equalToConstant: 44),
+            quickInsertButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
+
         let rail = UIStackView(
-            arrangedSubviews: [topLeadingSpacer, logoImageView, latestButton]
+            arrangedSubviews: [topLeadingContainer, logoImageView, latestButton]
         )
         rail.axis = .horizontal
         rail.alignment = .center
@@ -442,9 +525,13 @@ final class BrandStageKeyboardView: UIView {
             for: .horizontal
         )
         NSLayoutConstraint.activate([
-            topLeadingSpacer.widthAnchor.constraint(equalTo: latestButton.widthAnchor),
-            topLeadingSpacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
-            topLeadingSpacer.heightAnchor.constraint(equalToConstant: 44),
+            topLeadingContainer.widthAnchor.constraint(
+                equalTo: latestButton.widthAnchor
+            ),
+            topLeadingContainer.widthAnchor.constraint(
+                greaterThanOrEqualToConstant: 96
+            ),
+            topLeadingContainer.heightAnchor.constraint(equalToConstant: 44),
             latestButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
             latestButton.heightAnchor.constraint(equalToConstant: 44),
         ])
@@ -453,18 +540,36 @@ final class BrandStageKeyboardView: UIView {
 
     private func configureVoiceStage() {
         voiceStage.translatesAutoresizingMaskIntoConstraints = false
-        voiceStage.axis = .horizontal
-        voiceStage.alignment = .center
+        voiceStage.axis = .vertical
+        voiceStage.alignment = .fill
         voiceStage.distribution = .fill
-        voiceStage.spacing = 12
+        voiceStage.spacing = 6
+
+        voiceTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(
+                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
+                maximumPointSize: 20
+            )
+        voiceTitleLabel.adjustsFontForContentSizeCategory = true
+        voiceTitleLabel.textAlignment = .center
+        voiceTitleLabel.text = "Voice"
+        voiceTitleLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.voice-title"
+
+        voiceContentStack.axis = .horizontal
+        voiceContentStack.alignment = .center
+        voiceContentStack.distribution = .fill
+        voiceContentStack.spacing = 12
 
         configureWaveform()
         let leftWaveform = waveformStack
         let rightWaveform = mirroredWaveform()
-        voiceStage.addArrangedSubview(leftWaveform)
-        voiceStage.addArrangedSubview(microphoneView)
-        voiceStage.addArrangedSubview(rightWaveform)
-        voiceStage.addArrangedSubview(cancelButton)
+        voiceContentStack.addArrangedSubview(leftWaveform)
+        voiceContentStack.addArrangedSubview(microphoneView)
+        voiceContentStack.addArrangedSubview(rightWaveform)
+        voiceContentStack.addArrangedSubview(cancelButton)
+        voiceStage.addArrangedSubview(voiceTitleLabel)
+        voiceStage.addArrangedSubview(voiceContentStack)
         leftWaveform.widthAnchor.constraint(greaterThanOrEqualToConstant: 96)
             .isActive = true
         rightWaveform.widthAnchor.constraint(equalTo: leftWaveform.widthAnchor)
@@ -615,27 +720,98 @@ final class BrandStageKeyboardView: UIView {
         button.heightAnchor.constraint(equalToConstant: 44).isActive = true
     }
 
-    private func makePunctuationRow() -> UIStackView {
-        punctuationRow.axis = .horizontal
-        punctuationRow.distribution = .fillEqually
-        punctuationRow.spacing = 8
-        for (character, name) in [
-            (".", "Period"),
-            (",", "Comma"),
-            ("?", "Question mark"),
-            ("!", "Exclamation mark"),
-        ] {
+    private func configureQuickInsertStage() {
+        quickInsertStage.translatesAutoresizingMaskIntoConstraints = false
+        quickInsertStage.axis = .vertical
+        quickInsertStage.alignment = .fill
+        quickInsertStage.distribution = .fill
+        quickInsertStage.spacing = 8
+        quickInsertStage.accessibilityIdentifier =
+            "keyboard.brand-stage.quick-insert"
+
+        quickInsertTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(
+                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
+                maximumPointSize: 20
+            )
+        quickInsertTitleLabel.adjustsFontForContentSizeCategory = true
+        quickInsertTitleLabel.textAlignment = .center
+        quickInsertTitleLabel.text = "Quick Insert"
+        quickInsertTitleLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.quick-insert-title"
+
+        configureQuickInsertRow(
+            quickInsertPunctuationScrollView,
+            items: KeyboardQuickInsertCatalog.punctuation,
+            category: "punctuation"
+        )
+        configureQuickInsertRow(
+            quickInsertEmojiScrollView,
+            items: KeyboardQuickInsertCatalog.emoji,
+            category: "emoji"
+        )
+
+        quickInsertStage.addArrangedSubview(quickInsertTitleLabel)
+        quickInsertStage.addArrangedSubview(quickInsertPunctuationScrollView)
+        quickInsertStage.addArrangedSubview(quickInsertEmojiScrollView)
+        quickInsertStage.isHidden = true
+    }
+
+    private func configureQuickInsertRow(
+        _ scrollView: UIScrollView,
+        items: [KeyboardQuickInsertItem],
+        category: String
+    ) {
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.alwaysBounceHorizontal = true
+        scrollView.isDirectionalLockEnabled = true
+        scrollView.clipsToBounds = true
+        scrollView.accessibilityIdentifier =
+            "keyboard.brand-stage.quick-insert.\(category)-row"
+        scrollView.heightAnchor.constraint(equalToConstant: 44).isActive = true
+
+        let row = UIStackView()
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.axis = .horizontal
+        row.alignment = .fill
+        row.distribution = .fill
+        row.spacing = 6
+        scrollView.addSubview(row)
+
+        for item in items {
             let button = UIButton(type: .system)
-            configureKey(button, title: character, accessibilityLabel: name)
+            configureKey(
+                button,
+                title: item.text,
+                accessibilityLabel: item.accessibilityLabel
+            )
             button.accessibilityIdentifier =
-                "keyboard.brand-stage.punctuation.\(name.lowercased())"
+                "keyboard.brand-stage.quick-insert.\(category).\(item.id)"
+            button.widthAnchor.constraint(equalToConstant: 44).isActive = true
             button.addAction(UIAction { [weak self] _ in
-                self?.onPunctuationRequested?(character)
+                self?.onQuickInsertRequested?(item.text)
             }, for: .touchUpInside)
-            punctuationButtons.append(button)
-            punctuationRow.addArrangedSubview(button)
+            quickInsertButtons.append(button)
+            row.addArrangedSubview(button)
         }
-        return punctuationRow
+
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor
+            ),
+            row.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor
+            ),
+            row.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor
+            ),
+            row.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor
+            ),
+            row.heightAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.heightAnchor
+            ),
+        ])
     }
 
     private func makeEditingRow() -> UIStackView {
@@ -766,6 +942,11 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func configureInteractions() {
+        quickInsertButton.addTarget(
+            self,
+            action: #selector(quickInsertToggled),
+            for: .touchUpInside
+        )
         latestButton.addTarget(
             self,
             action: #selector(latestTapped),
@@ -941,6 +1122,8 @@ final class BrandStageKeyboardView: UIView {
         recoveryFollowUpLabel.textColor = Self.statusForeground
         recoveryShortcutLabel.textColor = Self.statusForeground
         progressTitleLabel.textColor = Self.keyForeground
+        voiceTitleLabel.textColor = Self.keyForeground
+        quickInsertTitleLabel.textColor = Self.keyForeground
         progressIndicator.color = Self.voiceForeground
         microphoneView.backgroundColor = Self.microphoneBackground
         microphoneImageView.tintColor = Self.voiceForeground
@@ -957,6 +1140,7 @@ final class BrandStageKeyboardView: UIView {
         let contrast = UIAccessibility.isDarkerSystemColorsEnabled
         microphoneView.layer.borderWidth = contrast ? 3 : 2
         updateKeyAppearance(in: self)
+        updateQuickInsertButtonPresentation()
         setNeedsDisplay()
     }
 
@@ -987,10 +1171,10 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func keyBackground(for button: UIButton) -> UIColor {
-        if button === latestButton {
+        if button === latestButton || button === quickInsertButton {
             return Self.topActionBackground
         }
-        if punctuationButtons.contains(where: { $0 === button }) {
+        if quickInsertButtons.contains(where: { $0 === button }) {
             return Self.punctuationKeyBackground
         }
         return Self.editingKeyBackground
@@ -998,6 +1182,52 @@ final class BrandStageKeyboardView: UIView {
 
     @objc private func latestTapped() {
         onLatestRequested?()
+    }
+
+    @objc private func quickInsertToggled() {
+        guard quickInsertButton.isEnabled else { return }
+        quickInsertIsPresented.toggle()
+        updateWorkspaceVisibility()
+        updateQuickInsertButtonPresentation()
+        UIAccessibility.post(
+            notification: .layoutChanged,
+            argument: quickInsertIsPresented
+                ? quickInsertTitleLabel
+                : activeVoiceAccessibilityTarget
+        )
+    }
+
+    private func updateQuickInsertButtonPresentation() {
+        var configuration = quickInsertButton.configuration
+        configuration?.image = UIImage(
+            systemName: quickInsertIsPresented ? "xmark" : "face.smiling"
+        )
+        quickInsertButton.configuration = configuration
+        quickInsertButton.accessibilityLabel = quickInsertIsPresented
+            ? "Close Quick Insert"
+            : "Open Quick Insert"
+        quickInsertButton.accessibilityValue = quickInsertIsPresented
+            ? "Open"
+            : "Closed"
+        quickInsertButton.layer.borderColor = (
+            quickInsertIsPresented
+                ? Self.quickInsertActiveBorder
+                : Self.keyBorder
+        ).resolvedColor(with: traitCollection).cgColor
+        quickInsertButton.layer.borderWidth = quickInsertIsPresented
+            ? 2
+            : (UIAccessibility.isDarkerSystemColorsEnabled ? 1.5 : 0.5)
+    }
+
+    private var activeVoiceAccessibilityTarget: UIView {
+        switch renderedVoiceStage {
+        case .ready, .listening:
+            voiceTitleLabel
+        case .recovery:
+            recoveryStage
+        case .starting, .processing:
+            progressStage
+        }
     }
 
     @objc private func microphoneTapped() {
@@ -1080,6 +1310,12 @@ final class BrandStageKeyboardView: UIView {
         traits.userInterfaceStyle == .dark
             ? UIColor(white: 1, alpha: 0.16)
             : UIColor(red: 0.73, green: 0.76, blue: 0.83, alpha: 1)
+    }
+
+    private static let quickInsertActiveBorder = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.62, green: 0.42, blue: 1, alpha: 1)
+            : UIColor(red: 0.42, green: 0.36, blue: 0.96, alpha: 1)
     }
 
     private static let keyShadow = UIColor { traits in

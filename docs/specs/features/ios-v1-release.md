@@ -265,12 +265,15 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with balanced space on the left, the HoldType mark centered
-  without status text, and `Latest` insertion on the right;
+- a compact top row with a smile-icon Quick Insert toggle on the left, the
+  HoldType mark centered without status text, and `Latest` insertion on the
+  right;
 - one medium actionable microphone only while an app-owned Keyboard Dictation
   Session can start or finish real recording; unavailable states show complete
   recovery copy and processing shows progress instead of a disabled microphone;
-- one correction row containing `.`, `,`, `?`, and `!`;
+- one direct, reversible Quick Insert workspace containing bundled local
+  punctuation and emoji; it replaces the Voice workspace without an
+  intermediate launcher and closes back to the exact underlying Voice state;
 - one editing row containing Globe, a wide Space key, Delete, and adaptive
   Return;
 - short-tap Space insertion plus long-press and drag cursor movement without an
@@ -280,8 +283,9 @@ The first-release surface provides:
 - minimum 44-point targets, VoiceOver labels and state announcements, Dynamic
   Type-safe labels, Reduce Motion support, and sufficient contrast in both
   appearances;
-- local punctuation and editing controls that work without network or Full
-  Access, even when voice dictation is unavailable.
+- local Quick Insert and editing controls that work without network or Full
+  Access, even when voice dictation is unavailable; active Starting, Listening,
+  and Processing states keep Voice visible and disable the workspace toggle.
 
 The HoldType mark is identity only, not a button or status surface. No state
 label appears under or beside it; all state and recovery information lives in

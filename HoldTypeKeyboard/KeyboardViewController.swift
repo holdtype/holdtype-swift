@@ -178,8 +178,8 @@ final class KeyboardViewController: UIInputViewController {
         keyboardView.onCancelRequested = { [weak self] in
             self?.sendDictationCommand(.cancel)
         }
-        keyboardView.onPunctuationRequested = { [weak self] character in
-            self?.insertText(character)
+        keyboardView.onQuickInsertRequested = { [weak self] text in
+            self?.insertText(text)
         }
         keyboardView.onSpaceRequested = { [weak self] in
             self?.insertText(" ")

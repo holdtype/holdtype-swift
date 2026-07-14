@@ -54,24 +54,24 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: balanced space on the left, the HoldType mark centered without any
-   status text, and `Latest` on the right.
-2. Voice stage: either one medium actionable microphone, a processing
-   indicator, or a complete recovery instruction. An unavailable microphone is
-   never left on screen as decoration.
-3. Correction row: `.`, `,`, `?`, and `!`.
-4. Editing row: Globe, wide Space, Delete, and adaptive Return.
+1. Top rail: a smile-icon Quick Insert toggle on the left, the HoldType mark
+   centered without any status text, and `Latest` on the right.
+2. Workspace: either the Voice stage or Quick Insert. One toggle tap replaces
+   Voice directly with Quick Insert; there is no intermediate launcher, task
+   picker, menu, or containing-app transition. The close icon restores the
+   exact Voice, progress, or recovery presentation underneath.
+3. Editing row: Globe, wide Space, Delete, and adaptive Return.
 
 The HoldType mark is identity only. No state label appears under or beside it.
 Ready, unavailable, listening, starting, processing, and failure information
 belongs exclusively to the voice stage so the interface never repeats the same
 state in two places.
 
-The approved Option 2 reference remains the geometry source of truth. On iPhone
-the surface uses approximately 18-point side insets, 8-point key gaps, an
-approximately 80-point voice circle, four equal punctuation keys, and an
-editing-key relationship close to `Globe : Space : Delete : Return` of
-`1 : 4.35 : 1.15 : 1.25`. Every action is at least 44 by 44 points.
+The approved Brand Stage reference remains the geometry source of truth. On
+iPhone the surface uses approximately 18-point side insets, 8-point editing-key
+gaps, an approximately 80-point voice circle, and an editing-key relationship
+close to `Globe : Space : Delete : Return` of `1 : 4.35 : 1.15 : 1.25`.
+Every action is at least 44 by 44 points.
 
 Compact-height landscape may use the existing two-column reflow. Wider iPad
 layouts keep a centered maximum content width. V1.1 release qualification is
@@ -101,9 +101,26 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - A shortcut never replaces the complete route. It is a smaller secondary hint
   for users who already recognize the system Globe menu.
 
-## Editing Controls
+## Quick Insert And Editing Controls
 
-- `.`, `,`, `?`, and `!` insert their literal value locally.
+- The top-left control shows a smile icon while Voice is visible and a close
+  icon while Quick Insert is visible.
+- Quick Insert opens and closes in one tap. It never shows a mode chooser or a
+  second confirmation step.
+- The punctuation row contains `.`, `,`, `?`, `!`, `:`, `;`, `—`, and `…`.
+- The emoji row contains the bundled set `🙂`, `😂`, `❤️`, `👍`, `🙏`, `🔥`,
+  `✅`, and `✨`. These are fixed keyboard-local Unicode values, not copied
+  Apple artwork or user Library data.
+- Each selection performs exactly one local `insertText` call and leaves Quick
+  Insert open for additional selections until the user closes it.
+- Rows may scroll horizontally on narrow layouts, but every item keeps at least
+  a 44-by-44-point target.
+- Quick Insert remains available without provider setup, network, microphone
+  permission, or Full Access. Opening it may temporarily cover recovery copy;
+  closing it restores that copy unchanged.
+- Starting, Listening, and Processing keep their active Voice controls visible.
+  The Quick Insert toggle is unavailable during those states and an incoming
+  active state closes Quick Insert.
 - A short Space tap inserts one space.
 - Long-press then horizontal drag on Space moves the cursor without inserting a
   space.
@@ -112,7 +129,7 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   available.
 - Globe uses the system input-mode API and remains reachable whenever iOS
   requires it.
-- Punctuation, Space, Delete, Return, Globe, and an already-available
+- Quick Insert, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest remain useful without provider setup, network, or Full
   Access.
 
