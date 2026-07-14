@@ -1,7 +1,7 @@
 # HoldType iOS V1.1 Completion Plan
 
-Status: canonical execution plan; reduced, reprioritized, and updated for Brand
-Stage Adaptive and the restricted keyboard boundary on 2026-07-14.
+Status: canonical containing-app completion record; keyboard execution moved to
+`docs/ios-keyboard-dictation-mvp-plan.md` on 2026-07-14.
 
 Product behavior is governed by
 `docs/specs/features/ios-v1-release.md`. Historical P0-P8, P5H, accepted-
@@ -16,8 +16,8 @@ Finish the visible iPhone product without another architecture expansion:
 - Library and core Settings;
 - compact successful-text History;
 - one production Brand Stage Adaptive voice-command keyboard;
-- explicit keyboard Latest insertion, History app navigation, and an honest
-  decision on keyboard voice activation;
+- public system Settings, app-owned keyboard dictation, and safe Latest
+  fallback;
 - signed-device qualification.
 
 The user explicitly reprioritized working History ahead of the keyboard device
@@ -30,9 +30,9 @@ Working and retained:
 
 - foreground Voice, Done, Cancel, Retry, Discard, and Latest Result actions;
 - always-on, non-expiring app-private Latest Result;
-- compact, app-private History for up to 20 successful texts, including list,
-  detail, Copy, Share, Delete, Clear All, and the default-on `Save History`
-  control;
+- compact, app-private History for up to 20 successful texts, including a flat
+  full-text list, one-tap Copy, swipe Delete, conditional Play, Clear All, and
+  the default-on `Save History` control;
 - Dictionary, Voice Emoji Commands, and Replacement Rules;
 - API key, transcription, correction, translation, recording, privacy, and
   Usage Estimate settings;
@@ -41,22 +41,20 @@ Working and retained:
   explicit Latest insertion;
 - one production app-written, extension-read-only schema 3 snapshot containing
   at most one 10-minute Latest item;
-- the real containing-app History route plus a keyboard History request whose
-  App Review and device result remain separately gated.
+- the real containing-app History destination and route; History is no longer a
+  keyboard action.
 
 Remaining release work:
 
-1. Current Apple documentation does not qualify containing-app launch as a
-   supported custom-keyboard action, and App Review 4.4.1 forbids keyboard
-   extensions from launching apps other than Settings. That blocks a production
-   HoldType microphone handoff and also leaves the requested History launch
-   unqualified.
-2. The production Latest path is implemented without Full Access, and the
-   canonical Latest -> App Group -> real-keyboard insertion E2E is complete on
-   iOS 18.6 Simulator. Matching App Group signing, restricted-mode reading,
-   insertion, and process eviction still require a signed physical-iPhone pass.
-3. Real-host editing behavior, signed-device accessibility settings, and the
-   remaining physical-iPhone matrix require runtime evidence.
+1. Replace keyboard History with public system Settings and verify the normal
+   four-tab app shell.
+2. Prove on a signed physical iPhone that an explicit app-owned background
+   session can receive bounded keyboard commands, control real audio, and return
+   one result without launching the containing app or using private APIs.
+3. After that gate passes, connect the existing recorder/OpenAI/Latest/History
+   pipeline, finish compact setup/failure states, and qualify one TestFlight
+   candidate. Exact work and stop conditions live in
+   `docs/ios-keyboard-dictation-mvp-plan.md`.
 
 ## Execution Rules
 
@@ -151,9 +149,11 @@ Screen states:
 
 User actions:
 
-- open full text detail;
-- Copy and Share;
+- read complete text in the list without opening another screen;
+- Copy with one tap;
 - Delete one entry;
+- Play only when the optional Recording Cache contains the exact accepted
+  recording;
 - confirmed Clear All;
 - default-on `Save History` control;
 - confirmed disable-and-clear;
@@ -168,8 +168,8 @@ Verification:
 - owner state and stale-command tests;
 - view/presentation tests for every state and confirmation path;
 - compact-iPhone and iPad compatibility rendering;
-- Simulator flow: create result -> History list -> detail -> Copy/Share ->
-  Delete -> Clear All -> disable -> re-enable -> future append.
+- Simulator flow: create result -> flat History list -> Copy -> conditional
+  Play -> swipe Delete -> Clear All -> disable -> re-enable -> future append.
 
 Exit: Release navigation contains a useful History destination and never shows
 the old unconditional unavailable text.
@@ -201,9 +201,9 @@ Completion evidence, 2026-07-13:
 - compact History repository, Voice acceptance, state owner, settings, and
   presentation paths pass their focused tests;
 - signed iPhone and iPad Simulator builds launch with the sanitized automation
-  environment; external UI acceptance verified the populated newest-first
-  list and detail on both form factors, exact Copy output, Share presentation,
-  and the non-destructive Clear confirmation path;
+  environment; current UI acceptance verifies the populated newest-first flat
+  list, exact Copy output, swipe Delete, conditional Play, and the
+  non-destructive Clear confirmation path;
 - macOS plus generic iOS builds succeed;
 - H1-H4 changed 58 files with 2,833 insertions and 6,810 deletions: a net
   reduction of 3,977 lines;
@@ -247,72 +247,29 @@ Completion evidence, 2026-07-13:
   Data Protection, eviction, and App Group entitlement claims remain device
   gates.
 
-## K1 — Voice Activation Platform Gate
+## Keyboard MVP Continuation
 
-Documentation result, 2026-07-13: **not qualified for production**.
+The completed Brand Stage geometry, editing controls, bounded Latest snapshot,
+and containing-app History remain the baseline. The former non-interactive
+microphone and keyboard History request are superseded.
 
-- custom keyboard extensions have no microphone access;
-- `NSExtensionContext.open` is public, but iOS support is documented for Today
-  and iMessage extension points rather than custom keyboards;
-- App Review Guideline 4.4.1 says keyboard extensions must not launch apps other
-  than Settings;
-- no public host-identity or automatic-return contract exists.
+Current execution is defined only in
+`docs/ios-keyboard-dictation-mvp-plan.md`:
 
-A one-way custom URL may work on some iOS versions, but a signed device pass
-would prove only technical behavior, not App Review compatibility. The
-containing app may register and verify its public History route, and the
-selected keyboard keeps the user-required History control. Production uses no
-responder-chain trampoline, private selector, automatic-return claim, or
-fabricated recording state. The keyboard-originated History launch and the
-keyboard-plus-voice release claim require Apple clarification or explicit
-acceptance of the remaining release risk after bounded device evidence.
+- replace keyboard History with public system Settings;
+- prove an app-owned Keyboard Dictation Session on a signed physical iPhone;
+- connect the existing recorder/OpenAI/Latest/History pipeline only after that
+  feasibility gate passes;
+- finish bounded setup and failure states;
+- qualify one TestFlight candidate.
 
-## K2 — Production Brand Stage Adaptive
-
-Replace the probe with the selected composition while keeping the unresolved
-voice stage visibly unavailable and non-interactive:
-
-- top rail with History, centered HoldType identity/status, and Latest;
-- one medium branded microphone stage with no fake action or optimistic state;
-- `.`, `,`, `?`, and `!` correction keys;
-- Globe, wide Space, Delete repeat, and adaptive Return;
-- long-press and drag cursor movement on Space;
-- identical geometry with system-adaptive Light and Dark materials;
-- 44-point targets, VoiceOver, Reduce Motion, Increase Contrast, and Dynamic
-  Type-safe labels;
-- removal of `A`, manual Refresh, and the giant Insert Latest probe control.
-
-K2 adds no alphabet, number deck, Shift/Caps, predictions, autocorrection,
-keyboard dictionaries, or locale-layout engine. The microphone remains
-non-interactive while K1 is unresolved. Result actions remain honestly gated by
-K3 state while local editing and Globe keep working.
-
-## K3 — Latest Snapshot And History Route Qualification
-
-- publish one real accepted Latest with a 10-minute expiry to one bounded
-  app-written, extension-read-only App Group snapshot;
-- omit already-expired results and replace legacy schema 1/2 payloads with an
-  empty current-schema cache at app startup;
-- declare `RequestsOpenAccess = false`; the extension reads the app-written
-  snapshot in Apple's restricted keyboard sandbox and never writes to App Group;
-- keep full 20-entry History and every destructive History action app-private;
-- keep the projection as one replaceable cache with one app writer; add no
-  outbox, receipt, acknowledgement, tombstone, or delivery transaction;
-- implement explicit one-call-per-tap insertion for Latest with no automatic
-  replay;
-- register and test the containing-app History route, wire the keyboard History
-  control through public extension APIs only, and record the separate
-  device/review qualification result;
-- finalize setup, restricted-access privacy, and fallback copy;
-- run Debug/Release dependency checks, simulator appearance/accessibility checks,
-  and the signed physical-iPhone matrix;
-- perform one explicitly authorized live Standard smoke only when a configured
-  provider key is available.
+The new plan preserves the existing one-item Latest projection and adds at most
+one extension-written command record plus one app-written state/result record.
+It does not restore any retired persistence family.
 
 ## Explicitly Deferred
 
 - failed-attempt History and retry audio;
-- accepted audio playback or Recording Cache;
 - background Quick Session and Live Activity;
 - QWERTY, alphabet/number layouts, predictions, autocorrection, and typing
   dictionaries;
@@ -329,10 +286,9 @@ K3 state while local editing and Globe keep working.
 | H3 Finished History surface | Completed 2026-07-13 |
 | H4 Bounded legacy cleanup | Completed 2026-07-13 |
 | P1-P6 Persistence simplification and legacy retirement | Completed 2026-07-13 |
-| K1 Voice activation platform gate | Not qualified for production, 2026-07-13 |
-| K2 Production Brand Stage Adaptive | Engineering complete; portrait/iPad and compact-landscape runtime evidence complete, signed-device host/accessibility gates pending 2026-07-14 |
-| K3 Latest snapshot and History route qualification | Canonical Latest E2E complete on Simulator; History review risk and signed-device host/device gates pending 2026-07-14 |
+| Existing Brand Stage and Latest baseline | Engineering complete on Simulator 2026-07-14 |
+| Keyboard Dictation MVP | Planned in `docs/ios-keyboard-dictation-mvp-plan.md` 2026-07-14 |
 
-Compact History, the non-interactive Brand Stage voice core, and explicit Latest
-insertion are complete in code. The requested best-effort History request remains
-an explicit review risk, and the signed-device gates are unresolved.
+Compact History, Recording Cache playback, Brand Stage editing, and explicit
+Latest insertion are complete in code. Settings replacement, actionable
+keyboard dictation, and signed-device release qualification remain.

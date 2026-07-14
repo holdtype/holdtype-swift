@@ -1,11 +1,13 @@
 # iOS Brand Stage Keyboard Implementation Record
 
-Status: active completion record, updated 2026-07-14.
+Status: historical Brand Stage baseline, superseded for current keyboard work by
+`docs/ios-keyboard-dictation-mvp-plan.md` on 2026-07-14.
 
 Product behavior is governed by `docs/specs/features/ios-v1-release.md` and
-`docs/specs/features/ios-keyboard-experience.md`. This file records what is
-implemented, what remains to be qualified, and why keyboard voice is still a
-release no-go. It is not a backlog.
+`docs/specs/features/ios-keyboard-experience.md`. This file records the
+pre-dictation implementation baseline and its evidence. Its History action,
+non-interactive microphone, and restricted-access direction are not current
+product requirements. It is not a backlog.
 
 ## Product Decision
 

@@ -1,10 +1,11 @@
 # iOS Keyboard Feasibility
 
-Status: active feasibility evidence; K1 voice activation is not qualified for
-production as of 2026-07-14. The current product scope and implementation order
-are `ios-v1-release.md` and `docs/ios-v1-development-plan.md`. The former full-
-replacement QWERTY and Quick Session hypotheses are superseded by Brand Stage
-Adaptive.
+Status: historical K1 feasibility evidence as of 2026-07-14. Current product
+scope is `ios-v1-release.md`; current signed-device background-session gate and
+implementation order are in `docs/ios-keyboard-dictation-mvp-plan.md`. The
+non-interactive microphone, keyboard History action, restricted-access
+direction, full-replacement QWERTY, and Quick Session hypotheses below are not
+current product requirements.
 
 ## Goal
 

@@ -4,7 +4,8 @@ Status: feasibility and physical-device appendix as of 2026-07-13. This file no
 longer defines implementation order. Its former full-QWERTY, Quick Session, and
 M1-M5 product direction is superseded by Brand Stage Adaptive. Preserve platform
 findings and gate evidence, but use `docs/specs/features/ios-v1-release.md` for
-product behavior and `docs/ios-v1-development-plan.md` for current work.
+product behavior and `docs/ios-keyboard-dictation-mvp-plan.md` for current
+keyboard work.
 
 The historical complete portability roadmap lives in
 `docs/ios-product-portability-plan.md`. This file keeps platform evidence and

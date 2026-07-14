@@ -20,7 +20,8 @@ transcription API, and inserts returned text into the active app.
 The macOS product remains shipped behavior that must not regress. The current
 iOS scope is the compact V1.1 product contract in
 [`features/ios-v1-release.md`](features/ios-v1-release.md), implemented in the
-order defined by `docs/ios-v1-development-plan.md`. The former P0-P8
+order defined by `docs/ios-v1-development-plan.md`. Current keyboard-controlled
+dictation work uses `docs/ios-keyboard-dictation-mvp-plan.md`. The former P0-P8
 portability roadmap and detailed accepted/failed History transaction specs are
 historical evidence, not active implementation queues. Physical-device gates
 still control claims that cannot be proven in the simulator.
