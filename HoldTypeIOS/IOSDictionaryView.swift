@@ -34,7 +34,7 @@ struct IOSDictionaryView: View {
                 IOSDestinationLoadFailureView(
                     title: "Dictionary Unavailable",
                     description:
-                        "HoldType couldn’t read your Library. No empty "
+                        "HoldType couldn’t read your saved rules. No empty "
                         + "replacement was created.",
                     isRetrying: isLoading,
                     retry: retryLoad
@@ -120,7 +120,7 @@ struct IOSDictionaryView: View {
 
         return List {
             if showsSharedSaveFailure, notice != .notSaved {
-                IOSSaveFailureSection(subject: "Library")
+                IOSSaveFailureSection(subject: "Dictation Rules")
             }
 
             if let notice {
@@ -199,8 +199,9 @@ struct IOSDictionaryView: View {
 
             Section {
                 Text(
-                    "Dictionary entries stay in HoldType’s private Library. "
-                        + "They are not copied into the keyboard extension."
+                    "Dictionary entries help HoldType recognize names, brands, "
+                        + "and terms in new dictations. They are not copied "
+                        + "into the keyboard."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -240,7 +241,8 @@ struct IOSDictionaryView: View {
             } catch {
                 notice = .notSaved
                 iosAnnounceSettingsStatus(
-                    "Library was not saved. Added words remain in the draft."
+                    "Dictation rules were not saved. Added words remain in "
+                        + "the draft."
                 )
             }
         }
@@ -268,7 +270,7 @@ struct IOSDictionaryView: View {
             )
         case .targetMissing, .conflict:
             notice = .changedElsewhere
-            iosAnnounceSettingsStatus("Library changed elsewhere.")
+            iosAnnounceSettingsStatus("Dictation rules changed elsewhere.")
         }
     }
 
@@ -297,14 +299,14 @@ struct IOSDictionaryView: View {
                     iosAnnounceSettingsStatus("Dictionary entry deleted.")
                 case .targetMissing, .conflict:
                     notice = .changedElsewhere
-                    iosAnnounceSettingsStatus("Library changed elsewhere.")
+                    iosAnnounceSettingsStatus("Dictation rules changed elsewhere.")
                 case .unchanged, .duplicate, .invalid:
                     notice = .changedElsewhere
                 }
             } catch {
                 notice = .notSaved
                 iosAnnounceSettingsStatus(
-                    "Library was not saved. The entry remains saved."
+                    "Dictation rules were not saved. The entry remains saved."
                 )
             }
         }
@@ -373,7 +375,8 @@ private struct IOSLibraryEditorNoticeSection: View {
                 Label("Dictionary Entry Deleted", systemImage: "trash")
             case .changedElsewhere:
                 IOSSettingsWarningLabel(
-                    "Library changed elsewhere. The latest saved entries are shown.",
+                    "Dictation rules changed elsewhere. The latest saved "
+                        + "entries are shown.",
                     color: .orange
                 )
             case .invalid:
@@ -383,7 +386,8 @@ private struct IOSLibraryEditorNoticeSection: View {
                 )
             case .notSaved:
                 IOSSettingsWarningLabel(
-                    "Library was not saved. The last saved entries remain active.",
+                    "Dictation rules were not saved. The last saved entries "
+                        + "remain active.",
                     color: .red
                 )
             }
@@ -405,7 +409,7 @@ private struct IOSLibraryEditorNoticeSection: View {
 struct IOSLibraryPersistentFailureStatus: View {
     var body: some View {
         Label {
-            Text("Not Saved — saved Library unchanged")
+            Text("Not Saved — saved dictation rules unchanged")
                 .foregroundStyle(.primary)
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill")

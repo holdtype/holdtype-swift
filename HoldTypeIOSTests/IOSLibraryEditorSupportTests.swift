@@ -17,9 +17,22 @@ struct IOSLibraryEditorSupportTests {
         #expect(
             IOSLibraryDestination.allCases.map(\.title) == [
                 "Dictionary",
-                "Voice Emoji Commands",
-                "Replacement Rules",
+                "Emoji Commands",
+                "Replacements",
             ]
+        )
+        #expect(
+            IOSLibraryDestination.allCases.map(\.detail) == [
+                "Names, brands, and terms to recognize",
+                "Say a phrase to insert an emoji",
+                "Fix or expand recognized text automatically",
+            ]
+        )
+        #expect(
+            IOSLibrarySummaryList.introduction
+                == "Teach HoldType the words you use and choose how the final "
+                    + "text should look. These rules apply automatically to new "
+                    + "dictations."
         )
         #expect(
             Set(

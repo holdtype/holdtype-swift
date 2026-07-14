@@ -10,8 +10,16 @@ enum IOSLibraryDestination: String, CaseIterable, Hashable {
     var title: String {
         switch self {
         case .dictionary: "Dictionary"
-        case .emojiCommands: "Voice Emoji Commands"
-        case .replacementRules: "Replacement Rules"
+        case .emojiCommands: "Emoji Commands"
+        case .replacementRules: "Replacements"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .dictionary: "Names, brands, and terms to recognize"
+        case .emojiCommands: "Say a phrase to insert an emoji"
+        case .replacementRules: "Fix or expand recognized text automatically"
         }
     }
 

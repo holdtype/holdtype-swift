@@ -15,7 +15,7 @@ enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
         case .voice:
             "Voice"
         case .library:
-            "Library"
+            "Rules"
         case .history:
             "History"
         case .settings:
@@ -28,7 +28,7 @@ enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
         case .voice:
             "mic.fill"
         case .library:
-            "books.vertical.fill"
+            "checklist"
         case .history:
             "clock.arrow.circlepath"
         case .settings:

@@ -184,7 +184,7 @@ struct IOSOpenAISettingsView: View {
             .foregroundStyle(.secondary)
 
             Text(
-                "Your other HoldType settings and Library remain available. "
+                "Your other HoldType settings and dictation rules remain available. "
                 + "This state does not mean that no key is saved."
             )
             .font(.footnote)
@@ -353,8 +353,8 @@ struct IOSOpenAISettingsView: View {
         Section("Privacy") {
             Text(
                 "The key is stored in this app’s private Keychain item. It "
-                + "is never copied to the keyboard extension, Library, "
-                + "History, diagnostics, or shared settings."
+                + "is never included in dictation rules, History, diagnostics, "
+                + "shared settings, or the keyboard extension."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)

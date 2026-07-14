@@ -496,7 +496,7 @@ private struct IOSMissingCustomEmojiCommandView: View {
             )
         } description: {
             Text(
-                "This custom command is no longer in the saved Library."
+                "This custom command is no longer saved."
             )
         }
     }

@@ -37,7 +37,7 @@ complements the user's system keyboards; it is not a replacement QWERTY engine.
 
 V1.1 includes:
 
-- iPhone setup, Voice, Library, compact History, and Settings;
+- iPhone setup, Voice, Dictation Rules, compact History, and Settings;
 - foreground recording and OpenAI transcription in the containing app;
 - one explicit, bounded, app-owned Keyboard Dictation Session;
 - existing optional correction and translation;
@@ -98,7 +98,8 @@ The containing app exposes four useful destinations only:
 
 - `Voice`: record, recover one pending attempt, and work with one composed
   editable Draft while Latest remains the last accepted result;
-- `Library`: Dictionary, Voice Emoji Commands, and Replacement Rules;
+- `Rules`: opens `Dictation Rules` for Dictionary, Emoji Commands, and
+  Replacements;
 - `History`: successful accepted text only;
 - `Settings`: provider, language/writing, recording, privacy, and setup.
 
@@ -463,13 +464,13 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - App and extension dependency isolation is verified.
 - Foreground Voice to Latest succeeds with fakes.
 - Relaunch exposes the one Pending Retry/Discard path.
-- Library and core Settings persist.
+- Dictation Rules and core Settings persist.
 - Compact History append, one-tap Copy, swipe Delete, Clear All, cap, and
   failure isolation pass; no detail route, Share, date, or time is rendered.
 - Recording Cache off/on, bounded retention, missing-file Play eligibility,
   local playback failure, and playback-to-Voice handoff pass.
 - Release navigation contains no placeholder destination.
-- Normal iPhone launch shows Voice, Library, History, and Settings in the tab
+- Normal iPhone launch shows Voice, Rules, History, and Settings in the tab
   shell; qualification routes never become a production root.
 - Keyboard tests cover both appearances, recovery instructions, punctuation,
   Delete repeat, Space cursor movement, Return traits, session-state honesty,

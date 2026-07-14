@@ -64,7 +64,7 @@ struct IOSContainingAppShell: View {
             )
         }
         .alert(
-            "Finishing Library Change",
+            "Finishing Dictation Rule Change",
             isPresented: $showsEditorOperationAlert
         ) {
             Button("OK", role: .cancel) {}
@@ -309,7 +309,7 @@ struct IOSContainingAppStorageUnavailableView: View {
             } description: {
                 Text(
                     "HoldType couldn’t open its private local storage. "
-                    + "Your settings and Library were not replaced with "
+                    + "Your settings and dictation rules were not replaced with "
                     + "defaults. Close and reopen HoldType to try again."
                 )
             }

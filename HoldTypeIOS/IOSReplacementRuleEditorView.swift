@@ -209,9 +209,8 @@ struct IOSReplacementRuleEditorView: View {
 
             Section {
                 Text(
-                    "This rule runs locally, in Library order, after voice "
-                        + "emoji commands. Its content never enters the "
-                        + "keyboard extension or App Group."
+                    "This rule runs locally, in the saved order, after emoji "
+                        + "commands. It is not copied into the keyboard."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -527,7 +526,7 @@ private struct IOSMissingReplacementRuleView: View {
                 systemImage: "exclamationmark.triangle"
             )
         } description: {
-            Text("This replacement rule is no longer in the saved Library.")
+            Text("This replacement rule is no longer saved.")
         }
     }
 }

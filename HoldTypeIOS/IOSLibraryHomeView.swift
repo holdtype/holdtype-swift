@@ -12,12 +12,12 @@ struct IOSLibraryHomeView: View {
         Group {
             switch stateOwner.state {
             case .notLoaded:
-                IOSDestinationLoadingView(title: "Loading Library")
+                IOSDestinationLoadingView(title: "Loading Dictation Rules")
             case .loadFailed:
                 IOSDestinationLoadFailureView(
-                    title: "Library Unavailable",
+                    title: "Dictation Rules Unavailable",
                     description:
-                        "HoldType couldn’t read your Library. No empty "
+                        "HoldType couldn’t read your saved rules. No empty "
                         + "replacement was created.",
                     isRetrying: isLoading,
                     retry: retryLoad
@@ -34,7 +34,7 @@ struct IOSLibraryHomeView: View {
                 )
             }
         }
-        .navigationTitle("Library")
+        .navigationTitle("Dictation Rules")
         .navigationDestination(for: IOSLibraryRoute.self) { route in
             switch route {
             case .dictionary:
@@ -109,23 +109,30 @@ struct IOSLibraryHomeView: View {
 }
 
 struct IOSLibrarySummaryList: View {
+    static let introduction =
+        "Teach HoldType the words you use and choose how the final text "
+        + "should look. These rules apply automatically to new dictations."
+
     let content: IOSLibraryContent
     let showsSaveFailure: Bool
 
     var body: some View {
         List {
             if showsSaveFailure {
-                IOSSaveFailureSection(subject: "Library")
+                IOSSaveFailureSection(subject: "Dictation Rules")
             }
 
-            Section("Saved Content") {
+            Section {
                 NavigationLink(value: IOSLibraryRoute.dictionary) {
                     IOSLibraryDestinationLabel(
                         destination: .dictionary,
-                        summary: countLabel(
-                            content.customDictionary.entries.count,
-                            singular: "entry",
-                            plural: "entries"
+                        summary: summary(
+                            for: .dictionary,
+                            status: countLabel(
+                                content.customDictionary.entries.count,
+                                singular: "entry",
+                                plural: "entries"
+                            )
                         )
                     )
                 }
@@ -137,8 +144,11 @@ struct IOSLibrarySummaryList: View {
                 NavigationLink(value: IOSLibraryRoute.emojiCommands) {
                     IOSLibraryDestinationLabel(
                         destination: .emojiCommands,
-                        summary: IOSEmojiCommandsPresentation.summary(
-                            content.emojiCommandsConfiguration
+                        summary: summary(
+                            for: .emojiCommands,
+                            status: IOSEmojiCommandsPresentation.summary(
+                                content.emojiCommandsConfiguration
+                            )
                         )
                     )
                 }
@@ -150,8 +160,11 @@ struct IOSLibrarySummaryList: View {
                 NavigationLink(value: IOSLibraryRoute.replacementRules) {
                     IOSLibraryDestinationLabel(
                         destination: .replacementRules,
-                        summary: IOSReplacementRulesPresentation.summary(
-                            content.replacementRules
+                        summary: summary(
+                            for: .replacementRules,
+                            status: IOSReplacementRulesPresentation.summary(
+                                content.replacementRules
+                            )
                         )
                     )
                 }
@@ -159,17 +172,21 @@ struct IOSLibrarySummaryList: View {
                     IOSLibraryDestination.replacementRules
                         .rowAccessibilityIdentifier
                 )
-            }
-
-            Section {
-                Text(
-                    "Library content stays in HoldType’s private storage. It "
-                    + "is not copied into the keyboard extension or App Group."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            } header: {
+                Text(Self.introduction)
+                    .textCase(nil)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func summary(
+        for destination: IOSLibraryDestination,
+        status: String
+    ) -> String {
+        "\(destination.detail) · \(status)"
     }
 
     private func countLabel(

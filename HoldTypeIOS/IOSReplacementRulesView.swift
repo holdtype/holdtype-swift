@@ -26,12 +26,12 @@ struct IOSReplacementRulesView: View {
         Group {
             switch stateOwner.state {
             case .notLoaded:
-                IOSDestinationLoadingView(title: "Loading Replacement Rules")
+                IOSDestinationLoadingView(title: "Loading Replacements")
             case .loadFailed:
                 IOSDestinationLoadFailureView(
-                    title: "Replacement Rules Unavailable",
+                    title: "Replacements Unavailable",
                     description:
-                        "HoldType couldn’t read your Library. No empty "
+                        "HoldType couldn’t read your saved rules. No empty "
                         + "replacement was created.",
                     isRetrying: isLoading,
                     retry: retryLoad
@@ -48,7 +48,7 @@ struct IOSReplacementRulesView: View {
                 )
             }
         }
-        .navigationTitle("Replacement Rules")
+        .navigationTitle("Replacements")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(
             operationInFlight && hasBlockingSceneOperation
@@ -111,7 +111,7 @@ struct IOSReplacementRulesView: View {
 
         return List {
             if showsSharedSaveFailure, notice != .notSaved {
-                IOSSaveFailureSection(subject: "Library")
+                IOSSaveFailureSection(subject: "Dictation Rules")
             }
 
             if let notice {
@@ -173,10 +173,9 @@ struct IOSReplacementRulesView: View {
 
             Section {
                 Text(
-                    "Rules run locally, in order, after voice emoji "
-                        + "commands. Matching is literal and case-insensitive. "
-                        + "Rules never enter the keyboard extension or App "
-                        + "Group."
+                    "Replacements run locally, in order, after emoji commands. "
+                        + "Matching is literal and case-insensitive. They are "
+                        + "not copied into the keyboard."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)

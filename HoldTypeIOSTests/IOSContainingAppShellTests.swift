@@ -16,7 +16,7 @@ struct IOSContainingAppShellTests {
         #expect(
             IOSContainingAppDestination.allCases.map(\.title) == [
                 "Voice",
-                "Library",
+                "Rules",
                 "History",
                 "Settings",
             ]
@@ -24,7 +24,7 @@ struct IOSContainingAppShellTests {
         #expect(
             IOSContainingAppDestination.allCases.map(\.systemImage) == [
                 "mic.fill",
-                "books.vertical.fill",
+                "checklist",
                 "clock.arrow.circlepath",
                 "gearshape.fill",
             ]
@@ -36,6 +36,7 @@ struct IOSContainingAppShellTests {
                 )
             ).count == 4
         )
+        #expect(UIImage(systemName: "checklist") != nil)
         #expect(
             IOSContainingAppDestination.resolve(
                 storedRawValue: "library"

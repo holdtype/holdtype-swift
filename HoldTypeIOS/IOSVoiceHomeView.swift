@@ -1591,7 +1591,7 @@ struct IOSVoiceRuntimeUnavailableView: View {
         } description: {
             Text(
                 "Foreground Voice could not be composed safely. Settings, "
-                    + "Library, and ordinary keyboard typing remain available."
+                    + "Dictation Rules, and ordinary keyboard typing remain available."
             )
         }
         .navigationTitle("Voice")

@@ -610,8 +610,8 @@ private struct IOSUIQualificationVoiceHost: View {
             }
             .tabItem { Label("Voice", systemImage: "mic.fill") }
 
-            Text("Library")
-                .tabItem { Label("Library", systemImage: "books.vertical") }
+            Text("Rules")
+                .tabItem { Label("Rules", systemImage: "checklist") }
             Text("History")
                 .tabItem { Label("History", systemImage: "clock") }
             Text("Settings")

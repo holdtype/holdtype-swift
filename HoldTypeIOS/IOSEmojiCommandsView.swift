@@ -29,7 +29,7 @@ struct IOSEmojiCommandsView: View {
                 IOSDestinationLoadFailureView(
                     title: "Emoji Commands Unavailable",
                     description:
-                        "HoldType couldn’t read your Library. No empty "
+                        "HoldType couldn’t read your saved rules. No empty "
                         + "replacement was created.",
                     isRetrying: isLoading,
                     retry: retryLoad
@@ -47,7 +47,7 @@ struct IOSEmojiCommandsView: View {
                 )
             }
         }
-        .navigationTitle("Voice Emoji Commands")
+        .navigationTitle("Emoji Commands")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(
             operationInFlight && hasBlockingSceneOperation
@@ -90,7 +90,7 @@ struct IOSEmojiCommandsView: View {
 
         return List {
             if showsSharedSaveFailure, notice != .notSaved {
-                IOSSaveFailureSection(subject: "Library")
+                IOSSaveFailureSection(subject: "Dictation Rules")
             }
 
             if let notice {
@@ -242,9 +242,9 @@ struct IOSEmojiCommandsView: View {
 
             Section {
                 Text(
-                    "Commands stay in HoldType’s private Library. The "
-                        + "keyboard extension receives neither the catalog "
-                        + "nor custom phrases."
+                    "Spoken phrases help guide transcription, then HoldType "
+                        + "inserts the matching emoji locally. Commands are not "
+                        + "copied into the keyboard."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -386,7 +386,7 @@ struct IOSEmojiCommandsView: View {
                 case .targetMissing, .conflict:
                     notice = .changedElsewhere
                     iosAnnounceSettingsStatus(
-                        "Library changed elsewhere. No change was made."
+                        "Dictation rules changed elsewhere. No change was made."
                     )
                 case .duplicate, .invalid:
                     notice = .invalid
@@ -397,7 +397,8 @@ struct IOSEmojiCommandsView: View {
             } catch {
                 notice = .notSaved
                 iosAnnounceSettingsStatus(
-                    "Library was not saved. Saved commands are unchanged."
+                    "Dictation rules were not saved. Saved commands are "
+                        + "unchanged."
                 )
             }
         }
@@ -427,7 +428,8 @@ struct IOSEmojiSetSelectionView: View {
             } else {
                 IOSDestinationLoadFailureView(
                     title: "Active Set Unavailable",
-                    description: "HoldType couldn’t read the saved Library.",
+                    description:
+                        "HoldType couldn’t read the saved dictation rules.",
                     isRetrying: false,
                     retry: {}
                 )
@@ -454,7 +456,7 @@ struct IOSEmojiSetSelectionView: View {
 
         return List {
             if case .saveFailed = stateOwner.state, notice != .notSaved {
-                IOSSaveFailureSection(subject: "Library")
+                IOSSaveFailureSection(subject: "Dictation Rules")
             }
             if let notice {
                 IOSEmojiCommandsNoticeSection(notice: notice)
@@ -552,7 +554,7 @@ struct IOSEmojiSetSelectionView: View {
                     iosAnnounceSettingsStatus("Active command set updated.")
                 case .targetMissing, .conflict:
                     notice = .changedElsewhere
-                    iosAnnounceSettingsStatus("Library changed elsewhere.")
+                    iosAnnounceSettingsStatus("Dictation rules changed elsewhere.")
                 case .duplicate, .invalid:
                     notice = .invalid
                 }
@@ -685,13 +687,17 @@ private struct IOSEmojiCommandsNoticeSection: View {
         Section {
             switch notice {
             case .saved:
-                Label("Library Updated", systemImage: "checkmark.circle.fill")
+                Label(
+                    "Dictation Rules Updated",
+                    systemImage: "checkmark.circle.fill"
+                )
                     .foregroundStyle(.green)
             case .deleted:
                 Label("Custom Command Deleted", systemImage: "trash")
             case .changedElsewhere:
                 IOSSettingsWarningLabel(
-                    "Library changed elsewhere. No conflicting change was made.",
+                    "Dictation rules changed elsewhere. No conflicting change "
+                        + "was made.",
                     color: .orange
                 )
             case .invalid:
@@ -701,7 +707,8 @@ private struct IOSEmojiCommandsNoticeSection: View {
                 )
             case .notSaved:
                 IOSSettingsWarningLabel(
-                    "Library was not saved. The last saved commands remain active.",
+                    "Dictation rules were not saved. The last saved commands "
+                        + "remain active.",
                     color: .red
                 )
             }
