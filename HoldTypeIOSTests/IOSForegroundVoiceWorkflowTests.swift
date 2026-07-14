@@ -125,6 +125,7 @@ struct IOSForegroundVoiceWorkflowTests {
                 "permission-request",
                 "history-stop",
                 "audio-activate",
+                "input-freeze",
                 "start-boundary",
                 "input-freeze",
                 "recording-make",
@@ -1155,6 +1156,35 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(recorder.events.contains("recording-make"))
         #expect(!recorder.events.contains("recording-start"))
         #expect(recorder.stopReasons == [.interrupted])
+    }
+
+    @Test
+    func outputOnlyRouteDuringArmingRevalidatesInputAndStartsRecorder()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            audioEventAtStartBoundary: .routeNeedsRevalidation,
+            audioFreezeResults: [true, true, true]
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+
+        try await waitUntil(timeout: .seconds(5)) {
+            fixture.events.contains("recording-start")
+        }
+        #expect(fixture.stopReasons.isEmpty)
+        #expect(fixture.events.count("input-freeze") == 4)
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        _ = await task.value
     }
 
     @Test
@@ -2483,6 +2513,8 @@ private final class WorkflowFixture {
         deactivateSceneDuringHistoryStop: Bool = false,
         startBoundarySucceeds: Bool = true,
         deactivateSceneAtStartBoundary: Bool = false,
+        audioEventAtStartBoundary:
+            IOSForegroundVoiceWorkflowAudioEvent? = nil,
         audioFreezeResults: [Bool] = [true],
         recordingStartResult:
             IOSForegroundVoiceWorkflowRecordingStartResult = .started,
@@ -2784,6 +2816,9 @@ private final class WorkflowFixture {
                 },
                 playStartBoundary: { [weak self] _ in
                     events.record("start-boundary")
+                    if let audioEventAtStartBoundary {
+                        self?.audioEventHandler?(audioEventAtStartBoundary)
+                    }
                     if deactivateSceneAtStartBoundary {
                         _ = self?.facade.updateActivity(.inactive)
                     }

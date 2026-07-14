@@ -82,6 +82,15 @@ without opening the custom keyboard.
 - Arming replaces the primary control with a native progress state while the
   status row shows exact progress. Cancel appears only when the controller
   admits it.
+- After activating the audio session, Voice freezes and validates the exact
+  microphone input before it observes route changes or plays the start cue.
+  An output-only route notification during Arming revalidates that frozen
+  input and continues; a changed, unavailable, or muted input stops safely.
+- After recorder finalization publishes Pending, the first transcription uses
+  the canonical record read back from protected persistence. It must not reject
+  that same recording as stale because persisted timestamps were normalized;
+  Retry remains recovery for a real failed provider attempt, not a required
+  second step for every new dictation.
 - Setup, Pending recovery, blocked local recovery, unavailable runtime, and an
   unavailable Draft never show a disabled activity image. They replace the
   activity control with an explicit native recovery state containing the

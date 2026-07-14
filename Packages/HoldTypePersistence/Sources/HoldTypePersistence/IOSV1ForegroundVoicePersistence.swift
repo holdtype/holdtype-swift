@@ -923,11 +923,27 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         guard capture.ownerID == ownerID else {
             throw IOSV1ForegroundVoicePersistenceError.invalidTransition
         }
-        return IOSV1PendingRecording(
+        let promoted = IOSV1PendingRecording(
             try await capture.completed.promote(
                 transcriptionConfiguration: transcriptionConfiguration
             )
         )
+        guard let canonical = try await loadUnlocked()?.recording,
+              canonical.attemptID == promoted.attemptID,
+              canonical.audioRelativeIdentifier
+                == promoted.audioRelativeIdentifier,
+              canonical.phase == .readyForTranscription,
+              canonical.outputIntent == promoted.outputIntent,
+              canonical.transcriptionID == nil,
+              canonical.transcriptionModel == promoted.transcriptionModel,
+              canonical.transcriptionLanguageCode
+                == promoted.transcriptionLanguageCode,
+              canonical.durationMilliseconds
+                == promoted.durationMilliseconds,
+              canonical.byteCount == promoted.byteCount else {
+            throw IOSV1ForegroundVoicePersistenceError.localPersistence
+        }
+        return canonical
     }
 
     /// Classifies only local capture ownership after process loss. It never

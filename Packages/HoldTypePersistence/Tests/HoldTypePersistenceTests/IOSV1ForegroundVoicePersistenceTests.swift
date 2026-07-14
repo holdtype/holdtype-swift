@@ -228,6 +228,36 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(fixture.events.values == ["audio-unlink", "voice-write"])
     }
 
+    @Test func completedCaptureReturnsCanonicalPendingForFirstDispatch()
+        async throws {
+        let preciseDate = Date(
+            timeIntervalSince1970: 1_700_000_002.123_456
+        )
+        let fixture = FacadeFixture(repositoryNow: { preciseDate })
+        let lease = try await fixture.owner.createCapture(
+            attemptID: FacadeIDs.attempt,
+            outputIntent: .standard
+        )
+        try await lease.beginFinalizing()
+        guard case .completed(let capture) = try await lease
+            .completeAfterRecorderClose() else {
+            Issue.record("Expected completed capture")
+            return
+        }
+
+        let pending = try await fixture.owner.prepareCompletedCapture(
+            capture,
+            transcriptionConfiguration: TranscriptionConfiguration()
+        )
+        let canonical = try #require(try await fixture.owner.load()?.recording)
+        #expect(pending == canonical)
+        #expect(pending.updatedAt != preciseDate)
+        _ = try await fixture.owner.beginTranscription(
+            expected: IOSV1PendingRecordingExpectation(recording: pending),
+            transcriptionID: FacadeIDs.operation
+        )
+    }
+
     @Test func relaunchChangesProcessingToFailedWithoutExecutingProvider()
         async throws {
         let fixture = FacadeFixture()
@@ -503,7 +533,11 @@ private final class FacadeFixture: @unchecked Sendable {
 
     init(
         audioBytes: [UInt8] = [1, 2, 3, 4],
-        recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
+        recordingCachePolicy: RecordingCachePolicy = .deleteImmediately,
+        now: @escaping @Sendable () -> Date = { FacadeDates.accepted },
+        repositoryNow: @escaping @Sendable () -> Date = {
+            FacadeDates.updated
+        }
     ) {
         voiceMetadata = FacadeMetadataFileSystem(
             event: "voice-write",
@@ -517,7 +551,7 @@ private final class FacadeFixture: @unchecked Sendable {
         repository = IOSVoiceStateRepository(
             fileURL: root.appendingPathComponent("voice.json"),
             fileSystem: voiceMetadata,
-            now: { FacadeDates.updated }
+            now: repositoryNow
         )
         history = IOSAcceptedTextHistoryRepository(
             fileURL: root.appendingPathComponent("history.json"),
@@ -548,7 +582,7 @@ private final class FacadeFixture: @unchecked Sendable {
             acceptedAudioCache: acceptedAudioCache,
             audioFileSystem: audio,
             recordingCachePolicy: { recordingCachePolicy },
-            now: { FacadeDates.accepted }
+            now: now
         )
     }
 

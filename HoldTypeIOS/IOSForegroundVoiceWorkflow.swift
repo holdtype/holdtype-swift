@@ -1300,6 +1300,18 @@ final class IOSForegroundVoiceWorkflow {
             attempt,
             requireInitiatingScene: false
         ) else { return await blockedPreflight(failure: .unavailable) }
+        do {
+            guard let audio = attempt.audio else {
+                return await blockedPreflight(failure: .unavailable)
+            }
+            try audio.freezeAndValidateInput()
+        } catch {
+            return await blockedPreflight(failure: .unavailable)
+        }
+        guard canContinueArming(
+            attempt,
+            requireInitiatingScene: false
+        ) else { return await blockedPreflight(failure: .unavailable) }
         attempt.audioObservation = attempt.audio?.observe {
             [weak self, weak attempt] event in
             guard let self, let attempt, self.activeAttempt === attempt else {
@@ -1310,9 +1322,12 @@ final class IOSForegroundVoiceWorkflow {
                  .mediaServicesReset, .ended:
                 self.requestStop(.interrupted, for: attempt)
             case .routeNeedsRevalidation:
-                guard attempt.hasStartedRecording,
-                      attempt.recording?.isActive == true,
-                      let audio = attempt.audio else {
+                guard let audio = attempt.audio else {
+                    self.requestStop(.interrupted, for: attempt)
+                    return
+                }
+                if attempt.hasStartedRecording,
+                   attempt.recording?.isActive != true {
                     self.requestStop(.interrupted, for: attempt)
                     return
                 }
