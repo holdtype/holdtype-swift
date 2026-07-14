@@ -2,8 +2,8 @@ import UIKit
 
 struct BrandStageKeyboardPresentation: Equatable {
     let status: KeyboardTopRailStatus
+    let voiceStage: KeyboardVoiceStagePresentation
     let latestIsEnabled: Bool
-    let microphoneIsEnabled: Bool
     let cancelIsVisible: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
@@ -13,7 +13,6 @@ struct BrandStageKeyboardPresentation: Equatable {
 /// The selected Brand Stage Adaptive composition. The controller owns document
 /// proxy behavior; this view owns only layout, appearance, and touch routing.
 final class BrandStageKeyboardView: UIView {
-    var onSettingsRequested: (() -> Void)?
     var onLatestRequested: (() -> Void)?
     var onMicrophoneRequested: (() -> Void)?
     var onCancelRequested: (() -> Void)?
@@ -31,12 +30,19 @@ final class BrandStageKeyboardView: UIView {
     private let bodyStack = UIStackView()
     private let commandStack = UIStackView()
     private let punctuationRow = UIStackView()
-    private let settingsButton = UIButton(type: .system)
+    private let topLeadingSpacer = UIView()
     private let latestButton = UIButton(type: .system)
     private let statusLabel = UILabel()
     private let logoImageView = UIImageView()
     private let stageContainer = UIView()
     private let voiceStage = UIStackView()
+    private let recoveryStage = UIStackView()
+    private let recoveryTitleLabel = UILabel()
+    private let recoveryDetailLabel = UILabel()
+    private let progressStage = UIStackView()
+    private let progressIndicator = UIActivityIndicatorView(style: .medium)
+    private let progressTitleLabel = UILabel()
+    private let progressCancelButton = UIButton(type: .system)
     private let editingRow = UIStackView()
     private let spaceButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
@@ -106,17 +112,10 @@ final class BrandStageKeyboardView: UIView {
         statusLabel.text = presentation.status.rawValue
         statusLabel.accessibilityValue = presentation.status.rawValue
         latestButton.isEnabled = presentation.latestIsEnabled
-        microphoneView.isEnabled = presentation.microphoneIsEnabled
-        cancelButton.isHidden = !presentation.cancelIsVisible
-        cancelButton.isEnabled = presentation.cancelIsVisible
-        microphoneImageView.image = UIImage(
-            systemName: presentation.status == .listening
-                ? "stop.fill"
-                : "mic.fill"
+        renderVoiceStage(
+            presentation.voiceStage,
+            cancelIsVisible: presentation.cancelIsVisible
         )
-        microphoneView.accessibilityLabel = presentation.status == .listening
-            ? "Finish keyboard dictation"
-            : "Start keyboard dictation"
         updateInputModeSwitchKeyVisibility(
             presentation.showsInputModeSwitchKey
         )
@@ -131,6 +130,57 @@ final class BrandStageKeyboardView: UIView {
             )
         }
         renderedStatus = presentation.status
+    }
+
+    private func renderVoiceStage(
+        _ presentation: KeyboardVoiceStagePresentation,
+        cancelIsVisible: Bool
+    ) {
+        voiceStage.isHidden = true
+        recoveryStage.isHidden = true
+        progressStage.isHidden = true
+        microphoneView.isEnabled = false
+        cancelButton.isHidden = true
+        cancelButton.isEnabled = false
+        progressCancelButton.isHidden = true
+        progressCancelButton.isEnabled = false
+
+        switch presentation {
+        case let .recovery(recovery):
+            recoveryTitleLabel.text = recovery.title
+            recoveryDetailLabel.text = recovery.instruction
+            recoveryStage.accessibilityLabel = recovery.title
+            recoveryStage.accessibilityValue = recovery.instruction
+            recoveryStage.isHidden = false
+
+        case .ready:
+            microphoneView.isEnabled = true
+            microphoneImageView.image = UIImage(systemName: "mic.fill")
+            microphoneView.accessibilityLabel = "Start keyboard dictation"
+            voiceStage.isHidden = false
+
+        case .listening:
+            microphoneView.isEnabled = true
+            microphoneImageView.image = UIImage(systemName: "stop.fill")
+            microphoneView.accessibilityLabel = "Finish keyboard dictation"
+            cancelButton.isHidden = !cancelIsVisible
+            cancelButton.isEnabled = cancelIsVisible
+            voiceStage.isHidden = false
+
+        case .starting:
+            progressTitleLabel.text = "Starting…"
+            progressStage.accessibilityLabel = "Starting keyboard dictation"
+            progressCancelButton.isHidden = !cancelIsVisible
+            progressCancelButton.isEnabled = cancelIsVisible
+            progressStage.isHidden = false
+
+        case .processing:
+            progressTitleLabel.text = "Processing…"
+            progressStage.accessibilityLabel = "Processing keyboard dictation"
+            progressCancelButton.isHidden = !cancelIsVisible
+            progressCancelButton.isEnabled = cancelIsVisible
+            progressStage.isHidden = false
+        }
     }
 
     func updatePreferredHeight(for traitCollection: UITraitCollection) {
@@ -220,36 +270,44 @@ final class BrandStageKeyboardView: UIView {
 
         let topRail = makeTopRail()
         configureVoiceStage()
+        configureRecoveryStage()
+        configureProgressStage()
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
-        stageContainer.addSubview(voiceStage)
+        let stageViews = [voiceStage, recoveryStage, progressStage]
+        for stageView in stageViews {
+            stageContainer.addSubview(stageView)
+        }
         let stageMinimumHeight = stageContainer.heightAnchor.constraint(
             greaterThanOrEqualToConstant: 96
         )
-        let voiceFillsAvailableWidth = voiceStage.widthAnchor.constraint(
-            equalTo: stageContainer.widthAnchor
-        )
-        voiceFillsAvailableWidth.priority = UILayoutPriority(999)
-        let voicePrefersMaximumWidth = voiceStage.widthAnchor.constraint(
-            equalToConstant: 520
-        )
-        voicePrefersMaximumWidth.priority = UILayoutPriority(998)
-        let voiceStageConstraints = [
-            voiceStage.leadingAnchor.constraint(
-                greaterThanOrEqualTo: stageContainer.leadingAnchor
-            ),
-            voiceStage.trailingAnchor.constraint(
-                lessThanOrEqualTo: stageContainer.trailingAnchor
-            ),
-            voiceStage.centerXAnchor.constraint(
-                equalTo: stageContainer.centerXAnchor
-            ),
-            voiceStage.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
-            voiceFillsAvailableWidth,
-            voicePrefersMaximumWidth,
-            voiceStage.topAnchor.constraint(equalTo: stageContainer.topAnchor),
-            voiceStage.bottomAnchor.constraint(equalTo: stageContainer.bottomAnchor),
-        ]
-        NSLayoutConstraint.activate(voiceStageConstraints + [stageMinimumHeight])
+        var stageConstraints: [NSLayoutConstraint] = [stageMinimumHeight]
+        for stageView in stageViews {
+            let fillsAvailableWidth = stageView.widthAnchor.constraint(
+                equalTo: stageContainer.widthAnchor
+            )
+            fillsAvailableWidth.priority = UILayoutPriority(999)
+            let prefersMaximumWidth = stageView.widthAnchor.constraint(
+                equalToConstant: 520
+            )
+            prefersMaximumWidth.priority = UILayoutPriority(998)
+            stageConstraints.append(contentsOf: [
+                stageView.leadingAnchor.constraint(
+                    greaterThanOrEqualTo: stageContainer.leadingAnchor
+                ),
+                stageView.trailingAnchor.constraint(
+                    lessThanOrEqualTo: stageContainer.trailingAnchor
+                ),
+                stageView.centerXAnchor.constraint(
+                    equalTo: stageContainer.centerXAnchor
+                ),
+                stageView.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+                fillsAvailableWidth,
+                prefersMaximumWidth,
+                stageView.topAnchor.constraint(equalTo: stageContainer.topAnchor),
+                stageView.bottomAnchor.constraint(equalTo: stageContainer.bottomAnchor),
+            ])
+        }
+        NSLayoutConstraint.activate(stageConstraints)
 
         let punctuationRow = makePunctuationRow()
         let editingRow = makeEditingRow()
@@ -338,14 +396,6 @@ final class BrandStageKeyboardView: UIView {
 
     private func makeTopRail() -> UIStackView {
         configureTopAction(
-            settingsButton,
-            title: "Settings",
-            systemImage: "gearshape",
-            accessibilityLabel: "Open Settings"
-        )
-        settingsButton.accessibilityIdentifier = "keyboard.brand-stage.settings"
-        settingsButton.accessibilityHint = "Opens system settings for HoldType."
-        configureTopAction(
             latestButton,
             title: "Latest",
             systemImage: "arrow.down.doc",
@@ -395,27 +445,21 @@ final class BrandStageKeyboardView: UIView {
         ])
 
         let rail = UIStackView(
-            arrangedSubviews: [settingsButton, identity, latestButton]
+            arrangedSubviews: [topLeadingSpacer, identity, latestButton]
         )
         rail.axis = .horizontal
         rail.alignment = .center
         rail.distribution = .equalCentering
         rail.spacing = 8
-        let topActionMinimumWidth = settingsButton.widthAnchor.constraint(
-            greaterThanOrEqualToConstant: 96
-        )
-        settingsButton.setContentCompressionResistancePriority(
-            .required,
-            for: .horizontal
-        )
         latestButton.setContentCompressionResistancePriority(
             .required,
             for: .horizontal
         )
         NSLayoutConstraint.activate([
-            topActionMinimumWidth,
-            latestButton.widthAnchor.constraint(equalTo: settingsButton.widthAnchor),
-            settingsButton.heightAnchor.constraint(equalToConstant: 44),
+            topLeadingSpacer.widthAnchor.constraint(equalTo: latestButton.widthAnchor),
+            topLeadingSpacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
+            topLeadingSpacer.heightAnchor.constraint(equalToConstant: 44),
+            latestButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
             latestButton.heightAnchor.constraint(equalToConstant: 44),
         ])
         return rail
@@ -471,6 +515,89 @@ final class BrandStageKeyboardView: UIView {
         cancelButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
     }
 
+    private func configureRecoveryStage() {
+        recoveryStage.translatesAutoresizingMaskIntoConstraints = false
+        recoveryStage.axis = .vertical
+        recoveryStage.alignment = .center
+        recoveryStage.distribution = .fill
+        recoveryStage.spacing = 4
+        recoveryStage.isAccessibilityElement = true
+        recoveryStage.accessibilityIdentifier =
+            "keyboard.brand-stage.recovery"
+
+        recoveryTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(
+                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
+                maximumPointSize: 20
+            )
+        recoveryTitleLabel.adjustsFontForContentSizeCategory = true
+        recoveryTitleLabel.textAlignment = .center
+        recoveryTitleLabel.numberOfLines = 1
+        recoveryTitleLabel.adjustsFontSizeToFitWidth = true
+        recoveryTitleLabel.minimumScaleFactor = 0.8
+        recoveryTitleLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.recovery-title"
+
+        recoveryDetailLabel.font = UIFontMetrics(forTextStyle: .caption1)
+            .scaledFont(
+                for: UIFont.systemFont(ofSize: 12, weight: .regular),
+                maximumPointSize: 15
+            )
+        recoveryDetailLabel.adjustsFontForContentSizeCategory = true
+        recoveryDetailLabel.textAlignment = .center
+        recoveryDetailLabel.numberOfLines = 4
+        recoveryDetailLabel.adjustsFontSizeToFitWidth = true
+        recoveryDetailLabel.minimumScaleFactor = 0.78
+        recoveryDetailLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.recovery-detail"
+
+        recoveryStage.addArrangedSubview(recoveryTitleLabel)
+        recoveryStage.addArrangedSubview(recoveryDetailLabel)
+        recoveryStage.isHidden = true
+    }
+
+    private func configureProgressStage() {
+        progressStage.translatesAutoresizingMaskIntoConstraints = false
+        progressStage.axis = .horizontal
+        progressStage.alignment = .center
+        progressStage.distribution = .fill
+        progressStage.spacing = 12
+
+        progressIndicator.startAnimating()
+        progressIndicator.hidesWhenStopped = false
+
+        progressTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
+            .scaledFont(
+                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
+                maximumPointSize: 20
+            )
+        progressTitleLabel.adjustsFontForContentSizeCategory = true
+        progressTitleLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.progress"
+
+        configureCancelButton(
+            progressCancelButton,
+            identifier: "keyboard.brand-stage.processing-cancel"
+        )
+        progressStage.addArrangedSubview(progressIndicator)
+        progressStage.addArrangedSubview(progressTitleLabel)
+        progressStage.addArrangedSubview(progressCancelButton)
+        progressStage.isHidden = true
+    }
+
+    private func configureCancelButton(
+        _ button: UIButton,
+        identifier: String
+    ) {
+        var configuration = UIButton.Configuration.bordered()
+        configuration.title = "Cancel"
+        configuration.cornerStyle = .medium
+        button.configuration = configuration
+        button.accessibilityIdentifier = identifier
+        button.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+    }
+
     private func makePunctuationRow() -> UIStackView {
         punctuationRow.axis = .horizontal
         punctuationRow.distribution = .fillEqually
@@ -502,7 +629,7 @@ final class BrandStageKeyboardView: UIView {
         )
         configureKey(
             spaceButton,
-            systemImage: "circle.grid.3x3.fill",
+            title: "space",
             accessibilityLabel: "Space"
         )
         spaceButton.accessibilityHint =
@@ -524,6 +651,7 @@ final class BrandStageKeyboardView: UIView {
         returnButton.accessibilityIdentifier = "keyboard.brand-stage.return"
         returnButton.titleLabel?.adjustsFontSizeToFitWidth = true
         returnButton.titleLabel?.minimumScaleFactor = 0.7
+        returnButton.titleLabel?.numberOfLines = 1
 
         for button in [
             nextKeyboardButton,
@@ -621,11 +749,6 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func configureInteractions() {
-        settingsButton.addTarget(
-            self,
-            action: #selector(settingsTapped),
-            for: .touchUpInside
-        )
         latestButton.addTarget(
             self,
             action: #selector(latestTapped),
@@ -637,6 +760,11 @@ final class BrandStageKeyboardView: UIView {
             for: .touchUpInside
         )
         cancelButton.addTarget(
+            self,
+            action: #selector(cancelTapped),
+            for: .touchUpInside
+        )
+        progressCancelButton.addTarget(
             self,
             action: #selector(cancelTapped),
             for: .touchUpInside
@@ -700,6 +828,7 @@ final class BrandStageKeyboardView: UIView {
             configuration?.title = title
             configuration?.image = nil
         }
+        configuration?.titleLineBreakMode = .byClipping
         returnButton.configuration = configuration
         returnButton.accessibilityLabel = presentation.accessibilityLabel
     }
@@ -791,6 +920,10 @@ final class BrandStageKeyboardView: UIView {
         ).cgColor
         layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
         statusLabel.textColor = Self.statusForeground
+        recoveryTitleLabel.textColor = Self.keyForeground
+        recoveryDetailLabel.textColor = Self.statusForeground
+        progressTitleLabel.textColor = Self.keyForeground
+        progressIndicator.color = Self.voiceForeground
         microphoneView.backgroundColor = Self.microphoneBackground
         microphoneImageView.tintColor = Self.voiceForeground
         microphoneView.layer.borderColor = Self.microphoneBorder.resolvedColor(
@@ -836,17 +969,13 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func keyBackground(for button: UIButton) -> UIColor {
-        if button === settingsButton || button === latestButton {
+        if button === latestButton {
             return Self.topActionBackground
         }
         if punctuationButtons.contains(where: { $0 === button }) {
             return Self.punctuationKeyBackground
         }
         return Self.editingKeyBackground
-    }
-
-    @objc private func settingsTapped() {
-        onSettingsRequested?()
     }
 
     @objc private func latestTapped() {

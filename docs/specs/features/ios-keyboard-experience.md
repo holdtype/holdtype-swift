@@ -1,7 +1,7 @@
 # iOS Keyboard Experience
 
-Status: active V1.1 MVP UX contract; revised 2026-07-14 for Settings and
-keyboard-controlled dictation. `ios-v1-release.md` wins any conflict.
+Status: active V1.1 MVP UX contract; revised 2026-07-14 for truthful recovery
+states and keyboard-controlled dictation. `ios-v1-release.md` wins any conflict.
 
 ## Goal
 
@@ -22,10 +22,14 @@ through `UITextDocumentProxy`.
 - The containing app may run an explicit, user-started Keyboard Dictation
   Session and process keyboard commands while that session remains available.
 - The keyboard never launches the containing app. If the session is absent or
-  expired, it shows `Open HoldType`; the user opens the app normally.
-- The only external launch requested by the keyboard is the public system
-  Settings destination. It never uses private Settings URLs, responder-chain
-  traversal, or hidden `UIApplication` access.
+  expired, it says `Session not running` and replaces the microphone with the
+  exact containing-app recovery path.
+- The keyboard requests no external launch. System setup and product settings
+  remain in the containing app, while the keyboard always provides written
+  fallback instructions that do not depend on a system callback.
+- HoldType declares that it supplies dictation. iOS therefore disables or
+  suppresses its own Dictation key; on systems that retain the disabled icon in
+  the bottom strip, that icon remains Apple-owned and is not a HoldType action.
 - Physical-device evidence must prove that the app-owned background session can
   receive commands reliably and with acceptable privacy, energy, and App Review
   behavior. Simulator success cannot settle this boundary.
@@ -50,10 +54,11 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: system `Settings` on the left, HoldType identity and terse status
+1. Top rail: balanced space on the left, HoldType identity and terse status
    centered, and `Latest` on the right.
-2. Voice stage: one medium circular microphone control with a restrained
-   listening or processing treatment.
+2. Voice stage: either one medium actionable microphone, a processing
+   indicator, or a complete recovery instruction. An unavailable microphone is
+   never left on screen as decoration.
 3. Correction row: `.`, `,`, `?`, and `!`.
 4. Editing row: Globe, wide Space, Delete, and adaptive Return.
 
@@ -72,15 +77,21 @@ application. The HoldType mark uses a transparent background in both themes.
 The interface contains no History button, transcript card, alphabet layout,
 number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 
-## Settings Action
+## Setup And Recovery Actions
 
-- The left top-rail action is a clearly labelled gear.
-- It requests only the public iOS Settings destination for HoldType.
-- It does not open the in-app SwiftUI Settings tab or another HoldType route.
-- If the request fails, the keyboard remains usable and briefly shows
-  `Open Settings`.
-- Full product settings remain available from the containing app's permanent
-  Settings tab.
+- The keyboard has no permanent Settings action.
+- Full product settings and system-setup assistance remain available from the
+  containing app.
+- A recovery state names the missing prerequisite and includes the full path:
+  - stopped or expired session: `Open HoldType → Voice → Keyboard Dictation
+    Session → Start Keyboard Session. Then return here.`;
+  - Full Access: `iPhone Settings → General → Keyboard → Keyboards →
+    HoldType → Allow Full Access. Then open HoldType and start a keyboard
+    session.`;
+  - request failure: `Open HoldType → Voice to review the problem and start a
+    new keyboard session.`
+- Recovery instructions are visible text, not accessibility-only hints or
+  transient status.
 
 ## Editing Controls
 
@@ -93,7 +104,7 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   available.
 - Globe uses the system input-mode API and remains reachable whenever iOS
   requires it.
-- Punctuation, Space, Delete, Return, Globe, Settings, and an already-available
+- Punctuation, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest remain useful without provider setup, network, or Full
   Access.
 
@@ -133,17 +144,18 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 
 ### State Vocabulary
 
-The centered status is short and contains no transcript text:
+The centered status is short and contains no transcript text. The voice stage
+provides the longer recovery instruction when needed:
 
 - `Ready` — local controls work and a keyboard session is available;
-- `Open HoldType` — the app-owned session is unavailable or expired;
-- `Enable Full Access` — voice commands cannot use the shared command boundary;
+- `Session not running` — the app-owned session is unavailable or expired;
+- `Full Access required` — voice commands cannot use the shared command boundary;
 - `Allow Microphone` — the app lacks microphone authorization;
+- `Starting…` — Start was written and is awaiting real app acknowledgement;
 - `Listening…` — the app acknowledged real capture for this request;
 - `Processing…` — capture stopped and app-owned processing is active;
 - `No Network` — the current request cannot reach the provider;
-- `Try Again` — a bounded failure ended the request;
-- `Open Settings` — the public Settings request failed.
+- `Dictation failed` — a bounded failure ended the request.
 
 Inserted text is its own success confirmation. The keyboard returns to `Ready`
 without showing `Inserted` or rendering a result preview.
@@ -192,7 +204,7 @@ without showing `Inserted` or rendering a result preview.
 
 ## Accessibility And Appearance
 
-- VoiceOver names Settings, microphone state/action, Latest, Globe, Space,
+- VoiceOver names the recovery instruction, microphone state/action, Latest, Globe, Space,
   Delete, and adaptive Return.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
@@ -211,14 +223,14 @@ reduction, insertion, and restricted editing half. This spike split does not
 replace the signed-device keyboard/host-app release matrix below.
 
 Automated and Simulator coverage must prove composition, both appearances,
-Settings failure fallback, local editing, state reduction, stale-request
+recovery instructions, local editing, state reduction, stale-request
 rejection, bounded record decoding, one insertion per accepted live request,
 and explicit Latest fallback.
 
 Signed physical-iPhone evidence must additionally prove:
 
 - real app/extension signing and App Group access with Full Access on and off;
-- public Settings navigation;
+- absence of an extension-owned Settings or containing-app launch;
 - app-owned session start, expiry, and stop;
 - keyboard Start, Finish, Cancel, listening acknowledgement, provider timeout,
   and accepted insertion in real host apps;

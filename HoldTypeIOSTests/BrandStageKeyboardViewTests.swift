@@ -14,7 +14,6 @@ struct BrandStageKeyboardViewTests {
 
     @Test func renderExposesTheApprovedControlsAndRoutesEachActionOnce() throws {
         let view = makeView(width: 393)
-        var settingsCount = 0
         var latestCount = 0
         var punctuation: [String] = []
         var spaceCount = 0
@@ -22,7 +21,6 @@ struct BrandStageKeyboardViewTests {
         var deleteStopCount = 0
         var returnCount = 0
 
-        view.onSettingsRequested = { settingsCount += 1 }
         view.onLatestRequested = { latestCount += 1 }
         view.onPunctuationRequested = { punctuation.append($0) }
         view.onSpaceRequested = { spaceCount += 1 }
@@ -48,15 +46,12 @@ struct BrandStageKeyboardViewTests {
         #expect(status.accessibilityLabel == "Keyboard status")
         #expect(status.accessibilityValue == "Ready")
 
-        let settings = try button("keyboard.brand-stage.settings", in: view)
-        #expect(settings.accessibilityLabel == "Open Settings")
         #expect(
-            settings.accessibilityHint
-                == "Opens system settings for HoldType."
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.settings"
+            ) == nil
         )
-        #expect(settings.configuration?.title == "Settings")
-        #expect(settings.configuration?.image == UIImage(systemName: "gearshape"))
-        #expect(settings.bounds.width >= 99.9)
         let latest = try button("keyboard.brand-stage.latest", in: view)
         let period = try button(
             "keyboard.brand-stage.punctuation.period",
@@ -79,12 +74,11 @@ struct BrandStageKeyboardViewTests {
         let returnButton = try button("keyboard.brand-stage.return", in: view)
 
         #expect(latest.isEnabled)
-        assertFullTopActionTitle(settings)
         assertFullTopActionTitle(latest)
+        #expect(space.configuration?.title == "space")
         #expect(returnButton.configuration?.title == "Send")
         #expect(returnButton.accessibilityLabel == "Send")
 
-        settings.sendActions(for: .touchUpInside)
         latest.sendActions(for: .touchUpInside)
         period.sendActions(for: .touchUpInside)
         comma.sendActions(for: .touchUpInside)
@@ -95,7 +89,6 @@ struct BrandStageKeyboardViewTests {
         delete.sendActions(for: .touchUpInside)
         returnButton.sendActions(for: .touchUpInside)
 
-        #expect(settingsCount == 1)
         #expect(latestCount == 1)
         #expect(punctuation == [".", ",", "?", "!"])
         #expect(spaceCount == 1)
@@ -134,17 +127,12 @@ struct BrandStageKeyboardViewTests {
         )
         layout(view)
 
-        let settings = try button("keyboard.brand-stage.settings", in: view)
         let latest = try button("keyboard.brand-stage.latest", in: view)
         let delete = try button("keyboard.brand-stage.delete", in: view)
         let returnButton = try button("keyboard.brand-stage.return", in: view)
 
-        #expect(settings.bounds.width >= 95.9)
-        #expect(latest.bounds.width == settings.bounds.width)
-        assertFullTopActionTitle(settings)
+        #expect(latest.bounds.width >= 95.9)
         assertFullTopActionTitle(latest)
-        #expect(settings.configuration?.title == "Settings")
-        #expect(settings.configuration?.image == UIImage(systemName: "gearshape"))
         #expect(latest.configuration?.title == "Latest")
         let boundedSymbol = UIImage.SymbolConfiguration(
             pointSize: 20,
@@ -166,18 +154,12 @@ struct BrandStageKeyboardViewTests {
             view.render(presentation(latestIsEnabled: true))
             layout(view)
 
-            let settings = try button(
-                "keyboard.brand-stage.settings",
-                in: view
-            )
             let latest = try button(
                 "keyboard.brand-stage.latest",
                 in: view
             )
 
-            #expect(settings.bounds.width >= 95.9)
-            #expect(latest.bounds.width == settings.bounds.width)
-            assertFullTopActionTitle(settings)
+            #expect(latest.bounds.width >= 95.9)
             assertFullTopActionTitle(latest)
         }
     }
@@ -195,9 +177,9 @@ struct BrandStageKeyboardViewTests {
             .resolvedColor(with: dark)
         #expect(lightBackground != darkBackground)
 
-        let settings = try button("keyboard.brand-stage.settings", in: view)
+        let latest = try button("keyboard.brand-stage.latest", in: view)
         let keyColor = try #require(
-            settings.configuration?.baseBackgroundColor
+            latest.configuration?.baseBackgroundColor
         )
         #expect(
             keyColor.resolvedColor(with: light)
@@ -227,6 +209,80 @@ struct BrandStageKeyboardViewTests {
         #expect(space.bounds.width > delete.bounds.width)
         #expect(delete.bounds.width >= 43.9)
         #expect(returnButton.bounds.width >= 43.9)
+    }
+
+    @Test func unavailableVoiceReplacesTheMicrophoneWithCompleteRecoveryCopy()
+        throws {
+        let view = makeView(width: 393)
+        view.render(
+            presentation(
+                status: .sessionNotRunning,
+                voiceStage: .recovery(.startSession)
+            )
+        )
+        layout(view)
+
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
+        let recovery = try #require(
+            view.descendant(
+                UIStackView.self,
+                identifier: "keyboard.brand-stage.recovery"
+            )
+        )
+        let title = try #require(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.recovery-title"
+            )
+        )
+        let detail = try #require(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.recovery-detail"
+            )
+        )
+
+        #expect(isEffectivelyHidden(microphone))
+        #expect(!isEffectivelyHidden(recovery))
+        #expect(title.text == "Start a voice session")
+        #expect(
+            detail.text
+                == "Open HoldType → Voice → Keyboard Dictation Session → Start Keyboard Session. Then return here."
+        )
+    }
+
+    @Test func startingAndProcessingUseProgressInsteadOfAnActiveMicrophone()
+        throws {
+        let view = makeView(width: 393)
+
+        for stage: KeyboardVoiceStagePresentation in [.starting, .processing] {
+            view.render(
+                presentation(
+                    status: stage == .starting ? .starting : .processing,
+                    voiceStage: stage,
+                    cancelIsVisible: true
+                )
+            )
+            layout(view)
+
+            let microphone = try button(
+                "keyboard.brand-stage.voice",
+                in: view
+            )
+            let progress = try #require(
+                view.descendant(
+                    UILabel.self,
+                    identifier: "keyboard.brand-stage.progress"
+                )
+            )
+            let cancel = try button(
+                "keyboard.brand-stage.processing-cancel",
+                in: view
+            )
+            #expect(isEffectivelyHidden(microphone))
+            #expect(!isEffectivelyHidden(progress))
+            #expect(!isEffectivelyHidden(cancel))
+        }
     }
 
     @Test func compactPhoneLandscapeKeepsVoiceIdentityAndControlsInBounds()
@@ -523,15 +579,18 @@ struct BrandStageKeyboardViewTests {
     }
 
     private func presentation(
+        status: KeyboardTopRailStatus = .ready,
+        voiceStage: KeyboardVoiceStagePresentation = .ready,
         latestIsEnabled: Bool = false,
+        cancelIsVisible: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
         showsInputModeSwitchKey: Bool = true
     ) -> BrandStageKeyboardPresentation {
         BrandStageKeyboardPresentation(
-            status: .ready,
+            status: status,
+            voiceStage: voiceStage,
             latestIsEnabled: latestIsEnabled,
-            microphoneIsEnabled: false,
-            cancelIsVisible: false,
+            cancelIsVisible: cancelIsVisible,
             returnKey: returnKey,
             returnIsEnabled: true,
             showsInputModeSwitchKey: showsInputModeSwitchKey
@@ -562,7 +621,8 @@ struct BrandStageKeyboardViewTests {
         var result: [String: CGRect] = [:]
         view.visitDescendants { descendant in
             guard let identifier = descendant.accessibilityIdentifier,
-                  identifier.hasPrefix("keyboard.brand-stage.") else {
+                  identifier.hasPrefix("keyboard.brand-stage."),
+                  !isEffectivelyHidden(descendant) else {
                 return
             }
             result[identifier] = descendant.frame
@@ -572,7 +632,6 @@ struct BrandStageKeyboardViewTests {
 
     private func compactControlIdentifiers(showsGlobe: Bool) -> [String] {
         var identifiers = [
-            "keyboard.brand-stage.settings",
             "keyboard.brand-stage.latest",
             "keyboard.brand-stage.punctuation.period",
             "keyboard.brand-stage.punctuation.comma",

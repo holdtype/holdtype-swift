@@ -1,10 +1,5 @@
 import UIKit
 
-typealias KeyboardSettingsOpener = (
-    URL,
-    @escaping (Bool) -> Void
-) -> Void
-
 typealias KeyboardLatestExpiryScheduler = (
     Date,
     @escaping @MainActor () -> Void
@@ -20,10 +15,8 @@ struct KeyboardViewControllerDependencies {
     ) -> KeyboardDictationBridgeObserver?
     let now: () -> Date
     let documentProxyOverride: (any UITextDocumentProxy)?
-    let settingsOpener: KeyboardSettingsOpener?
     let inputModeSwitchKeyOverride: Bool?
     let fullAccessOverride: Bool?
-    let scheduleStatusReset: (TimeInterval, DispatchWorkItem) -> Void
     let scheduleLatestExpiry: KeyboardLatestExpiryScheduler
 
     static let live = KeyboardViewControllerDependencies(
@@ -48,15 +41,8 @@ struct KeyboardViewControllerDependencies {
         },
         now: { Date() },
         documentProxyOverride: nil,
-        settingsOpener: nil,
         inputModeSwitchKeyOverride: nil,
         fullAccessOverride: nil,
-        scheduleStatusReset: { duration, workItem in
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + duration,
-                execute: workItem
-            )
-        },
         scheduleLatestExpiry: { fireDate, action in
             let timer = Timer(
                 fire: fireDate,
@@ -96,10 +82,7 @@ final class KeyboardViewController: UIInputViewController {
     private var insertedDictationRequestID: UUID?
     private var lastSeenDictationSessionID: UUID?
     private var pendingDictationCommand: KeyboardDictationCommandKind?
-    private var forcesOpenHoldType = false
-    private var statusResetWorkItem: DispatchWorkItem?
-    private var activeStatusOverride: KeyboardTopRailStatus?
-    private var settingsRequestID: UUID?
+    private var forcesSessionNotRunning = false
     private var showsInputModeSwitchKey = true
     private var extensionLifetimeID = UUID()
     private var hostContextGeneration: UInt64 = 0
@@ -124,7 +107,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        hasDictationKey = false
+        hasDictationKey = true
         showsInputModeSwitchKey = shouldShowInputModeSwitchKey
         configureKeyboardView()
         reloadSharedSnapshot()
@@ -149,9 +132,6 @@ final class KeyboardViewController: UIInputViewController {
         latestExpiryTimer = nil
         dictationExpiryTimer?.invalidate()
         dictationExpiryTimer = nil
-        statusResetWorkItem?.cancel()
-        activeStatusOverride = nil
-        settingsRequestID = nil
         endExtensionLifetime()
         super.viewWillDisappear(animated)
     }
@@ -164,8 +144,6 @@ final class KeyboardViewController: UIInputViewController {
     override func textWillChange(_ textInput: UITextInput?) {
         super.textWillChange(textInput)
         invalidateHostContextOwnership()
-        statusResetWorkItem?.cancel()
-        activeStatusOverride = nil
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -190,9 +168,6 @@ final class KeyboardViewController: UIInputViewController {
             action: #selector(handleInputModeList(from:with:)),
             for: .allTouchEvents
         )
-        keyboardView.onSettingsRequested = { [weak self] in
-            self?.openSettings()
-        }
         keyboardView.onLatestRequested = { [weak self] in
             guard let self, let latestItem else { return }
             insert(latestItem)
@@ -254,10 +229,9 @@ final class KeyboardViewController: UIInputViewController {
         let dictationPresentation = currentDictationPresentation
         keyboardView.render(
             BrandStageKeyboardPresentation(
-                status: activeStatusOverride ?? dictationPresentation.status,
+                status: dictationPresentation.status,
+                voiceStage: dictationPresentation.voiceStage,
                 latestIsEnabled: latestItem != nil,
-                microphoneIsEnabled:
-                    dictationPresentation.microphoneIsEnabled,
                 cancelIsVisible: dictationPresentation.cancelIsVisible,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
@@ -272,38 +246,64 @@ final class KeyboardViewController: UIInputViewController {
 
     private var currentDictationPresentation: (
         status: KeyboardTopRailStatus,
-        microphoneIsEnabled: Bool,
+        voiceStage: KeyboardVoiceStagePresentation,
         cancelIsVisible: Bool
     ) {
         guard hasSharedContainerAccess else {
-            return (.enableFullAccess, false, false)
+            return (
+                .fullAccessRequired,
+                .recovery(.enableFullAccess),
+                false
+            )
         }
-        guard !forcesOpenHoldType, let dictationState else {
-            return (.openHoldType, false, false)
+        guard !forcesSessionNotRunning, let dictationState else {
+            return (
+                .sessionNotRunning,
+                .recovery(.startSession),
+                false
+            )
         }
-        if pendingDictationCommand == .start {
-            return (.ready, false, true)
+        if pendingDictationCommand == .start,
+           activeDictationRequestID == dictationState.requestID {
+            return (.starting, .starting, true)
         }
-        if pendingDictationCommand == .finish {
-            return (.processing, false, true)
+        if pendingDictationCommand == .finish,
+           activeDictationRequestID == dictationState.requestID {
+            return (.processing, .processing, true)
         }
         switch dictationState.phase {
         case .ready:
-            return (.ready, true, false)
+            return (.ready, .ready, false)
         case .listening
             where activeDictationRequestID != dictationState.requestID:
-            return (.openHoldType, false, false)
+            return (
+                .sessionNotRunning,
+                .recovery(.startSession),
+                false
+            )
         case .listening:
-            return (.listening, true, true)
+            return (.listening, .listening, true)
         case .processing
             where activeDictationRequestID != dictationState.requestID:
-            return (.openHoldType, false, false)
+            return (
+                .sessionNotRunning,
+                .recovery(.startSession),
+                false
+            )
         case .processing:
-            return (.processing, false, true)
+            return (.processing, .processing, true)
         case .resultReady, .unavailable:
-            return (.openHoldType, false, false)
+            return (
+                .sessionNotRunning,
+                .recovery(.startSession),
+                false
+            )
         case .failed:
-            return (.tryAgain, false, false)
+            return (
+                .dictationFailed,
+                .recovery(.requestFailed),
+                false
+            )
         }
     }
 
@@ -321,13 +321,13 @@ final class KeyboardViewController: UIInputViewController {
             guard let state = try dependencies.loadDictationState(),
                   state.isValid(at: dependencies.now()) else {
                 dictationState = nil
-                forcesOpenHoldType = true
+                forcesSessionNotRunning = true
                 render()
                 return
             }
             if state.phase == .ready,
                state.requestID != lastSeenDictationSessionID {
-                forcesOpenHoldType = false
+                forcesSessionNotRunning = false
                 lastSeenDictationSessionID = state.requestID
                 insertedDictationRequestID = nil
                 activeDictationRequestID = nil
@@ -347,13 +347,13 @@ final class KeyboardViewController: UIInputViewController {
                 activeDictationRequestID = nil
                 activeDictationOwnership = nil
                 pendingDictationCommand = nil
-                forcesOpenHoldType = true
+                forcesSessionNotRunning = true
             } else if (state.phase == .unavailable || state.phase == .failed),
                       activeDictationRequestID == state.requestID {
                 activeDictationRequestID = nil
                 activeDictationOwnership = nil
                 pendingDictationCommand = nil
-                forcesOpenHoldType = true
+                forcesSessionNotRunning = state.phase == .unavailable
             }
             dictationExpiryTimer = dependencies.scheduleLatestExpiry(
                 state.expiresAt
@@ -366,12 +366,12 @@ final class KeyboardViewController: UIInputViewController {
                 self.activeDictationRequestID = nil
                 self.activeDictationOwnership = nil
                 self.pendingDictationCommand = nil
-                self.forcesOpenHoldType = true
+                self.forcesSessionNotRunning = true
                 self.render()
             }
         } catch {
             dictationState = nil
-            forcesOpenHoldType = true
+            forcesSessionNotRunning = true
         }
         render()
     }
@@ -420,13 +420,13 @@ final class KeyboardViewController: UIInputViewController {
                 activeDictationRequestID = nil
                 activeDictationOwnership = nil
                 pendingDictationCommand = nil
-                forcesOpenHoldType = true
+                forcesSessionNotRunning = true
             }
         } catch {
             pendingDictationCommand = nil
             activeDictationRequestID = nil
             activeDictationOwnership = nil
-            forcesOpenHoldType = true
+            forcesSessionNotRunning = true
         }
         render()
     }
@@ -434,55 +434,6 @@ final class KeyboardViewController: UIInputViewController {
     private var returnIsEnabled: Bool {
         !((activeDocumentProxy.enablesReturnKeyAutomatically ?? false)
             && !activeDocumentProxy.hasText)
-    }
-
-    private func openSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
-            showTemporaryStatus(.openSettings, duration: 1.6)
-            return
-        }
-        let requestID = UUID()
-        settingsRequestID = requestID
-        statusResetWorkItem?.cancel()
-        activeStatusOverride = nil
-        render()
-        let requested = requestSettingsOpen(url) { [weak self] opened in
-            Task { @MainActor [weak self] in
-                guard let self,
-                      self.settingsRequestID == requestID else {
-                    return
-                }
-                self.settingsRequestID = nil
-                guard !opened else { return }
-                self.showTemporaryStatus(
-                    .openSettings,
-                    duration: 1.6
-                )
-            }
-        }
-        guard requested else {
-            settingsRequestID = nil
-            showTemporaryStatus(.openSettings, duration: 1.6)
-            return
-        }
-    }
-
-    private func requestSettingsOpen(
-        _ url: URL,
-        completion: @escaping (Bool) -> Void
-    ) -> Bool {
-        if let settingsOpener = dependencies.settingsOpener {
-            settingsOpener(url, completion)
-            return true
-        }
-
-        guard let extensionContext else {
-            return false
-        }
-        extensionContext.open(url) { opened in
-            completion(opened)
-        }
-        return true
     }
 
     private func insert(_ item: KeyboardBridgeItem) {
@@ -526,21 +477,6 @@ final class KeyboardViewController: UIInputViewController {
         guard insertionGate.beginEvent() else { return }
         defer { insertionGate.endEvent() }
         activeDocumentProxy.insertText(text)
-    }
-
-    private func showTemporaryStatus(
-        _ status: KeyboardTopRailStatus,
-        duration: TimeInterval
-    ) {
-        statusResetWorkItem?.cancel()
-        activeStatusOverride = status
-        render()
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.activeStatusOverride = nil
-            self?.reloadSharedSnapshot()
-        }
-        statusResetWorkItem = workItem
-        dependencies.scheduleStatusReset(duration, workItem)
     }
 
     private func setLatestItem(

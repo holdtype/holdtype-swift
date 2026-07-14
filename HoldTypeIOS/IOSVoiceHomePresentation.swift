@@ -303,8 +303,8 @@ enum IOSVoiceHomePresentation {
             )
         case .fullAccess:
             copy = (
-                "Full Access is not required",
-                "Leave Full Access off. HoldType Keyboard still supports local editing and Latest insertion.",
+                "Full Access required for keyboard voice",
+                "Turn on Allow Full Access for keyboard-controlled dictation. Local editing and Latest insertion remain available without it.",
                 "keyboard.badge.ellipsis"
             )
         case .microphoneAndPrivacy:

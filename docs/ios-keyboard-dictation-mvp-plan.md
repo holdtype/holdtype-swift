@@ -18,7 +18,8 @@ Deliver the smallest useful iPhone product in which:
 
 1. the containing app launches with permanent Voice, Library, History, and
    Settings destinations;
-2. HoldType Keyboard presents Settings, an actionable microphone, punctuation,
+2. HoldType Keyboard presents an actionable microphone only when voice is
+   available, complete recovery instructions otherwise, plus punctuation,
    editing controls, Globe, and Latest;
 3. after one-time setup and while an explicit Keyboard Dictation Session is
    available, the user taps the keyboard microphone, speaks, finishes, and
@@ -47,15 +48,16 @@ implements the path that does not launch its containing app from the keyboard.
 
 ## Fixed Product Decisions
 
-- Replace the keyboard `History` action with a gear that opens public iOS
-  Settings for HoldType.
+- Remove the keyboard `History` and permanent Settings actions. Recovery copy
+  points to the exact containing-app or iPhone Settings path without relying on
+  an external launch callback.
 - History remains a permanent containing-app tab and is never rendered inside
   the keyboard.
-- The microphone button is real. It is disabled only when prerequisites or an
-  app-owned session are unavailable.
+- The microphone button is real. It appears only when it can start or finish an
+  app-owned recording; unavailable states show recovery instructions instead.
 - The extension never accesses microphone APIs and never owns provider code.
 - Keyboard-controlled dictation requires Allow Full Access. Punctuation,
-  Space, cursor movement, Delete, Return, Globe, Settings, and safe Latest
+  Space, cursor movement, Delete, Return, Globe, and safe Latest
   fallback remain useful without it.
 - The user starts a bounded Keyboard Dictation Session in the containing app.
   The MVP maximum is 60 minutes unless the physical-device spike proves a
@@ -63,7 +65,7 @@ implements the path that does not launch its containing app from the keyboard.
 - Starting a session alone does not create a transcript, add History, or submit
   audio. Spoken content is captured only between acknowledged Start and Finish.
 - The keyboard never opens HoldType. If the session is unavailable, it says
-  `Open HoldType`.
+  `Session not running` and shows the complete Voice-screen recovery path.
 - One accepted result auto-inserts once only while the original extension
   request still owns the active host context. Otherwise it remains in Latest.
 - App Store approval is not promised from code or Simulator evidence. Signed
@@ -119,7 +121,7 @@ and durable host context never enter App Group storage.
 ## MVP State Machine
 
 ```text
-Open HoldType / Enable Full Access / Allow Microphone
+Session not running / Full Access required / Allow Microphone
                          |
                          v
                        Ready
@@ -152,7 +154,7 @@ The MVP is functionally complete only when all of the following are true:
 
 - a normal iPhone cold launch shows all four app tabs;
 - History list, Copy, swipe Delete, and conditional Play remain intact;
-- the keyboard gear opens only public system Settings;
+- the keyboard contains no Settings or containing-app launch action;
 - the keyboard remains a useful editing surface with Full Access off;
 - setup can make a bounded app-owned session available;
 - real keyboard Start, Finish, and Cancel control app-owned audio on a signed
@@ -240,7 +242,7 @@ keyboard.
 | KBD-MVP-1 | Settings action and normal app shell | Completed 2026-07-14 | KBD-MVP-0 |
 | KBD-MVP-2 | Signed-device background-session feasibility | Passed 2026-07-14 | KBD-MVP-1 |
 | KBD-MVP-3 | Real recorder, OpenAI, and safe insertion | Implemented 2026-07-14; live smoke pending authorization | KBD-MVP-2 pass |
-| KBD-MVP-4 | Setup, failure states, and release UX | Pending | KBD-MVP-3 |
+| KBD-MVP-4 | Setup, failure states, and release UX | Simulator UX passed 2026-07-14; physical gate pending | KBD-MVP-3 |
 | KBD-MVP-5 | Device qualification and TestFlight candidate | Pending | KBD-MVP-4 |
 
 ## KBD-MVP-1 — Settings And Normal App Shell
@@ -583,16 +585,23 @@ new product areas.
 
 - Finish setup for keyboard enablement, Allow Full Access, microphone
   permission, provider readiness, and one fixed maximum 60-minute session.
+- Follow `docs/ios-keyboard-usability-recovery-plan.md`: remove the permanent
+  Settings affordance and replace every unavailable microphone with complete
+  recovery copy.
 - Make Start/Stop session state visible in Voice and Privacy.
 - Implement the exact keyboard state vocabulary from the UX spec.
 - Ensure `Listening…` and `Processing…` reflect acknowledged app state.
-- Restore Ready after success; show no transcript preview or verbose help in the
-  keyboard.
+- Restore Ready after success; show no transcript preview. Recovery instructions
+  may be longer than active-state labels because they must be independently
+  actionable.
 - Handle session expiry, Full Access removal, microphone denial, offline,
   provider timeout, interruption, and app-process loss.
 - Set `hasDictationKey` consistently with the physically proven HoldType voice
-  action so the system and HoldType do not present misleading duplicate voice
-  controls.
+  action so iOS disables or suppresses its own Dictation key. A system-owned
+  disabled icon may remain visible on some devices and OS versions.
+- Keep the implemented 60-second feasibility lifetime until a signed-device
+  idle-background gate proves a longer duration. Do not claim 60 minutes from a
+  source-only constant change.
 - Finalize Light/Dark, VoiceOver labels, Reduce Motion, Increase Contrast, and
   compact-height layout without changing the selected composition.
 
@@ -652,7 +661,7 @@ fixes discovered release blockers only; it does not add features.
 - Notes, Messages, Mail, Safari, and two third-party standard text fields;
 - secure field, phone pad, and host keyboard opt-out;
 - Space cursor gesture, Delete repeat, adaptive Return, punctuation;
-- Settings action;
+- unavailable-state recovery copy and absence of external launch actions;
 - session start, Stop, expiry, background/foreground, Low Power Mode;
 - Start, Finish, Cancel, interruption, provider timeout, offline recovery;
 - live microphone -> OpenAI -> rules -> Latest -> History -> same-request

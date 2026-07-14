@@ -93,10 +93,10 @@ struct IOSVoiceHomePresentationTests {
             voicePresentation(setup: .needsSetup(.fullAccess))
         )
 
-        #expect(resolved.title == "Full Access is not required")
+        #expect(resolved.title == "Full Access required for keyboard voice")
         #expect(
             resolved.detail
-                == "Leave Full Access off. HoldType Keyboard still supports local editing and Latest insertion."
+                == "Turn on Allow Full Access for keyboard-controlled dictation. Local editing and Latest insertion remain available without it."
         )
     }
 

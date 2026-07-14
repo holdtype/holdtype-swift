@@ -267,7 +267,7 @@ struct IOSVoiceHomeView: View {
                 number: 1,
                 systemImage: "keyboard",
                 title: "Add and switch keyboards",
-                detail: "In Settings › General › Keyboard › Keyboards, choose Add New Keyboard, then HoldType. Leave Full Access off and use Globe in the practice field below."
+                detail: "In Settings › General › Keyboard › Keyboards, add HoldType and enable Allow Full Access for keyboard voice. Local editing and Latest still work without Full Access. Use Globe in the practice field below."
             ) {
                 practiceFieldIsFocused = true
             }
@@ -496,7 +496,7 @@ struct IOSVoiceHomeView: View {
                 )
 
             Text(
-                "This app-owned session lets HoldType Keyboard control one recording for up to 60 seconds. The existing Voice pipeline owns recording, processing, Latest, and History."
+                "This brief app-owned session lets HoldType Keyboard control one recording for up to 60 seconds. Start it immediately before returning to the field where you want to dictate. The existing Voice pipeline owns recording, processing, Latest, and History."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)

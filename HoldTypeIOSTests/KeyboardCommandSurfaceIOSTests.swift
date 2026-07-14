@@ -12,17 +12,35 @@ struct KeyboardCommandSurfaceIOSTests {
     @Test func topRailStatusUsesOnlyShortProductLabels() {
         #expect(KeyboardTopRailStatus.allCases.map(\.rawValue) == [
             "Ready",
-            "Enable Full Access",
+            "Full Access required",
+            "Starting…",
             "Listening…",
             "Processing…",
-            "Open HoldType",
-            "Try Again",
-            "Open Settings",
+            "Session not running",
+            "Allow Microphone",
+            "No Network",
+            "Dictation failed",
         ])
         #expect(KeyboardTopRailStatus.ready.accessibilityAnnouncement == nil)
         #expect(
-            KeyboardTopRailStatus.openSettings.accessibilityAnnouncement
-                == "Open Settings"
+            KeyboardTopRailStatus.sessionNotRunning.accessibilityAnnouncement
+                == "Session not running"
+        )
+    }
+
+    @Test func recoveryCopyAlwaysNamesTheExactNextRoute() {
+        #expect(KeyboardVoiceRecovery.startSession.title == "Start a voice session")
+        #expect(
+            KeyboardVoiceRecovery.startSession.instruction
+                == "Open HoldType → Voice → Keyboard Dictation Session → Start Keyboard Session. Then return here."
+        )
+        #expect(
+            KeyboardVoiceRecovery.enableFullAccess.instruction
+                .contains("iPhone Settings → General → Keyboard → Keyboards → HoldType")
+        )
+        #expect(
+            KeyboardVoiceRecovery.requestFailed.instruction
+                .contains("Open HoldType → Voice")
         )
     }
 

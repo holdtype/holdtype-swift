@@ -10,9 +10,10 @@ This spec supersedes conflicting P5H-P8 behavior for V1.1. Detailed legacy iOS
 specs remain research and implementation evidence, but they do not expand this
 release unless this file explicitly links to that behavior.
 
-Keyboard MVP update, 2026-07-14: `History` is removed from the keyboard and
-remains a permanent containing-app destination. The left keyboard action opens
-only public iOS Settings. The microphone becomes actionable through an explicit
+Keyboard MVP update, 2026-07-14: `History` and the permanent Settings action are
+removed from the keyboard and remain containing-app destinations. Unavailable
+voice states replace the microphone with a complete recovery instruction. The
+microphone becomes actionable through an explicit
 app-owned Keyboard Dictation Session: the extension sends bounded Start, Finish,
 or Cancel commands while the containing app owns microphone capture, OpenAI,
 text rules, Latest, and History. The extension never accesses the microphone or
@@ -46,8 +47,7 @@ V1.1 includes:
 - an optional app-private Recording Cache for local History playback;
 - one production-quality iPhone command-keyboard surface with actionable Start,
   Finish, and Cancel voice controls while that session is available;
-- one public system Settings action in the keyboard top rail;
-- no History or containing-app launch action inside the extension;
+- no Settings, History, or containing-app launch action inside the extension;
 - automatic insertion only for the same still-live keyboard request and host
   context;
 - an explicit `Latest` insertion path after the user returns to the host;
@@ -117,12 +117,12 @@ release-complete until the finished History destination is restored.
   nor contacts the provider.
 - Setup states that the containing app owns recording even when the user controls
   it from the keyboard. If the session is unavailable, the keyboard says
-  `Open HoldType` and never launches the app itself.
-- Setup explains that History is opened from the containing app, while the
-  keyboard gear opens public iOS Settings only.
+  `Session not running`, shows the exact Voice-screen recovery path, and never
+  launches the app itself.
+- Setup explains that History and Settings are opened from the containing app.
 - Setup explains that normal typing remains on the user's system keyboard and
   that Globe switches between it and HoldType.
-- Punctuation, Space, Delete, Return, Globe, Settings, and an already-available
+- Punctuation, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest do not require provider setup, microphone permission,
   network, or Full Access. Keyboard-controlled dictation does require Full
   Access and a valid app-owned session.
@@ -262,10 +262,11 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with public system `Settings` on the left, the HoldType mark
-  plus terse status centered, and `Latest` insertion on the right;
-- one medium actionable microphone control with restrained Listening and
-  Processing treatments while an app-owned Keyboard Dictation Session exists;
+- a compact top row with balanced space on the left, the HoldType mark plus
+  terse status centered, and `Latest` insertion on the right;
+- one medium actionable microphone only while an app-owned Keyboard Dictation
+  Session can start or finish real recording; unavailable states show complete
+  recovery copy and processing shows progress instead of a disabled microphone;
 - one correction row containing `.`, `,`, `?`, and `!`;
 - one editing row containing Globe, a wide Space key, Delete, and adaptive
   Return;
@@ -295,11 +296,15 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   Pending Retry/Discard, and a keyboard request are mutually exclusive while
   any one of them owns Voice work.
 - The user explicitly starts one bounded Keyboard Dictation Session in the
-  containing app. An unavailable or expired session produces `Open HoldType`;
-  the keyboard does not launch the app.
+  containing app. An unavailable or expired session produces `Session not
+  running` plus the exact Voice-screen recovery path; the keyboard does not
+  launch the app.
 - Keyboard-controlled voice requires Allow Full Access so the extension can
   write one bounded command to the App Group boundary. Local editing, Globe,
-  Settings, and safe Latest fallback remain functional without it.
+  and safe Latest fallback remain functional without it.
+- The extension declares HoldType dictation support. iOS disables or suppresses
+  its own Dictation key; a retained disabled icon in the system strip remains
+  Apple-owned and is not a HoldType action.
 - The first microphone tap writes Start for one request id. `Listening…`
   appears only after the app acknowledges real capture. A second tap writes
   Finish; Cancel ends the request without provider processing.
@@ -341,9 +346,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - `Latest` inserts only a valid unexpired item and the keyboard never renders or
   previews its text. Full 20-entry History, Delete, Clear All, playback, and
   retention settings remain in the containing app.
-- The left gear requests only the public iOS Settings destination. It never
-  opens the in-app Settings tab or History route. Failure keeps the keyboard
-  usable and briefly shows `Open Settings`.
+- The extension requests no external Settings or containing-app launch. Setup
+  recovery is always readable without relying on a system callback.
 - Every Latest selection is an explicit insertion. One tap calls
   `textDocumentProxy` once; re-entrant handling of that tap is suppressed.
 - The same still-valid result may be inserted again only after another explicit
@@ -368,8 +372,7 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   exchange. The extension itself does not contact OpenAI or transmit host
   keystrokes.
 - With Full Access disabled, voice commands are unavailable but local editing,
-  Globe, public Settings, and any safe restricted-mode Latest access remain
-  functional.
+  Globe, and any safe restricted-mode Latest access remain functional.
 - Keyboard setup and Privacy explain that one expiring command/state pair and
   one 10-minute Latest item may enter the local shared container. Each is a
   replaceable bounded record, not a durable transcript history.
@@ -416,7 +419,7 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - Release navigation contains no placeholder destination.
 - Normal iPhone launch shows Voice, Library, History, and Settings in the tab
   shell; qualification routes never become a production root.
-- Keyboard tests cover both appearances, public Settings fallback, punctuation,
+- Keyboard tests cover both appearances, recovery instructions, punctuation,
   Delete repeat, Space cursor movement, Return traits, session-state honesty,
   bounded command/state decoding, stale-request rejection, one bounded Latest
   item, expiry, automatic insertion ownership, and explicit Latest insertion.
@@ -435,12 +438,12 @@ V1.1 is not release-complete until a recorded device pass proves:
 - keyboard enablement and Globe switching;
 - punctuation and editing controls in Notes, Messages, Mail, Safari, and two
   third-party apps;
-- restricted-mode local editing, Settings, and any supported read-only Latest
-  behavior with Allow Full Access off;
+- restricted-mode local editing and any supported read-only Latest behavior with
+  Allow Full Access off;
 - Full Access setup and one-writer command/state exchange with it on;
 - secure-field, phone-pad, and host-opt-out fallback;
-- public system Settings navigation and absence of a containing-app launch or
-  private Settings workaround;
+- absence of a Settings launch, containing-app launch, or private Settings
+  workaround in the extension;
 - app-owned Keyboard Dictation Session start, availability, expiry, and stop;
 - keyboard Start, acknowledged Listening, Finish, Cancel, Processing, timeout,
   and one accepted insertion in a still-owned host context;
@@ -458,7 +461,7 @@ V1.1 is not release-complete until a recorded device pass proves:
 
 Simulator evidence cannot pass this gate.
 
-The release candidate uses no keyboard History launch. Settings, local editing,
+The release candidate uses no keyboard History or Settings launch. Local editing
 and explicit Latest are independently useful. Keyboard-controlled dictation
 remains a release no-go until the app-owned background-session round trip passes
 on a signed physical iPhone and its privacy and energy behavior are acceptable.

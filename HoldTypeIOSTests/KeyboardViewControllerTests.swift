@@ -212,62 +212,29 @@ struct KeyboardViewControllerTests {
         )
     }
 
-    @Test func settingsSuccessUsesOnlyThePublicSystemURL() async throws {
-        let harness = KeyboardControllerHarness(
-            synchronousSettingsResult: true
-        )
-        let controller = harness.makeController()
-        controller.loadViewIfNeeded()
-
-        controller.keyboardView.onSettingsRequested?()
-        await Task.yield()
-
-        #expect(harness.openedSettingsURLs.map(\.absoluteString) == [
-            UIApplication.openSettingsURLString,
-        ])
-        #expect(statusText(in: controller.view) == "Open HoldType")
-        #expect(harness.scheduledStatusReset == nil)
-    }
-
-    @Test func settingsFailureShowsBriefStatusThenReturnsToReady() async throws {
+    @Test func missingSessionShowsCompleteRecoveryWithoutADeadSettingsAction()
+        throws {
         let harness = KeyboardControllerHarness()
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        controller.keyboardView.onSettingsRequested?()
-
-        #expect(harness.openedSettingsURLs.map(\.absoluteString) == [
-            UIApplication.openSettingsURLString,
-        ])
-        let completion = try #require(harness.settingsCompletion)
-        completion(false)
-        try await eventually {
-            statusText(in: controller.view) == "Open Settings"
-        }
-
-        #expect(harness.scheduledStatusDuration == 1.6)
-        let reset = try #require(harness.scheduledStatusReset)
-        reset.perform()
-
-        #expect(statusText(in: controller.view) == "Open HoldType")
-    }
-
-    @Test func synchronousSettingsFailureUsesTheSameBriefStatus() async throws {
-        let harness = KeyboardControllerHarness(
-            synchronousSettingsResult: false
+        #expect(controller.hasDictationKey)
+        #expect(statusText(in: controller.view) == "Session not running")
+        #expect(
+            descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.settings",
+                in: controller.view
+            ) == nil
         )
-        let controller = harness.makeController()
-        controller.loadViewIfNeeded()
-
-        controller.keyboardView.onSettingsRequested?()
-        try await eventually {
-            statusText(in: controller.view) == "Open Settings"
-        }
-
-        #expect(harness.openedSettingsURLs.map(\.absoluteString) == [
-            UIApplication.openSettingsURLString,
-        ])
-        #expect(harness.scheduledStatusDuration == 1.6)
+        #expect(
+            descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.recovery-detail",
+                in: controller.view
+            )?.text
+                == "Open HoldType → Voice → Keyboard Dictation Session → Start Keyboard Session. Then return here."
+        )
     }
 
     @Test func appStateDrivesCommandsAndMatchingResultInsertsOnce() throws {
@@ -319,7 +286,7 @@ struct KeyboardViewControllerTests {
         #expect(harness.proxy.insertedTexts == [
             "Processed keyboard text",
         ])
-        #expect(statusText(in: controller.view) == "Open HoldType")
+        #expect(statusText(in: controller.view) == "Session not running")
     }
 
     @Test func hostContextLossSuppressesAutomaticInsertion() throws {
@@ -363,7 +330,7 @@ struct KeyboardViewControllerTests {
         controller.textDidChange(nil)
 
         #expect(harness.proxy.insertedTexts.isEmpty)
-        #expect(statusText(in: controller.view) == "Open HoldType")
+        #expect(statusText(in: controller.view) == "Session not running")
     }
 
     @Test func resultFromAnotherRequestNeverInserts() throws {
@@ -397,7 +364,7 @@ struct KeyboardViewControllerTests {
         controller.textDidChange(nil)
 
         #expect(harness.proxy.insertedTexts.isEmpty)
-        #expect(statusText(in: controller.view) == "Ready")
+        #expect(statusText(in: controller.view) == "Session not running")
     }
 
     @Test func extensionLifetimeLossSuppressesAutomaticInsertion() throws {
@@ -435,7 +402,7 @@ struct KeyboardViewControllerTests {
         controller.textDidChange(nil)
 
         #expect(harness.proxy.insertedTexts.isEmpty)
-        #expect(statusText(in: controller.view) == "Open HoldType")
+        #expect(statusText(in: controller.view) == "Session not running")
     }
 
     @Test func cancelDoesNotInsertAndRestrictedModeKeepsEditing() throws {
@@ -469,7 +436,17 @@ struct KeyboardViewControllerTests {
         restrictedController.keyboardView.onDeleteStopped?()
         restrictedController.keyboardView.onReturnRequested?()
 
-        #expect(statusText(in: restrictedController.view) == "Enable Full Access")
+        #expect(
+            statusText(in: restrictedController.view)
+                == "Full Access required"
+        )
+        #expect(
+            descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.recovery-detail",
+                in: restrictedController.view
+            )?.text?.contains("iPhone Settings → General → Keyboard") == true
+        )
         #expect(restricted.proxy.insertedTexts == [".", " ", "\n"])
         #expect(restricted.proxy.deleteBackwardCount == 1)
     }
@@ -482,13 +459,8 @@ private final class KeyboardControllerHarness {
     var dictationState: KeyboardDictationStateRecord?
     let proxy = KeyboardDocumentProxySpy()
     let inputModeSwitchKeyOverride: Bool?
-    let synchronousSettingsResult: Bool?
     let fullAccessOverride: Bool
     var savedCommands: [KeyboardDictationCommandRecord] = []
-    var openedSettingsURLs: [URL] = []
-    var settingsCompletion: ((Bool) -> Void)?
-    var scheduledStatusDuration: TimeInterval?
-    var scheduledStatusReset: DispatchWorkItem?
     var scheduledExpiryDates: [Date] = []
     var scheduledExpiryActions: [@MainActor () -> Void] = []
 
@@ -497,14 +469,12 @@ private final class KeyboardControllerHarness {
         snapshot: KeyboardBridgeSnapshot? = nil,
         dictationState: KeyboardDictationStateRecord? = nil,
         inputModeSwitchKeyOverride: Bool? = true,
-        synchronousSettingsResult: Bool? = nil,
         fullAccessOverride: Bool = true
     ) {
         self.now = now
         self.snapshot = snapshot
         self.dictationState = dictationState
         self.inputModeSwitchKeyOverride = inputModeSwitchKeyOverride
-        self.synchronousSettingsResult = synchronousSettingsResult
         self.fullAccessOverride = fullAccessOverride
     }
 
@@ -519,20 +489,8 @@ private final class KeyboardControllerHarness {
                 observeDictationState: { _ in nil },
                 now: { [self] in now },
                 documentProxyOverride: proxy,
-                settingsOpener: { [self] url, completion in
-                    openedSettingsURLs.append(url)
-                    if let synchronousSettingsResult {
-                        completion(synchronousSettingsResult)
-                    } else {
-                        settingsCompletion = completion
-                    }
-                },
                 inputModeSwitchKeyOverride: inputModeSwitchKeyOverride,
                 fullAccessOverride: fullAccessOverride,
-                scheduleStatusReset: { [self] duration, workItem in
-                    scheduledStatusDuration = duration
-                    scheduledStatusReset = workItem
-                },
                 scheduleLatestExpiry: { [self] date, action in
                     scheduledExpiryDates.append(date)
                     scheduledExpiryActions.append(action)
@@ -612,23 +570,4 @@ private func descendant<View: UIView>(
         }
     }
     return nil
-}
-
-private enum KeyboardControllerTestError: Error {
-    case timedOut
-}
-
-@MainActor
-private func eventually(
-    timeout: Duration = .seconds(1),
-    condition: @escaping @MainActor () -> Bool
-) async throws {
-    let clock = ContinuousClock()
-    let deadline = clock.now.advanced(by: timeout)
-    while !condition() {
-        guard clock.now < deadline else {
-            throw KeyboardControllerTestError.timedOut
-        }
-        try await Task.sleep(for: .milliseconds(5))
-    }
 }

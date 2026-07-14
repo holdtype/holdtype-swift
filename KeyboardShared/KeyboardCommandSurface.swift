@@ -9,26 +9,70 @@ import Foundation
 
 enum KeyboardTopRailStatus: String, CaseIterable, Equatable, Sendable {
     case ready = "Ready"
-    case enableFullAccess = "Enable Full Access"
+    case fullAccessRequired = "Full Access required"
+    case starting = "Starting…"
     case listening = "Listening…"
     case processing = "Processing…"
-    case openHoldType = "Open HoldType"
-    case tryAgain = "Try Again"
-    case openSettings = "Open Settings"
+    case sessionNotRunning = "Session not running"
+    case allowMicrophone = "Allow Microphone"
+    case noNetwork = "No Network"
+    case dictationFailed = "Dictation failed"
 
     var accessibilityAnnouncement: String? {
         switch self {
         case .ready:
             nil
-        case .enableFullAccess,
+        case .fullAccessRequired,
+             .starting,
              .listening,
              .processing,
-             .openHoldType,
-             .tryAgain,
-             .openSettings:
+             .sessionNotRunning,
+             .allowMicrophone,
+             .noNetwork,
+             .dictationFailed:
             rawValue
         }
     }
+}
+
+enum KeyboardVoiceRecovery: Equatable, Sendable {
+    case startSession
+    case enableFullAccess
+    case requestFailed
+
+    var title: String {
+        switch self {
+        case .startSession:
+            "Start a voice session"
+        case .enableFullAccess:
+            "Enable Full Access"
+        case .requestFailed:
+            "Dictation stopped"
+        }
+    }
+
+    var instruction: String {
+        switch self {
+        case .startSession:
+            "Open HoldType → Voice → Keyboard Dictation Session → Start "
+                + "Keyboard Session. Then return here."
+        case .enableFullAccess:
+            "iPhone Settings → General → Keyboard → Keyboards → HoldType → "
+                + "Allow Full Access. Then open HoldType and start a keyboard "
+                + "session."
+        case .requestFailed:
+            "Open HoldType → Voice to review the problem and start a new "
+                + "keyboard session."
+        }
+    }
+}
+
+enum KeyboardVoiceStagePresentation: Equatable, Sendable {
+    case recovery(KeyboardVoiceRecovery)
+    case ready
+    case starting
+    case listening
+    case processing
 }
 
 enum KeyboardCursorDirection: Equatable, Sendable {
