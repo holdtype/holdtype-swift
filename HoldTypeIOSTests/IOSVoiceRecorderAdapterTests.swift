@@ -8,10 +8,22 @@ import Testing
 
 @MainActor
 struct IOSVoiceRecorderAdapterTests {
+    @Test func audioMeterNormalizesAndClampsDecibels() {
+        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -60) == 0)
+        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -30) == 0.5)
+        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: 0) == 1)
+        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -100) == 0)
+        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: 12) == 1)
+        #expect(
+            IOSVoiceAudioMeter.normalizedLevel(decibels: .nan) == nil
+        )
+    }
+
     @Test func startUsesScopedURLExactSettingsTwoCheckpointsAndBoundedRecord()
         async throws {
         let fixture = VoiceRecorderFixture()
         fixture.recorder.currentTimeValue = 12.5
+        fixture.recorder.normalizedPowerLevelValue = 0.75
         let adapter = fixture.makeAdapter()
         let token = IOSVoiceRecorderAttemptToken()
 
@@ -53,8 +65,10 @@ struct IOSVoiceRecorderAdapterTests {
         #expect(IOSVoiceRecorderAdapter.recorderSafetyDuration == 301)
         #expect(adapter.presentationCurrentTime(for: token) == 12.5)
         #expect(adapter.isActivelyRecording(for: token))
+        #expect(adapter.presentationInputLevel(for: token) == 0.75)
 
         _ = await adapter.stop(for: token, reason: .cancelled)
+        #expect(adapter.presentationInputLevel(for: token) == nil)
     }
 
     @Test func replacementAtEitherRecorderCheckpointStopsAndPreservesSource()
@@ -1368,6 +1382,7 @@ private final class VoiceAudioRecorderFixture: IOSVoiceAudioRecorder {
     var prepareEvent: IOSVoiceRecorderEvent?
     var recordEvent: IOSVoiceRecorderEvent?
     var currentTimeValue: TimeInterval = 0
+    var normalizedPowerLevelValue: Double?
     private(set) var stopCount = 0
     private var recording = false
 
@@ -1394,6 +1409,8 @@ private final class VoiceAudioRecorderFixture: IOSVoiceAudioRecorder {
         if let recordEvent { receive?(recordEvent) }
         return recordResult
     }
+
+    func normalizedPowerLevel() -> Double? { normalizedPowerLevelValue }
 
     func stop() {
         stopCount += 1

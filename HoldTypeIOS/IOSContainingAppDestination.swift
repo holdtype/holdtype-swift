@@ -91,6 +91,7 @@ enum IOSContainingAppDestinationSelectionDecision: Equatable, Sendable {
 enum IOSSettingsRoute: Hashable {
     case openAI
     case general(IOSGeneralSettingsDestination)
+    case keyboardSetup
     case privacyAndPermissions
     case usageEstimate
 }

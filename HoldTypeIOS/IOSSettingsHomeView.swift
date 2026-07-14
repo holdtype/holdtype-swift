@@ -7,12 +7,14 @@ struct IOSSettingsHomeView: View {
     @Environment(IOSAppSettingsStateOwner.self) private var stateOwner
     @State private var isLoading = false
     @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
+    @Binding var practiceText: String
     @Binding var hasUnsavedGeneralSettings: Bool
     let foregroundVoiceRuntimeAvailable: Bool
     let reconcileRecordingCache: (RecordingCachePolicy) async -> Bool
 
     init(
         openAIEditorDraft: Binding<IOSOpenAICredentialEditorDraft>,
+        practiceText: Binding<String>,
         hasUnsavedGeneralSettings: Binding<Bool>,
         foregroundVoiceRuntimeAvailable: Bool,
         reconcileRecordingCache: @escaping (
@@ -20,6 +22,7 @@ struct IOSSettingsHomeView: View {
         ) async -> Bool = { _ in true }
     ) {
         _openAIEditorDraft = openAIEditorDraft
+        _practiceText = practiceText
         _hasUnsavedGeneralSettings = hasUnsavedGeneralSettings
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
@@ -103,6 +106,8 @@ struct IOSSettingsHomeView: View {
             }
         case .usageEstimate:
             IOSUsageEstimateView()
+        case .keyboardSetup:
+            IOSKeyboardSetupView(practiceText: $practiceText)
         case .openAI:
             IOSOpenAISettingsView(editorDraft: $openAIEditorDraft)
         case .general(let destination):
@@ -237,6 +242,15 @@ private struct IOSSettingsSummaryList: View {
             }
 
             Section("Voice") {
+                NavigationLink(value: IOSSettingsRoute.keyboardSetup) {
+                    IOSSettingsDestinationLabel(
+                        title: "Keyboard & Full Access",
+                        summary: "Setup, verification, and practice",
+                        systemImage: "keyboard.badge.ellipsis"
+                    )
+                }
+                .accessibilityIdentifier("ios.settings.keyboard-setup.row")
+
                 NavigationLink(
                     value: IOSSettingsRoute.general(.voiceRecording)
                 ) {

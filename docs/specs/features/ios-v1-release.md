@@ -97,7 +97,7 @@ alphabetic layouts.
 The containing app exposes four useful destinations only:
 
 - `Voice`: record, recover one pending attempt, and work with one composed
-  read-only Draft while Latest remains the last accepted result;
+  editable Draft while Latest remains the last accepted result;
 - `Library`: Dictionary, Voice Emoji Commands, and Replacement Rules;
 - `History`: successful accepted text only;
 - `Settings`: provider, language/writing, recording, privacy, and setup.
@@ -132,6 +132,10 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Full Access recovery keeps the complete iPhone Settings route visibly
   emphasized. `Shortcut: hold 🌐 → Keyboard Settings` appears only as a
   secondary hint and never replaces the full route.
+- Keyboard and Full Access recovery open one dedicated in-app setup destination
+  with a public Open System Settings action and practice field. The containing
+  app reports Full Access as not currently verified rather than claiming it can
+  read the system toggle directly.
 - Punctuation, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest do not require provider setup, microphone permission,
   network, or Full Access. Keyboard-controlled dictation does require Full
@@ -159,6 +163,13 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Every accepted result is also offered exactly once to the separate composed
   Voice Draft. Draft failure never rolls back Latest, History, or Pending
   cleanup.
+- The Draft is editable only while Voice is inactive. It starts unfocused, so
+  cold launch never opens the keyboard; a direct tap provides normal selection,
+  typing, paste, and emoji input. One completed edit is one app-level Undo
+  mutation and preserves accepted-result deduplication independently of text.
+- Real recorder metering drives mirrored native level bars around the primary
+  Voice control only while Listening. Meter values are ephemeral, bounded, and
+  never persisted or logged.
 - No local recovery action repeats provider work automatically.
 
 ## Pending Recovery

@@ -4,6 +4,8 @@ import SwiftUI
 import UIKit
 
 struct IOSVoiceHomeView: View {
+    @Environment(\.scenePhase)
+    private var scenePhase
     @Environment(IOSForegroundVoiceSceneHostOwner.self)
     private var sceneOwner
     @Environment(IOSForegroundVoiceLatestResultOwner.self)
@@ -28,7 +30,9 @@ struct IOSVoiceHomeView: View {
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
     @State private var accessibilityAnnouncementCandidate:
         IOSAccessibilityAnnouncementCandidate?
+    @State private var draftEditSaveTask: Task<Void, Never>?
     @FocusState private var practiceFieldIsFocused: Bool
+    @FocusState private var draftEditorIsFocused: Bool
 
     let secureProviderAvailability: IOSSecureProviderAvailability
     let openSettings: (IOSSettingsRoute) -> Void
@@ -52,6 +56,7 @@ struct IOSVoiceHomeView: View {
                 .padding(.bottom, 12)
             }
             .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("HoldType")
@@ -84,6 +89,13 @@ struct IOSVoiceHomeView: View {
                 }
                 .accessibilityIdentifier("ios.voice.privacy-info")
             }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    draftEditorIsFocused = false
+                }
+                .accessibilityIdentifier("ios.voice.draft.keyboard-done")
+            }
         }
         .accessibilityIdentifier(
             IOSContainingAppDestination.voice.accessibilityIdentifier
@@ -92,6 +104,15 @@ struct IOSVoiceHomeView: View {
             if case .notLoaded = draftOwner.state {
                 await draftOwner.refresh()
             }
+            let environment = ProcessInfo.processInfo.environment
+            guard environment["HOLDTYPE_AUTOMATION"] == "1",
+                  environment[
+                    "HOLDTYPE_AUTOMATION_FOCUS_DRAFT"
+                  ] == "1" else {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+            draftEditorIsFocused = true
         }
         .task {
             let environment = ProcessInfo.processInfo.environment
@@ -112,6 +133,26 @@ struct IOSVoiceHomeView: View {
                 listeningStartedAt = listeningStartedAt ?? Date()
             } else {
                 listeningStartedAt = nil
+            }
+            if phase != .inactive {
+                draftEditorIsFocused = false
+            }
+        }
+        .onChange(of: draftEditorIsFocused) { _, isFocused in
+            if isFocused {
+                guard draftOwner.isEditing || draftOwner.beginEditing() else {
+                    draftEditorIsFocused = false
+                    return
+                }
+            } else if draftOwner.isEditing {
+                finishDraftEditing()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase != .active else { return }
+            draftEditorIsFocused = false
+            if draftOwner.isEditing {
+                finishDraftEditing()
             }
         }
         .onChange(of: sceneOwner.presentation) { old, new in
@@ -167,6 +208,11 @@ struct IOSVoiceHomeView: View {
             self.pendingLatestClearCommand = nil
         }
         .onDisappear {
+            draftEditSaveTask?.cancel()
+            draftEditSaveTask = nil
+            if draftOwner.isEditing {
+                Task { await draftOwner.finishEditing() }
+            }
             accessibilityAnnouncementTask?.cancel()
             accessibilityAnnouncementTask = nil
             accessibilityAnnouncementCandidate = nil
@@ -313,29 +359,7 @@ struct IOSVoiceHomeView: View {
                         }
                     }
                 case .ready, .loadFailed(lastConfirmed: .some):
-                    ScrollView {
-                        if draftOwner.text.isEmpty {
-                            ContentUnavailableView(
-                                "Ready for your first dictation",
-                                systemImage: "text.page",
-                                description: Text(
-                                    "Your accepted text will appear here."
-                                )
-                            )
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 28)
-                        } else {
-                            Text(draftOwner.text)
-                                .font(.body)
-                                .frame(
-                                    maxWidth: .infinity,
-                                    alignment: .topLeading
-                                )
-                                .accessibilityLabel("Current Draft")
-                                .accessibilityValue(draftOwner.text)
-                        }
-                    }
-                    .scrollIndicators(.visible)
+                    draftTextSurface
                 }
             }
 
@@ -353,6 +377,96 @@ struct IOSVoiceHomeView: View {
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
         .accessibilityIdentifier("ios.voice.draft")
+    }
+
+    @ViewBuilder
+    private var draftTextSurface: some View {
+        if draftEditorCanFocus {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: draftEditingBinding)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .focused($draftEditorIsFocused)
+                    .accessibilityLabel("Current Draft")
+                    .accessibilityIdentifier("ios.voice.draft.editor")
+
+                if draftOwner.visibleText.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(
+                            "Ready for your first dictation",
+                            systemImage: "text.page"
+                        )
+                        .font(.headline)
+                        Text("Tap here to type, paste, or add emoji.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 10)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+        } else {
+            ScrollView {
+                if draftOwner.visibleText.isEmpty {
+                    ContentUnavailableView(
+                        "Ready for your first dictation",
+                        systemImage: "text.page",
+                        description: Text(
+                            "Your accepted text will appear here."
+                        )
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 28)
+                } else {
+                    Text(draftOwner.visibleText)
+                        .font(.body)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .topLeading
+                        )
+                        .textSelection(.enabled)
+                        .accessibilityLabel("Current Draft")
+                        .accessibilityValue(draftOwner.visibleText)
+                }
+            }
+            .scrollIndicators(.visible)
+        }
+    }
+
+    private var draftEditorCanFocus: Bool {
+        draftOwner.isEditing
+            || (sceneOwner.presentation.phase == .inactive
+                && draftOwner.isAvailableForMutation)
+    }
+
+    private var draftEditingBinding: Binding<String> {
+        Binding(
+            get: { draftOwner.visibleText },
+            set: { text in
+                draftActionNotice = nil
+                draftOwner.updateEditingText(text)
+                scheduleDraftEditPersistence()
+            }
+        )
+    }
+
+    private func scheduleDraftEditPersistence() {
+        draftEditSaveTask?.cancel()
+        draftEditSaveTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, draftOwner.isEditing else { return }
+            _ = await draftOwner.persistEditing()
+        }
+    }
+
+    private func finishDraftEditing() {
+        draftEditSaveTask?.cancel()
+        draftEditSaveTask = Task { @MainActor in
+            _ = await draftOwner.finishEditing()
+            draftEditSaveTask = nil
+        }
     }
 
     @ViewBuilder
@@ -379,26 +493,31 @@ struct IOSVoiceHomeView: View {
             .accessibilityLabel("Redo Draft Change")
 
             Button {
-                guard !draftOwner.text.isEmpty else { return }
-                IOSVoiceClipboard.copy(draftOwner.text)
+                guard !draftOwner.visibleText.isEmpty else { return }
+                IOSVoiceClipboard.copy(draftOwner.visibleText)
                 draftActionNotice = "Copied"
                 IOSAccessibilityAnnouncement.post("Current Draft copied")
             } label: {
                 Image(systemName: "doc.on.doc")
                     .frame(width: 36, height: 36)
             }
-            .disabled(draftOwner.text.isEmpty)
+            .disabled(draftOwner.visibleText.isEmpty)
             .accessibilityLabel("Copy Draft")
 
             Button(role: .destructive) {
                 draftActionNotice = nil
-                Task { await draftOwner.clear() }
+                if draftOwner.isEditing {
+                    draftOwner.updateEditingText("")
+                    scheduleDraftEditPersistence()
+                } else {
+                    Task { await draftOwner.clear() }
+                }
             } label: {
                 Image(systemName: "trash")
                     .frame(width: 36, height: 36)
                     .foregroundStyle(.red)
             }
-            .disabled(draftOwner.text.isEmpty || draftOwner.isBusy)
+            .disabled(draftOwner.visibleText.isEmpty || draftOwner.isBusy)
             .accessibilityLabel("Clear Draft")
         }
         .buttonStyle(.plain)
@@ -467,6 +586,7 @@ struct IOSVoiceHomeView: View {
                 isEnabled: isEnabled,
                 showsProgress: status.showsProgress && command == nil,
                 isListening: sceneOwner.presentation.phase == .listening,
+                inputLevel: { sceneOwner.inputLevel },
                 action: {
                     guard let command, isEnabled else { return }
                     performVoiceCommand(command)
@@ -881,11 +1001,14 @@ struct IOSVoiceHomeView: View {
             )
         case .keyboard:
             (
-                "Open Practice Field",
-                { practiceFieldIsFocused = true }
+                "Open Keyboard Setup",
+                { openSettings(.keyboardSetup) }
             )
         case .fullAccess:
-            nil
+            (
+                "Enable Full Access",
+                { openSettings(.keyboardSetup) }
+            )
         }
     }
 

@@ -315,6 +315,7 @@ final class IOSForegroundVoiceWorkflowRecording {
             IOSForegroundVoiceWorkflowCaptureStopReason
         ) -> Void
     ) -> IOSForegroundVoiceWorkflowObservation
+    private let inputLevelAction: @MainActor @Sendable () -> Double?
 
     init(
         start: @escaping @MainActor @Sendable () async ->
@@ -327,12 +328,14 @@ final class IOSForegroundVoiceWorkflowRecording {
             @escaping @MainActor @Sendable (
                 IOSForegroundVoiceWorkflowCaptureStopReason
             ) -> Void
-        ) -> IOSForegroundVoiceWorkflowObservation
+        ) -> IOSForegroundVoiceWorkflowObservation,
+        inputLevel: @escaping @MainActor @Sendable () -> Double? = { nil }
     ) {
         startAction = start
         stopAction = stop
         isActiveAction = isActive
         observeTerminalAction = observeTerminal
+        inputLevelAction = inputLevel
     }
 
     func start() async -> IOSForegroundVoiceWorkflowRecordingStartResult {
@@ -346,6 +349,7 @@ final class IOSForegroundVoiceWorkflowRecording {
     }
 
     var isActive: Bool { isActiveAction() }
+    var inputLevel: Double? { inputLevelAction() }
 
     func observeTerminal(
         _ receive: @escaping @MainActor @Sendable (
@@ -713,8 +717,18 @@ final class IOSForegroundVoiceWorkflow {
             providerConsentInvalidated: { [weak self] authority in
                 self?.providerConsentDidInvalidate(authority)
                     ?? .unavailable
-            }
+            },
+            inputLevel: { [weak self] in self?.activeInputLevel }
         )
+    }
+
+    private var activeInputLevel: Double? {
+        guard let attempt = activeAttempt,
+              attempt.isListening,
+              attempt.recording?.isActive == true else {
+            return nil
+        }
+        return attempt.recording?.inputLevel
     }
 
     var keyboardDictationClient: IOSKeyboardDictationWorkflowClient {

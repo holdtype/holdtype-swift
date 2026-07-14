@@ -85,7 +85,11 @@ public actor IOSVoiceDraftRepository {
         }
         guard !record.isFull else { return .full(record) }
 
+        let appendedText = record.text.isEmpty
+            ? segment.text
+            : record.text + "\n\n" + segment.text
         let updated = IOSVoiceDraftRecord(
+            text: appendedText,
             segments: record.segments + [segment]
         )
         try replace(updated)
@@ -138,10 +142,15 @@ public actor IOSVoiceDraftRepository {
 }
 
 private enum IOSVoiceDraftWireCodec {
-    private static let supportedSchemaVersion = 1
-    private static let rootFields: Set<String> = [
+    private static let supportedSchemaVersion = 2
+    private static let v1RootFields: Set<String> = [
         "schemaVersion",
         "segments",
+    ]
+    private static let v2RootFields: Set<String> = [
+        "schemaVersion",
+        "text",
+        "acceptedSegments",
     ]
     private static let segmentFields: Set<String> = [
         "resultID",
@@ -153,23 +162,31 @@ private enum IOSVoiceDraftWireCodec {
         let segments: [SegmentWireV1]
     }
 
+    private struct RecordWireV2: Codable {
+        let schemaVersion: Int
+        let text: String
+        let acceptedSegments: [SegmentWireV1]
+    }
+
     private struct SegmentWireV1: Codable {
         let resultID: String
         let text: String
     }
 
     static func encode(_ record: IOSVoiceDraftRecord) throws -> Data {
-        guard record.segments.count <= IOSVoiceDraftRecord.maximumSegmentCount
-        else {
+        guard record.segments.count <= IOSVoiceDraftRecord.maximumSegmentCount,
+              IOSVoiceDraftRecord.isValidEditableText(record.text),
+              !record.text.isEmpty || record.segments.isEmpty else {
             throw IOSVoiceDraftRepositoryError.encodingFailed
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         do {
             return try encoder.encode(
-                RecordWireV1(
+                RecordWireV2(
                     schemaVersion: supportedSchemaVersion,
-                    segments: record.segments.map {
+                    text: record.text,
+                    acceptedSegments: record.segments.map {
                         SegmentWireV1(
                             resultID: $0.resultID.uuidString,
                             text: $0.text
@@ -211,25 +228,61 @@ private enum IOSVoiceDraftWireCodec {
         guard let root = object as? [String: Any] else {
             throw IOSVoiceDraftRepositoryError.topLevelNotObject
         }
-        try requireExactFields(root, expected: rootFields, path: "$")
         let version = try requireInteger(root["schemaVersion"], path: "schemaVersion")
-        guard version == supportedSchemaVersion else {
+        switch version {
+        case 1:
+            try requireExactFields(root, expected: v1RootFields, path: "$")
+            return try decodeV1(root)
+        case supportedSchemaVersion:
+            try requireExactFields(root, expected: v2RootFields, path: "$")
+            return try decodeV2(root)
+        default:
             throw IOSVoiceDraftRepositoryError.unsupportedSchemaVersion
         }
-        guard let rawSegments = root["segments"] as? [Any] else {
+    }
+
+    private static func decodeV1(
+        _ root: [String: Any]
+    ) throws -> IOSVoiceDraftRecord {
+        let segments = try decodeSegments(root["segments"], path: "segments")
+        return IOSVoiceDraftRecord(segments: segments)
+    }
+
+    private static func decodeV2(
+        _ root: [String: Any]
+    ) throws -> IOSVoiceDraftRecord {
+        let text = try requireString(root["text"], path: "text")
+        guard IOSVoiceDraftRecord.isValidEditableText(text) else {
+            throw IOSVoiceDraftRepositoryError.invalidValue(path: "text")
+        }
+        let segments = try decodeSegments(
+            root["acceptedSegments"],
+            path: "acceptedSegments"
+        )
+        guard !text.isEmpty || segments.isEmpty else {
+            throw IOSVoiceDraftRepositoryError.invalidValue(path: "text")
+        }
+        return IOSVoiceDraftRecord(text: text, segments: segments)
+    }
+
+    private static func decodeSegments(
+        _ value: Any?,
+        path rootPath: String
+    ) throws -> [IOSVoiceDraftSegment] {
+        guard let rawSegments = value as? [Any] else {
             throw IOSVoiceDraftRepositoryError.invalidValueType(
-                path: "segments"
+                path: rootPath
             )
         }
         guard rawSegments.count <= IOSVoiceDraftRecord.maximumSegmentCount else {
-            throw IOSVoiceDraftRepositoryError.invalidValue(path: "segments")
+            throw IOSVoiceDraftRepositoryError.invalidValue(path: rootPath)
         }
 
         var seen = Set<UUID>()
         var segments: [IOSVoiceDraftSegment] = []
         segments.reserveCapacity(rawSegments.count)
         for (index, rawSegment) in rawSegments.enumerated() {
-            let path = "segments[\(index)]"
+            let path = "\(rootPath)[\(index)]"
             guard let object = rawSegment as? [String: Any] else {
                 throw IOSVoiceDraftRepositoryError.invalidValueType(path: path)
             }
@@ -260,7 +313,7 @@ private enum IOSVoiceDraftWireCodec {
                 )
             }
         }
-        return IOSVoiceDraftRecord(segments: segments)
+        return segments
     }
 
     private static func requireExactFields(

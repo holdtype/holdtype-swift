@@ -4,6 +4,11 @@ public enum IOSVoiceDraftSegmentError: Error, Equatable, Sendable {
     case invalidText
 }
 
+public enum IOSVoiceDraftRecordError: Error, Equatable, Sendable {
+    case invalidText
+    case tooManyAcceptedResults
+}
+
 public struct IOSVoiceDraftSegment: Equatable, Identifiable, Sendable {
     public let resultID: UUID
     public let text: String
@@ -21,27 +26,65 @@ public struct IOSVoiceDraftSegment: Equatable, Identifiable, Sendable {
 
 public struct IOSVoiceDraftRecord: Equatable, Sendable {
     public static let maximumSegmentCount = 100
-    public static let empty = Self(segments: [])
+    public static let empty = Self(text: "", segments: [])
 
+    public let text: String
     public let segments: [IOSVoiceDraftSegment]
 
-    public var text: String {
-        segments.map(\.text).joined(separator: "\n\n")
-    }
-
-    public var isEmpty: Bool { segments.isEmpty }
+    public var isEmpty: Bool { text.isEmpty && segments.isEmpty }
     public var isFull: Bool { segments.count >= Self.maximumSegmentCount }
 
     @_spi(HoldTypeIOSCore)
     public init(segments: [IOSVoiceDraftSegment]) {
+        text = segments.map(\.text).joined(separator: "\n\n")
         self.segments = segments
+    }
+
+    @_spi(HoldTypeIOSCore)
+    public init(
+        text: String,
+        segments: [IOSVoiceDraftSegment]
+    ) {
+        self.text = text
+        self.segments = segments
+    }
+
+    @_spi(HoldTypeIOSCore)
+    public func replacingText(_ updatedText: String) throws -> Self {
+        guard Self.isValidEditableText(updatedText) else {
+            throw IOSVoiceDraftRecordError.invalidText
+        }
+        guard segments.count <= Self.maximumSegmentCount else {
+            throw IOSVoiceDraftRecordError.tooManyAcceptedResults
+        }
+        if updatedText.isEmpty {
+            return .empty
+        }
+        return Self(text: updatedText, segments: segments)
+    }
+
+    static func isValidEditableText(_ value: String) -> Bool {
+        value.unicodeScalars.allSatisfy { scalar in
+            switch scalar.value {
+            case 0x00...0x1F:
+                scalar.value == 0x09
+                    || scalar.value == 0x0A
+                    || scalar.value == 0x0D
+            case 0x7F...0x9F:
+                false
+            default:
+                true
+            }
+        }
     }
 }
 
 public struct IOSVoiceDraftSnapshotToken: Equatable, Sendable {
+    private let text: String
     private let segments: [IOSVoiceDraftSegment]
 
     public init(record: IOSVoiceDraftRecord) {
+        text = record.text
         segments = record.segments
     }
 }

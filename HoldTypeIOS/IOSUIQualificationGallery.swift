@@ -24,6 +24,7 @@ nonisolated enum IOSUIQualificationRoute:
     case voiceOutputDelivery = "voice-output-delivery"
     case voiceCaptureRecovery = "voice-capture-recovery"
     case voicePendingRetry = "voice-pending-retry"
+    case keyboardSetup = "keyboard-setup"
     case latestEmpty = "latest-empty"
     case latestSuccess = "latest-success"
     case latestFailure = "latest-failure"
@@ -78,6 +79,8 @@ nonisolated enum IOSUIQualificationRoute:
             "Voice — Recover or Discard"
         case .voicePendingRetry:
             "Voice — Retry or Discard"
+        case .keyboardSetup:
+            "Keyboard & Full Access Setup"
         case .latestEmpty:
             "Latest Result — Empty"
         case .latestSuccess:
@@ -119,7 +122,8 @@ nonisolated enum IOSUIQualificationRoute:
             nil
         case .voiceStart, .voiceSetupBlocked, .voiceArming, .voiceListening,
              .voiceFinalizing, .voiceProcessing, .voicePostProcessing,
-             .voiceOutputDelivery, .voiceCaptureRecovery, .voicePendingRetry:
+             .voiceOutputDelivery, .voiceCaptureRecovery, .voicePendingRetry,
+             .keyboardSetup:
             .voice
         case .latestEmpty, .latestSuccess, .latestFailure:
             .latestResult
@@ -162,7 +166,8 @@ nonisolated enum IOSUIQualificationRoute:
             .latestSuccess
         case .latestFailure:
             .latestFailure
-        case .gallery, .historyEntries, .privacyChecking, .privacyReady,
+        case .gallery, .keyboardSetup, .historyEntries, .privacyChecking,
+             .privacyReady,
              .privacyAccepted,
              .privacyUnreadable, .privacyFailure, .usageEmpty,
              .usageKnown, .usageMixed, .usageUnknown, .usageLoadFailure,
@@ -183,7 +188,8 @@ nonisolated enum IOSUIQualificationRoute:
             .unreadable
         case .privacyFailure:
             .failure
-        case .gallery, .historyEntries, .voiceStart, .voiceSetupBlocked,
+        case .gallery, .keyboardSetup, .historyEntries, .voiceStart,
+             .voiceSetupBlocked,
              .voiceArming,
              .voiceListening, .voiceFinalizing, .voiceProcessing,
              .voicePostProcessing, .voiceOutputDelivery,
@@ -211,7 +217,8 @@ nonisolated enum IOSUIQualificationRoute:
             .writeWarning
         case .usageResetFailure:
             .resetFailure
-        case .gallery, .historyEntries, .voiceStart, .voiceSetupBlocked,
+        case .gallery, .keyboardSetup, .historyEntries, .voiceStart,
+             .voiceSetupBlocked,
              .voiceArming,
              .voiceListening, .voiceFinalizing, .voiceProcessing,
              .voicePostProcessing, .voiceOutputDelivery,
@@ -272,6 +279,8 @@ struct IOSUIQualificationRootView: View {
     private func destination(_ route: IOSUIQualificationRoute) -> some View {
         if let scenario = route.voiceScenario {
             IOSUIQualificationVoiceHost(scenario: scenario)
+        } else if route == .keyboardSetup {
+            IOSUIQualificationKeyboardSetupHost()
         } else if route == .historyEntries {
             IOSUIQualificationHistoryHost()
         } else if let scenario = route.privacyScenario {
@@ -290,6 +299,20 @@ struct IOSUIQualificationRootView: View {
         in section: IOSUIQualificationSection
     ) -> [IOSUIQualificationRoute] {
         IOSUIQualificationRoute.allCases.filter { $0.section == section }
+    }
+}
+
+private struct IOSUIQualificationKeyboardSetupHost: View {
+    @State private var keyboardSession =
+        IOSKeyboardDictationSessionCoordinator(qualificationOnly: true)
+    @State private var practiceText = ""
+
+    var body: some View {
+        NavigationStack {
+            IOSKeyboardSetupView(practiceText: $practiceText)
+                .environment(keyboardSession)
+        }
+        .accessibilityIdentifier("ios.qualification.keyboard-setup")
     }
 }
 
@@ -457,7 +480,8 @@ private final class IOSUIQualificationVoiceFixture {
                     observation: observation
                 )
             },
-            finishUtterance: { _ in .accepted }
+            finishUtterance: { _ in .accepted },
+            inputLevel: { 0.72 }
         )
         let registry = IOSVoiceSceneRegistry()
         let controller = IOSForegroundVoiceController(
@@ -497,8 +521,8 @@ private final class IOSUIQualificationVoiceFixture {
                 segments: [
                     try! IOSVoiceDraftSegment(
                         resultID: UUID(),
-                        text: "This is the current composed Draft. It stays "
-                            + "read-only so the keyboard never appears."
+                        text: "This is the current composed Draft. Tap it "
+                            + "when you want to edit."
                     ),
                     try! IOSVoiceDraftSegment(
                         resultID: UUID(),
@@ -603,7 +627,12 @@ private actor IOSUIQualificationDraftStore {
             return existing == segment ? .duplicate(record) : .full(record)
         }
         guard !record.isFull else { return .full(record) }
-        record = IOSVoiceDraftRecord(segments: record.segments + [segment])
+        record = IOSVoiceDraftRecord(
+            text: record.text.isEmpty
+                ? segment.text
+                : record.text + "\n\n" + segment.text,
+            segments: record.segments + [segment]
+        )
         return .inserted(record)
     }
 

@@ -97,6 +97,8 @@ final class IOSForegroundVoiceSceneHostOwner:
         controller.actionCommands
     }
 
+    var inputLevel: Double? { controller.inputLevel }
+
     func promptDecisionCapability()
         -> IOSVoiceScenePromptDecisionCapability? {
         guard !isRetired, let sceneFacade else { return nil }

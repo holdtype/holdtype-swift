@@ -7,7 +7,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | --- | --- | --- |
 | iOS V1.1 release | `features/ios-v1-release.md` | Current iOS product, Voice, History, Settings, Library, privacy, or release-scope work; read the keyboard handoff spec with it for keyboard-originated dictation |
 | iOS V1.1 voice state | `features/ios-v1-voice-state-persistence.md` | Current Pending, Latest Result, Retry/Discard, relaunch recovery, or replacement of legacy iOS persistence |
-| iOS Voice draft | `features/ios-voice-draft.md` | Containing-app first screen, composed read-only draft, Copy/Clear, session Undo/Redo, launch routing, or Voice recovery presentation |
+| iOS Voice draft | `features/ios-voice-draft.md` | Containing-app first screen, editable composed draft, Copy/Clear, session Undo/Redo, recording waves, launch routing, or Voice recovery presentation |
 | iOS keyboard handoff and delivery | `features/ios-keyboard-handoff-and-delivery.md` | Canonical microphone tap, app opening, app-owned capture, return to host, request reconnection, exactly-once insertion, and app-only release fallback; this narrow contract wins conflicts with no-launch or manual-session clauses elsewhere |
 | Menu bar shell | `features/menu-bar-app-shell.md` | Menu bar lifecycle, primary controls, app shell state, status text |
 | Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |

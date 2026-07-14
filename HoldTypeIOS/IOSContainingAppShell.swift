@@ -192,6 +192,7 @@ struct IOSContainingAppShell: View {
         case .settings:
             IOSSettingsHomeView(
                 openAIEditorDraft: $openAIEditorDraft,
+                practiceText: $sceneDraft.practiceText,
                 hasUnsavedGeneralSettings:
                     $hasUnsavedEditor,
                 foregroundVoiceRuntimeAvailable:

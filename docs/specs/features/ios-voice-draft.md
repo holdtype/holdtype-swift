@@ -26,24 +26,40 @@ without opening the custom keyboard.
 
 - Voice presents one app-private composed Draft independently from Latest,
   History, Pending, Recording Cache, and the keyboard projection.
-- The Draft is a vertically scrollable static text surface, not a text input.
-  Tapping it never focuses a field, selects text, or opens the keyboard.
+- The Draft is a vertically scrollable text editor that starts unfocused.
+  Launch never focuses it or opens the keyboard. A direct tap focuses it and
+  enables normal selection, typing, paste, and system emoji input.
+- The keyboard exposes Done and supports interactive dismissal. Ending focus
+  commits the edit as one app-level Undo snapshot. While focused, system text
+  editing owns character-level Undo and the app-level Undo and Redo actions are
+  unavailable.
+- Copy and Clear operate on the visible working text. Translate, Correction,
+  and new dictation are unavailable until the edit is safely committed.
+- Starting, Listening, Finalizing, or Processing makes the editor read-only and
+  cannot summon the keyboard. Draft mutation controls remain unavailable while
+  an edit is active.
 - Each accepted Voice or keyboard-controlled dictation appends exactly once by
   accepted `resultID`. Accepted chunks are separated by one blank line.
-- The current Draft survives relaunch. It contains accepted text and result
-  identifiers only; it contains no audio, provider payload, prompt, credential,
-  host context, or creation-history log.
+- The current Draft survives relaunch. Its canonical editable text is stored
+  separately from the bounded accepted result identifiers used for exact-once
+  append. It contains no audio, provider payload, prompt, credential, host
+  context, or creation-history log.
 - Copy writes the entire current Draft to the clipboard.
 - Clear atomically replaces the current Draft with empty. It never changes
   Latest, History, Pending, Recording Cache, usage, settings, or the keyboard
   projection.
-- Undo and Redo cover successful append and Clear mutations in the current
-  process only. They are bounded to twenty snapshots and are not persisted.
+- Undo and Redo cover successful append, committed edit, and Clear mutations in
+  the current process only. They are bounded to twenty snapshots and are not
+  persisted.
   A cold launch restores the current Draft but no hidden prior text.
 - New mutation after Undo removes the forward Redo branch.
 - The durable Draft is one bounded protected atomic record with at most one
-  hundred accepted chunks and four MiB of encoded data. A full or unavailable
-  Draft fails visibly without changing Latest or History.
+  hundred accepted result identifiers and four MiB of encoded data. Existing
+  segment records migrate without losing text or exact-once identifiers. A
+  full or unavailable Draft fails visibly without changing Latest or History.
+- An edit uses compare-and-swap against its confirmed starting snapshot. A
+  concurrent append or another scene never gets overwritten; the unsaved
+  working text stays available for Copy while the user reloads or retries.
 
 ## Primary Voice Control
 
@@ -51,13 +67,17 @@ without opening the custom keyboard.
   region. Its decorative HoldType bubble is an image asset; its microphone,
   label, progress, and accessibility state remain native controls.
 - Ready shows active `Start Dictation`.
-- Listening uses the same primary location for Done and shows elapsed time plus
-  a separate Cancel action.
+- Listening uses the same primary location for Done, shows elapsed time plus a
+  separate Cancel action, and displays mirrored native level bars beside the
+  primary control. The bars react only to ephemeral recorder metering, retain
+  no audio information, and stop with capture.
 - Arming and processing keep the primary control visible but unavailable and
   show their exact progress. Cancel appears only when the controller admits it.
 - Setup, Pending recovery, blocked local recovery, and unavailable runtime
   keep a grey Start Dictation control plus the exact corrective actions.
 - No unavailable state fabricates readiness or starts provider work.
+- Reduce Motion removes spring-like interpolation while preserving a truthful
+  visible Listening indication.
 
 ## One-Shot Processing Actions
 
@@ -89,6 +109,12 @@ without opening the custom keyboard.
   unavailable.
 - OpenAI, transcription, translation, and microphone/privacy setup route to
   their existing owning Settings screens.
+- Keyboard and Full Access recovery route to a dedicated Keyboard & Full Access
+  setup screen with the complete public Settings path, an Open System Settings
+  action, and a practice field. The containing app reports Full Access as not
+  currently verified; it never invents a direct reading of the system switch.
+- Missing Full Access blocks keyboard-controlled voice only. It never disables
+  standalone foreground dictation, Draft editing, Copy, or safe Latest use.
 - Recoverable capture and Pending states expose only the exact Recover, Retry,
   and confirmed Discard commands admitted by the shared Voice controller.
 - Draft load or mutation failure preserves the last confirmed presentation and
@@ -98,8 +124,8 @@ without opening the custom keyboard.
 
 ## Accessibility And Appearance
 
-- VoiceOver exposes Draft as static text and names every available action and
-  disabled reason.
+- VoiceOver exposes Draft as an editable text area when editing is available
+  and names every available action and disabled reason.
 - Dynamic Type may move actions vertically without clipping the Draft or
   recovery explanation.
 - Light and Dark use the same geometry. Increase Contrast strengthens native
@@ -112,10 +138,11 @@ without opening the custom keyboard.
 - Focused persistence tests prove strict bounded decoding, exact-once append,
   atomic Clear/restore, identifier collision handling, and no hidden durable
   undo record.
-- State-owner tests prove load, append, Clear, Undo, Redo, forward-branch
-  removal, and failure preservation.
+- State-owner tests prove load, append, edit, Clear, Undo, Redo, forward-branch
+  removal, conflict handling, and failure preservation.
 - presentation tests cover empty, populated, loading, listening, processing,
   setup, Pending recovery, full Draft, and unavailable states.
-- Simulator QA covers cold launch, tab preservation while alive, non-focusable
-  Draft, Copy, Clear/Undo, keyboard-session sheet, both appearances, Dynamic
-  Type, and Reduce Transparency.
+- Simulator QA covers cold launch without focus, tap-to-edit, keyboard Done and
+  dismissal, Copy, Clear/Undo, recovery routing, both appearances, Dynamic
+  Type, Reduce Motion, and Reduce Transparency. A signed physical iPhone proves
+  real microphone metering and Full Access behavior.

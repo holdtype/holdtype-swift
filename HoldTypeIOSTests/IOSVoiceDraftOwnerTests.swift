@@ -55,6 +55,101 @@ struct IOSVoiceDraftOwnerTests {
         }
     }
 
+    @Test func oneEditSessionPersistsExactTextAndCreatesOneUndoSnapshot()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            let first = try accepted(1, text: "One")
+            #expect(await owner.appendAccepted(first))
+
+            #expect(owner.beginEditing())
+            owner.updateEditingText("One, edited ✨")
+            #expect(owner.visibleText == "One, edited ✨")
+            #expect(!owner.canUndo)
+            #expect(await owner.persistEditing())
+            owner.updateEditingText("One, edited ✨\n\nManual note")
+            #expect(await owner.finishEditing())
+
+            #expect(owner.text == "One, edited ✨\n\nManual note")
+            #expect(owner.canUndo)
+            #expect(await owner.undo())
+            #expect(owner.text == "One")
+            #expect(await owner.redo())
+            #expect(owner.text == "One, edited ✨\n\nManual note")
+
+            let relaunched = IOSVoiceDraftOwner(repository: repository)
+            #expect(await relaunched.refresh())
+            #expect(relaunched.text == "One, edited ✨\n\nManual note")
+            #expect(await relaunched.appendAccepted(first))
+            #expect(relaunched.text == "One, edited ✨\n\nManual note")
+        }
+    }
+
+    @Test func staleEditPreservesWorkingTextAndNeverOverwritesAppend()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            let first = try accepted(1, text: "One")
+            #expect(await owner.appendAccepted(first))
+            #expect(owner.beginEditing())
+            owner.updateEditingText("My unsaved edit")
+
+            _ = try await repository.append(
+                IOSVoiceDraftSegment(
+                    resultID: identifier(2),
+                    text: "External"
+                )
+            )
+
+            #expect(!(await owner.finishEditing()))
+            #expect(owner.text == "One\n\nExternal")
+            #expect(owner.visibleText == "My unsaved edit")
+            #expect(owner.notice == .draftChanged)
+
+            owner.updateEditingText("My unsaved edit, continued")
+            #expect(!(await owner.persistEditing()))
+            #expect(try await repository.load().text == "One\n\nExternal")
+            #expect(owner.notice == .draftChanged)
+
+            owner.cancelEditing()
+            #expect(owner.visibleText == "One\n\nExternal")
+        }
+    }
+
+    @Test func finishingWaitsForAnOverlappingDebouncedSave() async throws {
+        try await withRepository { repository in
+            let client = IOSVoiceDraftClient(
+                load: { try await repository.load() },
+                append: { try await repository.append($0) },
+                replace: { record, token in
+                    try await Task.sleep(for: .milliseconds(30))
+                    return try await repository.replace(
+                        record,
+                        ifCurrent: token
+                    )
+                }
+            )
+            let owner = IOSVoiceDraftOwner(client: client)
+            #expect(await owner.refresh())
+            #expect(owner.beginEditing())
+            owner.updateEditingText("Saved while focus leaves")
+
+            let debounce = Task { @MainActor in
+                await owner.persistEditing()
+            }
+            while owner.operation != .savingEdit { await Task.yield() }
+
+            #expect(await owner.finishEditing())
+            #expect(await debounce.value)
+            #expect(!owner.isEditing)
+            #expect(owner.text == "Saved while focus leaves")
+            let persisted = try await repository.load()
+            #expect(persisted.text == owner.text)
+        }
+    }
+
     @Test func failedMutationKeepsLastConfirmedTextAndReportsRecovery()
         async throws {
         try await withRepository { repository in

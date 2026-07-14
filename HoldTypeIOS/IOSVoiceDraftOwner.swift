@@ -53,6 +53,7 @@ enum IOSVoiceDraftOperation: Equatable, Sendable {
     case idle
     case refreshing
     case appending
+    case savingEdit
     case clearing
     case undoing
     case redoing
@@ -60,6 +61,7 @@ enum IOSVoiceDraftOperation: Equatable, Sendable {
 
 enum IOSVoiceDraftNotice: Equatable, Sendable {
     case appendFailed
+    case editFailed
     case draftFull
     case clearFailed
     case undoFailed
@@ -70,6 +72,8 @@ enum IOSVoiceDraftNotice: Equatable, Sendable {
         switch self {
         case .appendFailed:
             "The result is safe in Latest and History, but it couldn't be added to this Draft."
+        case .editFailed:
+            "The edit couldn't be saved. Your working text remains available to copy or retry."
         case .draftFull:
             "This Draft is full. Copy or clear it before adding another dictation."
         case .clearFailed:
@@ -92,6 +96,7 @@ final class IOSVoiceDraftOwner {
     private(set) var state = IOSVoiceDraftState.notLoaded
     private(set) var operation = IOSVoiceDraftOperation.idle
     private(set) var notice: IOSVoiceDraftNotice?
+    private(set) var editingText: String?
 
     @ObservationIgnored
     private let client: IOSVoiceDraftClient
@@ -99,6 +104,10 @@ final class IOSVoiceDraftOwner {
     private var undoStack: [IOSVoiceDraftRecord] = []
     @ObservationIgnored
     private var redoStack: [IOSVoiceDraftRecord] = []
+    @ObservationIgnored
+    private var editBaseline: IOSVoiceDraftRecord?
+    @ObservationIgnored
+    private var editHasConflict = false
 
     init(client: IOSVoiceDraftClient) {
         self.client = client
@@ -110,14 +119,20 @@ final class IOSVoiceDraftOwner {
 
     var confirmedRecord: IOSVoiceDraftRecord? { state.lastConfirmed }
     var text: String { confirmedRecord?.text ?? "" }
+    var visibleText: String { editingText ?? text }
+    var isEditing: Bool { editingText != nil }
     var isLoaded: Bool { confirmedRecord != nil }
     var isAvailableForMutation: Bool {
-        if case .ready = state { return true }
+        if case .ready = state, !isEditing, operation == .idle { return true }
         return false
     }
     var isFull: Bool { confirmedRecord?.isFull == true }
-    var canUndo: Bool { !undoStack.isEmpty && operation == .idle }
-    var canRedo: Bool { !redoStack.isEmpty && operation == .idle }
+    var canUndo: Bool {
+        !isEditing && !undoStack.isEmpty && operation == .idle
+    }
+    var canRedo: Bool {
+        !isEditing && !redoStack.isEmpty && operation == .idle
+    }
     var isBusy: Bool { operation != .idle }
 
     @discardableResult
@@ -189,7 +204,105 @@ final class IOSVoiceDraftOwner {
     }
 
     @discardableResult
+    func beginEditing() -> Bool {
+        guard editingText == nil,
+              operation == .idle,
+              case .ready(let current) = state else {
+            return false
+        }
+        editBaseline = current
+        editHasConflict = false
+        editingText = current.text
+        notice = nil
+        return true
+    }
+
+    func updateEditingText(_ text: String) {
+        guard editingText != nil else { return }
+        editingText = text
+        if !editHasConflict { notice = nil }
+    }
+
+    @discardableResult
+    func persistEditing() async -> Bool {
+        guard let editingText,
+              let current = confirmedRecord,
+              !editHasConflict else {
+            return false
+        }
+        let updated: IOSVoiceDraftRecord
+        do {
+            updated = try current.replacingText(editingText)
+        } catch {
+            notice = .editFailed
+            return false
+        }
+        guard updated != current else { return true }
+        guard begin(.savingEdit) else { return false }
+        do {
+            let result = try await client.replace(
+                updated,
+                IOSVoiceDraftSnapshotToken(record: current)
+            )
+            guard complete() else { return false }
+            switch result {
+            case .confirmed(let record):
+                state = .ready(record)
+                notice = nil
+                return true
+            case .stale(let record):
+                state = .ready(record)
+                undoStack.removeAll()
+                redoStack.removeAll()
+                editHasConflict = true
+                notice = .draftChanged
+                return false
+            }
+        } catch is CancellationError {
+            _ = complete()
+            return false
+        } catch {
+            guard complete() else { return false }
+            state = .ready(current)
+            notice = .editFailed
+            return false
+        }
+    }
+
+    @discardableResult
+    func finishEditing() async -> Bool {
+        while operation == .savingEdit {
+            guard !Task.isCancelled else { return false }
+            await Task.yield()
+        }
+        guard let baseline = editBaseline,
+              editingText != nil else {
+            return true
+        }
+        guard await persistEditing(),
+              let current = confirmedRecord else {
+            return false
+        }
+        editingText = nil
+        editBaseline = nil
+        editHasConflict = false
+        if current != baseline {
+            recordUndo(baseline)
+            redoStack.removeAll()
+        }
+        return true
+    }
+
+    func cancelEditing() {
+        editingText = nil
+        editBaseline = nil
+        editHasConflict = false
+        notice = nil
+    }
+
+    @discardableResult
     func clear() async -> Bool {
+        guard !isEditing else { return false }
         guard let current = confirmedRecord,
               !current.isEmpty else {
             return false
@@ -302,7 +415,9 @@ final class IOSVoiceDraftOwner {
     }
 
     private func beginAcceptedAppend() async -> Bool {
+        guard !isEditing else { return false }
         while !begin(.appending) {
+            guard !isEditing else { return false }
             guard !Task.isCancelled else { return false }
             await Task.yield()
         }

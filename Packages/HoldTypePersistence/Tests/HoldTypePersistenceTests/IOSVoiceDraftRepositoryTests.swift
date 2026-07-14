@@ -35,7 +35,7 @@ struct IOSVoiceDraftRepositoryTests {
         #expect(fileSystem.readPolicies == [expectedPolicy])
     }
 
-    @Test func appendWritesCanonicalV1AndJoinsSegmentsWithBlankLines()
+    @Test func appendWritesCanonicalV2AndJoinsAcceptedTextWithBlankLines()
         async throws {
         let fileSystem = DraftFileSystemFake()
         let repository = makeRepository(fileSystem)
@@ -50,9 +50,31 @@ struct IOSVoiceDraftRepositoryTests {
         #expect(record.text == "First\n\nSecond")
         #expect(
             String(decoding: try #require(fileSystem.data), as: UTF8.self) ==
-                #"{"schemaVersion":1,"segments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":"First"},{"resultID":"00000000-0000-0000-0000-000000000002","text":"Second"}]}"#
+                #"{"acceptedSegments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":"First"},{"resultID":"00000000-0000-0000-0000-000000000002","text":"Second"}],"schemaVersion":2,"text":"First\n\nSecond"}"#
         )
         #expect(fileSystem.replacementPolicies == [expectedPolicy, expectedPolicy])
+    }
+
+    @Test func legacyV1LoadsAndTheNextMutationWritesEditableV2() async throws {
+        let legacy = Data(
+            #"{"schemaVersion":1,"segments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":"First"},{"resultID":"00000000-0000-0000-0000-000000000002","text":"Second"}]}"#.utf8
+        )
+        let fileSystem = DraftFileSystemFake(data: legacy)
+        let repository = makeRepository(fileSystem)
+
+        let migrated = try await repository.load()
+        #expect(migrated.text == "First\n\nSecond")
+        let edited = try migrated.replacingText("First, edited ✨")
+        #expect(
+            try await repository.replace(
+                edited,
+                ifCurrent: IOSVoiceDraftSnapshotToken(record: migrated)
+            ) == .confirmed(edited)
+        )
+        #expect(
+            String(decoding: try #require(fileSystem.data), as: UTF8.self) ==
+                #"{"acceptedSegments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":"First"},{"resultID":"00000000-0000-0000-0000-000000000002","text":"Second"}],"schemaVersion":2,"text":"First, edited ✨"}"#
+        )
     }
 
     @Test func appendIsExactOnceRejectsCollisionsAndStopsAtBound() async throws {
@@ -116,7 +138,7 @@ struct IOSVoiceDraftRepositoryTests {
             (Data(#"{"schemaVersion":1,"schemaVersion":1,"segments":[]}"#.utf8), .malformedData),
             (Data(#"[]"#.utf8), .topLevelNotObject),
             (Data(#"{"schemaVersion":1}"#.utf8), .missingRequiredValue(path: "segments")),
-            (Data(#"{"schemaVersion":2,"segments":[]}"#.utf8), .unsupportedSchemaVersion),
+            (Data(#"{"schemaVersion":3,"segments":[]}"#.utf8), .unsupportedSchemaVersion),
             (Data(#"{"schemaVersion":1,"segments":[],"extra":1}"#.utf8), .unexpectedFields(path: "$")),
             (Data(#"{"schemaVersion":1,"segments":[{"resultID":"not-a-uuid","text":"Text"}]}"#.utf8), .invalidValue(path: "segments[0].resultID")),
             (Data(#"{"schemaVersion":1,"segments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":""}]}"#.utf8), .invalidValue(path: "segments[0].text")),
@@ -131,6 +153,44 @@ struct IOSVoiceDraftRepositoryTests {
             #expect(fileSystem.data == data)
             #expect(fileSystem.replacementCallCount == 0)
         }
+    }
+
+    @Test func v2RejectsInvalidEditableTextAndMismatchedEmptyState() async {
+        let invalid: [(Data, IOSVoiceDraftRepositoryError)] = [
+            (
+                Data(#"{"acceptedSegments":[],"schemaVersion":2,"text":"bad\u0000text"}"#.utf8),
+                .invalidValue(path: "text")
+            ),
+            (
+                Data(#"{"acceptedSegments":[{"resultID":"00000000-0000-0000-0000-000000000001","text":"One"}],"schemaVersion":2,"text":""}"#.utf8),
+                .invalidValue(path: "text")
+            ),
+        ]
+
+        for (data, expected) in invalid {
+            await expectError(expected) {
+                _ = try await makeRepository(DraftFileSystemFake(data: data))
+                    .load()
+            }
+        }
+    }
+
+    @Test func encoderRejectsEmptyTextWithAcceptedSegmentMetadata()
+        async throws {
+        let fileSystem = DraftFileSystemFake()
+        let repository = makeRepository(fileSystem)
+        let invalid = IOSVoiceDraftRecord(
+            text: "",
+            segments: [try makeSegment(1)]
+        )
+
+        await expectError(.encodingFailed) {
+            _ = try await repository.replace(
+                invalid,
+                ifCurrent: IOSVoiceDraftSnapshotToken(record: .empty)
+            )
+        }
+        #expect(fileSystem.replacementCallCount == 0)
     }
 
     private var expectedPolicy: ProtectedAtomicMetadataFilePolicy {
