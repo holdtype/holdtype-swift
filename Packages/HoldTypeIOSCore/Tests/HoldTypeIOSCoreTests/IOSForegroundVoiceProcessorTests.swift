@@ -274,17 +274,99 @@ struct IOSForegroundVoiceProcessorTests {
         )
     }
 
+    @Test func draftCorrectionSkipsRecordingTranscriptionAndDurableVoiceState()
+        async throws {
+        let fixture = try await ProcessorFixture()
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let processor = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "unexpected"
+                },
+                correct: { transcript, configuration, _ in
+                    calls.record("correction")
+                    #expect(configuration.isEnabled)
+                    #expect(transcript.text == "Original Draft")
+                    return "Improved Draft"
+                }
+            )
+        )
+
+        let result = await processor.processDraftText(
+            fixture.draftRequest(
+                action: .correct,
+                text: "Original Draft"
+            )
+        )
+
+        #expect(result == .success("Improved Draft"))
+        #expect(calls.events == ["correction"])
+        #expect(
+            try await fixture.persistenceOwner.load()?.recording
+                == fixture.pending
+        )
+        #expect(
+            try await fixture.persistenceOwner.loadLatestResult() == .absent
+        )
+    }
+
+    @Test func draftTranslationUsesSavedRouteAndMapsBoundedFailure()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: true,
+            targetLanguage: .french
+        )
+        let fixture = try await ProcessorFixture(settings: settings)
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let processor = fixture.makeProcessor(
+            provider: provider(
+                translate: { request, _ in
+                    calls.record("translation")
+                    #expect(
+                        request.translationConfiguration.targetLanguage
+                            == .french
+                    )
+                    throw OpenAITextTranslationServiceError.timedOut
+                }
+            )
+        )
+
+        let result = await processor.processDraftText(
+            fixture.draftRequest(
+                action: .translate,
+                text: "Translate this"
+            )
+        )
+
+        #expect(result == .failure(.timedOut))
+        #expect(calls.events == ["translation"])
+        #expect(
+            try await fixture.persistenceOwner.load()?.recording
+                == fixture.pending
+        )
+    }
+
     @Test func diagnosticsRedactTextCredentialAndPaths() async throws {
         let fixture = try await ProcessorFixture()
         defer { fixture.removeFiles() }
         let request = fixture.request()
+        let draftRequest = fixture.draftRequest(
+            action: .correct,
+            text: "private draft canary"
+        )
         let processor = fixture.makeProcessor(provider: provider())
         var dumpText = ""
-        dump((request, processor), to: &dumpText)
+        dump((request, draftRequest, processor), to: &dumpText)
         let diagnostics = [
             dumpText,
             String(describing: request),
             String(reflecting: request),
+            String(describing: draftRequest),
+            String(reflecting: draftRequest),
             String(describing: processor),
             String(reflecting: processor),
         ].joined(separator: "\n")
@@ -294,8 +376,17 @@ struct IOSForegroundVoiceProcessorTests {
                 "IOSForegroundVoiceProcessingRequest(redacted)"
             )
         )
+        #expect(
+            diagnostics.contains(
+                "IOSVoiceDraftTextActionRequest(redacted)"
+            )
+        )
         #expect(diagnostics.contains("IOSForegroundVoiceProcessor(redacted)"))
-        for canary in ["sk-processor-test", fixture.root.path] {
+        for canary in [
+            "sk-processor-test",
+            "private draft canary",
+            fixture.root.path,
+        ] {
             #expect(!diagnostics.contains(canary))
         }
     }
@@ -385,6 +476,20 @@ private final class ProcessorFixture: @unchecked Sendable {
             credential: credential,
             consentObservation: acceptedConsent,
             forcesTextCorrection: forcesTextCorrection
+        )
+    }
+
+    func draftRequest(
+        action: IOSVoiceDraftTextAction,
+        text: String,
+        settings: IOSAppSettings? = nil
+    ) -> IOSVoiceDraftTextActionRequest {
+        IOSVoiceDraftTextActionRequest(
+            action: action,
+            text: text,
+            settings: settings ?? self.settings,
+            credential: credential,
+            consentObservation: acceptedConsent
         )
     }
 

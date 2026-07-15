@@ -349,6 +349,56 @@ struct IOSVoiceDraftOwnerTests {
         }
     }
 
+    @Test func transformationReplacesAtomicallyAndCreatesOneUndoSnapshot()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            #expect(await owner.appendAccepted(try accepted(1, text: "Original")))
+            let reservation = try #require(owner.beginTransformation())
+            #expect(owner.operation == .transforming)
+            #expect(owner.beginTransformation() == nil)
+
+            #expect(
+                await owner.commitTransformation(
+                    "Improved",
+                    reservation: reservation
+                ) == .confirmed(changed: true)
+            )
+            #expect(owner.operation == .idle)
+            #expect(owner.text == "Improved")
+            #expect(owner.canUndo)
+            #expect(await owner.undo())
+            #expect(owner.text == "Original")
+        }
+    }
+
+    @Test func staleTransformationNeverOverwritesNewerDraft() async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            #expect(await owner.appendAccepted(try accepted(1, text: "Original")))
+            let reservation = try #require(owner.beginTransformation())
+
+            _ = try await repository.append(
+                IOSVoiceDraftSegment(
+                    resultID: identifier(2),
+                    text: "External"
+                )
+            )
+
+            #expect(
+                await owner.commitTransformation(
+                    "Stale provider result",
+                    reservation: reservation
+                ) == .stale
+            )
+            #expect(owner.text == "Original\n\nExternal")
+            #expect(owner.notice == .draftChanged)
+            #expect(!owner.canUndo)
+        }
+    }
+
     private func withRepository(
         operation: (IOSVoiceDraftRepository) async throws -> Void
     ) async throws {

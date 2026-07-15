@@ -1,5 +1,6 @@
 import Foundation
 import HoldTypeDomain
+@_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import SwiftUI
 import UIKit
 
@@ -16,6 +17,8 @@ struct IOSVoiceHomeView: View {
     private var latestResultOwner
     @Environment(IOSVoiceDraftOwner.self)
     private var draftOwner
+    @Environment(IOSVoiceDraftTextActionOwner.self)
+    private var draftTextActionOwner
     @Environment(IOSProviderConsentPresentationOwner.self)
     private var consentOwner
     @Environment(IOSKeyboardDictationSessionCoordinator.self)
@@ -266,6 +269,16 @@ struct IOSVoiceHomeView: View {
             }
             self.pendingLatestClearCommand = nil
         }
+        .onChange(of: draftTextActionOwner.notice) { _, notice in
+            guard let notice else { return }
+            if let route = notice.settingsRoute {
+                openSettings(route)
+            }
+            scheduleAccessibilityAnnouncement(
+                notice.message,
+                priority: .content
+            )
+        }
         .onDisappear {
             draftEditSaveTask?.cancel()
             draftEditSaveTask = nil
@@ -364,26 +377,21 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private func oneShotVoiceIconButton(
-        _ action: IOSForegroundVoiceAction
+    private func draftTextActionButton(
+        _ action: IOSVoiceDraftTextAction
     ) -> some View {
-        let presentation = IOSVoiceActionPresentation.resolve(action)
-        let command = sceneOwner.actionCommands.first {
-            $0.action == action
-        }
-        let routesToTranslationSetup = action == .startTranslation
-            && command == nil
-            && translationSetupCanBeOpened
-        let isEnabled = (command != nil || routesToTranslationSetup)
-            && !draftBlocksNewDictation
+        let presentation = IOSVoiceDraftTextActionPresentation.resolve(action)
+        let isEnabled = sceneOwner.presentation.phase == .inactive
+            && draftOwner.isAvailableForMutation
+            && !draftOwner.visibleText
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty
 
         return Button {
             guard isEnabled else { return }
-            if let command {
-                performOneShotVoiceCommand(command)
-            } else if routesToTranslationSetup {
-                openSettings(.attention(.translation))
-            }
+            draftActionNotice = nil
+            draftTextActionOwner.dismissNotice()
+            _ = draftTextActionOwner.submit(action)
         } label: {
             Image(systemName: presentation.systemImage)
                 .font(.system(size: 18, weight: .medium))
@@ -392,11 +400,7 @@ struct IOSVoiceHomeView: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(presentation.title)
-        .accessibilityHint(
-            routesToTranslationSetup
-                ? "Opens Translation Settings to complete setup."
-                : ""
-        )
+        .accessibilityHint("Processes the complete current Draft.")
         .accessibilityIdentifier(presentation.accessibilityIdentifier)
     }
 
@@ -482,8 +486,8 @@ struct IOSVoiceHomeView: View {
 
     @ViewBuilder
     private var oneShotDraftActions: some View {
-        oneShotVoiceIconButton(.startTranslation)
-        oneShotVoiceIconButton(.startCorrection)
+        draftTextActionButton(.translate)
+        draftTextActionButton(.correct)
     }
 
     @ViewBuilder
@@ -748,6 +752,12 @@ struct IOSVoiceHomeView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("ios.voice.draft.notice")
+        } else if let notice = draftTextActionOwner.notice {
+            Label(notice.message, systemImage: notice.systemImage)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("ios.voice.draft.notice")
         } else if let notice = draftOwner.notice {
             Label(notice.message, systemImage: "exclamationmark.triangle")
                 .font(.footnote)
@@ -966,13 +976,6 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private var translationSetupCanBeOpened: Bool {
-        sceneOwner.presentation.phase == .inactive
-            && sceneOwner.actionCommands.contains {
-                $0.action == .startStandard
-            }
-    }
-
     private var voiceStage: some View {
         GeometryReader { geometry in
             let activityCenter = IOSVoiceStagePlacement.activityCenter(
@@ -1011,9 +1014,7 @@ struct IOSVoiceHomeView: View {
     }
 
     private var voiceStatusSurface: some View {
-        let status = IOSVoiceHomePresentation.resolve(
-            sceneOwner.presentation
-        )
+        let status = effectiveVoiceStatus
         let recoveryCommands = sceneOwner.actionCommands.filter {
             IOSVoiceHomeActionPlacement.isVisibleStatusAction($0.action)
         }
@@ -1045,39 +1046,50 @@ struct IOSVoiceHomeView: View {
 
     @ViewBuilder
     private var primaryVoiceSurface: some View {
-        let status = IOSVoiceHomePresentation.resolve(
-            sceneOwner.presentation
-        )
+        let status = effectiveVoiceStatus
         let command = primaryVoiceCommand
 
-        switch sceneOwner.presentation.phase {
-        case .inactive:
-            if let command, primaryVoiceGate == .available {
-                voiceActivityButton(command)
-            } else {
-                primaryVoiceRecoverySurface(
-                    status: primaryBlockedStatus(fallback: status)
-                )
-            }
-        case .arming:
-            voiceArmingIndicator(status: status)
-        case .listening:
-            if let command {
-                voiceActivityButton(command)
-            } else {
-                voiceActivityIndicator(.listening, status: status)
-            }
-        case .finalizing, .processing:
+        if draftTextActionOwner.isProcessing {
             voiceActivityIndicator(.recognizing, status: status)
-        case .ready:
-            if let command, primaryVoiceGate == .available {
-                voiceActivityButton(command)
-            } else {
-                primaryVoiceRecoverySurface(
-                    status: primaryBlockedStatus(fallback: status)
-                )
+        } else {
+            switch sceneOwner.presentation.phase {
+            case .inactive:
+                if let command, primaryVoiceGate == .available {
+                    voiceActivityButton(command)
+                } else {
+                    primaryVoiceRecoverySurface(
+                        status: primaryBlockedStatus(fallback: status)
+                    )
+                }
+            case .arming:
+                voiceArmingIndicator(status: status)
+            case .listening:
+                if let command {
+                    voiceActivityButton(command)
+                } else {
+                    voiceActivityIndicator(.listening, status: status)
+                }
+            case .finalizing, .processing:
+                voiceActivityIndicator(.recognizing, status: status)
+            case .ready:
+                if let command, primaryVoiceGate == .available {
+                    voiceActivityButton(command)
+                } else {
+                    primaryVoiceRecoverySurface(
+                        status: primaryBlockedStatus(fallback: status)
+                    )
+                }
             }
         }
+    }
+
+    private var effectiveVoiceStatus: IOSVoiceStatusPresentation {
+        if let action = draftTextActionOwner.activeAction {
+            return IOSVoiceDraftTextActionPresentation
+                .resolve(action)
+                .processingStatus
+        }
+        return IOSVoiceHomePresentation.resolve(sceneOwner.presentation)
     }
 
     private func voiceActivityButton(
@@ -1150,7 +1162,8 @@ struct IOSVoiceHomeView: View {
     }
 
     private var showsInlineVoiceStatus: Bool {
-        switch sceneOwner.presentation.phase {
+        if draftTextActionOwner.isProcessing { return true }
+        return switch sceneOwner.presentation.phase {
         case .inactive:
             primaryVoiceCommand != nil && primaryVoiceGate == .available
         case .ready:
@@ -1456,7 +1469,8 @@ struct IOSVoiceHomeView: View {
     }
 
     private var dictationHasPriority: Bool {
-        sceneOwner.presentation.phase != .inactive
+        draftTextActionOwner.isProcessing
+            || sceneOwner.presentation.phase != .inactive
             || sceneOwner.presentation.recovery != .none
     }
 
@@ -1801,26 +1815,6 @@ struct IOSVoiceHomeView: View {
             return
         }
         _ = sceneOwner.submitStart(command, modes: sessionModes)
-    }
-
-    private func performOneShotVoiceCommand(
-        _ command: IOSForegroundVoiceActionCommand
-    ) {
-        guard let standard = sceneOwner.actionCommands.first(where: {
-            $0.action == .startStandard
-        }) else {
-            return
-        }
-        var modes = sessionModes
-        switch command.action {
-        case .startTranslation:
-            modes.translates = true
-        case .startCorrection:
-            modes.corrects = true
-        default:
-            return
-        }
-        _ = sceneOwner.submitStart(standard, modes: modes)
     }
 
     private func setupAction(

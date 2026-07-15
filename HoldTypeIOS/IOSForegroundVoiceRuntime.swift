@@ -128,6 +128,7 @@ final class IOSForegroundVoiceRuntime {
     }
     let latestResultOwner: IOSForegroundVoiceLatestResultOwner
     let voiceDraftOwner: IOSVoiceDraftOwner
+    let voiceDraftTextActionOwner: IOSVoiceDraftTextActionOwner
     let workflow: IOSForegroundVoiceWorkflow
     let keyboardDictationSession: IOSKeyboardDictationSessionCoordinator
     let controller: IOSForegroundVoiceController
@@ -193,6 +194,15 @@ final class IOSForegroundVoiceRuntime {
         )
         self.latestResultOwner = latestResultOwner
         self.voiceDraftOwner = voiceDraftOwner
+        voiceDraftTextActionOwner = IOSVoiceDraftTextActionOwner(
+            draftOwner: voiceDraftOwner,
+            client: IOSVoiceDraftTextActionClient(
+                settingsStateOwner: settingsStateOwner,
+                consentOwner: providerConsentPresentationOwner,
+                credentialCoordinator: credentialCoordinator,
+                processor: processor
+            )
+        )
 
         let dependencies = IOSForegroundVoiceWorkflowDependencies(
             sceneRegistry: sceneRegistry,

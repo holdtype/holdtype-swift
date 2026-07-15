@@ -63,6 +63,21 @@ enum IOSVoiceDraftOperation: Equatable, Sendable {
     case clearing
     case undoing
     case redoing
+    case transforming
+}
+
+struct IOSVoiceDraftTransformationReservation: Equatable, Sendable {
+    fileprivate let id: UUID
+    fileprivate let record: IOSVoiceDraftRecord
+
+    var text: String { record.text }
+}
+
+enum IOSVoiceDraftTransformationCommit: Equatable, Sendable {
+    case confirmed(changed: Bool)
+    case stale
+    case failed
+    case unavailable
 }
 
 enum IOSVoiceDraftContentChangeKind: Equatable, Sendable {
@@ -131,6 +146,8 @@ final class IOSVoiceDraftOwner {
     private var editBaseline: IOSVoiceDraftRecord?
     @ObservationIgnored
     private var editHasConflict = false
+    @ObservationIgnored
+    private var activeTransformationID: UUID?
 
     init(client: IOSVoiceDraftClient) {
         self.client = client
@@ -339,6 +356,95 @@ final class IOSVoiceDraftOwner {
         notice = nil
     }
 
+    func beginTransformation()
+        -> IOSVoiceDraftTransformationReservation? {
+        guard let current = confirmedRecord,
+              current.hasMeaningfulText,
+              begin(.transforming) else {
+            return nil
+        }
+        let id = UUID()
+        activeTransformationID = id
+        notice = nil
+        return IOSVoiceDraftTransformationReservation(
+            id: id,
+            record: current
+        )
+    }
+
+    func commitTransformation(
+        _ text: String,
+        reservation: IOSVoiceDraftTransformationReservation
+    ) async -> IOSVoiceDraftTransformationCommit {
+        guard operation == .transforming,
+              activeTransformationID == reservation.id,
+              confirmedRecord == reservation.record else {
+            return .unavailable
+        }
+        let updated: IOSVoiceDraftRecord
+        do {
+            updated = try reservation.record.replacingText(text)
+        } catch {
+            finishTransformation(reservation)
+            notice = .editFailed
+            return .failed
+        }
+        guard updated != reservation.record else {
+            finishTransformation(reservation)
+            notice = nil
+            return .confirmed(changed: false)
+        }
+
+        do {
+            let result = try await client.replace(
+                updated,
+                IOSVoiceDraftSnapshotToken(record: reservation.record)
+            )
+            guard operation == .transforming,
+                  activeTransformationID == reservation.id else {
+                return .unavailable
+            }
+            finishTransformation(reservation)
+            switch result {
+            case .confirmed(let record):
+                state = .ready(record)
+                recordUndo(reservation.record)
+                redoStack.removeAll()
+                markContentChange(.replace)
+                notice = nil
+                return .confirmed(changed: true)
+            case .stale(let record):
+                state = .ready(record)
+                undoStack.removeAll()
+                redoStack.removeAll()
+                notice = .draftChanged
+                return .stale
+            }
+        } catch is CancellationError {
+            finishTransformation(reservation)
+            return .failed
+        } catch {
+            guard operation == .transforming,
+                  activeTransformationID == reservation.id else {
+                return .unavailable
+            }
+            finishTransformation(reservation)
+            state = .ready(reservation.record)
+            notice = .editFailed
+            return .failed
+        }
+    }
+
+    func cancelTransformation(
+        _ reservation: IOSVoiceDraftTransformationReservation
+    ) {
+        guard operation == .transforming,
+              activeTransformationID == reservation.id else {
+            return
+        }
+        finishTransformation(reservation)
+    }
+
     @discardableResult
     func clear() async -> Bool {
         guard !isEditing else { return false }
@@ -472,6 +578,14 @@ final class IOSVoiceDraftOwner {
         guard operation == .idle else { return false }
         operation = requested
         return true
+    }
+
+    private func finishTransformation(
+        _ reservation: IOSVoiceDraftTransformationReservation
+    ) {
+        guard activeTransformationID == reservation.id else { return }
+        activeTransformationID = nil
+        _ = complete()
     }
 
     private func beginAcceptedAppend() async -> Bool {

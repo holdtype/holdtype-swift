@@ -41,6 +41,69 @@ protocol IOSForegroundVoicePersisting: Sendable {
 
 extension IOSV1ForegroundVoicePersistenceOwner: IOSForegroundVoicePersisting {}
 
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextAction: Equatable, Sendable {
+    case translate
+    case correct
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextActionFailure: Equatable, Sendable {
+    case busy
+    case invalidText
+    case invalidConfiguration
+    case credentialUnavailable
+    case consentUnavailable
+    case networkUnavailable
+    case timedOut
+    case providerUnavailable
+    case invalidResponse
+    case draftChanged
+    case saveFailed
+    case cancelled
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextActionResolution: Equatable, Sendable {
+    case success(String)
+    case failure(IOSVoiceDraftTextActionFailure)
+}
+
+@_spi(HoldTypeIOSCore)
+public struct IOSVoiceDraftTextActionRequest: Sendable {
+    public let action: IOSVoiceDraftTextAction
+    public let text: String
+    public let settings: IOSAppSettings
+    public let credential: IOSResolvedOpenAICredential
+    public let consentObservation: IOSV1ProviderConsentObservation
+
+    public init(
+        action: IOSVoiceDraftTextAction,
+        text: String,
+        settings: IOSAppSettings,
+        credential: IOSResolvedOpenAICredential,
+        consentObservation: IOSV1ProviderConsentObservation
+    ) {
+        self.action = action
+        self.text = text
+        self.settings = settings
+        self.credential = credential
+        self.consentObservation = consentObservation
+    }
+}
+
+extension IOSVoiceDraftTextActionRequest:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String {
+        "IOSVoiceDraftTextActionRequest(redacted)"
+    }
+
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
 /// One process-owned provider pipeline. Durable Pending is the only recovery
 /// source: every failed active operation is reduced to `.failed`, and provider
 /// work can start again only through a new explicit `.retry` request.
@@ -158,6 +221,175 @@ public actor IOSForegroundVoiceProcessor {
             operationID: operationID,
             progress: progress
         )
+    }
+
+    /// Runs a provider-only action against an existing app-private Draft. This
+    /// shares the Voice processor's operation gate but never creates Pending,
+    /// transcription usage, Latest, or History state.
+    @_spi(HoldTypeIOSCore)
+    public func processDraftText(
+        _ request: IOSVoiceDraftTextActionRequest
+    ) async -> IOSVoiceDraftTextActionResolution {
+        guard activeOperationID == nil else { return .failure(.busy) }
+        guard let source = try? AcceptedTranscript(rawText: request.text) else {
+            return .failure(.invalidText)
+        }
+        guard let authorization = consentCoordinator.makeAuthorization(
+            from: request.consentObservation
+        ) else {
+            return .failure(.consentUnavailable)
+        }
+        if request.action == .translate,
+           !request.settings.translationConfiguration.isConfigurationReady {
+            return .failure(.invalidConfiguration)
+        }
+
+        let operationID = UUID()
+        activeOperationID = operationID
+        defer {
+            if activeOperationID == operationID {
+                activeOperationID = nil
+            }
+        }
+
+        let outcome = await runDraftTextAction(
+            request,
+            source: source,
+            authorization: authorization
+        )
+        guard activeOperationID == operationID, !Task.isCancelled else {
+            return .failure(.cancelled)
+        }
+        return outcome
+    }
+
+    private func runDraftTextAction(
+        _ request: IOSVoiceDraftTextActionRequest,
+        source: AcceptedTranscript,
+        authorization: IOSV1ProviderConsentAuthorization
+    ) async -> IOSVoiceDraftTextActionResolution {
+        let provider = provider
+        let credential = request.credential.credential
+        let outcome: IOSProviderConsentStageOutcome<
+            AcceptedTranscript,
+            IOSForegroundVoiceProviderFailure
+        >
+
+        switch request.action {
+        case .correct:
+            var configuration = request.settings.textCorrectionConfiguration
+            configuration.isEnabled = true
+            let correctionConfiguration = configuration
+            outcome = await stageExecutor.execute(
+                authorization,
+                for: .correction,
+                operation: {
+                    try AcceptedTranscript(
+                        rawText: try await provider.correct(
+                            source,
+                            correctionConfiguration,
+                            credential
+                        )
+                    )
+                },
+                normalizeFailure: {
+                    IOSForegroundVoiceProviderFailureMapper.correction($0)
+                }
+            )
+        case .translate:
+            let translationRequest = TextTranslationRequest(
+                acceptedTranscript: source,
+                translationConfiguration:
+                    request.settings.translationConfiguration,
+                transcriptionConfiguration:
+                    request.settings.transcriptionConfiguration
+            )
+            outcome = await stageExecutor.execute(
+                authorization,
+                for: .translation,
+                operation: {
+                    try AcceptedTranscript(
+                        rawText: try await provider.translate(
+                            translationRequest,
+                            credential
+                        )
+                    )
+                },
+                normalizeFailure: {
+                    IOSForegroundVoiceProviderFailureMapper.translation($0)
+                }
+            )
+        }
+
+        switch outcome {
+        case .success(let result):
+            return acceptedDraftTextActionResult(
+                result,
+                source: source,
+                action: request.action,
+                settings: request.settings
+            )
+        case .failure(let failure):
+            if failure == .credentialRejected {
+                await recordProviderRejection(request.credential.generation)
+            }
+            return .failure(Self.draftTextActionFailure(from: failure))
+        case .cancelled:
+            return .failure(.cancelled)
+        case .authorizationUnavailable:
+            return .failure(.consentUnavailable)
+        }
+    }
+
+    private func acceptedDraftTextActionResult(
+        _ result: AcceptedTranscript,
+        source: AcceptedTranscript,
+        action: IOSVoiceDraftTextAction,
+        settings: IOSAppSettings
+    ) -> IOSVoiceDraftTextActionResolution {
+        if action == .correct,
+           !Self.isSafeCorrection(
+               original: source.text,
+               corrected: result.text
+           ) {
+            return .success(source.text)
+        }
+        guard action == .translate, settings.localTextCleanupEnabled else {
+            return .success(result.text)
+        }
+        let normalized = TranscriptTextPostProcessor
+            .normalizedInformalTypography(
+                from: result.text,
+                fallback: result.text
+            )
+        guard let accepted = try? AcceptedTranscript(rawText: normalized) else {
+            return .failure(.invalidResponse)
+        }
+        return .success(accepted.text)
+    }
+
+    private static func draftTextActionFailure(
+        from failure: IOSForegroundVoiceProviderFailure
+    ) -> IOSVoiceDraftTextActionFailure {
+        switch failure {
+        case .credentialMissing, .credentialUnavailable, .credentialRejected:
+            .credentialUnavailable
+        case .networkUnavailable:
+            .networkUnavailable
+        case .timedOut:
+            .timedOut
+        case .invalidRequest, .invalidTranslationRoute:
+            .invalidConfiguration
+        case .invalidResponse, .emptyResult, .dictionaryEcho, .contextEcho:
+            .invalidResponse
+        case .cancelled:
+            .cancelled
+        case .networkFailure, .rateLimited, .providerUnavailable,
+             .badRequest, .providerRejected, .unknown:
+            .providerUnavailable
+        case .invalidRecording, .multipartMetadataTooLarge:
+            .invalidResponse
+        }
     }
 
     private func run(

@@ -216,23 +216,28 @@ without opening the custom keyboard.
 - All three modes start off on cold launch. They remain selected for subsequent
   containing-app Voice attempts in the current process until the user turns
   them off. They do not rewrite durable Settings.
-- A one-shot Translate or Correction action forces that option for its new
-  attempt without changing the persistent selected state of the bottom settings
-  row; the other selected session modes still apply to that attempt.
-- Translate uses the saved Translation route. If the route is incomplete, both
-  the one-shot action and Auto Translate remain tappable and open the exact
-  invalid source or missing target input with inline guidance. They do not
-  become selected and do not start work until the user repeats the action after
-  setup is valid.
-- Correction forces the saved Writing & Correction model and prompt for each
-  selected attempt without changing the durable correction preference. It
-  retains the existing safe fallback to the accepted transcript.
+- The top one-shot Translate and Correction actions transform the complete
+  current Draft in place. They never start recording or transcription and do
+  not change the selected state of the bottom Auto menu.
+- A one-shot action freezes the current confirmed Draft, shows the purple
+  processing activity, and atomically replaces that same Draft only after the
+  provider result is accepted. Translate uses the saved Translation route;
+  Correction forces the saved Writing & Correction model and prompt without
+  changing the durable correction preference.
+- If Translation setup is incomplete, Translate remains tappable and opens the
+  exact invalid source or missing target input with inline guidance. Provider,
+  consent, timeout, validation, or local-save failure leaves the Draft
+  unchanged and reports a short actionable failure.
+- A successful one-shot replacement creates one app-level Undo snapshot and
+  clears Redo. Repeating either action after completion processes the newly
+  confirmed Draft. A tap while another one-shot action is active is ignored;
+  actions are never queued or run concurrently.
 - Translate and Correction may be enabled together. The existing processing
-  order remains correction before translation.
+  order remains correction before translation for new dictation attempts.
 - The exact selected modes are frozen at Start and carried by recoverable
   Pending state so Retry and relaunch cannot change the meaning of that attempt.
-- None of the modes transforms text already visible in Draft. Replace or Append
-  happens only after the new result is accepted.
+- Auto modes never transform text already visible in Draft. Replace or Append
+  happens only after the new dictation result is accepted.
 - Starting, Listening, Finalizing, Processing, editing, or a non-writable Draft
   may temporarily prevent conflicting session changes. Missing Translation
   setup is not such a safety state and never turns Translate into a dead control.

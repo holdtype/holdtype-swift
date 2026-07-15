@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import HoldTypeDomain
+@_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 import SwiftUI
 import UIKit
@@ -477,6 +478,7 @@ private final class IOSUIQualificationVoiceFixture {
     let sceneOwner: IOSForegroundVoiceSceneHostOwner
     let latestResultOwner: IOSForegroundVoiceLatestResultOwner
     let draftOwner: IOSVoiceDraftOwner
+    let draftTextActionOwner: IOSVoiceDraftTextActionOwner
     let consentOwner: IOSProviderConsentPresentationOwner
     let keyboardSession = IOSKeyboardDictationSessionCoordinator(
         qualificationOnly: true
@@ -569,6 +571,13 @@ private final class IOSUIQualificationVoiceFixture {
                 replace: { await draftStore.replace($0, expected: $1) }
             )
         )
+        draftTextActionOwner = IOSVoiceDraftTextActionOwner(
+            draftOwner: draftOwner,
+            client: IOSVoiceDraftTextActionClient { action, text in
+                let prefix = action == .translate ? "Translated: " : "Improved: "
+                return .success(prefix + text)
+            }
+        )
         consentOwner = IOSUIQualificationConsentFixture.makeOwner(
             sceneRegistry: registry,
             scenario: .ready
@@ -620,6 +629,7 @@ private struct IOSUIQualificationVoiceHost: View {
                 .environment(fixture.sceneOwner)
                 .environment(fixture.latestResultOwner)
                 .environment(fixture.draftOwner)
+                .environment(fixture.draftTextActionOwner)
                 .environment(fixture.consentOwner)
                 .environment(fixture.keyboardSession)
             }

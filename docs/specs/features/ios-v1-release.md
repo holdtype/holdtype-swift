@@ -206,6 +206,10 @@ destination. History remains a separate tab and is not previewed on Voice.
   Clear remains its only trailing action. All three settings start off on cold
   launch, remain selected for subsequent containing-app attempts until turned
   off, and never rewrite durable Settings.
+  The top one-shot Translate and Correction actions operate on the complete
+  current Draft without recording or transcription. They show the purple
+  processing activity, replace the Draft atomically on success, participate in
+  app-level Undo, and leave Latest, History, Pending, and Usage unchanged.
   If Auto Translate's saved route is incomplete, its control remains tappable
   and opens the exact owning Translation input with inline guidance. Auto
   Correction forces the saved correction configuration for the selected

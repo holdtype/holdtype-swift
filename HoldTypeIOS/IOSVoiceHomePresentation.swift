@@ -1,4 +1,5 @@
 import HoldTypeDomain
+@_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import HoldTypePersistence
 
 enum IOSVoiceStatusTone: Equatable, Sendable {
@@ -158,6 +159,48 @@ struct IOSVoiceActionPresentation: Equatable, Sendable {
         case .recoverRecording: "recover-recording"
         case .retryPending: "retry-pending"
         case .discard: "discard"
+        }
+    }
+}
+
+struct IOSVoiceDraftTextActionPresentation: Equatable, Sendable {
+    let title: String
+    let systemImage: String
+    let accessibilityIdentifier: String
+    let processingStatus: IOSVoiceStatusPresentation
+
+    static func resolve(
+        _ action: IOSVoiceDraftTextAction
+    ) -> IOSVoiceDraftTextActionPresentation {
+        switch action {
+        case .translate:
+            IOSVoiceDraftTextActionPresentation(
+                title: "Translate",
+                systemImage: "character.bubble",
+                accessibilityIdentifier: "ios.voice.draft.translate",
+                processingStatus: IOSVoiceStatusPresentation(
+                    title: "Translating…",
+                    detail: "Applying the saved Translation settings to the current Draft.",
+                    systemImage: "character.bubble",
+                    tone: .active,
+                    showsProgress: true,
+                    setupDestination: nil
+                )
+            )
+        case .correct:
+            IOSVoiceDraftTextActionPresentation(
+                title: "Correction",
+                systemImage: "wand.and.stars",
+                accessibilityIdentifier: "ios.voice.draft.correct",
+                processingStatus: IOSVoiceStatusPresentation(
+                    title: "Improving…",
+                    detail: "Applying the saved Writing & Correction settings to the current Draft.",
+                    systemImage: "wand.and.stars",
+                    tone: .active,
+                    showsProgress: true,
+                    setupDestination: nil
+                )
+            )
         }
     }
 }

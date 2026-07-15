@@ -1,4 +1,5 @@
 import HoldTypeDomain
+@_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import HoldTypePersistence
 import Testing
 import UIKit
@@ -71,6 +72,26 @@ struct IOSVoiceHomePresentationTests {
             #expect(resolved.title == item.2)
             #expect(resolved.showsProgress == item.3)
         }
+    }
+
+    @Test func draftTextActionsExposeProviderOnlyProcessingCopy() {
+        let translation = IOSVoiceDraftTextActionPresentation.resolve(
+            .translate
+        )
+        let correction = IOSVoiceDraftTextActionPresentation.resolve(
+            .correct
+        )
+
+        #expect(translation.title == "Translate")
+        #expect(translation.processingStatus.title == "Translating…")
+        #expect(translation.processingStatus.showsProgress)
+        #expect(correction.title == "Correction")
+        #expect(correction.processingStatus.title == "Improving…")
+        #expect(correction.processingStatus.tone == .active)
+        #expect(
+            translation.accessibilityIdentifier
+                != correction.accessibilityIdentifier
+        )
     }
 
     @Test func primaryActivityUsesListeningThenRecognitionVisuals() {
@@ -521,7 +542,12 @@ struct IOSVoiceHomePresentationTests {
         }
         let names = actions.map {
             IOSVoiceActionPresentation.resolve($0).systemImage
-        } + statuses.map(\.systemImage) + [
+        } + [
+            IOSVoiceDraftTextActionPresentation.resolve(.translate)
+                .systemImage,
+            IOSVoiceDraftTextActionPresentation.resolve(.correct)
+                .systemImage,
+        ] + statuses.map(\.systemImage) + [
             "xmark.circle",
             IOSVoiceDraftActionNotice.copied.systemImage,
             IOSVoiceDraftActionNotice.cleared.systemImage,
