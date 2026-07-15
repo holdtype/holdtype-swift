@@ -1,3 +1,4 @@
+import Foundation
 import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import HoldTypePersistence
@@ -254,18 +255,36 @@ struct IOSVoiceHomePresentationTests {
         }
     }
 
-    @Test func draftFeedbackKeepsCopyNonvisualAndClearReversible() {
+    @Test func draftActionFeedbackIsAccessibilityOnly() {
         #expect(
-            IOSVoiceDraftCopyPresentation.accessibilityAnnouncement
+            IOSVoiceDraftAccessibilityFeedback.copyAnnouncement
                 == "Current Draft copied"
         )
         #expect(
-            IOSVoiceDraftActionNotice.cleared.message == "Draft cleared"
-        )
-        #expect(
-            IOSVoiceDraftActionNotice.cleared.accessibilityAnnouncement
+            IOSVoiceDraftAccessibilityFeedback.clearAnnouncement
                 == "Draft cleared. Undo is available."
         )
+    }
+
+    @Test func voiceDraftSourceHasNoVisualPostActionNoticeSurface() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "HoldTypeIOS/IOSVoiceHomeView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        for forbidden in [
+            "draftActionNotice",
+            "draftNotice",
+            "ios.voice.draft.notice",
+            "ios.voice.draft.clear-undo",
+        ] {
+            #expect(!source.contains(forbidden))
+        }
     }
 
     @Test func activityCenterDependsOnlyOnTheVoiceStageBounds() {
@@ -549,7 +568,6 @@ struct IOSVoiceHomePresentationTests {
                 .systemImage,
         ] + statuses.map(\.systemImage) + [
             "xmark.circle",
-            IOSVoiceDraftActionNotice.cleared.systemImage,
         ]
 
         for name in Set(names) {

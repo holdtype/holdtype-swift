@@ -301,33 +301,9 @@ struct IOSVoiceDraftPendingResultPresentation: Equatable, Sendable {
     }
 }
 
-enum IOSVoiceDraftActionNotice: Equatable, Sendable {
-    case cleared
-
-    var message: String {
-        switch self {
-        case .cleared:
-            "Draft cleared"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .cleared:
-            "xmark.circle"
-        }
-    }
-
-    var accessibilityAnnouncement: String {
-        switch self {
-        case .cleared:
-            "Draft cleared. Undo is available."
-        }
-    }
-}
-
-enum IOSVoiceDraftCopyPresentation {
-    static let accessibilityAnnouncement = "Current Draft copied"
+enum IOSVoiceDraftAccessibilityFeedback {
+    static let copyAnnouncement = "Current Draft copied"
+    static let clearAnnouncement = "Draft cleared. Undo is available."
 }
 
 enum IOSVoiceHomePresentation {

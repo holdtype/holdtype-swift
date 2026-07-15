@@ -1,6 +1,6 @@
 # iOS Voice Draft
 
-Status: approved product contract; revised 2026-07-15.
+Status: approved product contract; revised 2026-07-16.
 
 ## Goal
 
@@ -102,6 +102,14 @@ without opening the custom keyboard.
   is empty, and has at least a 44-point tap target. A successful Copy does not
   add a visible notice or change the Draft card's layout; assistive technology
   still receives a concise confirmation.
+- Copy, Clear, Translate, Correction, Undo, and Redo never add a visible
+  post-action notice, footer, banner, toast, technical result, or inline Undo
+  row to the Draft card. The text itself is the visible result: it either
+  changes or remains unchanged. Completion, no-change, and failure outcomes do
+  not change the Draft card height, text viewport height, positions of the
+  remaining actions, Voice-stage bounds, or primary activity center. Assistive
+  technology may receive concise nonvisual confirmation, and an outcome that
+  requires setup may still route to its existing Settings destination.
 - A Draft containing only spaces, tabs, or line breaks is treated as empty.
   Committing such an edit stores the canonical empty Draft rather than a hidden
   visually blank state.
@@ -109,9 +117,9 @@ without opening the custom keyboard.
   Latest, History, Pending, Recording Cache, usage, settings, or the keyboard
   projection. A neutral `Clear` control with an `xmark.circle` symbol appears
   only while the Draft contains visible working text, has at least a 44-point
-  tap target, and does not require confirmation. Confirmed Clear presents
-  `Draft cleared` with an explicit Undo action and a matching accessibility
-  announcement.
+  tap target, and does not require confirmation. Confirmed Clear enables the
+  existing top Undo action without adding another visible action or message;
+  assistive technology receives a matching confirmation.
 - Undo and Redo cover successful replace, append, committed edit, and Clear
   mutations in the current process only. They retain at most twenty snapshots
   with meaningful text and are not persisted. Empty or visually
@@ -222,9 +230,10 @@ without opening the custom keyboard.
   permission, credential, and recovery preflight succeeds, it atomically clears
   the confirmed Draft before microphone activation. Empty is a successful
   no-op. A clear failure keeps the prior Draft, prevents microphone activation,
-  and reports a local Auto Clear failure. If a later start, recording, provider,
-  or cancellation stage fails, the Draft stays cleared and process-local Undo
-  may restore its prior meaningful text. Retry does not clear a second time.
+  and uses the existing fixed Voice recovery surface rather than adding a Draft
+  footer. If a later start, recording, provider, or cancellation stage fails,
+  the Draft stays cleared and process-local Undo may restore its prior
+  meaningful text. Retry does not clear a second time.
 - The top one-shot Translate and Correction actions transform the complete
   current Draft in place. They never start recording or transcription and do
   not change the selected state of the bottom Auto menu.
@@ -236,7 +245,7 @@ without opening the custom keyboard.
 - If Translation setup is incomplete, Translate remains tappable and opens the
   exact invalid source or missing target input with inline guidance. Provider,
   consent, timeout, validation, or local-save failure leaves the Draft
-  unchanged and reports a short actionable failure.
+  unchanged without adding post-action copy to the Draft card.
 - A successful one-shot replacement creates one app-level Undo snapshot and
   clears Redo. Repeating either action after completion processes the newly
   confirmed Draft. A tap while another one-shot action is active is ignored;
@@ -283,6 +292,8 @@ without opening the custom keyboard.
 
 - VoiceOver exposes Draft as an editable text area when editing is available
   and names every available action and disabled reason.
+- Nonvisual action announcements stay concise and describe only the observable
+  Draft result. They never require a visual companion or reserve layout space.
 - Dynamic Type may move actions vertically without clipping the Draft or
   recovery explanation.
 - Draft body text uses the same scalable large-or-compact reading policy in
@@ -308,7 +319,12 @@ without opening the custom keyboard.
 - presentation tests cover empty, populated, loading, listening, processing,
   setup, Pending recovery, full Draft, unavailable states, Replace hiding,
   Append preservation, cancellation/failure restoration, adaptive type
-  thresholds, and follow-tail suspension and resumption.
+  thresholds, follow-tail suspension and resumption, and the absence of any
+  Draft post-action notice presentation.
+- Geometry regression coverage compares the populated Ready layout with Copy,
+  Clear, Undo, Redo, Translate, Correction, no-change, and failure outcomes.
+  Draft bounds, text viewport bounds, Voice-stage bounds, and the primary
+  activity center remain identical for a fixed device size and Dynamic Type.
 - Simulator QA covers cold launch without focus, tap-to-edit, keyboard Done and
   dismissal, the labeled bottom Copy action at compact and accessibility
   sizes, Clear/Undo, short and overflowing Drafts, Append while at the end and

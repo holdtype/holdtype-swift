@@ -31,7 +31,10 @@ struct IOSVoiceDraftTextActionOwnerTests {
             #expect(!owner.submit(.translate))
             try await waitUntil { !owner.isProcessing }
             #expect(draftOwner.text == "Improved 1: Original")
-            #expect(owner.notice == .completed(.correct, changed: true))
+            #expect(owner.outcome == .completed(.correct, changed: true))
+            #expect(
+                owner.outcome?.accessibilityAnnouncement == "Draft improved"
+            )
 
             #expect(owner.submit(.correct))
             try await waitUntil { !owner.isProcessing }
@@ -66,7 +69,10 @@ struct IOSVoiceDraftTextActionOwnerTests {
             try await waitUntil { !owner.isProcessing }
             #expect(draftOwner.text == "Keep this")
             #expect(draftOwner.operation == .idle)
-            #expect(owner.notice == .failed(.translate, .timedOut))
+            #expect(owner.outcome == .failed(.translate, .timedOut))
+            #expect(
+                owner.outcome?.accessibilityAnnouncement == "Draft unchanged"
+            )
             #expect(owner.submit(.translate))
             try await waitUntil { !owner.isProcessing }
         }

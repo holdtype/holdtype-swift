@@ -34,7 +34,6 @@ struct IOSVoiceHomeView: View {
         IOSForegroundVoiceLatestResultClearCommand?
     @State private var shareItem: IOSVoiceShareItem?
     @State private var latestActionNotice: String?
-    @State private var draftActionNotice: IOSVoiceDraftActionNotice?
     @State private var showsKeyboardTools = false
     @State private var showsVoiceSessionModeMenu = false
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
@@ -171,9 +170,6 @@ struct IOSVoiceHomeView: View {
                 finishDraftEditing()
             }
         }
-        .onChange(of: draftOwner.contentChange) { _, _ in
-            draftActionNotice = nil
-        }
         .onChange(of: scenePhase) { _, phase in
             guard phase != .active else { return }
             revealedCancellationCommand = nil
@@ -269,13 +265,13 @@ struct IOSVoiceHomeView: View {
             }
             self.pendingLatestClearCommand = nil
         }
-        .onChange(of: draftTextActionOwner.notice) { _, notice in
-            guard let notice else { return }
-            if let route = notice.settingsRoute {
+        .onChange(of: draftTextActionOwner.outcome) { _, outcome in
+            guard let outcome else { return }
+            if let route = outcome.settingsRoute {
                 openSettings(route)
             }
             scheduleAccessibilityAnnouncement(
-                notice.message,
+                outcome.accessibilityAnnouncement,
                 priority: .content
             )
         }
@@ -389,8 +385,7 @@ struct IOSVoiceHomeView: View {
 
         return Button {
             guard isEnabled else { return }
-            draftActionNotice = nil
-            draftTextActionOwner.dismissNotice()
+            draftTextActionOwner.dismissOutcome()
             _ = draftTextActionOwner.submit(action)
         } label: {
             Image(systemName: presentation.systemImage)
@@ -438,8 +433,6 @@ struct IOSVoiceHomeView: View {
             Divider()
 
             draftBottomActionArea
-
-            draftNotice
         }
         .padding(18)
         .background(
@@ -493,7 +486,6 @@ struct IOSVoiceHomeView: View {
     @ViewBuilder
     private var draftEditingIconActions: some View {
         Button {
-            draftActionNotice = nil
             Task { await draftOwner.undo() }
         } label: {
             Image(systemName: "arrow.uturn.backward")
@@ -504,7 +496,6 @@ struct IOSVoiceHomeView: View {
         .accessibilityLabel("Undo Draft Change")
 
         Button {
-            draftActionNotice = nil
             Task { await draftOwner.redo() }
         } label: {
             Image(systemName: "arrow.uturn.forward")
@@ -686,7 +677,6 @@ struct IOSVoiceHomeView: View {
         Binding(
             get: { draftOwner.visibleText },
             set: { text in
-                draftActionNotice = nil
                 if !draftOwner.isEditing,
                    !draftOwner.beginEditing() {
                     return
@@ -727,44 +717,6 @@ struct IOSVoiceHomeView: View {
             voicePhase: sceneOwner.presentation.phase,
             draftIsBusy: draftOwner.isBusy
         )
-    }
-
-    @ViewBuilder
-    private var draftNotice: some View {
-        if let draftActionNotice {
-            HStack(spacing: 12) {
-                Label(
-                    draftActionNotice.message,
-                    systemImage: draftActionNotice.systemImage
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                if draftActionNotice == .cleared, draftOwner.canUndo {
-                    Button("Undo") {
-                        undoClearedDraft()
-                    }
-                    .fontWeight(.semibold)
-                    .accessibilityLabel("Undo Clear Draft")
-                    .accessibilityIdentifier("ios.voice.draft.clear-undo")
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier("ios.voice.draft.notice")
-        } else if let notice = draftTextActionOwner.notice {
-            Label(notice.message, systemImage: notice.systemImage)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("ios.voice.draft.notice")
-        } else if let notice = draftOwner.notice {
-            Label(notice.message, systemImage: "exclamationmark.triangle")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("ios.voice.draft.notice")
-        }
     }
 
     private var voiceSessionModeMenu: some View {
@@ -1396,12 +1348,11 @@ struct IOSVoiceHomeView: View {
         guard !draftOwner.visibleText.isEmpty else { return }
         IOSVoiceClipboard.copy(draftOwner.visibleText)
         IOSAccessibilityAnnouncement.post(
-            IOSVoiceDraftCopyPresentation.accessibilityAnnouncement
+            IOSVoiceDraftAccessibilityFeedback.copyAnnouncement
         )
     }
 
     private func clearDraft() {
-        draftActionNotice = nil
         draftEditSaveTask?.cancel()
         draftEditSaveTask = nil
         Task { @MainActor in
@@ -1413,18 +1364,9 @@ struct IOSVoiceHomeView: View {
                   await draftOwner.clear() else {
                 return
             }
-            let notice = IOSVoiceDraftActionNotice.cleared
-            draftActionNotice = notice
             IOSAccessibilityAnnouncement.post(
-                notice.accessibilityAnnouncement
+                IOSVoiceDraftAccessibilityFeedback.clearAnnouncement
             )
-        }
-    }
-
-    private func undoClearedDraft() {
-        draftActionNotice = nil
-        Task { @MainActor in
-            _ = await draftOwner.undo()
         }
     }
 
