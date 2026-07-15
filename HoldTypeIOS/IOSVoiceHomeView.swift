@@ -6,6 +6,10 @@ import UIKit
 struct IOSVoiceHomeView: View {
     @Environment(\.scenePhase)
     private var scenePhase
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
     @Environment(IOSForegroundVoiceSceneHostOwner.self)
     private var sceneOwner
     @Environment(IOSForegroundVoiceLatestResultOwner.self)
@@ -33,6 +37,8 @@ struct IOSVoiceHomeView: View {
     @State private var accessibilityAnnouncementCandidate:
         IOSAccessibilityAnnouncementCandidate?
     @State private var draftEditSaveTask: Task<Void, Never>?
+    @State private var showsDraftJumpToLatest = false
+    @State private var draftScrollToLatestRequest = 0
     @State private var automaticallyOpenedSetup: RecoveryDestination?
     @State private var sessionModes = IOSVoiceSessionModes()
     @FocusState private var practiceFieldIsFocused: Bool
@@ -427,58 +433,61 @@ struct IOSVoiceHomeView: View {
 
     @ViewBuilder
     private var draftTextSurface: some View {
-        if draftEditorCanFocus {
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: draftEditingBinding)
-                    .font(.title3)
-                    .scrollContentBackground(.hidden)
-                    .focused($draftEditorIsFocused)
-                    .accessibilityLabel("Current Draft")
-                    .accessibilityIdentifier("ios.voice.draft.editor")
+        ZStack(alignment: .topLeading) {
+            IOSVoiceDraftTextViewport(
+                text: draftEditingBinding,
+                isFocused: draftEditorFocusBinding,
+                showsJumpToLatest: $showsDraftJumpToLatest,
+                isEditable: draftEditorCanFocus,
+                contentChange: draftOwner.contentChange,
+                scrollToLatestRequest: draftScrollToLatestRequest,
+                usesAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
+                reduceMotion: reduceMotion
+            )
+            .frame(
+                minHeight: 120,
+                maxHeight: .infinity
+            )
 
-                if draftOwner.visibleText.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(
-                            "Ready for your first dictation",
-                            systemImage: "text.page"
-                        )
-                        .font(.headline)
-                        Text("Tap here to type, paste, or add emoji.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 10)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                }
-            }
-        } else {
-            ScrollView {
-                if draftOwner.visibleText.isEmpty {
-                    ContentUnavailableView(
+            if draftOwner.visibleText.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
                         "Ready for your first dictation",
-                        systemImage: "text.page",
-                        description: Text(
-                            "Your accepted text will appear here."
-                        )
+                        systemImage: "text.page"
                     )
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 28)
-                } else {
-                    Text(draftOwner.visibleText)
-                        .font(.title3)
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .topLeading
-                        )
-                        .textSelection(.enabled)
-                        .accessibilityLabel("Current Draft")
-                        .accessibilityValue(draftOwner.visibleText)
+                    .font(.headline)
+                    Text(draftEmptyDetail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 10)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
-            .scrollIndicators(.visible)
         }
+        .overlay(alignment: .bottomTrailing) {
+            if showsDraftJumpToLatest,
+               !draftOwner.visibleText.isEmpty,
+               !draftEditorIsFocused {
+                Button {
+                    draftScrollToLatestRequest += 1
+                } label: {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show Newest Draft Text")
+                .accessibilityIdentifier("ios.voice.draft.jump-to-latest")
+            }
+        }
+    }
+
+    private var draftEmptyDetail: String {
+        draftEditorCanFocus
+            ? "Tap here to type, paste, or add emoji."
+            : "Your accepted text will appear here."
     }
 
     private var draftEditorCanFocus: Bool {
@@ -492,9 +501,20 @@ struct IOSVoiceHomeView: View {
             get: { draftOwner.visibleText },
             set: { text in
                 draftActionNotice = nil
+                if !draftOwner.isEditing,
+                   !draftOwner.beginEditing() {
+                    return
+                }
                 draftOwner.updateEditingText(text)
                 scheduleDraftEditPersistence()
             }
+        )
+    }
+
+    private var draftEditorFocusBinding: Binding<Bool> {
+        Binding(
+            get: { draftEditorIsFocused },
+            set: { draftEditorIsFocused = $0 }
         )
     }
 

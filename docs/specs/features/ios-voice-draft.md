@@ -30,6 +30,25 @@ without opening the custom keyboard.
 - The Draft is a vertically scrollable text editor that starts unfocused.
   Launch never focuses it or opens the keyboard. A direct tap focuses it and
   enables normal selection, typing, paste, and system emoji input.
+- Draft text uses one adaptive reading step before it scrolls. At standard
+  Dynamic Type sizes it starts at approximately 20 points, moves once to an
+  approximately 18-point compact size when the complete text no longer fits
+  the visible text viewport, and never shrinks further. The transition avoids
+  repeated reflow around the boundary by keeping one to two lines of return
+  headroom. Accessibility Dynamic Type sizes never auto-shrink.
+- After the compact size also overflows, the Draft keeps that size and scrolls
+  vertically. A swipe that begins inside the text viewport scrolls the Draft;
+  the containing Voice screen does not steal that gesture. Useful Draft text
+  remains selectable in both editable and read-only states.
+- A newly accepted Append follows the end only while the user is already at
+  the end and has not moved or selected text manually. Manual scrolling or
+  selection suspends follow-tail. A later Append then preserves the user's
+  reading position and exposes one compact action for returning to the newest
+  text; reaching the end or activating that action resumes follow-tail.
+- A newly accepted replacement starts at the beginning of its new text. Clear
+  also returns to the beginning. Undo and Redo preserve the reading position
+  where possible. While editing, the system owns caret visibility and HoldType
+  performs no competing programmatic scroll or font-size transition.
 - The keyboard exposes Done and supports interactive dismissal. Ending focus
   commits the edit as one app-level Undo snapshot. While focused, system text
   editing owns character-level Undo and the app-level Undo and Redo actions are
@@ -201,8 +220,9 @@ without opening the custom keyboard.
   and names every available action and disabled reason.
 - Dynamic Type may move actions vertically without clipping the Draft or
   recovery explanation.
-- Draft body text uses a larger scalable reading size in both editing and
-  read-only presentation; the default size is approximately 20 points.
+- Draft body text uses the same scalable large-or-compact reading policy in
+  both editing and read-only presentation. Reduce Motion makes adaptive type
+  and follow-tail position changes immediate instead of animated.
 - Light and Dark use the same geometry. Increase Contrast strengthens native
   boundaries; Reduce Transparency removes nonessential glow.
 - Every activity PNG preserves transparent outer pixels and is rendered without
@@ -220,9 +240,11 @@ without opening the custom keyboard.
 - State-owner tests prove load, append, edit, Clear, Undo, Redo, forward-branch
   removal, conflict handling, and failure preservation.
 - presentation tests cover empty, populated, loading, listening, processing,
-  setup, Pending recovery, full Draft, and unavailable states.
+  setup, Pending recovery, full Draft, unavailable states, adaptive type
+  thresholds, and follow-tail suspension and resumption.
 - Simulator QA covers cold launch without focus, tap-to-edit, keyboard Done and
-  dismissal, Copy, Clear/Undo, ready, listening, recognition, setup, Draft
-  failure and recovery routing, both appearances, Dynamic Type, Reduce Motion,
-  and Reduce Transparency. A signed physical iPhone proves real microphone
-  metering and Full Access behavior.
+  dismissal, Copy, Clear/Undo, short and overflowing Drafts, Append while at
+  the end and while reading earlier text, selection, ready, listening,
+  recognition, setup, Draft failure and recovery routing, both appearances,
+  Dynamic Type, Reduce Motion, and Reduce Transparency. A signed physical
+  iPhone proves real microphone metering and Full Access behavior.

@@ -12,6 +12,8 @@ struct IOSVoiceDraftOwnerTests {
             let old = try accepted(1, text: "Old")
             let replacement = try accepted(2, text: "New attempt")
             #expect(await owner.appendAccepted(old))
+            #expect(owner.contentChange.revision == 2)
+            #expect(owner.contentChange.kind == .append)
 
             #expect(
                 await owner.accept(
@@ -21,8 +23,12 @@ struct IOSVoiceDraftOwnerTests {
             )
             #expect(owner.text == "New attempt")
             #expect(owner.confirmedRecord?.segments.count == 1)
+            #expect(owner.contentChange.revision == 3)
+            #expect(owner.contentChange.kind == .replace)
             #expect(await owner.undo())
             #expect(owner.text == "Old")
+            #expect(owner.contentChange.revision == 4)
+            #expect(owner.contentChange.kind == .preservePosition)
         }
     }
 

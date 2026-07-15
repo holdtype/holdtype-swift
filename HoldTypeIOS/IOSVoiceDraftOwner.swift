@@ -65,6 +65,22 @@ enum IOSVoiceDraftOperation: Equatable, Sendable {
     case redoing
 }
 
+enum IOSVoiceDraftContentChangeKind: Equatable, Sendable {
+    case append
+    case replace
+    case preservePosition
+}
+
+struct IOSVoiceDraftContentChange: Equatable, Sendable {
+    let revision: Int
+    let kind: IOSVoiceDraftContentChangeKind
+
+    static let initial = IOSVoiceDraftContentChange(
+        revision: 0,
+        kind: .replace
+    )
+}
+
 enum IOSVoiceDraftNotice: Equatable, Sendable {
     case appendFailed
     case editFailed
@@ -103,6 +119,7 @@ final class IOSVoiceDraftOwner {
     private(set) var operation = IOSVoiceDraftOperation.idle
     private(set) var notice: IOSVoiceDraftNotice?
     private(set) var editingText: String?
+    private(set) var contentChange = IOSVoiceDraftContentChange.initial
 
     @ObservationIgnored
     private let client: IOSVoiceDraftClient
@@ -149,6 +166,7 @@ final class IOSVoiceDraftOwner {
             let record = try await client.load()
             guard complete() else { return false }
             state = .ready(record)
+            markContentChange(.replace)
             notice = nil
             return true
         } catch is CancellationError {
@@ -188,6 +206,9 @@ final class IOSVoiceDraftOwner {
                 if let previous { recordUndo(previous) }
                 redoStack.removeAll()
                 state = .ready(record)
+                markContentChange(
+                    mode == .append ? .append : .replace
+                )
                 notice = nil
                 return true
             case .duplicate(let record):
@@ -328,6 +349,7 @@ final class IOSVoiceDraftOwner {
             onSuccess: {
                 self.recordUndo(current)
                 self.redoStack.removeAll()
+                self.markContentChange(.replace)
             }
         )
     }
@@ -346,6 +368,7 @@ final class IOSVoiceDraftOwner {
                 _ = self.undoStack.popLast()
                 self.redoStack.append(current)
                 self.trim(&self.redoStack)
+                self.markContentChange(.preservePosition)
             }
         )
     }
@@ -363,6 +386,7 @@ final class IOSVoiceDraftOwner {
             onSuccess: {
                 _ = self.redoStack.popLast()
                 self.recordUndo(current)
+                self.markContentChange(.preservePosition)
             }
         )
     }
@@ -414,6 +438,13 @@ final class IOSVoiceDraftOwner {
     private func recordUndo(_ record: IOSVoiceDraftRecord) {
         undoStack.append(record)
         trim(&undoStack)
+    }
+
+    private func markContentChange(_ kind: IOSVoiceDraftContentChangeKind) {
+        contentChange = IOSVoiceDraftContentChange(
+            revision: contentChange.revision + 1,
+            kind: kind
+        )
     }
 
     private func trim(_ stack: inout [IOSVoiceDraftRecord]) {
