@@ -2,6 +2,12 @@ import Foundation
 import Observation
 import UIKit
 
+nonisolated enum IOSKeyboardHandoffCaptureEvent: Equatable, Sendable {
+    case listening
+    case captureEnded
+    case terminal
+}
+
 @MainActor
 struct IOSKeyboardDictationSessionDependencies {
     let workflow: IOSKeyboardDictationWorkflowClient
@@ -69,6 +75,12 @@ final class IOSKeyboardDictationSessionCoordinator {
     private var workflowTask: Task<Void, Never>?
     private var workflowGeneration: UInt64 = 0
     private var translationAvailable = false
+    private var handoffRequestID: UUID?
+    private var handoffEventObserver:
+        (@MainActor @Sendable (
+            UUID,
+            IOSKeyboardHandoffCaptureEvent
+        ) -> Void)?
 
     convenience init(
         workflow: IOSKeyboardDictationWorkflowClient,
@@ -219,6 +231,101 @@ final class IOSKeyboardDictationSessionCoordinator {
         presentation = .ready(deadline)
     }
 
+    /// Starts the first attempt for one fresh keyboard launch without asking
+    /// for a second app-side tap. Preflight owns any foreground permission UI;
+    /// this entry point requires the resulting granted state and otherwise
+    /// fails closed before recorder work.
+    @discardableResult
+    func startHandoff(
+        _ intent: KeyboardHandoffIntentRecord,
+        observe: @escaping @MainActor @Sendable (
+            UUID,
+            IOSKeyboardHandoffCaptureEvent
+        ) -> Void
+    ) async -> Bool {
+        guard dependencies.applicationIsActive(),
+              intent.isPending(at: dependencies.now()) else {
+            return false
+        }
+
+        let previousTask = workflowTask
+        cancelCurrentWorkflow()
+        await previousTask?.value
+        workflowTask = nil
+        finishSessionLifetime()
+
+        let now = dependencies.now()
+        guard intent.isPending(at: now),
+              dependencies.applicationIsActive(),
+              dependencies.permission.read() == .granted else {
+            presentation = .failed("Try Again")
+            return false
+        }
+
+        presentation = .preparing
+        let deadline = now.addingTimeInterval(
+            KeyboardDictationBridgeConfiguration.sessionLifetime
+        )
+        workflowGeneration &+= 1
+        let admissionGeneration = workflowGeneration
+        requestID = intent.requestID
+        self.deadline = deadline
+        handoffRequestID = intent.requestID
+        handoffEventObserver = observe
+        translationAvailable = await dependencies.workflow
+            .loadTranslationAvailability()
+        guard workflowGeneration == admissionGeneration,
+              requestID == intent.requestID,
+              self.deadline == deadline,
+              handoffRequestID == intent.requestID,
+              intent.isPending(at: dependencies.now()),
+              dependencies.applicationIsActive(),
+              !intent.action.translates || translationAvailable else {
+            if requestID == intent.requestID {
+                finishSessionLifetime()
+                presentation = .failed("Try Again")
+            }
+            return false
+        }
+
+        lastHandledCommand = nil
+        beginBackgroundTask()
+        scheduleExpiry(at: deadline)
+        guard publish(
+            phase: .ready,
+            requestID: intent.requestID,
+            publishedAt: now,
+            expiresAt: deadline
+        ) else {
+            failAndStop("Session unavailable")
+            return false
+        }
+        presentation = .ready(deadline)
+        startRecording(
+            requestID: intent.requestID,
+            deadline: deadline,
+            action: intent.action
+        )
+        return true
+    }
+
+    /// Cancels only the matching handoff and waits for the shared workflow to
+    /// finish stopping capture before the presentation owner dismisses.
+    func cancelHandoff(requestID: UUID) async {
+        guard self.requestID == requestID,
+              handoffRequestID == requestID else {
+            return
+        }
+        let task = workflowTask
+        cancelCurrentWorkflow()
+        await task?.value
+        guard self.requestID == requestID else { return }
+        publishUnavailableIfCurrent()
+        finishSessionLifetime()
+        workflowTask = nil
+        presentation = .stopped
+    }
+
     func stopSession() {
         cancelCurrentWorkflow()
         publishUnavailableIfCurrent()
@@ -347,6 +454,16 @@ final class IOSKeyboardDictationSessionCoordinator {
             failAndStop("Session unavailable")
             return
         }
+        switch progress {
+        case .listening:
+            emitHandoff(.listening, requestID: requestID)
+        case .processing:
+            emitHandoff(
+                .captureEnded,
+                requestID: requestID,
+                endsObservation: true
+            )
+        }
     }
 
     private func receive(
@@ -375,6 +492,11 @@ final class IOSKeyboardDictationSessionCoordinator {
             }
             endBackgroundTask()
             presentation = .resultReady
+            emitHandoff(
+                .terminal,
+                requestID: requestID,
+                endsObservation: true
+            )
         case .cancelled:
             _ = publish(
                 phase: .unavailable,
@@ -495,6 +617,13 @@ final class IOSKeyboardDictationSessionCoordinator {
     }
 
     private func finishSessionLifetime(cancelWorkflowTask: Bool = true) {
+        if let requestID {
+            emitHandoff(
+                .terminal,
+                requestID: requestID,
+                endsObservation: true
+            )
+        }
         workflowGeneration &+= 1
         expiryTimer?.invalidate()
         expiryTimer = nil
@@ -506,5 +635,102 @@ final class IOSKeyboardDictationSessionCoordinator {
             workflowTask?.cancel()
         }
         endBackgroundTask()
+    }
+
+    private func emitHandoff(
+        _ event: IOSKeyboardHandoffCaptureEvent,
+        requestID: UUID,
+        endsObservation: Bool = false
+    ) {
+        guard handoffRequestID == requestID,
+              let observer = handoffEventObserver else {
+            return
+        }
+        observer(requestID, event)
+        if endsObservation {
+            handoffRequestID = nil
+            handoffEventObserver = nil
+        }
+    }
+}
+
+/// Presentation-only owner for the temporary sheet over the unchanged Voice
+/// screen. The session coordinator remains the sole keyboard workflow owner.
+@MainActor
+@Observable
+final class IOSKeyboardHandoffPresentationOwner {
+    private(set) var presentation: IOSKeyboardHandoffSheetPresentation?
+
+    @ObservationIgnored
+    private let session: IOSKeyboardDictationSessionCoordinator
+    private var activeRequestID: UUID?
+    private var generation: UInt64 = 0
+    private var cancellationTask: Task<Void, Never>?
+
+    init(session: IOSKeyboardDictationSessionCoordinator) {
+        self.session = session
+    }
+
+    func start(_ intent: KeyboardHandoffIntentRecord) async {
+        generation &+= 1
+        let currentGeneration = generation
+        activeRequestID = intent.requestID
+        presentation = IOSKeyboardHandoffSheetPresentation(
+            phase: .starting
+        )
+
+        let started = await session.startHandoff(intent) {
+            [weak self] requestID, event in
+            self?.receive(event, requestID: requestID)
+        }
+        guard generation == currentGeneration,
+              activeRequestID == intent.requestID else {
+            return
+        }
+        if !started {
+            activeRequestID = nil
+            presentation = nil
+        }
+    }
+
+    func cancelFromSheet() {
+        guard cancellationTask == nil,
+              let requestID = activeRequestID else {
+            return
+        }
+        cancellationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.cancel(requestID: requestID)
+            self.cancellationTask = nil
+        }
+    }
+
+    func cancelActiveHandoff() async {
+        guard let requestID = activeRequestID else { return }
+        await cancel(requestID: requestID)
+    }
+
+    private func cancel(requestID: UUID) async {
+        await session.cancelHandoff(requestID: requestID)
+        guard activeRequestID == requestID else { return }
+        generation &+= 1
+        activeRequestID = nil
+        presentation = nil
+    }
+
+    private func receive(
+        _ event: IOSKeyboardHandoffCaptureEvent,
+        requestID: UUID
+    ) {
+        guard activeRequestID == requestID else { return }
+        switch event {
+        case .listening:
+            presentation = IOSKeyboardHandoffSheetPresentation(
+                phase: .listening
+            )
+        case .captureEnded, .terminal:
+            activeRequestID = nil
+            presentation = nil
+        }
     }
 }

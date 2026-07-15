@@ -58,6 +58,8 @@ struct IOSContainingAppShell: View {
         (@MainActor @Sendable (
             KeyboardHandoffIntentRecord
         ) async -> IOSKeyboardHandoffPreflightResult)?
+    let keyboardHandoffPresentationOwner:
+        IOSKeyboardHandoffPresentationOwner?
     let keyboardHandoffNow: @Sendable () -> Date
 
     init(
@@ -72,6 +74,8 @@ struct IOSContainingAppShell: View {
             (@MainActor @Sendable (
                 KeyboardHandoffIntentRecord
             ) async -> IOSKeyboardHandoffPreflightResult)? = nil,
+        keyboardHandoffPresentationOwner:
+            IOSKeyboardHandoffPresentationOwner? = nil,
         keyboardHandoffNow: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.secureProviderAvailability = secureProviderAvailability
@@ -83,6 +87,8 @@ struct IOSContainingAppShell: View {
         self.layout = layout
         self.launchRouter = launchRouter
         self.keyboardHandoffPreflight = keyboardHandoffPreflight
+        self.keyboardHandoffPresentationOwner =
+            keyboardHandoffPresentationOwner
         self.keyboardHandoffNow = keyboardHandoffNow
     }
 
@@ -134,6 +140,18 @@ struct IOSContainingAppShell: View {
                     + "before changing destinations."
             )
         }
+        .sheet(isPresented: keyboardHandoffSheetIsPresented) {
+            if let keyboardHandoffPresentationOwner,
+               let presentation =
+                   keyboardHandoffPresentationOwner.presentation {
+                IOSKeyboardHandoffSheet(
+                    presentation: presentation,
+                    cancel: {
+                        keyboardHandoffPresentationOwner.cancelFromSheet()
+                    }
+                )
+            }
+        }
     }
 
     private func acceptKeyboardHandoff(
@@ -160,12 +178,26 @@ struct IOSContainingAppShell: View {
             switch IOSKeyboardHandoffPreflightNavigationDecision.resolve(
                 result
             ) {
-            case .stayOnVoice, .unavailable:
+            case .stayOnVoice:
+                await keyboardHandoffPresentationOwner?.start(intent)
+            case .unavailable:
                 break
             case .settings(let attention):
                 openSettings(.attention(attention))
             }
         }
+    }
+
+    private var keyboardHandoffSheetIsPresented: Binding<Bool> {
+        Binding(
+            get: {
+                keyboardHandoffPresentationOwner?.presentation != nil
+            },
+            set: { isPresented in
+                guard !isPresented else { return }
+                keyboardHandoffPresentationOwner?.cancelFromSheet()
+            }
+        )
     }
 
     private var selectedDestination: IOSContainingAppDestination {

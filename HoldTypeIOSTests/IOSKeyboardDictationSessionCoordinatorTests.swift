@@ -6,6 +6,196 @@ import UIKit
 @MainActor
 struct IOSKeyboardDictationSessionCoordinatorTests {
     @Test
+    func freshHandoffStartsOneAttemptAndSheetTracksRecorder() async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let intent = harness.intent(action: .translateAndImprove)
+
+        await owner.start(intent)
+
+        #expect(owner.presentation?.phase == .starting)
+        try await eventually {
+            harness.workflow.runRequestIDs == [intent.requestID]
+        }
+        #expect(harness.workflow.runActions == [.translateAndImprove])
+        #expect(harness.states.map(\.phase) == [.ready])
+
+        harness.workflow.emit(.listening)
+        try await eventually {
+            owner.presentation?.phase == .listening
+        }
+
+        #expect(harness.states.map(\.phase) == [.ready, .listening])
+        #expect(harness.workflow.runRequestIDs == [intent.requestID])
+
+        harness.workflow.emit(.processing)
+        try await eventually { owner.presentation == nil }
+        #expect(harness.states.map(\.phase) == [
+            .ready,
+            .listening,
+            .processing,
+        ])
+
+        harness.workflow.resolve(.accepted("Accepted handoff"))
+        try await eventually { coordinator.presentation == .resultReady }
+    }
+
+    @Test
+    func handoffCloseWaitsForSharedCaptureCancellation() async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let intent = harness.intent()
+        await owner.start(intent)
+        try await eventually {
+            harness.workflow.runRequestIDs == [intent.requestID]
+        }
+        harness.workflow.emit(.listening)
+        try await eventually {
+            owner.presentation?.phase == .listening
+        }
+
+        let cancellation = Task { @MainActor in
+            await owner.cancelActiveHandoff()
+        }
+        try await eventually {
+            harness.workflow.cancelRequestIDs == [intent.requestID]
+        }
+        #expect(owner.presentation?.phase == .listening)
+
+        harness.workflow.resolve(.cancelled)
+        await cancellation.value
+
+        #expect(owner.presentation == nil)
+        #expect(coordinator.presentation == .stopped)
+        #expect(harness.states.map(\.phase) == [
+            .ready,
+            .listening,
+            .unavailable,
+        ])
+    }
+
+    @Test
+    func failedAndExpiredHandoffsDismissTheSheet() async throws {
+        let failedHarness = KeyboardSessionHarness()
+        let failedCoordinator = failedHarness.makeCoordinator()
+        let failedOwner = IOSKeyboardHandoffPresentationOwner(
+            session: failedCoordinator
+        )
+        let failedIntent = failedHarness.intent()
+        await failedOwner.start(failedIntent)
+        try await eventually {
+            failedHarness.workflow.runRequestIDs == [failedIntent.requestID]
+        }
+        failedHarness.workflow.resolve(.failed)
+        try await eventually { failedOwner.presentation == nil }
+        #expect(failedHarness.states.map(\.phase) == [.ready, .failed])
+
+        let expiredHarness = KeyboardSessionHarness()
+        let expiredCoordinator = expiredHarness.makeCoordinator()
+        let expiredOwner = IOSKeyboardHandoffPresentationOwner(
+            session: expiredCoordinator
+        )
+        let expiredIntent = expiredHarness.intent()
+        await expiredOwner.start(expiredIntent)
+        try await eventually {
+            expiredHarness.workflow.runRequestIDs == [expiredIntent.requestID]
+        }
+        expiredHarness.workflow.emit(.listening)
+        try await eventually {
+            expiredOwner.presentation?.phase == .listening
+        }
+
+        expiredHarness.expireSession()
+
+        #expect(expiredOwner.presentation == nil)
+        #expect(expiredCoordinator.presentation == .stopped)
+        #expect(expiredHarness.states.map(\.phase) == [
+            .ready,
+            .listening,
+            .unavailable,
+        ])
+        expiredHarness.workflow.resolve(.cancelled)
+    }
+
+    @Test
+    func staleHandoffNeverStartsSessionOrSheet() async {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let intent = harness.intent(
+            issuedAt: harness.now.addingTimeInterval(-10),
+            expiresAt: harness.now
+        )
+
+        await owner.start(intent)
+
+        #expect(owner.presentation == nil)
+        #expect(harness.workflow.runRequestIDs.isEmpty)
+        #expect(harness.states.isEmpty)
+    }
+
+    @Test
+    func newerHandoffSupersedesArmingWorkWithoutDuplicateCapture() async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let first = harness.intent()
+        await owner.start(first)
+        try await eventually {
+            harness.workflow.runRequestIDs == [first.requestID]
+        }
+
+        let second = harness.intent(requestID: UUID(), action: .improve)
+        let replacement = Task { @MainActor in
+            await owner.start(second)
+        }
+        try await eventually {
+            harness.workflow.cancelRequestIDs == [first.requestID]
+        }
+        harness.workflow.resolve(.cancelled)
+        await replacement.value
+        try await eventually {
+            harness.workflow.runRequestIDs == [
+                first.requestID,
+                second.requestID,
+            ]
+        }
+
+        #expect(owner.presentation?.phase == .starting)
+        #expect(harness.workflow.runActions == [.standard, .improve])
+        harness.workflow.resolve(.cancelled)
+        try await eventually { owner.presentation == nil }
+    }
+
+    @Test
+    func closeDuringArmingInvalidatesLatePreparation() async throws {
+        let harness = KeyboardSessionHarness()
+        harness.workflow.suspendsTranslationAvailability = true
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let intent = harness.intent()
+
+        let start = Task { @MainActor in
+            await owner.start(intent)
+        }
+        try await eventually {
+            harness.workflow.translationAvailabilityLoadCount == 1
+        }
+        #expect(owner.presentation?.phase == .starting)
+
+        await owner.cancelActiveHandoff()
+        harness.workflow.releaseTranslationAvailability()
+        await start.value
+
+        #expect(owner.presentation == nil)
+        #expect(harness.workflow.runRequestIDs.isEmpty)
+        #expect(harness.states.map(\.phase) == [.unavailable])
+        #expect(coordinator.presentation == .stopped)
+    }
+
+    @Test
     func startFinishPublishesAcceptedResultOnce() async throws {
         let harness = KeyboardSessionHarness()
         let coordinator = harness.makeCoordinator()
@@ -119,6 +309,7 @@ private final class KeyboardSessionHarness {
     var command: HoldTypeIOS.KeyboardDictationCommandRecord?
     var states: [HoldTypeIOS.KeyboardDictationStateRecord] = []
     var postCount = 0
+    var expiryAction: (@MainActor () -> Void)?
 
     func makeCoordinator() -> IOSKeyboardDictationSessionCoordinator {
         IOSKeyboardDictationSessionCoordinator(
@@ -142,7 +333,10 @@ private final class KeyboardSessionHarness {
                 applicationIsActive: { true },
                 beginBackgroundTask: { _ in .invalid },
                 endBackgroundTask: { _ in },
-                scheduleExpiry: { _, _ in nil },
+                scheduleExpiry: { [weak self] _, action in
+                    self?.expiryAction = action
+                    return nil
+                },
                 now: { [weak self] in self?.now ?? .distantPast },
                 makeUUID: { [weak self] in self?.sessionID ?? UUID() }
             )
@@ -164,6 +358,29 @@ private final class KeyboardSessionHarness {
             expiresAt: issuedAt.addingTimeInterval(5)
         )!
     }
+
+    func intent(
+        requestID: UUID = UUID(),
+        action: HoldTypeIOS.KeyboardVoiceAction = .standard,
+        issuedAt: Date? = nil,
+        expiresAt: Date? = nil
+    ) -> HoldTypeIOS.KeyboardHandoffIntentRecord {
+        let issuedAt = issuedAt ?? now
+        return HoldTypeIOS.KeyboardHandoffIntentRecord(
+            requestID: requestID,
+            sourceDocumentID: UUID(),
+            action: action,
+            issuedAt: issuedAt,
+            expiresAt: expiresAt
+                ?? issuedAt.addingTimeInterval(
+                    KeyboardHandoffIntentConfiguration.lifetime
+                )
+        )!
+    }
+
+    func expireSession() {
+        expiryAction?()
+    }
 }
 
 @MainActor
@@ -175,6 +392,10 @@ private final class KeyboardWorkflowHarness {
     private(set) var runActions: [HoldTypeIOS.KeyboardVoiceAction] = []
     private(set) var finishRequestIDs: [UUID] = []
     private(set) var cancelRequestIDs: [UUID] = []
+    var suspendsTranslationAvailability = false
+    private(set) var translationAvailabilityLoadCount = 0
+    private var translationAvailabilityContinuation:
+        CheckedContinuation<Bool, Never>?
 
     var client: IOSKeyboardDictationWorkflowClient {
         IOSKeyboardDictationWorkflowClient(
@@ -194,7 +415,9 @@ private final class KeyboardWorkflowHarness {
                 self?.cancelRequestIDs.append(requestID)
                 return self?.runRequestIDs.last == requestID
             },
-            loadTranslationAvailability: { true }
+            loadTranslationAvailability: { [weak self] in
+                await self?.loadTranslationAvailability() ?? false
+            }
         )
     }
 
@@ -206,6 +429,19 @@ private final class KeyboardWorkflowHarness {
         continuation?.resume(returning: value)
         continuation = nil
         progress = nil
+    }
+
+    func releaseTranslationAvailability(_ value: Bool = true) {
+        translationAvailabilityContinuation?.resume(returning: value)
+        translationAvailabilityContinuation = nil
+    }
+
+    private func loadTranslationAvailability() async -> Bool {
+        translationAvailabilityLoadCount += 1
+        guard suspendsTranslationAvailability else { return true }
+        return await withCheckedContinuation { continuation in
+            translationAvailabilityContinuation = continuation
+        }
     }
 
     private func run(

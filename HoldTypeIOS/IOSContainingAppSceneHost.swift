@@ -24,6 +24,8 @@ struct IOSContainingAppSceneHost: View {
 private struct IOSRegisteredContainingAppSceneHost: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var voiceSceneOwner: IOSForegroundVoiceSceneHostOwner
+    @State private var keyboardHandoffPresentationOwner:
+        IOSKeyboardHandoffPresentationOwner
 
     let composition: IOSContainingAppComposition
     let runtime: IOSForegroundVoiceRuntime
@@ -37,6 +39,11 @@ private struct IOSRegisteredContainingAppSceneHost: View {
         _voiceSceneOwner = State(
             initialValue: IOSForegroundVoiceSceneHostOwner(runtime: runtime)
         )
+        _keyboardHandoffPresentationOwner = State(
+            initialValue: IOSKeyboardHandoffPresentationOwner(
+                session: runtime.keyboardDictationSession
+            )
+        )
     }
 
     var body: some View {
@@ -44,7 +51,9 @@ private struct IOSRegisteredContainingAppSceneHost: View {
             composition: composition,
             keyboardHandoffPreflight: { intent in
                 await voiceSceneOwner.preflightKeyboardHandoff(intent)
-            }
+            },
+            keyboardHandoffPresentationOwner:
+                keyboardHandoffPresentationOwner
         )
             .environment(runtime.controller)
             .environment(voiceSceneOwner)
@@ -70,7 +79,9 @@ private extension HoldTypeIOSRootView {
         keyboardHandoffPreflight:
             (@MainActor @Sendable (
                 KeyboardHandoffIntentRecord
-            ) async -> IOSKeyboardHandoffPreflightResult)? = nil
+            ) async -> IOSKeyboardHandoffPreflightResult)? = nil,
+        keyboardHandoffPresentationOwner:
+            IOSKeyboardHandoffPresentationOwner? = nil
     ) {
         self.init(
             settingsStateOwner: composition.settingsStateOwner,
@@ -90,7 +101,9 @@ private extension HoldTypeIOSRootView {
                 composition.historyPlaybackActions,
             recordingCacheLifecycleActions:
                 composition.recordingCacheLifecycleActions,
-            keyboardHandoffPreflight: keyboardHandoffPreflight
+            keyboardHandoffPreflight: keyboardHandoffPreflight,
+            keyboardHandoffPresentationOwner:
+                keyboardHandoffPresentationOwner
         )
     }
 }
