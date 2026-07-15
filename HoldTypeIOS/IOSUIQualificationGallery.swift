@@ -105,7 +105,7 @@ nonisolated enum IOSUIQualificationRoute:
         case .privacyReady:
             "Privacy — Ready and Consent Review"
         case .privacyAccepted:
-            "Privacy — Accepted and Withdraw Confirmation"
+            "Privacy — Accepted"
         case .privacyUnreadable:
             "Privacy — Unreadable Data Reset Confirmation"
         case .privacyFailure:

@@ -484,9 +484,11 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   request. Returning the cache default to off does not lower the disclosure
   version or require users who accepted version `3` to review it again.
 - The main Privacy & Permissions screen shows microphone status, OpenAI
-  processing status and action, and one concise local-data summary. It does not
-  display transport schemas, process authority, storage implementation, or
-  milestone names.
+  processing status, an acceptance action only when review is required, and one
+  concise local-data summary. An accepted processing decision is status-only;
+  this screen does not offer an action to withdraw it. It does not display
+  transport schemas, process authority, storage implementation, or milestone
+  names.
 - The OpenAI consent review answers four product questions in concise language:
   what is sent, why it is sent, who processes it, and what remains on the
   device. Ordinary keystrokes and surrounding host-field text are explicitly

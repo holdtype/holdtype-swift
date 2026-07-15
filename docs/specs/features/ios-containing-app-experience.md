@@ -283,13 +283,9 @@ The app guides setup in this order:
   current OpenAI processing-consent state. It never requests microphone access,
   reads Keychain, activates audio, or contacts OpenAI. Denied microphone access
   may offer only the public app Settings URL plus written guidance.
-- Accept, Withdraw, and unreadable-data Reset are exact confirmed consent
-  mutations. Withdrawal closes provider authority before durable file work,
-  prevents late output from becoming accepted, and stops active capture through
-  the interruption/recovery path rather than ordinary user cancellation. A
-  valid partial or completed recording remains Recover-or-Discard; withdrawal
-  does not delete the API key, settings, History, Latest Result, usage, or other
-  separately owned data.
+- Accept and unreadable-data Reset are exact confirmed consent mutations.
+  Accepted consent is status-only on Privacy & Permissions and has no withdrawal
+  action.
 - iPhone tabs and iPad split view render the same shared Voice, Latest, and
   consent truth. Navigation and practice drafts remain scene-local. Dynamic
   Type may stack actions vertically; text and recovery explanations are never

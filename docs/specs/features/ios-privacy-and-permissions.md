@@ -126,15 +126,8 @@ Declining provider consent leaves local settings and typing available and
 prevents provider requests. Consent can be reviewed later from Privacy &
 Permissions.
 
-`Withdraw OpenAI Processing Consent` is an explicit confirmed action on that
-surface. It immediately blocks future provider requests, best-effort cancels an
-active request, and makes any matching late result ineligible. Active capture
-stops without upload; a valid completed/partial artifact follows explicit
-Recover-or-Discard policy. Withdrawal does not delete the API key, settings,
-History, latest result, recordings, or usage; each has its own control. A
-request already received by OpenAI cannot be recalled, which the confirmation
-states. Re-enabling provider work requires accepting the current disclosure
-again.
+An accepted provider-consent state is status-only on Privacy & Permissions.
+The screen does not offer an action to withdraw it.
 
 HoldType stores the consent contract version and acceptance date locally. A
 material change to provider, transmitted data categories, or purpose requires
@@ -366,9 +359,9 @@ Before routing the user to enable Full Access, HoldType states:
 
 - Test microphone states, first explicit request, denial, revocation, and public
   Settings-route fallback with fakes.
-- Test provider and Quick Session consent independently, including decline and
-  later review, withdrawal during idle/listening/processing, exact data
-  isolation, and explicit re-consent.
+- Test provider and Quick Session consent independently, including decline,
+  later review, exact data isolation, and explicit acceptance after a declined
+  decision.
 - Test the frozen version-2 History disclosure on both Voice and Privacy
   presentation paths, version-1 review-required behavior, provider-free local
   History actions, and consent loss before/during every failed-Retry stage.

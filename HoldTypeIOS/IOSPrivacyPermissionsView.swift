@@ -434,8 +434,8 @@ private struct IOSProviderConsentPrivacyReviewSheet: View {
                     )
                 } footer: {
                     Text(
-                        "You can withdraw later. A request already received "
-                            + "by OpenAI cannot be recalled."
+                        "A request already received by OpenAI cannot be "
+                            + "recalled."
                     )
                 }
             }
@@ -536,7 +536,7 @@ struct IOSConsentPrivacyPresentation {
                 detail: "Voice can send recordings to OpenAI for processing.",
                 systemImage: "checkmark.shield.fill",
                 color: .green,
-                action: .withdraw
+                action: nil
             )
         case .reviewRequired:
             Self(

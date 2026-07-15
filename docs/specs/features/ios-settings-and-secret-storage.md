@@ -52,10 +52,11 @@ and the OpenAI API key.
   remains untouched until an explicit key mutation or `Check Saved Key`
   action.
 - P4 adds a native Privacy & Permissions destination for provider-consent
-  review, acceptance, withdrawal, microphone status, and public System Settings
-  recovery. Opening it may read the app-private consent metadata and public
-  microphone authorization status, but never starts capture, requests
-  permission, reads Keychain, or contacts a provider.
+  review, acceptance when required, microphone status, and public System
+  Settings recovery. Accepted consent is status-only. Opening the destination
+  may read the app-private consent metadata and public microphone authorization
+  status, but never starts capture, requests permission, reads Keychain, or
+  contacts a provider.
 - Provider consent is not a general app setting. Its strict revisioned record
   and process owner follow `ios-provider-consent-record.md` and
   `ios-privacy-and-permissions.md`; no consent value, date, or mutation marker

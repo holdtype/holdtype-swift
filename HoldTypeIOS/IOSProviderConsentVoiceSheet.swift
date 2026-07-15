@@ -67,7 +67,7 @@ struct IOSProviderConsentVoiceSheet: View {
                     }
                 } footer: {
                     Text(
-                        "You can review or withdraw this decision later in "
+                        "You can review this decision later in "
                             + "Settings → Privacy & Permissions."
                     )
                 }

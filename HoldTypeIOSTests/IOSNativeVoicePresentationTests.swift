@@ -113,7 +113,7 @@ struct IOSNativeVoicePresentationTests {
             )
         ] = [
             (.notReviewed, false, .acceptCurrentDisclosure),
-            (.acceptedCurrentDisclosure, false, .withdraw),
+            (.acceptedCurrentDisclosure, false, nil),
             (.acceptedCurrentDisclosure, true, .acceptCurrentDisclosure),
             (.reviewRequired, false, .acceptCurrentDisclosure),
             (.withdrawn, false, .acceptCurrentDisclosure),
