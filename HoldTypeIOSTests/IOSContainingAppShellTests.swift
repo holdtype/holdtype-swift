@@ -328,8 +328,24 @@ struct IOSContainingAppShellTests {
                     hasUsageEstimateStateOwner: availability.3,
                     hasAcceptedTextHistoryStateOwner: availability.4
                 ) == .storageUnavailable
-            )
-        }
+        )
+    }
+    }
+
+    @Test
+    func keyboardHandoffPreflightWaitsForTheExactActiveScene() {
+        #expect(
+            IOSKeyboardHandoffPreflightSceneDecision.resolve(.background)
+                == .waitForActiveScene
+        )
+        #expect(
+            IOSKeyboardHandoffPreflightSceneDecision.resolve(.inactive)
+                == .waitForActiveScene
+        )
+        #expect(
+            IOSKeyboardHandoffPreflightSceneDecision.resolve(.active)
+                == .start
+        )
     }
 
     @Test func secureProviderAvailabilityNeverInventsCredentialStatus() {

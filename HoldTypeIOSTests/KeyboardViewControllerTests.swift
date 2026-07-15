@@ -5,6 +5,61 @@ import UIKit
 @Suite(.serialized)
 @MainActor
 struct KeyboardViewControllerTests {
+    @Test func documentIdentifierAdapterToleratesTemporarilyMissingValue() {
+        let object = KeyboardObjectiveCDocumentIdentifierSpy(identifier: nil)
+
+        #expect(
+            KeyboardDocumentIdentifierAdapter.load(
+                fromObjectiveCObject: object
+            ) == nil
+        )
+    }
+
+    @Test func documentIdentifierAdapterReadsAvailableValue() {
+        let identifier = UUID()
+        let object = KeyboardObjectiveCDocumentIdentifierSpy(
+            identifier: identifier as NSUUID
+        )
+
+        #expect(
+            KeyboardDocumentIdentifierAdapter.load(
+                fromObjectiveCObject: object
+            ) == identifier
+        )
+    }
+
+    @Test func containingAppLaunchUsesTheResponderChain() throws {
+        let url = try #require(URL(string: "holdtype://keyboard-handoff/test"))
+        let applicationResponder = KeyboardOpenURLResponderSpy()
+        let sceneResponder = KeyboardOpenURLResponderSpy(
+            nextResponder: applicationResponder
+        )
+        var completionValues: [Bool] = []
+
+        KeyboardContainingAppLaunchAdapter.open(
+            url,
+            from: sceneResponder,
+            extensionContext: nil
+        ) { completionValues.append($0) }
+
+        #expect(sceneResponder.openedURLs.isEmpty)
+        #expect(applicationResponder.openedURLs == [url])
+        #expect(completionValues == [true])
+    }
+
+    @Test func containingAppLaunchFailsWithoutAnAvailableRoute() throws {
+        let url = try #require(URL(string: "holdtype://keyboard-handoff/test"))
+        var completionValues: [Bool] = []
+
+        KeyboardContainingAppLaunchAdapter.open(
+            url,
+            from: UIResponder(),
+            extensionContext: nil
+        ) { completionValues.append($0) }
+
+        #expect(completionValues == [false])
+    }
+
     @Test func latestLoadsWithoutInsertionAndEachTapInsertsOnce() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let latest = try KeyboardBridgeItem.latest(
@@ -194,7 +249,7 @@ struct KeyboardViewControllerTests {
             ) == nil
         )
 
-        controller.keyboardView.onMicrophoneRequested?()
+        microphone.sendActions(for: .touchUpInside)
 
         let intent = try #require(harness.savedHandoffIntents.first)
         #expect(harness.savedHandoffIntents.count == 1)
@@ -802,6 +857,41 @@ private final class KeyboardControllerHarness {
                 recordDiagnostic: { _ in }
             )
         )
+    }
+}
+
+@MainActor
+private final class KeyboardObjectiveCDocumentIdentifierSpy: NSObject {
+    @objc dynamic let documentIdentifier: NSUUID?
+
+    init(identifier: NSUUID?) {
+        documentIdentifier = identifier
+        super.init()
+    }
+}
+
+@MainActor
+final class KeyboardOpenURLResponderSpy: UIResponder {
+    private(set) var openedURLs: [URL] = []
+    private let chainedResponder: UIResponder?
+
+    init(nextResponder: UIResponder? = nil) {
+        chainedResponder = nextResponder
+        super.init()
+    }
+
+    override var next: UIResponder? {
+        chainedResponder
+    }
+
+    @objc(openURL:options:completionHandler:)
+    func openURL(
+        _ url: URL,
+        options: NSDictionary,
+        completionHandler: ((Bool) -> Void)?
+    ) {
+        openedURLs.append(url)
+        completionHandler?(true)
     }
 }
 

@@ -50,9 +50,13 @@ resolved by silently degrading the keyboard into that manual-session design.
   large temporary sheet over that unchanged screen. The sheet may report
   `Starting` while app-owned capture is arming, but it reports `Listening` only
   after real capture begins.
-- Once Listening, the sheet asks the user to swipe right on the system bottom
-  bar to return to the host app and explains that recording will continue. It
-  contains no second Start button.
+- Once Listening, the sheet places the return affordance at the physical bottom
+  edge, directly above the system home indicator. A compact swipe track contains
+  sequential right-pointing chevrons and a short `Swipe right to return` label;
+  the user must not need to read body copy to discover where the gesture starts.
+  No supporting copy appears below the track or lifts it away from the bottom
+  gesture region.
+  It contains no second Start button.
 - The sheet's explicit close action cancels the keyboard request, stops active
   capture, dismisses the sheet, and leaves ordinary Voice Ready. Interactive
   sheet dismissal is unavailable while capture is active so it cannot be

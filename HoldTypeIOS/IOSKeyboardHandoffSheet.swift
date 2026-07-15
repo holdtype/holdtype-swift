@@ -27,7 +27,7 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
     }
 
     var instructionTitle: String {
-        "Swipe right on the bottom bar"
+        "Swipe right to return"
     }
 
     var instructionDetail: String {
@@ -72,41 +72,45 @@ struct IOSKeyboardHandoffSheet: View {
     let cancel: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                closeRow
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    closeRow
 
-                VStack(spacing: 22) {
-                    IOSVoiceActivityIndicator(
-                        phase: presentation.activityPhase
-                    )
-                    .id(presentation.activityPhase)
-                    .frame(width: 184, height: 184)
+                    VStack(spacing: 22) {
+                        IOSVoiceActivityIndicator(
+                            phase: presentation.activityPhase
+                        )
+                        .id(presentation.activityPhase)
+                        .frame(width: 184, height: 184)
 
-                    VStack(spacing: 8) {
-                        Text(presentation.title)
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
+                        VStack(spacing: 8) {
+                            Text(presentation.title)
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.center)
 
-                        Text(presentation.detail)
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+                            Text(presentation.detail)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
-                    .accessibilityElement(children: .combine)
-
-                    IOSKeyboardHandoffSwipeGuide(
-                        title: presentation.instructionTitle,
-                        detail: presentation.instructionDetail,
-                        isActive: presentation.returnInstructionIsActive
-                    )
+                    .frame(maxWidth: 520)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 160)
                 }
-                .frame(maxWidth: 520)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 36)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+            .overlay(alignment: .bottom) {
+                IOSKeyboardHandoffBottomReturnGuide(
+                    title: presentation.instructionTitle,
+                    detail: presentation.instructionDetail,
+                    isActive: presentation.returnInstructionIsActive
+                )
+                .offset(y: geometry.safeAreaInsets.bottom)
+            }
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .presentationDetents([.large])
@@ -146,7 +150,7 @@ struct IOSKeyboardHandoffSheet: View {
     }
 }
 
-private struct IOSKeyboardHandoffSwipeGuide: View {
+private struct IOSKeyboardHandoffBottomReturnGuide: View {
     let title: String
     let detail: String
     let isActive: Bool
@@ -155,74 +159,90 @@ private struct IOSKeyboardHandoffSwipeGuide: View {
     private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 16) {
-            gestureArtwork
+        VStack(spacing: 7) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isActive ? .primary : .secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(isActive ? .primary : .secondary)
-                    .multilineTextAlignment(.center)
-
-                Text(detail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+            swipeTrack
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 24)
+        .padding(.horizontal, 24)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
         .background {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(
-                    isActive
-                        ? Color.accentColor.opacity(0.22)
-                        : Color.primary.opacity(0.06),
-                    lineWidth: 1
-                )
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .mask {
+                    LinearGradient(
+                        colors: [.clear, .black, .black],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
         }
         .opacity(isActive ? 1 : 0.64)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title). \(detail)")
+        .accessibilityLabel(
+            "\(title) across the bottom edge. \(detail)"
+        )
         .accessibilityIdentifier("ios.keyboard-handoff.swipe-guide")
     }
 
-    private var gestureArtwork: some View {
-        ZStack {
-            Capsule()
-                .fill(isActive ? Color.primary : Color.secondary)
-                .frame(width: 112, height: 6)
-
-            arrow
-                .offset(y: -24)
-        }
-        .frame(height: 44)
-        .accessibilityHidden(true)
+    private var swipeTrack: some View {
+        chevrons
+            .frame(maxWidth: 320)
+            .frame(height: 48)
+            .background {
+                Capsule()
+                    .fill(
+                        isActive
+                            ? Color.accentColor.opacity(0.13)
+                            : Color.secondary.opacity(0.08)
+                    )
+            }
+            .overlay {
+                Capsule()
+                    .stroke(
+                        isActive
+                            ? Color.accentColor.opacity(0.32)
+                            : Color.secondary.opacity(0.14),
+                        lineWidth: 1
+                    )
+            }
+            .contentShape(Capsule())
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder
-    private var arrow: some View {
+    private var chevrons: some View {
         if !IOSKeyboardHandoffMotionPolicy.animatesReturnCue(
             isActive: isActive,
             reduceMotion: reduceMotion
         ) {
-            Image(systemName: "arrow.right")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(isActive ? Color.accentColor : .secondary)
+            chevronRow(activeIndex: isActive ? 2 : nil)
         } else {
-            PhaseAnimator([false, true]) { advanced in
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .offset(x: advanced ? 18 : -12)
-                    .opacity(advanced ? 1 : 0.42)
+            PhaseAnimator([0, 1, 2]) { activeIndex in
+                chevronRow(activeIndex: activeIndex)
             } animation: { _ in
-                .easeInOut(duration: 0.9)
+                .easeInOut(duration: 0.34)
+            }
+        }
+    }
+
+    private func chevronRow(activeIndex: Int?) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { index in
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(
+                        index == activeIndex
+                            ? Color.accentColor
+                            : Color.secondary.opacity(0.34)
+                    )
+                    .scaleEffect(index == activeIndex ? 1.12 : 0.92)
             }
         }
     }

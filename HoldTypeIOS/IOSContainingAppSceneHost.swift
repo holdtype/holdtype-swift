@@ -50,7 +50,8 @@ private struct IOSRegisteredContainingAppSceneHost: View {
         HoldTypeIOSRootView(
             composition: composition,
             keyboardHandoffPreflight: { intent in
-                await voiceSceneOwner.preflightKeyboardHandoff(intent)
+                voiceSceneOwner.registerOrUpdateActivity(.active)
+                return await voiceSceneOwner.preflightKeyboardHandoff(intent)
             },
             keyboardHandoffPresentationOwner:
                 keyboardHandoffPresentationOwner

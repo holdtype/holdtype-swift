@@ -110,8 +110,13 @@ screen. It is not a new tab, navigation destination, or replacement Voice page.
 - large detent with the underlying Voice screen still visible around it;
 - rounded top corners and one close button in the top-right corner;
 - the existing HoldType Voice activity visual, reused rather than approximated;
-- a short title, one return instruction, and a simple system-bottom-bar swipe
-  illustration or animation;
+- a short title and a fixed bottom-edge return cue directly above the system
+  home indicator;
+- a compact swipe track with sequential animated right chevrons inside it and a
+  short `Swipe right to return` label; no floating arrow or centered gesture
+  instruction card;
+- no copy below the track; the track itself is the final bottom-edge element and
+  extends into the system gesture safe area;
 - no Draft editor, Copy, History, setup controls, mode picker, or second Start
   button;
 - localizable copy, Light and Dark appearance, Dynamic Type, VoiceOver, Reduce

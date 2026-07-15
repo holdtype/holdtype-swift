@@ -23,7 +23,7 @@ struct IOSKeyboardHandoffSheetTests {
         #expect(presentation.title == "HoldType is listening")
         #expect(
             presentation.instructionTitle
-                == "Swipe right on the bottom bar"
+                == "Swipe right to return"
         )
         #expect(
             presentation.instructionDetail

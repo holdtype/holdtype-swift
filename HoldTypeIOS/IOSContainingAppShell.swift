@@ -1,6 +1,15 @@
 import SwiftUI
 import UIKit
 
+enum IOSKeyboardHandoffPreflightSceneDecision: Equatable, Sendable {
+    case waitForActiveScene
+    case start
+
+    static func resolve(_ activity: IOSVoiceSceneActivity) -> Self {
+        activity == .active ? .start : .waitForActiveScene
+    }
+}
+
 enum IOSKeyboardHandoffPreflightNavigationDecision: Equatable, Sendable {
     case stayOnVoice
     case settings(IOSSettingsAttention)
@@ -26,6 +35,8 @@ enum IOSKeyboardHandoffPreflightNavigationDecision: Equatable, Sendable {
 }
 
 struct IOSContainingAppShell: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var selectedDestinationRawValue =
         IOSContainingAppDestination.voice.rawValue
 
@@ -44,6 +55,7 @@ struct IOSContainingAppShell: View {
     @State private var acceptedKeyboardHandoffIntent:
         KeyboardHandoffIntentRecord?
     @State private var activeKeyboardHandoffRequestID: UUID?
+    @State private var preflightingKeyboardHandoffRequestID: UUID?
     @State private var showsEditorDiscardConfirmation = false
     @State private var showsEditorOperationAlert = false
 
@@ -102,6 +114,9 @@ struct IOSContainingAppShell: View {
             }
         }
         .onAppear(perform: restoreSelectionIfNeeded)
+        .onChange(of: scenePhase) { _, _ in
+            startAcceptedKeyboardHandoffIfPossible()
+        }
         .confirmationDialog(
             "Discard Unsaved Changes?",
             isPresented: $showsEditorDiscardConfirmation,
@@ -160,19 +175,37 @@ struct IOSContainingAppShell: View {
         acceptedKeyboardHandoffIntent = intent
         activeKeyboardHandoffRequestID = intent.requestID
         requestDestination(.voice)
+        startAcceptedKeyboardHandoffIfPossible()
+    }
 
-        guard let keyboardHandoffPreflight else {
-            acceptedKeyboardHandoffIntent = nil
-            activeKeyboardHandoffRequestID = nil
+    private func startAcceptedKeyboardHandoffIfPossible() {
+        guard let intent = acceptedKeyboardHandoffIntent,
+              activeKeyboardHandoffRequestID == intent.requestID else {
             return
         }
+        guard IOSKeyboardHandoffPreflightSceneDecision.resolve(
+            IOSVoiceSceneActivity(scenePhase)
+        ) == .start else {
+            return
+        }
+        guard preflightingKeyboardHandoffRequestID != intent.requestID else {
+            return
+        }
+        guard let keyboardHandoffPreflight else {
+            clearAcceptedKeyboardHandoff(intent.requestID)
+            return
+        }
+        guard intent.expiresAt > keyboardHandoffNow() else {
+            clearAcceptedKeyboardHandoff(intent.requestID)
+            return
+        }
+        preflightingKeyboardHandoffRequestID = intent.requestID
         Task { @MainActor in
             let result = await keyboardHandoffPreflight(intent)
             guard activeKeyboardHandoffRequestID == intent.requestID else {
                 return
             }
-            acceptedKeyboardHandoffIntent = nil
-            activeKeyboardHandoffRequestID = nil
+            clearAcceptedKeyboardHandoff(intent.requestID)
             guard intent.expiresAt > keyboardHandoffNow() else { return }
 
             switch IOSKeyboardHandoffPreflightNavigationDecision.resolve(
@@ -185,6 +218,15 @@ struct IOSContainingAppShell: View {
             case .settings(let attention):
                 openSettings(.attention(attention))
             }
+        }
+    }
+
+    private func clearAcceptedKeyboardHandoff(_ requestID: UUID) {
+        guard activeKeyboardHandoffRequestID == requestID else { return }
+        acceptedKeyboardHandoffIntent = nil
+        activeKeyboardHandoffRequestID = nil
+        if preflightingKeyboardHandoffRequestID == requestID {
+            preflightingKeyboardHandoffRequestID = nil
         }
     }
 

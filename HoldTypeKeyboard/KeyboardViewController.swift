@@ -1,3 +1,4 @@
+import OSLog
 import UIKit
 
 typealias KeyboardLatestExpiryScheduler = (
@@ -9,6 +10,149 @@ typealias KeyboardContainingAppOpener = (
     URL,
     @escaping (Bool) -> Void
 ) -> Void
+
+/// Reads UIKit's document identity without trusting its nonnull annotation.
+///
+/// A freshly recreated keyboard can temporarily receive `nil` from the
+/// Objective-C proxy even though the SDK imports this property as a nonoptional
+/// Swift `UUID`. Accessing the imported property in that window traps inside
+/// Foundation's UUID bridge.
+@MainActor
+enum KeyboardDocumentIdentifierAdapter {
+    private static let selector = NSSelectorFromString("documentIdentifier")
+
+    static func load(from documentProxy: any UITextDocumentProxy) -> UUID? {
+        load(fromObjectiveCObject: documentProxy as AnyObject)
+    }
+
+    static func load(fromObjectiveCObject object: AnyObject) -> UUID? {
+        guard let object = object as? NSObject,
+              object.responds(to: selector),
+              let unmanagedIdentifier = object.perform(selector),
+              let identifier = unmanagedIdentifier.takeUnretainedValue()
+                as? NSUUID else {
+            return nil
+        }
+        return identifier as UUID
+    }
+}
+
+/// Opens the containing app from the keyboard's explicit user gesture.
+///
+/// `NSExtensionContext.open` is not dispatched for the keyboard extension
+/// point on the current signed device. The approved Flow-style behavior
+/// therefore routes the same URL through the active responder chain first and
+/// keeps the extension-context API as a fallback.
+@MainActor
+enum KeyboardContainingAppLaunchAdapter {
+    private typealias OpenURLCompletionHandler = @convention(block) (Bool) -> Void
+    private typealias OpenURLMethod = @convention(c) (
+        AnyObject,
+        Selector,
+        NSURL,
+        NSDictionary,
+        OpenURLCompletionHandler?
+    ) -> Void
+
+    nonisolated private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier
+            ?? "app.holdtype.HoldType.ios.keyboard",
+        category: "handoff"
+    )
+
+    static func open(
+        _ url: URL,
+        from rootResponder: UIResponder,
+        extensionContext: NSExtensionContext?,
+        completion: @escaping (Bool) -> Void
+    ) {
+        logger.info("launch requested")
+        if openThroughResponderChain(
+            url,
+            from: rootResponder,
+            completion: { didOpen in
+                if didOpen {
+                    logger.info("responder launch succeeded")
+                    completion(true)
+                } else {
+                    logger.error("responder launch failed")
+                    openThroughExtensionContext(
+                        url,
+                        extensionContext: extensionContext,
+                        completion: completion
+                    )
+                }
+            }
+        ) {
+            return
+        }
+        openThroughExtensionContext(
+            url,
+            extensionContext: extensionContext,
+            completion: completion
+        )
+    }
+
+    private static func openThroughExtensionContext(
+        _ url: URL,
+        extensionContext: NSExtensionContext?,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard let extensionContext else {
+            logger.error("launch unavailable")
+            completion(false)
+            return
+        }
+        extensionContext.open(url) { didOpen in
+            if didOpen {
+                logger.info("extension-context launch succeeded")
+            } else {
+                logger.error("extension-context launch failed")
+            }
+            completion(didOpen)
+        }
+    }
+
+    static func openThroughResponderChain(
+        _ url: URL,
+        from rootResponder: UIResponder,
+        completion: @escaping (Bool) -> Void
+    ) -> Bool {
+        let selector = NSSelectorFromString(
+            "openURL:options:completionHandler:"
+        )
+        var responder: UIResponder? = rootResponder
+        var applicationResponder: UIResponder?
+        while let current = responder {
+            if current.responds(to: selector) {
+                // UIScene exposes the same selector with a different options
+                // object. UIApplication is the terminal matching responder.
+                applicationResponder = current
+            }
+            responder = current.next
+        }
+        guard let applicationResponder else {
+            return false
+        }
+        let implementation = applicationResponder.method(for: selector)
+        let openURL = unsafeBitCast(
+            implementation,
+            to: OpenURLMethod.self
+        )
+        let completionHandler: OpenURLCompletionHandler = {
+            didOpen in
+            completion(didOpen)
+        }
+        openURL(
+            applicationResponder,
+            selector,
+            url as NSURL,
+            NSDictionary(),
+            completionHandler
+        )
+        return true
+    }
+}
 
 @MainActor
 struct KeyboardViewControllerDependencies {
@@ -113,6 +257,10 @@ final class KeyboardViewController: UIInputViewController {
 
     private var activeDocumentProxy: any UITextDocumentProxy {
         dependencies.documentProxyOverride ?? textDocumentProxy
+    }
+
+    private var activeDocumentIdentifier: UUID? {
+        KeyboardDocumentIdentifierAdapter.load(from: activeDocumentProxy)
     }
 
     private var shouldShowInputModeSwitchKey: Bool {
@@ -371,7 +519,7 @@ final class KeyboardViewController: UIInputViewController {
                     == identity.requestID
                     || (allowsStateReconnection
                         && identity.belongsToDocument(
-                            activeDocumentProxy.documentIdentifier
+                            activeDocumentIdentifier
                         ))
                 if activeDictationOwnership == nil, mayReconnect {
                     activeDictationOwnership = identity
@@ -399,7 +547,7 @@ final class KeyboardViewController: UIInputViewController {
                let requestID = state.requestID,
                owns(state),
                activeDictationOwnership?.belongsToDocument(
-                   activeDocumentProxy.documentIdentifier
+                   activeDocumentIdentifier
                ) == true,
                insertedDictationRequestID != requestID,
                let result = state.result {
@@ -497,7 +645,7 @@ final class KeyboardViewController: UIInputViewController {
         let requestID = dependencies.makeRequestID()
         guard let intent = KeyboardHandoffIntentRecord(
             requestID: requestID,
-            sourceDocumentID: activeDocumentProxy.documentIdentifier,
+            sourceDocumentID: activeDocumentIdentifier,
             action: automaticVoiceAction,
             issuedAt: issuedAt,
             expiresAt: issuedAt.addingTimeInterval(
@@ -541,7 +689,7 @@ final class KeyboardViewController: UIInputViewController {
             sessionID: state.sessionID,
             attemptID: dependencies.makeAttemptID(),
             requestID: dependencies.makeRequestID(),
-            sourceDocumentID: activeDocumentProxy.documentIdentifier
+            sourceDocumentID: activeDocumentIdentifier
         )
         allowsStateReconnection = false
         sendDictationCommand(.start, action: action)
@@ -595,7 +743,12 @@ final class KeyboardViewController: UIInputViewController {
         if let openContainingAppOverride = dependencies.openContainingAppOverride {
             openContainingAppOverride(url, completion)
         } else {
-            extensionContext?.open(url, completionHandler: completion)
+            KeyboardContainingAppLaunchAdapter.open(
+                url,
+                from: self,
+                extensionContext: extensionContext,
+                completion: completion
+            )
         }
     }
 
@@ -699,7 +852,7 @@ final class KeyboardViewController: UIInputViewController {
     private func refreshStateReconnectionEligibility() {
         guard let activeDictationOwnership else { return }
         if !activeDictationOwnership.belongsToDocument(
-            activeDocumentProxy.documentIdentifier
+            activeDocumentIdentifier
         ) {
             self.activeDictationOwnership = nil
             allowsStateReconnection = true
