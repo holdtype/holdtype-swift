@@ -75,6 +75,134 @@ struct IOSOpenAICredentialEditorDraft {
     }
 }
 
+struct IOSOpenAICredentialPresentation: Equatable {
+    enum State: Equatable {
+        case notConnected
+        case connected
+        case needsAttention
+    }
+
+    enum Tone: Equatable {
+        case neutral
+        case success
+        case warning
+        case failure
+    }
+
+    let state: State
+    let title: String
+    let explanation: String
+    let systemImage: String
+    let tone: Tone
+    let showsSavedKeyMask: Bool
+    let offersVerification: Bool
+
+    private init(
+        state: State,
+        title: String,
+        explanation: String,
+        systemImage: String,
+        tone: Tone,
+        showsSavedKeyMask: Bool,
+        offersVerification: Bool
+    ) {
+        self.state = state
+        self.title = title
+        self.explanation = explanation
+        self.systemImage = systemImage
+        self.tone = tone
+        self.showsSavedKeyMask = showsSavedKeyMask
+        self.offersVerification = offersVerification
+    }
+
+    init(status: IOSOpenAICredentialStatus) {
+        let showsSavedKeyMask = switch status.primary {
+        case .savedLastKnown, .availableInThisProcess,
+             .unavailableWhileLocked, .providerRejected:
+            true
+        case .notConfigured, .notCheckedInThisProcess:
+            false
+        }
+
+        if status.statusNeedsRefresh || status.localMarkerIssue != nil {
+            self.init(
+                state: .needsAttention,
+                title: "Key needs attention",
+                explanation: "HoldType couldn’t confirm the saved key.",
+                systemImage: "exclamationmark.triangle",
+                tone: .warning,
+                showsSavedKeyMask: showsSavedKeyMask,
+                offersVerification: true
+            )
+            return
+        }
+
+        switch status.primary {
+        case .notConfigured:
+            self.init(
+                state: .notConnected,
+                title: "Add your API key",
+                explanation: "Connect OpenAI to use Voice.",
+                systemImage: "key.slash",
+                tone: .neutral,
+                showsSavedKeyMask: false,
+                offersVerification: false
+            )
+        case .notCheckedInThisProcess:
+            self.init(
+                state: .needsAttention,
+                title: "Key status unavailable",
+                explanation: "HoldType couldn’t confirm whether a key is saved.",
+                systemImage: "exclamationmark.triangle",
+                tone: .warning,
+                showsSavedKeyMask: false,
+                offersVerification: true
+            )
+        case .savedLastKnown, .availableInThisProcess:
+            self.init(
+                state: .connected,
+                title: "API key saved",
+                explanation: "Stored securely on this iPhone.",
+                systemImage: "checkmark.circle",
+                tone: .success,
+                showsSavedKeyMask: true,
+                offersVerification: false
+            )
+        case .unavailableWhileLocked:
+            self.init(
+                state: .needsAttention,
+                title: "Unlock iPhone to continue",
+                explanation: "HoldType can’t access the saved key while this iPhone is locked.",
+                systemImage: "lock",
+                tone: .warning,
+                showsSavedKeyMask: true,
+                offersVerification: true
+            )
+        case .providerRejected:
+            self.init(
+                state: .needsAttention,
+                title: "Replace this API key",
+                explanation: "OpenAI rejected the saved key.",
+                systemImage: "xmark.octagon",
+                tone: .failure,
+                showsSavedKeyMask: true,
+                offersVerification: false
+            )
+        }
+    }
+
+    var settingsSummary: String {
+        switch state {
+        case .notConnected:
+            "Not connected"
+        case .connected:
+            "Connected"
+        case .needsAttention:
+            "Needs attention"
+        }
+    }
+}
+
 struct IOSOpenAISettingsView: View {
     @Environment(IOSOpenAICredentialSettingsStateOwner.self)
     private var stateOwner
@@ -103,35 +231,16 @@ struct IOSOpenAISettingsView: View {
                 case .notLoaded:
                     loadingSection
                 case .ready(let status):
-                    statusSection(status)
                     credentialSection(status)
-                }
-
-                if let notice = stateOwner.notice {
-                    Section {
-                        Label(notice.message, systemImage: "checkmark.circle")
-                            .foregroundStyle(.green)
-                            .accessibilityIdentifier(
-                                "ios.settings.openai.notice"
-                            )
-                    }
-                }
-
-                if let failure = stateOwner.failure {
-                    Section {
-                        Label(
-                            failure.message,
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .foregroundStyle(.red)
-                        .accessibilityIdentifier(
-                            "ios.settings.openai.failure"
-                        )
-                    }
                 }
 
                 setupSection
                 privacySection
+
+                if case .ready(let status) = stateOwner.state,
+                   status.primary.canAttemptRemove {
+                    removeSection
+                }
             }
         }
         .navigationTitle("OpenAI")
@@ -196,7 +305,7 @@ struct IOSOpenAISettingsView: View {
     }
 
     private var unavailableSection: some View {
-        Section("Saved Key") {
+        Section("OpenAI API Key") {
             Label(
                 "Saved key unavailable",
                 systemImage: "key.slash"
@@ -213,67 +322,56 @@ struct IOSOpenAISettingsView: View {
     }
 
     private var loadingSection: some View {
-        Section("Saved Key") {
+        Section("OpenAI API Key") {
             HStack(spacing: 12) {
                 ProgressView()
-                Text("Checking saved key…")
+                Text("Loading key status…")
             }
         }
         .accessibilityIdentifier("ios.settings.openai.loading")
     }
 
-    private func statusSection(
+    private func credentialSection(
         _ status: IOSOpenAICredentialStatus
     ) -> some View {
-        Section("Saved Key") {
+        let presentation = IOSOpenAICredentialPresentation(status: status)
+
+        return Section {
+            apiKeyField(presentation)
+
             Label {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(status.primary.title)
-                    Text(status.primary.explanation)
+                    Text(presentation.title)
+                    Text(presentation.explanation)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             } icon: {
-                Image(systemName: status.primary.systemImage)
-                    .foregroundStyle(status.primary.tint)
+                Image(systemName: presentation.systemImage)
+                    .foregroundStyle(presentation.tone.color)
             }
             .accessibilityIdentifier("ios.settings.openai.status")
 
-            if status.primary.showsLastKnownMask {
-                LabeledContent("Saved key") {
-                    Text("••••••••••••")
-                        .font(.body.monospaced())
-                        .environment(\.layoutDirection, .leftToRight)
-                        .privacySensitive()
+            if let failure = stateOwner.failure,
+               shouldPresentFailure(failure, over: status.primary) {
+                Label(
+                    failure.message,
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.footnote)
+                .foregroundStyle(.red)
+                .accessibilityIdentifier("ios.settings.openai.failure")
+            }
+
+            if presentation.offersVerification {
+                Button {
+                    Task { await stateOwner.refresh() }
+                } label: {
+                    Label("Try Again", systemImage: "arrow.clockwise")
                 }
-                .accessibilityValue("Saved key present")
+                .disabled(stateOwner.isBusy)
+                .accessibilityIdentifier("ios.settings.openai.refresh")
             }
-
-            if status.statusNeedsRefresh {
-                Label(
-                    "Check the key to refresh its status.",
-                    systemImage: "arrow.clockwise.circle"
-                )
-                .font(.footnote)
-                .foregroundStyle(.orange)
-            }
-
-            if status.localMarkerIssue != nil {
-                Label(
-                    "HoldType couldn’t check the saved key. Try again.",
-                    systemImage: "externaldrive.badge.exclamationmark"
-                )
-                .font(.footnote)
-                .foregroundStyle(.orange)
-            }
-
-            Button {
-                Task { await stateOwner.refresh() }
-            } label: {
-                Label("Check Saved Key", systemImage: "arrow.clockwise")
-            }
-            .disabled(stateOwner.isBusy)
-            .accessibilityIdentifier("ios.settings.openai.refresh")
 
             if stateOwner.isBusy {
                 HStack(spacing: 10) {
@@ -283,63 +381,110 @@ struct IOSOpenAISettingsView: View {
                 }
                 .accessibilityIdentifier("ios.settings.openai.progress")
             }
+        } header: {
+            Text("OpenAI API Key")
+        } footer: {
+            Text(
+                presentation.showsSavedKeyMask
+                    ? "Enter a new key to replace the saved one."
+                    : "Paste a key, or enter one and tap Done."
+            )
         }
     }
 
-    private func credentialSection(
-        _ status: IOSOpenAICredentialStatus
+    private func apiKeyField(
+        _ presentation: IOSOpenAICredentialPresentation
     ) -> some View {
-        Section {
-            SecureField(
-                status.primary.keyFieldTitle,
-                text: Binding(
-                    get: { editorDraft.value },
-                    set: { editorDraft.value = $0 }
+        HStack(spacing: 12) {
+            ZStack(alignment: .leading) {
+                SecureField(
+                    presentation.showsSavedKeyMask
+                        && editorDraft.value.isEmpty
+                        ? ""
+                        : "Enter OpenAI API key",
+                    text: Binding(
+                        get: { editorDraft.value },
+                        set: { editorDraft.value = $0 }
+                    )
                 )
-            )
-            .focused($isKeyFieldFocused)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .keyboardType(.asciiCapable)
-            .submitLabel(.done)
-            .privacySensitive()
-            .disabled(stateOwner.isBusy)
-            .onSubmit {
-                guard let candidate =
-                    editorDraft.candidateForManualCommit() else {
-                    stateOwner.reportEmptyCandidate()
-                    return
+                .focused($isKeyFieldFocused)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.asciiCapable)
+                .submitLabel(.done)
+                .privacySensitive()
+                .disabled(stateOwner.isBusy)
+                .onSubmit {
+                    guard let candidate =
+                        editorDraft.candidateForManualCommit() else {
+                        stateOwner.reportEmptyCandidate()
+                        return
+                    }
+                    isKeyFieldFocused = false
+                    commit(candidate)
                 }
-                isKeyFieldFocused = false
-                commit(candidate)
+                .accessibilityLabel("OpenAI API key")
+                .accessibilityValue(
+                    presentation.showsSavedKeyMask
+                        && editorDraft.value.isEmpty
+                        ? "Saved API key present"
+                        : editorDraft.value.isEmpty
+                            ? "No API key entered"
+                            : "API key entered"
+                )
+                .accessibilityIdentifier("ios.settings.openai.key-field")
+                .iosSettingsField(
+                    .openAIKey,
+                    attentionTarget: activeAttentionTarget
+                )
+
+                if presentation.showsSavedKeyMask,
+                   editorDraft.value.isEmpty {
+                    Text("••••••••••••")
+                        .font(.body.monospaced())
+                        .environment(\.layoutDirection, .leftToRight)
+                        .foregroundStyle(.secondary)
+                        .privacySensitive()
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
-            .accessibilityIdentifier("ios.settings.openai.key-field")
-            .iosSettingsField(
-                .openAIKey,
-                attentionTarget: activeAttentionTarget
-            )
 
             Button {
                 pasteAndSave()
             } label: {
-                Label("Paste and Save", systemImage: "doc.on.clipboard")
+                Image(systemName: "doc.on.clipboard")
             }
+            .buttonStyle(.borderless)
             .disabled(stateOwner.isBusy)
+            .accessibilityLabel("Paste API key")
+            .accessibilityHint("Pastes and saves the API key from Clipboard")
             .accessibilityIdentifier("ios.settings.openai.paste")
+        }
+    }
 
-            Button("Remove Saved Key", role: .destructive) {
+    private var removeSection: some View {
+        Section {
+            Button("Remove API Key", role: .destructive) {
                 editorDraft.suppressManualCommitForCurrentFocusSession()
                 isKeyFieldFocused = false
                 showsRemoveConfirmation = true
             }
-            .disabled(
-                stateOwner.isBusy || !status.primary.canAttemptRemove
-            )
+            .disabled(stateOwner.isBusy)
             .accessibilityIdentifier("ios.settings.openai.remove")
-        } header: {
-            Text("Add or Replace Key")
-        } footer: {
-            Text("Save with Done or Paste and Save.")
+        }
+    }
+
+    private func shouldPresentFailure(
+        _ failure: IOSOpenAICredentialSettingsFailure,
+        over primary: IOSOpenAICredentialPrimaryStatus
+    ) -> Bool {
+        switch (failure, primary) {
+        case (.unavailableWhileLocked, .unavailableWhileLocked),
+             (.providerRejected, .providerRejected):
+            false
+        default:
+            true
         }
     }
 
@@ -416,90 +561,23 @@ struct IOSOpenAISettingsView: View {
 }
 
 private extension IOSOpenAICredentialPrimaryStatus {
-    var title: String {
-        switch self {
-        case .notConfigured:
-            "No key saved"
-        case .notCheckedInThisProcess:
-            "Key status not checked"
-        case .savedLastKnown:
-            "Key saved"
-        case .availableInThisProcess:
-            "Key ready"
-        case .unavailableWhileLocked:
-            "Unlock to check"
-        case .providerRejected:
-            "Key rejected"
-        }
-    }
-
-    var explanation: String {
-        switch self {
-        case .notConfigured:
-            "Add an OpenAI API key to use Voice."
-        case .notCheckedInThisProcess:
-            "Tap Check Saved Key to confirm it is available."
-        case .savedLastKnown:
-            "A key is saved on this iPhone."
-        case .availableInThisProcess:
-            "HoldType can use the saved key for Voice."
-        case .unavailableWhileLocked:
-            "Unlock this device, then check the saved key again."
-        case .providerRejected:
-            "Replace the key before using Voice again."
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .notConfigured:
-            "key.slash"
-        case .notCheckedInThisProcess, .savedLastKnown:
-            "key"
-        case .availableInThisProcess:
-            "checkmark.circle"
-        case .unavailableWhileLocked:
-            "lock"
-        case .providerRejected:
-            "xmark.octagon"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .availableInThisProcess:
-            .green
-        case .unavailableWhileLocked:
-            .orange
-        case .providerRejected:
-            .red
-        case .notConfigured, .notCheckedInThisProcess, .savedLastKnown:
-            .secondary
-        }
-    }
-
-    var showsLastKnownMask: Bool {
-        switch self {
-        case .savedLastKnown, .availableInThisProcess, .providerRejected:
-            true
-        case .notConfigured, .notCheckedInThisProcess,
-             .unavailableWhileLocked:
-            false
-        }
-    }
-
-    var keyFieldTitle: String {
-        switch self {
-        case .savedLastKnown, .availableInThisProcess,
-             .unavailableWhileLocked, .providerRejected:
-            "Replace OpenAI API key"
-        case .notConfigured, .notCheckedInThisProcess:
-            "OpenAI API key"
-        }
-    }
-
     var canAttemptRemove: Bool {
         self != .notConfigured
+    }
+}
+
+private extension IOSOpenAICredentialPresentation.Tone {
+    var color: Color {
+        switch self {
+        case .neutral:
+            .secondary
+        case .success:
+            .green
+        case .warning:
+            .orange
+        case .failure:
+            .red
+        }
     }
 }
 

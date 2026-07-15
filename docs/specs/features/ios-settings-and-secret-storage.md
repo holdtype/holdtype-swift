@@ -133,8 +133,9 @@ language remains an app-owned voice setting.
 - Saving or replacing a manually entered key occurs when the user commits the
   field with Done/Return or leaves the field with a non-empty valid candidate;
   it does not write a partial key on every character.
-- An explicit Paste action with non-empty text commits immediately. HoldType
-  does not inspect the clipboard passively.
+- An adjacent icon-only Paste action with non-empty text commits immediately.
+  HoldType does not inspect the clipboard passively. The paste action is part
+  of the single API-key row rather than a separate full-width workflow.
 - No separate Save button is required.
 - The API-key draft belongs only to one scene's ephemeral OpenAI editor state.
   It may survive a transient navigation dismissal so a failed focus-loss save
@@ -240,6 +241,26 @@ The OpenAI surface distinguishes:
 - `available in this process`
 - `unavailable while locked`
 - `provider rejected`
+
+These six values are internal credential truth, not six user-facing labels.
+The OpenAI detail reduces them to three product states:
+
+- `not connected`: no key is configured;
+- `connected`: a key is saved on this iPhone;
+- `needs attention`: saved-key truth cannot be confirmed, the device must be
+  unlocked, reconciliation needs retry, or OpenAI rejected the key.
+
+The detail presents one secure API-key row. When a key is last known to be
+saved, the non-secret mask appears inside that row while the empty scene draft
+continues to act as the replacement input. It never presents a second masked
+`Saved key` row.
+
+Normal connected presentation has no `Check Saved Key` action and no visible
+success banner that repeats the same state. `Try Again` performs the existing
+explicit Settings reconciliation only for a needs-attention state that can be
+resolved by checking again. Provider rejection instead targets replacement.
+Save and removal results are communicated by the updated field and status;
+their closed notices remain available for accessibility announcements.
 
 A mask indicates last known successful storage, not proof that the key is
 currently readable or accepted by OpenAI. The full key is never revealed.

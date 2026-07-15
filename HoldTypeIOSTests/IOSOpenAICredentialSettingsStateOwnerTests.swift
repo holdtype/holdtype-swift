@@ -495,6 +495,63 @@ struct IOSOpenAICredentialSettingsStateOwnerTests {
         #expect(didPaste)
         #expect(editorDraft.value == "pasted-key")
     }
+
+    @Test func credentialPresentationReducesNormalStatesToOneConnectionModel() {
+        let notConnected = IOSOpenAICredentialPresentation(
+            status: credentialStatus(.notConfigured)
+        )
+        #expect(notConnected.state == .notConnected)
+        #expect(notConnected.settingsSummary == "Not connected")
+        #expect(!notConnected.showsSavedKeyMask)
+        #expect(!notConnected.offersVerification)
+
+        for primary in [
+            IOSOpenAICredentialPrimaryStatus.savedLastKnown,
+            .availableInThisProcess,
+        ] {
+            let connected = IOSOpenAICredentialPresentation(
+                status: credentialStatus(primary)
+            )
+            #expect(connected.state == .connected)
+            #expect(connected.title == "API key saved")
+            #expect(connected.settingsSummary == "Connected")
+            #expect(connected.showsSavedKeyMask)
+            #expect(!connected.offersVerification)
+        }
+    }
+
+    @Test func credentialPresentationKeepsRecoveryActionSpecific() {
+        let unknown = IOSOpenAICredentialPresentation(
+            status: credentialStatus(.notCheckedInThisProcess)
+        )
+        #expect(unknown.state == .needsAttention)
+        #expect(unknown.offersVerification)
+        #expect(!unknown.showsSavedKeyMask)
+
+        let locked = IOSOpenAICredentialPresentation(
+            status: credentialStatus(.unavailableWhileLocked)
+        )
+        #expect(locked.state == .needsAttention)
+        #expect(locked.offersVerification)
+        #expect(locked.showsSavedKeyMask)
+
+        let rejected = IOSOpenAICredentialPresentation(
+            status: credentialStatus(.providerRejected)
+        )
+        #expect(rejected.state == .needsAttention)
+        #expect(!rejected.offersVerification)
+        #expect(rejected.showsSavedKeyMask)
+
+        let partialSuccess = IOSOpenAICredentialPresentation(
+            status: credentialStatus(
+                .availableInThisProcess,
+                statusNeedsRefresh: true
+            )
+        )
+        #expect(partialSuccess.state == .needsAttention)
+        #expect(partialSuccess.offersVerification)
+        #expect(partialSuccess.settingsSummary == "Needs attention")
+    }
 }
 
 private struct CredentialSettingsClientCalls: Equatable, Sendable {

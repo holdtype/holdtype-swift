@@ -116,6 +116,14 @@ release-complete until the finished History destination is restored.
   persistence, milestone, and transport terms such as process markers, durable
   decisions, provider authority, App Group schemas, atomic replacement, and
   implementation phase names do not appear in the primary interface.
+- OpenAI Settings presents one API-key field and one human status: not
+  connected, connected, or needs attention. The six-state credential model
+  remains internal verification truth and is not rendered as a diagnostic
+  dashboard. A saved-key mask appears inside the replacement field rather than
+  as a second representation of the same credential.
+- A normal saved key has no separate check action or success banner. Explicit
+  Keychain reconciliation remains available as `Try Again` only when HoldType
+  cannot confirm saved-key status or the device must be unlocked.
 - Technical privacy guarantees remain enforced and documented, but the main
   Privacy & Permissions screen summarizes them as local History, OpenAI
   processing, and keyboard access. A user may open concise disclosure details

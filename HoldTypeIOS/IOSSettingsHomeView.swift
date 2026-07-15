@@ -426,7 +426,8 @@ private struct IOSSettingsSummaryList: View {
         case .notLoaded:
             return "Open to check your key"
         case .ready(let status):
-            return status.primary.settingsSummary
+            return IOSOpenAICredentialPresentation(status: status)
+                .settingsSummary
         }
     }
 
@@ -502,25 +503,6 @@ private struct IOSSettingsDestinationLabel: View {
             }
         } icon: {
             Image(systemName: systemImage)
-        }
-    }
-}
-
-private extension IOSOpenAICredentialPrimaryStatus {
-    var settingsSummary: String {
-        switch self {
-        case .notConfigured:
-            "Not configured"
-        case .notCheckedInThisProcess:
-            "Key status not checked"
-        case .savedLastKnown:
-            "Key saved"
-        case .availableInThisProcess:
-            "Key ready"
-        case .unavailableWhileLocked:
-            "Unlock to check"
-        case .providerRejected:
-            "Key rejected"
         }
     }
 }
