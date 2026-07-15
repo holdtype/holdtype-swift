@@ -25,7 +25,6 @@ struct IOSPrivacyPermissionsView: View {
             List {
                 microphoneSection
                 providerConsentSection
-                localDataSection
             }
             .listStyle(.insetGrouped)
         }
@@ -260,25 +259,6 @@ struct IOSPrivacyPermissionsView: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("ios.privacy.consent.failure")
             }
-        }
-    }
-
-    private var localDataSection: some View {
-        Section("On This iPhone") {
-            Label {
-                Text(
-                    "History keeps up to 20 successful transcriptions. "
-                        + "Recording Cache is off by default; when enabled, it "
-                        + "starts with the 20 newest completed recordings for "
-                        + "local playback. Unlimited retention is optional. "
-                        + "Failed attempts are not added."
-                )
-                .fixedSize(horizontal: false, vertical: true)
-            } icon: {
-                Image(systemName: "clock")
-                    .foregroundStyle(.tint)
-            }
-            .accessibilityElement(children: .combine)
         }
     }
 

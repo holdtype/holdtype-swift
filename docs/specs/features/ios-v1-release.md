@@ -135,10 +135,10 @@ release-complete until the finished History destination is restored.
 - A normal saved key has no separate check action or success banner. Explicit
   Keychain reconciliation remains available as `Try Again` only when HoldType
   cannot confirm saved-key status or the device must be unlocked.
-- Technical privacy guarantees remain enforced and documented, but the main
-  Privacy & Permissions screen summarizes them as local History, OpenAI
-  processing, and keyboard access. A user may open concise disclosure details
-  without reading the implementation architecture to understand status or act.
+- Technical privacy guarantees remain enforced and documented. Privacy &
+  Permissions prioritizes microphone and OpenAI-processing status; it does not
+  repeat History or Recording Cache policy as a passive informational section.
+  Concise disclosure details remain available when provider review is required.
 - Model identifiers and provider instructions are expert controls. They live in
   an `Advanced` disclosure on the matching editor and never displace language,
   writing, translation, or recording controls from the first view.
@@ -300,10 +300,8 @@ destination. History remains a separate tab and is not previewed on Voice.
   keeps Pending solely because History is unavailable.
 - History never owns audio and never contains failed provider attempts. A Play
   button resolves a separately retained Recording Cache file by `resultID`.
-- A new install enables `Save History` but leaves Recording Cache off. Setup and
-  Privacy state that up to 20 successful texts are stored locally on this
-  device, while completed recordings are retained only after the user enables
-  Recording Cache.
+- A new install enables `Save History` but leaves Recording Cache off. History
+  and Recording settings own the matching controls and explanatory copy.
 - Turning `Save History` off requires confirmation, stops future appends, and
   atomically replaces the repository record with disabled plus no entries
   before the switch reports success. Cancel or storage failure leaves the
@@ -484,11 +482,11 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   request. Returning the cache default to off does not lower the disclosure
   version or require users who accepted version `3` to review it again.
 - The main Privacy & Permissions screen shows microphone status, OpenAI
-  processing status, an acceptance action only when review is required, and one
-  concise local-data summary. An accepted processing decision is status-only;
-  this screen does not offer an action to withdraw it. It does not display
-  transport schemas, process authority, storage implementation, or milestone
-  names.
+  processing status, and an acceptance action only when review is required. It
+  does not include a separate local-data, History, or Recording Cache summary.
+  An accepted processing decision is status-only; this screen does not offer an
+  action to withdraw it. It does not display transport schemas, process
+  authority, storage implementation, or milestone names.
 - The OpenAI consent review answers four product questions in concise language:
   what is sent, why it is sent, who processes it, and what remains on the
   device. Ordinary keystrokes and surrounding host-field text are explicitly
