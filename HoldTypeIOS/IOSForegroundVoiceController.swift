@@ -81,6 +81,7 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
     let phase: VoiceWorkPhase
     let stage: VoiceAttemptStage?
     let outcome: VoiceAttemptOutcome?
+    let activeDraftInsertionMode: IOSVoiceDraftInsertionMode?
     let setup: IOSForegroundVoiceSetup
     let failure: IOSForegroundVoiceFailure?
     let warning: IOSForegroundVoiceWarning?
@@ -97,11 +98,13 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         recovery: IOSForegroundVoiceRecovery,
         availableActions: [IOSForegroundVoiceAction],
         latestAvailability: IOSForegroundVoiceLatestAvailability,
+        activeDraftInsertionMode: IOSVoiceDraftInsertionMode? = nil,
         warning: IOSForegroundVoiceWarning? = nil
     ) {
         self.phase = phase
         self.stage = stage
         self.outcome = outcome
+        self.activeDraftInsertionMode = activeDraftInsertionMode
         self.setup = setup
         self.failure = failure
         self.warning = warning
@@ -119,6 +122,7 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         recovery: .none,
         availableActions: [],
         latestAvailability: .unknown,
+        activeDraftInsertionMode: nil,
         warning: nil
     )
 }
@@ -779,8 +783,17 @@ final class IOSForegroundVoiceController {
             recovery: recovery,
             availableActions: availableActions,
             latestAvailability: latestAvailability,
+            activeDraftInsertionMode: activeDraftInsertionMode,
             warning: warning
         )
+    }
+
+    private var activeDraftInsertionMode: IOSVoiceDraftInsertionMode? {
+        guard case .primary? = activeWork,
+              case .start(let action)? = activeOperation else {
+            return nil
+        }
+        return action.draftInsertionMode
     }
 
     private func availableActions(

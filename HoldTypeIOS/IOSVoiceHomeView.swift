@@ -182,16 +182,37 @@ struct IOSVoiceHomeView: View {
         .onChange(of: sceneOwner.presentation) { old, new in
             let oldStatus = IOSVoiceHomePresentation.resolve(old)
             let newStatus = IOSVoiceHomePresentation.resolve(new)
-            guard let message = IOSAccessibilityAnnouncement.transitionMessage(
+            let transitionMessage = IOSAccessibilityAnnouncement.transitionMessage(
                 oldTitle: oldStatus.title,
                 oldDetail: oldStatus.detail,
                 newTitle: newStatus.title,
                 newDetail: newStatus.detail
-            ) else {
+            )
+            let oldDraftStatus =
+                IOSVoiceDraftPendingResultPresentation.resolve(old)
+            let newDraftStatus =
+                IOSVoiceDraftPendingResultPresentation.resolve(new)
+
+            if oldDraftStatus == nil, let newDraftStatus {
+                scheduleAccessibilityAnnouncement(
+                    newDraftStatus.accessibilityAnnouncement,
+                    priority: .status
+                )
                 return
             }
+            if oldDraftStatus != nil,
+               newDraftStatus == nil,
+               new.outcome != .resultReady {
+                let message = [
+                    "Previous Draft is visible again.",
+                    transitionMessage,
+                ].compactMap { $0 }.joined(separator: " ")
+                scheduleAccessibilityAnnouncement(message, priority: .status)
+                return
+            }
+            guard let transitionMessage else { return }
             scheduleAccessibilityAnnouncement(
-                message,
+                transitionMessage,
                 priority: .status
             )
         }
@@ -514,6 +535,8 @@ struct IOSVoiceHomeView: View {
 
     @ViewBuilder
     private var draftTextSurface: some View {
+        let pendingResult = draftPendingResultPresentation
+
         ZStack(alignment: .topLeading) {
             IOSVoiceDraftTextViewport(
                 text: draftEditingBinding,
@@ -529,8 +552,15 @@ struct IOSVoiceHomeView: View {
                 minHeight: 120,
                 maxHeight: .infinity
             )
+            .opacity(pendingResult?.hidesConfirmedText == true ? 0 : 1)
+            .allowsHitTesting(pendingResult?.hidesConfirmedText != true)
+            .accessibilityHidden(
+                pendingResult?.hidesConfirmedText == true
+            )
 
-            if draftOwner.visibleText.isEmpty {
+            if let pendingResult {
+                draftPendingResultStatus(pendingResult)
+            } else if draftOwner.visibleText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(
                         "Ready for your first dictation",
@@ -547,7 +577,8 @@ struct IOSVoiceHomeView: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            if showsDraftJumpToLatest,
+            if pendingResult == nil,
+               showsDraftJumpToLatest,
                !draftOwner.visibleText.isEmpty,
                !draftEditorIsFocused {
                 Button {
@@ -562,6 +593,76 @@ struct IOSVoiceHomeView: View {
                 .accessibilityLabel("Show Newest Draft Text")
                 .accessibilityIdentifier("ios.voice.draft.jump-to-latest")
             }
+        }
+    }
+
+    private var draftPendingResultPresentation:
+        IOSVoiceDraftPendingResultPresentation? {
+        IOSVoiceDraftPendingResultPresentation.resolve(
+            sceneOwner.presentation
+        )
+    }
+
+    @ViewBuilder
+    private func draftPendingResultStatus(
+        _ presentation: IOSVoiceDraftPendingResultPresentation
+    ) -> some View {
+        let keepsVisibleText = !presentation.hidesConfirmedText
+            && !draftOwner.visibleText.isEmpty
+
+        if keepsVisibleText {
+            VStack {
+                Spacer(minLength: 12)
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: presentation.systemImage)
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(presentation.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(presentation.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(
+                    Color(uiColor: .secondarySystemGroupedBackground)
+                        .opacity(0.96),
+                    in: RoundedRectangle(
+                        cornerRadius: 14,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.accentColor.opacity(0.18), lineWidth: 1)
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.title)
+            .accessibilityValue(presentation.detail)
+            .accessibilityIdentifier("ios.voice.draft.pending-result")
+        } else {
+            VStack(spacing: 8) {
+                Label(
+                    presentation.title,
+                    systemImage: presentation.systemImage
+                )
+                .font(.headline)
+                Text(presentation.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 16)
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.title)
+            .accessibilityValue(presentation.detail)
+            .accessibilityIdentifier("ios.voice.draft.pending-result")
         }
     }
 
@@ -797,7 +898,10 @@ struct IOSVoiceHomeView: View {
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.capsule)
-        .disabled(draftOwner.visibleText.isEmpty)
+        .disabled(
+            draftOwner.visibleText.isEmpty
+                || draftPendingResultPresentation?.hidesConfirmedText == true
+        )
         .accessibilityLabel("Copy Draft")
         .accessibilityHint("Copies the entire current Draft.")
         .accessibilityIdentifier("ios.voice.draft.copy")

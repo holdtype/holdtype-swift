@@ -1,4 +1,5 @@
 import HoldTypeDomain
+import HoldTypePersistence
 
 enum IOSVoiceStatusTone: Equatable, Sendable {
     case neutral
@@ -208,6 +209,51 @@ struct IOSVoiceDraftClearPresentation: Equatable, Sendable {
             isEnabled: isVisible
                 && voiceAllowsMutation
                 && !draftIsBusy
+        )
+    }
+}
+
+struct IOSVoiceDraftPendingResultPresentation: Equatable, Sendable {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let hidesConfirmedText: Bool
+
+    var accessibilityAnnouncement: String {
+        "\(title) \(detail)"
+    }
+
+    static func resolve(
+        _ presentation: IOSForegroundVoicePresentation
+    ) -> IOSVoiceDraftPendingResultPresentation? {
+        guard let insertionMode = presentation.activeDraftInsertionMode else {
+            return nil
+        }
+        switch presentation.phase {
+        case .arming, .listening, .finalizing, .processing:
+            break
+        case .inactive, .ready:
+            return nil
+        }
+
+        let voiceStatus = IOSVoiceHomePresentation.resolve(presentation)
+        let detail = switch (insertionMode, presentation.phase) {
+        case (.replace, .arming), (.replace, .listening):
+            "New text will appear here when you finish."
+        case (.replace, .finalizing), (.replace, .processing):
+            "Your result will appear here."
+        case (.append, .arming), (.append, .listening):
+            "New text will be added below when you finish."
+        case (.append, .finalizing), (.append, .processing):
+            "Your result will be added below."
+        case (_, .inactive), (_, .ready):
+            preconditionFailure("Inactive Voice cannot await a Draft result.")
+        }
+        return IOSVoiceDraftPendingResultPresentation(
+            title: voiceStatus.title,
+            detail: detail,
+            systemImage: voiceStatus.systemImage,
+            hidesConfirmedText: insertionMode == .replace
         )
     }
 }

@@ -1,4 +1,5 @@
 import HoldTypeDomain
+import HoldTypePersistence
 import Testing
 import UIKit
 @testable import HoldTypeIOS
@@ -155,6 +156,81 @@ struct IOSVoiceHomePresentationTests {
         )
         #expect(updating.isVisible)
         #expect(!updating.isEnabled)
+    }
+
+    @Test func replaceHidesConfirmedDraftWhileAwaitingNewText() throws {
+        let phases: [(VoiceWorkPhase, VoiceAttemptStage?)] = [
+            (.arming, nil),
+            (.listening, nil),
+            (.finalizing, .recordingFinalization),
+            (.processing, .transcription),
+            (.processing, .postProcessing),
+            (.processing, .outputDelivery),
+        ]
+
+        for (phase, stage) in phases {
+            let resolved = try #require(
+                IOSVoiceDraftPendingResultPresentation.resolve(
+                    voicePresentation(
+                        phase: phase,
+                        stage: stage,
+                        activeDraftInsertionMode: .replace
+                    )
+                )
+            )
+            #expect(resolved.hidesConfirmedText)
+            #expect(!resolved.title.isEmpty)
+            #expect(resolved.detail.contains("appear here"))
+            #expect(!resolved.accessibilityAnnouncement.isEmpty)
+        }
+    }
+
+    @Test func appendKeepsConfirmedDraftVisibleAndPromisesTextBelow() throws {
+        let listening = try #require(
+            IOSVoiceDraftPendingResultPresentation.resolve(
+                voicePresentation(
+                    phase: .listening,
+                    activeDraftInsertionMode: .append
+                )
+            )
+        )
+        #expect(!listening.hidesConfirmedText)
+        #expect(listening.title == "Listening")
+        #expect(
+            listening.detail
+                == "New text will be added below when you finish."
+        )
+
+        let processing = try #require(
+            IOSVoiceDraftPendingResultPresentation.resolve(
+                voicePresentation(
+                    phase: .processing,
+                    stage: .transcription,
+                    activeDraftInsertionMode: .append
+                )
+            )
+        )
+        #expect(processing.title == "Transcribing…")
+        #expect(processing.detail == "Your result will be added below.")
+    }
+
+    @Test func terminalVoiceStateRestoresNormalDraftPresentation() {
+        for outcome in [
+            VoiceAttemptOutcome.resultReady,
+            .recoverableFailure,
+            .interrupted,
+        ] {
+            #expect(
+                IOSVoiceDraftPendingResultPresentation.resolve(
+                    voicePresentation(
+                        outcome: outcome,
+                        failure: outcome == .resultReady
+                            ? nil
+                            : .operationFailed
+                    )
+                ) == nil
+            )
+        }
     }
 
     @Test func draftActionNoticesExplainCopyAndReversibleClear() {
@@ -461,6 +537,7 @@ private func voicePresentation(
     phase: VoiceWorkPhase = .inactive,
     stage: VoiceAttemptStage? = nil,
     outcome: VoiceAttemptOutcome? = nil,
+    activeDraftInsertionMode: IOSVoiceDraftInsertionMode? = nil,
     setup: IOSForegroundVoiceSetup = .ready,
     failure: IOSForegroundVoiceFailure? = nil,
     recovery: IOSForegroundVoiceRecovery = .none,
@@ -475,6 +552,7 @@ private func voicePresentation(
         recovery: recovery,
         availableActions: [],
         latestAvailability: .absent,
+        activeDraftInsertionMode: activeDraftInsertionMode,
         warning: warning
     )
 }

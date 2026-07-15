@@ -1,4 +1,5 @@
 import HoldTypeDomain
+import HoldTypePersistence
 import Testing
 @testable import HoldTypeIOS
 
@@ -254,6 +255,11 @@ struct IOSForegroundVoiceControllerTests {
         try await voiceEventually { fixture.runOperations.count == 1 }
         #expect(fixture.runOperations == [.start(.configured(modes))])
         #expect(fixture.startForcesTextCorrection == [true])
+        #expect(controller.presentation.activeDraftInsertionMode == .append)
+
+        fixture.sendProgress(.listening, at: 0)
+        #expect(controller.presentation.phase == .listening)
+        #expect(controller.presentation.activeDraftInsertionMode == .append)
 
         fixture.resolveRun(
             at: 0,
@@ -264,6 +270,7 @@ struct IOSForegroundVoiceControllerTests {
         try await voiceEventually {
             controller.presentation.phase == .inactive
         }
+        #expect(controller.presentation.activeDraftInsertionMode == nil)
     }
 
     @Test func foreignOrInactiveSceneCannotAcquireTheProcessStartLease()
@@ -697,6 +704,9 @@ struct IOSForegroundVoiceControllerTests {
 
             #expect(controller.presentation.phase == scenario.phase)
             #expect(
+                controller.presentation.activeDraftInsertionMode == .replace
+            )
+            #expect(
                 controller.presentation.stage == scenario.activeStage
             )
             let cancel = try voiceCommand(scenario.action, in: controller)
@@ -704,6 +714,9 @@ struct IOSForegroundVoiceControllerTests {
             let waitingForCleanup = controller.presentation
 
             #expect(waitingForCleanup.phase == scenario.phase)
+            #expect(
+                waitingForCleanup.activeDraftInsertionMode == .replace
+            )
             #expect(waitingForCleanup.availableActions.isEmpty)
             fixture.sendProgress(.processing(.postProcessing), at: 0)
             #expect(controller.presentation == waitingForCleanup)
@@ -750,6 +763,7 @@ struct IOSForegroundVoiceControllerTests {
                 controller.presentation.latestAvailability
                     == scenario.terminalLatest
             )
+            #expect(controller.presentation.activeDraftInsertionMode == nil)
             #expect(fixture.cancellationAuthorities.count == 1)
         }
     }
@@ -836,6 +850,9 @@ struct IOSForegroundVoiceControllerTests {
             try await voiceEventually {
                 fixture.runOperations.count == 1
             }
+            #expect(
+                controller.presentation.activeDraftInsertionMode == .replace
+            )
 
             fixture.resolveRun(
                 at: 0,
@@ -865,6 +882,7 @@ struct IOSForegroundVoiceControllerTests {
                 controller.presentation.availableActions
                     == testCase.expectedActions
             )
+            #expect(controller.presentation.activeDraftInsertionMode == nil)
         }
     }
 

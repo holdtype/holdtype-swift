@@ -70,11 +70,23 @@ without opening the custom keyboard.
   unavailable throughout those active Voice phases. App-level Undo and Redo
   remain unavailable while an edit is active.
 - A newly accepted containing-app Voice dictation replaces the visible Draft
-  by default. The previous Draft remains visible until the new result is
-  accepted; Cancel, failure, and recoverable Pending never clear it early.
+  by default. As soon as a Replace attempt is admitted, the editor hides the
+  previous Draft and presents the current recording or processing state plus a
+  clear promise that the new text will appear there after completion. This is
+  a presentation-only replacement preview: the confirmed Draft is not cleared
+  or mutated before a new result is accepted.
+- Cancel, failure, and recoverable Pending remove the replacement preview and
+  reveal the latest confirmed Draft without creating an Undo mutation. A
+  successful replacement publishes the accepted text and creates its normal
+  single Undo snapshot.
 - Append is an explicit session mode. While enabled, each newly accepted
   containing-app Voice dictation appends exactly once by accepted `resultID`,
-  with one blank line between the existing Draft and the new text.
+  with one blank line between the existing Draft and the new text. During an
+  admitted Append attempt, the existing Draft remains visible and the editor
+  states that the new text will be added below after completion.
+- The active editor promise follows the insertion mode frozen at Start, not a
+  later local toggle or another scene's controls. VoiceOver exposes the same
+  Replace-or-Append promise while the editor is read-only.
 - Keyboard-controlled dictation follows the containing app's safe default and
   replaces the Draft unless a future keyboard contract exposes Append.
 - Replace and Append are atomic Draft mutations. Both preserve exact-once
@@ -276,7 +288,8 @@ without opening the custom keyboard.
   Redo, forward-branch removal, refresh invalidation, conflict handling, and
   failure preservation.
 - presentation tests cover empty, populated, loading, listening, processing,
-  setup, Pending recovery, full Draft, unavailable states, adaptive type
+  setup, Pending recovery, full Draft, unavailable states, Replace hiding,
+  Append preservation, cancellation/failure restoration, adaptive type
   thresholds, and follow-tail suspension and resumption.
 - Simulator QA covers cold launch without focus, tap-to-edit, keyboard Done and
   dismissal, the labeled bottom Copy action at compact and accessibility
