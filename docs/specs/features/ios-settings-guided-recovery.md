@@ -30,8 +30,11 @@ the exact setting that makes the requested action usable.
 - Transient safety states such as Saving, Listening, Finalizing, or Processing
   may still prevent conflicting actions. They are not presented as missing
   setup and never route to Settings.
-- Targeted navigation preserves the existing unsaved-editor confirmation. A
-  route must not replace another dirty Settings editor without confirmation.
+- Targeted navigation flushes a pending valid General Settings autosave and
+  does not require confirmation for ordinary pending or in-flight saves. A
+  validation-blocked or failed local value remains visibly unapplied and must
+  not be presented as durable after the route changes. Explicit-save Library
+  editors preserve their existing unsaved-editor confirmation.
 - A route received while Settings is still loading remains pending and is
   applied once the owning editor is available.
 - Keyboard recovery reuses the bounded keyboard-to-app launch route. The launch

@@ -201,8 +201,6 @@ struct IOSContainingAppShell: View {
             IOSSettingsHomeView(
                 openAIEditorDraft: $openAIEditorDraft,
                 practiceText: $sceneDraft.practiceText,
-                hasUnsavedGeneralSettings:
-                    $hasUnsavedEditor,
                 foregroundVoiceRuntimeAvailable:
                     foregroundVoiceRuntimeAvailable,
                 reconcileRecordingCache: { policy in

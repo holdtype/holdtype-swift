@@ -8,9 +8,7 @@ struct IOSVoiceRecordingSettingsView: View {
     @State private var session: IOSSettingsEditorSession<
         IOSVoiceRecordingSettingsDraft
     >
-    @State private var showsDiscardConfirmation = false
     @State private var showsCacheReconciliationFailure = false
-    @Binding private var hasUnsavedSceneEditor: Bool
     private let attentionTarget: IOSSettingsAttentionTarget?
     private let reconcileRecordingCache: (
         RecordingCachePolicy
@@ -20,7 +18,6 @@ struct IOSVoiceRecordingSettingsView: View {
         preferences: VoiceSessionPreferences,
         recordingCachePolicy: RecordingCachePolicy,
         attentionTarget: IOSSettingsAttentionTarget? = nil,
-        hasUnsavedSceneEditor: Binding<Bool> = .constant(false),
         reconcileRecordingCache: @escaping (
             RecordingCachePolicy
         ) async -> Bool = { _ in true }
@@ -34,13 +31,16 @@ struct IOSVoiceRecordingSettingsView: View {
             )
         )
         self.attentionTarget = attentionTarget
-        _hasUnsavedSceneEditor = hasUnsavedSceneEditor
         self.reconcileRecordingCache = reconcileRecordingCache
     }
 
     var body: some View {
         IOSSettingsForm(attentionTarget: attentionTarget) {
-            IOSSettingsEditorStatusSection(phase: session.phase)
+            IOSSettingsEditorStatusSection(
+                phase: session.phase,
+                retry: retryAutosave,
+                useSavedValue: { session.discard() }
+            )
 
             Section("Feedback") {
                 Toggle(
@@ -131,26 +131,13 @@ struct IOSVoiceRecordingSettingsView: View {
                 }
             }
         }
-        .disabled(session.isSaving)
         .navigationTitle("Voice & Recording")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("ios.settings.voice-recording.screen")
         .onChange(of: durableDraft, initial: true) { _, value in
             observeDurableDraft(value)
         }
-        .onChange(of: session.isDirty, initial: true) { _, isDirty in
-            hasUnsavedSceneEditor = isDirty
-        }
-        .iosSettingsEditorChrome(
-            isDirty: session.isDirty,
-            isSaving: session.isSaving,
-            canSave: session.isDirty && !session.isSaving,
-            phase: session.phase,
-            showsDiscardConfirmation: $showsDiscardConfirmation,
-            hasUnsavedSceneEditor: $hasUnsavedSceneEditor,
-            save: beginSave,
-            discard: { session.discard() }
-        )
+        .iosSettingsAutosaveChrome(phase: session.phase)
         .alert(
             "Recording Cache Update Failed",
             isPresented: $showsCacheReconciliationFailure
@@ -178,24 +165,33 @@ struct IOSVoiceRecordingSettingsView: View {
     ) -> Binding<Field> {
         Binding(
             get: { session.draft[keyPath: keyPath] },
-            set: { session.set($0, at: keyPath) }
+            set: { value in
+                guard session.set(value, at: keyPath) else { return }
+                startAutosaveIfNeeded()
+            }
         )
     }
 
-    private func beginSave() {
+    private func startAutosaveIfNeeded() {
         guard let candidate = session.beginSave() else { return }
         Task { await commit(candidate) }
+    }
+
+    private func retryAutosave() {
+        session.retry()
+        startAutosaveIfNeeded()
     }
 
     private var recordingCacheEnabledBinding: Binding<Bool> {
         Binding(
             get: { session.draft.recordingCachePolicy.keepsRecordings },
             set: { isEnabled in
-                session.set(
+                guard session.set(
                     IOSRecordingCachePolicyEditor
                         .policyAfterSettingEnabled(isEnabled),
                     at: \.recordingCachePolicy
-                )
+                ) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -208,14 +204,15 @@ struct IOSVoiceRecordingSettingsView: View {
                 session.draft.recordingCachePolicy.iosSettingsRetentionMode
             },
             set: { mode in
-                session.set(
+                guard session.set(
                     IOSRecordingCachePolicyEditor
                         .policyAfterSelectingRetention(
                             mode,
                             currentPolicy: session.draft.recordingCachePolicy
                         ),
                     at: \.recordingCachePolicy
-                )
+                ) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -224,7 +221,11 @@ struct IOSVoiceRecordingSettingsView: View {
         Binding(
             get: { recordingCacheRetainedLimit },
             set: { count in
-                session.set(.keepLast(count), at: \.recordingCachePolicy)
+                guard session.set(
+                    .keepLast(count),
+                    at: \.recordingCachePolicy
+                ) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -277,16 +278,22 @@ struct IOSVoiceRecordingSettingsView: View {
                 returnedDurableValue: returned,
                 latestDurableValue: durableDraft
             )
-            if !(await reconcileRecordingCache(
-                settings.recordingCachePolicy
-            )) {
-                showsCacheReconciliationFailure = true
+            switch session.phase {
+            case .saved:
+                let policy = settings.recordingCachePolicy.normalized
+                if !(await reconcileRecordingCache(policy)),
+                   durableDraft.recordingCachePolicy == policy {
+                    showsCacheReconciliationFailure = true
+                }
+            case .pending:
+                startAutosaveIfNeeded()
+            case .changedElsewhere:
+                iosAnnounceSettingsStatus(
+                    "Voice and recording settings changed elsewhere"
+                )
+            case .idle, .saving, .validationBlocked, .saveFailed:
+                break
             }
-            iosAnnounceSettingsStatus(
-                session.phase == .saved
-                    ? "Voice and recording settings saved"
-                    : "Voice and recording settings changed elsewhere"
-            )
         } catch {
             commitFailed()
         }

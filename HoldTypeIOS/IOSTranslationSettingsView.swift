@@ -8,15 +8,12 @@ struct IOSTranslationSettingsView: View {
     @State private var session: IOSSettingsEditorSession<
         TranslationConfiguration
     >
-    @State private var showsDiscardConfirmation = false
     @State private var advancedIsExpanded: Bool
-    @Binding private var hasUnsavedSceneEditor: Bool
     private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TranslationConfiguration,
-        attentionTarget: IOSSettingsAttentionTarget? = nil,
-        hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
+        attentionTarget: IOSSettingsAttentionTarget? = nil
     ) {
         var configuration = configuration
         configuration.actionPreferenceEnabled = true
@@ -28,12 +25,15 @@ struct IOSTranslationSettingsView: View {
                 || attentionTarget?.field == .translationInstructions
         )
         self.attentionTarget = attentionTarget
-        _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
         IOSSettingsForm(attentionTarget: activeAttentionTarget) {
-            IOSSettingsEditorStatusSection(phase: session.phase)
+            IOSSettingsEditorStatusSection(
+                phase: session.phase,
+                retry: retryAutosave,
+                useSavedValue: { session.discard() }
+            )
 
             Section("Languages") {
                 Picker("Source", selection: binding(\.sourceMode)) {
@@ -159,7 +159,6 @@ struct IOSTranslationSettingsView: View {
                 .accessibilityIdentifier("ios.settings.translation.advanced")
             }
         }
-        .disabled(session.isSaving)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Translation")
         .navigationBarTitleDisplayMode(.inline)
@@ -181,19 +180,7 @@ struct IOSTranslationSettingsView: View {
                 role: "Target"
             )
         }
-        .onChange(of: session.isDirty, initial: true) { _, isDirty in
-            hasUnsavedSceneEditor = isDirty
-        }
-        .iosSettingsEditorChrome(
-            isDirty: session.isDirty,
-            isSaving: session.isSaving,
-            canSave: canSave,
-            phase: session.phase,
-            showsDiscardConfirmation: $showsDiscardConfirmation,
-            hasUnsavedSceneEditor: $hasUnsavedSceneEditor,
-            save: beginSave,
-            discard: { session.discard() }
-        )
+        .iosSettingsAutosaveChrome(phase: session.phase)
     }
 
     private var configuration: TranslationConfiguration { session.draft }
@@ -219,12 +206,8 @@ struct IOSTranslationSettingsView: View {
             .isEmpty
     }
 
-    private var canSave: Bool {
-        session.isDirty
-            && !session.isSaving
-            && IOSAppSettingsEditorValidation.canSaveTranslation(
-                configuration
-            )
+    private var isValidForAutosave: Bool {
+        IOSAppSettingsEditorValidation.canSaveTranslation(configuration)
     }
 
     private var usesStandardInstructions: Bool {
@@ -243,13 +226,14 @@ struct IOSTranslationSettingsView: View {
                 )
             },
             set: { value in
-                session.set(
+                guard session.set(
                     IOSProviderInstructionsPresentation.storedValue(
                         from: value,
                         defaultValue: TranslationConfiguration.defaultPrompt
                     ),
                     at: \.prompt
-                )
+                ) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -345,17 +329,19 @@ struct IOSTranslationSettingsView: View {
     ) -> Binding<Field> {
         Binding(
             get: { session.draft[keyPath: keyPath] },
-            set: { session.set($0, at: keyPath) }
+            set: { value in
+                guard session.set(value, at: keyPath) else { return }
+                startAutosaveIfNeeded()
+            }
         )
     }
 
     private func resetPrompt() {
         var updated = configuration
         updated.resetPrompt()
-        session.set(updated.prompt, at: \.prompt)
-        iosAnnounceSettingsStatus(
-            "Standard translation instructions restored. Not saved."
-        )
+        guard session.set(updated.prompt, at: \.prompt) else { return }
+        startAutosaveIfNeeded()
+        iosAnnounceSettingsStatus("Standard translation instructions restored")
     }
 
     private func customCodeAccessibilityHint(for code: String) -> String {
@@ -393,13 +379,18 @@ struct IOSTranslationSettingsView: View {
         iosAnnounceSettingsStatus("\(role) language code is valid")
     }
 
-    private func beginSave() {
-        guard IOSAppSettingsEditorValidation.canSaveTranslation(
-            session.draft
-        ), let candidate = session.beginSave() else {
+    private func startAutosaveIfNeeded() {
+        guard isValidForAutosave else {
+            session.markValidationBlocked()
             return
         }
+        guard let candidate = session.beginSave() else { return }
         Task { await commit(candidate) }
+    }
+
+    private func retryAutosave() {
+        session.retry()
+        startAutosaveIfNeeded()
     }
 
     private func commit(_ candidate: TranslationConfiguration) async {
@@ -419,11 +410,13 @@ struct IOSTranslationSettingsView: View {
                 returnedDurableValue: returned,
                 latestDurableValue: durableConfiguration
             )
-            iosAnnounceSettingsStatus(
-                session.phase == .saved
-                    ? "Translation settings saved"
-                    : "Translation settings changed elsewhere"
-            )
+            if session.phase == .changedElsewhere {
+                iosAnnounceSettingsStatus(
+                    "Translation settings changed elsewhere"
+                )
+            } else {
+                startAutosaveIfNeeded()
+            }
         } catch {
             commitFailed()
         }

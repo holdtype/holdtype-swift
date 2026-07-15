@@ -8,15 +8,12 @@ struct IOSTranscriptionSettingsView: View {
     @State private var session: IOSSettingsEditorSession<
         TranscriptionConfiguration
     >
-    @State private var showsDiscardConfirmation = false
     @State private var advancedIsExpanded: Bool
-    @Binding private var hasUnsavedSceneEditor: Bool
     private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TranscriptionConfiguration,
-        attentionTarget: IOSSettingsAttentionTarget? = nil,
-        hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
+        attentionTarget: IOSSettingsAttentionTarget? = nil
     ) {
         _session = State(
             initialValue: IOSSettingsEditorSession(value: configuration)
@@ -26,12 +23,15 @@ struct IOSTranscriptionSettingsView: View {
                 || attentionTarget?.field == .transcriptionInstructions
         )
         self.attentionTarget = attentionTarget
-        _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
         IOSSettingsForm(attentionTarget: activeAttentionTarget) {
-            IOSSettingsEditorStatusSection(phase: session.phase)
+            IOSSettingsEditorStatusSection(
+                phase: session.phase,
+                retry: retryAutosave,
+                useSavedValue: { session.discard() }
+            )
 
             Section("Language") {
                 NavigationLink {
@@ -109,7 +109,6 @@ struct IOSTranscriptionSettingsView: View {
                 )
             }
         }
-        .disabled(session.isSaving)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Transcription")
         .navigationBarTitleDisplayMode(.inline)
@@ -125,19 +124,7 @@ struct IOSTranscriptionSettingsView: View {
                 to: newValue
             )
         }
-        .onChange(of: session.isDirty, initial: true) { _, isDirty in
-            hasUnsavedSceneEditor = isDirty
-        }
-        .iosSettingsEditorChrome(
-            isDirty: session.isDirty,
-            isSaving: session.isSaving,
-            canSave: canSave,
-            phase: session.phase,
-            showsDiscardConfirmation: $showsDiscardConfirmation,
-            hasUnsavedSceneEditor: $hasUnsavedSceneEditor,
-            save: beginSave,
-            discard: { session.discard() }
-        )
+        .iosSettingsAutosaveChrome(phase: session.phase)
     }
 
     private var activeAttentionTarget: IOSSettingsAttentionTarget? {
@@ -191,12 +178,8 @@ struct IOSTranscriptionSettingsView: View {
             .isEmpty
     }
 
-    private var canSave: Bool {
-        session.isDirty
-            && !session.isSaving
-            && IOSAppSettingsEditorValidation.canSaveTranscription(
-                session.draft
-            )
+    private var isValidForAutosave: Bool {
+        IOSAppSettingsEditorValidation.canSaveTranscription(session.draft)
     }
 
     private var customLanguageCodeAccessibilityHint: String {
@@ -223,18 +206,26 @@ struct IOSTranscriptionSettingsView: View {
     ) -> Binding<Field> {
         Binding(
             get: { session.draft[keyPath: keyPath] },
-            set: { session.set($0, at: keyPath) }
+            set: { value in
+                guard session.set(value, at: keyPath) else { return }
+                startAutosaveIfNeeded()
+            }
         )
     }
 
-    private func beginSave() {
-        guard IOSAppSettingsEditorValidation.canSaveTranscription(
-            session.draft
-        ), let candidate = session.beginSave() else {
+    private func startAutosaveIfNeeded() {
+        guard isValidForAutosave else {
+            session.markValidationBlocked()
             return
         }
+        guard let candidate = session.beginSave() else { return }
 
         Task { await commit(candidate) }
+    }
+
+    private func retryAutosave() {
+        session.retry()
+        startAutosaveIfNeeded()
     }
 
     private func observeDurableConfiguration(
@@ -280,11 +271,13 @@ struct IOSTranscriptionSettingsView: View {
                 returnedDurableValue: returned,
                 latestDurableValue: latest
             )
-            announceCommitResult(
-                saved: session.phase == .saved,
-                savedMessage: "Transcription settings saved",
-                changedMessage: "Transcription settings changed elsewhere"
-            )
+            if session.phase == .changedElsewhere {
+                iosAnnounceSettingsStatus(
+                    "Transcription settings changed elsewhere"
+                )
+            } else {
+                startAutosaveIfNeeded()
+            }
         } catch {
             commitFailed()
         }
@@ -295,13 +288,5 @@ struct IOSTranscriptionSettingsView: View {
             .transcriptionConfiguration ?? session.baseline
         session.commitFailed(restoring: durable)
         iosAnnounceSettingsStatus("Transcription settings were not saved")
-    }
-
-    private func announceCommitResult(
-        saved: Bool,
-        savedMessage: String,
-        changedMessage: String
-    ) {
-        iosAnnounceSettingsStatus(saved ? savedMessage : changedMessage)
     }
 }

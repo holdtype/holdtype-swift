@@ -8,14 +8,12 @@ struct IOSSettingsHomeView: View {
     @State private var isLoading = false
     @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
     @Binding var practiceText: String
-    @Binding var hasUnsavedGeneralSettings: Bool
     let foregroundVoiceRuntimeAvailable: Bool
     let reconcileRecordingCache: (RecordingCachePolicy) async -> Bool
 
     init(
         openAIEditorDraft: Binding<IOSOpenAICredentialEditorDraft>,
         practiceText: Binding<String>,
-        hasUnsavedGeneralSettings: Binding<Bool>,
         foregroundVoiceRuntimeAvailable: Bool,
         reconcileRecordingCache: @escaping (
             RecordingCachePolicy
@@ -23,7 +21,6 @@ struct IOSSettingsHomeView: View {
     ) {
         _openAIEditorDraft = openAIEditorDraft
         _practiceText = practiceText
-        _hasUnsavedGeneralSettings = hasUnsavedGeneralSettings
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.reconcileRecordingCache = reconcileRecordingCache
@@ -48,8 +45,6 @@ struct IOSSettingsHomeView: View {
                     settings: settings,
                     showsSaveFailure: false,
                     openAIEditorDraft: $openAIEditorDraft,
-                    hasUnsavedGeneralSettings:
-                        $hasUnsavedGeneralSettings,
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable
                 )
@@ -58,8 +53,6 @@ struct IOSSettingsHomeView: View {
                     settings: lastDurableValue,
                     showsSaveFailure: true,
                     openAIEditorDraft: $openAIEditorDraft,
-                    hasUnsavedGeneralSettings:
-                        $hasUnsavedGeneralSettings,
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable
                 )
@@ -182,28 +175,24 @@ struct IOSSettingsHomeView: View {
         case .transcription:
             IOSTranscriptionSettingsView(
                 configuration: settings.transcriptionConfiguration,
-                attentionTarget: attentionTarget,
-                hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
+                attentionTarget: attentionTarget
             )
         case .writingCorrection:
             IOSWritingCorrectionSettingsView(
                 configuration: settings.textCorrectionConfiguration,
                 localTextCleanupEnabled: settings.localTextCleanupEnabled,
-                attentionTarget: attentionTarget,
-                hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
+                attentionTarget: attentionTarget
             )
         case .translation:
             IOSTranslationSettingsView(
                 configuration: settings.translationConfiguration,
-                attentionTarget: attentionTarget,
-                hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
+                attentionTarget: attentionTarget
             )
         case .voiceRecording:
             IOSVoiceRecordingSettingsView(
                 preferences: settings.voiceSessionPreferences,
                 recordingCachePolicy: settings.recordingCachePolicy,
                 attentionTarget: attentionTarget,
-                hasUnsavedSceneEditor: $hasUnsavedGeneralSettings,
                 reconcileRecordingCache: reconcileRecordingCache
             )
         }
@@ -263,7 +252,6 @@ private struct IOSSettingsSummaryList: View {
     let settings: IOSAppSettings
     let showsSaveFailure: Bool
     @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
-    @Binding var hasUnsavedGeneralSettings: Bool
     let foregroundVoiceRuntimeAvailable: Bool
 
     var body: some View {

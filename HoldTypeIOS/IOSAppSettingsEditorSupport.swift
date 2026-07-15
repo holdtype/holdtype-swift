@@ -34,8 +34,10 @@ enum IOSGeneralSettingsDestination: String, CaseIterable, Hashable {
 
 enum IOSSettingsEditorPhase: Equatable {
     case idle
+    case pending
     case saving
     case saved
+    case validationBlocked
     case saveFailed
     case changedElsewhere
 }
@@ -72,6 +74,7 @@ struct IOSSettingsEditorSession<Value: Equatable> {
     private(set) var baseline: Value
     private(set) var draft: Value
     private(set) var phase = IOSSettingsEditorPhase.idle
+    private var inFlightCandidate: Value?
 
     init(value: Value) {
         baseline = value
@@ -79,26 +82,32 @@ struct IOSSettingsEditorSession<Value: Equatable> {
     }
 
     var isDirty: Bool { draft != baseline }
-    var isSaving: Bool { phase == .saving }
+    var isSaving: Bool { inFlightCandidate != nil }
 
+    @discardableResult
     mutating func set<Field: Equatable>(
         _ value: Field,
         at keyPath: WritableKeyPath<Value, Field>
-    ) {
-        guard !isSaving,
-              draft[keyPath: keyPath] != value else {
-            return
-        }
+    ) -> Bool {
+        guard draft[keyPath: keyPath] != value else { return false }
         draft[keyPath: keyPath] = value
         if draft == baseline {
             phase = .idle
-        } else if phase == .saved || phase == .saveFailed {
-            phase = .idle
+        } else {
+            phase = .pending
         }
+        return true
     }
 
     mutating func beginSave() -> Value? {
-        guard isDirty, !isSaving else { return nil }
+        guard isDirty,
+              !isSaving,
+              phase != .validationBlocked,
+              phase != .saveFailed,
+              phase != .changedElsewhere else {
+            return nil
+        }
+        inFlightCandidate = draft
         phase = .saving
         return draft
     }
@@ -107,20 +116,44 @@ struct IOSSettingsEditorSession<Value: Equatable> {
         returnedDurableValue: Value,
         latestDurableValue: Value
     ) {
-        if latestDurableValue == returnedDurableValue
-            || latestDurableValue == draft {
+        let savedCandidate = inFlightCandidate
+        inFlightCandidate = nil
+
+        if draft == latestDurableValue {
             baseline = latestDurableValue
             draft = latestDurableValue
             phase = .saved
-        } else {
+        } else if draft == savedCandidate,
+                  latestDurableValue == returnedDurableValue {
+            baseline = latestDurableValue
+            draft = latestDurableValue
+            phase = .saved
+        } else if draft == savedCandidate {
             baseline = latestDurableValue
             phase = .changedElsewhere
+        } else {
+            baseline = latestDurableValue
+            phase = .pending
         }
     }
 
     mutating func commitFailed(restoring durableValue: Value) {
+        inFlightCandidate = nil
         baseline = durableValue
         phase = draft == baseline ? .idle : .saveFailed
+    }
+
+    mutating func markValidationBlocked() {
+        guard isDirty else {
+            phase = .idle
+            return
+        }
+        phase = .validationBlocked
+    }
+
+    mutating func retry() {
+        guard isDirty, !isSaving else { return }
+        phase = .pending
     }
 
     mutating func observeDurableValue(_ durableValue: Value) {
@@ -142,6 +175,7 @@ struct IOSSettingsEditorSession<Value: Equatable> {
     }
 
     mutating func discard() {
+        inFlightCandidate = nil
         draft = baseline
         phase = .idle
     }
@@ -404,22 +438,36 @@ extension RecordingCachePolicy {
 
 struct IOSSettingsEditorStatusSection: View {
     let phase: IOSSettingsEditorPhase
+    var retry: () -> Void = {}
+    var useSavedValue: () -> Void = {}
 
     @ViewBuilder
     var body: some View {
         switch phase {
-        case .idle:
+        case .idle, .pending, .saved:
             EmptyView()
         case .saving:
             Section {
                 ProgressView("Saving…")
                     .accessibilityIdentifier("ios.settings.editor.saving")
             }
-        case .saved:
+        case .validationBlocked:
             Section {
-                Label("Saved", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .accessibilityIdentifier("ios.settings.editor.saved")
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Changes Not Applied")
+                            .font(.headline)
+                        Text("Fix the highlighted value to save automatically.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(.orange)
+                }
+                .accessibilityIdentifier(
+                    "ios.settings.editor.validation-blocked"
+                )
             }
         case .saveFailed:
             Section {
@@ -429,7 +477,7 @@ struct IOSSettingsEditorStatusSection: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
                         Text(
-                            "Your changes are still here. Try saving again."
+                            "Your changes are still here. Try again or use the saved value."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -441,6 +489,9 @@ struct IOSSettingsEditorStatusSection: View {
                 .accessibilityIdentifier(
                     "ios.settings.editor.save-failed"
                 )
+
+                Button("Try Again", action: retry)
+                Button("Use Saved Value", action: useSavedValue)
             }
         case .changedElsewhere:
             Section {
@@ -450,7 +501,7 @@ struct IOSSettingsEditorStatusSection: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
                         Text(
-                            "Review your changes before saving again."
+                            "Choose whether to apply your changes or use the newer saved value."
                         )
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -462,6 +513,9 @@ struct IOSSettingsEditorStatusSection: View {
                 .accessibilityIdentifier(
                     "ios.settings.editor.changed-elsewhere"
                 )
+
+                Button("Try Again", action: retry)
+                Button("Use Saved Value", action: useSavedValue)
             }
         }
     }
@@ -487,7 +541,14 @@ private struct IOSSettingsEditorPersistentStatus: View {
                 color: .orange,
                 identifier: "ios.settings.editor.persistent-changed"
             )
-        case .idle, .saving, .saved:
+        case .validationBlocked:
+            statusLabel(
+                "Changes Not Applied",
+                systemImage: "exclamationmark.circle.fill",
+                color: .orange,
+                identifier: "ios.settings.editor.persistent-validation"
+            )
+        case .idle, .pending, .saving, .saved:
             EmptyView()
         }
     }
@@ -701,55 +762,11 @@ private struct IOSSettingsAttentionCallout: View {
     }
 }
 
-private struct IOSSettingsEditorChrome: ViewModifier {
-    @Environment(\.dismiss) private var dismiss
-
-    let isDirty: Bool
-    let isSaving: Bool
-    let canSave: Bool
+private struct IOSSettingsAutosaveChrome: ViewModifier {
     let phase: IOSSettingsEditorPhase
-    @Binding var showsDiscardConfirmation: Bool
-    @Binding var hasUnsavedSceneEditor: Bool
-    let save: () -> Void
-    let discard: () -> Void
 
     func body(content: Content) -> some View {
         content
-            .navigationBarBackButtonHidden(isDirty)
-            .toolbar {
-                if isDirty {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            showsDiscardConfirmation = true
-                        }
-                        .disabled(isSaving)
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    if isSaving {
-                        ProgressView()
-                            .accessibilityLabel("Saving Settings")
-                    } else {
-                        Button("Save", action: save)
-                            .disabled(!canSave)
-                    }
-                }
-            }
-            .confirmationDialog(
-                "Discard Changes?",
-                isPresented: $showsDiscardConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Discard Changes", role: .destructive) {
-                    discard()
-                    hasUnsavedSceneEditor = false
-                    dismiss()
-                }
-                Button("Keep Editing", role: .cancel) {}
-            } message: {
-                Text("Your unsaved edits on this screen will be lost.")
-            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 IOSSettingsEditorPersistentStatus(phase: phase)
             }
@@ -769,28 +786,10 @@ extension View {
         )
     }
 
-    func iosSettingsEditorChrome(
-        isDirty: Bool,
-        isSaving: Bool,
-        canSave: Bool,
-        phase: IOSSettingsEditorPhase,
-        showsDiscardConfirmation: Binding<Bool>,
-        hasUnsavedSceneEditor: Binding<Bool>,
-        save: @escaping () -> Void,
-        discard: @escaping () -> Void
+    func iosSettingsAutosaveChrome(
+        phase: IOSSettingsEditorPhase
     ) -> some View {
-        modifier(
-            IOSSettingsEditorChrome(
-                isDirty: isDirty,
-                isSaving: isSaving,
-                canSave: canSave,
-                phase: phase,
-                showsDiscardConfirmation: showsDiscardConfirmation,
-                hasUnsavedSceneEditor: hasUnsavedSceneEditor,
-                save: save,
-                discard: discard
-            )
-        )
+        modifier(IOSSettingsAutosaveChrome(phase: phase))
     }
 }
 

@@ -8,16 +8,13 @@ struct IOSWritingCorrectionSettingsView: View {
     @State private var session: IOSSettingsEditorSession<
         IOSWritingCorrectionSettingsDraft
     >
-    @State private var showsDiscardConfirmation = false
     @State private var advancedIsExpanded: Bool
-    @Binding private var hasUnsavedSceneEditor: Bool
     private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TextCorrectionConfiguration,
         localTextCleanupEnabled: Bool,
-        attentionTarget: IOSSettingsAttentionTarget? = nil,
-        hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
+        attentionTarget: IOSSettingsAttentionTarget? = nil
     ) {
         _session = State(
             initialValue: IOSSettingsEditorSession(
@@ -33,12 +30,15 @@ struct IOSWritingCorrectionSettingsView: View {
                 || attentionTarget?.field == .correctionInstructions
         )
         self.attentionTarget = attentionTarget
-        _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
         IOSSettingsForm(attentionTarget: attentionTarget) {
-            IOSSettingsEditorStatusSection(phase: session.phase)
+            IOSSettingsEditorStatusSection(
+                phase: session.phase,
+                retry: retryAutosave,
+                useSavedValue: { session.discard() }
+            )
 
             Section("Local Cleanup") {
                 Toggle(
@@ -143,7 +143,6 @@ struct IOSWritingCorrectionSettingsView: View {
                 .accessibilityIdentifier("ios.settings.correction.advanced")
             }
         }
-        .disabled(session.isSaving)
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Writing & Correction")
         .navigationBarTitleDisplayMode(.inline)
@@ -151,19 +150,7 @@ struct IOSWritingCorrectionSettingsView: View {
         .onChange(of: durableDraft, initial: true) { _, value in
             observeDurableDraft(value)
         }
-        .onChange(of: session.isDirty, initial: true) { _, isDirty in
-            hasUnsavedSceneEditor = isDirty
-        }
-        .iosSettingsEditorChrome(
-            isDirty: session.isDirty,
-            isSaving: session.isSaving,
-            canSave: session.isDirty && !session.isSaving,
-            phase: session.phase,
-            showsDiscardConfirmation: $showsDiscardConfirmation,
-            hasUnsavedSceneEditor: $hasUnsavedSceneEditor,
-            save: beginSave,
-            discard: { session.discard() }
-        )
+        .iosSettingsAutosaveChrome(phase: session.phase)
     }
 
     private var configuration: TextCorrectionConfiguration {
@@ -211,7 +198,8 @@ struct IOSWritingCorrectionSettingsView: View {
                     from: value,
                     defaultValue: TextCorrectionConfiguration.defaultPrompt
                 )
-                session.set(updated, at: \.configuration)
+                guard session.set(updated, at: \.configuration) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -224,7 +212,10 @@ struct IOSWritingCorrectionSettingsView: View {
     ) -> Binding<Field> {
         Binding(
             get: { session.draft[keyPath: keyPath] },
-            set: { session.set($0, at: keyPath) }
+            set: { value in
+                guard session.set(value, at: keyPath) else { return }
+                startAutosaveIfNeeded()
+            }
         )
     }
 
@@ -236,7 +227,8 @@ struct IOSWritingCorrectionSettingsView: View {
             set: { value in
                 var updated = configuration
                 updated[keyPath: keyPath] = value
-                session.set(updated, at: \.configuration)
+                guard session.set(updated, at: \.configuration) else { return }
+                startAutosaveIfNeeded()
             }
         )
     }
@@ -244,10 +236,9 @@ struct IOSWritingCorrectionSettingsView: View {
     private func resetPrompt() {
         var updated = configuration
         updated.resetPrompt()
-        session.set(updated, at: \.configuration)
-        iosAnnounceSettingsStatus(
-            "Standard correction instructions restored. Not saved."
-        )
+        guard session.set(updated, at: \.configuration) else { return }
+        startAutosaveIfNeeded()
+        iosAnnounceSettingsStatus("Standard correction instructions restored")
     }
 
     private func observeDurableDraft(
@@ -263,9 +254,14 @@ struct IOSWritingCorrectionSettingsView: View {
         }
     }
 
-    private func beginSave() {
+    private func startAutosaveIfNeeded() {
         guard let candidate = session.beginSave() else { return }
         Task { await commit(candidate) }
+    }
+
+    private func retryAutosave() {
+        session.retry()
+        startAutosaveIfNeeded()
     }
 
     private func commit(
@@ -290,11 +286,13 @@ struct IOSWritingCorrectionSettingsView: View {
                 returnedDurableValue: returned,
                 latestDurableValue: durableDraft
             )
-            iosAnnounceSettingsStatus(
-                session.phase == .saved
-                    ? "Writing settings saved"
-                    : "Writing settings changed elsewhere"
-            )
+            if session.phase == .changedElsewhere {
+                iosAnnounceSettingsStatus(
+                    "Writing settings changed elsewhere"
+                )
+            } else {
+                startAutosaveIfNeeded()
+            }
         } catch {
             commitFailed()
         }

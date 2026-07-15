@@ -704,38 +704,39 @@ result after the operation returns.
   recovery route scrolls that input into view and presents one adjacent inline
   explanation without changing the draft. This common behavior follows
   `ios-settings-guided-recovery.md`.
-- `Save` is explicit. It validates the visible group and calls the exact
-  process-owned Settings owner once. The owner applies only that semantic
-  group to its latest durable value, so an older screen cannot overwrite
-  unrelated changes from another scene. A clean editor adopts a newer durable
-  group automatically. A dirty editor retains its draft, identifies that
-  settings changed elsewhere, and makes the pending overwrite explicit.
-- A dirty editor replaces the normal Back action with Cancel and a discard
-  confirmation. Switching an iPhone tab or iPad sidebar destination while a
-  general-Settings draft is dirty requires the same confirmation before the
-  detail can be replaced. Until the choice is made, the same editor and draft
-  remain visible; Keep Editing or dismissal retains them, while confirmed
-  discard clears the Settings route and enters the requested destination.
-  Before presenting this blocking choice, the containing app resigns active
-  text input so the entire prompt remains reachable above the software or
-  custom keyboard; this changes neither the draft nor its focus-independent
-  validation state. A
-  failed write keeps the scene-local draft visibly
-  marked `Not Saved`, while shared summaries and provider snapshots remain on
-  the last durable value. The warning remains visible in a persistent bottom
-  status while the user edits lower form content. The user may retry or
-  discard; the failed draft is never presented as saved. A successful commit
-  adopts the exact value returned by the owner and clears the warning only
-  while that semantic group is still current. If a newer same-group value has
-  already reached the process owner before the older caller resumes, the newer
-  value remains authoritative and the older draft stays visibly unsaved as
-  `changed elsewhere`. A transition to either warning posts one content-free
-  accessibility announcement.
+- General Settings has no manual `Save` or `Cancel` action. Every valid change
+  automatically enters a latest-wins save queue for the exact visible semantic
+  group. Discrete controls begin saving immediately. Text entry may coalesce a
+  short burst of edits, but leaving the field or destination flushes the newest
+  valid value without requiring another user action.
+- The process-owned Settings owner still applies only that semantic group to
+  its latest durable value, so an older screen cannot overwrite unrelated
+  changes from another scene. One write may be active per editor while newer
+  local edits remain enabled and replace any older queued candidate. A clean
+  editor adopts a newer durable group automatically. A stale completion never
+  replaces a newer local draft or a newer same-group durable value.
+- Normal pending or in-flight autosave never replaces Back with Cancel and
+  never requires discard confirmation before changing an iPhone tab or iPad
+  sidebar destination. The newest valid candidate continues through the
+  active autosave chain. A provider or runtime consumer obtains settings only
+  through the process owner and therefore observes the last successful durable
+  value after earlier queued mutations complete.
+- A failed write keeps the scene-local value visibly marked `Not Saved`, while
+  shared summaries and provider snapshots remain on the last durable value.
+  The warning remains visible in a persistent bottom status while the user
+  edits lower form content. Recovery offers `Try Again` and `Use Saved Value`;
+  those exceptional actions do not restore a normal Save workflow. A
+  successful commit adopts the exact value returned by the owner and clears
+  the warning only while that semantic group is still current. If a newer
+  same-group value has already reached the process owner before the older
+  caller resumes, the newer value remains authoritative and the older draft
+  stays visibly unapplied as `changed elsewhere`. A transition to either
+  warning posts one content-free accessibility announcement.
 - Blank transcription, correction, or translation model fields use their
   documented default inside the relevant `Advanced` disclosure. Transcription
   Custom with an empty code visibly falls back to Auto. A non-empty custom
   language code must be two or three
-  ASCII letters before Save is enabled. Language choices use a dedicated
+  ASCII letters before autosave begins. Language choices use a dedicated
   searchable list rather than a long menu, including an explicit Custom row.
   Translation may be saved while its route is incomplete; inline Translate
   controls route back to the editor, which targets exactly the missing source or
@@ -745,8 +746,8 @@ result after the operation returns.
 - Correction and Translation models and optional instructions remain editable
   inside `Advanced` independently of whether their remote stage is selected for
   the next dictation.
-  Reset restores standard provider behavior in the draft, announces that the
-  change is not saved, and does not save until the user taps `Save`.
+  Reset restores standard provider behavior and immediately enters that valid
+  change in the autosave queue.
 - Voice & Recording exposes recording cues, an outcome-oriented stop-tail
   control, and Recording Cache controls. The fixed five-minute safety limit is
   enforced but is not presented as an editable setting. Cache is off by

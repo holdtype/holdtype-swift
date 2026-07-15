@@ -49,6 +49,7 @@ struct IOSAppSettingsEditorSupportTests {
         #expect(session.isDirty)
         #expect(session.phase == .saveFailed)
 
+        session.retry()
         #expect(session.beginSave() == "draft")
         session.commitSucceeded(
             returnedDurableValue: "canonical",
@@ -95,7 +96,7 @@ struct IOSAppSettingsEditorSupportTests {
         #expect(!session.isDirty)
     }
 
-    @Test func externalPublicationCannotEndAnInFlightSave() {
+    @Test func newerEditStaysQueuedWhileSaveIsInFlight() {
         var session = IOSSettingsEditorSession(value: "first")
         session.set("local", at: \String.self)
         #expect(session.beginSave() == "local")
@@ -108,10 +109,45 @@ struct IOSAppSettingsEditorSupportTests {
         #expect(session.isSaving)
 
         session.set("second local", at: \String.self)
-        #expect(session.draft == "local")
+        #expect(session.draft == "second local")
         session.commitSucceeded(
             returnedDurableValue: "local",
             latestDurableValue: "local"
+        )
+        #expect(session.baseline == "local")
+        #expect(session.draft == "second local")
+        #expect(session.phase == .pending)
+        #expect(session.isDirty)
+        #expect(session.beginSave() == "second local")
+        session.commitSucceeded(
+            returnedDurableValue: "second local",
+            latestDurableValue: "second local"
+        )
+        #expect(session.phase == .saved)
+        #expect(!session.isDirty)
+    }
+
+    @Test func validationAndFailureRequireOnlyExceptionalRecovery() {
+        var session = IOSSettingsEditorSession(value: "durable")
+
+        session.set("invalid", at: \String.self)
+        session.markValidationBlocked()
+        #expect(session.phase == .validationBlocked)
+        #expect(session.beginSave() == nil)
+
+        session.set("valid", at: \String.self)
+        #expect(session.phase == .pending)
+        #expect(session.beginSave() == "valid")
+        session.commitFailed(restoring: "durable")
+        #expect(session.phase == .saveFailed)
+        #expect(session.beginSave() == nil)
+
+        session.retry()
+        #expect(session.phase == .pending)
+        #expect(session.beginSave() == "valid")
+        session.commitSucceeded(
+            returnedDurableValue: "valid",
+            latestDurableValue: "valid"
         )
         #expect(session.phase == .saved)
         #expect(!session.isDirty)

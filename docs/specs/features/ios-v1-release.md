@@ -138,6 +138,10 @@ release-complete until the finished History destination is restored.
 - Model identifiers and provider instructions are expert controls. They live in
   an `Advanced` disclosure on the matching editor and never displace language,
   writing, translation, or recording controls from the first view.
+- General Settings saves every valid change automatically. It has no normal
+  `Save` or `Cancel` toolbar action and does not block navigation while a valid
+  change is pending or being written. Invalid or failed values remain visibly
+  unapplied while runtime behavior continues to use the last durable value.
 - Default provider instructions are not presented as ordinary content to edit.
   An expert may add optional instructions or restore the standard behavior.
 
