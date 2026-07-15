@@ -69,9 +69,18 @@ model-based correction on.
   an existing empty-search row remains visible, editable, and preservable as
   inactive. A new rule is enabled and appended after the current last rule on
   its first Save. An identical Search value is valid and is not a duplicate.
-- The Library summary reports the durable rule count and effective active
-  count: `0 rules` when empty, otherwise `N rules · M active`. A rule is active
-  only when it is enabled and has non-whitespace Search. The list preserves
+- The iOS Replacements destination presents local plain-typography cleanup
+  before custom replacement rules. It exposes the existing cleanup preference
+  as an automatic-cleanup toggle, states that it is on by default and local,
+  and lists the complete user-relevant transformation groups: typographic
+  quotes and apostrophes, long-dash variants, single-character ellipsis,
+  special spaces, word joiners, and repeated spacing. This is another control
+  for the same durable preference shown in Writing & Correction, not a second
+  setting or synthetic replacement-rule collection.
+- The Library summary calls the durable rows custom rules and reports their
+  count and effective active count: `0 custom rules` when empty, otherwise
+  `N custom rules · M active`. A rule is active only when it is enabled and
+  has non-whitespace Search. The list preserves
   durable order and shows Search, Replacement, and one clear `Active`, `Off`,
   or `Inactive — empty search` status. Empty Search never renders as an
   unexplained blank row. Empty Replacement is a valid visible value and is
@@ -209,6 +218,13 @@ On iOS, correction enablement, model, prompt, and local-cleanup preference live
 in the app-private general settings repository. Ordered
 `TextReplacementRule` values live in the app-private Library v1 repository.
 Neither repository uses `UserDefaults` or the App Group.
+
+The Replacements destination may read and update the local-cleanup preference
+through the process-owned Settings state owner while it reads and updates
+custom rules through the process-owned Library state owner. These remain two
+independent records: a cleanup-toggle save failure must not hide, disable, or
+rewrite durable custom rules, and a Library save failure must not roll back the
+cleanup preference.
 
 Library persistence preserves replacement-rule identifiers, enabled state,
 search and replacement strings, duplicates, and array order. It does not trim,

@@ -27,12 +27,18 @@ struct IOSReplacementRuleEditorSupportTests {
             isEnabled: true
         )
 
-        #expect(IOSReplacementRulesPresentation.summary([]) == "0 rules")
+        #expect(
+            IOSReplacementRulesPresentation.summary([])
+                == "0 custom rules"
+        )
         #expect(
             IOSReplacementRulesPresentation.summary([active, off, inactive])
-                == "3 rules · 1 active"
+                == "3 custom rules · 1 active"
         )
-        #expect(IOSReplacementRulesPresentation.summary([active]) == "1 rule · 1 active")
+        #expect(
+            IOSReplacementRulesPresentation.summary([active])
+                == "1 custom rule · 1 active"
+        )
         #expect(IOSReplacementRuleRuntimeStatus(rule: active) == .active)
         #expect(IOSReplacementRuleRuntimeStatus(rule: off) == .off)
         #expect(
@@ -49,6 +55,19 @@ struct IOSReplacementRuleEditorSupportTests {
             #expect(!String(describing: route).contains("PRIVATE"))
             #expect(!String(reflecting: route).contains("PRIVATE"))
         }
+    }
+
+    @Test func automaticCleanupPresentationCoversEveryRuntimeCategory() {
+        #expect(
+            IOSAutomaticCleanupPresentation.transformationDescriptions == [
+                "Typographic quotes and apostrophes become plain quotes",
+                "Long dashes and minus signs become a plain hyphen",
+                "A single-character ellipsis becomes three periods",
+                "Special spaces become regular spaces",
+                "Word joiners are removed",
+                "Repeated spaces and extra blank lines are compacted",
+            ]
+        )
     }
 
     @Test func draftAndValidationPreserveEveryRawString() {

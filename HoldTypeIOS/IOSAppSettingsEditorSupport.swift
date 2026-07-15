@@ -304,6 +304,13 @@ enum IOSAppSettingsEditorMutation {
         settings.localTextCleanupEnabled = draft.localTextCleanupEnabled
     }
 
+    nonisolated static func setLocalTextCleanupEnabled(
+        _ isEnabled: Bool,
+        in settings: inout IOSAppSettings
+    ) {
+        settings.localTextCleanupEnabled = isEnabled
+    }
+
     nonisolated static func applyTranslation(
         _ configuration: TranslationConfiguration,
         to settings: inout IOSAppSettings

@@ -25,7 +25,7 @@ struct IOSLibraryEditorSupportTests {
             IOSLibraryDestination.allCases.map(\.detail) == [
                 "Names, brands, and terms to recognize",
                 "Say a phrase to insert an emoji",
-                "Fix or expand recognized text automatically",
+                "Automatic cleanup and custom replacements",
             ]
         )
         #expect(

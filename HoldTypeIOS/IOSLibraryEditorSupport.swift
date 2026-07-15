@@ -19,7 +19,7 @@ enum IOSLibraryDestination: String, CaseIterable, Hashable {
         switch self {
         case .dictionary: "Names, brands, and terms to recognize"
         case .emojiCommands: "Say a phrase to insert an emoji"
-        case .replacementRules: "Fix or expand recognized text automatically"
+        case .replacementRules: "Automatic cleanup and custom replacements"
         }
     }
 
@@ -34,6 +34,17 @@ enum IOSLibraryDestination: String, CaseIterable, Hashable {
     var rowAccessibilityIdentifier: String {
         "ios.library.\(rawValue).row"
     }
+}
+
+enum IOSAutomaticCleanupPresentation {
+    static let transformationDescriptions = [
+        "Typographic quotes and apostrophes become plain quotes",
+        "Long dashes and minus signs become a plain hyphen",
+        "A single-character ellipsis becomes three periods",
+        "Special spaces become regular spaces",
+        "Word joiners are removed",
+        "Repeated spaces and extra blank lines are compacted",
+    ]
 }
 
 struct IOSDictionaryAddDraft: Equatable {

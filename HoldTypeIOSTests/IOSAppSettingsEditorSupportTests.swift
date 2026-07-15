@@ -340,6 +340,15 @@ struct IOSAppSettingsEditorSupportTests {
         expected.localTextCleanupEnabled = true
         #expect(writingResult == expected)
 
+        var cleanupResult = base
+        IOSAppSettingsEditorMutation.setLocalTextCleanupEnabled(
+            true,
+            in: &cleanupResult
+        )
+        expected = base
+        expected.localTextCleanupEnabled = true
+        #expect(cleanupResult == expected)
+
         let translation = TranslationConfiguration(
             actionPreferenceEnabled: false,
             targetLanguage: .german

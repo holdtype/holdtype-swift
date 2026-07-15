@@ -31,7 +31,7 @@ struct IOSForegroundVoiceProcessorTests {
                 transcribe: { request, _ in
                     calls.record("transcription")
                     #expect(request.model == fixture.pending.transcriptionModel)
-                    return "Hello voice"
+                    return "“Hello”—voice…"
                 }
             ),
             usageCapture: usage
@@ -43,7 +43,7 @@ struct IOSForegroundVoiceProcessorTests {
         )
         let record = try result.requireReady()
 
-        #expect(record.acceptedText == "Hello world")
+        #expect(record.acceptedText == "\"Hello\" - world...")
         #expect(record.sourceAttemptID == fixture.pending.attemptID)
         #expect(calls.events == ["transcription"])
         #expect(usage.values.count == 1)

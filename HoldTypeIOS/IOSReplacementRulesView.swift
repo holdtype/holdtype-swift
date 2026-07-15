@@ -4,6 +4,7 @@ import SwiftUI
 
 struct IOSReplacementRulesView: View {
     @Environment(IOSLibraryStateOwner.self) private var stateOwner
+    @Environment(IOSAppSettingsStateOwner.self) private var settingsStateOwner
 
     @State private var searchQuery = IOSLibrarySearchQuery()
     @State private var notice: IOSReplacementRulesNotice?
@@ -14,6 +15,9 @@ struct IOSReplacementRulesView: View {
     @State private var newRuleID = UUID()
     @State private var editMode = EditMode.inactive
     @State private var pendingOrder: IOSReplacementRulesPendingOrder?
+    @State private var automaticCleanupIsLoading = false
+    @State private var automaticCleanupIsSaving = false
+    @State private var automaticCleanupSaveFailed = false
     @Binding private var hasBlockingSceneOperation: Bool
 
     init(
@@ -98,6 +102,9 @@ struct IOSReplacementRulesView: View {
                 hasBlockingSceneOperation = false
             }
         }
+        .task {
+            await loadAutomaticCleanupIfNeeded()
+        }
         .accessibilityIdentifier("ios.library.replacement-rules.screen")
     }
 
@@ -118,6 +125,8 @@ struct IOSReplacementRulesView: View {
                 IOSReplacementRulesNoticeSection(notice: notice)
             }
 
+            automaticCleanupSection
+
             Section("Add") {
                 NavigationLink(
                     value: IOSLibraryRoute.newReplacementRule(newRuleID)
@@ -128,20 +137,31 @@ struct IOSReplacementRulesView: View {
                     "ios.library.replacement-rules.add.row"
                 )
             }
+            .disabled(operationInFlight)
 
-            Section("Rules") {
+            Section("Custom Replacements") {
                 if rows.isEmpty {
-                    ContentUnavailableView {
-                        Label(
-                            "No Replacement Rules",
-                            systemImage: "arrow.left.arrow.right"
-                        )
-                    } description: {
+                    VStack(spacing: 8) {
+                        Image(systemName: "arrow.left.arrow.right")
+                            .font(.title)
+                            .foregroundStyle(.secondary)
+
+                        Text("No Custom Replacements")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+
                         Text(
-                            "Add a literal rule to change recognized text "
-                                + "locally."
+                            "Automatic cleanup can still run. Add a literal "
+                                + "rule for your own words or phrases."
                         )
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
                 } else if visibleRows.isEmpty {
                     ContentUnavailableView {
                         Label(
@@ -159,6 +179,7 @@ struct IOSReplacementRulesView: View {
                     .onMove(perform: beginReorder)
                 }
             }
+            .disabled(operationInFlight)
 
             if isFiltering, rules.count > 1 {
                 Section {
@@ -173,9 +194,10 @@ struct IOSReplacementRulesView: View {
 
             Section {
                 Text(
-                    "Replacements run locally, in order, after emoji commands. "
-                        + "Matching is literal and case-insensitive. They are "
-                        + "not copied into the keyboard."
+                    "Automatic cleanup runs first. Emoji commands run next. "
+                        + "Custom replacements then run locally, in order. "
+                        + "Matching is literal and case-insensitive. Nothing "
+                        + "is copied into the keyboard."
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -188,12 +210,93 @@ struct IOSReplacementRulesView: View {
             prompt: "Search Replacement Rules"
         )
         .scrollDismissesKeyboard(.interactively)
-        .disabled(operationInFlight)
         .onChange(of: rules.map(\.id), initial: true) { _, identifiers in
             if identifiers.contains(newRuleID) {
                 newRuleID = UUID()
             }
         }
+    }
+
+    @ViewBuilder
+    private var automaticCleanupSection: some View {
+        Section("Automatic Cleanup") {
+            switch settingsStateOwner.state {
+            case .notLoaded:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Loading automatic cleanup")
+                        .foregroundStyle(.secondary)
+                }
+            case .loadFailed:
+                Label(
+                    "Automatic cleanup is unavailable",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .foregroundStyle(.secondary)
+
+                Button("Retry Automatic Cleanup") {
+                    retryAutomaticCleanupLoad()
+                }
+                .disabled(automaticCleanupIsLoading)
+            case .ready(let settings):
+                automaticCleanupControls(settings: settings)
+            case .saveFailed(let lastDurableValue):
+                automaticCleanupControls(settings: lastDurableValue)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func automaticCleanupControls(
+        settings: IOSAppSettings
+    ) -> some View {
+        Toggle(
+            "Use Plain Typography Cleanup",
+            isOn: Binding(
+                get: {
+                    currentAutomaticCleanupEnabled
+                        ?? settings.localTextCleanupEnabled
+                },
+                set: { beginAutomaticCleanupUpdate($0) }
+            )
+        )
+        .disabled(automaticCleanupIsSaving)
+        .accessibilityIdentifier(
+            "ios.library.replacement-rules.automatic-cleanup.toggle"
+        )
+
+        if automaticCleanupIsSaving {
+            HStack(spacing: 10) {
+                ProgressView()
+                Text("Saving automatic cleanup")
+                    .foregroundStyle(.secondary)
+            }
+        } else if automaticCleanupSaveFailed {
+            Label(
+                "Automatic cleanup was not saved. The saved setting is shown.",
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+
+        Text("On by default. Runs locally without another OpenAI request.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+        DisclosureGroup("What Automatic Cleanup Changes") {
+            ForEach(
+                IOSAutomaticCleanupPresentation.transformationDescriptions,
+                id: \.self
+            ) { description in
+                Text(description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityIdentifier(
+            "ios.library.replacement-rules.automatic-cleanup.details"
+        )
     }
 
     @ViewBuilder
@@ -286,6 +389,10 @@ struct IOSReplacementRulesView: View {
         stateOwner.state.durableValue?.replacementRules ?? []
     }
 
+    private var currentAutomaticCleanupEnabled: Bool? {
+        settingsStateOwner.state.durableValue?.localTextCleanupEnabled
+    }
+
     private var canOfferReorder: Bool {
         !isFiltering && currentRules.count > 1
     }
@@ -314,6 +421,44 @@ struct IOSReplacementRulesView: View {
             successNotice: .saved,
             successAnnouncement: "Replacement rule updated."
         )
+    }
+
+    private func beginAutomaticCleanupUpdate(_ requested: Bool) {
+        guard currentAutomaticCleanupEnabled != requested,
+              !automaticCleanupIsSaving else {
+            return
+        }
+        automaticCleanupIsSaving = true
+        automaticCleanupSaveFailed = false
+
+        Task {
+            defer { automaticCleanupIsSaving = false }
+            do {
+                let state = try await settingsStateOwner.update {
+                    IOSAppSettingsEditorMutation.setLocalTextCleanupEnabled(
+                        requested,
+                        in: &$0
+                    )
+                }
+                guard state.durableValue?.localTextCleanupEnabled == requested
+                else {
+                    automaticCleanupUpdateFailed()
+                    return
+                }
+                iosAnnounceSettingsStatus(
+                    requested
+                        ? "Automatic cleanup enabled."
+                        : "Automatic cleanup disabled."
+                )
+            } catch {
+                automaticCleanupUpdateFailed()
+            }
+        }
+    }
+
+    private func automaticCleanupUpdateFailed() {
+        automaticCleanupSaveFailed = true
+        iosAnnounceSettingsStatus("Automatic cleanup was not saved.")
     }
 
     private func requestDelete(_ rule: TextReplacementRule) {
@@ -433,6 +578,22 @@ struct IOSReplacementRulesView: View {
             defer { isLoading = false }
             _ = try? await stateOwner.load()
         }
+    }
+
+    private func loadAutomaticCleanupIfNeeded() async {
+        guard case .notLoaded = settingsStateOwner.state else { return }
+        await loadAutomaticCleanup()
+    }
+
+    private func retryAutomaticCleanupLoad() {
+        Task { await loadAutomaticCleanup() }
+    }
+
+    private func loadAutomaticCleanup() async {
+        guard !automaticCleanupIsLoading else { return }
+        automaticCleanupIsLoading = true
+        defer { automaticCleanupIsLoading = false }
+        _ = try? await settingsStateOwner.load()
     }
 }
 

@@ -481,11 +481,11 @@ enum IOSReplacementRulesNotice: Equatable {
 
 enum IOSReplacementRulesPresentation {
     static func summary(_ rules: [TextReplacementRule]) -> String {
-        guard !rules.isEmpty else { return "0 rules" }
+        guard !rules.isEmpty else { return "0 custom rules" }
         let activeCount = rules.count {
             $0.isEnabled && $0.hasSearchText
         }
-        let ruleLabel = rules.count == 1 ? "rule" : "rules"
+        let ruleLabel = rules.count == 1 ? "custom rule" : "custom rules"
         return "\(rules.count) \(ruleLabel) · \(activeCount) active"
     }
 }

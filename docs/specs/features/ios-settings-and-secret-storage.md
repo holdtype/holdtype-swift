@@ -767,6 +767,19 @@ result after the operation returns.
   focused detail/editor surfaces rather than one macOS-style Settings form.
   Import, export, cloud sync, dictionary rename/reorder, and custom-command
   reorder remain absent until a later spec.
+- The Replacement Rules route begins with an Automatic Cleanup section backed
+  by the existing `localTextCleanupEnabled` value in general Settings. The
+  section shows one working toggle and the complete user-relevant cleanup
+  categories before the separately labelled Custom Replacements list. The
+  existing Writing & Correction toggle remains another view of the same
+  preference. The route never creates built-in `TextReplacementRule` rows and
+  does not move the preference into Library storage.
+- Automatic-cleanup Settings work and custom-rule Library work remain isolated.
+  Each uses its own process-owned state owner, loading and failure status. One
+  record being unavailable or failing to save does not replace, hide, disable,
+  or roll back the other record. Updating automatic cleanup changes only that
+  Boolean and must not overwrite correction model, prompt, or enablement from a
+  stale screen value.
 - Library UI mutations run through the exact process-owned Library state owner
   as typed operations against its latest durable value. A completion reports
   exact canonical `IOSLibraryState` plus one closed content-free disposition:
