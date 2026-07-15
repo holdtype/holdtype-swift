@@ -21,7 +21,7 @@ struct IOSPrivacyPermissionsView: View {
     }
 
     var body: some View {
-        IOSSettingsAttentionScrollView(attentionTarget: attentionTarget) {
+        IOSSettingsAttentionScrollView(attentionTarget: activeAttentionTarget) {
             List {
                 microphoneSection
                 providerConsentSection
@@ -115,6 +115,14 @@ struct IOSPrivacyPermissionsView: View {
         }
     }
 
+    private var activeAttentionTarget: IOSSettingsAttentionTarget? {
+        IOSPrivacySettingsAttentionResolver.activeTarget(
+            attentionTarget,
+            privacyState: consentOwner.privacyState,
+            microphoneStatus: consentOwner.microphoneStatus
+        )
+    }
+
     private var microphoneSection: some View {
         let presentation = IOSMicrophonePrivacyPresentation.resolve(
             consentOwner.microphoneStatus
@@ -137,7 +145,7 @@ struct IOSPrivacyPermissionsView: View {
             .accessibilityIdentifier("ios.privacy.microphone-status")
             .iosSettingsField(
                 .privacyMicrophone,
-                attentionTarget: attentionTarget
+                attentionTarget: activeAttentionTarget
             )
 
             if consentOwner.microphoneStatus == .denied,
@@ -198,7 +206,7 @@ struct IOSPrivacyPermissionsView: View {
                 .accessibilityIdentifier("ios.privacy.consent-status")
                 .iosSettingsField(
                     .privacyProviderConsent,
-                    attentionTarget: attentionTarget
+                    attentionTarget: activeAttentionTarget
                 )
 
                 if let action = presentation.action {
@@ -239,16 +247,6 @@ struct IOSPrivacyPermissionsView: View {
                     Spacer()
                 }
                 .accessibilityElement(children: .combine)
-            }
-
-            if let notice = consentOwner.notice {
-                Label {
-                    Text(notice.title)
-                } icon: {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-                    .accessibilityIdentifier("ios.privacy.consent.notice")
             }
 
             if let failure = consentOwner.failure {
@@ -349,6 +347,31 @@ struct IOSPrivacyPermissionsView: View {
             accessibilityAnnouncementCandidate = nil
             accessibilityAnnouncementTask = nil
             IOSAccessibilityAnnouncement.post(preferred.message)
+        }
+    }
+}
+
+nonisolated enum IOSPrivacySettingsAttentionResolver {
+    static func activeTarget(
+        _ target: IOSSettingsAttentionTarget?,
+        privacyState: IOSProviderConsentPrivacyState,
+        microphoneStatus: IOSMicrophonePermissionStatus
+    ) -> IOSSettingsAttentionTarget? {
+        guard let target else { return nil }
+
+        switch target.attention {
+        case .privacyReview:
+            guard case .ready(let snapshot) = privacyState else {
+                return target
+            }
+            return snapshot.status == .acceptedCurrentDisclosure
+                && !snapshot.requiresExplicitAcceptance
+                ? nil
+                : target
+        case .microphonePermission:
+            return microphoneStatus == .granted ? nil : target
+        default:
+            return target
         }
     }
 }

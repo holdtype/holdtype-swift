@@ -139,6 +139,72 @@ struct IOSNativeVoicePresentationTests {
         }
     }
 
+    @Test func privacyAttentionClearsOnlyAfterCurrentConsentIsAuthorized() {
+        let target = IOSSettingsAttentionTarget(.privacyReview)
+
+        for status in [
+            IOSV1ProviderConsentStatus.notReviewed,
+            .reviewRequired,
+            .withdrawn,
+            .localDataUnavailable,
+            .mutationNotSaved,
+        ] {
+            #expect(
+                IOSPrivacySettingsAttentionResolver.activeTarget(
+                    target,
+                    privacyState: privacyState(status: status),
+                    microphoneStatus: .granted
+                ) == target
+            )
+        }
+
+        #expect(
+            IOSPrivacySettingsAttentionResolver.activeTarget(
+                target,
+                privacyState: privacyState(
+                    status: .acceptedCurrentDisclosure,
+                    requiresExplicitAcceptance: true
+                ),
+                microphoneStatus: .granted
+            ) == target
+        )
+        #expect(
+            IOSPrivacySettingsAttentionResolver.activeTarget(
+                target,
+                privacyState: privacyState(
+                    status: .acceptedCurrentDisclosure
+                ),
+                microphoneStatus: .granted
+            ) == nil
+        )
+    }
+
+    @Test func microphoneAttentionClearsOnlyAfterAccessIsGranted() {
+        let target = IOSSettingsAttentionTarget(.microphonePermission)
+
+        for status in [
+            IOSMicrophonePermissionStatus.undetermined,
+            .denied,
+            .unavailable,
+        ] {
+            #expect(
+                IOSPrivacySettingsAttentionResolver.activeTarget(
+                    target,
+                    privacyState: .notLoaded,
+                    microphoneStatus: status
+                ) == target
+            )
+        }
+
+        #expect(
+            IOSPrivacySettingsAttentionResolver.activeTarget(
+                target,
+                privacyState: .notLoaded,
+                microphoneStatus: .granted
+            ) == nil
+        )
+    }
+
     @Test func accessibilityAnnouncementCombinesOnlyPresentationCopy() {
         #expect(
             IOSAccessibilityAnnouncement.message(
@@ -152,6 +218,20 @@ struct IOSNativeVoicePresentationTests {
                 title: "Latest Result copied",
                 detail: ""
             ) == "Latest Result copied"
+        )
+    }
+
+    private func privacyState(
+        status: IOSV1ProviderConsentStatus,
+        requiresExplicitAcceptance: Bool = false
+    ) -> IOSProviderConsentPrivacyState {
+        .ready(
+            IOSProviderConsentPrivacySnapshot(
+                status: status,
+                decisionAt: nil,
+                canResetUnreadableData: false,
+                requiresExplicitAcceptance: requiresExplicitAcceptance
+            )
         )
     }
 

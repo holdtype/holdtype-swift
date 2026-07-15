@@ -18,7 +18,14 @@ the exact setting that makes the requested action usable.
 - Every editable Settings input has a stable field identity and supports this
   targeted presentation by default, even when no current recovery route uses it.
 - Guidance persists until the user resolves the condition or leaves the editor.
-  It never changes or saves a value by itself.
+  It disappears in place as soon as the owning screen observes the resolved
+  state; resolving guidance never pops navigation, changes, or saves a value by
+  itself.
+- Privacy review is resolved only when the current OpenAI disclosure is accepted
+  and authorized. Microphone recovery is resolved when microphone access is
+  granted. A completed consent change is communicated by the updated durable
+  status plus one accessibility announcement, not by a second persistent
+  success row.
 - Returning from Settings does not automatically enable a session mode, start
   recording, contact a provider, or replay the original action. The user repeats
   the intended action after setup is valid.

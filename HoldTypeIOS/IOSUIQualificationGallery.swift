@@ -296,7 +296,12 @@ struct IOSUIQualificationRootView: View {
         } else if route == .historyEntries {
             IOSUIQualificationHistoryHost()
         } else if let scenario = route.privacyScenario {
-            IOSUIQualificationPrivacyHost(scenario: scenario)
+            IOSUIQualificationPrivacyHost(
+                scenario: scenario,
+                attentionTarget: route == .privacyAccepted
+                    ? IOSSettingsAttentionTarget(.privacyReview)
+                    : nil
+            )
         } else if let scenario = route.usageScenario {
             IOSUIQualificationUsageHost(scenario: scenario)
         } else if route == .diagnostics {
@@ -705,9 +710,14 @@ fileprivate nonisolated enum IOSUIQualificationPrivacyScenario:
 
 private struct IOSUIQualificationPrivacyHost: View {
     @State private var consentOwner: IOSProviderConsentPresentationOwner
+    private let attentionTarget: IOSSettingsAttentionTarget?
 
-    init(scenario: IOSUIQualificationPrivacyScenario) {
+    init(
+        scenario: IOSUIQualificationPrivacyScenario,
+        attentionTarget: IOSSettingsAttentionTarget? = nil
+    ) {
         let registry = IOSVoiceSceneRegistry()
+        self.attentionTarget = attentionTarget
         _consentOwner = State(
             initialValue: IOSUIQualificationConsentFixture.makeOwner(
                 sceneRegistry: registry,
@@ -718,7 +728,7 @@ private struct IOSUIQualificationPrivacyHost: View {
 
     var body: some View {
         NavigationStack {
-            IOSPrivacyPermissionsView()
+            IOSPrivacyPermissionsView(attentionTarget: attentionTarget)
                 .environment(consentOwner)
         }
         .accessibilityIdentifier("ios.qualification.privacy")

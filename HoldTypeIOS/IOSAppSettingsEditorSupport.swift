@@ -751,7 +751,7 @@ private struct IOSSettingsAttentionCallout: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         } icon: {
-            Image(systemName: attention.systemImage)
+            Image(systemName: "exclamationmark.circle.fill")
                 .foregroundStyle(.orange)
         }
         .padding(.vertical, 4)
