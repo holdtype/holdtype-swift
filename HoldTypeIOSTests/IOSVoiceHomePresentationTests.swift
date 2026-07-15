@@ -108,6 +108,70 @@ struct IOSVoiceHomePresentationTests {
         }
     }
 
+    @Test func clearDraftAppearsOnlyForTextAndDisablesDuringVoiceWork() {
+        let empty = IOSVoiceDraftClearPresentation.resolve(
+            visibleText: "",
+            voicePhase: .inactive,
+            draftIsBusy: false
+        )
+        #expect(!empty.isVisible)
+        #expect(!empty.isEnabled)
+
+        let available = IOSVoiceDraftClearPresentation.resolve(
+            visibleText: "Visible Draft",
+            voicePhase: .inactive,
+            draftIsBusy: false
+        )
+        #expect(available.isVisible)
+        #expect(available.isEnabled)
+
+        let ready = IOSVoiceDraftClearPresentation.resolve(
+            visibleText: "Visible Draft",
+            voicePhase: .ready,
+            draftIsBusy: false
+        )
+        #expect(ready.isVisible)
+        #expect(ready.isEnabled)
+
+        for phase in [
+            VoiceWorkPhase.arming,
+            .listening,
+            .finalizing,
+            .processing,
+        ] {
+            let active = IOSVoiceDraftClearPresentation.resolve(
+                visibleText: "Visible Draft",
+                voicePhase: phase,
+                draftIsBusy: false
+            )
+            #expect(active.isVisible)
+            #expect(!active.isEnabled)
+        }
+
+        let updating = IOSVoiceDraftClearPresentation.resolve(
+            visibleText: "Visible Draft",
+            voicePhase: .inactive,
+            draftIsBusy: true
+        )
+        #expect(updating.isVisible)
+        #expect(!updating.isEnabled)
+    }
+
+    @Test func draftActionNoticesExplainCopyAndReversibleClear() {
+        #expect(IOSVoiceDraftActionNotice.copied.message == "Copied")
+        #expect(
+            IOSVoiceDraftActionNotice.copied.accessibilityAnnouncement
+                == "Current Draft copied"
+        )
+        #expect(
+            IOSVoiceDraftActionNotice.cleared.message == "Draft cleared"
+        )
+        #expect(
+            IOSVoiceDraftActionNotice.cleared.accessibilityAnnouncement
+                == "Draft cleared. Undo is available."
+        )
+    }
+
     @Test func activityCenterDependsOnlyOnTheVoiceStageBounds() {
         let phoneStage = CGSize(width: 398, height: 426)
         let compactStage = CGSize(width: 320, height: 300)
@@ -381,7 +445,11 @@ struct IOSVoiceHomePresentationTests {
         }
         let names = actions.map {
             IOSVoiceActionPresentation.resolve($0).systemImage
-        } + statuses.map(\.systemImage)
+        } + statuses.map(\.systemImage) + [
+            "xmark.circle",
+            IOSVoiceDraftActionNotice.copied.systemImage,
+            IOSVoiceDraftActionNotice.cleared.systemImage,
+        ]
 
         for name in Set(names) {
             #expect(UIImage(systemName: name) != nil)

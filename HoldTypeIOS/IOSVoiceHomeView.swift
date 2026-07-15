@@ -31,7 +31,7 @@ struct IOSVoiceHomeView: View {
         IOSForegroundVoiceLatestResultClearCommand?
     @State private var shareItem: IOSVoiceShareItem?
     @State private var latestActionNotice: String?
-    @State private var draftActionNotice: String?
+    @State private var draftActionNotice: IOSVoiceDraftActionNotice?
     @State private var showsKeyboardTools = false
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
     @State private var accessibilityAnnouncementCandidate:
@@ -166,6 +166,9 @@ struct IOSVoiceHomeView: View {
             } else if draftOwner.isEditing {
                 finishDraftEditing()
             }
+        }
+        .onChange(of: draftOwner.contentChange) { _, _ in
+            draftActionNotice = nil
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase != .active else { return }
@@ -376,13 +379,7 @@ struct IOSVoiceHomeView: View {
 
     private var draftSurface: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 4) {
-                oneShotVoiceIconButton(.startTranslation)
-                oneShotVoiceIconButton(.startCorrection)
-                Spacer(minLength: 12)
-                draftActionButtons
-            }
-            .accessibilityIdentifier("ios.voice.draft-actions")
+            draftActionBar
 
             Divider()
 
@@ -415,13 +412,7 @@ struct IOSVoiceHomeView: View {
 
             voiceSessionModeBar
 
-            if let message = draftActionNotice ?? draftOwner.notice?.message {
-                Label(message, systemImage: noticeSystemImage)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("ios.voice.draft.notice")
-            }
+            draftNotice
         }
         .padding(18)
         .background(
@@ -429,6 +420,34 @@ struct IOSVoiceHomeView: View {
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
         .accessibilityIdentifier("ios.voice.draft")
+    }
+
+    private var draftActionBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 4) {
+                oneShotDraftActions
+                Spacer(minLength: 12)
+                draftActionButtons
+            }
+
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 4) {
+                    oneShotDraftActions
+                    Spacer(minLength: 12)
+                }
+                HStack(spacing: 4) {
+                    Spacer(minLength: 12)
+                    draftActionButtons
+                }
+            }
+        }
+        .accessibilityIdentifier("ios.voice.draft-actions")
+    }
+
+    @ViewBuilder
+    private var oneShotDraftActions: some View {
+        oneShotVoiceIconButton(.startTranslation)
+        oneShotVoiceIconButton(.startCorrection)
     }
 
     @ViewBuilder
@@ -567,23 +586,66 @@ struct IOSVoiceHomeView: View {
             .disabled(draftOwner.visibleText.isEmpty)
             .accessibilityLabel("Copy Draft")
 
-            Button(role: .destructive) {
-                clearDraft()
-            } label: {
-                Image(systemName: "trash")
-                    .frame(width: 36, height: 36)
-                    .foregroundStyle(.red)
+            if draftClearPresentation.isVisible {
+                Button {
+                    clearDraft()
+                } label: {
+                    Label("Clear", systemImage: "xmark.circle")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .disabled(!draftClearPresentation.isEnabled)
+                .accessibilityLabel("Clear Current Draft")
+                .accessibilityHint(
+                    "Clears only this Draft. Undo remains available."
+                )
+                .accessibilityIdentifier("ios.voice.draft.clear")
             }
-            .disabled(draftOwner.visibleText.isEmpty || draftOwner.isBusy)
-            .accessibilityLabel("Clear Draft")
         }
         .buttonStyle(.plain)
     }
 
-    private var noticeSystemImage: String {
-        draftActionNotice == "Copied"
-            ? "checkmark.circle"
-            : "exclamationmark.triangle"
+    private var draftClearPresentation: IOSVoiceDraftClearPresentation {
+        IOSVoiceDraftClearPresentation.resolve(
+            visibleText: draftOwner.visibleText,
+            voicePhase: sceneOwner.presentation.phase,
+            draftIsBusy: draftOwner.isBusy
+        )
+    }
+
+    @ViewBuilder
+    private var draftNotice: some View {
+        if let draftActionNotice {
+            HStack(spacing: 12) {
+                Label(
+                    draftActionNotice.message,
+                    systemImage: draftActionNotice.systemImage
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if draftActionNotice == .cleared, draftOwner.canUndo {
+                    Button("Undo") {
+                        undoClearedDraft()
+                    }
+                    .fontWeight(.semibold)
+                    .accessibilityLabel("Undo Clear Draft")
+                    .accessibilityIdentifier("ios.voice.draft.clear-undo")
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("ios.voice.draft.notice")
+        } else if let notice = draftOwner.notice {
+            Label(notice.message, systemImage: "exclamationmark.triangle")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("ios.voice.draft.notice")
+        }
     }
 
     private var voiceSessionModeBar: some View {
@@ -1099,17 +1161,37 @@ struct IOSVoiceHomeView: View {
     private func copyDraft() {
         guard !draftOwner.visibleText.isEmpty else { return }
         IOSVoiceClipboard.copy(draftOwner.visibleText)
-        draftActionNotice = "Copied"
-        IOSAccessibilityAnnouncement.post("Current Draft copied")
+        draftActionNotice = .copied
+        IOSAccessibilityAnnouncement.post(
+            IOSVoiceDraftActionNotice.copied.accessibilityAnnouncement
+        )
     }
 
     private func clearDraft() {
         draftActionNotice = nil
-        if draftOwner.isEditing {
-            draftOwner.updateEditingText("")
-            scheduleDraftEditPersistence()
-        } else {
-            Task { await draftOwner.clear() }
+        draftEditSaveTask?.cancel()
+        draftEditSaveTask = nil
+        Task { @MainActor in
+            if draftOwner.isEditing {
+                guard await draftOwner.finishEditing() else { return }
+                draftEditorIsFocused = false
+            }
+            guard draftClearPresentation.isEnabled,
+                  await draftOwner.clear() else {
+                return
+            }
+            let notice = IOSVoiceDraftActionNotice.cleared
+            draftActionNotice = notice
+            IOSAccessibilityAnnouncement.post(
+                notice.accessibilityAnnouncement
+            )
+        }
+    }
+
+    private func undoClearedDraft() {
+        draftActionNotice = nil
+        Task { @MainActor in
+            _ = await draftOwner.undo()
         }
     }
 

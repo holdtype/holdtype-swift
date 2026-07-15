@@ -230,6 +230,23 @@ struct IOSVoiceDraftOwnerTests {
         }
     }
 
+    @Test func committedVisibleEditCanBeRestoredAfterClear() async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            #expect(owner.beginEditing())
+            owner.updateEditingText("Typed immediately before Clear")
+
+            #expect(await owner.finishEditing())
+            #expect(await owner.clear())
+            #expect(owner.text.isEmpty)
+            #expect(owner.canUndo)
+
+            #expect(await owner.undo())
+            #expect(owner.text == "Typed immediately before Clear")
+        }
+    }
+
     @Test func failedMutationKeepsLastConfirmedTextAndReportsRecovery()
         async throws {
         try await withRepository { repository in

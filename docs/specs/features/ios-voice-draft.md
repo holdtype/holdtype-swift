@@ -18,7 +18,9 @@ without opening the custom keyboard.
   list or preview and adds no duplicate History toolbar action.
 - Append, Auto Translate, and Auto Correction are session modes in the bottom
   Draft settings row. The existing one-shot Translate and Correction actions,
-  plus Undo, Redo, Copy, and Clear, remain in the top action row.
+  plus Undo, Redo, Copy, and Clear, remain in the top action row. Clear is a
+  neutral labeled Draft action, not a red delete or History action. The action
+  row may wrap at large Dynamic Type sizes without removing the Clear label.
   Keyboard Dictation Session and the practice field remain reachable from the
   compact Voice More menu; the keyboard tools are presented as a sheet and
   none of them occupies the primary Voice canvas.
@@ -53,11 +55,15 @@ without opening the custom keyboard.
   commits the edit as one app-level Undo snapshot. While focused, system text
   editing owns character-level Undo and the app-level Undo and Redo actions are
   unavailable.
-- Copy and Clear operate on the visible working text. Translate, Correction,
-  and new dictation are unavailable until the edit is safely committed.
+- Copy operates on the visible working text. Clear first commits the visible
+  working text when editing is active, then atomically replaces that exact
+  Draft with empty so Undo restores what the user saw before Clear. Translate,
+  Correction, and new dictation are unavailable until the edit is safely
+  committed.
 - Starting, Listening, Finalizing, or Processing makes the editor read-only and
-  cannot summon the keyboard. Draft mutation controls remain unavailable while
-  an edit is active.
+  cannot summon the keyboard. Clear and other Draft mutation controls remain
+  unavailable throughout those active Voice phases. App-level Undo and Redo
+  remain unavailable while an edit is active.
 - A newly accepted containing-app Voice dictation replaces the visible Draft
   by default. The previous Draft remains visible until the new result is
   accepted; Cancel, failure, and recoverable Pending never clear it early.
@@ -80,7 +86,11 @@ without opening the custom keyboard.
   visually blank state.
 - Clear atomically replaces the current Draft with empty. It never changes
   Latest, History, Pending, Recording Cache, usage, settings, or the keyboard
-  projection.
+  projection. A neutral `Clear` control with an `xmark.circle` symbol appears
+  only while the Draft contains visible working text, has at least a 44-point
+  tap target, and does not require confirmation. Confirmed Clear presents
+  `Draft cleared` with an explicit Undo action and a matching accessibility
+  announcement.
 - Undo and Redo cover successful replace, append, committed edit, and Clear
   mutations in the current process only. They retain at most twenty snapshots
   with meaningful text and are not persisted. Empty or visually

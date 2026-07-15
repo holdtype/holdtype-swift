@@ -187,6 +187,63 @@ enum IOSVoiceHomeActionPlacement {
     }
 }
 
+struct IOSVoiceDraftClearPresentation: Equatable, Sendable {
+    let isVisible: Bool
+    let isEnabled: Bool
+
+    static func resolve(
+        visibleText: String,
+        voicePhase: VoiceWorkPhase,
+        draftIsBusy: Bool
+    ) -> IOSVoiceDraftClearPresentation {
+        let isVisible = !visibleText.isEmpty
+        let voiceAllowsMutation = switch voicePhase {
+        case .inactive, .ready:
+            true
+        case .arming, .listening, .finalizing, .processing:
+            false
+        }
+        return IOSVoiceDraftClearPresentation(
+            isVisible: isVisible,
+            isEnabled: isVisible
+                && voiceAllowsMutation
+                && !draftIsBusy
+        )
+    }
+}
+
+enum IOSVoiceDraftActionNotice: Equatable, Sendable {
+    case copied
+    case cleared
+
+    var message: String {
+        switch self {
+        case .copied:
+            "Copied"
+        case .cleared:
+            "Draft cleared"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .copied:
+            "checkmark.circle"
+        case .cleared:
+            "xmark.circle"
+        }
+    }
+
+    var accessibilityAnnouncement: String {
+        switch self {
+        case .copied:
+            "Current Draft copied"
+        case .cleared:
+            "Draft cleared. Undo is available."
+        }
+    }
+}
+
 enum IOSVoiceHomePresentation {
     static func resolve(
         _ presentation: IOSForegroundVoicePresentation
