@@ -3,7 +3,7 @@ import HoldTypeDomain
 /// The app-only, non-secret settings owned by the iOS containing app.
 public struct IOSAppSettings: Equatable, Sendable {
     public static let defaultRecordingCachePolicy: RecordingCachePolicy =
-        .keepLast(RetentionConfiguration.acceptedHistoryEntryLimit)
+        .deleteImmediately
     public static let defaults = IOSAppSettings()
 
     public var transcriptionConfiguration: TranscriptionConfiguration

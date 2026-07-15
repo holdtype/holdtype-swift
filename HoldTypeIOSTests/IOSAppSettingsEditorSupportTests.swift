@@ -431,6 +431,12 @@ struct IOSAppSettingsEditorSupportTests {
 
     @Test func recordingCacheEditorUsesExplicitOffLastTwentyAndUnlimitedPolicies() {
         #expect(
+            IOSAppSettings.defaultRecordingCachePolicy == .deleteImmediately
+        )
+        #expect(
+            IOSRecordingCachePolicyEditor.enabledPolicy == .keepLast(20)
+        )
+        #expect(
             IOSRecordingCachePolicyEditor.policyAfterSettingEnabled(false)
                 == .deleteImmediately
         )

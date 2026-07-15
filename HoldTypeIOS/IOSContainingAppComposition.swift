@@ -170,6 +170,8 @@ final class IOSContainingAppComposition {
     let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
     let foregroundVoiceRuntime: IOSForegroundVoiceRuntime?
     let historyPlaybackActions: IOSHistoryPlaybackActions?
+    let recordingCacheLifecycleActions:
+        IOSRecordingCacheLifecycleActions?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
     let voiceSceneLifecycleBinding: IOSVoiceSceneLifecycleBinding?
     let availability: IOSContainingAppCompositionAvailability
@@ -204,6 +206,7 @@ final class IOSContainingAppComposition {
             foregroundVoiceProcessor = nil
             foregroundVoiceRuntime = nil
             historyPlaybackActions = nil
+            recordingCacheLifecycleActions = nil
             availability = .storageUnavailable
             lifecycleScheduler = IOSContainingAppLifecycleScheduler { _ in
                 .pendingLocalRecovery
@@ -341,8 +344,9 @@ final class IOSContainingAppComposition {
             factories: factories.voiceFactories
         )
         self.foregroundVoiceRuntime = foregroundVoiceRuntime
-        historyPlaybackActions = foregroundVoiceRuntime
+        let historyAudioPlaybackOwner = foregroundVoiceRuntime
             .historyAudioPlaybackOwner
+        historyPlaybackActions = historyAudioPlaybackOwner
             .map {
                 IOSHistoryPlaybackActions(
                     cache: acceptedAudioCache,
@@ -350,11 +354,26 @@ final class IOSContainingAppComposition {
                     player: $0
                 )
             }
+        let recordingCacheLifecycleActions =
+            IOSRecordingCacheLifecycleActions(
+                cache: acceptedAudioCache,
+                player: historyAudioPlaybackOwner
+            )
+        self.recordingCacheLifecycleActions =
+            recordingCacheLifecycleActions
         let lifecycleScheduler = IOSContainingAppLifecycleScheduler {
             opportunity in
             let disposition = await foregroundVoiceRuntime
                 .lifecycleCoordinator
                 .recover(opportunity)
+            if let policy = try? await settingsStateOwner
+                .confirmedValueForProviderAction()
+                .recordingCachePolicy
+                .normalized {
+                _ = await recordingCacheLifecycleActions.reconcile(
+                    policy: policy
+                )
+            }
             await foregroundVoiceRuntime.latestResultOwner
                 .refreshKeyboardProjection()
             return disposition
@@ -395,6 +414,7 @@ final class IOSContainingAppComposition {
         foregroundVoiceProcessor = nil
         foregroundVoiceRuntime = nil
         historyPlaybackActions = nil
+        recordingCacheLifecycleActions = nil
         availability = .injected
         lifecycleScheduler = IOSContainingAppLifecycleScheduler(
             recover: recoverContainingAppLifecycle

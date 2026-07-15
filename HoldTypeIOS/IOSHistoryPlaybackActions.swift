@@ -8,6 +8,50 @@ enum IOSHistoryPlaybackAttempt: Equatable {
     case failed
 }
 
+/// Applies the saved recording-cache policy independently from History UI.
+/// Disabling retention stops local playback before managed files are removed.
+@MainActor
+struct IOSRecordingCacheLifecycleActions {
+    private let applyPolicy: (RecordingCachePolicy) async -> Bool
+
+    init(
+        cache: IOSAcceptedAudioCache,
+        player: IOSHistoryAudioPlaybackOwner?
+    ) {
+        self.init(
+            stopPlayback: {
+                guard let player else { return }
+                _ = await player.stopAndDeactivate()
+            },
+            reconcileCache: { policy in
+                do {
+                    try await cache.reconcile(policy: policy)
+                    return true
+                } catch {
+                    return false
+                }
+            }
+        )
+    }
+
+    init(
+        stopPlayback: @escaping () async -> Void = {},
+        reconcileCache: @escaping (RecordingCachePolicy) async -> Bool
+    ) {
+        applyPolicy = { policy in
+            let policy = policy.normalized
+            if !policy.keepsRecordings {
+                await stopPlayback()
+            }
+            return await reconcileCache(policy)
+        }
+    }
+
+    func reconcile(policy: RecordingCachePolicy) async -> Bool {
+        await applyPolicy(policy.normalized)
+    }
+}
+
 /// Small containing-app boundary between the text-only History screen and the
 /// independent accepted-recording cache.
 @MainActor
@@ -15,7 +59,6 @@ struct IOSHistoryPlaybackActions {
     private let resolvePlayableResultIDs: ([UUID]) async -> Set<UUID>
     private let playRecording: (UUID) async -> IOSHistoryPlaybackAttempt
     private let stopPlayback: () async -> Void
-    private let reconcileCache: (RecordingCachePolicy) async -> Bool
 
     init(
         cache: IOSAcceptedAudioCache,
@@ -51,32 +94,17 @@ struct IOSHistoryPlaybackActions {
         stopPlayback = {
             _ = await player.stopAndDeactivate()
         }
-        reconcileCache = { policy in
-            if !policy.normalized.keepsRecordings {
-                _ = await player.stopAndDeactivate()
-            }
-            do {
-                try await cache.reconcile(policy: policy)
-                return true
-            } catch {
-                return false
-            }
-        }
     }
 
     init(
         resolvePlayableResultIDs: @escaping ([UUID]) async -> Set<UUID>,
         playRecording: @escaping (UUID) async
             -> IOSHistoryPlaybackAttempt,
-        stopPlayback: @escaping () async -> Void = {},
-        reconcileCache: @escaping (RecordingCachePolicy) async -> Bool = {
-            _ in true
-        }
+        stopPlayback: @escaping () async -> Void = {}
     ) {
         self.resolvePlayableResultIDs = resolvePlayableResultIDs
         self.playRecording = playRecording
         self.stopPlayback = stopPlayback
-        self.reconcileCache = reconcileCache
     }
 
     func playableResultIDs(_ resultIDs: [UUID]) async -> Set<UUID> {
@@ -89,9 +117,5 @@ struct IOSHistoryPlaybackActions {
 
     func stop() async {
         await stopPlayback()
-    }
-
-    func reconcile(policy: RecordingCachePolicy) async -> Bool {
-        await reconcileCache(policy.normalized)
     }
 }

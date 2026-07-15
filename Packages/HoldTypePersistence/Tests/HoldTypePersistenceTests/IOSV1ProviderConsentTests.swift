@@ -3,7 +3,7 @@ import Testing
 @testable import HoldTypePersistence
 
 struct IOSV1ProviderConsentTests {
-    @Test func versionTwoAcceptanceRequiresReviewForDefaultAudioRetention()
+    @Test func versionTwoAcceptanceRequiresReviewForOptionalAudioRetention()
         async throws {
         try await withFixture { fixture in
             let versionTwoRecord = Data(

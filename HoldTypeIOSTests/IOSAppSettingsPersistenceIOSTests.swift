@@ -12,7 +12,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
         #expect(settings.voiceSessionPreferences == .defaults)
-        #expect(settings.recordingCachePolicy == .keepLast(20))
+        #expect(settings.recordingCachePolicy == .deleteImmediately)
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
         #expect(((settings as Any) is any Decodable) == false)
@@ -101,7 +101,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         }
     }
 
-    @Test func legacyCacheOffMigratesAndLaterExplicitOffPersists() async throws {
+    @Test func legacyAndCurrentCacheOffRemainOff() async throws {
         let containerURL = makeTemporaryDirectoryURL()
         defer { try? FileManager.default.removeItem(at: containerURL) }
         let applicationSupportURL = containerURL.appendingPathComponent(
@@ -125,7 +125,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         )
 
         var settings = try await repository.load()
-        #expect(settings.recordingCachePolicy == .keepLast(20))
+        #expect(settings.recordingCachePolicy == .deleteImmediately)
         #expect(try Data(contentsOf: fileURL) == legacyData)
 
         settings.recordingCachePolicy = .deleteImmediately

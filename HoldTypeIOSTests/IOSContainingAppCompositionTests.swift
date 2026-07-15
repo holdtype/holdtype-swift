@@ -216,7 +216,7 @@ struct IOSContainingAppCompositionTests {
         let recordingCachePolicy = try #require(
             capturedRecordingCachePolicy
         )
-        #expect(await recordingCachePolicy() == .keepLast(20))
+        #expect(await recordingCachePolicy() == .deleteImmediately)
         #expect(composition.acceptedTextHistoryStateOwner != nil)
         #expect(
             composition.acceptedTextHistoryStateOwner?.state == .notLoaded
@@ -239,6 +239,7 @@ struct IOSContainingAppCompositionTests {
             composition.foregroundVoiceRuntime
         )
         #expect(composition.historyPlaybackActions != nil)
+        #expect(composition.recordingCacheLifecycleActions != nil)
         #expect(composition.voiceSceneLifecycleBinding != nil)
         #expect(voiceRuntime.sceneRegistry.activeEventSubscriptionCount == 1)
         #expect(voiceRuntime.sceneRegistry.snapshot.registeredSceneCount == 0)

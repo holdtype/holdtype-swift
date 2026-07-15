@@ -205,11 +205,14 @@ enum IOSRecordingCacheRetentionMode: String, CaseIterable, Hashable {
 }
 
 enum IOSRecordingCachePolicyEditor {
+    nonisolated static let enabledPolicy: RecordingCachePolicy =
+        .keepLast(RetentionConfiguration.acceptedHistoryEntryLimit)
+
     nonisolated static func policyAfterSettingEnabled(
         _ isEnabled: Bool
     ) -> RecordingCachePolicy {
         isEnabled
-            ? IOSAppSettings.defaultRecordingCachePolicy
+            ? enabledPolicy
             : .deleteImmediately
     }
 
@@ -223,7 +226,7 @@ enum IOSRecordingCachePolicyEditor {
             case .keepLast(let count):
                 .keepLast(count)
             case .deleteImmediately, .unlimited:
-                IOSAppSettings.defaultRecordingCachePolicy
+                enabledPolicy
             }
         case .unlimited:
             .unlimited

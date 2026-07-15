@@ -8,6 +8,9 @@ struct IOSAcceptedAudioCacheTests {
     @Test func cacheIsOffByDefaultPolicyAndMissingFilesStayUnavailable()
         async throws {
         let fixture = AudioCacheFixture()
+        let policy = IOSAppSettings.defaultRecordingCachePolicy
+
+        #expect(policy == .deleteImmediately)
 
         #expect(
             await fixture.cache.cachedAudioFileURLIfAvailable(
@@ -20,7 +23,7 @@ struct IOSAcceptedAudioCacheTests {
                 resultID: CacheIDs.first,
                 fileExtension: "m4a",
                 createdAt: CacheDates.first,
-                policy: .deleteImmediately
+                policy: policy
             ) == nil
         )
         #expect(
@@ -59,41 +62,6 @@ struct IOSAcceptedAudioCacheTests {
                 policy: .keepLast(10)
             ) == url
         )
-    }
-
-    @Test func defaultIOSPolicyKeepsAudioForEveryHistorySlot() async throws {
-        let fixture = AudioCacheFixture()
-        let policy = IOSAppSettings.defaultRecordingCachePolicy
-        let resultIDs = (0...IOSAcceptedTextHistoryRecord.maximumEntryCount)
-            .map { _ in UUID() }
-
-        #expect(
-            policy
-                == .keepLast(IOSAcceptedTextHistoryRecord.maximumEntryCount)
-        )
-
-        for (index, resultID) in resultIDs.enumerated() {
-            _ = try await fixture.cache.retainAcceptedAudio(
-                Data([UInt8(index)]),
-                resultID: resultID,
-                fileExtension: "m4a",
-                createdAt: Date(timeIntervalSince1970: Double(index + 1)),
-                policy: policy
-            )
-        }
-
-        #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
-                resultID: resultIDs[0]
-            ) == nil
-        )
-        for resultID in resultIDs.dropFirst() {
-            #expect(
-                await fixture.cache.cachedAudioFileURLIfAvailable(
-                    resultID: resultID
-                ) != nil
-            )
-        }
     }
 
     @Test func boundedReconciliationIsIdempotentAndPreservesUnmanagedFiles()

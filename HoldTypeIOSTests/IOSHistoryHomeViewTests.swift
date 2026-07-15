@@ -47,12 +47,11 @@ struct IOSHistoryHomeViewTests {
         #expect(playedIDs == [playableID, missingID])
     }
 
-    @Test func cachePolicyReconciliationIsExplicitAndNormalized() async {
+    @Test func cacheLifecycleNormalizesPolicyAndStopsPlaybackBeforeDisabling()
+        async {
         var reconciledPolicies: [RecordingCachePolicy] = []
         var stopCount = 0
-        let actions = IOSHistoryPlaybackActions(
-            resolvePlayableResultIDs: { _ in [] },
-            playRecording: { _ in .failed },
+        let actions = IOSRecordingCacheLifecycleActions(
             stopPlayback: { stopCount += 1 },
             reconcileCache: { policy in
                 reconciledPolicies.append(policy)
@@ -61,9 +60,10 @@ struct IOSHistoryHomeViewTests {
         )
 
         #expect(await actions.reconcile(policy: .keepLast(0)))
-        await actions.stop()
+        #expect(stopCount == 0)
+        #expect(await actions.reconcile(policy: .deleteImmediately))
 
-        #expect(reconciledPolicies == [.keepLast(1)])
+        #expect(reconciledPolicies == [.keepLast(1), .deleteImmediately])
         #expect(stopCount == 1)
     }
 }

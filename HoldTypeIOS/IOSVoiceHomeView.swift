@@ -1502,10 +1502,11 @@ struct IOSVoiceHomeView: View {
 
             Label {
                 Text(
-                    "Save History and Recording Cache are on by default. "
-                        + "HoldType keeps up to 20 successful texts and their "
-                        + "recordings locally for playback. Failed attempts "
-                        + "are not added."
+                    "Save History is on by default, while Recording Cache is "
+                        + "off. HoldType keeps up to 20 successful texts; "
+                        + "completed recordings are retained only after you "
+                        + "enable the cache, starting with the 20 newest. "
+                        + "Failed attempts are not added."
                 )
                 .fixedSize(horizontal: false, vertical: true)
             } icon: {

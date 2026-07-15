@@ -12,7 +12,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)
         #expect(settings.voiceSessionPreferences == .defaults)
-        #expect(settings.recordingCachePolicy == .keepLast(20))
+        #expect(settings.recordingCachePolicy == .deleteImmediately)
         #expect(settings == IOSAppSettings())
         requireSendable(IOSAppSettings.self)
         #expect(((settings as Any) is any Encodable) == false)
@@ -111,7 +111,7 @@ struct IOSAppSettingsRepositoryTests {
         expected.localTextCleanupEnabled = false
         expected.translationConfiguration.targetLanguage = .english
         expected.voiceSessionPreferences.audioCuesEnabled = false
-        expected.recordingCachePolicy = .keepLast(20)
+        expected.recordingCachePolicy = .deleteImmediately
 
         #expect(loaded == expected)
         #expect(partialFileSystem.data == partialData)
@@ -127,12 +127,12 @@ struct IOSAppSettingsRepositoryTests {
         )
         #expect(
             try await emptyCacheRepository.load().recordingCachePolicy
-                == .keepLast(20)
+                == .deleteImmediately
         )
         #expect(emptyCacheFileSystem.replacementCallCount == 0)
     }
 
-    @Test func legacyV1CacheOffMigratesToDefaultWithoutRewritingSource() async throws {
+    @Test func legacyV1CacheOffRemainsOffWithoutRewritingSource() async throws {
         let source =
             "{\"recordingCache\":{\"mode\":\"deleteImmediately\","
             + "\"retainedRecordingLimit\":10},\"schemaVersion\":1}"
@@ -142,7 +142,7 @@ struct IOSAppSettingsRepositoryTests {
 
         #expect(
             try await repository.load().recordingCachePolicy
-                == .keepLast(20)
+                == .deleteImmediately
         )
         #expect(fileSystem.data == sourceData)
         #expect(fileSystem.replacementCallCount == 0)

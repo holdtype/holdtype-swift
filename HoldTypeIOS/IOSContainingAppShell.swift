@@ -23,18 +23,24 @@ struct IOSContainingAppShell: View {
     let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let historyPlaybackActions: IOSHistoryPlaybackActions?
+    let recordingCacheLifecycleActions:
+        IOSRecordingCacheLifecycleActions?
     let layout: IOSContainingAppShellLayout
 
     init(
         secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
+        recordingCacheLifecycleActions:
+            IOSRecordingCacheLifecycleActions? = nil,
         layout: IOSContainingAppShellLayout = .current
     ) {
         self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.historyPlaybackActions = historyPlaybackActions
+        self.recordingCacheLifecycleActions =
+            recordingCacheLifecycleActions
         self.layout = layout
     }
 
@@ -206,8 +212,10 @@ struct IOSContainingAppShell: View {
                 foregroundVoiceRuntimeAvailable:
                     foregroundVoiceRuntimeAvailable,
                 reconcileRecordingCache: { policy in
-                    guard let historyPlaybackActions else { return true }
-                    return await historyPlaybackActions.reconcile(
+                    guard let recordingCacheLifecycleActions else {
+                        return true
+                    }
+                    return await recordingCacheLifecycleActions.reconcile(
                         policy: policy
                     )
                 }

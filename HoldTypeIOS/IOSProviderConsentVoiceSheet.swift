@@ -158,9 +158,10 @@ struct IOSProviderConsentDisclosureSections: View {
             Section("On This iPhone") {
                 disclosurePoint(
                     "A recording is kept only while it is needed for processing "
-                        + "or recovery. Recording Cache is on by default and "
-                        + "can keep the 20 newest completed recordings for "
-                        + "local History playback.",
+                        + "or recovery. Recording Cache is off by default; if "
+                        + "you enable it, HoldType starts with the 20 newest "
+                        + "completed recordings for local History playback. "
+                        + "Unlimited retention is optional.",
                     image: "waveform.badge.exclamationmark"
                 )
                 disclosurePoint(
