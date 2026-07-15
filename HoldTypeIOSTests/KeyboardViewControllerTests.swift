@@ -555,7 +555,8 @@ private final class KeyboardControllerHarness {
                 openContainingAppOverride: { [self] url, completion in
                     openedURLs.append(url)
                     completion(true)
-                }
+                },
+                recordDiagnostic: { _ in }
             )
         )
     }

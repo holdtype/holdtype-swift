@@ -24,6 +24,7 @@ struct KeyboardViewControllerDependencies {
     let fullAccessOverride: Bool?
     let scheduleLatestExpiry: KeyboardLatestExpiryScheduler
     let openContainingAppOverride: KeyboardContainingAppOpener?
+    let recordDiagnostic: (IOSRuntimeDiagnosticEvent) -> Void
 
     static let live = KeyboardViewControllerDependencies(
         loadSnapshot: {
@@ -62,7 +63,10 @@ struct KeyboardViewControllerDependencies {
             RunLoop.main.add(timer, forMode: .common)
             return timer
         },
-        openContainingAppOverride: nil
+        openContainingAppOverride: nil,
+        recordDiagnostic: { event in
+            IOSRuntimeDiagnosticsStore.keyboard.record(event)
+        }
     )
 }
 
@@ -76,6 +80,7 @@ final class KeyboardViewController: UIInputViewController {
     let keyboardView = BrandStageKeyboardView()
     private let deleteRepeater = KeyboardDeleteRepeater()
     private var dependencies = KeyboardViewControllerDependencies.live
+    private var lastDiagnosticState: IOSDiagnosticKeyboardState?
     private var cursorAccumulator = KeyboardCursorDragAccumulator()
     private var previousCursorLocationX: CGFloat?
     private var insertionGate = KeyboardInsertionEventGate()
@@ -127,6 +132,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        recordKeyboardState(.opened)
         beginExtensionLifetime()
         showsInputModeSwitchKey = shouldShowInputModeSwitchKey
         reloadSharedSnapshot()
@@ -134,6 +140,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     override func viewWillDisappear(_ animated: Bool) {
+        recordKeyboardState(.closed)
         deleteRepeater.stop()
         latestExpiryTimer?.invalidate()
         latestExpiryTimer = nil
@@ -263,6 +270,7 @@ final class KeyboardViewController: UIInputViewController {
         cancelIsVisible: Bool
     ) {
         guard hasSharedContainerAccess else {
+            recordKeyboardState(.noSharedAccess)
             return (
                 .fullAccessRequired,
                 .recovery(.enableFullAccess),
@@ -333,6 +341,7 @@ final class KeyboardViewController: UIInputViewController {
         do {
             guard let state = try dependencies.loadDictationState(),
                   state.isValid(at: dependencies.now()) else {
+                recordKeyboardState(.expired)
                 dictationState = nil
                 forcesSessionNotRunning = true
                 render()
@@ -350,12 +359,14 @@ final class KeyboardViewController: UIInputViewController {
                 pendingDictationCommand = nil
             }
             dictationState = state
+            recordKeyboardState(diagnosticState(for: state.phase))
             if state.phase == .resultReady,
                activeDictationRequestID == state.requestID,
                ownsCurrentHostContext(for: state.requestID),
                insertedDictationRequestID != state.requestID,
                let result = state.result {
                 insertText(result)
+                dependencies.recordDiagnostic(.keyboardInserted(.dictation))
                 insertedDictationRequestID = state.requestID
                 activeDictationRequestID = nil
                 activeDictationOwnership = nil
@@ -380,9 +391,11 @@ final class KeyboardViewController: UIInputViewController {
                 self.activeDictationOwnership = nil
                 self.pendingDictationCommand = nil
                 self.forcesSessionNotRunning = true
+                self.recordKeyboardState(.expired)
                 self.render()
             }
         } catch {
+            recordKeyboardState(.failed)
             dictationState = nil
             forcesSessionNotRunning = true
         }
@@ -464,6 +477,13 @@ final class KeyboardViewController: UIInputViewController {
         }
         do {
             try dependencies.saveDictationCommand(command)
+            dependencies.recordDiagnostic(
+                .keyboardCommand(
+                    diagnosticCommand(kind),
+                    action: diagnosticAction(action),
+                    outcome: .succeeded
+                )
+            )
             pendingDictationCommand = kind
             if kind == .cancel {
                 activeDictationRequestID = nil
@@ -472,6 +492,13 @@ final class KeyboardViewController: UIInputViewController {
                 forcesSessionNotRunning = true
             }
         } catch {
+            dependencies.recordDiagnostic(
+                .keyboardCommand(
+                    diagnosticCommand(kind),
+                    action: diagnosticAction(action),
+                    outcome: .failed
+                )
+            )
             pendingDictationCommand = nil
             activeDictationRequestID = nil
             activeDictationOwnership = nil
@@ -492,6 +519,7 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         insertText(item.text)
+        dependencies.recordDiagnostic(.keyboardInserted(.latest))
     }
 
     private func beginExtensionLifetime() {
@@ -526,6 +554,57 @@ final class KeyboardViewController: UIInputViewController {
         guard insertionGate.beginEvent() else { return }
         defer { insertionGate.endEvent() }
         activeDocumentProxy.insertText(text)
+    }
+
+    private func recordKeyboardState(_ state: IOSDiagnosticKeyboardState) {
+        guard lastDiagnosticState != state else { return }
+        lastDiagnosticState = state
+        dependencies.recordDiagnostic(.keyboardState(state))
+    }
+
+    private func diagnosticState(
+        for phase: KeyboardDictationStatePhase
+    ) -> IOSDiagnosticKeyboardState {
+        switch phase {
+        case .ready:
+            .sessionReady
+        case .listening:
+            .listening
+        case .processing:
+            .processing
+        case .resultReady:
+            .resultReady
+        case .unavailable:
+            .sessionUnavailable
+        case .failed:
+            .failed
+        }
+    }
+
+    private func diagnosticCommand(
+        _ kind: KeyboardDictationCommandKind
+    ) -> IOSDiagnosticKeyboardCommand {
+        switch kind {
+        case .start:
+            .start
+        case .finish:
+            .finish
+        case .cancel:
+            .cancel
+        }
+    }
+
+    private func diagnosticAction(
+        _ action: KeyboardVoiceAction
+    ) -> IOSDiagnosticVoiceAction {
+        switch action {
+        case .standard:
+            .standard
+        case .translate:
+            .translate
+        case .improve:
+            .improve
+        }
     }
 
     private func setLatestItem(

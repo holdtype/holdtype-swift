@@ -42,6 +42,7 @@ nonisolated enum IOSUIQualificationRoute:
     case usageLoadFailure = "usage-load-failure"
     case usageWriteWarning = "usage-write-warning"
     case usageResetFailure = "usage-reset-failure"
+    case diagnostics
 
     static let environmentKey = "HOLDTYPE_UI_QUALIFICATION"
 
@@ -116,6 +117,8 @@ nonisolated enum IOSUIQualificationRoute:
             "Usage — Incomplete Estimate Warning"
         case .usageResetFailure:
             "Usage — Reset Failure"
+        case .diagnostics:
+            "Diagnostics & Support"
         }
     }
 
@@ -139,6 +142,8 @@ nonisolated enum IOSUIQualificationRoute:
         case .usageEmpty, .usageKnown, .usageMixed, .usageUnknown,
              .usageLoadFailure, .usageWriteWarning, .usageResetFailure:
             .usage
+        case .diagnostics:
+            .diagnostics
         }
     }
 
@@ -177,7 +182,7 @@ nonisolated enum IOSUIQualificationRoute:
              .privacyAccepted,
              .privacyUnreadable, .privacyFailure, .usageEmpty,
              .usageKnown, .usageMixed, .usageUnknown, .usageLoadFailure,
-             .usageWriteWarning, .usageResetFailure:
+             .usageWriteWarning, .usageResetFailure, .diagnostics:
             nil
         }
     }
@@ -202,7 +207,7 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
              .latestSuccess, .latestFailure, .usageEmpty, .usageKnown,
              .usageMixed, .usageUnknown, .usageLoadFailure,
-             .usageWriteWarning, .usageResetFailure:
+             .usageWriteWarning, .usageResetFailure, .diagnostics:
             nil
         }
     }
@@ -231,7 +236,7 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
              .latestSuccess, .latestFailure, .privacyChecking,
              .privacyReady, .privacyAccepted, .privacyUnreadable,
-             .privacyFailure:
+             .privacyFailure, .diagnostics:
             nil
         }
     }
@@ -246,6 +251,7 @@ fileprivate nonisolated enum IOSUIQualificationSection:
     case history = "History"
     case privacy = "Privacy & Permissions"
     case usage = "Usage Estimate"
+    case diagnostics = "Diagnostics & Support"
 }
 
 struct IOSUIQualificationRootView: View {
@@ -293,6 +299,10 @@ struct IOSUIQualificationRootView: View {
             IOSUIQualificationPrivacyHost(scenario: scenario)
         } else if let scenario = route.usageScenario {
             IOSUIQualificationUsageHost(scenario: scenario)
+        } else if route == .diagnostics {
+            NavigationStack {
+                IOSDiagnosticsView()
+            }
         } else {
             ContentUnavailableView(
                 "Qualification Route Unavailable",

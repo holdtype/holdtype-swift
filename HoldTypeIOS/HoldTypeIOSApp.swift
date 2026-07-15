@@ -22,6 +22,8 @@ struct HoldTypeIOSApp: App {
             return
         }
         #endif
+        IOSRuntimeDiagnosticsStore.app.record(.appLaunched)
+        IOSMetricKitDiagnosticCollector.shared.start()
         composition = IOSContainingAppComposition()
     }
 
@@ -66,6 +68,7 @@ struct HoldTypeIOSApp: App {
 }
 
 struct HoldTypeIOSRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     let settingsStateOwner: IOSAppSettingsStateOwner?
     let libraryStateOwner: IOSLibraryStateOwner?
     let openAISettingsStateOwner:
@@ -120,25 +123,42 @@ struct HoldTypeIOSRootView: View {
     }
 
     var body: some View {
-        if let settingsStateOwner,
-           let libraryStateOwner,
-           let openAISettingsStateOwner,
-           let usageEstimateStateOwner,
-           let acceptedTextHistoryStateOwner {
-            IOSContainingAppShell(
-                secureProviderAvailability: secureProviderAvailability,
-                foregroundVoiceRuntimeAvailable:
-                    foregroundVoiceRuntimeAvailable,
-                historyPlaybackActions: historyPlaybackActions,
-                layout: layout
+        Group {
+            if let settingsStateOwner,
+               let libraryStateOwner,
+               let openAISettingsStateOwner,
+               let usageEstimateStateOwner,
+               let acceptedTextHistoryStateOwner {
+                IOSContainingAppShell(
+                    secureProviderAvailability: secureProviderAvailability,
+                    foregroundVoiceRuntimeAvailable:
+                        foregroundVoiceRuntimeAvailable,
+                    historyPlaybackActions: historyPlaybackActions,
+                    layout: layout
+                )
+                    .environment(settingsStateOwner)
+                    .environment(libraryStateOwner)
+                    .environment(openAISettingsStateOwner)
+                    .environment(usageEstimateStateOwner)
+                    .environment(acceptedTextHistoryStateOwner)
+            } else {
+                IOSContainingAppStorageUnavailableView()
+            }
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            let diagnosticPhase: IOSDiagnosticScenePhase = switch phase {
+            case .active:
+                .active
+            case .inactive:
+                .inactive
+            case .background:
+                .background
+            @unknown default:
+                .inactive
+            }
+            IOSRuntimeDiagnosticsStore.app.record(
+                .scenePhase(diagnosticPhase)
             )
-                .environment(settingsStateOwner)
-                .environment(libraryStateOwner)
-                .environment(openAISettingsStateOwner)
-                .environment(usageEstimateStateOwner)
-                .environment(acceptedTextHistoryStateOwner)
-        } else {
-            IOSContainingAppStorageUnavailableView()
         }
     }
 }

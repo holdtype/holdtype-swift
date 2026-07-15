@@ -94,6 +94,7 @@ enum IOSSettingsRoute: Hashable {
     case keyboardSetup
     case privacyAndPermissions
     case usageEstimate
+    case diagnostics
     case attention(IOSSettingsAttention)
 }
 

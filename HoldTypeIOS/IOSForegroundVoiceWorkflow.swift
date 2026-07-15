@@ -516,6 +516,9 @@ struct IOSForegroundVoiceWorkflowDependencies {
         IOSV1PendingRecordingExpectation
     ) async throws -> IOSV1PendingRecordingDiscardResult
     typealias Sleep = @Sendable (Duration) async throws -> Void
+    typealias RecordDiagnostic = @Sendable (
+        IOSRuntimeDiagnosticEvent
+    ) -> Void
 
     let sceneRegistry: IOSVoiceSceneRegistry
     let reconcileCaptureSources: ObserveCapture
@@ -543,6 +546,7 @@ struct IOSForegroundVoiceWorkflowDependencies {
     let discardPending: DiscardPending
     let sleep: Sleep
     let makeUUID: @Sendable () -> UUID
+    let recordDiagnostic: RecordDiagnostic
 }
 
 /// Process-owned imperative shell behind `IOSForegroundVoiceController`.
@@ -1119,6 +1123,15 @@ final class IOSForegroundVoiceWorkflow {
             draftInsertionMode: draftInsertionMode
         )
         activeAttempt = attempt
+        dependencies.recordDiagnostic(
+            .voiceStartRequested(
+                origin: Self.diagnosticOrigin(origin),
+                action: Self.diagnosticAction(
+                    intent: intent,
+                    forcesTextCorrection: forcesTextCorrection
+                )
+            )
+        )
         if case .foreground = origin {
             attempt.sceneObservation = dependencies.sceneRegistry.observeEvents {
                 [weak self, weak attempt] event in
@@ -1148,7 +1161,7 @@ final class IOSForegroundVoiceWorkflow {
             }
         }
 
-        return await withTaskCancellationHandler {
+        let resolution = await withTaskCancellationHandler {
             await performStart(
                 intent,
                 attempt: attempt,
@@ -1160,6 +1173,10 @@ final class IOSForegroundVoiceWorkflow {
                 self.requestStop(.cancelled, for: attempt)
             }
         }
+        dependencies.recordDiagnostic(
+            .voiceCompleted(Self.diagnosticOutcome(resolution))
+        )
+        return resolution
     }
 
     private func performStart(
@@ -1306,9 +1323,12 @@ final class IOSForegroundVoiceWorkflow {
             attempt,
             requireInitiatingScene: false
         ) else { return await blockedPreflight(failure: .unavailable) }
+        dependencies.recordDiagnostic(.audio(.activationStarted))
         do {
             attempt.audio = try dependencies.activateAudio()
+            dependencies.recordDiagnostic(.audio(.activated))
         } catch {
+            dependencies.recordDiagnostic(.audio(.activationFailed))
             return await blockedPreflight(failure: .operationFailed)
         }
         guard canContinueArming(
@@ -1320,7 +1340,9 @@ final class IOSForegroundVoiceWorkflow {
                 return await blockedPreflight(failure: .unavailable)
             }
             try audio.freezeAndValidateInput()
+            dependencies.recordDiagnostic(.audio(.inputValidated))
         } catch {
+            dependencies.recordDiagnostic(.audio(.inputInvalid))
             return await blockedPreflight(failure: .unavailable)
         }
         guard canContinueArming(
@@ -1382,7 +1404,9 @@ final class IOSForegroundVoiceWorkflow {
                 return await blockedPreflight(failure: .unavailable)
             }
             try audio.freezeAndValidateInput()
+            dependencies.recordDiagnostic(.audio(.inputValidated))
         } catch {
+            dependencies.recordDiagnostic(.audio(.inputInvalid))
             return await blockedPreflight(failure: .unavailable)
         }
 
@@ -1475,6 +1499,11 @@ final class IOSForegroundVoiceWorkflow {
             )
         }
         attempt.hasStartedRecording = true
+        dependencies.recordDiagnostic(
+            .voiceRecordingStarted(
+                origin: Self.diagnosticOrigin(attempt.origin)
+            )
+        )
 
         guard canContinueArming(
             attempt,
@@ -2126,6 +2155,9 @@ final class IOSForegroundVoiceWorkflow {
                 failure: .localRecovery
             )
         }
+        dependencies.recordDiagnostic(
+            .providerStarted(Self.diagnosticProviderMode(request.mode))
+        )
         let process = dependencies.process
         let task = Task {
             return await process(request) { stage in
@@ -2140,6 +2172,9 @@ final class IOSForegroundVoiceWorkflow {
         }
         attempt.providerTask = task
         let result = await task.value
+        dependencies.recordDiagnostic(
+            .providerCompleted(Self.diagnosticOutcome(result))
+        )
         attempt.providerTask = nil
         guard activeAttempt === attempt,
               !Task.isCancelled,
@@ -2164,6 +2199,9 @@ final class IOSForegroundVoiceWorkflow {
         guard retryCanContinue(authority, registry: registry) else {
             return pendingRetryLossResolution()
         }
+        dependencies.recordDiagnostic(
+            .providerStarted(Self.diagnosticProviderMode(request.mode))
+        )
         let process = dependencies.process
         let operation = Task {
             guard authority.canContinue, !Task.isCancelled else {
@@ -2184,6 +2222,9 @@ final class IOSForegroundVoiceWorkflow {
             return pendingRetryLossResolution()
         }
         let result = await operation.value
+        dependencies.recordDiagnostic(
+            .providerCompleted(Self.diagnosticOutcome(result))
+        )
         authority.clearChild()
         guard retryCanContinue(authority, registry: registry) else {
             return pendingRetryLossResolution()
@@ -2521,10 +2562,14 @@ final class IOSForegroundVoiceWorkflow {
     }
 
     private func deactivateAudio(for attempt: Attempt) {
+        let hadAudio = attempt.audio != nil
         attempt.audioObservation?.cancel()
         attempt.audioObservation = nil
         attempt.audio?.deactivate()
         attempt.audio = nil
+        if hadAudio {
+            dependencies.recordDiagnostic(.audio(.deactivated))
+        }
     }
 
     private func finishFinalization(for attempt: Attempt) {
@@ -2544,6 +2589,12 @@ final class IOSForegroundVoiceWorkflow {
 
     private func requestStop(_ trigger: StopTrigger, for attempt: Attempt) {
         guard activeAttempt === attempt else { return }
+        if attempt.pendingTrigger == nil,
+           attempt.forcedTrigger == nil {
+            dependencies.recordDiagnostic(
+                .voiceStopRequested(Self.diagnosticStopReason(trigger))
+            )
+        }
         if trigger != .done {
             if attempt.forcedTrigger == nil
                 || (attempt.forcedTrigger == .cancelled
@@ -2564,6 +2615,89 @@ final class IOSForegroundVoiceWorkflow {
             attempt.pendingTrigger = trigger
         }
         if trigger != .done { attempt.providerTask?.cancel() }
+    }
+
+    private static func diagnosticOrigin(
+        _ origin: Attempt.Origin
+    ) -> IOSDiagnosticVoiceOrigin {
+        switch origin {
+        case .foreground:
+            .foreground
+        case .keyboard:
+            .keyboard
+        }
+    }
+
+    private static func diagnosticAction(
+        intent: DictationOutputIntent,
+        forcesTextCorrection: Bool
+    ) -> IOSDiagnosticVoiceAction {
+        if forcesTextCorrection { return .improve }
+        return intent == .translate ? .translate : .standard
+    }
+
+    private static func diagnosticStopReason(
+        _ trigger: StopTrigger
+    ) -> IOSDiagnosticVoiceStopReason {
+        switch trigger {
+        case .done:
+            .done
+        case .cancelled:
+            .cancelled
+        case .interrupted:
+            .interrupted
+        case .maximumDuration:
+            .maximumDuration
+        }
+    }
+
+    private static func diagnosticProviderMode(
+        _ mode: IOSForegroundVoiceProcessingMode
+    ) -> IOSDiagnosticProviderMode {
+        switch mode {
+        case .initial:
+            .initial
+        case .retry:
+            .retry
+        }
+    }
+
+    private static func diagnosticOutcome(
+        _ resolution: IOSForegroundVoiceProcessingResolution
+    ) -> IOSDiagnosticOutcome {
+        switch resolution {
+        case .acceptance:
+            .succeeded
+        case .notStarted(.cancelled):
+            .cancelled
+        case .notStarted(.timedOut):
+            .timedOut
+        case .notStarted, .retryAvailable:
+            .failed
+        case .busy:
+            .unavailable
+        }
+    }
+
+    private static func diagnosticOutcome(
+        _ resolution: IOSForegroundVoiceResolution
+    ) -> IOSDiagnosticOutcome {
+        if resolution.failure == .microphonePermissionTimedOut {
+            return .timedOut
+        }
+        if resolution.failure != nil { return .failed }
+        return switch resolution.outcome {
+        case .resultReady:
+            .succeeded
+        case .interrupted:
+            .cancelled
+        case .expired:
+            .stale
+        case .recoverableFailure:
+            .failed
+        case nil:
+            .unavailable
+        }
     }
 
     private func waitForTail(

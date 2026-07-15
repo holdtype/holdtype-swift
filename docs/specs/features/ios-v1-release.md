@@ -57,6 +57,9 @@ V1.1 includes:
   eligibility only;
 - the existing Usage Estimate kept unchanged as an informational Settings
   route;
+- a Development section at the bottom of Settings with local Diagnostics &
+  Support, bounded redacted app and keyboard logs, explicit copy/share, and
+  locally delivered crash evidence governed by `ios-diagnostics.md`;
 - one distribution-signed internal TestFlight candidate and the metadata,
   privacy, and review artifacts required to decide App Store submission;
 - the existing iPad containing-app adaptation as best-effort compatibility UI,
@@ -103,6 +106,10 @@ The containing app exposes four useful destinations only:
   Replacements;
 - `History`: successful accepted text only;
 - `Settings`: provider, language/writing, recording, privacy, and setup.
+
+Settings ends with a visually secondary Development section containing the
+Diagnostics & Support route. Diagnostics is not a fifth tab and does not appear
+inside the keyboard extension.
 
 A destination must not ship as a placeholder. During implementation, History
 is removed from navigation until the compact screen is ready. V1.1 is not

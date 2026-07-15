@@ -8,10 +8,12 @@ can browse system-owned iOS crash files.
 
 ## Scope
 
-- Diagnostics destination in the containing app
+- a Development section at the bottom of Settings with a Diagnostics & Support
+  destination
 - bounded app-owned runtime logs
 - redacted app, device, settings, audio-session, and bridge summaries
-- explicit Copy Recent Events and Export Diagnostic Bundle actions
+- explicit Copy Recent Logs and Share Diagnostic File actions
+- locally delivered MetricKit crash and hang diagnostics
 - local failure behavior when logs or export are unavailable
 
 ## Non-goals
@@ -21,11 +23,14 @@ can browse system-owned iOS crash files.
 - collecting broad device or Console logs
 - storing transcripts, prompts, dictionary entries, raw audio, API keys,
   keystrokes, host-app identity, or provider payloads
-- MetricKit ingestion in the first iOS diagnostics slice
+- automatic crash or diagnostic upload
+- installing a custom crash handler or claiming access to system-owned iOS
+  Analytics Data
 
 ## User-visible behavior
 
-- Settings includes Diagnostics after Privacy & Permissions.
+- Settings keeps its four top-level app destinations unchanged. Its final
+  section is Development, containing one Diagnostics & Support row.
 - Diagnostics shows app version/build, iOS or iPadOS version, device family, and
   compact setup status without exposing secrets or user content.
 - Diagnostics may show microphone authorization, current audio-session phase,
@@ -47,15 +52,18 @@ can browse system-owned iOS crash files.
   category. That projection is not serialization of the runtime enum and
   carries no error message, transcript, model, prompt, file path, provider
   payload, or host context.
-- Copy Recent Events is an explicit user action and copies only the redacted,
+- Copy Recent Logs is an explicit user action and copies only the redacted,
   bounded visible event window.
-- Export Diagnostic Bundle is an explicit action followed by a system share or
-  file-export surface. HoldType never selects a recipient or uploads the bundle
-  automatically.
-- The bundle may contain app/build/device metadata, a redacted configuration
-  summary, recent app-owned runtime events, and non-content bridge health.
-- The bundle excludes raw audio and all user-authored or provider-returned text.
+- Share Diagnostic File creates one readable UTF-8 text file only after the
+  user taps the action, then presents the system share sheet. HoldType never
+  selects a recipient or uploads the file automatically.
+- The file contains app/build/device metadata, recent app-owned runtime events,
+  locally delivered crash or hang diagnostics, and non-content bridge health.
+- The file excludes raw audio and all user-authored or provider-returned text.
 - When no events exist, Diagnostics shows an honest empty state.
+- When no crash diagnostics have been delivered, Diagnostics says that no
+  crash evidence has been delivered to HoldType; it must not claim the app has
+  never crashed.
 - When the app cannot launch, support recovery uses Xcode device logs,
   TestFlight/App Store crash diagnostics, or a user-provided system diagnostic;
   the in-app UI does not promise access to those artifacts.
@@ -66,6 +74,8 @@ can browse system-owned iOS crash files.
 - The default cap is seven days and five megabytes.
 - A diagnostic bundle includes at most the most recent 48 hours of runtime
   events.
+- Locally delivered crash and hang diagnostics use the same seven-day age cap
+  and are included only by explicit Share Diagnostic File.
 - Pruning happens during normal app use and affects only HoldType-owned logs.
 - Export artifacts are created only for an explicit export and remain visible
   to the user through the chosen destination or system share flow.
@@ -83,6 +93,8 @@ can browse system-owned iOS crash files.
 - An insertion snapshot may contain short-lived accepted text under its own
   contract, but Diagnostics must never include that field.
 - Diagnostics never mutates system-owned crash or diagnostic files.
+- MetricKit subscription and local ingestion perform no network upload and do
+  not replace TestFlight or App Store crash collection.
 - Verbose/debug logging is opt-in, bounded, and returned to the default level
   after investigation.
 
@@ -101,13 +113,15 @@ can browse system-owned iOS crash files.
 
 ## Route / state / data implications
 
-- Diagnostics is an app Settings route, not a permission or History subsection.
-- Runtime logs live in an app-owned cache location with Data Protection and no
-  cloud sync.
+- Diagnostics is an app Settings route reached from the final Development
+  section, not a permission, History, or top-level tab destination.
+- Runtime logs live in the shared App Group cache so the containing app can
+  export separate app and keyboard-extension event streams. Each process owns
+  its own files and never appends to the other process's active file.
+- Runtime log and delivered-diagnostic files use Data Protection and are
+  excluded from cloud backup.
 - Diagnostic export is derived local data and is never a keyboard bridge
   record.
-- MetricKit or automatic crash-diagnostic processing requires a future spec
-  update before product claims or background ingestion are added.
 
 ## Verification mapping
 
@@ -115,14 +129,11 @@ can browse system-owned iOS crash files.
   and 48-hour export selection with fake storage and clocks.
 - Test metadata-only export, failed export cleanup, missing logs, corrupt logs,
   and expired/corrupt bridge health summaries.
+- Test MetricKit payload persistence, seven-day pruning, empty delivery, and
+  diagnostic-file inclusion with content-free fixtures.
 - Test every forbidden field against recent-event copy and bundle contents.
 - Test that arbitrary string metadata cannot enter the portable event API and
   that representative forbidden values never survive formatting or export.
 - Verify that normal diagnostics paths perform no Keychain, microphone,
   provider, or network access.
 - Use manual simulator/device QA for system share and file-export presentation.
-
-## Unknowns requiring confirmation
-
-- Whether MetricKit diagnostics should be added after the first TestFlight
-  dogfood cycle.

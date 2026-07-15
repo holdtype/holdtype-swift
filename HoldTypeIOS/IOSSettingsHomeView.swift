@@ -106,6 +106,8 @@ struct IOSSettingsHomeView: View {
             }
         case .usageEstimate:
             IOSUsageEstimateView()
+        case .diagnostics:
+            IOSDiagnosticsView()
         case .keyboardSetup:
             IOSKeyboardSetupView(practiceText: $practiceText)
         case .openAI:
@@ -385,6 +387,19 @@ private struct IOSSettingsSummaryList: View {
                 }
                 .accessibilityIdentifier(
                     "ios.settings.usage-estimate.row"
+                )
+            }
+
+            Section("Development") {
+                NavigationLink(value: IOSSettingsRoute.diagnostics) {
+                    IOSSettingsDestinationLabel(
+                        title: "Diagnostics & Support",
+                        summary: "Logs, crash data, and export",
+                        systemImage: "wrench.and.screwdriver"
+                    )
+                }
+                .accessibilityIdentifier(
+                    "ios.settings.diagnostics.row"
                 )
             }
 

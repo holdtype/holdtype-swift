@@ -3067,7 +3067,8 @@ private final class WorkflowFixture {
                     }
                     try await Task.sleep(for: duration)
                 },
-                makeUUID: { UUID() }
+                makeUUID: { UUID() },
+                recordDiagnostic: { _ in }
             )
         )
     }

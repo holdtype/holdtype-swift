@@ -307,7 +307,10 @@ final class IOSForegroundVoiceRuntime {
             sleep: { duration in
                 try await Task.sleep(for: duration)
             },
-            makeUUID: { UUID() }
+            makeUUID: { UUID() },
+            recordDiagnostic: { event in
+                IOSRuntimeDiagnosticsStore.app.record(event)
+            }
         )
         let workflow = factories.makeWorkflow(dependencies)
         self.workflow = workflow
