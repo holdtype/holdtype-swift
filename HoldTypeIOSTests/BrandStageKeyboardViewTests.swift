@@ -80,6 +80,18 @@ struct BrandStageKeyboardViewTests {
             ) == nil
         )
         let microphone = try button("keyboard.brand-stage.voice", in: view)
+        let activity = try #require(
+            view.descendant(
+                KeyboardVoiceActivityIndicatorView.self,
+                identifier: "keyboard.brand-stage.voice-indicator"
+            )
+        )
+        let logo = try #require(
+            view.descendant(
+                UIImageView.self,
+                identifier: "keyboard.brand-stage.logo"
+            )
+        )
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(translate.isEnabled)
         #expect(
@@ -90,6 +102,18 @@ struct BrandStageKeyboardViewTests {
         #expect(improve.isEnabled)
         #expect(isEffectivelyHidden(quickInsertStage))
         #expect(!isEffectivelyHidden(microphone))
+        #expect(microphone.bounds.width >= 127.9)
+        #expect(microphone.bounds.height >= 127.9)
+        #expect(activity.phase == .ready)
+        #expect(isEffectivelyHidden(logo))
+        #expect(
+            frame(of: translate, in: view).minX
+                - frame(of: quickInsertToggle, in: view).maxX >= 3.9
+        )
+        #expect(
+            frame(of: improve, in: view).minX
+                - frame(of: translate, in: view).maxX >= 3.9
+        )
 
         quickInsertToggle.sendActions(for: .touchUpInside)
         layout(view)
@@ -225,6 +249,14 @@ struct BrandStageKeyboardViewTests {
         #expect(toggle.accessibilityLabel == "Open Quick Insert")
         let microphone = try button("keyboard.brand-stage.voice", in: view)
         #expect(!isEffectivelyHidden(microphone))
+        #expect(microphone.accessibilityValue == "Listening")
+        let activity = try #require(
+            view.descendant(
+                KeyboardVoiceActivityIndicatorView.self,
+                identifier: "keyboard.brand-stage.voice-indicator"
+            )
+        )
+        #expect(activity.phase == .listening)
     }
 
     @Test func narrowPhoneKeepsEveryEditingControlAtLeast44PointsWide()
@@ -414,9 +446,16 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.recovery-detail"
             )
         )
+        let logo = try #require(
+            view.descendant(
+                UIImageView.self,
+                identifier: "keyboard.brand-stage.logo"
+            )
+        )
 
         #expect(isEffectivelyHidden(microphone))
         #expect(!isEffectivelyHidden(recovery))
+        #expect(!isEffectivelyHidden(logo))
         #expect(title.text == "Start a voice session")
         #expect(
             detail.text
@@ -424,38 +463,56 @@ struct BrandStageKeyboardViewTests {
         )
     }
 
-    @Test func startingAndProcessingUseProgressInsteadOfAnActiveMicrophone()
+    @Test func startingUsesProgressAndProcessingUsesRecognitionActivity()
         throws {
         let view = makeView(width: 393)
 
-        for stage: KeyboardVoiceStagePresentation in [.starting, .processing] {
-            view.render(
-                presentation(
-                    status: stage == .starting ? .starting : .processing,
-                    voiceStage: stage,
-                    cancelIsVisible: true
-                )
+        view.render(
+            presentation(
+                status: .starting,
+                voiceStage: .starting,
+                cancelIsVisible: true
             )
-            layout(view)
+        )
+        layout(view)
 
-            let microphone = try button(
-                "keyboard.brand-stage.voice",
-                in: view
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
+        let progress = try #require(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.progress"
             )
-            let progress = try #require(
-                view.descendant(
-                    UILabel.self,
-                    identifier: "keyboard.brand-stage.progress"
-                )
+        )
+        let progressCancel = try button(
+            "keyboard.brand-stage.processing-cancel",
+            in: view
+        )
+        #expect(isEffectivelyHidden(microphone))
+        #expect(!isEffectivelyHidden(progress))
+        #expect(!isEffectivelyHidden(progressCancel))
+
+        view.render(
+            presentation(
+                status: .processing,
+                voiceStage: .processing,
+                cancelIsVisible: true
             )
-            let cancel = try button(
-                "keyboard.brand-stage.processing-cancel",
-                in: view
+        )
+        layout(view)
+
+        let activity = try #require(
+            view.descendant(
+                KeyboardVoiceActivityIndicatorView.self,
+                identifier: "keyboard.brand-stage.voice-indicator"
             )
-            #expect(isEffectivelyHidden(microphone))
-            #expect(!isEffectivelyHidden(progress))
-            #expect(!isEffectivelyHidden(cancel))
-        }
+        )
+        let cancel = try button("keyboard.brand-stage.cancel", in: view)
+        #expect(!isEffectivelyHidden(microphone))
+        #expect(!microphone.isEnabled)
+        #expect(microphone.accessibilityValue == "Recognizing")
+        #expect(activity.phase == .recognizing)
+        #expect(isEffectivelyHidden(progress))
+        #expect(!isEffectivelyHidden(cancel))
     }
 
     @Test func fullAccessRecoveryEmphasizesTheCompleteRouteAndKeepsShortcutSecondary()
@@ -526,21 +583,18 @@ struct BrandStageKeyboardViewTests {
                     in: view
                 )
 
-                #expect(
-                    abs(frame(of: logo, in: view).midX - view.bounds.midX) < 1
-                )
                 #expect(logo.bounds.width >= 24)
                 #expect(logo.bounds.height >= 24)
-                #expect(!isEffectivelyHidden(logo))
+                #expect(isEffectivelyHidden(logo))
                 #expect(!isEffectivelyHidden(voice))
-                #expect(voice.bounds.width >= 79.9)
-                #expect(voice.bounds.height >= 79.9)
+                #expect(voice.bounds.width >= 87.9)
+                #expect(voice.bounds.height >= 87.9)
                 #expect(globe.isHidden == !showsGlobe)
 
                 let visibleIdentifiers = compactControlIdentifiers(
                     showsGlobe: showsGlobe
                 )
-                var boundedViews: [UIView] = [logo, voice]
+                var boundedViews: [UIView] = [voice]
                 for identifier in visibleIdentifiers {
                     let control = try button(identifier, in: view)
                     #expect(control.bounds.width >= 43.9)

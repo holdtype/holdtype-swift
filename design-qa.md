@@ -70,3 +70,36 @@ No actionable P0, P1, or P2 differences remain.
 - [x] No unresolved P0/P1/P2 visual findings.
 
 final result: passed
+
+---
+
+# iOS Keyboard Activity Design QA
+
+Date: 2026-07-15
+
+## Visual source
+
+![Selected first variant](docs/qa/runs/assets/ios-keyboard-activity-2026-07-15/selected-reference.png)
+
+## Implementation capture
+
+![Ready state](docs/qa/runs/assets/ios-keyboard-activity-2026-07-15/ready-light.png)
+
+## Comparison
+
+- The current three top-left actions remain separate 44-point buttons with a
+  visible 4-point gap. They do not read as one segmented selection control.
+- The top-center logo is absent in Ready, leaving the same quiet space as the
+  selected reference.
+- The activity control is centered independently of the editing row. Its
+  128-point container produces an approximately 117-point visible orbit, which
+  matches the selected reference's proportion on a 393-point keyboard.
+- The existing `Latest` action and Globe, Space, Delete, and Return geometry are
+  unchanged.
+- The actual extension was also inspected in the Simulator recovery state with
+  Full Access off. The activity was absent and the small HoldType mark returned
+  above the recovery copy as specified.
+- Compact-height tests retain an 88-point activity control and keep all
+  interactive controls inside the keyboard and safe-area bounds.
+
+final result: passed

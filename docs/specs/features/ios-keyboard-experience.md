@@ -54,26 +54,30 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: a compact three-button utility group on the left, the HoldType
-   mark centered without any status text, and `Latest` on the right. The group
-   contains Quick Insert, Translate, and Improve actions represented by the
-   standard smile, translation, and magic-wand symbols.
+1. Top rail: a compact group of three separate 44-point utility buttons on the
+   left and `Latest` on the right. The group contains Quick Insert, Translate,
+   and Improve actions represented by the standard smile, translation, and
+   magic-wand symbols. The buttons use one visual treatment and a small visible
+   gap; they do not become a mutually exclusive segmented control.
 2. Workspace: either the Voice stage or Quick Insert. One toggle tap replaces
    Voice directly with Quick Insert; there is no intermediate launcher, task
    picker, menu, or containing-app transition. The close icon restores the
    exact Voice, progress, or recovery presentation underneath.
 3. Editing row: Globe, wide Space, Delete, and adaptive Return.
 
-The HoldType mark is identity only. No state label appears under or beside it.
+The top center stays empty during Ready, Starting, Listening, Processing, and
+Quick Insert. The HoldType mark appears there only while the Voice workspace is
+replaced by a recovery message. No state label appears under or beside it.
 Ready, unavailable, listening, starting, processing, and failure information
 belongs exclusively to the voice stage so the interface never repeats the same
 state in two places.
 
 The approved Brand Stage reference remains the geometry source of truth. On
 iPhone the surface uses approximately 18-point side insets, 8-point editing-key
-gaps, an approximately 80-point voice circle, and an editing-key relationship
-close to `Globe : Space : Delete : Return` of `1 : 4.35 : 1.15 : 1.25`.
-Every action is at least 44 by 44 points.
+gaps, an approximately 128-point Voice activity control in regular-height
+portrait and an approximately 88-point control in compact-height landscape,
+and an editing-key relationship close to `Globe : Space : Delete : Return` of
+`1 : 4.35 : 1.15 : 1.25`. Every action is at least 44 by 44 points.
 
 Compact-height landscape may use the existing two-column reflow. Wider iPad
 layouts keep a centered maximum content width. V1.1 release qualification is
@@ -181,12 +185,26 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 
 - With a valid session, the first microphone tap requests Start for one new
   request identifier.
+- Ready uses the same full-color cyan HoldType recording artwork as the
+  containing app, scaled to the keyboard workspace and presented statically as
+  the primary Start action. It contains no microphone glyph, side waveforms,
+  duplicate logo, or visible Ready label.
 - The app acknowledges actual capture before the keyboard presents
   `Listening…`; an optimistic or fabricated listening state is forbidden.
+- Listening keeps the recording artwork in the same location and adds the same
+  restrained orbit rotation and pulse as the containing app. Tapping that
+  activity requests Finish. A visible Cancel action remains separate and does
+  not shift the activity away from the workspace center.
 - A second tap requests Finish. A visible Cancel action requests cancellation
   and never submits the cancelled audio.
-- After actual capture stops, the keyboard presents `Processing…` while the
-  existing app-owned OpenAI and text-rule pipeline runs.
+- Starting uses a native bounded progress presentation until real capture is
+  acknowledged; it never shows the recording artwork optimistically.
+- After actual capture stops, the keyboard replaces the recording artwork with
+  the containing app's purple recognition artwork and slower orbit animation
+  while the existing app-owned OpenAI and text-rule pipeline runs. The activity
+  stays centered and unavailable as a primary action while processing.
+- Recovery messages replace the activity completely and restore the small
+  HoldType mark in the top center as a quiet identity cue.
 - If the same live keyboard request still owns the active host context, one
   accepted result performs exactly one `insertText` call.
 - If the extension is dismissed, restarted, changes host context, loses the

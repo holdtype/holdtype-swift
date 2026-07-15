@@ -13,9 +13,9 @@ struct BrandStageKeyboardPresentation: Equatable {
 private extension KeyboardVoiceStagePresentation {
     var isVoice: Bool {
         switch self {
-        case .ready, .listening:
+        case .ready, .listening, .processing:
             true
-        case .recovery, .starting, .processing:
+        case .recovery, .starting:
             false
         }
     }
@@ -29,9 +29,9 @@ private extension KeyboardVoiceStagePresentation {
 
     var isProgress: Bool {
         switch self {
-        case .starting, .processing:
+        case .starting:
             true
-        case .recovery, .ready, .listening:
+        case .recovery, .ready, .listening, .processing:
             false
         }
     }
@@ -74,9 +74,7 @@ final class BrandStageKeyboardView: UIView {
     private let latestButton = UIButton(type: .system)
     private let logoImageView = UIImageView()
     private let stageContainer = UIView()
-    private let voiceStage = UIStackView()
-    private let voiceTitleLabel = UILabel()
-    private let voiceContentStack = UIStackView()
+    private let voiceStage = UIView()
     private let recoveryStage = UIStackView()
     private let recoveryTitleLabel = UILabel()
     private let recoveryDetailLabel = UILabel()
@@ -96,9 +94,11 @@ final class BrandStageKeyboardView: UIView {
     private let deleteButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
     private let microphoneView = UIButton(type: .system)
+    private let voiceActivityIndicator = KeyboardVoiceActivityIndicatorView()
     private let cancelButton = UIButton(type: .system)
-    private let microphoneImageView = UIImageView()
-    private let waveformStack = UIStackView()
+    private var microphoneWidthConstraint: NSLayoutConstraint?
+    private var microphoneHeightConstraint: NSLayoutConstraint?
+    private var stageMinimumHeightConstraint: NSLayoutConstraint?
     private var preferredHeightConstraint: NSLayoutConstraint?
     private var logoWidthConstraint: NSLayoutConstraint?
     private var logoHeightConstraint: NSLayoutConstraint?
@@ -195,6 +195,7 @@ final class BrandStageKeyboardView: UIView {
         cancelIsVisible: Bool
     ) {
         microphoneView.isEnabled = false
+        microphoneView.accessibilityValue = nil
         cancelButton.isHidden = true
         cancelButton.isEnabled = false
         progressCancelButton.isHidden = true
@@ -212,12 +213,14 @@ final class BrandStageKeyboardView: UIView {
             recoveryStage.accessibilityValue = recovery.instruction
         case .ready:
             microphoneView.isEnabled = true
-            microphoneImageView.image = UIImage(systemName: "mic.fill")
+            voiceActivityIndicator.render(.ready)
             microphoneView.accessibilityLabel = "Start keyboard dictation"
+            microphoneView.accessibilityValue = "Ready"
         case .listening:
             microphoneView.isEnabled = true
-            microphoneImageView.image = UIImage(systemName: "stop.fill")
+            voiceActivityIndicator.render(.listening)
             microphoneView.accessibilityLabel = "Finish keyboard dictation"
+            microphoneView.accessibilityValue = "Listening"
             cancelButton.isHidden = !cancelIsVisible
             cancelButton.isEnabled = cancelIsVisible
         case .starting:
@@ -226,10 +229,11 @@ final class BrandStageKeyboardView: UIView {
             progressCancelButton.isHidden = !cancelIsVisible
             progressCancelButton.isEnabled = cancelIsVisible
         case .processing:
-            progressTitleLabel.text = "Processing…"
-            progressStage.accessibilityLabel = "Processing keyboard dictation"
-            progressCancelButton.isHidden = !cancelIsVisible
-            progressCancelButton.isEnabled = cancelIsVisible
+            voiceActivityIndicator.render(.recognizing)
+            microphoneView.accessibilityLabel = "Processing keyboard dictation"
+            microphoneView.accessibilityValue = "Recognizing"
+            cancelButton.isHidden = !cancelIsVisible
+            cancelButton.isEnabled = cancelIsVisible
         }
     }
 
@@ -241,6 +245,8 @@ final class BrandStageKeyboardView: UIView {
             || !renderedVoiceStage.isRecovery
         progressStage.isHidden = quickInsertIsPresented
             || !renderedVoiceStage.isProgress
+        logoImageView.isHidden = quickInsertIsPresented
+            || !renderedVoiceStage.isRecovery
 
         stageContainer.accessibilityValue = quickInsertIsPresented
             ? "Quick Insert"
@@ -292,14 +298,15 @@ final class BrandStageKeyboardView: UIView {
         bodyStack.axis = isCompactPhone ? .horizontal : .vertical
         bodyStack.spacing = isCompactPhone ? 8 : 10
         commandStack.spacing = isCompactPhone ? 8 : 10
-        voiceStage.spacing = isCompactPhone ? 0 : 6
-        voiceTitleLabel.isHidden = isCompactPhone
         quickInsertStage.spacing = isCompactPhone ? 6 : 8
         quickInsertEmojiPrimaryScrollView.isHidden = isCompactPhone
         quickInsertEmojiSecondaryScrollView.isHidden = isCompactPhone
         quickInsertEmojiCompactScrollView.isHidden = !isCompactPhone
         logoWidthConstraint?.constant = isCompactPhone ? 28 : 34
         logoHeightConstraint?.constant = isCompactPhone ? 28 : 34
+        microphoneWidthConstraint?.constant = isCompactPhone ? 88 : 128
+        microphoneHeightConstraint?.constant = isCompactPhone ? 88 : 128
+        stageMinimumHeightConstraint?.constant = isCompactPhone ? 96 : 128
         rootTopConstraint?.constant = isCompactPhone ? 8 : 10
         rootBottomConstraint?.constant = isCompactPhone ? -8 : -16
 
@@ -355,8 +362,9 @@ final class BrandStageKeyboardView: UIView {
             stageContainer.addSubview(stageView)
         }
         let stageMinimumHeight = stageContainer.heightAnchor.constraint(
-            greaterThanOrEqualToConstant: 96
+            greaterThanOrEqualToConstant: 128
         )
+        stageMinimumHeightConstraint = stageMinimumHeight
         var stageConstraints: [NSLayoutConstraint] = [stageMinimumHeight]
         for stageView in stageViews {
             let fillsAvailableWidth = stageView.widthAnchor.constraint(
@@ -469,33 +477,27 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func makeTopRail() -> UIView {
-        configureKey(
+        configureUtilityKey(
             quickInsertButton,
             systemImage: "face.smiling",
             accessibilityLabel: "Open Quick Insert"
         )
-        quickInsertButton.accessibilityTraits.remove(.keyboardKey)
-        quickInsertButton.accessibilityTraits.insert(.button)
         quickInsertButton.accessibilityIdentifier =
             "keyboard.brand-stage.quick-insert-toggle"
 
-        configureKey(
+        configureUtilityKey(
             translateButton,
             systemImage: "character.bubble",
             accessibilityLabel: "Translate dictation"
         )
-        translateButton.accessibilityTraits.remove(.keyboardKey)
-        translateButton.accessibilityTraits.insert(.button)
         translateButton.accessibilityIdentifier =
             "keyboard.brand-stage.translate"
 
-        configureKey(
+        configureUtilityKey(
             improveButton,
             systemImage: "wand.and.stars",
             accessibilityLabel: "Improve dictation"
         )
-        improveButton.accessibilityTraits.remove(.keyboardKey)
-        improveButton.accessibilityTraits.insert(.button)
         improveButton.accessibilityIdentifier =
             "keyboard.brand-stage.improve"
 
@@ -539,8 +541,8 @@ final class BrandStageKeyboardView: UIView {
         utilityStack.translatesAutoresizingMaskIntoConstraints = false
         utilityStack.axis = .horizontal
         utilityStack.alignment = .center
-        utilityStack.distribution = .fillEqually
-        utilityStack.spacing = 0
+        utilityStack.distribution = .fill
+        utilityStack.spacing = 4
         utilityStack.accessibilityIdentifier =
             "keyboard.brand-stage.utility-actions"
         topLeadingContainer.addSubview(utilityStack)
@@ -580,7 +582,7 @@ final class BrandStageKeyboardView: UIView {
                 equalTo: rail.leadingAnchor
             ),
             topLeadingContainer.widthAnchor.constraint(
-                equalToConstant: 132
+                equalToConstant: 140
             ),
             topLeadingContainer.centerYAnchor.constraint(
                 equalTo: rail.centerYAnchor
@@ -607,59 +609,49 @@ final class BrandStageKeyboardView: UIView {
 
     private func configureVoiceStage() {
         voiceStage.translatesAutoresizingMaskIntoConstraints = false
-        voiceStage.axis = .vertical
-        voiceStage.alignment = .fill
-        voiceStage.distribution = .fill
-        voiceStage.spacing = 6
+        microphoneView.translatesAutoresizingMaskIntoConstraints = false
+        voiceActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        voiceStage.addSubview(microphoneView)
+        voiceStage.addSubview(cancelButton)
+        microphoneView.addSubview(voiceActivityIndicator)
 
-        voiceTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
-            .scaledFont(
-                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                maximumPointSize: 20
-            )
-        voiceTitleLabel.adjustsFontForContentSizeCategory = true
-        voiceTitleLabel.textAlignment = .center
-        voiceTitleLabel.text = "Voice"
-        voiceTitleLabel.accessibilityIdentifier =
-            "keyboard.brand-stage.voice-title"
-
-        voiceContentStack.axis = .horizontal
-        voiceContentStack.alignment = .center
-        voiceContentStack.distribution = .fill
-        voiceContentStack.spacing = 12
-
-        configureWaveform()
-        let leftWaveform = waveformStack
-        let rightWaveform = mirroredWaveform()
-        voiceContentStack.addArrangedSubview(leftWaveform)
-        voiceContentStack.addArrangedSubview(microphoneView)
-        voiceContentStack.addArrangedSubview(rightWaveform)
-        voiceContentStack.addArrangedSubview(cancelButton)
-        voiceStage.addArrangedSubview(voiceTitleLabel)
-        voiceStage.addArrangedSubview(voiceContentStack)
-        leftWaveform.widthAnchor.constraint(greaterThanOrEqualToConstant: 96)
-            .isActive = true
-        rightWaveform.widthAnchor.constraint(equalTo: leftWaveform.widthAnchor)
-            .isActive = true
-        microphoneView.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        microphoneView.heightAnchor.constraint(equalToConstant: 80).isActive = true
-
-        microphoneView.layer.cornerRadius = 40
-        microphoneView.layer.cornerCurve = .continuous
-        microphoneView.layer.borderWidth = 2
         microphoneView.layer.masksToBounds = false
         microphoneView.isUserInteractionEnabled = true
         microphoneView.isAccessibilityElement = true
+        microphoneView.accessibilityTraits.insert(.button)
         microphoneView.accessibilityIdentifier = "keyboard.brand-stage.voice"
-        microphoneImageView.translatesAutoresizingMaskIntoConstraints = false
-        microphoneImageView.image = UIImage(systemName: "mic.fill")
-        microphoneImageView.contentMode = .scaleAspectFit
-        microphoneView.addSubview(microphoneImageView)
+        voiceActivityIndicator.accessibilityIdentifier =
+            "keyboard.brand-stage.voice-indicator"
+        let microphoneWidth = microphoneView.widthAnchor.constraint(
+            equalToConstant: 128
+        )
+        let microphoneHeight = microphoneView.heightAnchor.constraint(
+            equalToConstant: 128
+        )
+        microphoneWidthConstraint = microphoneWidth
+        microphoneHeightConstraint = microphoneHeight
         NSLayoutConstraint.activate([
-            microphoneImageView.centerXAnchor.constraint(equalTo: microphoneView.centerXAnchor),
-            microphoneImageView.centerYAnchor.constraint(equalTo: microphoneView.centerYAnchor),
-            microphoneImageView.widthAnchor.constraint(equalToConstant: 34),
-            microphoneImageView.heightAnchor.constraint(equalToConstant: 34),
+            microphoneView.centerXAnchor.constraint(
+                equalTo: voiceStage.centerXAnchor
+            ),
+            microphoneView.centerYAnchor.constraint(
+                equalTo: voiceStage.centerYAnchor
+            ),
+            microphoneWidth,
+            microphoneHeight,
+            voiceActivityIndicator.leadingAnchor.constraint(
+                equalTo: microphoneView.leadingAnchor
+            ),
+            voiceActivityIndicator.trailingAnchor.constraint(
+                equalTo: microphoneView.trailingAnchor
+            ),
+            voiceActivityIndicator.topAnchor.constraint(
+                equalTo: microphoneView.topAnchor
+            ),
+            voiceActivityIndicator.bottomAnchor.constraint(
+                equalTo: microphoneView.bottomAnchor
+            ),
         ])
 
         var cancelConfiguration = UIButton.Configuration.bordered()
@@ -671,6 +663,14 @@ final class BrandStageKeyboardView: UIView {
             "keyboard.brand-stage.cancel"
         cancelButton.widthAnchor.constraint(equalToConstant: 72).isActive = true
         cancelButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        NSLayoutConstraint.activate([
+            cancelButton.trailingAnchor.constraint(
+                equalTo: voiceStage.trailingAnchor
+            ),
+            cancelButton.centerYAnchor.constraint(
+                equalTo: voiceStage.centerYAnchor
+            ),
+        ])
     }
 
     private func configureRecoveryStage() {
@@ -981,40 +981,6 @@ final class BrandStageKeyboardView: UIView {
         return editingRow
     }
 
-    private func configureWaveform() {
-        waveformStack.axis = .horizontal
-        waveformStack.alignment = .center
-        waveformStack.distribution = .equalCentering
-        waveformStack.spacing = 3
-        for height in Self.waveformHeights {
-            waveformStack.addArrangedSubview(makeWaveformBar(height: height))
-        }
-    }
-
-    private func mirroredWaveform() -> UIStackView {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.distribution = .equalCentering
-        stack.spacing = 3
-        for height in Self.waveformHeights.reversed() {
-            stack.addArrangedSubview(makeWaveformBar(height: height))
-        }
-        return stack
-    }
-
-    private func makeWaveformBar(height: CGFloat) -> UIView {
-        let bar = UIView()
-        bar.translatesAutoresizingMaskIntoConstraints = false
-        bar.backgroundColor = Self.waveformColor
-        bar.layer.cornerRadius = 1
-        NSLayoutConstraint.activate([
-            bar.widthAnchor.constraint(equalToConstant: 2),
-            bar.heightAnchor.constraint(equalToConstant: height),
-        ])
-        return bar
-    }
-
     private func configureInteractions() {
         quickInsertButton.addTarget(
             self,
@@ -1195,6 +1161,25 @@ final class BrandStageKeyboardView: UIView {
         button.accessibilityTraits.insert(.button)
     }
 
+    private func configureUtilityKey(
+        _ button: UIButton,
+        systemImage: String,
+        accessibilityLabel: String
+    ) {
+        configureKey(
+            button,
+            systemImage: systemImage,
+            accessibilityLabel: accessibilityLabel
+        )
+        var configuration = button.configuration
+        configuration?.contentInsets = .zero
+        configuration?.preferredSymbolConfigurationForImage =
+            UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        button.configuration = configuration
+        button.accessibilityTraits.remove(.keyboardKey)
+        button.accessibilityTraits.insert(.button)
+    }
+
     private func applyAppearance() {
         backgroundColor = Self.keyboardBackground
         layer.borderColor = Self.keyboardBorder.resolvedColor(
@@ -1206,22 +1191,7 @@ final class BrandStageKeyboardView: UIView {
         recoveryFollowUpLabel.textColor = Self.statusForeground
         recoveryShortcutLabel.textColor = Self.statusForeground
         progressTitleLabel.textColor = Self.keyForeground
-        voiceTitleLabel.textColor = Self.keyForeground
         progressIndicator.color = Self.voiceForeground
-        microphoneView.backgroundColor = Self.microphoneBackground
-        microphoneImageView.tintColor = Self.voiceForeground
-        microphoneView.layer.borderColor = Self.microphoneBorder.resolvedColor(
-            with: traitCollection
-        ).cgColor
-        microphoneView.layer.shadowColor = Self.microphoneGlow.resolvedColor(
-            with: traitCollection
-        ).cgColor
-        microphoneView.layer.shadowOpacity = traitCollection.userInterfaceStyle
-            == .dark ? 0.34 : 0.24
-        microphoneView.layer.shadowOffset = .zero
-        microphoneView.layer.shadowRadius = 8
-        let contrast = UIAccessibility.isDarkerSystemColorsEnabled
-        microphoneView.layer.borderWidth = contrast ? 3 : 2
         updateKeyAppearance(in: self)
         updateQuickInsertButtonPresentation()
         setNeedsDisplay()
@@ -1335,11 +1305,11 @@ final class BrandStageKeyboardView: UIView {
 
     private var activeVoiceAccessibilityTarget: UIView {
         switch renderedVoiceStage {
-        case .ready, .listening:
-            voiceTitleLabel
+        case .ready, .listening, .processing:
+            microphoneView
         case .recovery:
             recoveryStage
-        case .starting, .processing:
+        case .starting:
             progressStage
         }
     }
@@ -1444,36 +1414,10 @@ final class BrandStageKeyboardView: UIView {
             : UIColor(red: 0.30, green: 0.33, blue: 0.42, alpha: 1)
     }
 
-    private static let waveformColor = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.55, green: 0.63, blue: 0.88, alpha: 0.72)
-            : UIColor(red: 0.37, green: 0.45, blue: 0.78, alpha: 0.58)
-    }
-
-    private static let microphoneBackground = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.12, green: 0.15, blue: 0.29, alpha: 1)
-            : UIColor(red: 0.955, green: 0.965, blue: 1, alpha: 1)
-    }
-
-    private static let microphoneBorder = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.52, green: 0.30, blue: 0.95, alpha: 0.48)
-            : UIColor(red: 0.32, green: 0.40, blue: 0.91, alpha: 0.62)
-    }
-
     private static let voiceForeground = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.91, green: 0.92, blue: 0.98, alpha: 1)
             : UIColor(red: 0.30, green: 0.37, blue: 0.70, alpha: 1)
     }
 
-    private static let microphoneGlow = UIColor { _ in
-        UIColor(red: 0.38, green: 0.34, blue: 0.95, alpha: 1)
-    }
-
-    private static let waveformHeights: [CGFloat] = [
-        3, 4, 5, 6, 8, 10, 14, 20, 28, 36, 24,
-        30, 22, 18, 16, 12, 9, 7, 5, 4, 3,
-    ]
 }
