@@ -254,7 +254,7 @@ sheet itself contains no setup logic, recorder ownership, or provider code.
 | KBD-FLOW-5 | Keyboard reconnection and state UX | A recreated extension reconnects by session, attempt, and document identity with no manual instructions | Completed 2026-07-15 |
 | KBD-FLOW-6 | Finish, exactly-once delivery, and warm reuse | Finish processes once, safe output inserts once, and an unexpired session returns to Ready | Completed 2026-07-15 |
 | KBD-FLOW-7 | Legacy-copy cleanup and product completion | Manual-session recovery copy is absent and ordinary Voice remains unchanged | Completed 2026-07-15 |
-| KBD-FLOW-8 | Signed-device and TestFlight qualification | Full physical matrix passes or an explicit app-only release decision is recorded | Pending |
+| KBD-FLOW-8 | Signed-device and TestFlight qualification | Full physical matrix passes or an explicit app-only release decision is recorded | In progress; signed build and install passed 2026-07-15, locked-device runtime matrix pending |
 
 ## KBD-FLOW-1 - Isolated Keyboard Handoff Sheet
 
