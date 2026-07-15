@@ -60,17 +60,20 @@ nonisolated struct IOSForegroundVoiceWorkflowStartRequest: Sendable {
     let outputIntent: DictationOutputIntent
     let sceneLease: IOSVoiceSceneStartLease
     let forcesTextCorrection: Bool
+    let clearsDraftOnStart: Bool
     let draftInsertionMode: IOSVoiceDraftInsertionMode
 
     init(
         outputIntent: DictationOutputIntent,
         sceneLease: IOSVoiceSceneStartLease,
         forcesTextCorrection: Bool = false,
+        clearsDraftOnStart: Bool = false,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace
     ) {
         self.outputIntent = outputIntent
         self.sceneLease = sceneLease
         self.forcesTextCorrection = forcesTextCorrection
+        self.clearsDraftOnStart = clearsDraftOnStart
         self.draftInsertionMode = draftInsertionMode
     }
 }
@@ -488,6 +491,7 @@ struct IOSForegroundVoiceWorkflowDependencies {
         IOSForegroundVoiceWorkflowCredentialProof
     ) async -> Bool
     typealias StopHistoryPlayback = @Sendable () async -> Bool
+    typealias PrepareDraftForNewDictation = @MainActor @Sendable () async -> Bool
     typealias ActivateAudio = @MainActor @Sendable () throws ->
         IOSForegroundVoiceWorkflowAudioLease
     typealias PlayStartBoundary = @MainActor @Sendable (
@@ -534,6 +538,7 @@ struct IOSForegroundVoiceWorkflowDependencies {
     let revalidateCredential: RevalidateCredential
     let permission: IOSForegroundVoiceWorkflowPermissionClient
     let stopHistoryPlayback: StopHistoryPlayback
+    let prepareDraftForNewDictation: PrepareDraftForNewDictation
     let activateAudio: ActivateAudio
     let playStartBoundary: PlayStartBoundary
     let cancelStartBoundary: @MainActor @Sendable () -> Void
@@ -607,6 +612,7 @@ final class IOSForegroundVoiceWorkflow {
         let token: IOSForegroundVoiceWorkflowAttemptToken
         let origin: Origin
         let forcesTextCorrection: Bool
+        let clearsDraftOnStart: Bool
         let draftInsertionMode: IOSVoiceDraftInsertionMode
         var recordingAttemptID: UUID?
         var stopContinuation: CheckedContinuation<StopTrigger, Never>?
@@ -633,11 +639,13 @@ final class IOSForegroundVoiceWorkflow {
             token: IOSForegroundVoiceWorkflowAttemptToken,
             origin: Origin,
             forcesTextCorrection: Bool = false,
+            clearsDraftOnStart: Bool = false,
             draftInsertionMode: IOSVoiceDraftInsertionMode = .replace
         ) {
             self.token = token
             self.origin = origin
             self.forcesTextCorrection = forcesTextCorrection
+            self.clearsDraftOnStart = clearsDraftOnStart
             self.draftInsertionMode = draftInsertionMode
             switch origin {
             case .foreground:
@@ -805,6 +813,7 @@ final class IOSForegroundVoiceWorkflow {
                 outputIntent: action.outputIntent,
                 sceneLease: sceneLease,
                 forcesTextCorrection: action.forcesTextCorrection,
+                clearsDraftOnStart: action.clearsDraftOnStart,
                 draftInsertionMode: action.draftInsertionMode
             ),
             token: token,
@@ -852,6 +861,7 @@ final class IOSForegroundVoiceWorkflow {
             origin: .foreground(leaseOwner),
             token: token,
             forcesTextCorrection: request.forcesTextCorrection,
+            clearsDraftOnStart: request.clearsDraftOnStart,
             draftInsertionMode: request.draftInsertionMode,
             progress: progress
         )
@@ -1106,6 +1116,7 @@ final class IOSForegroundVoiceWorkflow {
         origin: Attempt.Origin,
         token: IOSForegroundVoiceWorkflowAttemptToken,
         forcesTextCorrection: Bool = false,
+        clearsDraftOnStart: Bool = false,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
         progress: @escaping IOSForegroundVoiceClient.Progress
     ) async -> IOSForegroundVoiceResolution {
@@ -1120,6 +1131,7 @@ final class IOSForegroundVoiceWorkflow {
             token: token,
             origin: origin,
             forcesTextCorrection: forcesTextCorrection,
+            clearsDraftOnStart: clearsDraftOnStart,
             draftInsertionMode: draftInsertionMode
         )
         activeAttempt = attempt
@@ -1317,6 +1329,16 @@ final class IOSForegroundVoiceWorkflow {
                 requireInitiatingScene: false
               ) else {
             return await blockedPreflight(failure: .operationFailed)
+        }
+
+        if attempt.clearsDraftOnStart {
+            guard await dependencies.prepareDraftForNewDictation() else {
+                return await blockedPreflight(failure: .draftClearFailed)
+            }
+            guard canContinueArming(
+                attempt,
+                requireInitiatingScene: false
+            ) else { return await blockedPreflight(failure: .unavailable) }
         }
 
         guard canContinueArming(

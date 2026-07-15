@@ -78,6 +78,24 @@ struct IOSVoiceDraftOwnerTests {
         }
     }
 
+    @Test func newDictationClearTreatsEmptyAsSuccessAndPreservesUndo()
+        async throws {
+        try await withRepository { repository in
+            let owner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await owner.refresh())
+            #expect(await owner.clearForNewDictation())
+            #expect(owner.text.isEmpty)
+
+            let old = try accepted(1, text: "Old")
+            #expect(await owner.appendAccepted(old))
+            #expect(await owner.clearForNewDictation())
+            #expect(owner.text.isEmpty)
+            #expect(owner.canUndo)
+            #expect(await owner.undo())
+            #expect(owner.text == "Old")
+        }
+    }
+
     @Test func meaningfulUndoRedoAndNewBranchHaveSessionLocalSemantics()
         async throws {
         try await withRepository { repository in

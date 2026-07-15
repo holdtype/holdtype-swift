@@ -240,7 +240,7 @@ struct IOSForegroundVoiceControllerTests {
         )
         let command = try voiceCommand(.startStandard, in: controller)
         let modes = IOSVoiceSessionModes(
-            appendsToDraft: true,
+            clearsDraftOnStart: true,
             translates: true,
             corrects: true
         )
@@ -271,6 +271,15 @@ struct IOSForegroundVoiceControllerTests {
             controller.presentation.phase == .inactive
         }
         #expect(controller.presentation.activeDraftInsertionMode == nil)
+    }
+
+    @Test func sessionModesDefaultToAutoClearOnly() {
+        let modes = IOSVoiceSessionModes()
+
+        #expect(modes.clearsDraftOnStart)
+        #expect(!modes.translates)
+        #expect(!modes.corrects)
+        #expect(modes.draftInsertionMode == .append)
     }
 
     @Test func foreignOrInactiveSceneCannotAcquireTheProcessStartLease()

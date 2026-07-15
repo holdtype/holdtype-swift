@@ -253,6 +253,9 @@ final class IOSForegroundVoiceRuntime {
             stopHistoryPlayback: {
                 await historyPlaybackArbitrator.stopAndDeactivate()
             },
+            prepareDraftForNewDictation: {
+                await voiceDraftOwner.clearForNewDictation()
+            },
             activateAudio: {
                 try audioOwner.activate()
             },

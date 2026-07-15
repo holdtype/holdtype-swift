@@ -1158,6 +1158,33 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(recorder.stopReasons == [.interrupted])
     }
 
+    @Test func autoClearFailurePreservesThePreAudioBoundary() async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            draftPreparationSucceeds: false,
+            preacceptConsent: true
+        )
+
+        let resolution = await fixture.workflow.start(
+            IOSForegroundVoiceWorkflowStartRequest(
+                outputIntent: .standard,
+                sceneLease: fixture.lease,
+                clearsDraftOnStart: true,
+                draftInsertionMode: .append
+            ),
+            token: IOSForegroundVoiceWorkflowAttemptToken(),
+            progress: { _ in }
+        )
+
+        #expect(resolution.failure == .draftClearFailed)
+        assertOrdered(
+            ["history-stop", "draft-prepare"],
+            in: fixture.events.values
+        )
+        #expect(!fixture.events.contains("audio-activate"))
+        #expect(!fixture.events.contains("recording-make"))
+    }
+
     @Test
     func outputOnlyRouteDuringArmingRevalidatesInputAndStartsRecorder()
         async throws {
@@ -2359,7 +2386,7 @@ struct IOSForegroundVoiceWorkflowTests {
             $0.action == .startStandard
         })
         let modes = IOSVoiceSessionModes(
-            appendsToDraft: true,
+            clearsDraftOnStart: true,
             translates: true,
             corrects: true
         )
@@ -2381,6 +2408,7 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(fixture.events.contains("provider-force-correction-true"))
         #expect(fixture.events.contains("provider-output-translate"))
         #expect(fixture.events.contains("provider-draft-insertion-append"))
+        #expect(fixture.events.count("draft-prepare") == 1)
     }
 
     @Test
@@ -2559,6 +2587,7 @@ private final class WorkflowFixture {
         credentialResolutions: [WorkflowCredentialResolution]? = nil,
         credentialRevalidation: [Bool] = [true],
         historyStops: Bool = true,
+        draftPreparationSucceeds: Bool = true,
         deactivateSceneDuringHistoryStop: Bool = false,
         startBoundarySucceeds: Bool = true,
         deactivateSceneAtStartBoundary: Bool = false,
@@ -2841,6 +2870,10 @@ private final class WorkflowFixture {
                         }
                     }
                     return historyStops
+                },
+                prepareDraftForNewDictation: {
+                    events.record("draft-prepare")
+                    return draftPreparationSucceeds
                 },
                 activateAudio: { [weak self] in
                     events.record("audio-activate")

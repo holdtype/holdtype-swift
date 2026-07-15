@@ -195,17 +195,18 @@ destination. History remains a separate tab and is not previewed on Voice.
   provider request.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
-- Standard dictation is always the primary action. Append, Auto Translate, and
-  Auto Correction are session-only toggles inside one compact `Auto` menu at
-  the leading edge below the Voice Draft editor. The menu contains
-  `Auto-Append`, `Auto-Translate`, and `Auto-Correct` without a heading or
-  explanatory copy; native checkmarks show the selected items and the trigger
-  shows the number selected. Flexible space separates it from the compact
-  labeled `Copy` action at the trailing edge. The existing one-shot Translate
-  and Correction actions, plus Undo and Redo, stay in the action row above;
-  Clear remains its only trailing action. All three settings start off on cold
-  launch, remain selected for subsequent containing-app attempts until turned
-  off, and never rewrite durable Settings.
+- Standard dictation is always the primary action. Auto Clear, Auto Translate,
+  and Auto Correction are session-only toggles inside one compact `Auto` menu
+  at the leading edge below the Voice Draft editor. The menu uses native
+  switches labeled `Clear Draft`, `Translate Result`, and `Correct Result`;
+  Clear Draft explains that it runs when a new dictation starts. The trigger
+  has no numeric badge. Flexible space separates it from the compact labeled
+  `Copy` action at the trailing edge. The existing one-shot Translate and
+  Correction actions, plus Undo and Redo, stay in the action row above; Clear
+  remains its only trailing action. Auto Clear starts on while Auto Translate
+  and Auto Correction start off on cold launch. All three remain selected for
+  subsequent containing-app attempts until changed and never rewrite durable
+  Settings.
   The top one-shot Translate and Correction actions operate on the complete
   current Draft without recording or transcription. They show the purple
   processing activity, replace the Draft atomically on success, participate in
@@ -218,10 +219,19 @@ destination. History remains a separate tab and is not previewed on Voice.
   correction, and translation apply in their documented order.
 - A successful result becomes Latest Result even if compact History append
   fails.
+- When Auto Clear is on, an admitted containing-app Start clears the confirmed
+  Draft as the final local preparation step before microphone activation. An
+  empty Draft is a no-op. A clear failure preserves the Draft, prevents the
+  recording from starting, and reports the exact local failure. Later Start,
+  recording, cancellation, or provider failure does not restore the cleared
+  text automatically; process-local Undo may restore it. Retry never clears a
+  second time.
 - Every accepted result is also offered exactly once to the separate Voice
-  Draft. The safe default replaces the Draft only after acceptance; Append mode
-  joins the new text with one blank line. Draft failure never rolls back Latest,
-  History, or Pending cleanup.
+  Draft. New containing-app attempts append after the optional start-time
+  clear. With Auto Clear off, the new text joins the existing Draft with one
+  blank line. Draft failure never rolls back Latest, History, or Pending
+  cleanup. Legacy recoverable attempts keep their recorded replace-or-append
+  mode without a destructive migration.
 - The Draft is editable only while Voice is inactive. It starts unfocused, so
   cold launch never opens the keyboard; a direct tap provides normal selection,
   typing, paste, and emoji input. One completed edit between meaningful Draft

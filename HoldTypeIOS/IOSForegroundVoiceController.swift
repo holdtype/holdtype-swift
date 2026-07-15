@@ -12,6 +12,7 @@ enum IOSForegroundVoiceSetup: Equatable, Sendable {
 enum IOSForegroundVoiceFailure: Equatable, Sendable {
     case operationFailed
     case localRecovery
+    case draftClearFailed
     case unavailable
     case credentialUnavailable
     case microphonePermissionDenied
@@ -68,12 +69,12 @@ enum IOSForegroundVoiceActionAdmission: Equatable, Sendable {
 }
 
 struct IOSVoiceSessionModes: Equatable, Sendable {
-    var appendsToDraft = false
+    var clearsDraftOnStart = true
     var translates = false
     var corrects = false
 
     var draftInsertionMode: IOSVoiceDraftInsertionMode {
-        appendsToDraft ? .append : .replace
+        .append
     }
 }
 
@@ -184,6 +185,11 @@ enum IOSForegroundVoiceStartAction: Equatable, Sendable {
         case .configured(let modes):
             modes.draftInsertionMode
         }
+    }
+
+    var clearsDraftOnStart: Bool {
+        guard case .configured(let modes) = self else { return false }
+        return modes.clearsDraftOnStart
     }
 }
 

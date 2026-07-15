@@ -689,6 +689,13 @@ enum IOSVoiceHomePresentation {
                 "externaldrive.badge.exclamationmark",
                 .warning
             )
+        case .draftClearFailed:
+            copy = (
+                "Draft couldn't be cleared",
+                "Your current Draft is unchanged. Try Start Dictation again.",
+                "exclamationmark.circle",
+                .warning
+            )
         case .unavailable:
             copy = (
                 "Dictation was interrupted",

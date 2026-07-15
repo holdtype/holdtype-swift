@@ -423,6 +423,7 @@ struct IOSVoiceHomePresentationTests {
         let failures: [IOSForegroundVoiceFailure] = [
             .operationFailed,
             .localRecovery,
+            .draftClearFailed,
             .unavailable,
             .credentialUnavailable,
             .microphonePermissionDenied,
@@ -617,6 +618,7 @@ private func voiceStatusFixtures() -> [IOSForegroundVoicePresentation] {
     values += [
         IOSForegroundVoiceFailure.operationFailed,
         .localRecovery,
+        .draftClearFailed,
         .unavailable,
         .credentialUnavailable,
         .microphonePermissionDenied,

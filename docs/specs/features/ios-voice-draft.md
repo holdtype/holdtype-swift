@@ -203,21 +203,28 @@ without opening the custom keyboard.
 ## Voice Session Modes
 
 - A compact labeled `Auto` menu below the text editor contains the independent
-  `Auto-Append`, `Auto-Translate`, and `Auto-Correct` toggles. The menu has no
-  heading, subtitles, or explanatory copy. It presents in a compact popover
-  above its leading-edge button in the normal portrait Voice layout and may
-  reposition only when needed to remain onscreen. Each selected item shows a
-  native checkmark, and toggling one item keeps the menu available so the user
-  can change multiple modes in one visit.
+  Auto Clear, Auto Translate, and Auto Correction modes. It presents in a
+  compact popover above its leading-edge button in the normal portrait Voice
+  layout and may reposition only when needed to remain onscreen. Native switch
+  rows are labeled `Clear Draft`, `Translate Result`, and `Correct Result` so
+  the open `Auto` context is not repeated in every label. Clear Draft adds the
+  short detail `When a new dictation starts`. Toggling a valid item keeps the
+  menu available so the user can change multiple modes in one visit.
 - The `Auto` button has an intrinsic width and at least a 44-point tap target.
-  With no selected modes it uses a neutral treatment and no count badge. With
-  one or more selected modes it uses an accent treatment and a numeric badge
-  showing the selected count. Accessibility exposes the count as `N of 3 on`.
-  Flexible space keeps the independently sized `Copy` action aligned to the
-  trailing edge of the same row.
-- All three modes start off on cold launch. They remain selected for subsequent
-  containing-app Voice attempts in the current process until the user turns
-  them off. They do not rewrite durable Settings.
+  It has no numeric badge. Accessibility names the complete Auto modes that are
+  currently enabled. Flexible space keeps the independently sized `Copy`
+  action aligned to the trailing edge of the same row.
+- Auto Clear starts on while Auto Translate and Auto Correction start off on
+  cold launch. They remain selected for subsequent containing-app Voice
+  attempts in the current process until the user changes them. They do not
+  rewrite durable Settings.
+- Auto Clear is frozen for a new attempt when Start is admitted. After setup,
+  permission, credential, and recovery preflight succeeds, it atomically clears
+  the confirmed Draft before microphone activation. Empty is a successful
+  no-op. A clear failure keeps the prior Draft, prevents microphone activation,
+  and reports a local Auto Clear failure. If a later start, recording, provider,
+  or cancellation stage fails, the Draft stays cleared and process-local Undo
+  may restore its prior meaningful text. Retry does not clear a second time.
 - The top one-shot Translate and Correction actions transform the complete
   current Draft in place. They never start recording or transcription and do
   not change the selected state of the bottom Auto menu.
@@ -236,10 +243,14 @@ without opening the custom keyboard.
   actions are never queued or run concurrently.
 - Translate and Correction may be enabled together. The existing processing
   order remains correction before translation for new dictation attempts.
-- The exact selected modes are frozen at Start and carried by recoverable
-  Pending state so Retry and relaunch cannot change the meaning of that attempt.
-- Auto modes never transform text already visible in Draft. Replace or Append
-  happens only after the new dictation result is accepted.
+- The exact translation and correction modes plus the accepted-result insertion
+  behavior are frozen at Start and carried by recoverable Pending state so Retry
+  and relaunch cannot change the meaning of that attempt. Auto Clear itself is
+  a one-time start preparation and is never repeated by Retry.
+- Auto Translate and Auto Correction never transform text already visible in
+  Draft. Auto Clear is the only mode that mutates the current Draft before a new
+  result is accepted. New containing-app results append after that optional
+  clear; with Auto Clear off they join existing text with one blank line.
 - Starting, Listening, Finalizing, Processing, editing, or a non-writable Draft
   may temporarily prevent conflicting session changes. Missing Translation
   setup is not such a safety state and never turns Translate into a dead control.

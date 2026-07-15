@@ -465,6 +465,16 @@ final class IOSVoiceDraftOwner {
     }
 
     @discardableResult
+    func clearForNewDictation() async -> Bool {
+        guard isAvailableForMutation,
+              let current = confirmedRecord else {
+            return false
+        }
+        guard current.hasMeaningfulText else { return true }
+        return await clear()
+    }
+
+    @discardableResult
     func undo() async -> Bool {
         guard let current = confirmedRecord,
               let target = undoStack.last else {

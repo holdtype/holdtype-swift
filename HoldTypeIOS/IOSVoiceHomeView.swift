@@ -775,15 +775,6 @@ struct IOSVoiceHomeView: View {
                 Image(systemName: "slider.horizontal.3")
                 Text("Auto")
 
-                if selectedVoiceSessionModeCount > 0 {
-                    Text("\(selectedVoiceSessionModeCount)")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 18, minHeight: 18)
-                        .background(Color.accentColor, in: Circle())
-                        .accessibilityHidden(true)
-                }
-
                 Image(systemName: "chevron.up")
                     .font(.caption2.weight(.semibold))
                     .accessibilityHidden(true)
@@ -794,16 +785,9 @@ struct IOSVoiceHomeView: View {
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.capsule)
-        .tint(
-            selectedVoiceSessionModeCount > 0
-                ? Color.accentColor
-                : Color.secondary
-        )
         .disabled(!voiceSessionModesAreEnabled)
         .accessibilityLabel("Auto")
-        .accessibilityValue(
-            "\(selectedVoiceSessionModeCount) of 3 on"
-        )
+        .accessibilityValue(voiceSessionModeAccessibilityValue)
         .accessibilityHint("Opens automatic session modes.")
         .accessibilityIdentifier("ios.voice.session-modes")
         .popover(
@@ -818,72 +802,68 @@ struct IOSVoiceHomeView: View {
 
     private var voiceSessionModeMenuContent: some View {
         VStack(spacing: 0) {
-            voiceSessionModeMenuItem(
-                title: "Auto-Append",
-                identifier: "append",
-                systemImage: "text.badge.plus",
-                isSelected: sessionModes.appendsToDraft
-            ) {
-                appendSessionModeBinding.wrappedValue.toggle()
-            }
+            voiceSessionModeToggle(
+                title: "Clear Draft",
+                accessibilityLabel: "Auto Clear",
+                detail: "When a new dictation starts",
+                identifier: "clear",
+                systemImage: "text.badge.xmark",
+                isOn: clearSessionModeBinding
+            )
 
             Divider()
 
-            voiceSessionModeMenuItem(
-                title: "Auto-Translate",
+            voiceSessionModeToggle(
+                title: "Translate Result",
+                accessibilityLabel: "Auto Translate",
                 identifier: "translate",
                 systemImage: "character.bubble",
-                isSelected: sessionModes.translates
-            ) {
-                if translationModeIsAvailable {
-                    translateSessionModeBinding.wrappedValue.toggle()
-                } else {
-                    showsVoiceSessionModeMenu = false
-                    openSettings(.attention(.translation))
-                }
-            }
+                isOn: translateSessionModeBinding
+            )
 
             Divider()
 
-            voiceSessionModeMenuItem(
-                title: "Auto-Correct",
+            voiceSessionModeToggle(
+                title: "Correct Result",
+                accessibilityLabel: "Auto Correct",
                 identifier: "correct",
                 systemImage: "wand.and.stars",
-                isSelected: sessionModes.corrects
-            ) {
-                correctSessionModeBinding.wrappedValue.toggle()
-            }
+                isOn: correctSessionModeBinding
+            )
         }
         .padding(.vertical, 6)
-        .frame(width: 250)
+        .frame(width: 280)
     }
 
-    private func voiceSessionModeMenuItem(
+    private func voiceSessionModeToggle(
         title: String,
+        accessibilityLabel: String,
+        detail: String? = nil,
         identifier: String,
         systemImage: String,
-        isSelected: Bool,
-        action: @escaping () -> Void
+        isOn: Binding<Bool>
     ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Label(title, systemImage: systemImage)
-                Spacer(minLength: 16)
-                Image(systemName: "checkmark")
-                    .fontWeight(.semibold)
-                    .opacity(isSelected ? 1 : 0)
-                    .accessibilityHidden(true)
+        Toggle(isOn: isOn) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: systemImage)
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    if let detail {
+                        Text(detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .font(.body)
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityValue(isSelected ? "On" : "Off")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .toggleStyle(.switch)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(detail ?? "")
         .accessibilityIdentifier("ios.voice.mode.\(identifier)")
     }
 
@@ -927,10 +907,10 @@ struct IOSVoiceHomeView: View {
             .frame(minHeight: 44)
     }
 
-    private var appendSessionModeBinding: Binding<Bool> {
+    private var clearSessionModeBinding: Binding<Bool> {
         Binding(
-            get: { sessionModes.appendsToDraft },
-            set: { sessionModes.appendsToDraft = $0 }
+            get: { sessionModes.clearsDraftOnStart },
+            set: { sessionModes.clearsDraftOnStart = $0 }
         )
     }
 
@@ -943,6 +923,7 @@ struct IOSVoiceHomeView: View {
                 } else if translationModeIsAvailable {
                     sessionModes.translates = true
                 } else {
+                    showsVoiceSessionModeMenu = false
                     openSettings(.attention(.translation))
                 }
             }
@@ -956,12 +937,16 @@ struct IOSVoiceHomeView: View {
         )
     }
 
-    private var selectedVoiceSessionModeCount: Int {
-        [
-            sessionModes.appendsToDraft,
-            sessionModes.translates,
-            sessionModes.corrects,
-        ].count(where: { $0 })
+    private var voiceSessionModeAccessibilityValue: String {
+        let enabledModes = [
+            sessionModes.clearsDraftOnStart ? "Auto Clear" : nil,
+            sessionModes.translates ? "Auto Translate" : nil,
+            sessionModes.corrects ? "Auto Correct" : nil,
+        ].compactMap { $0 }
+        guard !enabledModes.isEmpty else {
+            return "No automatic actions enabled"
+        }
+        return enabledModes.joined(separator: ", ") + " enabled"
     }
 
     private var voiceSessionModesAreEnabled: Bool {
@@ -1282,7 +1267,7 @@ struct IOSVoiceHomeView: View {
             break
         }
 
-        if draftOwner.isFull && sessionModes.appendsToDraft {
+        if draftOwner.isFull && !sessionModes.clearsDraftOnStart {
             return .draftFull
         }
         if primaryVoiceCommand == nil { return .voiceChecking }
@@ -1404,7 +1389,7 @@ struct IOSVoiceHomeView: View {
 
     private var draftBlocksNewDictation: Bool {
         !draftOwner.isAvailableForMutation
-            || (draftOwner.isFull && sessionModes.appendsToDraft)
+            || (draftOwner.isFull && !sessionModes.clearsDraftOnStart)
     }
 
     private func copyDraft() {
