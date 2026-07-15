@@ -3,6 +3,44 @@ import Testing
 @testable import HoldTypeIOS
 
 struct IOSVoiceDraftViewportTests {
+    @Test func focusPolicyChangesResponderOnlyWhenStateDiffers() {
+        #expect(
+            IOSVoiceDraftFocusPolicy.resolve(
+                wantsFocus: true,
+                isEditable: true,
+                isFirstResponder: false
+            ) == .becomeFirstResponder
+        )
+        #expect(
+            IOSVoiceDraftFocusPolicy.resolve(
+                wantsFocus: false,
+                isEditable: true,
+                isFirstResponder: true
+            ) == .resignFirstResponder
+        )
+        #expect(
+            IOSVoiceDraftFocusPolicy.resolve(
+                wantsFocus: true,
+                isEditable: false,
+                isFirstResponder: true
+            ) == .resignFirstResponder
+        )
+        #expect(
+            IOSVoiceDraftFocusPolicy.resolve(
+                wantsFocus: true,
+                isEditable: true,
+                isFirstResponder: true
+            ) == .none
+        )
+        #expect(
+            IOSVoiceDraftFocusPolicy.resolve(
+                wantsFocus: false,
+                isEditable: true,
+                isFirstResponder: false
+            ) == .none
+        )
+    }
+
     @Test func typographyUsesOneCompactStepThenKeepsReadableFloor() {
         #expect(
             IOSVoiceDraftTypographyPolicy.resolve(

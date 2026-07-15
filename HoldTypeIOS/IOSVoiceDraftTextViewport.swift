@@ -38,6 +38,29 @@ enum IOSVoiceDraftScrollCommand: Equatable {
     case bottom
 }
 
+enum IOSVoiceDraftFocusCommand: Equatable {
+    case none
+    case becomeFirstResponder
+    case resignFirstResponder
+}
+
+struct IOSVoiceDraftFocusPolicy {
+    static func resolve(
+        wantsFocus: Bool,
+        isEditable: Bool,
+        isFirstResponder: Bool
+    ) -> IOSVoiceDraftFocusCommand {
+        let shouldBeFirstResponder = wantsFocus && isEditable
+        if shouldBeFirstResponder, !isFirstResponder {
+            return .becomeFirstResponder
+        }
+        if !shouldBeFirstResponder, isFirstResponder {
+            return .resignFirstResponder
+        }
+        return .none
+    }
+}
+
 struct IOSVoiceDraftFollowTailState: Equatable {
     private(set) var isFollowingTail = true
     private(set) var hasUnseenAppend = false
@@ -173,11 +196,11 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
 
         textView.isEditable = isEditable
         textView.isSelectable = true
-        if isFocused, isEditable, !textView.isFirstResponder {
-            textView.becomeFirstResponder()
-        } else if (!isFocused || !isEditable), textView.isFirstResponder {
-            textView.resignFirstResponder()
-        }
+        coordinator.scheduleFocusReconciliation(
+            in: textView,
+            wantsFocus: isFocused,
+            isEditable: isEditable
+        )
 
         coordinator.reportJumpToLatestVisibility()
     }
@@ -192,6 +215,8 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
 
         private var lastReportedJumpToLatest = false
         private var isApplyingTypography = false
+        private var desiredFocus = false
+        private var focusReconciliationIsScheduled = false
 
         init(parent: IOSVoiceDraftTextViewport) {
             self.parent = parent
@@ -199,12 +224,14 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
+            desiredFocus = true
             followTailState.suspend()
             parent.isFocused = true
             reportJumpToLatestVisibility()
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
+            desiredFocus = false
             parent.isFocused = false
             guard let textView = textView as? IOSVoiceDraftUITextView else {
                 return
@@ -254,6 +281,36 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
 
         func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
             finishUserScroll(scrollView)
+        }
+
+        func scheduleFocusReconciliation(
+            in textView: IOSVoiceDraftUITextView,
+            wantsFocus: Bool,
+            isEditable: Bool
+        ) {
+            desiredFocus = wantsFocus && isEditable
+            guard !focusReconciliationIsScheduled else { return }
+            focusReconciliationIsScheduled = true
+
+            // Responder changes query the SwiftUI hosting view. Performing one
+            // inside updateUIView re-enters its active AttributeGraph update.
+            DispatchQueue.main.async { [weak self, weak textView] in
+                guard let self else { return }
+                self.focusReconciliationIsScheduled = false
+                guard let textView else { return }
+                switch IOSVoiceDraftFocusPolicy.resolve(
+                    wantsFocus: self.desiredFocus,
+                    isEditable: textView.isEditable,
+                    isFirstResponder: textView.isFirstResponder
+                ) {
+                case .none:
+                    break
+                case .becomeFirstResponder:
+                    textView.becomeFirstResponder()
+                case .resignFirstResponder:
+                    textView.resignFirstResponder()
+                }
+            }
         }
 
         func reconcileTypography(
