@@ -4,8 +4,15 @@ import UIKit
 
 nonisolated enum IOSKeyboardHandoffCaptureEvent: Equatable, Sendable {
     case listening
-    case captureEnded
-    case terminal
+    case processing
+    case terminal(IOSKeyboardHandoffTerminalDisposition)
+}
+
+nonisolated enum IOSKeyboardHandoffTerminalDisposition: Equatable, Sendable {
+    case completed
+    case cancelled
+    case failed
+    case expired
 }
 
 @MainActor
@@ -298,7 +305,7 @@ final class IOSKeyboardDictationSessionCoordinator {
               dependencies.applicationIsActive(),
               !intent.action.translates || translationAvailable else {
             if self.activeAttempt == activeAttempt {
-                finishSessionLifetime()
+                finishSessionLifetime(handoffTerminal: .failed)
                 presentation = .failed("Try Again")
             }
             return false
@@ -336,7 +343,7 @@ final class IOSKeyboardDictationSessionCoordinator {
         await task?.value
         guard activeAttempt?.requestID == requestID else { return }
         publishUnavailableIfCurrent()
-        finishSessionLifetime()
+        finishSessionLifetime(handoffTerminal: .cancelled)
         workflowTask = nil
         presentation = .stopped
     }
@@ -344,7 +351,7 @@ final class IOSKeyboardDictationSessionCoordinator {
     func stopSession() {
         cancelCurrentWorkflow()
         publishUnavailableIfCurrent()
-        finishSessionLifetime()
+        finishSessionLifetime(handoffTerminal: .cancelled)
         presentation = .stopped
     }
 
@@ -503,7 +510,10 @@ final class IOSKeyboardDictationSessionCoordinator {
             phase: .unavailable,
             expiresAt: deadline
         )
-        finishSessionLifetime(cancelWorkflowTask: false)
+        finishSessionLifetime(
+            cancelWorkflowTask: false,
+            handoffTerminal: .cancelled
+        )
         presentation = .stopped
         return true
     }
@@ -542,9 +552,8 @@ final class IOSKeyboardDictationSessionCoordinator {
             emitHandoff(.listening, requestID: attempt.requestID)
         case .processing:
             emitHandoff(
-                .captureEnded,
-                requestID: attempt.requestID,
-                endsObservation: true
+                .processing,
+                requestID: attempt.requestID
             )
         }
     }
@@ -577,7 +586,7 @@ final class IOSKeyboardDictationSessionCoordinator {
             endBackgroundTask()
             presentation = .resultReady
             emitHandoff(
-                .terminal,
+                .terminal(.completed),
                 requestID: attempt.requestID,
                 endsObservation: true
             )
@@ -586,7 +595,10 @@ final class IOSKeyboardDictationSessionCoordinator {
                 phase: .unavailable,
                 expiresAt: deadline
             )
-            finishSessionLifetime(cancelWorkflowTask: false)
+            finishSessionLifetime(
+                cancelWorkflowTask: false,
+                handoffTerminal: .cancelled
+            )
             presentation = .stopped
         case .failed:
             failAndStop("Try Again")
@@ -621,7 +633,7 @@ final class IOSKeyboardDictationSessionCoordinator {
             )
         }
         cancelCurrentWorkflow()
-        finishSessionLifetime()
+        finishSessionLifetime(handoffTerminal: .failed)
         presentation = .failed(message)
     }
 
@@ -646,7 +658,7 @@ final class IOSKeyboardDictationSessionCoordinator {
             publishedAt: now,
             expiresAt: now.addingTimeInterval(1)
         )
-        finishSessionLifetime()
+        finishSessionLifetime(handoffTerminal: .expired)
         presentation = .stopped
     }
 
@@ -716,10 +728,14 @@ final class IOSKeyboardDictationSessionCoordinator {
         presentation = .ready(deadline)
     }
 
-    private func finishSessionLifetime(cancelWorkflowTask: Bool = true) {
-        if let requestID = activeAttempt?.requestID {
+    private func finishSessionLifetime(
+        cancelWorkflowTask: Bool = true,
+        handoffTerminal: IOSKeyboardHandoffTerminalDisposition? = nil
+    ) {
+        if let requestID = activeAttempt?.requestID,
+           handoffRequestID == requestID {
             emitHandoff(
-                .terminal,
+                .terminal(handoffTerminal ?? .failed),
                 requestID: requestID,
                 endsObservation: true
             )
@@ -807,8 +823,9 @@ final class IOSKeyboardHandoffPresentationOwner {
             return
         }
         if !started {
-            activeRequestID = nil
-            presentation = nil
+            presentation = IOSKeyboardHandoffSheetPresentation(
+                runtimeFailure: .startUnavailable
+            )
         }
     }
 
@@ -847,9 +864,21 @@ final class IOSKeyboardHandoffPresentationOwner {
             presentation = IOSKeyboardHandoffSheetPresentation(
                 phase: .listening
             )
-        case .captureEnded, .terminal:
+        case .processing:
+            presentation = IOSKeyboardHandoffSheetPresentation(
+                phase: .processing
+            )
+        case .terminal(.completed), .terminal(.cancelled):
             activeRequestID = nil
             presentation = nil
+        case .terminal(.failed):
+            presentation = IOSKeyboardHandoffSheetPresentation(
+                runtimeFailure: .interrupted
+            )
+        case .terminal(.expired):
+            presentation = IOSKeyboardHandoffSheetPresentation(
+                runtimeFailure: .expired
+            )
         }
     }
 }

@@ -141,7 +141,6 @@ struct IOSContainingAppShell: View {
     ) {
         acceptedKeyboardHandoffIntent = intent
         activeKeyboardHandoffRequestID = intent.requestID
-        requestDestination(.voice)
         startAcceptedKeyboardHandoffIfPossible()
     }
 

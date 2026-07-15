@@ -57,6 +57,30 @@ struct IOSKeyboardHandoffSheetTests {
         #expect(!presentation.returnInstructionIsActive)
     }
 
+    @Test func processingPresentationKeepsTheSheetAsTerminalOwner() {
+        let presentation = IOSKeyboardHandoffSheetPresentation(
+            phase: .processing
+        )
+
+        #expect(presentation.title == "Processing dictation…")
+        #expect(presentation.activityPhase == .recognizing)
+        #expect(!presentation.showsReturnInstruction)
+        #expect(!presentation.returnInstructionIsActive)
+    }
+
+    @Test func runtimeFailureStaysInsideTheSheetWithoutReturnInstruction() {
+        let presentation = IOSKeyboardHandoffSheetPresentation(
+            runtimeFailure: .interrupted
+        )
+
+        #expect(presentation.phase == .failed)
+        #expect(presentation.title == "Keyboard dictation stopped")
+        #expect(presentation.detail.contains("result was ready"))
+        #expect(presentation.activityPhase == nil)
+        #expect(!presentation.showsReturnInstruction)
+        #expect(!presentation.returnInstructionIsActive)
+    }
+
     @Test func reduceMotionDisablesTheAnimatedReturnCue() {
         #expect(
             IOSKeyboardHandoffMotionPolicy.animatesReturnCue(

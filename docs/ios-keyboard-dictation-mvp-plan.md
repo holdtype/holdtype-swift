@@ -303,7 +303,8 @@ sheet itself contains no setup logic, recorder ownership, or provider code.
 3. Keep the central Ready indicator visible when no session exists.
 4. Add an `Opening HoldType` operational state without manual instructions.
 5. Parse and validate the URL in the containing app.
-6. Select Voice only for a valid fresh matching intent.
+6. Present the handoff sheet for a valid fresh matching intent without
+   changing the containing app's selected destination.
 7. Make ordinary, malformed, expired, repeated, and superseded launches inert.
 8. Route no-Full-Access launches to the existing targeted setup path.
 
@@ -337,8 +338,10 @@ recording, navigation, or ordinary Voice state changes.
 3. Present the sheet in `starting` while arming.
 4. Transition to `listening` only after real recorder acknowledgement.
 5. Keep recording while the user swipes back and the app becomes background.
-6. Make the close button cancel capture and dismiss to ordinary Voice Ready.
-7. Dismiss on failure, expiry, cancellation, or terminal completion.
+6. Make the close button cancel capture and dismiss over the unchanged
+   containing-app destination.
+7. Keep runtime failure and expiry inside the handoff sheet until explicit
+   close; dismiss automatically only after successful terminal completion.
 8. Keep normal app launches and ordinary Voice actions unchanged.
 9. Prove that keyboard cancellation, failure, interruption, and stale relaunch
    cannot surface text or `Local recovery blocked` on ordinary Voice.

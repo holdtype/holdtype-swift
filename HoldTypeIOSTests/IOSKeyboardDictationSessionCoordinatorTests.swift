@@ -31,7 +31,9 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         #expect(harness.states.last?.requestID == intent.requestID)
 
         harness.workflow.emit(.processing)
-        try await eventually { owner.presentation == nil }
+        try await eventually {
+            owner.presentation?.phase == .processing
+        }
         #expect(harness.states.map(\.phase) == [
             .ready,
             .listening,
@@ -40,6 +42,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
 
         harness.workflow.resolve(.accepted("Accepted handoff"))
         try await eventually { coordinator.presentation == .resultReady }
+        #expect(owner.presentation == nil)
     }
 
     @Test
@@ -78,7 +81,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
     }
 
     @Test
-    func failedAndExpiredHandoffsDismissTheSheet() async throws {
+    func failedAndExpiredHandoffsStayInsideTheSheet() async throws {
         let failedHarness = KeyboardSessionHarness()
         let failedCoordinator = failedHarness.makeCoordinator()
         let failedOwner = IOSKeyboardHandoffPresentationOwner(
@@ -90,8 +93,12 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
             failedHarness.workflow.runRequestIDs == [failedHarness.sessionID]
         }
         failedHarness.workflow.resolve(.failed)
-        try await eventually { failedOwner.presentation == nil }
+        try await eventually {
+            failedOwner.presentation?.runtimeFailure == .interrupted
+        }
         #expect(failedHarness.states.map(\.phase) == [.ready, .failed])
+        failedOwner.cancelFromSheet()
+        try await eventually { failedOwner.presentation == nil }
 
         let expiredHarness = KeyboardSessionHarness()
         let expiredCoordinator = expiredHarness.makeCoordinator()
@@ -110,18 +117,20 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
 
         expiredHarness.expireSession()
 
-        #expect(expiredOwner.presentation == nil)
+        #expect(expiredOwner.presentation?.runtimeFailure == .expired)
         #expect(expiredCoordinator.presentation == .stopped)
         #expect(expiredHarness.states.map(\.phase) == [
             .ready,
             .listening,
             .unavailable,
         ])
+        expiredOwner.cancelFromSheet()
+        try await eventually { expiredOwner.presentation == nil }
         expiredHarness.workflow.resolve(.cancelled)
     }
 
     @Test
-    func staleHandoffNeverStartsSessionOrSheet() async {
+    func staleDirectStartNeverStartsSessionAndReportsSheetFailure() async {
         let harness = KeyboardSessionHarness()
         let coordinator = harness.makeCoordinator()
         let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
@@ -132,7 +141,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
 
         await owner.start(intent)
 
-        #expect(owner.presentation == nil)
+        #expect(owner.presentation?.runtimeFailure == .startUnavailable)
         #expect(harness.workflow.runRequestIDs.isEmpty)
         #expect(harness.states.isEmpty)
     }

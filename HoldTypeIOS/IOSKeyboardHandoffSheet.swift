@@ -3,21 +3,60 @@ import SwiftUI
 enum IOSKeyboardHandoffSheetPhase: Equatable, Sendable {
     case starting
     case listening
+    case processing
     case blocked
+    case failed
+}
+
+enum IOSKeyboardHandoffRuntimeFailure: Equatable, Sendable {
+    case startUnavailable
+    case interrupted
+    case expired
+
+    var title: String {
+        switch self {
+        case .startUnavailable:
+            "Keyboard dictation couldn't start"
+        case .interrupted:
+            "Keyboard dictation stopped"
+        case .expired:
+            "Keyboard dictation expired"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .startUnavailable:
+            "Close this sheet and try again from the keyboard."
+        case .interrupted:
+            "The recording ended before a result was ready. Close this sheet and try again."
+        case .expired:
+            "This keyboard request took too long. Close this sheet and start a new one."
+        }
+    }
 }
 
 struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
     let phase: IOSKeyboardHandoffSheetPhase
     let issue: IOSKeyboardHandoffPreflightIssue?
+    let runtimeFailure: IOSKeyboardHandoffRuntimeFailure?
 
     init(phase: IOSKeyboardHandoffSheetPhase) {
         self.phase = phase
         issue = nil
+        runtimeFailure = nil
     }
 
     init(issue: IOSKeyboardHandoffPreflightIssue) {
         phase = .blocked
         self.issue = issue
+        runtimeFailure = nil
+    }
+
+    init(runtimeFailure: IOSKeyboardHandoffRuntimeFailure) {
+        phase = .failed
+        issue = nil
+        self.runtimeFailure = runtimeFailure
     }
 
     var title: String {
@@ -26,8 +65,12 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "Starting dictation…"
         case .listening:
             "HoldType is listening"
+        case .processing:
+            "Processing dictation…"
         case .blocked:
             issue?.title ?? "Keyboard dictation is unavailable"
+        case .failed:
+            runtimeFailure?.title ?? "Keyboard dictation stopped"
         }
     }
 
@@ -37,8 +80,12 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "Getting your microphone ready."
         case .listening:
             "Return to the app where you were typing."
+        case .processing:
+            "HoldType is preparing the result for the keyboard."
         case .blocked:
             issue?.detail ?? "Close this sheet and try again."
+        case .failed:
+            runtimeFailure?.detail ?? "Close this sheet and try again."
         }
     }
 
@@ -52,7 +99,7 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "This gesture is ready as soon as HoldType starts listening."
         case .listening:
             "Recording will continue after you return."
-        case .blocked:
+        case .processing, .blocked, .failed:
             ""
         }
     }
@@ -63,7 +110,9 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             .ready
         case .listening:
             .listening
-        case .blocked:
+        case .processing:
+            .recognizing
+        case .blocked, .failed:
             nil
         }
     }
@@ -73,7 +122,7 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
     }
 
     var showsReturnInstruction: Bool {
-        phase != .blocked
+        phase == .starting || phase == .listening
     }
 
     var accessibilityStatus: String {
@@ -180,7 +229,7 @@ struct IOSKeyboardHandoffSheet: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel keyboard dictation")
             .accessibilityHint(
-                "Stops this keyboard request and returns to Voice."
+                "Stops this keyboard request and closes this sheet."
             )
             .accessibilityIdentifier("ios.keyboard-handoff.cancel")
         }
