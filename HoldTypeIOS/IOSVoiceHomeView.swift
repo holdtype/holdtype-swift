@@ -340,11 +340,19 @@ struct IOSVoiceHomeView: View {
         let command = sceneOwner.actionCommands.first {
             $0.action == action
         }
-        let isEnabled = command != nil && !draftBlocksNewDictation
+        let routesToTranslationSetup = action == .startTranslation
+            && command == nil
+            && translationSetupCanBeOpened
+        let isEnabled = (command != nil || routesToTranslationSetup)
+            && !draftBlocksNewDictation
 
         return Button {
-            guard let command, isEnabled else { return }
-            performOneShotVoiceCommand(command)
+            guard isEnabled else { return }
+            if let command {
+                performOneShotVoiceCommand(command)
+            } else if routesToTranslationSetup {
+                openSettings(.attention(.translation))
+            }
         } label: {
             Image(systemName: presentation.systemImage)
                 .frame(width: 36, height: 36)
@@ -352,6 +360,11 @@ struct IOSVoiceHomeView: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(presentation.title)
+        .accessibilityHint(
+            routesToTranslationSetup
+                ? "Opens Translation Settings to complete setup."
+                : ""
+        )
         .accessibilityIdentifier(presentation.accessibilityIdentifier)
     }
 
@@ -568,9 +581,12 @@ struct IOSVoiceHomeView: View {
                 systemImage: "character.bubble",
                 isSelected: sessionModes.translates,
                 isEnabled: voiceSessionModesAreEnabled
-                    && translationModeIsAvailable
             ) {
-                sessionModes.translates.toggle()
+                if translationModeIsAvailable {
+                    sessionModes.translates.toggle()
+                } else {
+                    openSettings(.attention(.translation))
+                }
             }
             voiceSessionModeButton(
                 title: "Correct",
@@ -630,6 +646,13 @@ struct IOSVoiceHomeView: View {
         sceneOwner.actionCommands.contains {
             $0.action == .startTranslation
         }
+    }
+
+    private var translationSetupCanBeOpened: Bool {
+        sceneOwner.presentation.phase == .inactive
+            && sceneOwner.actionCommands.contains {
+                $0.action == .startStandard
+            }
     }
 
     private var voiceStage: some View {
@@ -1514,7 +1537,7 @@ struct IOSVoiceHomeView: View {
         _ destination: RecoveryDestination
     ) {
         openSettings(
-            .voiceRecovery(
+            .attention(
                 voiceSettingsRecovery(for: destination)
             )
         )
@@ -1522,7 +1545,7 @@ struct IOSVoiceHomeView: View {
 
     private func voiceSettingsRecovery(
         for destination: RecoveryDestination
-    ) -> IOSVoiceSettingsRecovery {
+    ) -> IOSSettingsAttention {
         switch destination {
         case .openAI:
             .openAI

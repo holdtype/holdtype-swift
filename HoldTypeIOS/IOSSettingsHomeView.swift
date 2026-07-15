@@ -116,87 +116,127 @@ struct IOSSettingsHomeView: View {
             } else {
                 IOSDestinationLoadingView(title: "Loading Settings")
             }
-        case .voiceRecovery(let recovery):
-            voiceRecoveryDestination(recovery)
+        case .attention(let attention):
+            attentionDestination(attention)
         }
     }
 
     @ViewBuilder
-    private func voiceRecoveryDestination(
-        _ recovery: IOSVoiceSettingsRecovery
+    private func attentionDestination(
+        _ attention: IOSSettingsAttention
     ) -> some View {
-        Group {
-            switch recovery {
-            case .openAI:
-                IOSOpenAISettingsView(editorDraft: $openAIEditorDraft)
-            case .transcription:
-                if let settings = currentSettings {
-                    generalSettingsDestination(
-                        .transcription,
+        switch attention {
+        case .openAI:
+            IOSOpenAISettingsView(
+                editorDraft: $openAIEditorDraft,
+                attentionTarget: IOSSettingsAttentionTarget(attention)
+            )
+        case .transcription, .translation:
+            if let settings = currentSettings {
+                let destination: IOSGeneralSettingsDestination =
+                    attention == .transcription
+                        ? .transcription
+                        : .translation
+                generalSettingsDestination(
+                    destination,
+                    settings: settings,
+                    attentionTarget: attentionTarget(
+                        attention,
                         settings: settings
                     )
-                } else {
-                    IOSDestinationLoadingView(title: "Loading Settings")
-                }
-            case .translation:
-                if let settings = currentSettings {
-                    generalSettingsDestination(
-                        .translation,
-                        settings: settings
-                    )
-                } else {
-                    IOSDestinationLoadingView(title: "Loading Settings")
-                }
-            case .keyboard, .fullAccess:
-                IOSKeyboardSetupView(practiceText: $practiceText)
-            case .privacyReview, .microphonePermission:
-                if foregroundVoiceRuntimeAvailable {
-                    IOSPrivacyPermissionsView()
-                } else {
-                    ContentUnavailableView(
-                        "Privacy Status Unavailable",
-                        systemImage: "hand.raised.slash",
-                        description: Text(
-                            "Foreground Voice is unavailable in this build."
-                        )
-                    )
-                }
+                )
+            } else {
+                IOSDestinationLoadingView(title: "Loading Settings")
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            IOSVoiceSettingsRecoveryBanner(recovery: recovery)
+        case .keyboard, .fullAccess:
+            IOSKeyboardSetupView(
+                practiceText: $practiceText,
+                attentionTarget: IOSSettingsAttentionTarget(attention)
+            )
+        case .privacyReview, .microphonePermission:
+            if foregroundVoiceRuntimeAvailable {
+                IOSPrivacyPermissionsView(
+                    attentionTarget: IOSSettingsAttentionTarget(attention)
+                )
+            } else {
+                ContentUnavailableView(
+                    "Privacy Status Unavailable",
+                    systemImage: "hand.raised.slash",
+                    description: Text(
+                        "Foreground Voice is unavailable in this build."
+                    )
+                )
+            }
         }
     }
 
     @ViewBuilder
     private func generalSettingsDestination(
         _ destination: IOSGeneralSettingsDestination,
-        settings: IOSAppSettings
+        settings: IOSAppSettings,
+        attentionTarget: IOSSettingsAttentionTarget? = nil
     ) -> some View {
         switch destination {
         case .transcription:
             IOSTranscriptionSettingsView(
                 configuration: settings.transcriptionConfiguration,
+                attentionTarget: attentionTarget,
                 hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
             )
         case .writingCorrection:
             IOSWritingCorrectionSettingsView(
                 configuration: settings.textCorrectionConfiguration,
                 localTextCleanupEnabled: settings.localTextCleanupEnabled,
+                attentionTarget: attentionTarget,
                 hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
             )
         case .translation:
             IOSTranslationSettingsView(
                 configuration: settings.translationConfiguration,
+                attentionTarget: attentionTarget,
                 hasUnsavedSceneEditor: $hasUnsavedGeneralSettings
             )
         case .voiceRecording:
             IOSVoiceRecordingSettingsView(
                 preferences: settings.voiceSessionPreferences,
                 recordingCachePolicy: settings.recordingCachePolicy,
+                attentionTarget: attentionTarget,
                 hasUnsavedSceneEditor: $hasUnsavedGeneralSettings,
                 reconcileRecordingCache: reconcileRecordingCache
             )
+        }
+    }
+
+    private func attentionTarget(
+        _ attention: IOSSettingsAttention,
+        settings: IOSAppSettings
+    ) -> IOSSettingsAttentionTarget {
+        switch attention {
+        case .transcription:
+            let configuration = settings.transcriptionConfiguration
+            let field: IOSSettingsField = configuration.language == .custom
+                && configuration.customLanguageCodeValidation.isInvalid
+                ? .transcriptionCustomLanguage
+                : .transcriptionLanguage
+            return IOSSettingsAttentionTarget(attention, field: field)
+        case .translation:
+            let configuration = settings.translationConfiguration
+            let field: IOSSettingsField
+            switch configuration.routeConfigurationIssue {
+            case .invalidSourceLanguage:
+                field = configuration.sourceLanguage == .custom
+                    ? .translationCustomSource
+                    : .translationSourceLanguage
+            case .missingTargetLanguage:
+                field = configuration.targetLanguage == .custom
+                    ? .translationCustomTarget
+                    : .translationTargetLanguage
+            case nil:
+                field = .translationTargetLanguage
+            }
+            return IOSSettingsAttentionTarget(attention, field: field)
+        default:
+            return IOSSettingsAttentionTarget(attention)
         }
     }
 
@@ -209,36 +249,6 @@ struct IOSSettingsHomeView: View {
         case .notLoaded, .loadFailed:
             nil
         }
-    }
-}
-
-private struct IOSVoiceSettingsRecoveryBanner: View {
-    let recovery: IOSVoiceSettingsRecovery
-
-    var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(recovery.title)
-                    .font(.headline)
-                Text(recovery.detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } icon: {
-            Image(systemName: recovery.systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.orange)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.regularMaterial)
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("ios.settings.voice-recovery")
     }
 }
 
@@ -463,9 +473,6 @@ private struct IOSSettingsSummaryList: View {
         _ settings: IOSAppSettings
     ) -> String {
         let configuration = settings.translationConfiguration
-        guard configuration.actionPreferenceEnabled else {
-            return "Action off"
-        }
         return configuration.isConfigurationReady
             ? "Configured"
             : "Needs setup"

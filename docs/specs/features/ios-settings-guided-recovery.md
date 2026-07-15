@@ -1,0 +1,50 @@
+# iOS Settings Guided Recovery
+
+Status: approved product contract; 2026-07-15.
+
+## Goal
+
+Replace silent disabled setup-dependent controls with one consistent path to
+the exact setting that makes the requested action usable.
+
+## Behavior
+
+- A mode or action that is unavailable only because setup is incomplete remains
+  tappable. The tap opens the owning Settings destination instead of doing
+  nothing or starting partial work.
+- Settings scrolls the exact owning input into view when necessary and presents
+  one short inline explanation beside that input. A generic banner at the top of
+  the screen does not replace this field-level guidance.
+- Every editable Settings input has a stable field identity and supports this
+  targeted presentation by default, even when no current recovery route uses it.
+- Guidance persists until the user resolves the condition or leaves the editor.
+  It never changes or saves a value by itself.
+- Returning from Settings does not automatically enable a session mode, start
+  recording, contact a provider, or replay the original action. The user repeats
+  the intended action after setup is valid.
+- VoiceOver announces the inline explanation after navigation without reading
+  secret or user-entered values.
+
+## Safety And Navigation
+
+- Transient safety states such as Saving, Listening, Finalizing, or Processing
+  may still prevent conflicting actions. They are not presented as missing
+  setup and never route to Settings.
+- Targeted navigation preserves the existing unsaved-editor confirmation. A
+  route must not replace another dirty Settings editor without confirmation.
+- A route received while Settings is still loading remains pending and is
+  applied once the owning editor is available.
+- Keyboard recovery reuses the bounded keyboard-to-app launch route. The launch
+  carries only a closed route identifier and no settings, prompts, credentials,
+  transcript text, or host content.
+
+## Translation
+
+- iOS has no durable Translation enabled/disabled preference. Translation is
+  available whenever its saved source and target route is valid.
+- One-shot Translate and the Auto Translate session mode remain inline on Voice.
+  Translate remains inline on HoldType Keyboard.
+- If the route is incomplete, tapping any of those controls opens Translation
+  Settings and targets the invalid source control or missing target control.
+- A legacy persisted iOS Translation action preference is accepted during
+  migration but cannot disable Translation and is not written by new iOS saves.

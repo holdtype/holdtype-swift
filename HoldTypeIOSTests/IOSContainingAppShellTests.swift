@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import UIKit
 @testable import HoldTypeIOS
@@ -61,8 +62,8 @@ struct IOSContainingAppShellTests {
         )
     }
 
-    @Test func voiceRecoveryRoutesOwnVisibleInstructionsAndDestinations() {
-        let recoveries: [IOSVoiceSettingsRecovery] = [
+    @Test func settingsAttentionRoutesOwnInstructionsTargetsAndLaunchURLs() {
+        let recoveries: [IOSSettingsAttention] = [
             .openAI,
             .transcription,
             .translation,
@@ -78,32 +79,47 @@ struct IOSContainingAppShellTests {
             #expect(UIImage(systemName: recovery.systemImage) != nil)
         }
 
-        #expect(IOSVoiceSettingsRecovery.openAI.destination == .openAI)
+        #expect(IOSSettingsAttention.openAI.destination == .attention(.openAI))
         #expect(
-            IOSVoiceSettingsRecovery.transcription.destination
-                == .general(.transcription)
+            IOSSettingsAttention.transcription.destination
+                == .attention(.transcription)
         )
         #expect(
-            IOSVoiceSettingsRecovery.translation.destination
-                == .general(.translation)
+            IOSSettingsAttention.translation.destination
+                == .attention(.translation)
         )
         #expect(
-            IOSVoiceSettingsRecovery.translation.systemImage
+            IOSSettingsAttention.translation.systemImage
                 == "character.bubble"
         )
         #expect(
-            IOSVoiceSettingsRecovery.keyboard.destination == .keyboardSetup
+            IOSSettingsAttention.keyboard.defaultField == .keyboardPractice
         )
         #expect(
-            IOSVoiceSettingsRecovery.fullAccess.destination == .keyboardSetup
+            IOSSettingsAttention.fullAccess.defaultField
+                == .keyboardSystemSettings
         )
         #expect(
-            IOSVoiceSettingsRecovery.privacyReview.destination
-                == .privacyAndPermissions
+            IOSSettingsAttention.privacyReview.defaultField
+                == .privacyProviderConsent
         )
         #expect(
-            IOSVoiceSettingsRecovery.microphonePermission.destination
-                == .privacyAndPermissions
+            IOSSettingsAttention.microphonePermission.defaultField
+                == .privacyMicrophone
+        )
+        #expect(
+            IOSSettingsAttention.translation.launchURL?.absoluteString
+                == "holdtype://settings/translation"
+        )
+        #expect(
+            IOSSettingsAttention(
+                launchURL: URL(string: "holdtype://settings/translation")!
+            ) == .translation
+        )
+        #expect(
+            IOSSettingsAttention(
+                launchURL: URL(string: "other://settings/translation")!
+            ) == nil
         )
     }
 

@@ -46,11 +46,17 @@ struct IOSVoicePlatformPlistTests {
         #expect(attributes["PrefersRightToLeft"] as? Bool == false)
     }
 
-    @Test func appAndKeyboardRegisterNoCustomURLSchemes() throws {
+    @Test func containingAppOwnsTheSettingsURLScheme() throws {
         let app = try sourcePlist(at: "HoldTypeIOS/Info.plist")
         let keyboard = try sourcePlist(at: "HoldTypeKeyboard/Info.plist")
 
-        #expect(app["CFBundleURLTypes"] == nil)
+        let urlTypes = try #require(
+            app["CFBundleURLTypes"] as? [[String: Any]]
+        )
+        let urlType = try #require(urlTypes.first)
+        #expect(urlTypes.count == 1)
+        #expect(urlType["CFBundleURLName"] as? String == "app.holdtype.settings")
+        #expect(urlType["CFBundleURLSchemes"] as? [String] == ["holdtype"])
         #expect(keyboard["CFBundleURLTypes"] == nil)
     }
 

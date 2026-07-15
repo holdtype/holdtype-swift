@@ -79,7 +79,6 @@ and the OpenAI API key.
 - correction prompt: standard conservative correction prompt
 - local plain-typography cleanup: on
 - literal replacement rules: empty
-- translation action preference: on
 - translation source: Same as Transcription
 - translation source override and target: unconfigured
 - translation model: `gpt-5.4-mini`
@@ -656,11 +655,13 @@ result after the operation returns.
   remote stage is off. Model identifiers and optional provider instructions
   appear only inside an `Advanced` disclosure. Reset restores standard provider
   behavior without exposing the complete built-in prompt as ordinary content.
-- Translation remains visible but unavailable with an in-app route to
-  Translation setup until its target configuration is valid. The app may
-  project one bounded boolean Translation-available capability to the keyboard
-  session; language codes, route details, model, prompt, and other settings
-  remain app-private. The keyboard cannot launch the containing app.
+- Translation has no durable iOS enabled/disabled preference. It is available
+  when its route is valid. An incomplete route leaves every inline Translate
+  control tappable and routes to the exact invalid source or missing target
+  input with an adjacent explanation. The app may project one bounded boolean
+  Translation-route-valid capability to the keyboard; language codes, route
+  details, model, prompt, and other settings remain app-private. Keyboard
+  routing follows `ios-keyboard-handoff-and-delivery.md`.
 - Local usage is labelled `Transcription Usage Estimate`, is device-local, and
   is never presented as the user's OpenAI invoice or balance.
 - Usage presentation, retention, and Reset behavior follow
@@ -678,6 +679,10 @@ result after the operation returns.
   microphone, Keychain, clipboard, App Group, or filesystem work. A draft is
   not stored in `SceneStorage`, `UserDefaults`, diagnostics, or a replacement
   repository.
+- Every editable Settings input owns a stable field identity. A targeted
+  recovery route scrolls that input into view and presents one adjacent inline
+  explanation without changing the draft. This common behavior follows
+  `ios-settings-guided-recovery.md`.
 - `Save` is explicit. It validates the visible group and calls the exact
   process-owned Settings owner once. The owner applies only that semantic
   group to its latest durable value, so an older screen cannot overwrite
@@ -711,13 +716,14 @@ result after the operation returns.
   language code must be two or three
   ASCII letters before Save is enabled. Language choices use a dedicated
   searchable list rather than a long menu, including an explicit Custom row.
-  Translation may be saved while its route is incomplete; the action remains
-  unavailable and the editor states exactly which source or target
-  configuration is missing. Custom-code fields expose a content-free
+  Translation may be saved while its route is incomplete; inline Translate
+  controls route back to the editor, which targets exactly the missing source or
+  target configuration. Custom-code fields expose a content-free
   accessibility hint and announce invalid-to-valid transitions without
   reading the entered value.
 - Correction and Translation models and optional instructions remain editable
-  inside `Advanced` while their remote stage or action preference is off.
+  inside `Advanced` independently of whether their remote stage is selected for
+  the next dictation.
   Reset restores standard provider behavior in the draft, announces that the
   change is not saved, and does not save until the user taps `Save`.
 - Voice & Recording exposes recording cues, an outcome-oriented stop-tail

@@ -94,10 +94,39 @@ enum IOSSettingsRoute: Hashable {
     case keyboardSetup
     case privacyAndPermissions
     case usageEstimate
-    case voiceRecovery(IOSVoiceSettingsRecovery)
+    case attention(IOSSettingsAttention)
 }
 
-enum IOSVoiceSettingsRecovery: String, Hashable, Sendable {
+enum IOSSettingsField: String, Hashable, Sendable {
+    case openAIKey
+    case transcriptionModel
+    case transcriptionLanguage
+    case transcriptionCustomLanguage
+    case transcriptionInstructions
+    case correctionLocalCleanup
+    case correctionEnabled
+    case correctionModel
+    case correctionCustomModel
+    case correctionInstructions
+    case translationSourceMode
+    case translationSourceLanguage
+    case translationCustomSource
+    case translationTargetLanguage
+    case translationCustomTarget
+    case translationModel
+    case translationInstructions
+    case voiceAudioCues
+    case voiceFinishBuffer
+    case voiceRecordingCache
+    case voiceRecordingRetention
+    case voiceRecordingLimit
+    case keyboardSystemSettings
+    case keyboardPractice
+    case privacyMicrophone
+    case privacyProviderConsent
+}
+
+enum IOSSettingsAttention: String, Hashable, Sendable {
     case openAI
     case transcription
     case translation
@@ -105,6 +134,31 @@ enum IOSVoiceSettingsRecovery: String, Hashable, Sendable {
     case fullAccess
     case privacyReview
     case microphonePermission
+
+    static let launchScheme = "holdtype"
+    static let launchHost = "settings"
+
+    init?(launchURL: URL) {
+        guard launchURL.scheme == Self.launchScheme,
+              launchURL.host == Self.launchHost else {
+            return nil
+        }
+        let component = launchURL.pathComponents
+            .filter { $0 != "/" }
+            .first
+        guard let component, let value = Self(rawValue: component) else {
+            return nil
+        }
+        self = value
+    }
+
+    var launchURL: URL? {
+        var components = URLComponents()
+        components.scheme = Self.launchScheme
+        components.host = Self.launchHost
+        components.path = "/\(rawValue)"
+        return components.url
+    }
 
     var title: String {
         switch self {
@@ -162,17 +216,25 @@ enum IOSVoiceSettingsRecovery: String, Hashable, Sendable {
     }
 
     var destination: IOSSettingsRoute {
+        .attention(self)
+    }
+
+    var defaultField: IOSSettingsField {
         switch self {
         case .openAI:
-            .openAI
+            .openAIKey
         case .transcription:
-            .general(.transcription)
+            .transcriptionLanguage
         case .translation:
-            .general(.translation)
-        case .keyboard, .fullAccess:
-            .keyboardSetup
-        case .privacyReview, .microphonePermission:
-            .privacyAndPermissions
+            .translationTargetLanguage
+        case .keyboard:
+            .keyboardPractice
+        case .fullAccess:
+            .keyboardSystemSettings
+        case .privacyReview:
+            .privacyProviderConsent
+        case .microphonePermission:
+            .privacyMicrophone
         }
     }
 }

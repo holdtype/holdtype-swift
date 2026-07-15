@@ -270,12 +270,17 @@ private enum IOSAppSettingsWireCodec {
             return defaults
         }
         try reader.rejectUnexpectedFields(allowing: translationFields)
+        // iOS v1 used to persist a global Translate action preference. Keep
+        // validating the legacy field when present so malformed settings do
+        // not become silently acceptable, but inline surfaces now own the
+        // user's choice to translate.
+        _ = try reader.boolean(
+            "actionPreferenceEnabled",
+            defaultValue: true
+        )
 
         return TranslationConfiguration(
-            actionPreferenceEnabled: try reader.boolean(
-                "actionPreferenceEnabled",
-                defaultValue: defaults.actionPreferenceEnabled
-            ),
+            actionPreferenceEnabled: true,
             sourceMode: try reader.enumeration(
                 "sourceMode",
                 defaultValue: defaults.sourceMode
@@ -465,7 +470,6 @@ private struct IOSAppSettingsWireV1: Encodable {
         )
         localTextCleanupEnabled = settings.localTextCleanupEnabled
         translation = TranslationWireV1(
-            actionPreferenceEnabled: settings.translationConfiguration.actionPreferenceEnabled,
             sourceMode: settings.translationConfiguration.sourceMode.rawValue,
             sourceLanguage: settings.translationConfiguration.sourceLanguage.rawValue,
             customSourceLanguageCode:
@@ -502,7 +506,6 @@ private struct TextCorrectionWireV1: Encodable {
 }
 
 private struct TranslationWireV1: Encodable {
-    let actionPreferenceEnabled: Bool
     let sourceMode: String
     let sourceLanguage: String
     let customSourceLanguageCode: String

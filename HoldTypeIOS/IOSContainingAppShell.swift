@@ -16,6 +16,7 @@ struct IOSContainingAppShell: View {
     @State private var hasBlockingEditorOperation = false
     @State private var pendingDestination:
         IOSContainingAppDestination?
+    @State private var pendingSettingsRoute: IOSSettingsRoute?
     @State private var showsEditorDiscardConfirmation = false
     @State private var showsEditorOperationAlert = false
 
@@ -57,11 +58,18 @@ struct IOSContainingAppShell: View {
             }
             Button("Keep Editing", role: .cancel) {
                 pendingDestination = nil
+                pendingSettingsRoute = nil
             }
         } message: {
             Text(
                 "Your unsaved edits on the current screen will be lost."
             )
+        }
+        .onOpenURL { url in
+            guard let attention = IOSSettingsAttention(launchURL: url) else {
+                return
+            }
+            openSettings(.attention(attention))
         }
         .alert(
             "Finishing Dictation Rule Change",
@@ -220,6 +228,7 @@ struct IOSContainingAppShell: View {
     private func requestDestination(
         _ destination: IOSContainingAppDestination
     ) {
+        pendingSettingsRoute = nil
         switch IOSContainingAppDestinationSelectionDecision.resolve(
             current: selectedDestination,
             requested: destination,
@@ -262,9 +271,14 @@ struct IOSContainingAppShell: View {
 
     private func applyPendingDestination() {
         guard let pendingDestination else { return }
+        let settingsRoute = pendingSettingsRoute
         hasUnsavedEditor = false
         clearActiveEditorPath()
         self.pendingDestination = nil
+        pendingSettingsRoute = nil
+        if pendingDestination == .settings, let settingsRoute {
+            settingsNavigationPath = NavigationPath([settingsRoute])
+        }
         applyDestination(pendingDestination)
     }
 
@@ -289,8 +303,52 @@ struct IOSContainingAppShell: View {
     }
 
     private func openSettings(_ route: IOSSettingsRoute) {
-        settingsNavigationPath = NavigationPath([route])
-        requestDestination(.settings)
+        switch IOSContainingAppDestinationSelectionDecision.resolve(
+            current: selectedDestination,
+            requested: .settings,
+            hasUnsavedEditor: hasUnsavedEditor,
+            hasBlockingEditorOperation: hasBlockingEditorOperation
+        ) {
+        case .unchanged:
+            guard !hasBlockingEditorOperation else {
+                dismissActiveTextInput()
+                Task { @MainActor in
+                    await Task.yield()
+                    showsEditorOperationAlert = true
+                }
+                return
+            }
+            guard !hasUnsavedEditor else {
+                pendingDestination = .settings
+                pendingSettingsRoute = route
+                dismissActiveTextInput()
+                Task { @MainActor in
+                    await Task.yield()
+                    showsEditorDiscardConfirmation = true
+                }
+                return
+            }
+            settingsNavigationPath = NavigationPath([route])
+        case .apply:
+            settingsNavigationPath = NavigationPath([route])
+            applyDestination(.settings)
+        case .confirmDiscard:
+            pendingDestination = .settings
+            pendingSettingsRoute = route
+            dismissActiveTextInput()
+            Task { @MainActor in
+                await Task.yield()
+                showsEditorDiscardConfirmation = true
+            }
+        case .blockedByEditorOperation:
+            pendingDestination = nil
+            pendingSettingsRoute = nil
+            dismissActiveTextInput()
+            Task { @MainActor in
+                await Task.yield()
+                showsEditorOperationAlert = true
+            }
+        }
     }
 }
 

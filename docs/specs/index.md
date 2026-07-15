@@ -37,6 +37,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS shared state (legacy) | `features/ios-keyboard-shared-state.md` | Historical Phase-0 App Group and automatic-delivery evidence; current snapshot is in the V1.1 release contract |
 | iOS containing app (legacy) | `features/ios-containing-app-experience.md` | Historical expanded iPhone/iPad, Quick Session, and navigation contract; current scope is in V1.1 |
 | iOS settings/secrets | `features/ios-settings-and-secret-storage.md` | iOS defaults, persistence, migrations, Keychain, truthful setup status |
+| iOS Settings guided recovery | `features/ios-settings-guided-recovery.md` | Targeted Settings navigation, field scrolling, inline guidance, and setup-dependent controls that must remain actionable |
 | iOS voice/audio reference | `features/ios-voice-session-and-audio.md` | Foreground recorder and audio invariants; keyboard-originated launch and request lifecycle are governed by the handoff spec |
 | iOS history/storage (legacy) | `features/ios-history-and-storage.md` | Historical P5H durable History, failed retry, pending journal, and recording-cache decisions; not current V1.1 scope |
 | iOS privacy (legacy) | `features/ios-privacy-and-permissions.md` | Historical Quick Session and disclosure contract; use V1.1 plus the keyboard handoff spec for current permission and App Group behavior |

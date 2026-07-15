@@ -585,6 +585,117 @@ struct IOSSettingsMultilineField: View {
     }
 }
 
+struct IOSSettingsAttentionTarget: Hashable, Sendable {
+    let attention: IOSSettingsAttention
+    let field: IOSSettingsField
+
+    init(
+        _ attention: IOSSettingsAttention,
+        field: IOSSettingsField? = nil
+    ) {
+        self.attention = attention
+        self.field = field ?? attention.defaultField
+    }
+}
+
+struct IOSSettingsForm<Content: View>: View {
+    let attentionTarget: IOSSettingsAttentionTarget?
+    private let content: Content
+
+    init(
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.attentionTarget = attentionTarget
+        self.content = content()
+    }
+
+    var body: some View {
+        IOSSettingsAttentionScrollView(attentionTarget: attentionTarget) {
+            Form {
+                content
+            }
+        }
+    }
+}
+
+struct IOSSettingsAttentionScrollView<Content: View>: View {
+    let attentionTarget: IOSSettingsAttentionTarget?
+    private let content: Content
+
+    init(
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.attentionTarget = attentionTarget
+        self.content = content()
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            content
+            .task(id: attentionTarget) {
+                guard let attentionTarget else { return }
+                await Task.yield()
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    proxy.scrollTo(attentionTarget.field, anchor: .center)
+                }
+                await Task.yield()
+                UIAccessibility.post(
+                    notification: .layoutChanged,
+                    argument: nil
+                )
+                iosAnnounceSettingsStatus(
+                    attentionTarget.attention.title
+                        + ". "
+                        + attentionTarget.attention.detail
+                )
+            }
+        }
+    }
+}
+
+private struct IOSSettingsFieldModifier: ViewModifier {
+    let field: IOSSettingsField
+    let attentionTarget: IOSSettingsAttentionTarget?
+
+    func body(content: Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            content
+            if attentionTarget?.field == field,
+               let attention = attentionTarget?.attention {
+                IOSSettingsAttentionCallout(attention: attention)
+            }
+        }
+        .id(field)
+    }
+}
+
+private struct IOSSettingsAttentionCallout: View {
+    let attention: IOSSettingsAttention
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(attention.title)
+                    .font(.subheadline.weight(.semibold))
+                Text(attention.detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } icon: {
+            Image(systemName: attention.systemImage)
+                .foregroundStyle(.orange)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(
+            "ios.settings.attention.\(attention.rawValue)"
+        )
+    }
+}
+
 private struct IOSSettingsEditorChrome: ViewModifier {
     @Environment(\.dismiss) private var dismiss
 
@@ -641,6 +752,18 @@ private struct IOSSettingsEditorChrome: ViewModifier {
 }
 
 extension View {
+    func iosSettingsField(
+        _ field: IOSSettingsField,
+        attentionTarget: IOSSettingsAttentionTarget? = nil
+    ) -> some View {
+        modifier(
+            IOSSettingsFieldModifier(
+                field: field,
+                attentionTarget: attentionTarget
+            )
+        )
+    }
+
     func iosSettingsEditorChrome(
         isDirty: Bool,
         isSaving: Bool,

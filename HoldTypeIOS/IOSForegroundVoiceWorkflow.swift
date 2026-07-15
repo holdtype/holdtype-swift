@@ -772,7 +772,7 @@ final class IOSForegroundVoiceWorkflow {
             .customLanguageCodeValidation.isInvalid else {
             return false
         }
-        return settings.translationConfiguration.canRunAction
+        return settings.translationConfiguration.isConfigurationReady
     }
 
     private func runControllerStart(
@@ -2312,7 +2312,7 @@ final class IOSForegroundVoiceWorkflow {
             return .invalid(.transcription)
         }
         if intent == .translate,
-           !settings.translationConfiguration.canRunAction {
+           !settings.translationConfiguration.isConfigurationReady {
             return .invalid(.translation)
         }
         return .available(
@@ -2804,7 +2804,7 @@ final class IOSForegroundVoiceWorkflow {
     private var translationIsAvailable: Bool {
         guard passiveSetup == .ready else { return false }
         return lastConfiguration?.settings.translationConfiguration
-            .canRunAction ?? false
+            .isConfigurationReady ?? false
     }
 
     private var passiveSetup: IOSForegroundVoiceSetup {

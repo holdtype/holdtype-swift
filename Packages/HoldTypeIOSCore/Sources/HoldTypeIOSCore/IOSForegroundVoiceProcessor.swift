@@ -719,7 +719,7 @@ public actor IOSForegroundVoiceProcessor {
         case .standard:
             translation = nil
         case .translate:
-            guard request.settings.translationConfiguration.canRunAction else {
+            guard request.settings.translationConfiguration.isConfigurationReady else {
                 return nil
             }
             translation = request.settings.translationConfiguration

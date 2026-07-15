@@ -2339,7 +2339,7 @@ struct IOSForegroundVoiceWorkflowTests {
         async throws {
         var settings = IOSAppSettings.defaults
         settings.translationConfiguration = TranslationConfiguration(
-            actionPreferenceEnabled: true,
+            actionPreferenceEnabled: false,
             targetLanguage: .french
         )
         let fixture = try await WorkflowFixture(
@@ -2384,7 +2384,7 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
-    func keyboardTranslationCapabilityUsesCurrentValidatedSettings()
+    func keyboardTranslationCapabilityUsesConfigurationNotLegacyPreference()
         async throws {
         let unavailable = try await WorkflowFixture(permission: .granted)
         #expect(
@@ -2394,7 +2394,7 @@ struct IOSForegroundVoiceWorkflowTests {
 
         var settings = IOSAppSettings.defaults
         settings.translationConfiguration = TranslationConfiguration(
-            actionPreferenceEnabled: true,
+            actionPreferenceEnabled: false,
             targetLanguage: .french
         )
         let available = try await WorkflowFixture(

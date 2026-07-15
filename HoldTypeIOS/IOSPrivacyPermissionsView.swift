@@ -14,14 +14,21 @@ struct IOSPrivacyPermissionsView: View {
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
     @State private var accessibilityAnnouncementCandidate:
         IOSAccessibilityAnnouncementCandidate?
+    private let attentionTarget: IOSSettingsAttentionTarget?
+
+    init(attentionTarget: IOSSettingsAttentionTarget? = nil) {
+        self.attentionTarget = attentionTarget
+    }
 
     var body: some View {
-        List {
-            microphoneSection
-            providerConsentSection
-            localDataSection
+        IOSSettingsAttentionScrollView(attentionTarget: attentionTarget) {
+            List {
+                microphoneSection
+                providerConsentSection
+                localDataSection
+            }
+            .listStyle(.insetGrouped)
         }
-        .listStyle(.insetGrouped)
         .navigationTitle("Privacy & Permissions")
         .accessibilityIdentifier("ios.privacy-permissions")
         .onChange(of: scenePhase, initial: true) { _, phase in
@@ -128,6 +135,10 @@ struct IOSPrivacyPermissionsView: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("ios.privacy.microphone-status")
+            .iosSettingsField(
+                .privacyMicrophone,
+                attentionTarget: attentionTarget
+            )
 
             if consentOwner.microphoneStatus == .denied,
                let settingsURL = URL(
@@ -185,6 +196,10 @@ struct IOSPrivacyPermissionsView: View {
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("ios.privacy.consent-status")
+                .iosSettingsField(
+                    .privacyProviderConsent,
+                    attentionTarget: attentionTarget
+                )
 
                 if let action = presentation.action {
                     Button(

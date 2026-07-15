@@ -55,9 +55,9 @@ be matched conservatively.
 - `Keep latest result` is on by default and does not write to the system
   clipboard automatically.
 - Normal literal dictation with punctuation is the default output intent.
-- The Translate action remains visible but unavailable until its target
-  configuration is valid. The containing app can route to Translation setup;
-  the keyboard only tells the user to configure Translation in HoldType.
+- The Translate action remains visible and tappable while its target
+  configuration is incomplete. Voice and Keyboard route that tap to the exact
+  Translation setting that needs attention; no partial output work starts.
 - Copy and Share always require explicit user action.
 
 ## Runtime Output Adapter Request

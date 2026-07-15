@@ -178,7 +178,8 @@ destination. History remains a separate tab and is not previewed on Voice.
   plus Undo, Redo, Copy, and Clear, stay in the action row above it. All three
   settings start off on cold launch, remain selected for subsequent
   containing-app attempts until turned off, and never rewrite durable Settings.
-  Auto Translate is available only when its current route is valid, while Auto
+  If Auto Translate's saved route is incomplete, its control remains tappable
+  and opens the exact owning Translation input with inline guidance. Auto
   Correction forces the saved correction configuration for the selected
   attempts. Both may be enabled together.
 - Current Dictionary, Voice Emoji Commands, Replacement Rules, cleanup,
@@ -327,10 +328,11 @@ The first-release surface provides:
   intermediate launcher, has no visible title, shows two emoji rows in regular
   height, and closes back to the exact underlying Voice state after any
   insertion;
-- one-tap Translate and Improve starts with no menu or dialog: Translate is
-  disabled until its saved route is valid, while Improve forces the saved
-  correction configuration for that request without changing the durable
-  correction preference;
+- one-tap Translate and Improve starts with no menu or dialog: when Translate's
+  saved route is incomplete, the same control opens the exact owning Translation
+  input instead of becoming disabled; Improve forces the saved correction
+  configuration for that request without changing the durable correction
+  preference;
 - one editing row containing Globe, a wide Space key, Delete, and adaptive
   Return;
 - short-tap Space insertion plus long-press and drag cursor movement without an

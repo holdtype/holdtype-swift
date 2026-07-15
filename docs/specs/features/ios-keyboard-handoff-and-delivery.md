@@ -50,6 +50,9 @@ resolved by silently degrading the keyboard into that manual-session design.
   replaced by a keyboard-specific screen.
 - HoldType does not claim it can return to the host automatically. The user may
   need to swipe back or use the normal iOS app-switching gesture.
+- If the user taps keyboard Translate while its saved route is incomplete, the
+  same bounded launch mechanism opens HoldType at the exact owning Translation
+  input. No dictation request or provider work starts for that tap.
 
 ### Continue And Finish
 
@@ -156,5 +159,7 @@ microphone appear active.
   preserve Latest without automatic insertion into the wrong destination.
 - Permission, offline, timeout, provider, expiry, and Full Access failures are
   shown in the existing voice/error area with a concrete recovery path.
+- Incomplete Translation setup leaves keyboard Translate actionable and routes
+  to field-level Translation guidance instead of silently ignoring the tap.
 - An app-only release can exclude the keyboard cleanly without weakening the
   standalone Voice experience.

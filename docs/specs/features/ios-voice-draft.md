@@ -153,8 +153,11 @@ without opening the custom keyboard.
 - A one-shot Translate or Correction action forces that option for its new
   attempt without changing the persistent selected state of the bottom settings
   row; the other selected session modes still apply to that attempt.
-- Translate uses the saved Translation route and is selectable only when the
-  current target and source route are valid.
+- Translate uses the saved Translation route. If the route is incomplete, both
+  the one-shot action and Auto Translate remain tappable and open the exact
+  invalid source or missing target input with inline guidance. They do not
+  become selected and do not start work until the user repeats the action after
+  setup is valid.
 - Correction forces the saved Writing & Correction model and prompt for each
   selected attempt without changing the durable correction preference. It
   retains the existing safe fallback to the accepted transcript.
@@ -164,9 +167,9 @@ without opening the custom keyboard.
   Pending state so Retry and relaunch cannot change the meaning of that attempt.
 - None of the modes transforms text already visible in Draft. Replace or Append
   happens only after the new result is accepted.
-- Starting, Listening, Finalizing, Processing, recovery, setup, unavailable,
-  editing, or non-writable Draft states keep all three controls visible and
-  disabled.
+- Starting, Listening, Finalizing, Processing, editing, or a non-writable Draft
+  may temporarily prevent conflicting session changes. Missing Translation
+  setup is not such a safety state and never turns Translate into a dead control.
 
 ## Recovery
 
@@ -177,8 +180,8 @@ without opening the custom keyboard.
   resolving it does not create an automatic navigation loop; the centered
   recovery state keeps the same direct action available.
 - OpenAI, transcription, translation, and microphone/privacy setup route to
-  their existing owning Settings screens. The destination shows a contextual
-  Voice Setup message explaining why it opened and what the user must complete.
+  their existing owning Settings screens. The destination scrolls the exact
+  owning input into view and shows a contextual explanation beside it.
 - Keyboard and Full Access recovery route to a dedicated Keyboard & Full Access
   setup screen with the complete public Settings path, an Open System Settings
   action, and a practice field. The containing app reports Full Access as not

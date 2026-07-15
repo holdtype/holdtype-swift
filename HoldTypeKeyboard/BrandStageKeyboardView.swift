@@ -4,7 +4,6 @@ struct BrandStageKeyboardPresentation: Equatable {
     let status: KeyboardVoiceStatus
     let voiceStage: KeyboardVoiceStagePresentation
     let latestIsEnabled: Bool
-    let translationIsEnabled: Bool
     let cancelIsVisible: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
@@ -166,8 +165,7 @@ final class BrandStageKeyboardView: UIView {
         }
         quickInsertButton.isEnabled = !presentation.voiceStage
             .keepsVoiceWorkspaceVisible
-        translateButton.isEnabled = presentation.translationIsEnabled
-            && presentation.voiceStage == .ready
+        translateButton.isEnabled = presentation.voiceStage == .ready
         improveButton.isEnabled = presentation.voiceStage == .ready
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(

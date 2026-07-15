@@ -146,10 +146,11 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - Translate and Improve are secondary one-tap starts beside Quick Insert. They
   do not open a menu, mode chooser, confirmation, settings sheet, or containing
   app transition.
-- Translate starts the next keyboard dictation with the saved Translation
-  route. It is enabled only while the keyboard session is Ready and the
-  containing app reports that Translation is enabled with a valid target and
-  source route. Otherwise it remains visible and disabled.
+- Translate starts the next keyboard dictation with the saved Translation route
+  when the keyboard session is Ready and the containing app reports a valid
+  target and source route. If the route is incomplete, Translate remains
+  tappable and opens the containing app at the exact owning Translation input
+  with inline guidance.
 - Improve starts the next keyboard dictation in standard output mode and forces
   the saved Writing & Correction model and prompt for that request only. It
   does not change the durable correction preference. Correction retains its
@@ -227,7 +228,7 @@ without showing `Inserted` or rendering a result preview.
 - Commands and state use atomic replacement. They add no outbox, receipt,
   acknowledgement family, tombstone, lease, policy generation, transaction
   coordinator, or replay queue.
-- App Group state may include only a boolean Translation-available capability.
+- App Group state may include only a boolean Translation-route-valid capability.
   It contains no language codes, translation route, model, API key, prompt,
   dictionary, canonical History, raw audio, provider body, or durable host
   context.

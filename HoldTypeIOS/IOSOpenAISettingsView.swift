@@ -82,48 +82,57 @@ struct IOSOpenAISettingsView: View {
     @Binding private var editorDraft: IOSOpenAICredentialEditorDraft
     @State private var showsRemoveConfirmation = false
     @FocusState private var isKeyFieldFocused: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
 
-    init(editorDraft: Binding<IOSOpenAICredentialEditorDraft>) {
+    init(
+        editorDraft: Binding<IOSOpenAICredentialEditorDraft>,
+        attentionTarget: IOSSettingsAttentionTarget? = nil
+    ) {
         _editorDraft = editorDraft
+        self.attentionTarget = attentionTarget
     }
 
     var body: some View {
-        List {
-            switch stateOwner.state {
-            case .unavailable:
-                unavailableSection
-            case .notLoaded:
-                loadingSection
-            case .ready(let status):
-                statusSection(status)
-                credentialSection(status)
-            }
+        IOSSettingsAttentionScrollView(
+            attentionTarget: activeAttentionTarget
+        ) {
+            List {
+                switch stateOwner.state {
+                case .unavailable:
+                    unavailableSection
+                case .notLoaded:
+                    loadingSection
+                case .ready(let status):
+                    statusSection(status)
+                    credentialSection(status)
+                }
 
-            if let notice = stateOwner.notice {
-                Section {
-                    Label(notice.message, systemImage: "checkmark.circle")
-                        .foregroundStyle(.green)
-                        .accessibilityIdentifier(
-                            "ios.settings.openai.notice"
+                if let notice = stateOwner.notice {
+                    Section {
+                        Label(notice.message, systemImage: "checkmark.circle")
+                            .foregroundStyle(.green)
+                            .accessibilityIdentifier(
+                                "ios.settings.openai.notice"
+                            )
+                    }
+                }
+
+                if let failure = stateOwner.failure {
+                    Section {
+                        Label(
+                            failure.message,
+                            systemImage: "exclamationmark.triangle"
                         )
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier(
+                            "ios.settings.openai.failure"
+                        )
+                    }
                 }
-            }
 
-            if let failure = stateOwner.failure {
-                Section {
-                    Label(
-                        failure.message,
-                        systemImage: "exclamationmark.triangle"
-                    )
-                    .foregroundStyle(.red)
-                    .accessibilityIdentifier(
-                        "ios.settings.openai.failure"
-                    )
-                }
+                setupSection
+                privacySection
             }
-
-            setupSection
-            privacySection
         }
         .navigationTitle("OpenAI")
         .navigationBarTitleDisplayMode(.inline)
@@ -173,6 +182,17 @@ struct IOSOpenAISettingsView: View {
                 + "requests until you save another key."
             )
         }
+    }
+
+    private var activeAttentionTarget: IOSSettingsAttentionTarget? {
+        guard attentionTarget?.attention == .openAI else {
+            return attentionTarget
+        }
+        guard case .ready(let status) = stateOwner.state,
+              status.primary == .availableInThisProcess else {
+            return attentionTarget
+        }
+        return nil
     }
 
     private var unavailableSection: some View {
@@ -294,6 +314,10 @@ struct IOSOpenAISettingsView: View {
                 commit(candidate)
             }
             .accessibilityIdentifier("ios.settings.openai.key-field")
+            .iosSettingsField(
+                .openAIKey,
+                attentionTarget: activeAttentionTarget
+            )
 
             Button {
                 pasteAndSave()

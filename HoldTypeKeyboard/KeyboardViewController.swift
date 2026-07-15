@@ -5,6 +5,11 @@ typealias KeyboardLatestExpiryScheduler = (
     @escaping @MainActor () -> Void
 ) -> Timer?
 
+typealias KeyboardContainingAppOpener = (
+    URL,
+    @escaping (Bool) -> Void
+) -> Void
+
 @MainActor
 struct KeyboardViewControllerDependencies {
     let loadSnapshot: () throws -> KeyboardBridgeSnapshot?
@@ -18,6 +23,7 @@ struct KeyboardViewControllerDependencies {
     let inputModeSwitchKeyOverride: Bool?
     let fullAccessOverride: Bool?
     let scheduleLatestExpiry: KeyboardLatestExpiryScheduler
+    let openContainingAppOverride: KeyboardContainingAppOpener?
 
     static let live = KeyboardViewControllerDependencies(
         loadSnapshot: {
@@ -55,7 +61,8 @@ struct KeyboardViewControllerDependencies {
             }
             RunLoop.main.add(timer, forMode: .common)
             return timer
-        }
+        },
+        openContainingAppOverride: nil
     )
 }
 
@@ -238,8 +245,6 @@ final class KeyboardViewController: UIInputViewController {
                 status: dictationPresentation.status,
                 voiceStage: dictationPresentation.voiceStage,
                 latestIsEnabled: latestItem != nil,
-                translationIsEnabled: dictationState?.translationAvailable
-                    == true && dictationPresentation.voiceStage == .ready,
                 cancelIsVisible: dictationPresentation.cancelIsVisible,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
@@ -398,8 +403,11 @@ final class KeyboardViewController: UIInputViewController {
 
     private func beginDictation(action: KeyboardVoiceAction) {
         guard let state = dictationState,
-              state.phase == .ready,
-              action != .translate || state.translationAvailable else {
+              state.phase == .ready else {
+            return
+        }
+        if action == .translate, !state.translationAvailable {
+            openTranslationSettings()
             return
         }
         activeDictationRequestID = state.requestID
@@ -409,6 +417,26 @@ final class KeyboardViewController: UIInputViewController {
             hostContextGeneration: hostContextGeneration
         )
         sendDictationCommand(.start, action: action)
+    }
+
+    private func openTranslationSettings() {
+        guard let url = URL(string: "holdtype://settings/translation") else {
+            return
+        }
+        let completion: (Bool) -> Void = { didOpen in
+            guard !didOpen else { return }
+            Task { @MainActor in
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: "Open HoldType and configure Translation in Settings."
+                )
+            }
+        }
+        if let openContainingAppOverride = dependencies.openContainingAppOverride {
+            openContainingAppOverride(url, completion)
+        } else {
+            extensionContext?.open(url, completionHandler: completion)
+        }
     }
 
     private func sendDictationCommand(

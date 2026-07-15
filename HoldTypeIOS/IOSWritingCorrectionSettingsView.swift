@@ -9,11 +9,14 @@ struct IOSWritingCorrectionSettingsView: View {
         IOSWritingCorrectionSettingsDraft
     >
     @State private var showsDiscardConfirmation = false
+    @State private var advancedIsExpanded: Bool
     @Binding private var hasUnsavedSceneEditor: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TextCorrectionConfiguration,
         localTextCleanupEnabled: Bool,
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
         hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
     ) {
         _session = State(
@@ -24,17 +27,27 @@ struct IOSWritingCorrectionSettingsView: View {
                 )
             )
         )
+        _advancedIsExpanded = State(
+            initialValue: attentionTarget?.field == .correctionModel
+                || attentionTarget?.field == .correctionCustomModel
+                || attentionTarget?.field == .correctionInstructions
+        )
+        self.attentionTarget = attentionTarget
         _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
-        Form {
+        IOSSettingsForm(attentionTarget: attentionTarget) {
             IOSSettingsEditorStatusSection(phase: session.phase)
 
             Section("Local Cleanup") {
                 Toggle(
                     "Use Plain Typography Cleanup",
                     isOn: binding(\.localTextCleanupEnabled)
+                )
+                .iosSettingsField(
+                    .correctionLocalCleanup,
+                    attentionTarget: attentionTarget
                 )
                 Text(
                     "Normalizes smart quotes, long dashes, ellipses, and "
@@ -49,6 +62,10 @@ struct IOSWritingCorrectionSettingsView: View {
                     "Correct Transcript with OpenAI",
                     isOn: configurationBinding(\.isEnabled)
                 )
+                .iosSettingsField(
+                    .correctionEnabled,
+                    attentionTarget: attentionTarget
+                )
 
                 Text(
                     "Uses OpenAI after transcription. Off by default."
@@ -58,7 +75,7 @@ struct IOSWritingCorrectionSettingsView: View {
             }
 
             Section {
-                DisclosureGroup("Advanced") {
+                DisclosureGroup("Advanced", isExpanded: $advancedIsExpanded) {
                     Picker(
                         "Correction Model",
                         selection: configurationBinding(\.modelPreset)
@@ -70,6 +87,10 @@ struct IOSWritingCorrectionSettingsView: View {
                             Text(preset.iosSettingsDisplayName).tag(preset)
                         }
                     }
+                    .iosSettingsField(
+                        .correctionModel,
+                        attentionTarget: attentionTarget
+                    )
 
                     Text(selectedModelDetail)
                         .font(.footnote)
@@ -82,6 +103,10 @@ struct IOSWritingCorrectionSettingsView: View {
                         )
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .iosSettingsField(
+                            .correctionCustomModel,
+                            attentionTarget: attentionTarget
+                        )
 
                         if usesDefaultCustomModel {
                             Text("Uses HoldType’s standard correction model.")
@@ -95,6 +120,10 @@ struct IOSWritingCorrectionSettingsView: View {
                         prompt: "Optional correction guidance",
                         text: correctionInstructionsBinding,
                         lineLimit: 3...8
+                    )
+                    .iosSettingsField(
+                        .correctionInstructions,
+                        attentionTarget: attentionTarget
                     )
 
                     Button {

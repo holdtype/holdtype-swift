@@ -6,9 +6,18 @@ struct IOSKeyboardSetupView: View {
     private var keyboardSession
     @Binding var practiceText: String
     @FocusState private var practiceFieldIsFocused: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
+
+    init(
+        practiceText: Binding<String>,
+        attentionTarget: IOSSettingsAttentionTarget? = nil
+    ) {
+        _practiceText = practiceText
+        self.attentionTarget = attentionTarget
+    }
 
     var body: some View {
-        Form {
+        IOSSettingsForm(attentionTarget: attentionTarget) {
             statusSection
             setupSection
             practiceSection
@@ -62,6 +71,10 @@ struct IOSKeyboardSetupView: View {
                 .accessibilityIdentifier(
                     "ios.keyboard-setup.open-system-settings"
                 )
+                .iosSettingsField(
+                    .keyboardSystemSettings,
+                    attentionTarget: attentionTarget
+                )
             }
         }
     }
@@ -86,6 +99,10 @@ struct IOSKeyboardSetupView: View {
             .textInputAutocapitalization(.sentences)
             .focused($practiceFieldIsFocused)
             .accessibilityIdentifier("ios.keyboard-setup.practice-field")
+            .iosSettingsField(
+                .keyboardPractice,
+                attentionTarget: attentionTarget
+            )
 
             Button("Focus Practice Field") {
                 practiceFieldIsFocused = true

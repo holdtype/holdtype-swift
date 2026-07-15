@@ -330,6 +330,11 @@ struct KeyboardViewControllerTests {
         controller.textDidChange(nil)
         controller.keyboardView.onTranslateRequested?()
         #expect(harness.savedCommands.isEmpty)
+        #expect(
+            harness.openedURLs == [
+                URL(string: "holdtype://settings/translation")!,
+            ]
+        )
     }
 
     @Test func hostContextLossSuppressesAutomaticInsertion() throws {
@@ -511,6 +516,7 @@ private final class KeyboardControllerHarness {
     let inputModeSwitchKeyOverride: Bool?
     let fullAccessOverride: Bool
     var savedCommands: [KeyboardDictationCommandRecord] = []
+    var openedURLs: [URL] = []
     var scheduledExpiryDates: [Date] = []
     var scheduledExpiryActions: [@MainActor () -> Void] = []
 
@@ -545,6 +551,10 @@ private final class KeyboardControllerHarness {
                     scheduledExpiryDates.append(date)
                     scheduledExpiryActions.append(action)
                     return nil
+                },
+                openContainingAppOverride: { [self] url, completion in
+                    openedURLs.append(url)
+                    completion(true)
                 }
             )
         )

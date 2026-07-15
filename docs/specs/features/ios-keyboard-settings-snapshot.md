@@ -146,8 +146,8 @@ mutable snapshot fields.
 - Keyboard Settings may show that preferences were published, not that the
   extension consumed them.
 - Voice action readiness is owned by the expiring voice-session snapshot, even
-  when translation action preference and configuration readiness are published
-  here. Automatic insertion also requires the current static preference plus
+  when Translation route readiness is published here. Automatic insertion also
+  requires the current static preference plus
   the per-result authorization plus every live eligibility rule in
   `ios-output-actions.md`.
 
@@ -155,8 +155,8 @@ mutable snapshot fields.
 
 - Test atomic round trip, revision ordering, optional-field defaults, schema
   incompatibility, corrupt data, invalid values, and missing container.
-- Test automatic-insertion preference and translation visibility/readiness
-  changes without publishing any underlying translation configuration.
+- Test automatic-insertion preference and Translation route-readiness changes
+  without publishing any underlying translation configuration.
 - Test forbidden-field absence with encoded fixture inspection.
 - Test bundled fallback without App Group, network, app process, or Full Access.
 - Record M0B device evidence before treating read-only publication as supported.

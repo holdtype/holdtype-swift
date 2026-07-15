@@ -41,7 +41,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(IOSAppSettingsStorageLocation.fileName == "ios-app-settings.json")
     }
 
-    @Test func canonicalV1SaveWritesEveryFieldAndRoundTripsRawValues() async throws {
+    @Test func canonicalV1SaveOmitsLegacyTranslatePreferenceAndNormalizesIt() async throws {
         let settings = fixtureSettings()
         let fileSystem = IOSAppSettingsFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -49,9 +49,11 @@ struct IOSAppSettingsRepositoryTests {
         try await repository.save(settings)
 
         let expected =
-            #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"actionPreferenceEnabled":false,"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
+            #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
         #expect(fileSystem.data == Data(expected.utf8))
-        #expect(try await repository.load() == settings)
+        var normalizedSettings = settings
+        normalizedSettings.translationConfiguration.actionPreferenceEnabled = true
+        #expect(try await repository.load() == normalizedSettings)
 
         let savedData = try #require(fileSystem.data)
         let root = try #require(
@@ -93,7 +95,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(defaultsOnlyFileSystem.replacementCallCount == 0)
 
         let partialData = Data(
-            #"{"keepLatestResult":false,"localTextCleanupEnabled":false,"schemaVersion":1,"textCorrection":{"isEnabled":true},"transcription":{"model":"partial-model"},"translation":{"targetLanguage":"english"},"voice":{"audioCuesEnabled":false}}"#.utf8
+            #"{"keepLatestResult":false,"localTextCleanupEnabled":false,"schemaVersion":1,"textCorrection":{"isEnabled":true},"transcription":{"model":"partial-model"},"translation":{"actionPreferenceEnabled":false,"targetLanguage":"english"},"voice":{"audioCuesEnabled":false}}"#.utf8
         )
         let partialFileSystem = IOSAppSettingsFileSystemFake(data: partialData)
         let partialRepository = makeRepository(fileSystem: partialFileSystem)

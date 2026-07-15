@@ -9,20 +9,28 @@ struct IOSTranscriptionSettingsView: View {
         TranscriptionConfiguration
     >
     @State private var showsDiscardConfirmation = false
+    @State private var advancedIsExpanded: Bool
     @Binding private var hasUnsavedSceneEditor: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TranscriptionConfiguration,
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
         hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
     ) {
         _session = State(
             initialValue: IOSSettingsEditorSession(value: configuration)
         )
+        _advancedIsExpanded = State(
+            initialValue: attentionTarget?.field == .transcriptionModel
+                || attentionTarget?.field == .transcriptionInstructions
+        )
+        self.attentionTarget = attentionTarget
         _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
-        Form {
+        IOSSettingsForm(attentionTarget: activeAttentionTarget) {
             IOSSettingsEditorStatusSection(phase: session.phase)
 
             Section("Language") {
@@ -42,6 +50,10 @@ struct IOSTranscriptionSettingsView: View {
                         )
                     )
                 }
+                .iosSettingsField(
+                    .transcriptionLanguage,
+                    attentionTarget: activeAttentionTarget
+                )
 
                 if session.draft.language == .custom {
                     TextField(
@@ -52,16 +64,24 @@ struct IOSTranscriptionSettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .accessibilityHint(customLanguageCodeAccessibilityHint)
+                    .iosSettingsField(
+                        .transcriptionCustomLanguage,
+                        attentionTarget: activeAttentionTarget
+                    )
 
                     customLanguageStatus
                 }
             }
 
             Section {
-                DisclosureGroup("Advanced") {
+                DisclosureGroup("Advanced", isExpanded: $advancedIsExpanded) {
                     TextField("Model ID", text: binding(\.model))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .iosSettingsField(
+                            .transcriptionModel,
+                            attentionTarget: activeAttentionTarget
+                        )
 
                     if usesDefaultModel {
                         Text("Uses HoldType’s standard model.")
@@ -74,6 +94,10 @@ struct IOSTranscriptionSettingsView: View {
                         prompt: "Optional vocabulary or style guidance",
                         text: binding(\.freeformPrompt),
                         lineLimit: 3...10
+                    )
+                    .iosSettingsField(
+                        .transcriptionInstructions,
+                        attentionTarget: activeAttentionTarget
                     )
 
                     Text("Instructions are sent only with your transcriptions.")
@@ -114,6 +138,16 @@ struct IOSTranscriptionSettingsView: View {
             save: beginSave,
             discard: { session.discard() }
         )
+    }
+
+    private var activeAttentionTarget: IOSSettingsAttentionTarget? {
+        guard attentionTarget?.attention == .transcription else {
+            return attentionTarget
+        }
+        return session.draft.language == .custom
+            && session.draft.customLanguageCodeValidation.isInvalid
+            ? attentionTarget
+            : nil
     }
 
     @ViewBuilder

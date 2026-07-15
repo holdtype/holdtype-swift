@@ -35,7 +35,6 @@ struct BrandStageKeyboardViewTests {
         view.render(
             presentation(
                 latestIsEnabled: true,
-                translationIsEnabled: true,
                 returnKey: .title("Send")
             )
         )
@@ -785,7 +784,6 @@ struct BrandStageKeyboardViewTests {
         status: KeyboardVoiceStatus = .ready,
         voiceStage: KeyboardVoiceStagePresentation = .ready,
         latestIsEnabled: Bool = false,
-        translationIsEnabled: Bool = false,
         cancelIsVisible: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
         showsInputModeSwitchKey: Bool = true
@@ -794,7 +792,6 @@ struct BrandStageKeyboardViewTests {
             status: status,
             voiceStage: voiceStage,
             latestIsEnabled: latestIsEnabled,
-            translationIsEnabled: translationIsEnabled,
             cancelIsVisible: cancelIsVisible,
             returnKey: returnKey,
             returnIsEnabled: true,

@@ -11,6 +11,7 @@ struct IOSVoiceRecordingSettingsView: View {
     @State private var showsDiscardConfirmation = false
     @State private var showsCacheReconciliationFailure = false
     @Binding private var hasUnsavedSceneEditor: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
     private let reconcileRecordingCache: (
         RecordingCachePolicy
     ) async -> Bool
@@ -18,6 +19,7 @@ struct IOSVoiceRecordingSettingsView: View {
     init(
         preferences: VoiceSessionPreferences,
         recordingCachePolicy: RecordingCachePolicy,
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
         hasUnsavedSceneEditor: Binding<Bool> = .constant(false),
         reconcileRecordingCache: @escaping (
             RecordingCachePolicy
@@ -31,18 +33,23 @@ struct IOSVoiceRecordingSettingsView: View {
                 )
             )
         )
+        self.attentionTarget = attentionTarget
         _hasUnsavedSceneEditor = hasUnsavedSceneEditor
         self.reconcileRecordingCache = reconcileRecordingCache
     }
 
     var body: some View {
-        Form {
+        IOSSettingsForm(attentionTarget: attentionTarget) {
             IOSSettingsEditorStatusSection(phase: session.phase)
 
             Section("Feedback") {
                 Toggle(
                     "Play Recording Start and Stop Sounds",
                     isOn: binding(\.preferences.audioCuesEnabled)
+                )
+                .iosSettingsField(
+                    .voiceAudioCues,
+                    attentionTarget: attentionTarget
                 )
             }
 
@@ -58,6 +65,10 @@ struct IOSVoiceRecordingSettingsView: View {
                         Text(duration.iosSettingsDisplayName).tag(duration)
                     }
                 }
+                .iosSettingsField(
+                    .voiceFinishBuffer,
+                    attentionTarget: attentionTarget
+                )
 
                 Text(
                     "A short finish buffer helps keep final words from being "
@@ -71,6 +82,10 @@ struct IOSVoiceRecordingSettingsView: View {
                 Toggle(
                     "Keep completed recordings",
                     isOn: recordingCacheEnabledBinding
+                )
+                .iosSettingsField(
+                    .voiceRecordingCache,
+                    attentionTarget: attentionTarget
                 )
 
                 Text(recordingCacheDescription)
@@ -89,6 +104,10 @@ struct IOSVoiceRecordingSettingsView: View {
                             .tag(IOSRecordingCacheRetentionMode.unlimited)
                     }
                     .pickerStyle(.segmented)
+                    .iosSettingsField(
+                        .voiceRecordingRetention,
+                        attentionTarget: attentionTarget
+                    )
 
                     if case .keepLast = session.draft.recordingCachePolicy.normalized {
                         Stepper(
@@ -96,6 +115,10 @@ struct IOSVoiceRecordingSettingsView: View {
                             value: recordingCacheRetainedLimitBinding,
                             in: 1...RecordingCachePolicy
                                 .maximumRetainedRecordingLimit
+                        )
+                        .iosSettingsField(
+                            .voiceRecordingLimit,
+                            attentionTarget: attentionTarget
                         )
                     } else {
                         Label(

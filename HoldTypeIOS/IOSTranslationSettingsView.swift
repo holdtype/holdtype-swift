@@ -9,34 +9,31 @@ struct IOSTranslationSettingsView: View {
         TranslationConfiguration
     >
     @State private var showsDiscardConfirmation = false
+    @State private var advancedIsExpanded: Bool
     @Binding private var hasUnsavedSceneEditor: Bool
+    private let attentionTarget: IOSSettingsAttentionTarget?
 
     init(
         configuration: TranslationConfiguration,
+        attentionTarget: IOSSettingsAttentionTarget? = nil,
         hasUnsavedSceneEditor: Binding<Bool> = .constant(false)
     ) {
+        var configuration = configuration
+        configuration.actionPreferenceEnabled = true
         _session = State(
             initialValue: IOSSettingsEditorSession(value: configuration)
         )
+        _advancedIsExpanded = State(
+            initialValue: attentionTarget?.field == .translationModel
+                || attentionTarget?.field == .translationInstructions
+        )
+        self.attentionTarget = attentionTarget
         _hasUnsavedSceneEditor = hasUnsavedSceneEditor
     }
 
     var body: some View {
-        Form {
+        IOSSettingsForm(attentionTarget: activeAttentionTarget) {
             IOSSettingsEditorStatusSection(phase: session.phase)
-
-            Section("Translate Action") {
-                Toggle(
-                    "Show Translate Voice Action",
-                    isOn: binding(\.actionPreferenceEnabled)
-                )
-                Text(
-                    "A configured Translate action runs after transcription "
-                        + "and optional correction."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
 
             Section("Languages") {
                 Picker("Source", selection: binding(\.sourceMode)) {
@@ -45,6 +42,10 @@ struct IOSTranslationSettingsView: View {
                         Text(mode.iosSettingsDisplayName).tag(mode)
                     }
                 }
+                .iosSettingsField(
+                    .translationSourceMode,
+                    attentionTarget: activeAttentionTarget
+                )
 
                 if configuration.sourceMode == .override {
                     NavigationLink {
@@ -65,12 +66,17 @@ struct IOSTranslationSettingsView: View {
                             )
                         )
                     }
+                    .iosSettingsField(
+                        .translationSourceLanguage,
+                        attentionTarget: activeAttentionTarget
+                    )
 
                     if configuration.sourceLanguage == .custom {
                         customCodeField(
                             title: "Custom Source Code",
                             text: binding(\.customSourceLanguageCode),
-                            value: configuration.customSourceLanguageCode
+                            value: configuration.customSourceLanguageCode,
+                            field: .translationCustomSource
                         )
                     }
                 }
@@ -92,12 +98,17 @@ struct IOSTranslationSettingsView: View {
                         )
                     )
                 }
+                .iosSettingsField(
+                    .translationTargetLanguage,
+                    attentionTarget: activeAttentionTarget
+                )
 
                 if configuration.targetLanguage == .custom {
                     customCodeField(
                         title: "Custom Target Code",
                         text: binding(\.customTargetLanguageCode),
-                        value: configuration.customTargetLanguageCode
+                        value: configuration.customTargetLanguageCode,
+                        field: .translationCustomTarget
                     )
                 }
 
@@ -105,10 +116,14 @@ struct IOSTranslationSettingsView: View {
             }
 
             Section {
-                DisclosureGroup("Advanced") {
+                DisclosureGroup("Advanced", isExpanded: $advancedIsExpanded) {
                     TextField("Model ID", text: binding(\.model))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .iosSettingsField(
+                            .translationModel,
+                            attentionTarget: activeAttentionTarget
+                        )
 
                     if usesDefaultModel {
                         Text("Uses HoldType’s standard translation model.")
@@ -121,6 +136,10 @@ struct IOSTranslationSettingsView: View {
                         prompt: "Optional translation guidance",
                         text: translationInstructionsBinding,
                         lineLimit: 3...8
+                    )
+                    .iosSettingsField(
+                        .translationInstructions,
+                        attentionTarget: activeAttentionTarget
                     )
 
                     Button {
@@ -179,9 +198,19 @@ struct IOSTranslationSettingsView: View {
 
     private var configuration: TranslationConfiguration { session.draft }
 
+    private var activeAttentionTarget: IOSSettingsAttentionTarget? {
+        guard attentionTarget?.attention == .translation,
+              configuration.routeConfigurationIssue != nil else {
+            return nil
+        }
+        return attentionTarget
+    }
+
     private var durableConfiguration: TranslationConfiguration {
-        stateOwner.state.durableValue?.translationConfiguration
+        var configuration = stateOwner.state.durableValue?.translationConfiguration
             ?? session.baseline
+        configuration.actionPreferenceEnabled = true
+        return configuration
     }
 
     private var usesDefaultModel: Bool {
@@ -270,41 +299,45 @@ struct IOSTranslationSettingsView: View {
     private func customCodeField(
         title: String,
         text: Binding<String>,
-        value: String
+        value: String,
+        field: IOSSettingsField
     ) -> some View {
-        TextField(title, text: text)
-            .keyboardType(.asciiCapable)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled()
-            .accessibilityHint(customCodeAccessibilityHint(for: value))
+        VStack(alignment: .leading, spacing: 8) {
+            TextField(title, text: text)
+                .keyboardType(.asciiCapable)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityHint(customCodeAccessibilityHint(for: value))
 
-        let trimmed = value.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        if trimmed.isEmpty {
-            Label(
-                "Enter two or three letters to complete this route.",
-                systemImage: "info.circle"
+            let trimmed = value.trimmingCharacters(
+                in: .whitespacesAndNewlines
             )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        } else if TranscriptionLanguage
-            .isWellFormedCustomLanguageCode(trimmed) {
-            Label(
-                "Language code: \(trimmed.lowercased())",
-                systemImage: "checkmark.circle"
-            )
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        } else {
-            IOSSettingsWarningLabel(
-                "Use two or three letters, such as es or ja.",
-                color: .red
-            )
-            .accessibilityIdentifier(
-                "ios.settings.translation.language-invalid"
-            )
+            if trimmed.isEmpty {
+                Label(
+                    "Enter two or three letters to complete this route.",
+                    systemImage: "info.circle"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } else if TranscriptionLanguage
+                .isWellFormedCustomLanguageCode(trimmed) {
+                Label(
+                    "Language code: \(trimmed.lowercased())",
+                    systemImage: "checkmark.circle"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            } else {
+                IOSSettingsWarningLabel(
+                    "Use two or three letters, such as es or ja.",
+                    color: .red
+                )
+                .accessibilityIdentifier(
+                    "ios.settings.translation.language-invalid"
+                )
+            }
         }
+        .iosSettingsField(field, attentionTarget: activeAttentionTarget)
     }
 
     private func binding<Field: Equatable>(
