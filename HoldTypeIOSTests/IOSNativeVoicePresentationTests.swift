@@ -53,7 +53,7 @@ struct IOSNativeVoicePresentationTests {
         )
         #expect(
             failedEmptyProjection.detail
-                == "The keyboard copy couldn't be refreshed; an older item may remain until it expires."
+                == "The keyboard History copy couldn't be refreshed; Latest may remain unavailable or show an older History item until refresh succeeds."
         )
         #expect(failedEmptyProjection.tone == .failure)
         #expect(

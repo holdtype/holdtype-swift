@@ -15,7 +15,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(
             .start,
             requestID: requestID,
-            action: .improve
+            action: .translateAndImprove
         )
         coordinator.receiveCurrentCommand()
         coordinator.receiveCurrentCommand()
@@ -28,7 +28,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually { coordinator.presentation == .resultReady }
 
         #expect(harness.workflow.finishRequestIDs == [requestID])
-        #expect(harness.workflow.runActions == [.improve])
+        #expect(harness.workflow.runActions == [.translateAndImprove])
         #expect(harness.states.map(\.phase) == [
             .ready,
             .listening,

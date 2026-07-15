@@ -2300,7 +2300,13 @@ struct IOSForegroundVoiceWorkflowTests {
     @Test
     func keyboardRequestUsesSharedWorkflowAcrossBackgroundAndReturnsMatchingText()
         async throws {
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: false,
+            targetLanguage: .french
+        )
         let fixture = try await WorkflowFixture(
+            settings: settings,
             permission: .granted,
             completedCapture: true,
             processorAcceptedText: "Keyboard pipeline result",
@@ -2310,7 +2316,9 @@ struct IOSForegroundVoiceWorkflowTests {
         let requestID = UUID()
         let client = fixture.workflow.keyboardDictationClient
         let task = Task {
-            await client.run(requestID, .improve) { progress.append($0) }
+            await client.run(requestID, .translateAndImprove) {
+                progress.append($0)
+            }
         }
 
         try await waitUntil {
@@ -2325,6 +2333,7 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(fixture.events.count("recording-make") == 1)
         #expect(fixture.events.count("provider-process") == 1)
         #expect(fixture.events.contains("provider-force-correction-true"))
+        #expect(fixture.events.contains("provider-output-translate"))
         #expect(fixture.permissionRequestCount == 0)
     }
 

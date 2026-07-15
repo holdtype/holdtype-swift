@@ -15,8 +15,7 @@ struct BrandStageKeyboardViewTests {
     @Test func renderExposesTheApprovedControlsAndRoutesEachActionOnce() throws {
         let view = makeView(width: 393)
         var latestCount = 0
-        var translateCount = 0
-        var improveCount = 0
+        var automaticVoiceActions: [KeyboardVoiceAction] = []
         var quickInsertions: [String] = []
         var spaceCount = 0
         var deleteStartCount = 0
@@ -24,8 +23,9 @@ struct BrandStageKeyboardViewTests {
         var returnCount = 0
 
         view.onLatestRequested = { latestCount += 1 }
-        view.onTranslateRequested = { translateCount += 1 }
-        view.onImproveRequested = { improveCount += 1 }
+        view.onAutomaticVoiceActionChanged = {
+            automaticVoiceActions.append($0)
+        }
         view.onQuickInsertRequested = { quickInsertions.append($0) }
         view.onSpaceRequested = { spaceCount += 1 }
         view.onDeleteStarted = { deleteStartCount += 1 }
@@ -65,8 +65,7 @@ struct BrandStageKeyboardViewTests {
             "keyboard.brand-stage.quick-insert-toggle",
             in: view
         )
-        let translate = try button("keyboard.brand-stage.translate", in: view)
-        let improve = try button("keyboard.brand-stage.improve", in: view)
+        let auto = try button("keyboard.brand-stage.auto", in: view)
         let quickInsertStage = try #require(
             view.descendant(
                 UIStackView.self,
@@ -93,13 +92,26 @@ struct BrandStageKeyboardViewTests {
             )
         )
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
-        #expect(translate.isEnabled)
+        #expect(auto.isEnabled)
+        #expect(auto.configuration?.title == "Auto")
+        #expect(auto.accessibilityValue == "Off")
+        #expect(auto.showsMenuAsPrimaryAction)
+        #expect(auto.menu?.children.map(\.title) == [
+            "Auto-Translate",
+            "Auto-Correct",
+        ])
         #expect(
-            translate.configuration?.image?.isEqual(
-                UIImage(systemName: "character.bubble")
-            ) == true
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.translate"
+            ) == nil
         )
-        #expect(improve.isEnabled)
+        #expect(
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.improve"
+            ) == nil
+        )
         #expect(isEffectivelyHidden(quickInsertStage))
         #expect(!isEffectivelyHidden(microphone))
         #expect(microphone.bounds.width >= 127.9)
@@ -107,12 +119,8 @@ struct BrandStageKeyboardViewTests {
         #expect(activity.phase == .ready)
         #expect(isEffectivelyHidden(logo))
         #expect(
-            frame(of: translate, in: view).minX
+            frame(of: auto, in: view).minX
                 - frame(of: quickInsertToggle, in: view).maxX >= 3.9
-        )
-        #expect(
-            frame(of: improve, in: view).minX
-                - frame(of: translate, in: view).maxX >= 3.9
         )
 
         quickInsertToggle.sendActions(for: .touchUpInside)
@@ -150,8 +158,22 @@ struct BrandStageKeyboardViewTests {
         laugh.sendActions(for: .touchUpInside)
         layout(view)
         #expect(isEffectivelyHidden(quickInsertStage))
-        translate.sendActions(for: .touchUpInside)
-        improve.sendActions(for: .touchUpInside)
+        view.toggleAutomaticTranslation()
+        view.render(
+            presentation(
+                automaticVoiceAction: .translate,
+                latestIsEnabled: true,
+                returnKey: .title("Send")
+            )
+        )
+        view.toggleAutomaticCorrection()
+        view.render(
+            presentation(
+                automaticVoiceAction: .translateAndImprove,
+                latestIsEnabled: true,
+                returnKey: .title("Send")
+            )
+        )
         layout(view)
         space.sendActions(for: .touchUpInside)
         delete.sendActions(for: .touchDown)
@@ -159,8 +181,9 @@ struct BrandStageKeyboardViewTests {
         returnButton.sendActions(for: .touchUpInside)
 
         #expect(latestCount == 1)
-        #expect(translateCount == 1)
-        #expect(improveCount == 1)
+        #expect(automaticVoiceActions == [.translate, .translateAndImprove])
+        #expect(auto.configuration?.title == "Auto 2")
+        #expect(auto.accessibilityValue == "Translate, Correct")
         #expect(quickInsertions == [".", "😂"])
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(isEffectivelyHidden(quickInsertStage))
@@ -199,6 +222,7 @@ struct BrandStageKeyboardViewTests {
         )
 
         #expect(!isEffectivelyHidden(recovery))
+        #expect((try button("keyboard.brand-stage.auto", in: view)).isEnabled)
         toggle.sendActions(for: .touchUpInside)
         layout(view)
         #expect(isEffectivelyHidden(recovery))
@@ -241,10 +265,7 @@ struct BrandStageKeyboardViewTests {
         #expect(isEffectivelyHidden(quickInsert))
         #expect(!toggle.isEnabled)
         #expect(
-            !(try button("keyboard.brand-stage.translate", in: view)).isEnabled
-        )
-        #expect(
-            !(try button("keyboard.brand-stage.improve", in: view)).isEnabled
+            !(try button("keyboard.brand-stage.auto", in: view)).isEnabled
         )
         #expect(toggle.accessibilityLabel == "Open Quick Insert")
         let microphone = try button("keyboard.brand-stage.voice", in: view)
@@ -259,6 +280,35 @@ struct BrandStageKeyboardViewTests {
         #expect(activity.phase == .listening)
     }
 
+    @Test func autoIsEnabledForRecoveryAndDisabledOnlyDuringActiveVoice()
+        throws {
+        for recovery in [
+            KeyboardVoiceRecovery.startSession,
+            .enableFullAccess,
+            .requestFailed,
+        ] {
+            let view = makeView(width: 393)
+            view.render(
+                presentation(voiceStage: .recovery(recovery))
+            )
+            #expect(
+                (try button("keyboard.brand-stage.auto", in: view)).isEnabled
+            )
+        }
+
+        for stage in [
+            KeyboardVoiceStagePresentation.starting,
+            .listening,
+            .processing,
+        ] {
+            let view = makeView(width: 393)
+            view.render(presentation(voiceStage: stage))
+            #expect(
+                !(try button("keyboard.brand-stage.auto", in: view)).isEnabled
+            )
+        }
+    }
+
     @Test func narrowPhoneKeepsEveryEditingControlAtLeast44PointsWide()
         throws {
         for width: CGFloat in [320, 375, 390, 393, 430] {
@@ -268,8 +318,7 @@ struct BrandStageKeyboardViewTests {
 
             for identifier in [
                 "keyboard.brand-stage.quick-insert-toggle",
-                "keyboard.brand-stage.translate",
-                "keyboard.brand-stage.improve",
+                "keyboard.brand-stage.auto",
                 "keyboard.brand-stage.next-keyboard",
                 "keyboard.brand-stage.delete",
                 "keyboard.brand-stage.return",
@@ -764,10 +813,16 @@ struct BrandStageKeyboardViewTests {
             )
         )
         let hostController = UIViewController()
-        hostController.additionalSafeAreaInsets = safeAreaInsets
         window.rootViewController = hostController
         window.isHidden = false
         hostController.view.frame = window.bounds
+        hostController.view.layoutIfNeeded()
+        hostController.additionalSafeAreaInsets = UIEdgeInsets(
+            top: safeAreaInsets.top - hostController.view.safeAreaInsets.top,
+            left: safeAreaInsets.left,
+            bottom: safeAreaInsets.bottom,
+            right: safeAreaInsets.right
+        )
 
         let view = BrandStageKeyboardView(frame: hostController.view.bounds)
         hostController.view.addSubview(view)
@@ -837,6 +892,7 @@ struct BrandStageKeyboardViewTests {
     private func presentation(
         status: KeyboardVoiceStatus = .ready,
         voiceStage: KeyboardVoiceStagePresentation = .ready,
+        automaticVoiceAction: KeyboardVoiceAction = .standard,
         latestIsEnabled: Bool = false,
         cancelIsVisible: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
@@ -845,6 +901,7 @@ struct BrandStageKeyboardViewTests {
         BrandStageKeyboardPresentation(
             status: status,
             voiceStage: voiceStage,
+            automaticVoiceAction: automaticVoiceAction,
             latestIsEnabled: latestIsEnabled,
             cancelIsVisible: cancelIsVisible,
             returnKey: returnKey,
@@ -889,8 +946,7 @@ struct BrandStageKeyboardViewTests {
     private func compactControlIdentifiers(showsGlobe: Bool) -> [String] {
         var identifiers = [
             "keyboard.brand-stage.quick-insert-toggle",
-            "keyboard.brand-stage.translate",
-            "keyboard.brand-stage.improve",
+            "keyboard.brand-stage.auto",
             "keyboard.brand-stage.latest",
             "keyboard.brand-stage.space",
             "keyboard.brand-stage.delete",
@@ -947,7 +1003,10 @@ struct BrandStageKeyboardViewTests {
             let controlFrame = frame(of: descendant, in: view)
             #expect(controlFrame.minX >= safeBounds.minX)
             #expect(controlFrame.maxX <= safeBounds.maxX)
-            #expect(controlFrame.maxY <= safeBounds.maxY)
+            #expect(
+                controlFrame.maxY <= safeBounds.maxY,
+                "\(descendant.accessibilityIdentifier ?? String(describing: type(of: descendant)))"
+            )
         }
     }
 }

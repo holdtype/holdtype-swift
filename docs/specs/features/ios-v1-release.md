@@ -269,20 +269,12 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Clear is idempotent and does not mutate an unrelated pending attempt.
 - Latest Result contains no provider payload, prompt, credential, or raw audio.
 - Relaunch preserves the most recent accepted text until Clear or replacement.
-- V1.1 intentionally removes the old 24-hour app-private Latest expiry. Only
-  the Latest item inside the App Group keyboard snapshot has a short insertion
-  expiry of 10 minutes.
+- V1.1 intentionally removes the old 24-hour app-private Latest expiry.
 - Latest Result is always on for V1.1. The old iOS `keepLatestResult` preference
   is removed from the UI and ignored by a scoped migration; macOS behavior is
   unchanged.
-- Failure to refresh the bounded keyboard copy never invalidates canonical
-  Latest. The containing app retains a nonblocking cache warning until a later
-  publication actually succeeds; operations that do not publish cannot clear
-  that warning.
-- Canonical load and Clear notices have display priority but do not erase a
-  pending cache warning. A failed empty-snapshot publication after Clear keeps
-  the otherwise-absent Latest section visible until the cache is successfully
-  refreshed.
+- The keyboard's explicit `Latest` action is derived from accepted History, not
+  from this separate app-private Latest Result.
 
 ## Compact History
 
@@ -369,9 +361,9 @@ purple are reserved for the microphone and small active-state accents.
 
 The first-release surface provides:
 
-- a compact top row with a three-icon Quick Insert, Translate, and Improve
-  utility group on the left, the HoldType mark centered without status text,
-  and `Latest` insertion on the right;
+- a compact top row with Quick Insert and one labeled `Auto` menu on the left,
+  the HoldType mark centered without status text, and `Latest` insertion on the
+  right;
 - one medium actionable microphone only while an app-owned Keyboard Dictation
   Session can start or finish real recording; unavailable states show complete
   recovery copy and processing shows progress instead of a disabled microphone;
@@ -380,11 +372,10 @@ The first-release surface provides:
   intermediate launcher, has no visible title, shows two emoji rows in regular
   height, and closes back to the exact underlying Voice state after any
   insertion;
-- one-tap Translate and Improve starts with no menu or dialog: when Translate's
-  saved route is incomplete, the same control opens the exact owning Translation
-  input instead of becoming disabled; Improve forces the saved correction
-  configuration for that request without changing the durable correction
-  preference;
+- one `Auto` menu with independent Auto Translate and Auto Correction modes;
+  both may be combined, the microphone remains the only Start action, an
+  incomplete Translation route opens its exact owning input, and keyboard
+  insertion needs no separate Append mode;
 - one editing row containing Globe, a wide Space key, Delete, and adaptive
   Return;
 - short-tap Space insertion plus long-press and drag cursor movement without an
@@ -396,8 +387,7 @@ The first-release surface provides:
   appearances;
 - local Quick Insert and editing controls that work without network or Full
   Access, even when voice dictation is unavailable; active Starting, Listening,
-  and Processing states keep Voice visible and disable all three utility
-  actions.
+  and Processing states keep Voice visible and disable Quick Insert and Auto.
 
 The HoldType mark is identity only, not a button or status surface. No state
 label appears under or beside it; all state and recovery information lives in
@@ -451,26 +441,28 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   are bounded and expiring. They are not
   a delivery transaction, History store, outbox, receipt, acknowledgement
   family, tombstone, lease, or replay queue.
-- The app publishes one separate bounded Latest snapshot to App Group storage.
-  The extension remains able to read and insert a safe app-written Latest item
-  when restricted-mode access permits it.
+- The app publishes one replaceable History-latest snapshot to App Group
+  storage. The extension remains able to read and insert that safe app-written
+  item when restricted-mode access permits it.
 - The projection is a replaceable cache, not a second History repository or a
   delivery transaction. It has one app writer and no outbox, receipt,
   acknowledgement, tombstone, or replay protocol.
-- The snapshot contains schema version, revision, and one optional Latest item
-  with a 10-minute insertion expiry. It contains only result id, exact accepted
-  text, creation time, and expiry. No History row, secret, audio, prompt,
-  dictionary, provider response, setting, or host context enters the snapshot.
-- An already-expired result is omitted from publication. A published result is
-  disabled at its 10-minute expiry even while the keyboard remains open. If the
-  current canonical Latest is unsafe to project, an empty schema 3 snapshot
-  replaces any older shared text rather than presenting it as current.
-- A failure to load canonical state preserves the last-known bounded cache;
-  ordinary expiry still limits insertion. Legacy schema 1/2 cache files are
-  atomically replaced by an empty schema 3 cache at app startup.
-- `Latest` inserts only a valid unexpired item and the keyboard never renders or
-  previews its text. Full 20-entry History, Delete, Clear All, playback, and
-  retention settings remain in the containing app.
+- The snapshot contains schema version, revision, and one optional item copied
+  from the first entry in canonical accepted History. It contains only result
+  id, exact accepted text, and creation time. No additional History row, secret,
+  audio, prompt, dictionary, provider response, setting, or host context enters
+  the snapshot.
+- The snapshot has no independent age or expiry policy. `Latest` stays enabled
+  for as long as canonical History has an insertable first entry. Deleting that
+  entry republishes the next entry; Clear All or disabling History publishes an
+  empty snapshot.
+- If canonical History cannot be loaded or its first entry cannot be projected
+  safely, an empty current-schema snapshot replaces older shared text rather
+  than presenting it as current. Legacy cache schemas are rebuilt from History
+  at app startup.
+- `Latest` inserts only the valid projected first History item and the keyboard
+  never renders or previews its text. Full 20-entry History, Delete, Clear All,
+  playback, and retention settings remain in the containing app.
 - The extension requests no external Settings or containing-app launch. Setup
   recovery is always readable without relying on a system callback.
 - Every Latest selection is an explicit insertion. One tap calls
@@ -557,8 +549,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   order in the tab shell; qualification routes never become a production root.
 - Keyboard tests cover both appearances, recovery instructions, punctuation,
   Delete repeat, Space cursor movement, Return traits, session-state honesty,
-  bounded command/state decoding, stale-request rejection, one bounded Latest
-  item, expiry, automatic insertion ownership, and explicit Latest insertion.
+  bounded command/state decoding, stale-request rejection, one History-derived
+  Latest item, automatic insertion ownership, and explicit Latest insertion.
 
 ### Signed Physical iPhone
 

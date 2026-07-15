@@ -25,7 +25,7 @@ reuse Apple's keyboard. Its supported architecture is:
   voice-state presentation, and explicit accepted-text insertion through
   `UITextDocumentProxy`;
 - the app is the only writer of a small versioned App Group snapshot containing
-  only one optional 10-minute Latest item;
+  only the optional first accepted History item, with no independent expiry;
 - the extension is read-only and never records audio, reads Keychain, calls
   OpenAI, renders History, or mutates canonical History.
 
@@ -90,13 +90,11 @@ the current `en-US` value is not a product language promise.
 - The containing app is the only writer and replaces the bounded snapshot
   atomically.
 - The extension reads only schema/revision metadata and one optional Latest
-  result identifier, exact accepted text, creation date, and 10-minute expiry.
-- Expired source results are omitted, and app startup replaces obsolete schema
-  1/2 cache payloads with an empty current-schema snapshot. Production Latest
-  publication is enabled.
-- If the current canonical Latest cannot be projected safely, an empty
-  current-schema snapshot replaces older shared text. If canonical state cannot
-  be loaded, the bounded last-known snapshot is preserved until normal expiry.
+  result identifier, exact accepted text, and creation date.
+- App startup rebuilds obsolete cache schemas from canonical accepted History.
+  Production Latest publication is enabled.
+- If canonical History cannot be loaded or its first entry cannot be projected
+  safely, an empty current-schema snapshot replaces older shared text.
 - Raw audio, API keys, prompts, keystrokes, host identity, provider payloads,
   canonical settings, recent results, and the History repository never enter
   App Group.

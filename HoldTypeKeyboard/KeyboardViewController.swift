@@ -85,7 +85,6 @@ final class KeyboardViewController: UIInputViewController {
     private var previousCursorLocationX: CGFloat?
     private var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
-    private var latestExpiryTimer: Timer?
     private var dictationExpiryTimer: Timer?
     private var dictationObserver: KeyboardDictationBridgeObserver?
     private var dictationState: KeyboardDictationStateRecord?
@@ -98,6 +97,7 @@ final class KeyboardViewController: UIInputViewController {
     private var showsInputModeSwitchKey = true
     private var extensionLifetimeID = UUID()
     private var hostContextGeneration: UInt64 = 0
+    private var automaticVoiceAction: KeyboardVoiceAction = .standard
 
     convenience init(dependencies: KeyboardViewControllerDependencies) {
         self.init(nibName: nil, bundle: nil)
@@ -142,8 +142,6 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         recordKeyboardState(.closed)
         deleteRepeater.stop()
-        latestExpiryTimer?.invalidate()
-        latestExpiryTimer = nil
         dictationExpiryTimer?.invalidate()
         dictationExpiryTimer = nil
         endExtensionLifetime()
@@ -195,11 +193,8 @@ final class KeyboardViewController: UIInputViewController {
         keyboardView.onQuickInsertRequested = { [weak self] text in
             self?.insertText(text)
         }
-        keyboardView.onTranslateRequested = { [weak self] in
-            self?.beginDictation(action: .translate)
-        }
-        keyboardView.onImproveRequested = { [weak self] in
-            self?.beginDictation(action: .improve)
+        keyboardView.onAutomaticVoiceActionChanged = { [weak self] action in
+            self?.selectAutomaticVoiceAction(action)
         }
         keyboardView.onSpaceRequested = { [weak self] in
             self?.insertText(" ")
@@ -234,11 +229,7 @@ final class KeyboardViewController: UIInputViewController {
                 return
             }
 
-            let now = dependencies.now()
-            setLatestItem(
-                snapshot.latestForInsertion(at: now),
-                now: now
-            )
+            setLatestItem(snapshot.latestForInsertion())
         } catch {
             setLatestItem(nil)
         }
@@ -251,6 +242,7 @@ final class KeyboardViewController: UIInputViewController {
             BrandStageKeyboardPresentation(
                 status: dictationPresentation.status,
                 voiceStage: dictationPresentation.voiceStage,
+                automaticVoiceAction: automaticVoiceAction,
                 latestIsEnabled: latestItem != nil,
                 cancelIsVisible: dictationPresentation.cancelIsVisible,
                 returnKey: KeyboardReturnKeyPresentation(
@@ -406,7 +398,7 @@ final class KeyboardViewController: UIInputViewController {
         guard let state = dictationState else { return }
         switch state.phase {
         case .ready:
-            beginDictation(action: .standard)
+            beginDictation(action: automaticVoiceAction)
         case .listening:
             sendDictationCommand(.finish)
         case .processing, .resultReady, .unavailable, .failed:
@@ -419,7 +411,7 @@ final class KeyboardViewController: UIInputViewController {
               state.phase == .ready else {
             return
         }
-        if action == .translate, !state.translationAvailable {
+        if action.translates, !state.translationAvailable {
             openTranslationSettings()
             return
         }
@@ -430,6 +422,16 @@ final class KeyboardViewController: UIInputViewController {
             hostContextGeneration: hostContextGeneration
         )
         sendDictationCommand(.start, action: action)
+    }
+
+    private func selectAutomaticVoiceAction(_ action: KeyboardVoiceAction) {
+        if action.translates,
+           dictationState?.translationAvailable != true {
+            openTranslationSettings()
+            return
+        }
+        automaticVoiceAction = action
+        render()
     }
 
     private func openTranslationSettings() {
@@ -513,11 +515,6 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func insert(_ item: KeyboardBridgeItem) {
-        guard item.expiresAt > dependencies.now() else {
-            setLatestItem(nil)
-            render()
-            return
-        }
         insertText(item.text)
         dependencies.recordDiagnostic(.keyboardInserted(.latest))
     }
@@ -528,6 +525,7 @@ final class KeyboardViewController: UIInputViewController {
         activeDictationRequestID = nil
         activeDictationOwnership = nil
         pendingDictationCommand = nil
+        automaticVoiceAction = .standard
     }
 
     private func endExtensionLifetime() {
@@ -604,31 +602,13 @@ final class KeyboardViewController: UIInputViewController {
             .translate
         case .improve:
             .improve
+        case .translateAndImprove:
+            .translateAndImprove
         }
     }
 
-    private func setLatestItem(
-        _ item: KeyboardBridgeItem?,
-        now: Date? = nil
-    ) {
-        let currentDate = now ?? dependencies.now()
-        latestExpiryTimer?.invalidate()
-        latestExpiryTimer = nil
+    private func setLatestItem(_ item: KeyboardBridgeItem?) {
         latestItem = item
-
-        guard let item, item.expiresAt > currentDate else {
-            latestItem = nil
-            return
-        }
-
-        latestExpiryTimer = dependencies.scheduleLatestExpiry(
-            item.expiresAt
-        ) { [weak self] in
-            guard let self, self.latestItem == item else { return }
-            self.latestExpiryTimer = nil
-            self.latestItem = nil
-            self.render()
-        }
     }
 
     private func handleCursorGesture(

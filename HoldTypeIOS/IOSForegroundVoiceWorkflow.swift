@@ -890,14 +890,14 @@ final class IOSForegroundVoiceWorkflow {
             return .failed
         }
         let token = IOSForegroundVoiceWorkflowAttemptToken()
-        let intent: DictationOutputIntent = action == .translate
+        let intent: DictationOutputIntent = action.translates
             ? .translate
             : .standard
         let resolution = await runStart(
             intent,
             origin: .keyboard(requestID),
             token: token,
-            forcesTextCorrection: action == .improve,
+            forcesTextCorrection: action.corrects,
             progress: { value in
                 switch value {
                 case .listening:
@@ -2654,6 +2654,9 @@ final class IOSForegroundVoiceWorkflow {
         intent: DictationOutputIntent,
         forcesTextCorrection: Bool
     ) -> IOSDiagnosticVoiceAction {
+        if forcesTextCorrection && intent == .translate {
+            return .translateAndImprove
+        }
         if forcesTextCorrection { return .improve }
         return intent == .translate ? .translate : .standard
     }

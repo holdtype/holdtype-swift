@@ -54,7 +54,7 @@ final class IOSContainingAppComposition {
         ) -> IOSForegroundVoiceProcessor
         var voiceFactories: IOSForegroundVoiceRuntime.Factories = .production
         var makeKeyboardSnapshotPublisher: @MainActor (
-            IOSV1ForegroundVoicePersistenceOwner
+            IOSAcceptedTextHistoryRepository
         ) -> IOSKeyboardSnapshotPublisher? = { _ in nil }
 
         static let production = Factories(
@@ -136,13 +136,13 @@ final class IOSContainingAppComposition {
                 )
             },
             makeKeyboardSnapshotPublisher: {
-                persistenceOwner in
+                historyRepository in
                 let store = try? KeyboardBridgeStore.appGroup()
                 _ = try? store?.replaceLegacySnapshotIfNeeded()
                 return IOSKeyboardSnapshotPublisher(
                     store: store,
-                    loadLatest: {
-                        try await persistenceOwner.loadLatestResult()
+                    loadHistory: {
+                        try await historyRepository.load()
                     }
                 )
             }
@@ -265,7 +265,7 @@ final class IOSContainingAppComposition {
             foregroundVoicePersistenceOwner
         let keyboardSnapshotPublisher = factories
             .makeKeyboardSnapshotPublisher(
-                foregroundVoicePersistenceOwner
+                acceptedTextHistoryRepository
             )
         self.keyboardSnapshotPublisher = keyboardSnapshotPublisher
         let publishKeyboardSnapshot: @Sendable () async -> Bool = {
@@ -274,7 +274,8 @@ final class IOSContainingAppComposition {
         }
         acceptedTextHistoryStateOwner =
             IOSAcceptedTextHistoryStateOwner(
-                repository: acceptedTextHistoryRepository
+                repository: acceptedTextHistoryRepository,
+                publishKeyboardSnapshot: publishKeyboardSnapshot
             )
         let voiceDraftRepository = factories.makeVoiceDraftRepository(
             applicationSupportDirectoryURL

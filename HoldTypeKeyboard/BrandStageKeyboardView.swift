@@ -3,6 +3,7 @@ import UIKit
 struct BrandStageKeyboardPresentation: Equatable {
     let status: KeyboardVoiceStatus
     let voiceStage: KeyboardVoiceStagePresentation
+    let automaticVoiceAction: KeyboardVoiceAction
     let latestIsEnabled: Bool
     let cancelIsVisible: Bool
     let returnKey: KeyboardReturnKeyPresentation
@@ -53,8 +54,7 @@ final class BrandStageKeyboardView: UIView {
     var onMicrophoneRequested: (() -> Void)?
     var onCancelRequested: (() -> Void)?
     var onQuickInsertRequested: ((String) -> Void)?
-    var onTranslateRequested: (() -> Void)?
-    var onImproveRequested: (() -> Void)?
+    var onAutomaticVoiceActionChanged: ((KeyboardVoiceAction) -> Void)?
     var onSpaceRequested: (() -> Void)?
     var onSpaceCursorGesture: ((UIGestureRecognizer.State, CGFloat) -> Void)?
     var onCursorStepRequested: ((Int) -> Void)?
@@ -68,8 +68,7 @@ final class BrandStageKeyboardView: UIView {
     private let bodyStack = UIStackView()
     private let commandStack = UIStackView()
     private let quickInsertButton = UIButton(type: .system)
-    private let translateButton = UIButton(type: .system)
-    private let improveButton = UIButton(type: .system)
+    private let autoButton = UIButton(type: .system)
     private let topLeadingContainer = UIView()
     private let latestButton = UIButton(type: .system)
     private let logoImageView = UIImageView()
@@ -113,6 +112,7 @@ final class BrandStageKeyboardView: UIView {
     private var reduceTransparencyObserver: NSObjectProtocol?
     private var renderedStatus: KeyboardVoiceStatus?
     private var renderedVoiceStage: KeyboardVoiceStagePresentation = .ready
+    private var renderedAutomaticVoiceAction: KeyboardVoiceAction = .standard
     private var quickInsertIsPresented = false
 
     override init(frame: CGRect) {
@@ -160,13 +160,14 @@ final class BrandStageKeyboardView: UIView {
 
     func render(_ presentation: BrandStageKeyboardPresentation) {
         renderedVoiceStage = presentation.voiceStage
+        renderedAutomaticVoiceAction = presentation.automaticVoiceAction
         if presentation.voiceStage.keepsVoiceWorkspaceVisible {
             quickInsertIsPresented = false
         }
         quickInsertButton.isEnabled = !presentation.voiceStage
             .keepsVoiceWorkspaceVisible
-        translateButton.isEnabled = presentation.voiceStage == .ready
-        improveButton.isEnabled = presentation.voiceStage == .ready
+        autoButton.isEnabled = !presentation.voiceStage
+            .keepsVoiceWorkspaceVisible
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(
             presentation.voiceStage,
@@ -188,6 +189,7 @@ final class BrandStageKeyboardView: UIView {
         renderedStatus = presentation.status
         updateWorkspaceVisibility()
         updateQuickInsertButtonPresentation()
+        updateAutoButtonPresentation()
     }
 
     private func renderVoiceStage(
@@ -485,21 +487,17 @@ final class BrandStageKeyboardView: UIView {
         quickInsertButton.accessibilityIdentifier =
             "keyboard.brand-stage.quick-insert-toggle"
 
-        configureUtilityKey(
-            translateButton,
-            systemImage: "character.bubble",
-            accessibilityLabel: "Translate dictation"
+        configureTopAction(
+            autoButton,
+            title: "Auto",
+            systemImage: "chevron.up",
+            accessibilityLabel: "Automatic voice modes"
         )
-        translateButton.accessibilityIdentifier =
-            "keyboard.brand-stage.translate"
-
-        configureUtilityKey(
-            improveButton,
-            systemImage: "wand.and.stars",
-            accessibilityLabel: "Improve dictation"
-        )
-        improveButton.accessibilityIdentifier =
-            "keyboard.brand-stage.improve"
+        var autoConfiguration = autoButton.configuration
+        autoConfiguration?.imagePlacement = .trailing
+        autoButton.configuration = autoConfiguration
+        autoButton.showsMenuAsPrimaryAction = true
+        autoButton.accessibilityIdentifier = "keyboard.brand-stage.auto"
 
         configureTopAction(
             latestButton,
@@ -534,8 +532,7 @@ final class BrandStageKeyboardView: UIView {
         let utilityStack = UIStackView(
             arrangedSubviews: [
                 quickInsertButton,
-                translateButton,
-                improveButton,
+                autoButton,
             ]
         )
         utilityStack.translatesAutoresizingMaskIntoConstraints = false
@@ -558,8 +555,7 @@ final class BrandStageKeyboardView: UIView {
             ),
             utilityStack.heightAnchor.constraint(equalToConstant: 44),
             quickInsertButton.widthAnchor.constraint(equalToConstant: 44),
-            translateButton.widthAnchor.constraint(equalToConstant: 44),
-            improveButton.widthAnchor.constraint(equalToConstant: 44),
+            autoButton.widthAnchor.constraint(equalToConstant: 92),
         ])
 
         let rail = UIView()
@@ -987,16 +983,6 @@ final class BrandStageKeyboardView: UIView {
             action: #selector(quickInsertToggled),
             for: .touchUpInside
         )
-        translateButton.addTarget(
-            self,
-            action: #selector(translateTapped),
-            for: .touchUpInside
-        )
-        improveButton.addTarget(
-            self,
-            action: #selector(improveTapped),
-            for: .touchUpInside
-        )
         latestButton.addTarget(
             self,
             action: #selector(latestTapped),
@@ -1194,6 +1180,7 @@ final class BrandStageKeyboardView: UIView {
         progressIndicator.color = Self.voiceForeground
         updateKeyAppearance(in: self)
         updateQuickInsertButtonPresentation()
+        updateAutoButtonPresentation()
         setNeedsDisplay()
     }
 
@@ -1226,8 +1213,7 @@ final class BrandStageKeyboardView: UIView {
     private func keyBackground(for button: UIButton) -> UIColor {
         if button === latestButton
             || button === quickInsertButton
-            || button === translateButton
-            || button === improveButton {
+            || button === autoButton {
             return Self.topActionBackground
         }
         if quickInsertButtons.contains(where: { $0 === button }) {
@@ -1253,16 +1239,20 @@ final class BrandStageKeyboardView: UIView {
         )
     }
 
-    @objc private func translateTapped() {
-        guard translateButton.isEnabled else { return }
+    func toggleAutomaticTranslation() {
+        guard autoButton.isEnabled else { return }
         closeQuickInsert()
-        onTranslateRequested?()
+        onAutomaticVoiceActionChanged?(
+            renderedAutomaticVoiceAction.togglingTranslation()
+        )
     }
 
-    @objc private func improveTapped() {
-        guard improveButton.isEnabled else { return }
+    func toggleAutomaticCorrection() {
+        guard autoButton.isEnabled else { return }
         closeQuickInsert()
-        onImproveRequested?()
+        onAutomaticVoiceActionChanged?(
+            renderedAutomaticVoiceAction.togglingCorrection()
+        )
     }
 
     private func handleQuickInsertSelection(_ text: String) {
@@ -1301,6 +1291,43 @@ final class BrandStageKeyboardView: UIView {
         quickInsertButton.layer.borderWidth = quickInsertIsPresented
             ? 2
             : (UIAccessibility.isDarkerSystemColorsEnabled ? 1.5 : 0.5)
+    }
+
+    private func updateAutoButtonPresentation() {
+        let selectedCount = renderedAutomaticVoiceAction
+            .selectedAutomaticModeCount
+        var configuration = autoButton.configuration
+        configuration?.title = selectedCount == 0
+            ? "Auto"
+            : "Auto \(selectedCount)"
+        autoButton.configuration = configuration
+        autoButton.accessibilityValue = automaticVoiceActionAccessibilityValue
+        autoButton.menu = UIMenu(children: [
+            UIAction(
+                title: "Auto-Translate",
+                image: UIImage(systemName: "character.bubble"),
+                state: renderedAutomaticVoiceAction.translates ? .on : .off
+            ) { [weak self] _ in
+                self?.toggleAutomaticTranslation()
+            },
+            UIAction(
+                title: "Auto-Correct",
+                image: UIImage(systemName: "wand.and.stars"),
+                state: renderedAutomaticVoiceAction.corrects ? .on : .off
+            ) { [weak self] _ in
+                self?.toggleAutomaticCorrection()
+            },
+        ])
+    }
+
+    private var automaticVoiceActionAccessibilityValue: String {
+        let selectedModes = [
+            renderedAutomaticVoiceAction.translates ? "Translate" : nil,
+            renderedAutomaticVoiceAction.corrects ? "Correct" : nil,
+        ].compactMap { $0 }
+        return selectedModes.isEmpty
+            ? "Off"
+            : selectedModes.joined(separator: ", ")
     }
 
     private var activeVoiceAccessibilityTarget: UIView {

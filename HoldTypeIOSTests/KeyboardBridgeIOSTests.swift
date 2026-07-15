@@ -20,11 +20,7 @@ struct KeyboardBridgeIOSTests {
         )
 
         #expect(item.text == exactText)
-        #expect(
-            item.expiresAt == createdAt.addingTimeInterval(
-                KeyboardBridgeConfiguration.latestLifetime
-            )
-        )
+        #expect(item.createdAt == createdAt)
         #expect(throws: KeyboardBridgeItem.ValidationError.emptyText) {
             try KeyboardBridgeItem.latest(
                 resultID: UUID(),
@@ -55,7 +51,7 @@ struct KeyboardBridgeIOSTests {
         }
     }
 
-    @Test func storeRoundTripsProjectionAndExpiryBoundariesAreExclusive() throws {
+    @Test func storeRoundTripsPersistentHistoryProjection() throws {
         let fixture = try BridgeStoreFixture()
         defer { fixture.remove() }
 
@@ -75,38 +71,19 @@ struct KeyboardBridgeIOSTests {
         let loaded = try #require(try fixture.store.load())
 
         #expect(loaded == snapshot)
-        #expect(
-            loaded.latestForInsertion(
-                at: latest.expiresAt.addingTimeInterval(-0.001)
-            ) == latest
-        )
-        #expect(loaded.latestForInsertion(at: latest.expiresAt) == nil)
+        #expect(loaded.latestForInsertion() == latest)
 
         let object = try #require(
             JSONSerialization.jsonObject(with: fixture.data()) as? [String: Any]
         )
-        #expect(object["schemaVersion"] as? Int == 3)
+        #expect(object["schemaVersion"] as? Int == 4)
+        let encodedLatest = try #require(object["latest"] as? [String: Any])
+        #expect(encodedLatest["expiresAt"] == nil)
         #expect(object["historyEnabled"] == nil)
         #expect(object["recentResults"] == nil)
     }
 
-    @Test func snapshotRejectsInvalidRevisionAndExtendedLatestLifetime() throws {
-        let now = Date(timeIntervalSince1970: 1_750_000_000)
-        let extendedLatest = try KeyboardBridgeItem(
-            resultID: UUID(),
-            text: "Latest",
-            createdAt: now,
-            expiresAt: now.addingTimeInterval(
-                KeyboardBridgeConfiguration.latestLifetime + 1
-            )
-        )
-
-        #expect(throws: KeyboardBridgeSnapshot.ValidationError.invalidLatestLifetime) {
-            try KeyboardBridgeSnapshot(
-                revision: 1,
-                latest: extendedLatest
-            )
-        }
+    @Test func snapshotRejectsInvalidRevision() throws {
         #expect(throws: KeyboardBridgeSnapshot.ValidationError.invalidRevision) {
             try KeyboardBridgeSnapshot(
                 revision: 0,
@@ -141,7 +118,7 @@ struct KeyboardBridgeIOSTests {
             try fixture.store.load()
         }
 
-        for schemaVersion in [1, 2, 99] {
+        for schemaVersion in [1, 2, 3, 99] {
             try fixture.write(
                 Data(
                     "{\"revision\":3,\"schemaVersion\":\(schemaVersion)}".utf8
@@ -158,7 +135,7 @@ struct KeyboardBridgeIOSTests {
         }
     }
 
-    @Test func v3SaveAtomicallyReplacesLegacySchemasAndRevisionsIncreaseStrictly()
+    @Test func v4SaveAtomicallyReplacesLegacySchemasAndRevisionsIncreaseStrictly()
         throws {
         let fixture = try BridgeStoreFixture()
         defer { fixture.remove() }
@@ -212,12 +189,12 @@ struct KeyboardBridgeIOSTests {
         let object = try #require(
             JSONSerialization.jsonObject(with: storedData) as? [String: Any]
         )
-        #expect(object["schemaVersion"] as? Int == 3)
+        #expect(object["schemaVersion"] as? Int == 4)
         #expect(object["historyEnabled"] == nil)
         #expect(object["recentResults"] == nil)
     }
 
-    @Test func legacyCutoverWritesAnEmptyV3SnapshotWithoutProjection() throws {
+    @Test func legacyCutoverWritesAnEmptyV4SnapshotWithoutProjection() throws {
         let fixture = try BridgeStoreFixture()
         defer { fixture.remove() }
         let cutoverDate = Date(timeIntervalSince1970: 1_750_000_000)
@@ -252,9 +229,19 @@ struct KeyboardBridgeIOSTests {
                 at: cutoverDate.addingTimeInterval(1)
             )
         )
+
+        try fixture.write(
+            Data("{\"revision\":80,\"schemaVersion\":3}".utf8)
+        )
+        #expect(
+            try fixture.store.replaceLegacySnapshotIfNeeded(
+                at: cutoverDate.addingTimeInterval(2)
+            )
+        )
+        #expect(try fixture.store.load()?.revision == 81)
     }
 
-    @Test func legacyCutoverAcceptsTheFormerLargerBound() throws {
+    @Test func legacyCutoverAcceptsFormerRecentResultsPayload() throws {
         let fixture = try BridgeStoreFixture()
         defer { fixture.remove() }
         let legacyText = String(repeating: "x", count: 40 * 1_024)
@@ -271,10 +258,7 @@ struct KeyboardBridgeIOSTests {
             )
         )
         let storedLegacyData = try fixture.data()
-        #expect(
-            storedLegacyData.count
-                > KeyboardBridgeConfiguration.maximumSnapshotBytes
-        )
+        #expect(!storedLegacyData.isEmpty)
 
         #expect(
             try fixture.store.replaceLegacySnapshotIfNeeded(

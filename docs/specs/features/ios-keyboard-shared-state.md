@@ -84,9 +84,9 @@ release path finishes; unrelated marker or delivery mutation fails before
 delivery-journal I/O.
 
 Production command envelopes expire no later than the active Quick Session
-deadline. An accepted-result snapshot expires 10 minutes after it becomes
-ready. Expiry disables automatic delivery; longer-lived recovery remains in the
-containing app.
+deadline. This historical automatic-delivery snapshot is not the current
+explicit `Latest` projection; current `Latest` follows accepted History and has
+no independent expiry.
 
 A `startListening` command identifies the active Quick Session, its own command
 ID/revision, creation/expiry timestamps, the requested output intent, and the

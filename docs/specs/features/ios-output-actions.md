@@ -342,9 +342,9 @@ one non-release-qualified train until this final activation passes.
   context callbacks until a result, failure, cancellation, or expiry appears.
   It stops the cadence when hidden or idle. App Group writes never claim to wake
   an evicted or suspended extension.
-- If the shared result expires before insertion, the keyboard stops offering it
-  from that snapshot. Any longer-lived latest result or history remains owned
-  by the containing app under its own retention contract.
+- This historical automatic-delivery result may expire before insertion. That
+  expiry does not govern the current explicit `Latest` action, which follows
+  accepted History without an independent age limit.
 - The app physically clears acknowledged, cancelled, replaced, and expired
   accepted-result snapshots plus temporary atomic-write files under
   `ios-keyboard-shared-state.md`; logical ineligibility alone is not retention.
@@ -440,8 +440,9 @@ one non-release-qualified train until this final activation passes.
   delivery is treated as supported.
 - M0C and an updated `ios-keyboard-shared-state.md` must pass before extension
   writes, automatic insertion, or cross-process acknowledgement are enabled.
-- Accepted-result expiry is 10 minutes under the shared-state contract. The
-  app-private latest-result safety cap is 24 hours. The exact Undo duration is
-  chosen with production keyboard interaction QA.
+- Historical automatic-delivery expiry follows its shared-state contract. The
+  current explicit `Latest` action instead follows accepted History without an
+  independent expiry. The exact Undo duration is chosen with production
+  keyboard interaction QA.
 - Durable history retention follows `ios-history-and-storage.md`; the latest
   result remains a separate delivery state.

@@ -261,7 +261,7 @@ final class IOSKeyboardDictationSessionCoordinator {
     ) {
         guard workflowTask == nil,
               case .ready = presentation,
-              action != .translate || translationAvailable else {
+              !action.translates || translationAvailable else {
             return
         }
         workflowGeneration &+= 1

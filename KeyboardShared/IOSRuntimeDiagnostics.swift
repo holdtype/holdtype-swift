@@ -26,6 +26,7 @@ nonisolated enum IOSDiagnosticVoiceAction: String, Sendable {
     case standard
     case translate
     case improve
+    case translateAndImprove = "translate_and_improve"
 }
 
 nonisolated enum IOSDiagnosticVoiceStopReason: String, Sendable {

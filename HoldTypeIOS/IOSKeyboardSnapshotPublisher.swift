@@ -1,25 +1,25 @@
 import Foundation
-@_spi(HoldTypeIOSCore) import HoldTypePersistence
+import HoldTypePersistence
 
 /// Rebuilds the keyboard's bounded App Group cache from canonical app-owned
 /// state. This actor is the cache's only writer; it owns no durable state of
 /// its own.
 actor IOSKeyboardSnapshotPublisher {
-    typealias LatestLoader = @Sendable () async throws
-        -> IOSV1ForegroundVoiceLatestResultObservation
+    typealias HistoryLoader = @Sendable () async throws
+        -> IOSAcceptedTextHistoryRecord
 
     private let store: KeyboardBridgeStore?
-    private let loadLatest: LatestLoader
+    private let loadHistory: HistoryLoader
 
     private var operationIsActive = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
     init(
         store: KeyboardBridgeStore?,
-        loadLatest: @escaping LatestLoader
+        loadHistory: @escaping HistoryLoader
     ) {
         self.store = store
-        self.loadLatest = loadLatest
+        self.loadHistory = loadHistory
     }
 
     /// Publishes one replacement snapshot. Failure leaves canonical app state
@@ -32,55 +32,79 @@ actor IOSKeyboardSnapshotPublisher {
             return false
         }
 
+        let history: IOSAcceptedTextHistoryRecord
         do {
             try Task.checkCancellation()
-            let latest = try await loadLatest()
+            history = try await loadHistory()
             try Task.checkCancellation()
+        } catch is CancellationError {
+            return false
+        } catch {
+            _ = try? saveEmptySnapshot(store: store, publishedAt: publishedAt)
+            return false
+        }
 
+        do {
             let revision = try store.nextRevision()
             let projection = try Self.makeSnapshot(
                 revision: revision,
                 publishedAt: publishedAt,
-                latest: latest
+                history: history
             )
             try store.save(projection.snapshot)
-            return projection.representsCanonicalLatest
+            return projection.representsCanonicalHistory
         } catch {
             return false
         }
     }
 
+    private func saveEmptySnapshot(
+        store: KeyboardBridgeStore,
+        publishedAt: Date
+    ) throws {
+        let snapshot = try KeyboardBridgeSnapshot(
+            revision: store.nextRevision(),
+            publishedAt: publishedAt,
+            latest: nil
+        )
+        try store.save(snapshot)
+    }
+
     private static func makeSnapshot(
         revision: UInt64,
         publishedAt: Date,
-        latest: IOSV1ForegroundVoiceLatestResultObservation
+        history: IOSAcceptedTextHistoryRecord
     ) throws -> (
         snapshot: KeyboardBridgeSnapshot,
-        representsCanonicalLatest: Bool
+        representsCanonicalHistory: Bool
     ) {
         let latestItem: KeyboardBridgeItem?
-        let representsCanonicalLatest: Bool
-        switch latest {
-        case .absent:
+        let representsCanonicalHistory: Bool
+        guard history.isEnabled, let latest = history.entries.first else {
             latestItem = nil
-            representsCanonicalLatest = true
-        case .resultReady(let record):
-            do {
-                let candidate = try KeyboardBridgeItem.latest(
-                    resultID: record.resultID,
-                    text: record.acceptedText,
-                    createdAt: record.createdAt
-                )
-                latestItem = candidate.expiresAt > publishedAt
-                    ? candidate
-                    : nil
-                representsCanonicalLatest = true
-            } catch is KeyboardBridgeItem.ValidationError {
-                // Never leave a previous result presented as Latest when the
-                // current canonical result is unsafe to share.
-                latestItem = nil
-                representsCanonicalLatest = false
-            }
+            representsCanonicalHistory = true
+            return try (
+                KeyboardBridgeSnapshot(
+                    revision: revision,
+                    publishedAt: publishedAt,
+                    latest: latestItem
+                ),
+                representsCanonicalHistory
+            )
+        }
+
+        do {
+            latestItem = try KeyboardBridgeItem.latest(
+                resultID: latest.resultID,
+                text: latest.text,
+                createdAt: latest.createdAt
+            )
+            representsCanonicalHistory = true
+        } catch is KeyboardBridgeItem.ValidationError {
+            // Never leave a deleted or replaced History item presented when
+            // the current first entry is unsafe to share.
+            latestItem = nil
+            representsCanonicalHistory = false
         }
 
         return try (
@@ -89,7 +113,7 @@ actor IOSKeyboardSnapshotPublisher {
                 publishedAt: publishedAt,
                 latest: latestItem
             ),
-            representsCanonicalLatest
+            representsCanonicalHistory
         )
     }
 

@@ -103,8 +103,13 @@ struct IOSAcceptedTextHistoryStateOwnerTests {
     @Test func successfulMutationsPublishOnlyRepositoryConfirmedRecords()
         async throws {
         let fixture = HistoryOwnerFixture(record: try historyRecord(1, 2))
+        let publicationProbe = HistoryPublicationProbe()
         let owner = IOSAcceptedTextHistoryStateOwner(
-            client: historyOwnerClient(fixture)
+            client: historyOwnerClient(fixture),
+            publishKeyboardSnapshot: {
+                await publicationProbe.record()
+                return true
+            }
         )
         _ = await owner.refresh()
 
@@ -141,6 +146,7 @@ struct IOSAcceptedTextHistoryStateOwnerTests {
         )
         #expect(owner.confirmedRecord == .enabledEmpty)
         #expect(await fixture.mutationCallCount == 4)
+        #expect(await publicationProbe.callCount == 5)
     }
 
     @Test func failedMutationsKeepConfirmedRecordAndExposeExactWarning()
@@ -222,6 +228,14 @@ struct IOSAcceptedTextHistoryStateOwnerTests {
         await fixture.resumeLoad()
         #expect(await first.value)
         #expect(owner.operation == .idle)
+    }
+}
+
+private actor HistoryPublicationProbe {
+    private(set) var callCount = 0
+
+    func record() {
+        callCount += 1
     }
 }
 

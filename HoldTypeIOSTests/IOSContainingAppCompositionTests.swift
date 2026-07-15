@@ -140,13 +140,13 @@ struct IOSContainingAppCompositionTests {
                     capturedForegroundProcessor = processor
                     return processor
                 },
-                makeKeyboardSnapshotPublisher: { persistenceOwner in
+                makeKeyboardSnapshotPublisher: { historyRepository in
                     events.append("keyboard-publisher")
                     keyboardPublisherFactoryCount += 1
                     return IOSKeyboardSnapshotPublisher(
                         store: keyboardStore,
-                        loadLatest: {
-                            try await persistenceOwner.loadLatestResult()
+                        loadHistory: {
+                            try await historyRepository.load()
                         }
                     )
                 }

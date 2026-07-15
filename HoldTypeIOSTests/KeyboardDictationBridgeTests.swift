@@ -13,7 +13,7 @@ struct KeyboardDictationBridgeTests {
             KeyboardDictationCommandRecord(
                 requestID: requestID,
                 kind: .start,
-                action: .translate,
+                action: .translateAndImprove,
                 issuedAt: now,
                 expiresAt: now.addingTimeInterval(5)
             )
@@ -33,7 +33,10 @@ struct KeyboardDictationBridgeTests {
 
         #expect(try store.loadCommand(at: now) == command)
         #expect(try store.loadState(at: now) == state)
-        #expect(command.action == .translate)
+        #expect(command.action == .translateAndImprove)
+        #expect(command.action.translates)
+        #expect(command.action.corrects)
+        #expect(command.action.selectedAutomaticModeCount == 2)
         #expect(state.translationAvailable)
         #expect(
             try store.loadCommand(at: now.addingTimeInterval(5)) == nil
@@ -49,6 +52,23 @@ struct KeyboardDictationBridgeTests {
                 KeyboardDictationBridgeConfiguration.commandFilename,
                 KeyboardDictationBridgeConfiguration.stateFilename,
             ].sorted()
+        )
+    }
+
+    @Test func automaticModeTogglesCoverEveryCombination() {
+        #expect(
+            KeyboardVoiceAction.standard.togglingTranslation() == .translate
+        )
+        #expect(
+            KeyboardVoiceAction.translate.togglingCorrection()
+                == .translateAndImprove
+        )
+        #expect(
+            KeyboardVoiceAction.translateAndImprove.togglingTranslation()
+                == .improve
+        )
+        #expect(
+            KeyboardVoiceAction.improve.togglingCorrection() == .standard
         )
     }
 

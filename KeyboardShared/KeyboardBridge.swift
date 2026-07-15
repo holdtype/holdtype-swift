@@ -10,11 +10,11 @@ import Foundation
 nonisolated enum KeyboardBridgeConfiguration {
     static let appGroupIdentifier = "group.app.holdtype.HoldType.shared"
 
-    // V3 removes the obsolete recent-results payload at the same cache URL.
+    // V4 derives one persistent Latest item from canonical accepted History.
     static let snapshotFilename = "keyboard-bridge-v1.json"
-    static let maximumSnapshotBytes = 32 * 1_024
-    static let maximumTextUTF8Bytes = 16 * 1_024
-    static let latestLifetime: TimeInterval = 10 * 60
+    static let maximumSnapshotBytes = 160 * 1_024
+    // Matches the accepted History entry limit across the extension boundary.
+    static let maximumTextUTF8Bytes = 128 * 1_024
 }
 
 nonisolated struct KeyboardBridgeItem:
@@ -26,13 +26,12 @@ nonisolated struct KeyboardBridgeItem:
         case emptyText
         case textTooLarge(maximumUTF8Bytes: Int)
         case unsafeControlScalar(UInt32)
-        case invalidDateRange
+        case invalidCreationDate
     }
 
     let resultID: UUID
     let text: String
     let createdAt: Date
-    let expiresAt: Date
 
     var id: UUID {
         resultID
@@ -42,14 +41,12 @@ nonisolated struct KeyboardBridgeItem:
         case resultID
         case text
         case createdAt
-        case expiresAt
     }
 
     init(
         resultID: UUID,
         text: String,
-        createdAt: Date,
-        expiresAt: Date
+        createdAt: Date
     ) throws {
         guard text.unicodeScalars.contains(where: { scalar in
             !CharacterSet.whitespacesAndNewlines.contains(scalar)
@@ -66,16 +63,13 @@ nonisolated struct KeyboardBridgeItem:
             throw ValidationError.unsafeControlScalar(unsafeScalar.value)
         }
 
-        guard createdAt.timeIntervalSinceReferenceDate.isFinite,
-              expiresAt.timeIntervalSinceReferenceDate.isFinite,
-              expiresAt > createdAt else {
-            throw ValidationError.invalidDateRange
+        guard createdAt.timeIntervalSinceReferenceDate.isFinite else {
+            throw ValidationError.invalidCreationDate
         }
 
         self.resultID = resultID
         self.text = text
         self.createdAt = createdAt
-        self.expiresAt = expiresAt
     }
 
     static func latest(
@@ -86,10 +80,7 @@ nonisolated struct KeyboardBridgeItem:
         try KeyboardBridgeItem(
             resultID: resultID,
             text: text,
-            createdAt: createdAt,
-            expiresAt: createdAt.addingTimeInterval(
-                KeyboardBridgeConfiguration.latestLifetime
-            )
+            createdAt: createdAt
         )
     }
 
@@ -100,8 +91,7 @@ nonisolated struct KeyboardBridgeItem:
             try self.init(
                 resultID: container.decode(UUID.self, forKey: .resultID),
                 text: container.decode(String.self, forKey: .text),
-                createdAt: container.decode(Date.self, forKey: .createdAt),
-                expiresAt: container.decode(Date.self, forKey: .expiresAt)
+                createdAt: container.decode(Date.self, forKey: .createdAt)
             )
         } catch let error as ValidationError {
             throw DecodingError.dataCorrupted(
@@ -127,10 +117,9 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         case incompatibleSchemaVersion(Int)
         case invalidRevision
         case invalidPublishedAt
-        case invalidLatestLifetime
     }
 
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 4
 
     let schemaVersion: Int
     let revision: UInt64
@@ -157,12 +146,8 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         )
     }
 
-    func latestForInsertion(at date: Date = Date()) -> KeyboardBridgeItem? {
-        guard let latest, latest.expiresAt > date else {
-            return nil
-        }
-
-        return latest
+    func latestForInsertion() -> KeyboardBridgeItem? {
+        latest
     }
 
     init(from decoder: Decoder) throws {
@@ -203,24 +188,12 @@ nonisolated struct KeyboardBridgeSnapshot: Codable, Equatable, Sendable {
         guard publishedAt.timeIntervalSinceReferenceDate.isFinite else {
             throw ValidationError.invalidPublishedAt
         }
-        guard latest.map({ Self.hasLifetime(
-            $0,
-            duration: KeyboardBridgeConfiguration.latestLifetime
-        ) }) ?? true else {
-            throw ValidationError.invalidLatestLifetime
-        }
         self.schemaVersion = schemaVersion
         self.revision = revision
         self.publishedAt = publishedAt
         self.latest = latest
     }
 
-    private static func hasLifetime(
-        _ item: KeyboardBridgeItem,
-        duration: TimeInterval
-    ) -> Bool {
-        abs(item.expiresAt.timeIntervalSince(item.createdAt) - duration) <= 0.001
-    }
 }
 
 nonisolated enum KeyboardBridgeStoreError:
@@ -330,8 +303,8 @@ nonisolated struct KeyboardBridgeStore {
         return header.revision + 1
     }
 
-    /// Removes obsolete V1/V2 payload fields even while Latest publication is
-    /// still release-gated. The replacement remains a bounded, empty cache.
+    /// Removes obsolete payload fields before the current History projection is
+    /// published. The replacement remains a bounded, empty cache.
     @discardableResult
     func replaceLegacySnapshotIfNeeded(
         at publishedAt: Date = Date()
@@ -388,6 +361,7 @@ nonisolated struct KeyboardBridgeStore {
         let header = try decodeHeader(from: data)
         guard header.schemaVersion == 1 ||
                 header.schemaVersion == 2 ||
+                header.schemaVersion == 3 ||
                 header.schemaVersion == KeyboardBridgeSnapshot.currentSchemaVersion else {
             throw KeyboardBridgeStoreError.incompatibleSchemaVersion(
                 found: header.schemaVersion,
@@ -406,7 +380,7 @@ nonisolated struct KeyboardBridgeStore {
         }
 
         let header = try decodeHeader(from: data)
-        guard header.schemaVersion == 1 || header.schemaVersion == 2 else {
+        guard (1...3).contains(header.schemaVersion) else {
             return nil
         }
         return header

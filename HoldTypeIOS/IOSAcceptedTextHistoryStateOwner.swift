@@ -142,19 +142,33 @@ enum IOSAcceptedTextHistoryNotice: Equatable, Sendable {
 @MainActor
 @Observable
 final class IOSAcceptedTextHistoryStateOwner {
+    typealias PublishKeyboardSnapshot = @Sendable () async -> Bool
+
     private(set) var state = IOSAcceptedTextHistoryState.notLoaded
     private(set) var operation = IOSAcceptedTextHistoryOperation.idle
     private(set) var notice: IOSAcceptedTextHistoryNotice?
 
     @ObservationIgnored
     private let client: IOSAcceptedTextHistoryClient
+    @ObservationIgnored
+    private let publishKeyboardSnapshot: PublishKeyboardSnapshot
 
-    init(client: IOSAcceptedTextHistoryClient) {
+    init(
+        client: IOSAcceptedTextHistoryClient,
+        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = { true }
+    ) {
         self.client = client
+        self.publishKeyboardSnapshot = publishKeyboardSnapshot
     }
 
-    convenience init(repository: IOSAcceptedTextHistoryRepository) {
-        self.init(client: IOSAcceptedTextHistoryClient(repository: repository))
+    convenience init(
+        repository: IOSAcceptedTextHistoryRepository,
+        publishKeyboardSnapshot: @escaping PublishKeyboardSnapshot = { true }
+    ) {
+        self.init(
+            client: IOSAcceptedTextHistoryClient(repository: repository),
+            publishKeyboardSnapshot: publishKeyboardSnapshot
+        )
     }
 
     var confirmedRecord: IOSAcceptedTextHistoryRecord? {
@@ -172,6 +186,7 @@ final class IOSAcceptedTextHistoryStateOwner {
             guard complete() else { return false }
             state = .ready(record)
             notice = nil
+            _ = await publishKeyboardSnapshot()
             return true
         } catch is CancellationError {
             _ = complete()
@@ -239,10 +254,12 @@ final class IOSAcceptedTextHistoryStateOwner {
             case .confirmed(let record):
                 state = .ready(record)
                 notice = nil
+                _ = await publishKeyboardSnapshot()
                 return true
             case .stale(let record):
                 state = .ready(record)
                 notice = .historyChanged
+                _ = await publishKeyboardSnapshot()
                 return false
             }
         } catch is CancellationError {

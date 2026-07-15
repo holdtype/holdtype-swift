@@ -20,12 +20,51 @@ nonisolated enum KeyboardDictationCommandKind: String, Codable, Sendable {
     case cancel
 }
 
-/// One bounded per-request mode. It contains no settings, prompt, language,
-/// provider, or host-document content.
+/// One bounded per-request combination. It contains no settings, prompt,
+/// language, provider, or host-document content.
 nonisolated enum KeyboardVoiceAction: String, Codable, Sendable {
     case standard
     case translate
     case improve
+    case translateAndImprove = "translate_and_improve"
+
+    var translates: Bool {
+        self == .translate || self == .translateAndImprove
+    }
+
+    var corrects: Bool {
+        self == .improve || self == .translateAndImprove
+    }
+
+    var selectedAutomaticModeCount: Int {
+        [translates, corrects].count(where: { $0 })
+    }
+
+    func togglingTranslation() -> Self {
+        switch self {
+        case .standard:
+            .translate
+        case .translate:
+            .standard
+        case .improve:
+            .translateAndImprove
+        case .translateAndImprove:
+            .improve
+        }
+    }
+
+    func togglingCorrection() -> Self {
+        switch self {
+        case .standard:
+            .improve
+        case .translate:
+            .translateAndImprove
+        case .improve:
+            .standard
+        case .translateAndImprove:
+            .translate
+        }
+    }
 }
 
 nonisolated struct KeyboardDictationCommandRecord:

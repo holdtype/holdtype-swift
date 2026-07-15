@@ -79,11 +79,12 @@ response, or accepted/failed History transaction capability.
 - Pending audio is app-private, protected, backup-excluded, and addressed only
   through the exact Pending identity.
 - Canonical Latest and all Pending metadata remain app-private, protected, and
-  backup-excluded. The app may derive only the bounded accepted-text projection
-  allowed by `ios-v1-release.md` for explicit keyboard insertion.
+  backup-excluded. The app may derive only the single accepted-History
+  projection allowed by `ios-v1-release.md` for explicit keyboard insertion.
 - That separate app-written, extension-read-only keyboard snapshot is the only
-  App Group text record. It contains at most one 10-minute Latest item, never
-  additional accepted texts, Pending state, or the canonical History record.
+  App Group text record. It contains at most the first accepted History item,
+  with no independent expiry, and never additional accepted texts, Pending
+  state, or the canonical History record.
 - Product logs redact text, paths, identifiers, prompts, provider payloads,
   credentials, and audio contents.
 

@@ -1665,7 +1665,7 @@ struct IOSVoiceHomeView: View {
     private var keyboardPracticeSection: some View {
         Section("Keyboard Practice") {
             Text(
-                "Normal typing and Apple Dictation stay on your system keyboard. The app shares one Latest Result with HoldType Keyboard for explicit insertion; insertion eligibility expires after 10 minutes."
+                "Normal typing and Apple Dictation stay on your system keyboard. HoldType Keyboard inserts the newest saved History entry; it remains available until History changes."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -2207,7 +2207,7 @@ struct IOSVoiceLatestStatusPresentation {
         }
         return Self(
             title: base.title,
-            detail: "The keyboard copy couldn't be refreshed; an older item may remain until it expires.",
+            detail: "The keyboard History copy couldn't be refreshed; Latest may remain unavailable or show an older History item until refresh succeeds.",
             systemImage: base.systemImage,
             tone: .failure,
             showsProgress: base.showsProgress

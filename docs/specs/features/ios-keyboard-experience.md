@@ -144,28 +144,40 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - Quick Insert, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest remain useful without provider setup, network, or Full
   Access.
+- `Latest` inserts the first entry in accepted History and remains enabled for
+  as long as that entry exists. It has no independent age or expiry policy.
 
-## One-Shot Voice Actions
+## Automatic Voice Modes
 
-- Translate and Improve are secondary one-tap starts beside Quick Insert. They
-  do not open a menu, mode chooser, confirmation, settings sheet, or containing
-  app transition.
-- Translate starts the next keyboard dictation with the saved Translation route
-  when the keyboard session is Ready and the containing app reports a valid
-  target and source route. If the route is incomplete, Translate remains
-  tappable and opens the containing app at the exact owning Translation input
-  with inline guidance.
-- Improve starts the next keyboard dictation in standard output mode and forces
-  the saved Writing & Correction model and prompt for that request only. It
-  does not change the durable correction preference. Correction retains its
-  existing safe fallback to the accepted transcript when the correction stage
-  cannot produce a safe result.
-- A Translate or Improve tap closes Quick Insert if necessary, starts exactly
-  one request, and then uses the existing microphone for Finish and the
-  existing Cancel action. Starting, Listening, and Processing disable all
-  three utility controls.
-- The action chosen at Start is frozen for that request. Later taps or settings
-  changes do not change an active request.
+- One compact labeled `Auto` button replaces the separate Translate and Improve
+  icons beside Quick Insert. It opens a native text menu containing independent
+  `Auto-Translate` and `Auto-Correct` checkmarked actions. The closed button
+  shows how many of the two modes are selected.
+- The menu contains no Append action. Keyboard results always preserve existing
+  host text and insert once at the current insertion point through
+  `UITextDocumentProxy`.
+- Selecting a mode never starts dictation. The centered microphone remains the
+  only Start action and uses the currently selected modes for the next request.
+  Changing a mode closes Quick Insert if necessary and returns to the Voice
+  workspace.
+- Auto Translate uses the saved Translation route. If that route is incomplete,
+  selecting Auto Translate leaves it off and opens the containing app at the
+  exact owning Translation input with inline guidance.
+- Auto Correct forces the saved Writing & Correction model and prompt without
+  changing the durable correction preference. Correction retains its existing
+  safe fallback to the accepted transcript when the correction stage cannot
+  produce a safe result.
+- The two modes may be selected together. Combined requests run correction
+  before translation, matching containing-app Voice behavior.
+- Both modes start off when a keyboard extension lifetime begins, remain selected
+  for subsequent requests in that lifetime until the user changes them, and do
+  not rewrite durable Settings or share selection with containing-app Voice.
+- Starting, Listening, and Processing disable Quick Insert and Auto. The mode
+  combination chosen at Start is frozen for that request; later selections or
+  Settings changes do not change active work.
+- Ready and every recovery state keep Auto enabled. Missing Full Access,
+  provider setup, or an active keyboard session does not prevent choosing modes
+  for the next request.
 
 ## Keyboard Dictation Session
 
@@ -250,8 +262,9 @@ without showing `Inserted` or rendering a result preview.
   It contains no language codes, translation route, model, API key, prompt,
   dictionary, canonical History, raw audio, provider body, or durable host
   context.
-- Existing bounded Latest remains a separate app-written projection. It stays
-  available for explicit insertion when automatic insertion is unsafe.
+- Existing Latest remains a separate app-written projection of the first
+  accepted History entry. It stays available for explicit insertion when
+  automatic insertion is unsafe and changes only when History changes.
 
 ## Privacy And Recording
 
@@ -280,8 +293,9 @@ without showing `Inserted` or rendering a result preview.
 
 ## Accessibility And Appearance
 
-- VoiceOver names Quick Insert, Translate, Improve, the recovery instruction,
-  microphone state/action, Latest, Globe, Space, Delete, and adaptive Return.
+- VoiceOver names Quick Insert, Auto and its selected modes, the recovery
+  instruction, microphone state/action, Latest, Globe, Space, Delete, and
+  adaptive Return.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
   material effects with opaque system colors.

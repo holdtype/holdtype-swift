@@ -40,15 +40,15 @@ struct KeyboardViewControllerTests {
         ])
     }
 
-    @Test func expiredLatestTapDoesNotInsertAndDisablesLatest() throws {
+    @Test func oldHistoryLatestRemainsInsertableWithoutSchedulingExpiry() throws {
         let createdAt = Date(timeIntervalSince1970: 1_750_000_000)
         let latest = try KeyboardBridgeItem.latest(
             resultID: UUID(),
-            text: "Expired at tap",
+            text: "Still available",
             createdAt: createdAt
         )
         let harness = KeyboardControllerHarness(
-            now: latest.expiresAt.addingTimeInterval(-0.001),
+            now: createdAt.addingTimeInterval(365 * 24 * 60 * 60),
             snapshot: try KeyboardBridgeSnapshot(
                 revision: 1,
                 publishedAt: createdAt,
@@ -58,49 +58,18 @@ struct KeyboardViewControllerTests {
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        harness.now = latest.expiresAt
         controller.keyboardView.onLatestRequested?()
 
         let latestButton = try button(
             "keyboard.brand-stage.latest",
             in: controller.view
         )
-        #expect(!latestButton.isEnabled)
-        #expect(harness.proxy.insertedTexts.isEmpty)
+        #expect(latestButton.isEnabled)
+        #expect(harness.proxy.insertedTexts == ["Still available"])
+        #expect(harness.scheduledExpiryDates.isEmpty)
     }
 
-    @Test func scheduledExpiryDisablesOnlyTheCurrentLatest() throws {
-        let now = Date(timeIntervalSince1970: 1_750_000_000)
-        let latest = try KeyboardBridgeItem.latest(
-            resultID: UUID(),
-            text: "Soon unavailable",
-            createdAt: now.addingTimeInterval(-60)
-        )
-        let harness = KeyboardControllerHarness(
-            now: now,
-            snapshot: try KeyboardBridgeSnapshot(
-                revision: 1,
-                publishedAt: now,
-                latest: latest
-            )
-        )
-        let controller = harness.makeController()
-        controller.loadViewIfNeeded()
-
-        #expect(harness.scheduledExpiryDates == [latest.expiresAt])
-        let expiryAction = try #require(harness.scheduledExpiryActions.first)
-        expiryAction()
-
-        let latestButton = try button(
-            "keyboard.brand-stage.latest",
-            in: controller.view
-        )
-        #expect(!latestButton.isEnabled)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts.isEmpty)
-    }
-
-    @Test func staleExpiryCannotClearAReplacementLatest() throws {
+    @Test func refreshedHistorySnapshotReplacesLatest() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let first = try KeyboardBridgeItem.latest(
             resultID: UUID(),
@@ -122,9 +91,6 @@ struct KeyboardViewControllerTests {
         )
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
-        let staleExpiry = try #require(
-            harness.scheduledExpiryActions.first
-        )
 
         harness.snapshot = try KeyboardBridgeSnapshot(
             revision: 2,
@@ -132,14 +98,7 @@ struct KeyboardViewControllerTests {
             latest: replacement
         )
         controller.textDidChange(nil)
-        staleExpiry()
         controller.keyboardView.onLatestRequested?()
-
-        let latestButton = try button(
-            "keyboard.brand-stage.latest",
-            in: controller.view
-        )
-        #expect(latestButton.isEnabled)
         #expect(harness.proxy.insertedTexts == ["Replacement"])
     }
 
@@ -290,7 +249,7 @@ struct KeyboardViewControllerTests {
         #expect(statusText(in: controller.view) == "Session not running")
     }
 
-    @Test func utilityVoiceActionsCarryOneShotModeAndGateTranslation() throws {
+    @Test func automaticVoiceModesApplyOnMicrophoneStartAndGateTranslation() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()
         let deadline = now.addingTimeInterval(60)
@@ -309,13 +268,44 @@ struct KeyboardViewControllerTests {
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        controller.keyboardView.onTranslateRequested?()
+        controller.keyboardView.onAutomaticVoiceActionChanged?(.translate)
+        #expect(harness.savedCommands.isEmpty)
+        controller.keyboardView.onMicrophoneRequested?()
         #expect(harness.savedCommands.map(\.action) == [.translate])
 
         harness.savedCommands.removeAll()
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                requestID: UUID(),
+                phase: .ready,
+                translationAvailable: true,
+                publishedAt: now,
+                expiresAt: deadline
+            )
+        )
         controller.textDidChange(nil)
-        controller.keyboardView.onImproveRequested?()
+        controller.keyboardView.onAutomaticVoiceActionChanged?(.improve)
+        controller.keyboardView.onMicrophoneRequested?()
         #expect(harness.savedCommands.map(\.action) == [.improve])
+
+        harness.savedCommands.removeAll()
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                requestID: UUID(),
+                phase: .ready,
+                translationAvailable: true,
+                publishedAt: now,
+                expiresAt: deadline
+            )
+        )
+        controller.textDidChange(nil)
+        controller.keyboardView.onAutomaticVoiceActionChanged?(
+            .translateAndImprove
+        )
+        controller.keyboardView.onMicrophoneRequested?()
+        #expect(
+            harness.savedCommands.map(\.action) == [.translateAndImprove]
+        )
 
         harness.savedCommands.removeAll()
         harness.dictationState = try #require(
@@ -328,7 +318,7 @@ struct KeyboardViewControllerTests {
             )
         )
         controller.textDidChange(nil)
-        controller.keyboardView.onTranslateRequested?()
+        controller.keyboardView.onAutomaticVoiceActionChanged?(.translate)
         #expect(harness.savedCommands.isEmpty)
         #expect(
             harness.openedURLs == [
