@@ -6,6 +6,7 @@ enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
     case voice
     case library
     case history
+    case usage
     case settings
 
     var id: String { rawValue }
@@ -18,6 +19,8 @@ enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
             "Rules"
         case .history:
             "History"
+        case .usage:
+            "Usage"
         case .settings:
             "Settings"
         }
@@ -31,6 +34,8 @@ enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
             "checklist"
         case .history:
             "clock.arrow.circlepath"
+        case .usage:
+            "chart.bar.xaxis"
         case .settings:
             "gearshape.fill"
         }
@@ -93,7 +98,6 @@ enum IOSSettingsRoute: Hashable {
     case general(IOSGeneralSettingsDestination)
     case keyboardSetup
     case privacyAndPermissions
-    case usageEstimate
     case diagnostics
     case attention(IOSSettingsAttention)
 }

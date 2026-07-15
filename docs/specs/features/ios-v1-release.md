@@ -37,7 +37,7 @@ complements the user's system keyboards; it is not a replacement QWERTY engine.
 
 V1.1 includes:
 
-- iPhone setup, Voice, Dictation Rules, compact History, and Settings;
+- iPhone setup, Voice, Dictation Rules, compact History, Usage, and Settings;
 - foreground recording and OpenAI transcription in the containing app;
 - one explicit, bounded, app-owned Keyboard Dictation Session;
 - existing optional correction and translation;
@@ -55,8 +55,8 @@ V1.1 includes:
 - an explicit `Latest` insertion path after the user returns to the host;
 - a bounded keyboard projection of one Latest item with time-limited insertion
   eligibility only;
-- the existing Usage Estimate kept unchanged as an informational Settings
-  route;
+- the existing Usage Estimate kept unchanged as an informational containing-app
+  destination immediately before Settings;
 - a Development section at the bottom of Settings with local Diagnostics &
   Support, bounded redacted app and keyboard logs, explicit copy/share, and
   locally delivered crash evidence governed by `ios-diagnostics.md`;
@@ -98,18 +98,21 @@ alphabetic layouts.
 
 ## Product Navigation
 
-The containing app exposes four useful destinations only:
+The containing app exposes five useful destinations only, in this order:
 
 - `Voice`: record, recover one pending attempt, and work with one composed
   editable Draft while Latest remains the last accepted result;
 - `Rules`: opens `Dictation Rules` for Dictionary, Emoji Commands, and
   Replacements;
 - `History`: successful accepted text only;
+- `Usage`: device-local successful-transcription minutes, estimated cost, and
+  the 30-day chart governed by `ios-usage-estimate.md`;
 - `Settings`: provider, language/writing, recording, privacy, and setup.
 
 Settings ends with a visually secondary Development section containing the
 Diagnostics & Support route. Diagnostics is not a fifth tab and does not appear
-inside the keyboard extension.
+inside the keyboard extension. Usage is a containing-app destination only and
+does not appear inside the keyboard extension or as a duplicate Settings route.
 
 A destination must not ship as a placeholder. During implementation, History
 is removed from navigation until the compact screen is ready. V1.1 is not
@@ -530,8 +533,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   bounded retention, missing-file Play eligibility, local playback failure,
   and playback-to-Voice handoff pass.
 - Release navigation contains no placeholder destination.
-- Normal iPhone launch shows Voice, Rules, History, and Settings in the tab
-  shell; qualification routes never become a production root.
+- Normal iPhone launch shows Voice, Rules, History, Usage, and Settings in that
+  order in the tab shell; qualification routes never become a production root.
 - Keyboard tests cover both appearances, recovery instructions, punctuation,
   Delete repeat, Space cursor movement, Return traits, session-state honesty,
   bounded command/state decoding, stale-request rejection, one bounded Latest

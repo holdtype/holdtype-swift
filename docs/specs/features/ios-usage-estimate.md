@@ -64,12 +64,13 @@ complete provider-usage dashboard.
 
 ## User-Visible Behavior
 
-- Settings exposes one independent `Transcription Usage Estimate` route. It is
-  available without a saved API key, microphone permission, Full Access, a
-  running Voice session, or a live provider request.
-- Settings labels the destination `Transcription Usage Estimate` and explains
-  in plain language that values come from successful transcriptions on this
-  iPhone. The screen does not expose repository or persistence terminology.
+- The containing app exposes one independent `Usage` destination immediately
+  before Settings. It is available without a saved API key, microphone
+  permission, Full Access, a running Voice session, or a live provider request.
+- The tab label is `Usage`; the screen title is `Transcription Usage Estimate`
+  and explains in plain language that values come from successful
+  transcriptions on this iPhone. The screen does not expose repository or
+  persistence terminology and is not duplicated inside Settings.
 - The summary shows `Today`, `Average per day`, `Last 30 days`, and `Estimated
   30-day cost`. Duration is always available in minutes when valid events
   exist.
@@ -88,9 +89,9 @@ complete provider-usage dashboard.
   empty-success state. That unreadable state offers both local Retry and an
   explicitly confirmed Reset; if Reset fails, the unreadable state remains and
   Reset stays retryable.
-- Opening the route refreshes from the canonical repository. Pull to refresh
-  and a visible retry action perform the same local read. The screen does not
-  poll, contact OpenAI, or read Keychain merely to look current.
+- Opening the destination refreshes from the canonical repository. Pull to
+  refresh and a visible retry action perform the same local read. The screen
+  does not poll, contact OpenAI, or read Keychain merely to look current.
 - A usage-write failure never fails or rewinds an accepted transcription. One
   process-local, content-free notice says that some usage could not be saved
   and the estimate may be incomplete. A later successful load does not pretend

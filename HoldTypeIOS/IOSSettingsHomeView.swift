@@ -97,8 +97,6 @@ struct IOSSettingsHomeView: View {
                     )
                 )
             }
-        case .usageEstimate:
-            IOSUsageEstimateView()
         case .diagnostics:
             IOSDiagnosticsView()
         case .keyboardSetup:
@@ -246,8 +244,6 @@ struct IOSSettingsHomeView: View {
 private struct IOSSettingsSummaryList: View {
     @Environment(IOSOpenAICredentialSettingsStateOwner.self)
     private var openAISettingsStateOwner
-    @Environment(IOSUsageEstimateStateOwner.self)
-    private var usageEstimateStateOwner
 
     let settings: IOSAppSettings
     let showsSaveFailure: Bool
@@ -365,19 +361,6 @@ private struct IOSSettingsSummaryList: View {
                 }
             }
 
-            Section("Usage & Support") {
-                NavigationLink(value: IOSSettingsRoute.usageEstimate) {
-                    IOSSettingsDestinationLabel(
-                        title: "Transcription Usage Estimate",
-                        summary: usageSummary,
-                        systemImage: "chart.bar.xaxis"
-                    )
-                }
-                .accessibilityIdentifier(
-                    "ios.settings.usage-estimate.row"
-                )
-            }
-
             Section("Development") {
                 NavigationLink(value: IOSSettingsRoute.diagnostics) {
                     IOSSettingsDestinationLabel(
@@ -431,23 +414,6 @@ private struct IOSSettingsSummaryList: View {
         case .ready(let status):
             return IOSOpenAICredentialPresentation(status: status)
                 .settingsSummary
-        }
-    }
-
-    private var usageSummary: String {
-        switch usageEstimateStateOwner.state {
-        case .notLoaded:
-            "Estimate from this iPhone"
-        case .ready(let summary):
-            summary.isEmpty
-                ? "No successful transcriptions yet"
-                : IOSUsageEstimateFormatter.minutes(
-                    summary.totalDurationSeconds
-                ) + " in the last 30 days"
-        case .loadFailed:
-            "Couldn’t load estimate"
-        case .resetFailed:
-            "Reset needs attention"
         }
     }
 

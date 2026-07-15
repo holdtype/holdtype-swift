@@ -197,6 +197,8 @@ struct IOSContainingAppShell: View {
             IOSHistoryHomeView(
                 playbackActions: historyPlaybackActions
             )
+        case .usage:
+            IOSUsageEstimateView()
         case .settings:
             IOSSettingsHomeView(
                 openAIEditorDraft: $openAIEditorDraft,
@@ -286,7 +288,7 @@ struct IOSContainingAppShell: View {
             settingsNavigationPath = NavigationPath()
         case .library:
             libraryNavigationPath = NavigationPath()
-        case .voice, .history:
+        case .voice, .history, .usage:
             break
         }
     }

@@ -51,7 +51,9 @@ struct IOSUsageEstimateView: View {
                     + "change OpenAI billing or other HoldType data."
             )
         }
-        .accessibilityIdentifier("ios.settings.usage-estimate")
+        .accessibilityIdentifier(
+            IOSContainingAppDestination.usage.accessibilityIdentifier
+        )
     }
 
     private var unavailableContent: some View {

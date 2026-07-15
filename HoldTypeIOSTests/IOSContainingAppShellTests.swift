@@ -11,6 +11,7 @@ struct IOSContainingAppShellTests {
                 .voice,
                 .library,
                 .history,
+                .usage,
                 .settings,
             ]
         )
@@ -19,6 +20,7 @@ struct IOSContainingAppShellTests {
                 "Voice",
                 "Rules",
                 "History",
+                "Usage",
                 "Settings",
             ]
         )
@@ -27,6 +29,7 @@ struct IOSContainingAppShellTests {
                 "mic.fill",
                 "checklist",
                 "clock.arrow.circlepath",
+                "chart.bar.xaxis",
                 "gearshape.fill",
             ]
         )
@@ -35,9 +38,10 @@ struct IOSContainingAppShellTests {
                 IOSContainingAppDestination.allCases.map(
                     \.accessibilityIdentifier
                 )
-            ).count == 4
+            ).count == 5
         )
         #expect(UIImage(systemName: "checklist") != nil)
+        #expect(UIImage(systemName: "chart.bar.xaxis") != nil)
         #expect(
             IOSContainingAppDestination.resolve(
                 storedRawValue: "library"
@@ -157,9 +161,9 @@ struct IOSContainingAppShellTests {
         #expect(
             IOSContainingAppDestinationSelectionDecision.resolve(
                 current: .library,
-                requested: .history,
+                requested: .usage,
                 hasUnsavedEditor: true
-            ) == .confirmDiscard(.history)
+            ) == .confirmDiscard(.usage)
         )
         #expect(
             IOSContainingAppDestinationSelectionDecision.resolve(
