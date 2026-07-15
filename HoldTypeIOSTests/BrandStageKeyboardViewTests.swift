@@ -94,6 +94,11 @@ struct BrandStageKeyboardViewTests {
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(auto.isEnabled)
         #expect(auto.configuration?.title == "Auto")
+        #expect(
+            auto.configuration?.image?.isEqual(
+                UIImage(systemName: "chevron.down")
+            ) == true
+        )
         #expect(auto.accessibilityValue == "Off")
         #expect(auto.showsMenuAsPrimaryAction)
         #expect(auto.menu?.children.map(\.title) == [

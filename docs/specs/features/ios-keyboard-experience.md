@@ -152,7 +152,8 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - One compact labeled `Auto` button replaces the separate Translate and Improve
   icons beside Quick Insert. It opens a native text menu containing independent
   `Auto-Translate` and `Auto-Correct` checkmarked actions. The closed button
-  shows how many of the two modes are selected.
+  uses a downward chevron matching the menu direction and shows how many of the
+  two modes are selected.
 - The menu contains no Append action. Keyboard results always preserve existing
   host text and insert once at the current insertion point through
   `UITextDocumentProxy`.

@@ -490,7 +490,7 @@ final class BrandStageKeyboardView: UIView {
         configureTopAction(
             autoButton,
             title: "Auto",
-            systemImage: "chevron.up",
+            systemImage: "chevron.down",
             accessibilityLabel: "Automatic voice modes"
         )
         var autoConfiguration = autoButton.configuration
