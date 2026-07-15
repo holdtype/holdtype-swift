@@ -1864,22 +1864,10 @@ struct IOSVoiceHomeView: View {
     private func voiceSettingsRecovery(
         for destination: RecoveryDestination
     ) -> IOSSettingsAttention {
-        switch destination {
-        case .openAI:
-            .openAI
-        case .transcription:
-            .transcription
-        case .translation:
-            .translation
-        case .keyboard:
-            .keyboard
-        case .fullAccess:
-            .fullAccess
-        case .microphoneAndPrivacy:
-            sceneOwner.presentation.failure == .microphonePermissionDenied
-                ? .microphonePermission
-                : .privacyReview
-        }
+        IOSSettingsAttention.voiceRecovery(
+            for: destination,
+            failure: sceneOwner.presentation.failure
+        )
     }
 
     private var visibleVoiceConsentPrompt:

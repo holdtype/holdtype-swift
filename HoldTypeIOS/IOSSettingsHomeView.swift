@@ -200,32 +200,31 @@ struct IOSSettingsHomeView: View {
         _ attention: IOSSettingsAttention,
         settings: IOSAppSettings
     ) -> IOSSettingsAttentionTarget {
+        IOSSettingsAttentionTarget.voiceRecovery(
+            for: recoveryDestination(for: attention),
+            failure: attention == .microphonePermission
+                ? .microphonePermissionDenied
+                : nil,
+            settings: settings
+        )
+    }
+
+    private func recoveryDestination(
+        for attention: IOSSettingsAttention
+    ) -> RecoveryDestination {
         switch attention {
+        case .openAI:
+            .openAI
         case .transcription:
-            let configuration = settings.transcriptionConfiguration
-            let field: IOSSettingsField = configuration.language == .custom
-                && configuration.customLanguageCodeValidation.isInvalid
-                ? .transcriptionCustomLanguage
-                : .transcriptionLanguage
-            return IOSSettingsAttentionTarget(attention, field: field)
+            .transcription
         case .translation:
-            let configuration = settings.translationConfiguration
-            let field: IOSSettingsField
-            switch configuration.routeConfigurationIssue {
-            case .invalidSourceLanguage:
-                field = configuration.sourceLanguage == .custom
-                    ? .translationCustomSource
-                    : .translationSourceLanguage
-            case .missingTargetLanguage:
-                field = configuration.targetLanguage == .custom
-                    ? .translationCustomTarget
-                    : .translationTargetLanguage
-            case nil:
-                field = .translationTargetLanguage
-            }
-            return IOSSettingsAttentionTarget(attention, field: field)
-        default:
-            return IOSSettingsAttentionTarget(attention)
+            .translation
+        case .keyboard:
+            .keyboard
+        case .fullAccess:
+            .fullAccess
+        case .privacyReview, .microphonePermission:
+            .microphoneAndPrivacy
         }
     }
 

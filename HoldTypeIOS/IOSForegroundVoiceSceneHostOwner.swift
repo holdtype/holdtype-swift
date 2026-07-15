@@ -49,6 +49,12 @@ final class IOSForegroundVoiceSceneHostOwner:
     private let controller: IOSForegroundVoiceController
     @ObservationIgnored
     private let sceneRegistry: IOSVoiceSceneRegistry
+    @ObservationIgnored
+    private let preflightKeyboardHandoffAction:
+        @MainActor @Sendable (
+            KeyboardVoiceAction,
+            IOSVoiceSceneStartLease
+        ) async -> IOSKeyboardHandoffPreflightResult
     private var sceneFacade: IOSVoiceSceneFacade?
     @ObservationIgnored
     private var cleanupToken: IOSForegroundVoiceSceneHostCleanupToken?
@@ -56,7 +62,15 @@ final class IOSForegroundVoiceSceneHostOwner:
 
     init(
         controller: IOSForegroundVoiceController,
-        sceneRegistry: IOSVoiceSceneRegistry
+        sceneRegistry: IOSVoiceSceneRegistry,
+        preflightKeyboardHandoff:
+            @escaping @MainActor @Sendable (
+                KeyboardVoiceAction,
+                IOSVoiceSceneStartLease
+            ) async -> IOSKeyboardHandoffPreflightResult = { _, lease in
+                _ = lease.finish()
+                return .unavailable(.unavailable)
+            }
     ) {
         precondition(
             controller.sceneRegistry === sceneRegistry,
@@ -64,12 +78,19 @@ final class IOSForegroundVoiceSceneHostOwner:
         )
         self.controller = controller
         self.sceneRegistry = sceneRegistry
+        preflightKeyboardHandoffAction = preflightKeyboardHandoff
     }
 
     convenience init(runtime: IOSForegroundVoiceRuntime) {
         self.init(
             controller: runtime.controller,
-            sceneRegistry: runtime.sceneRegistry
+            sceneRegistry: runtime.sceneRegistry,
+            preflightKeyboardHandoff: { action, sceneLease in
+                await runtime.workflow.preflightKeyboardHandoff(
+                    action: action,
+                    sceneLease: sceneLease
+                )
+            }
         )
     }
 
@@ -178,6 +199,25 @@ final class IOSForegroundVoiceSceneHostOwner:
             command,
             modes: modes,
             from: sceneFacade
+        )
+    }
+
+    /// Acquires a start lease from this exact scene. A passive, retired, or
+    /// background scene cannot run handoff preflight or trigger permission UI.
+    func preflightKeyboardHandoff(
+        _ intent: KeyboardHandoffIntentRecord
+    ) async -> IOSKeyboardHandoffPreflightResult {
+        guard !isRetired,
+              let sceneFacade,
+              let sceneLease = sceneRegistry.acquireStartLease(
+                  initiatingScene: sceneFacade.identity
+              ) else {
+            return .unavailable(.unavailable)
+        }
+        defer { _ = sceneLease.finish() }
+        return await preflightKeyboardHandoffAction(
+            intent.action,
+            sceneLease
         )
     }
 }

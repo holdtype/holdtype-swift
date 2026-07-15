@@ -1,6 +1,30 @@
 import SwiftUI
 import UIKit
 
+enum IOSKeyboardHandoffPreflightNavigationDecision: Equatable, Sendable {
+    case stayOnVoice
+    case settings(IOSSettingsAttention)
+    case unavailable
+
+    static func resolve(
+        _ result: IOSKeyboardHandoffPreflightResult
+    ) -> Self {
+        switch result {
+        case .ready:
+            .stayOnVoice
+        case .needsSetup(let destination, let failure):
+            .settings(
+                IOSSettingsAttention.voiceRecovery(
+                    for: destination,
+                    failure: failure
+                )
+            )
+        case .unavailable:
+            .unavailable
+        }
+    }
+}
+
 struct IOSContainingAppShell: View {
     @State private var selectedDestinationRawValue =
         IOSContainingAppDestination.voice.rawValue
@@ -19,6 +43,7 @@ struct IOSContainingAppShell: View {
     @State private var pendingSettingsRoute: IOSSettingsRoute?
     @State private var acceptedKeyboardHandoffIntent:
         KeyboardHandoffIntentRecord?
+    @State private var activeKeyboardHandoffRequestID: UUID?
     @State private var showsEditorDiscardConfirmation = false
     @State private var showsEditorOperationAlert = false
 
@@ -29,6 +54,11 @@ struct IOSContainingAppShell: View {
         IOSRecordingCacheLifecycleActions?
     let layout: IOSContainingAppShellLayout
     let launchRouter: IOSKeyboardHandoffLaunchRouter
+    let keyboardHandoffPreflight:
+        (@MainActor @Sendable (
+            KeyboardHandoffIntentRecord
+        ) async -> IOSKeyboardHandoffPreflightResult)?
+    let keyboardHandoffNow: @Sendable () -> Date
 
     init(
         secureProviderAvailability: IOSSecureProviderAvailability,
@@ -37,7 +67,12 @@ struct IOSContainingAppShell: View {
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
         layout: IOSContainingAppShellLayout = .current,
-        launchRouter: IOSKeyboardHandoffLaunchRouter = .live
+        launchRouter: IOSKeyboardHandoffLaunchRouter = .live,
+        keyboardHandoffPreflight:
+            (@MainActor @Sendable (
+                KeyboardHandoffIntentRecord
+            ) async -> IOSKeyboardHandoffPreflightResult)? = nil,
+        keyboardHandoffNow: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
@@ -47,6 +82,8 @@ struct IOSContainingAppShell: View {
             recordingCacheLifecycleActions
         self.layout = layout
         self.launchRouter = launchRouter
+        self.keyboardHandoffPreflight = keyboardHandoffPreflight
+        self.keyboardHandoffNow = keyboardHandoffNow
     }
 
     var body: some View {
@@ -83,8 +120,7 @@ struct IOSContainingAppShell: View {
             case .settings(let attention):
                 openSettings(.attention(attention))
             case .keyboardHandoff(let intent):
-                acceptedKeyboardHandoffIntent = intent
-                requestDestination(.voice)
+                acceptKeyboardHandoff(intent)
             }
         }
         .alert(
@@ -97,6 +133,38 @@ struct IOSContainingAppShell: View {
                 "Wait for the current Save or Delete operation to finish "
                     + "before changing destinations."
             )
+        }
+    }
+
+    private func acceptKeyboardHandoff(
+        _ intent: KeyboardHandoffIntentRecord
+    ) {
+        acceptedKeyboardHandoffIntent = intent
+        activeKeyboardHandoffRequestID = intent.requestID
+        requestDestination(.voice)
+
+        guard let keyboardHandoffPreflight else {
+            acceptedKeyboardHandoffIntent = nil
+            activeKeyboardHandoffRequestID = nil
+            return
+        }
+        Task { @MainActor in
+            let result = await keyboardHandoffPreflight(intent)
+            guard activeKeyboardHandoffRequestID == intent.requestID else {
+                return
+            }
+            acceptedKeyboardHandoffIntent = nil
+            activeKeyboardHandoffRequestID = nil
+            guard intent.expiresAt > keyboardHandoffNow() else { return }
+
+            switch IOSKeyboardHandoffPreflightNavigationDecision.resolve(
+                result
+            ) {
+            case .stayOnVoice, .unavailable:
+                break
+            case .settings(let attention):
+                openSettings(.attention(attention))
+            }
         }
     }
 

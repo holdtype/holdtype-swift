@@ -82,6 +82,10 @@ struct HoldTypeIOSRootView: View {
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
     let layout: IOSContainingAppShellLayout
+    let keyboardHandoffPreflight:
+        (@MainActor @Sendable (
+            KeyboardHandoffIntentRecord
+        ) async -> IOSKeyboardHandoffPreflightResult)?
 
     init(
         settingsStateOwner: IOSAppSettingsStateOwner?,
@@ -96,7 +100,11 @@ struct HoldTypeIOSRootView: View {
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
-        layout: IOSContainingAppShellLayout = .current
+        layout: IOSContainingAppShellLayout = .current,
+        keyboardHandoffPreflight:
+            (@MainActor @Sendable (
+                KeyboardHandoffIntentRecord
+            ) async -> IOSKeyboardHandoffPreflightResult)? = nil
     ) {
         self.settingsStateOwner = settingsStateOwner
         self.libraryStateOwner = libraryStateOwner
@@ -111,6 +119,7 @@ struct HoldTypeIOSRootView: View {
         self.recordingCacheLifecycleActions =
             recordingCacheLifecycleActions
         self.layout = layout
+        self.keyboardHandoffPreflight = keyboardHandoffPreflight
     }
 
     var presentation: IOSContainingAppRootPresentation {
@@ -142,7 +151,8 @@ struct HoldTypeIOSRootView: View {
                     historyPlaybackActions: historyPlaybackActions,
                     recordingCacheLifecycleActions:
                         recordingCacheLifecycleActions,
-                    layout: layout
+                    layout: layout,
+                    keyboardHandoffPreflight: keyboardHandoffPreflight
                 )
                     .environment(settingsStateOwner)
                     .environment(libraryStateOwner)

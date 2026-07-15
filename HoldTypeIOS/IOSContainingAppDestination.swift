@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 import UIKit
 
 enum IOSContainingAppDestination: String, CaseIterable, Identifiable,
@@ -240,6 +241,34 @@ enum IOSSettingsAttention: String, Hashable, Sendable {
             .privacyProviderConsent
         case .microphonePermission:
             .privacyMicrophone
+        }
+    }
+
+    /// Central product mapping used by ordinary Voice and keyboard handoff.
+    /// The microphone/privacy destination is disambiguated by the typed Voice
+    /// failure that caused recovery.
+    static func voiceRecovery(
+        for destination: RecoveryDestination,
+        failure: IOSForegroundVoiceFailure? = nil
+    ) -> Self {
+        switch destination {
+        case .openAI:
+            .openAI
+        case .transcription:
+            .transcription
+        case .translation:
+            .translation
+        case .keyboard:
+            .keyboard
+        case .fullAccess:
+            .fullAccess
+        case .microphoneAndPrivacy:
+            switch failure {
+            case .microphonePermissionDenied, .microphoneUnavailable:
+                .microphonePermission
+            default:
+                .privacyReview
+            }
         }
     }
 }
