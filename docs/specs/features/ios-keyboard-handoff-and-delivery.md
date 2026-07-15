@@ -68,10 +68,11 @@ resolved by silently degrading the keyboard into that manual-session design.
   must not leave keyboard-originated text or local-recovery presentation on the
   ordinary Voice screen. Any keyboard-owned cleanup stays inside the handoff
   subsystem; genuine ordinary Voice recovery remains unchanged.
-- If setup is incomplete, HoldType does not start capture or present the
-  handoff sheet. It opens the exact owning Settings or permission surface. A
-  completed repair does not replay the request; the user returns to the host
-  and taps the keyboard microphone again.
+- If setup is incomplete, HoldType does not start capture. The temporary
+  handoff sheet presents the concrete setup blocker and stays independently
+  dismissible; it does not navigate, mutate, or add recovery presentation to
+  ordinary Voice. A completed repair does not replay the request; the user
+  returns to the host and taps the keyboard microphone again.
 - HoldType does not claim it can return to the host automatically. The user may
   need to swipe back or use the normal iOS app-switching gesture.
 - If the user taps keyboard Translate while its saved route is incomplete, the
@@ -135,6 +136,11 @@ microphone appear active.
   permits automatic insertion; a missing or changed value never prevents the
   user from seeing Listening or finishing the matching capture, but it makes
   automatic insertion ineligible and preserves the accepted result in Latest.
+- If UIKit temporarily withholds the current document identifier after
+  recreating the extension, the keyboard may repeat that local read for a
+  short bounded interval while the result remains fresh. It must not request a
+  delivery claim or insert until the current non-empty identifier exactly
+  matches the originating identifier; two missing values are never a match.
 
 ## Delivery Guarantees
 
@@ -197,8 +203,10 @@ microphone appear active.
   still eligible.
 - Focus/document changes, stale requests, process loss, and uncertain delivery
   preserve Latest without automatic insertion into the wrong destination.
-- Permission, offline, timeout, provider, expiry, and Full Access failures are
-  shown in the existing voice/error area with a concrete recovery path.
+- Permission and setup failures discovered while HoldType is foreground are
+  shown in the handoff sheet. Runtime failures after return are shown in the
+  keyboard's existing voice/error area. Neither path adds recovery state to
+  ordinary Voice.
 - Incomplete Translation setup leaves keyboard Translate actionable and routes
   to field-level Translation guidance instead of silently ignoring the tap.
 - An app-only release can exclude the keyboard cleanly without weakening the

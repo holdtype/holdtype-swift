@@ -766,12 +766,18 @@ final class IOSKeyboardHandoffPresentationOwner {
 
     @ObservationIgnored
     private let session: IOSKeyboardDictationSessionCoordinator
+    @ObservationIgnored
+    private let preflight: IOSKeyboardHandoffPreflightClient
     private var activeRequestID: UUID?
     private var generation: UInt64 = 0
     private var cancellationTask: Task<Void, Never>?
 
-    init(session: IOSKeyboardDictationSessionCoordinator) {
+    init(
+        session: IOSKeyboardDictationSessionCoordinator,
+        preflight: IOSKeyboardHandoffPreflightClient = .passThrough()
+    ) {
         self.session = session
+        self.preflight = preflight
     }
 
     func start(_ intent: KeyboardHandoffIntentRecord) async {
@@ -781,6 +787,16 @@ final class IOSKeyboardHandoffPresentationOwner {
         presentation = IOSKeyboardHandoffSheetPresentation(
             phase: .starting
         )
+
+        let preflightResult = await preflight.run(intent)
+        guard generation == currentGeneration,
+              activeRequestID == intent.requestID else {
+            return
+        }
+        if case .blocked(let issue) = preflightResult {
+            presentation = IOSKeyboardHandoffSheetPresentation(issue: issue)
+            return
+        }
 
         let started = await session.startHandoff(intent) {
             [weak self] requestID, event in

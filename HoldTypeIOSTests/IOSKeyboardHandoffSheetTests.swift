@@ -44,6 +44,19 @@ struct IOSKeyboardHandoffSheetTests {
         )
     }
 
+    @Test func blockedPresentationContainsRecoveryInsideTheSheet() {
+        let presentation = IOSKeyboardHandoffSheetPresentation(
+            issue: .providerConsent
+        )
+
+        #expect(presentation.phase == .blocked)
+        #expect(presentation.title == "Review OpenAI processing")
+        #expect(presentation.detail.contains("disclosure"))
+        #expect(presentation.activityPhase == nil)
+        #expect(!presentation.showsReturnInstruction)
+        #expect(!presentation.returnInstructionIsActive)
+    }
+
     @Test func reduceMotionDisablesTheAnimatedReturnCue() {
         #expect(
             IOSKeyboardHandoffMotionPolicy.animatesReturnCue(

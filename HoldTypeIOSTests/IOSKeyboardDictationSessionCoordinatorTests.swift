@@ -138,6 +138,29 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
     }
 
     @Test
+    func blockedPreflightStaysInsideSheetAndNeverStartsWorkflow() async {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(
+            session: coordinator,
+            preflight: IOSKeyboardHandoffPreflightClient { _ in
+                .blocked(.openAICredential)
+            }
+        )
+
+        await owner.start(harness.intent())
+
+        #expect(owner.presentation?.phase == .blocked)
+        #expect(owner.presentation?.issue == .openAICredential)
+        #expect(harness.workflow.runRequestIDs.isEmpty)
+        #expect(harness.states.isEmpty)
+
+        owner.cancelFromSheet()
+        try? await Task.sleep(for: .milliseconds(10))
+        #expect(owner.presentation == nil)
+    }
+
+    @Test
     func newerHandoffSupersedesArmingWorkWithoutDuplicateCapture() async throws {
         let harness = KeyboardSessionHarness()
         let coordinator = harness.makeCoordinator()

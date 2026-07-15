@@ -3,10 +3,22 @@ import SwiftUI
 enum IOSKeyboardHandoffSheetPhase: Equatable, Sendable {
     case starting
     case listening
+    case blocked
 }
 
 struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
     let phase: IOSKeyboardHandoffSheetPhase
+    let issue: IOSKeyboardHandoffPreflightIssue?
+
+    init(phase: IOSKeyboardHandoffSheetPhase) {
+        self.phase = phase
+        issue = nil
+    }
+
+    init(issue: IOSKeyboardHandoffPreflightIssue) {
+        phase = .blocked
+        self.issue = issue
+    }
 
     var title: String {
         switch phase {
@@ -14,6 +26,8 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "Starting dictation…"
         case .listening:
             "HoldType is listening"
+        case .blocked:
+            issue?.title ?? "Keyboard dictation is unavailable"
         }
     }
 
@@ -23,6 +37,8 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "Getting your microphone ready."
         case .listening:
             "Return to the app where you were typing."
+        case .blocked:
+            issue?.detail ?? "Close this sheet and try again."
         }
     }
 
@@ -36,15 +52,19 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "This gesture is ready as soon as HoldType starts listening."
         case .listening:
             "Recording will continue after you return."
+        case .blocked:
+            ""
         }
     }
 
-    var activityPhase: IOSVoiceActivityPhase {
+    var activityPhase: IOSVoiceActivityPhase? {
         switch phase {
         case .starting:
             .ready
         case .listening:
             .listening
+        case .blocked:
+            nil
         }
     }
 
@@ -52,8 +72,14 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
         phase == .listening
     }
 
+    var showsReturnInstruction: Bool {
+        phase != .blocked
+    }
+
     var accessibilityStatus: String {
-        [title, detail, instructionTitle, instructionDetail]
+        [title, detail, showsReturnInstruction ? instructionTitle : nil,
+         showsReturnInstruction ? instructionDetail : nil]
+            .compactMap { $0 }
             .joined(separator: ". ")
     }
 }
@@ -78,11 +104,7 @@ struct IOSKeyboardHandoffSheet: View {
                     closeRow
 
                     VStack(spacing: 22) {
-                        IOSVoiceActivityIndicator(
-                            phase: presentation.activityPhase
-                        )
-                        .id(presentation.activityPhase)
-                        .frame(width: 184, height: 184)
+                        activityVisual
 
                         VStack(spacing: 8) {
                             Text(presentation.title)
@@ -104,12 +126,14 @@ struct IOSKeyboardHandoffSheet: View {
                 .frame(maxWidth: .infinity)
             }
             .overlay(alignment: .bottom) {
-                IOSKeyboardHandoffBottomReturnGuide(
-                    title: presentation.instructionTitle,
-                    detail: presentation.instructionDetail,
-                    isActive: presentation.returnInstructionIsActive
-                )
-                .offset(y: geometry.safeAreaInsets.bottom)
+                if presentation.showsReturnInstruction {
+                    IOSKeyboardHandoffBottomReturnGuide(
+                        title: presentation.instructionTitle,
+                        detail: presentation.instructionDetail,
+                        isActive: presentation.returnInstructionIsActive
+                    )
+                    .offset(y: geometry.safeAreaInsets.bottom)
+                }
             }
         }
         .background(Color(uiColor: .systemGroupedBackground))
@@ -120,6 +144,22 @@ struct IOSKeyboardHandoffSheet: View {
         .interactiveDismissDisabled()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ios.keyboard-handoff.sheet")
+    }
+
+    @ViewBuilder
+    private var activityVisual: some View {
+        if let activityPhase = presentation.activityPhase {
+            IOSVoiceActivityIndicator(phase: activityPhase)
+                .id(activityPhase)
+                .frame(width: 184, height: 184)
+        } else {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 132, height: 132)
+                .background(.orange.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
+        }
     }
 
     private var closeRow: some View {

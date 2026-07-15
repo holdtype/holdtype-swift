@@ -697,6 +697,73 @@ struct KeyboardViewControllerTests {
         #expect(harness.savedCommands.isEmpty)
     }
 
+    @Test
+    func temporarilyMissingDocumentRetriesBeforeClaimingAndInserting()
+        throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let sessionID = UUID()
+        let attemptID = UUID()
+        let requestID = UUID()
+        let documentID = UUID()
+        let harness = KeyboardControllerHarness(
+            now: now,
+            dictationState: try #require(
+                KeyboardDictationStateRecord(
+                    sessionID: sessionID,
+                    attemptID: attemptID,
+                    requestID: requestID,
+                    sourceDocumentID: documentID,
+                    phase: .resultReady,
+                    result: "Recovered document result",
+                    publishedAt: now,
+                    expiresAt: now.addingTimeInterval(60)
+                )
+            ),
+            requestID: documentID,
+            consumedHandoffIntent: try #require(
+                consumedHandoffIntent(
+                    requestID: requestID,
+                    sourceDocumentID: documentID,
+                    now: now
+                )
+            )
+        )
+        harness.currentDocumentIdentifier = nil
+        let controller = harness.makeController()
+        controller.loadViewIfNeeded()
+
+        #expect(harness.savedCommands.isEmpty)
+        #expect(
+            harness.scheduledDocumentIdentifierRetryActions.count == 1
+        )
+
+        harness.currentDocumentIdentifier = documentID
+        harness.scheduledDocumentIdentifierRetryActions.removeFirst()()
+
+        let claim = try #require(harness.savedCommands.last)
+        #expect(claim.kind == .claimDelivery)
+        #expect(claim.deliveryClaimID == harness.deliveryClaimID)
+        #expect(harness.proxy.insertedTexts.isEmpty)
+
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                sourceDocumentID: documentID,
+                deliveryClaimID: harness.deliveryClaimID,
+                phase: .resultReady,
+                result: "Recovered document result",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        controller.textDidChange(nil)
+
+        #expect(harness.proxy.insertedTexts == ["Recovered document result"])
+        #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
+    }
+
     @Test func changedOrMissingDocumentCannotReconnectOrAutoInsert() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let sessionID = UUID()
@@ -892,6 +959,9 @@ private final class KeyboardControllerHarness {
     var openedURLs: [URL] = []
     var scheduledExpiryDates: [Date] = []
     var scheduledExpiryActions: [@MainActor () -> Void] = []
+    var currentDocumentIdentifier: UUID?
+    var scheduledDocumentIdentifierRetryActions:
+        [@MainActor () -> Void] = []
 
     init(
         now: Date = Date(timeIntervalSince1970: 1_750_000_000),
@@ -913,6 +983,7 @@ private final class KeyboardControllerHarness {
             ?? dictationState?.sessionID
             ?? UUID()
         self.requestID = resolvedRequestID
+        currentDocumentIdentifier = resolvedRequestID
         deliveryClaimID = UUID()
         proxy = KeyboardDocumentProxySpy(
             documentIdentifier: resolvedRequestID
@@ -940,11 +1011,18 @@ private final class KeyboardControllerHarness {
                 makeAttemptID: { [self] in requestID },
                 makeDeliveryClaimID: { [self] in deliveryClaimID },
                 documentProxyOverride: proxy,
+                loadDocumentIdentifier: { [self] _ in
+                    currentDocumentIdentifier
+                },
                 inputModeSwitchKeyOverride: inputModeSwitchKeyOverride,
                 fullAccessOverride: fullAccessOverride,
                 scheduleLatestExpiry: { [self] date, action in
                     scheduledExpiryDates.append(date)
                     scheduledExpiryActions.append(action)
+                    return nil
+                },
+                scheduleDocumentIdentifierRetry: { [self] action in
+                    scheduledDocumentIdentifierRetryActions.append(action)
                     return nil
                 },
                 openContainingAppOverride: { [self] url, completion in

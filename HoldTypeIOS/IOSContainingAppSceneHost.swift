@@ -41,7 +41,14 @@ private struct IOSRegisteredContainingAppSceneHost: View {
         )
         _keyboardHandoffPresentationOwner = State(
             initialValue: IOSKeyboardHandoffPresentationOwner(
-                session: runtime.keyboardDictationSession
+                session: runtime.keyboardDictationSession,
+                preflight: .live(
+                    settingsStateOwner: composition.settingsStateOwner,
+                    credentialCoordinator: composition.credentialCoordinator,
+                    providerConsentCoordinator:
+                        composition.providerConsentCoordinator,
+                    permission: runtime.permissionOwner.client
+                )
             )
         )
     }

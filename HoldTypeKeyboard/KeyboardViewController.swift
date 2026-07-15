@@ -6,6 +6,10 @@ typealias KeyboardLatestExpiryScheduler = (
     @escaping @MainActor () -> Void
 ) -> Timer?
 
+typealias KeyboardDocumentIdentifierRetryScheduler = (
+    @escaping @MainActor () -> Void
+) -> Timer?
+
 typealias KeyboardContainingAppOpener = (
     URL,
     @escaping (Bool) -> Void
@@ -169,9 +173,12 @@ struct KeyboardViewControllerDependencies {
     let makeAttemptID: () -> UUID
     let makeDeliveryClaimID: () -> UUID
     let documentProxyOverride: (any UITextDocumentProxy)?
+    let loadDocumentIdentifier: (any UITextDocumentProxy) -> UUID?
     let inputModeSwitchKeyOverride: Bool?
     let fullAccessOverride: Bool?
     let scheduleLatestExpiry: KeyboardLatestExpiryScheduler
+    let scheduleDocumentIdentifierRetry:
+        KeyboardDocumentIdentifierRetryScheduler
     let openContainingAppOverride: KeyboardContainingAppOpener?
     let recordDiagnostic: (IOSRuntimeDiagnosticEvent) -> Void
 
@@ -208,12 +215,27 @@ struct KeyboardViewControllerDependencies {
         makeAttemptID: { UUID() },
         makeDeliveryClaimID: { UUID() },
         documentProxyOverride: nil,
+        loadDocumentIdentifier: { documentProxy in
+            KeyboardDocumentIdentifierAdapter.load(from: documentProxy)
+        },
         inputModeSwitchKeyOverride: nil,
         fullAccessOverride: nil,
         scheduleLatestExpiry: { fireDate, action in
             let timer = Timer(
                 fire: fireDate,
                 interval: 0,
+                repeats: false
+            ) { _ in
+                Task { @MainActor in
+                    action()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            return timer
+        },
+        scheduleDocumentIdentifierRetry: { action in
+            let timer = Timer(
+                timeInterval: 0.1,
                 repeats: false
             ) { _ in
                 Task { @MainActor in
@@ -231,6 +253,8 @@ struct KeyboardViewControllerDependencies {
 }
 
 final class KeyboardViewController: UIInputViewController {
+    private static let maximumDocumentIdentifierRetryCount = 20
+
     let keyboardView = BrandStageKeyboardView()
     private let deleteRepeater = KeyboardDeleteRepeater()
     private var dependencies = KeyboardViewControllerDependencies.live
@@ -240,6 +264,10 @@ final class KeyboardViewController: UIInputViewController {
     private var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
     private var dictationExpiryTimer: Timer?
+    private var documentIdentifierRetryTimer: Timer?
+    private var documentIdentifierRetryRequestID: UUID?
+    private var documentIdentifierRetryCount = 0
+    private var documentIdentifierRetryIsScheduled = false
     private var dictationObserver: KeyboardDictationBridgeObserver?
     private var dictationState: KeyboardDictationStateRecord?
     private var activeDictationOwnership:
@@ -265,7 +293,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private var activeDocumentIdentifier: UUID? {
-        KeyboardDocumentIdentifierAdapter.load(from: activeDocumentProxy)
+        dependencies.loadDocumentIdentifier(activeDocumentProxy)
     }
 
     private var shouldShowInputModeSwitchKey: Bool {
@@ -304,6 +332,7 @@ final class KeyboardViewController: UIInputViewController {
         deleteRepeater.stop()
         dictationExpiryTimer?.invalidate()
         dictationExpiryTimer = nil
+        cancelDocumentIdentifierRetry()
         endExtensionLifetime()
         super.viewWillDisappear(animated)
     }
@@ -504,6 +533,7 @@ final class KeyboardViewController: UIInputViewController {
             guard let state = try dependencies.loadDictationState(),
                   state.isValid(at: dependencies.now()) else {
                 recordKeyboardState(.expired)
+                cancelDocumentIdentifierRetry()
                 dictationState = nil
                 activeDictationOwnership = nil
                 forcesSessionNotRunning = true
@@ -511,6 +541,7 @@ final class KeyboardViewController: UIInputViewController {
                 return
             }
             if state.sessionID != lastSeenDictationSessionID {
+                cancelDocumentIdentifierRetry()
                 forcesSessionNotRunning = false
                 lastSeenDictationSessionID = state.sessionID
                 insertedDictationRequestID = nil
@@ -537,6 +568,7 @@ final class KeyboardViewController: UIInputViewController {
                     handoffLaunchFailed = false
                 }
             } else if state.phase == .ready {
+                cancelDocumentIdentifierRetry()
                 activeDictationOwnership = nil
                 allowsStateReconnection = true
                 pendingDeliveryClaimID = nil
@@ -549,39 +581,11 @@ final class KeyboardViewController: UIInputViewController {
                 pendingDictationCommand = nil
             }
             recordKeyboardState(diagnosticState(for: state.phase))
-            if state.phase == .resultReady,
-               let requestID = state.requestID,
-               owns(state),
-               activeDictationOwnership?.belongsToDocument(
-                   activeDocumentIdentifier
-               ) == true,
-               insertedDictationRequestID != requestID,
-               let result = state.result {
-                if let grantedClaimID = state.deliveryClaimID {
-                    if pendingDeliveryClaimID == grantedClaimID {
-                        insertedDictationRequestID = requestID
-                        insertText(result)
-                        dependencies.recordDiagnostic(
-                            .keyboardInserted(.dictation)
-                        )
-                        _ = sendDictationCommand(
-                            .acknowledgeDelivery,
-                            deliveryClaimID: grantedClaimID
-                        )
-                        pendingDeliveryClaimID = nil
-                    }
-                } else if pendingDeliveryClaimID == nil {
-                    let claimID = dependencies.makeDeliveryClaimID()
-                    pendingDeliveryClaimID = claimID
-                    if !sendDictationCommand(
-                        .claimDelivery,
-                        deliveryClaimID: claimID
-                    ) {
-                        pendingDeliveryClaimID = nil
-                    }
-                }
+            if state.phase == .resultReady {
+                handleResultReady(state)
             } else if (state.phase == .unavailable || state.phase == .failed),
                       owns(state) {
+                cancelDocumentIdentifierRetry()
                 activeDictationOwnership = nil
                 pendingDictationCommand = nil
                 pendingDeliveryClaimID = nil
@@ -595,6 +599,7 @@ final class KeyboardViewController: UIInputViewController {
                     return
                 }
                 self.dictationState = nil
+                self.cancelDocumentIdentifierRetry()
                 self.activeDictationOwnership = nil
                 self.pendingDictationCommand = nil
                 self.pendingDeliveryClaimID = nil
@@ -604,11 +609,86 @@ final class KeyboardViewController: UIInputViewController {
             }
         } catch {
             recordKeyboardState(.failed)
+            cancelDocumentIdentifierRetry()
             dictationState = nil
             activeDictationOwnership = nil
             forcesSessionNotRunning = true
         }
         render()
+    }
+
+    private func handleResultReady(_ state: KeyboardDictationStateRecord) {
+        guard let requestID = state.requestID,
+              owns(state),
+              insertedDictationRequestID != requestID,
+              let result = state.result,
+              let ownership = activeDictationOwnership else {
+            cancelDocumentIdentifierRetry()
+            return
+        }
+        let currentDocumentID = activeDocumentIdentifier
+        guard ownership.belongsToDocument(currentDocumentID) else {
+            if currentDocumentID == nil, ownership.sourceDocumentID != nil {
+                scheduleDocumentIdentifierRetry(for: requestID)
+            } else {
+                cancelDocumentIdentifierRetry()
+            }
+            return
+        }
+        cancelDocumentIdentifierRetry()
+        if let grantedClaimID = state.deliveryClaimID {
+            guard pendingDeliveryClaimID == grantedClaimID else { return }
+            insertedDictationRequestID = requestID
+            insertText(result)
+            dependencies.recordDiagnostic(.keyboardInserted(.dictation))
+            _ = sendDictationCommand(
+                .acknowledgeDelivery,
+                deliveryClaimID: grantedClaimID
+            )
+            pendingDeliveryClaimID = nil
+        } else if pendingDeliveryClaimID == nil {
+            let claimID = dependencies.makeDeliveryClaimID()
+            pendingDeliveryClaimID = claimID
+            if !sendDictationCommand(
+                .claimDelivery,
+                deliveryClaimID: claimID
+            ) {
+                pendingDeliveryClaimID = nil
+            }
+        }
+    }
+
+    private func scheduleDocumentIdentifierRetry(for requestID: UUID) {
+        if documentIdentifierRetryRequestID != requestID {
+            cancelDocumentIdentifierRetry()
+            documentIdentifierRetryRequestID = requestID
+        }
+        guard !documentIdentifierRetryIsScheduled,
+              documentIdentifierRetryCount
+                < Self.maximumDocumentIdentifierRetryCount else {
+            return
+        }
+        documentIdentifierRetryIsScheduled = true
+        documentIdentifierRetryTimer =
+            dependencies.scheduleDocumentIdentifierRetry { [weak self] in
+                guard let self else { return }
+                documentIdentifierRetryTimer = nil
+                documentIdentifierRetryIsScheduled = false
+                guard dictationState?.requestID == requestID else {
+                    cancelDocumentIdentifierRetry()
+                    return
+                }
+                documentIdentifierRetryCount += 1
+                reloadDictationState()
+            }
+    }
+
+    private func cancelDocumentIdentifierRetry() {
+        documentIdentifierRetryTimer?.invalidate()
+        documentIdentifierRetryTimer = nil
+        documentIdentifierRetryRequestID = nil
+        documentIdentifierRetryCount = 0
+        documentIdentifierRetryIsScheduled = false
     }
 
     private func handleMicrophoneCommand() {

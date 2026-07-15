@@ -72,8 +72,8 @@ and cancellable; it is not a preparatory session screen.
 tap keyboard Voice indicator
     -> HoldType opens automatically
     -> preflight identifies one concrete setup blocker
-    -> no recording and no handoff sheet
-    -> HoldType opens the exact owning Settings field or permission surface
+    -> no recording
+    -> the handoff sheet names the exact setup blocker without navigating Voice
     -> user repairs setup
     -> user returns to the original app and taps the keyboard indicator again
 ```
@@ -158,21 +158,23 @@ screen. It is not a new tab, navigation destination, or replacement Voice page.
 
 ## Setup Routing Matrix
 
-The handoff must reuse the existing Voice preflight and guided Settings routing.
-Do not duplicate configuration validity rules in the sheet or keyboard.
+The handoff owns a read-only preflight adapter over the existing settings,
+credential, consent, and permission services. Its result is presented only in
+the handoff sheet. It must not invoke ordinary Voice preflight presentation or
+navigate the containing app.
 
-| Blocker | Destination | Handoff result |
+| Blocker | Sheet result | Handoff result |
 | --- | --- | --- |
-| Full Access unavailable | Keyboard Setup, targeted Full Access guidance | No sheet; fresh tap required after repair |
-| OpenAI key missing or unreadable | OpenAI Settings, API key field | No sheet; fresh tap required |
-| Transcription configuration invalid | Exact invalid Transcription field | No sheet; fresh tap required |
-| Translation action without a valid route | Exact invalid Translation field | No sheet; fresh tap required |
-| Correction action with invalid setup | Exact owning Writing Correction field | No sheet; fresh tap required |
-| Provider disclosure not authorized | Privacy and Permissions, provider consent | No sheet; fresh tap required |
-| Microphone permission undetermined | System permission prompt | Continue directly if granted while request is fresh |
-| Microphone permission denied | Privacy and Permissions, microphone guidance | No sheet; fresh tap required |
-| Keyboard setup incomplete | Keyboard Setup, exact incomplete step | No sheet; fresh tap required |
-| App-private storage unavailable | Existing storage-unavailable presentation | Request expires; fresh tap required |
+| Full Access unavailable | Full Access required | Fresh tap required after repair |
+| OpenAI key missing or unreadable | Add or repair the OpenAI key | Fresh tap required |
+| Transcription configuration invalid | Check transcription settings | Fresh tap required |
+| Translation action without a valid route | Finish translation setup | Fresh tap required |
+| Correction action with invalid setup | Check Writing Correction setup | Fresh tap required |
+| Provider disclosure not authorized | Review OpenAI processing | Fresh tap required |
+| Microphone permission undetermined | System permission prompt over the sheet | Continue if granted while request is fresh |
+| Microphone permission denied | Allow microphone access | Fresh tap required |
+| Keyboard setup incomplete | Complete keyboard setup | Fresh tap required |
+| App-private storage unavailable | HoldType data unavailable | Request expires; fresh tap required |
 
 Offline, timeout, audio interruption, empty audio, and provider failure are
 runtime failures, not setup routing. They use the existing bounded failure and
@@ -217,7 +219,7 @@ A small app-owned handoff presentation owner coordinates:
 
 - accepted handoff URL;
 - preflight result;
-- targeted setup routing;
+- sheet-owned setup presentation without app navigation;
 - automatic session and capture start;
 - sheet state;
 - cancel and terminal dismissal.
@@ -310,10 +312,10 @@ alone can falsely start capture.
 
 ## KBD-FLOW-3 - Preflight And Setup Recovery
 
-1. Expose a structured keyboard-handoff preflight result from the existing Voice
-   workflow instead of duplicating its checks.
-2. Map every `RecoveryDestination` to `IOSSettingsAttention` and the exact owning
-   field.
+1. Keep the structured keyboard-handoff preflight result in the isolated
+   handoff subsystem.
+2. Map every blocker to a concrete handoff-sheet message without changing the
+   ordinary Voice or Settings presentation.
 3. Add a correction-specific attention route only if the current correction
    workflow can report a distinct invalid setup.
 4. Handle microphone-undetermined inline; continue only after a granted result.
@@ -321,8 +323,8 @@ alone can falsely start capture.
    replay them.
 6. Verify that setup repair requires a fresh keyboard tap.
 
-Exit when each setup fixture opens the correct field and neither records nor
-presents the handoff sheet.
+Exit when each setup fixture presents the correct sheet message without
+recording, navigation, or ordinary Voice state changes.
 
 ## KBD-FLOW-4 - Automatic Capture And Live Sheet
 
