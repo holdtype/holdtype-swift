@@ -78,7 +78,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         let fixtures: [(Data, IOSAppSettingsRepositoryError)] = [
             (Data("not-json".utf8), .malformedData),
             (
-                Data(#"{"schemaVersion":2}"#.utf8),
+                Data(#"{"schemaVersion":3}"#.utf8),
                 .unsupportedSchemaVersion
             ),
             (
@@ -99,6 +99,48 @@ struct IOSAppSettingsPersistenceIOSTests {
             }
             #expect(try Data(contentsOf: fileURL) == sourceData)
         }
+    }
+
+    @Test func legacyCacheOffMigratesAndLaterExplicitOffPersists() async throws {
+        let containerURL = makeTemporaryDirectoryURL()
+        defer { try? FileManager.default.removeItem(at: containerURL) }
+        let applicationSupportURL = containerURL.appendingPathComponent(
+            "Library/Application Support",
+            isDirectory: true
+        )
+        let fileURL = IOSAppSettingsStorageLocation.fileURL(
+            in: applicationSupportURL
+        )
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let legacySource =
+            "{\"recordingCache\":{\"mode\":\"deleteImmediately\","
+            + "\"retainedRecordingLimit\":10},\"schemaVersion\":1}"
+        let legacyData = Data(legacySource.utf8)
+        try legacyData.write(to: fileURL, options: .atomic)
+        let repository = IOSAppSettingsRepository(
+            applicationSupportDirectoryURL: applicationSupportURL
+        )
+
+        var settings = try await repository.load()
+        #expect(settings.recordingCachePolicy == .keepLast(20))
+        #expect(try Data(contentsOf: fileURL) == legacyData)
+
+        settings.recordingCachePolicy = .deleteImmediately
+        try await repository.save(settings)
+
+        #expect(
+            try await repository.load().recordingCachePolicy
+                == .deleteImmediately
+        )
+        let root = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(contentsOf: fileURL)
+            ) as? [String: Any]
+        )
+        #expect(root["schemaVersion"] as? Int == 2)
     }
 
     @Test func sourceAndEncodingLimitsHaveDistinctPublicFailures() async throws {

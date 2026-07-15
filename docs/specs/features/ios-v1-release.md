@@ -313,9 +313,10 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Recording Cache is app-private and independent from the text-only History
   repository. A new install and a settings record that predates the cache field
   default to keeping the 20 newest recordings, matching the History limit.
-  A previously saved explicit off, bounded, or unlimited policy remains the
-  user's choice. Re-enabling the cache defaults to 20; unlimited retention
-  requires an explicit choice.
+  A settings record written by the former cache-off-by-default contract migrates
+  its legacy off value to keeping 20. After that migration, an explicitly saved
+  off, bounded, or unlimited policy remains the user's choice. Re-enabling the
+  cache defaults to 20; unlimited retention requires an explicit choice.
 - When the current saved policy keeps recordings, HoldType retains the
   validated Pending audio in the cache under that accepted `resultID` before
   Pending cleanup. Relaunch reconciliation is idempotent and never repeats
@@ -530,8 +531,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - Compact History append, one-tap Copy, swipe Delete, Clear All, cap, and
   failure isolation pass; no detail route, Share, date, or time is rendered.
 - Recording Cache default-on at the 20-entry History limit, explicit off/on,
-  bounded retention, missing-file Play eligibility, local playback failure,
-  and playback-to-Voice handoff pass.
+  legacy cache-off migration, bounded retention, missing-file Play eligibility,
+  local playback failure, and playback-to-Voice handoff pass.
 - Release navigation contains no placeholder destination.
 - Normal iPhone launch shows Voice, Rules, History, Usage, and Settings in that
   order in the tab shell; qualification routes never become a production root.

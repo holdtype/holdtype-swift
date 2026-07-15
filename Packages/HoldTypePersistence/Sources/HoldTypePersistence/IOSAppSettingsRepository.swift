@@ -92,8 +92,13 @@ public actor IOSAppSettingsRepository {
     }
 }
 
+private let iosAppSettingsCurrentSchemaVersion = 2
+
 private enum IOSAppSettingsWireCodec {
-    private static let supportedSchemaVersion = 1
+    private static let supportedSchemaVersions: Set<Int> = [
+        1,
+        iosAppSettingsCurrentSchemaVersion,
+    ]
     private static let rootFields: Set<String> = [
         "schemaVersion",
         "transcription",
@@ -141,7 +146,7 @@ private enum IOSAppSettingsWireCodec {
         encoder.outputFormatting = [.sortedKeys]
 
         do {
-            return try encoder.encode(IOSAppSettingsWireV1(settings: settings))
+            return try encoder.encode(IOSAppSettingsWireV2(settings: settings))
         } catch {
             throw IOSAppSettingsRepositoryError.encodingFailed
         }
@@ -191,7 +196,7 @@ private enum IOSAppSettingsWireCodec {
             throw IOSAppSettingsRepositoryError.missingSchemaVersion
         }
         let schemaVersion = try root.integer("schemaVersion")
-        guard schemaVersion == supportedSchemaVersion else {
+        guard supportedSchemaVersions.contains(schemaVersion) else {
             throw IOSAppSettingsRepositoryError.unsupportedSchemaVersion
         }
 
@@ -206,7 +211,10 @@ private enum IOSAppSettingsWireCodec {
             ),
             translationConfiguration: try decodeTranslation(from: root),
             voiceSessionPreferences: try decodeVoice(from: root),
-            recordingCachePolicy: try decodeRecordingCache(from: root)
+            recordingCachePolicy: try decodeRecordingCache(
+                from: root,
+                schemaVersion: schemaVersion
+            )
         )
     }
 
@@ -328,7 +336,8 @@ private enum IOSAppSettingsWireCodec {
     }
 
     private static func decodeRecordingCache(
-        from root: WireObjectReader
+        from root: WireObjectReader,
+        schemaVersion: Int
     ) throws -> RecordingCachePolicy {
         let defaults = IOSAppSettings.defaultRecordingCachePolicy.normalized
         guard let reader = try root.object("recordingCache") else {
@@ -356,7 +365,11 @@ private enum IOSAppSettingsWireCodec {
 
         switch mode {
         case .deleteImmediately:
-            return .deleteImmediately
+            // Schema V1 was written while cache-off was the product default,
+            // so its off value cannot represent the new explicit user choice.
+            return schemaVersion < iosAppSettingsCurrentSchemaVersion
+                ? defaults
+                : .deleteImmediately
         case .keepLast:
             return .keepLast(
                 RecordingCachePolicy.normalizedRetainedRecordingLimit(
@@ -455,7 +468,7 @@ private struct WireObjectReader {
     }
 }
 
-private struct IOSAppSettingsWireV1: Encodable {
+private struct IOSAppSettingsWireV2: Encodable {
     let schemaVersion: Int
     let transcription: TranscriptionWireV1
     let textCorrection: TextCorrectionWireV1
@@ -465,7 +478,7 @@ private struct IOSAppSettingsWireV1: Encodable {
     let recordingCache: RecordingCacheWireV1
 
     init(settings: IOSAppSettings) {
-        schemaVersion = 1
+        schemaVersion = iosAppSettingsCurrentSchemaVersion
         transcription = TranscriptionWireV1(
             model: settings.transcriptionConfiguration.model,
             language: settings.transcriptionConfiguration.language.rawValue,

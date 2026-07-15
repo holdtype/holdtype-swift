@@ -41,7 +41,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(IOSAppSettingsStorageLocation.fileName == "ios-app-settings.json")
     }
 
-    @Test func canonicalV1SaveOmitsLegacyTranslatePreferenceAndNormalizesIt() async throws {
+    @Test func canonicalV2SaveOmitsLegacyTranslatePreferenceAndNormalizesIt() async throws {
         let settings = fixtureSettings()
         let fileSystem = IOSAppSettingsFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -50,7 +50,11 @@ struct IOSAppSettingsRepositoryTests {
 
         let expected =
             #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
-        #expect(fileSystem.data == Data(expected.utf8))
+        let expectedV2 = expected.replacingOccurrences(
+            of: "\"schemaVersion\":1",
+            with: "\"schemaVersion\":2"
+        )
+        #expect(fileSystem.data == Data(expectedV2.utf8))
         var normalizedSettings = settings
         normalizedSettings.translationConfiguration.actionPreferenceEnabled = true
         #expect(try await repository.load() == normalizedSettings)
@@ -128,6 +132,50 @@ struct IOSAppSettingsRepositoryTests {
         #expect(emptyCacheFileSystem.replacementCallCount == 0)
     }
 
+    @Test func legacyV1CacheOffMigratesToDefaultWithoutRewritingSource() async throws {
+        let source =
+            "{\"recordingCache\":{\"mode\":\"deleteImmediately\","
+            + "\"retainedRecordingLimit\":10},\"schemaVersion\":1}"
+        let sourceData = Data(source.utf8)
+        let fileSystem = IOSAppSettingsFileSystemFake(data: sourceData)
+        let repository = makeRepository(fileSystem: fileSystem)
+
+        #expect(
+            try await repository.load().recordingCachePolicy
+                == .keepLast(20)
+        )
+        #expect(fileSystem.data == sourceData)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
+    @Test func legacyV1EnabledCachePoliciesRemainUnchanged() async throws {
+        let fixtures: [(String, RecordingCachePolicy)] = [
+            (
+                "{\"recordingCache\":{\"mode\":\"keepLast\","
+                    + "\"retainedRecordingLimit\":7},\"schemaVersion\":1}",
+                .keepLast(7)
+            ),
+            (
+                "{\"recordingCache\":{\"mode\":\"unlimited\","
+                    + "\"retainedRecordingLimit\":10},\"schemaVersion\":1}",
+                .unlimited
+            ),
+        ]
+
+        for (source, expectedPolicy) in fixtures {
+            let sourceData = Data(source.utf8)
+            let fileSystem = IOSAppSettingsFileSystemFake(data: sourceData)
+            let repository = makeRepository(fileSystem: fileSystem)
+
+            #expect(
+                try await repository.load().recordingCachePolicy
+                    == expectedPolicy
+            )
+            #expect(fileSystem.data == sourceData)
+            #expect(fileSystem.replacementCallCount == 0)
+        }
+    }
+
     @Test func malformedAndNonObjectSourcesUseDistinctTypedErrorsAndStayUnchanged() async {
         let fixtures: [(Data, IOSAppSettingsRepositoryError)] = [
             (Data("not-json".utf8), .malformedData),
@@ -202,7 +250,7 @@ struct IOSAppSettingsRepositoryTests {
                 .unsupportedSchemaVersion
             ),
             (
-                Data(#"{"schemaVersion":2}"#.utf8),
+                Data(#"{"schemaVersion":3}"#.utf8),
                 .unsupportedSchemaVersion
             ),
         ]
