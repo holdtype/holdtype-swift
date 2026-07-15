@@ -12,31 +12,11 @@ struct BrandStageKeyboardPresentation: Equatable {
 }
 
 private extension KeyboardVoiceStagePresentation {
-    var isVoice: Bool {
-        switch self {
-        case .ready, .opening, .starting, .listening, .processing:
-            true
-        case .recovery:
-            false
-        }
-    }
-
-    var isRecovery: Bool {
-        if case .recovery = self {
-            return true
-        }
-        return false
-    }
-
-    var isProgress: Bool {
-        false
-    }
-
     var keepsVoiceWorkspaceVisible: Bool {
         switch self {
         case .opening, .starting, .listening, .processing:
             true
-        case .recovery, .ready:
+        case .ready:
             false
         }
     }
@@ -69,15 +49,6 @@ final class BrandStageKeyboardView: UIView {
     private let logoImageView = UIImageView()
     private let stageContainer = UIView()
     private let voiceStage = UIView()
-    private let recoveryStage = UIStackView()
-    private let recoveryTitleLabel = UILabel()
-    private let recoveryDetailLabel = UILabel()
-    private let recoveryFollowUpLabel = UILabel()
-    private let recoveryShortcutLabel = UILabel()
-    private let progressStage = UIStackView()
-    private let progressIndicator = UIActivityIndicatorView(style: .medium)
-    private let progressTitleLabel = UILabel()
-    private let progressCancelButton = UIButton(type: .system)
     private let quickInsertStage = UIStackView()
     private let quickInsertPunctuationScrollView = UIScrollView()
     private let quickInsertEmojiPrimaryScrollView = UIScrollView()
@@ -195,19 +166,7 @@ final class BrandStageKeyboardView: UIView {
         microphoneView.accessibilityValue = nil
         cancelButton.isHidden = true
         cancelButton.isEnabled = false
-        progressCancelButton.isHidden = true
-        progressCancelButton.isEnabled = false
-
         switch presentation {
-        case let .recovery(recovery):
-            recoveryTitleLabel.text = recovery.title
-            recoveryDetailLabel.text = recovery.emphasizedInstruction
-            recoveryFollowUpLabel.text = recovery.followUpInstruction
-            recoveryFollowUpLabel.isHidden = recovery.followUpInstruction == nil
-            recoveryShortcutLabel.text = recovery.shortcutInstruction
-            recoveryShortcutLabel.isHidden = recovery.shortcutInstruction == nil
-            recoveryStage.accessibilityLabel = recovery.title
-            recoveryStage.accessibilityValue = recovery.instruction
         case .ready:
             microphoneView.isEnabled = true
             voiceActivityIndicator.render(.ready)
@@ -242,13 +201,7 @@ final class BrandStageKeyboardView: UIView {
     private func updateWorkspaceVisibility() {
         quickInsertStage.isHidden = !quickInsertIsPresented
         voiceStage.isHidden = quickInsertIsPresented
-            || !renderedVoiceStage.isVoice
-        recoveryStage.isHidden = quickInsertIsPresented
-            || !renderedVoiceStage.isRecovery
-        progressStage.isHidden = quickInsertIsPresented
-            || !renderedVoiceStage.isProgress
-        logoImageView.isHidden = quickInsertIsPresented
-            || !renderedVoiceStage.isRecovery
+        logoImageView.isHidden = true
 
         stageContainer.accessibilityValue = quickInsertIsPresented
             ? "Quick Insert"
@@ -349,15 +302,11 @@ final class BrandStageKeyboardView: UIView {
 
         let topRail = makeTopRail()
         configureVoiceStage()
-        configureRecoveryStage()
-        configureProgressStage()
         configureQuickInsertStage()
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
         stageContainer.accessibilityIdentifier = "keyboard.brand-stage.stage"
         let stageViews = [
             voiceStage,
-            recoveryStage,
-            progressStage,
             quickInsertStage,
         ]
         for stageView in stageViews {
@@ -669,120 +618,6 @@ final class BrandStageKeyboardView: UIView {
         ])
     }
 
-    private func configureRecoveryStage() {
-        recoveryStage.translatesAutoresizingMaskIntoConstraints = false
-        recoveryStage.axis = .vertical
-        recoveryStage.alignment = .center
-        recoveryStage.distribution = .fill
-        recoveryStage.spacing = 3
-        recoveryStage.isAccessibilityElement = true
-        recoveryStage.accessibilityIdentifier =
-            "keyboard.brand-stage.recovery"
-
-        recoveryTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
-            .scaledFont(
-                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                maximumPointSize: 20
-            )
-        recoveryTitleLabel.adjustsFontForContentSizeCategory = true
-        recoveryTitleLabel.textAlignment = .center
-        recoveryTitleLabel.numberOfLines = 1
-        recoveryTitleLabel.adjustsFontSizeToFitWidth = true
-        recoveryTitleLabel.minimumScaleFactor = 0.8
-        recoveryTitleLabel.accessibilityIdentifier =
-            "keyboard.brand-stage.recovery-title"
-
-        recoveryDetailLabel.font = UIFontMetrics(forTextStyle: .caption1)
-            .scaledFont(
-                for: UIFont.systemFont(ofSize: 12, weight: .semibold),
-                maximumPointSize: 15
-            )
-        recoveryDetailLabel.adjustsFontForContentSizeCategory = true
-        recoveryDetailLabel.textAlignment = .center
-        recoveryDetailLabel.numberOfLines = 3
-        recoveryDetailLabel.adjustsFontSizeToFitWidth = true
-        recoveryDetailLabel.minimumScaleFactor = 0.78
-        recoveryDetailLabel.accessibilityIdentifier =
-            "keyboard.brand-stage.recovery-detail"
-
-        configureRecoverySupportingLabel(
-            recoveryFollowUpLabel,
-            weight: .regular,
-            identifier: "keyboard.brand-stage.recovery-follow-up"
-        )
-        configureRecoverySupportingLabel(
-            recoveryShortcutLabel,
-            weight: .medium,
-            identifier: "keyboard.brand-stage.recovery-shortcut"
-        )
-
-        recoveryStage.addArrangedSubview(recoveryTitleLabel)
-        recoveryStage.addArrangedSubview(recoveryDetailLabel)
-        recoveryStage.addArrangedSubview(recoveryFollowUpLabel)
-        recoveryStage.addArrangedSubview(recoveryShortcutLabel)
-        recoveryStage.isHidden = true
-    }
-
-    private func configureRecoverySupportingLabel(
-        _ label: UILabel,
-        weight: UIFont.Weight,
-        identifier: String
-    ) {
-        label.font = UIFontMetrics(forTextStyle: .caption2).scaledFont(
-            for: UIFont.systemFont(ofSize: 11, weight: weight),
-            maximumPointSize: 14
-        )
-        label.adjustsFontForContentSizeCategory = true
-        label.textAlignment = .center
-        label.numberOfLines = 1
-        label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.76
-        label.accessibilityIdentifier = identifier
-        label.isHidden = true
-    }
-
-    private func configureProgressStage() {
-        progressStage.translatesAutoresizingMaskIntoConstraints = false
-        progressStage.axis = .horizontal
-        progressStage.alignment = .center
-        progressStage.distribution = .fill
-        progressStage.spacing = 12
-
-        progressIndicator.startAnimating()
-        progressIndicator.hidesWhenStopped = false
-
-        progressTitleLabel.font = UIFontMetrics(forTextStyle: .headline)
-            .scaledFont(
-                for: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                maximumPointSize: 20
-            )
-        progressTitleLabel.adjustsFontForContentSizeCategory = true
-        progressTitleLabel.accessibilityIdentifier =
-            "keyboard.brand-stage.progress"
-
-        configureCancelButton(
-            progressCancelButton,
-            identifier: "keyboard.brand-stage.processing-cancel"
-        )
-        progressStage.addArrangedSubview(progressIndicator)
-        progressStage.addArrangedSubview(progressTitleLabel)
-        progressStage.addArrangedSubview(progressCancelButton)
-        progressStage.isHidden = true
-    }
-
-    private func configureCancelButton(
-        _ button: UIButton,
-        identifier: String
-    ) {
-        var configuration = UIButton.Configuration.bordered()
-        configuration.title = "Cancel"
-        configuration.cornerStyle = .medium
-        button.configuration = configuration
-        button.accessibilityIdentifier = identifier
-        button.widthAnchor.constraint(equalToConstant: 72).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
-    }
-
     private func configureQuickInsertStage() {
         quickInsertStage.translatesAutoresizingMaskIntoConstraints = false
         quickInsertStage.axis = .vertical
@@ -998,11 +833,6 @@ final class BrandStageKeyboardView: UIView {
             action: #selector(cancelTapped),
             for: .touchUpInside
         )
-        progressCancelButton.addTarget(
-            self,
-            action: #selector(cancelTapped),
-            for: .touchUpInside
-        )
         spaceButton.addTarget(
             self,
             action: #selector(spaceTapped),
@@ -1172,12 +1002,6 @@ final class BrandStageKeyboardView: UIView {
             with: traitCollection
         ).cgColor
         layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
-        recoveryTitleLabel.textColor = Self.keyForeground
-        recoveryDetailLabel.textColor = Self.statusForeground
-        recoveryFollowUpLabel.textColor = Self.statusForeground
-        recoveryShortcutLabel.textColor = Self.statusForeground
-        progressTitleLabel.textColor = Self.keyForeground
-        progressIndicator.color = Self.voiceForeground
         updateKeyAppearance(in: self)
         updateQuickInsertButtonPresentation()
         updateAutoButtonPresentation()
@@ -1331,14 +1155,7 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private var activeVoiceAccessibilityTarget: UIView {
-        switch renderedVoiceStage {
-        case .ready, .opening, .listening, .processing:
-            microphoneView
-        case .recovery:
-            recoveryStage
-        case .starting:
-            progressStage
-        }
+        microphoneView
     }
 
     @objc private func microphoneTapped() {

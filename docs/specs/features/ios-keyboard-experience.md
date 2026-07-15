@@ -1,14 +1,15 @@
 # iOS Keyboard Experience
 
-Status: active V1.1 MVP UX contract; revised 2026-07-14 for truthful recovery
-states and keyboard-controlled dictation. `ios-v1-release.md` wins any conflict.
+Status: active V1.1 MVP UX contract; revised 2026-07-15 for automatic
+keyboard-to-app handoff. `ios-keyboard-handoff-and-delivery.md` wins any
+conflict about microphone behavior, launch routing, reconnection, or delivery.
 
 ## Goal
 
 Provide a compact HoldType command keyboard whose primary action is voice
-dictation. After one-time setup and while an app-owned Keyboard Dictation
-Session is available, the user taps the keyboard microphone, speaks, finishes,
-and receives the accepted text in the active host field.
+dictation. The user taps the keyboard microphone, completes any targeted setup
+in HoldType when necessary, speaks, finishes, and receives eligible accepted
+text in the active host field.
 
 The extension itself never records audio. The containing app owns microphone
 capture, OpenAI processing, text rules, Latest, and History. The keyboard owns
@@ -19,14 +20,13 @@ through `UITextDocumentProxy`.
 
 - A custom keyboard extension has no microphone access. HoldType does not try
   to bypass that restriction.
-- The containing app may run an explicit, user-started Keyboard Dictation
-  Session and process keyboard commands while that session remains available.
-- The keyboard never launches the containing app. If the session is absent or
-  expired, it says `Session not running` and replaces the microphone with the
-  exact containing-app recovery path.
-- The keyboard requests no external launch. System setup and product settings
-  remain in the containing app, while the keyboard always provides written
-  fallback instructions that do not depend on a system callback.
+- The containing app owns a bounded warm handoff session and processes keyboard
+  commands while that session remains available.
+- When no healthy session exists, the same keyboard microphone writes a bounded
+  intent and opens HoldType. The keyboard contains no manual navigation copy.
+- System setup and product settings remain in the containing app. A blocker
+  routes to its exact owner; a valid cold request starts capture automatically
+  and presents the swipe-back sheet.
 - HoldType declares that it supplies dictation. iOS therefore disables or
   suppresses its own Dictation key; on systems that retain the disabled icon in
   the bottom strip, that icon remains Apple-owned and is not a HoldType action.
@@ -62,15 +62,14 @@ The keyboard keeps one stable composition in Light and Dark Mode:
 2. Workspace: either the Voice stage or Quick Insert. One toggle tap replaces
    Voice directly with Quick Insert; there is no intermediate launcher, task
    picker, menu, or containing-app transition. The close icon restores the
-   exact Voice, progress, or recovery presentation underneath.
+   exact Voice presentation underneath.
 3. Editing row: Globe, wide Space, Delete, and adaptive Return.
 
 The top center stays empty during Ready, Starting, Listening, Processing, and
-Quick Insert. The HoldType mark appears there only while the Voice workspace is
-replaced by a recovery message. No state label appears under or beside it.
-Ready, unavailable, listening, starting, processing, and failure information
-belongs exclusively to the voice stage so the interface never repeats the same
-state in two places.
+Quick Insert. No state label appears under or beside it. Ready, unavailable,
+listening, starting, processing, and failure information belongs exclusively to
+the central voice stage so the interface never repeats the same state in two
+places.
 
 The approved Brand Stage reference remains the geometry source of truth. On
 iPhone the surface uses approximately 18-point side insets, 8-point editing-key
@@ -93,19 +92,13 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - The keyboard has no permanent Settings action.
 - Full product settings and system-setup assistance remain available from the
   containing app.
-- A recovery state names the missing prerequisite and includes the full path:
-  - stopped or expired session: `Open HoldType → Voice → Keyboard Dictation
-    Session → Start Keyboard Session. Then return here.`;
-  - Full Access: `iPhone Settings → General → Keyboard → Keyboards →
-    HoldType → Allow Full Access.` This full route is visually emphasized,
-    followed by `Then open HoldType and start a session.` and the secondary
-    shortcut `Shortcut: hold 🌐 → Keyboard Settings.`;
-  - request failure: `Open HoldType → Voice to review the problem and start a
-    new keyboard session.`
-- Recovery instructions are visible text, not accessibility-only hints or
-  transient status.
-- A shortcut never replaces the complete route. It is a smaller secondary hint
-  for users who already recognize the system Globe menu.
+- The central indicator remains present for Ready and compact operational
+  failures. The keyboard never replaces it with written navigation steps.
+- A microphone tap opens the exact containing-app setup owner for Full Access,
+  microphone, provider, consent, Translation, or another preflight blocker.
+- After setup is fixed, the user returns to the host and taps the same
+  microphone again. A healthy cold request opens the swipe-back sheet and
+  starts app-owned capture automatically.
 
 ## Quick Insert And Editing Controls
 
@@ -176,23 +169,22 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 - Starting, Listening, and Processing disable Quick Insert and Auto. The mode
   combination chosen at Start is frozen for that request; later selections or
   Settings changes do not change active work.
-- Ready and every recovery state keep Auto enabled. Missing Full Access,
-  provider setup, or an active keyboard session does not prevent choosing modes
-  for the next request.
+- Ready keeps Auto enabled. Missing Full Access, provider setup, or a warm
+  session does not prevent choosing modes for the next request.
 
-## Keyboard Dictation Session
+## Keyboard Handoff Session
 
 ### Setup
 
-- The user opens HoldType once, configures the provider, accepts provider
-  processing, grants microphone permission, enables HoldType Keyboard, and
-  enables Allow Full Access for keyboard-controlled dictation.
-- The containing app exposes one plain `Start Keyboard Session` action and a
-  visible way to stop it.
+- The user configures the provider, accepts provider processing, grants
+  microphone permission, enables HoldType Keyboard, and enables Allow Full
+  Access for keyboard-controlled dictation.
+- The production keyboard does not require a manually prepared session. A
+  valid cold microphone request creates the bounded app-owned session.
 - V1.1 may use one fixed bounded session lifetime. Configurable session lengths,
   permanent background mode, and Live Activity controls are deferred.
-- Starting a session never starts a provider request and never adds a History
-  row. It only makes the app-owned voice path available to keyboard commands.
+- Creating the session and starting its first capture are one admitted handoff;
+  provider work still begins only after capture finishes.
 
 ### Interaction
 
@@ -210,14 +202,12 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   not shift the activity away from the workspace center.
 - A second tap requests Finish. A visible Cancel action requests cancellation
   and never submits the cancelled audio.
-- Starting uses a native bounded progress presentation until real capture is
-  acknowledged; it never shows the recording artwork optimistically.
+- Starting keeps the central Voice indicator in its bounded starting state
+  until real capture is acknowledged.
 - After actual capture stops, the keyboard replaces the recording artwork with
   the containing app's purple recognition artwork and slower orbit animation
   while the existing app-owned OpenAI and text-rule pipeline runs. The activity
   stays centered and unavailable as a primary action while processing.
-- Recovery messages replace the activity completely and restore the small
-  HoldType mark in the top center as a quiet identity cue.
 - If the same live keyboard request still owns the active host context, one
   accepted result performs exactly one `insertText` call.
 - If the extension is dismissed, restarted, changes host context, loses the
@@ -230,11 +220,9 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
 
 ### State Vocabulary
 
-The centered status is short and contains no transcript text. The voice stage
-provides the longer recovery instruction when needed:
+The centered status is short and contains no transcript text or manual route:
 
-- `Ready` — local controls work and a keyboard session is available;
-- `Session not running` — the app-owned session is unavailable or expired;
+- `Ready` — the microphone can start a warm attempt or a cold handoff;
 - `Full Access required` — voice commands cannot use the shared command boundary;
 - `Allow Microphone` — the app lacks microphone authorization;
 - `Starting…` — Start was written and is awaiting real app acknowledgement;
@@ -256,9 +244,9 @@ without showing `Inserted` or rendering a result preview.
   identifier, an expiry, and no history or append-only log.
 - Signalling may wake an already-running app-owned session, but App Group files
   are not treated as a general background-launch mechanism.
-- Commands and state use atomic replacement. They add no outbox, receipt,
-  acknowledgement family, tombstone, lease, policy generation, transaction
-  coordinator, or replay queue.
+- Commands and state use atomic replacement. One opaque delivery claim and its
+  acknowledgement share those same two projections; they add no outbox,
+  transcript queue, lease, or second persistence system.
 - App Group state may include only a boolean Translation-route-valid capability.
   It contains no language codes, translation route, model, API key, prompt,
   dictionary, canonical History, raw audio, provider body, or durable host
@@ -294,8 +282,8 @@ without showing `Inserted` or rendering a result preview.
 
 ## Accessibility And Appearance
 
-- VoiceOver names Quick Insert, Auto and its selected modes, the recovery
-  instruction, microphone state/action, Latest, Globe, Space, Delete, and
+- VoiceOver names Quick Insert, Auto and its selected modes, the microphone
+  state/action, Latest, Globe, Space, Delete, and
   adaptive Return.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
@@ -314,7 +302,7 @@ reduction, insertion, and restricted editing half. This spike split does not
 replace the signed-device keyboard/host-app release matrix below.
 
 Automated and Simulator coverage must prove composition, both appearances,
-recovery instructions, local editing, state reduction, stale-request
+absence of retired manual-session copy, local editing, state reduction, stale-request
 rejection, bounded record decoding, one insertion per accepted live request,
 and explicit Latest fallback.
 

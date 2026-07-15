@@ -181,7 +181,7 @@ final class IOSKeyboardDictationSessionCoordinator {
 
     func startSession() async {
         guard dependencies.applicationIsActive() else {
-            presentation = .failed("Open HoldType")
+            presentation = .failed("Session unavailable")
             return
         }
 

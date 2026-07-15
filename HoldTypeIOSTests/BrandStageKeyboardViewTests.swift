@@ -199,26 +199,16 @@ struct BrandStageKeyboardViewTests {
         #expect(returnCount == 1)
     }
 
-    @Test func quickInsertClosesBackToTheRenderedRecoveryState() throws {
+    @Test func quickInsertClosesBackToTheCentralVoiceIndicator() throws {
         let view = makeView(width: 393)
-        view.render(
-            presentation(
-                status: .fullAccessRequired,
-                voiceStage: .recovery(.enableFullAccess)
-            )
-        )
+        view.render(presentation())
         layout(view)
 
         let toggle = try button(
             "keyboard.brand-stage.quick-insert-toggle",
             in: view
         )
-        let recovery = try #require(
-            view.descendant(
-                UIStackView.self,
-                identifier: "keyboard.brand-stage.recovery"
-            )
-        )
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
         let quickInsert = try #require(
             view.descendant(
                 UIStackView.self,
@@ -226,16 +216,16 @@ struct BrandStageKeyboardViewTests {
             )
         )
 
-        #expect(!isEffectivelyHidden(recovery))
+        #expect(!isEffectivelyHidden(microphone))
         #expect((try button("keyboard.brand-stage.auto", in: view)).isEnabled)
         toggle.sendActions(for: .touchUpInside)
         layout(view)
-        #expect(isEffectivelyHidden(recovery))
+        #expect(isEffectivelyHidden(microphone))
         #expect(!isEffectivelyHidden(quickInsert))
 
         toggle.sendActions(for: .touchUpInside)
         layout(view)
-        #expect(!isEffectivelyHidden(recovery))
+        #expect(!isEffectivelyHidden(microphone))
         #expect(isEffectivelyHidden(quickInsert))
     }
 
@@ -285,23 +275,16 @@ struct BrandStageKeyboardViewTests {
         #expect(activity.phase == .listening)
     }
 
-    @Test func autoIsEnabledForRecoveryAndDisabledOnlyDuringActiveVoice()
+    @Test func autoIsEnabledWhenReadyAndDisabledDuringActiveVoice()
         throws {
-        for recovery in [
-            KeyboardVoiceRecovery.startSession,
-            .enableFullAccess,
-            .requestFailed,
-        ] {
-            let view = makeView(width: 393)
-            view.render(
-                presentation(voiceStage: .recovery(recovery))
-            )
-            #expect(
-                (try button("keyboard.brand-stage.auto", in: view)).isEnabled
-            )
-        }
+        let readyView = makeView(width: 393)
+        readyView.render(presentation(voiceStage: .ready))
+        #expect(
+            (try button("keyboard.brand-stage.auto", in: readyView)).isEnabled
+        )
 
         for stage in [
+            KeyboardVoiceStagePresentation.opening,
             KeyboardVoiceStagePresentation.starting,
             .listening,
             .processing,
@@ -470,48 +453,27 @@ struct BrandStageKeyboardViewTests {
         #expect(returnButton.bounds.width >= 43.9)
     }
 
-    @Test func unavailableVoiceReplacesTheMicrophoneWithCompleteRecoveryCopy()
+    @Test func fullAccessStatusKeepsIndicatorAndHasNoRecoveryCopy()
         throws {
         let view = makeView(width: 393)
         view.render(
             presentation(
-                status: .sessionNotRunning,
-                voiceStage: .recovery(.startSession)
+                status: .fullAccessRequired,
+                voiceStage: .ready
             )
         )
         layout(view)
 
         let microphone = try button("keyboard.brand-stage.voice", in: view)
-        let recovery = try #require(
+
+        #expect(!isEffectivelyHidden(microphone))
+        #expect(microphone.isEnabled)
+        #expect(
             view.descendant(
                 UIStackView.self,
                 identifier: "keyboard.brand-stage.recovery"
-            )
+            ) == nil
         )
-        let title = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.recovery-title"
-            )
-        )
-        let detail = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.recovery-detail"
-            )
-        )
-        let logo = try #require(
-            view.descendant(
-                UIImageView.self,
-                identifier: "keyboard.brand-stage.logo"
-            )
-        )
-
-        #expect(isEffectivelyHidden(microphone))
-        #expect(!isEffectivelyHidden(recovery))
-        #expect(!isEffectivelyHidden(logo))
-        #expect(title.text == "Ready to dictate")
-        #expect(detail.text == "Tap the microphone to start.")
     }
 
     @Test func startingAndProcessingKeepTheCentralVoiceIndicatorVisible()
@@ -528,17 +490,16 @@ struct BrandStageKeyboardViewTests {
         layout(view)
 
         let microphone = try button("keyboard.brand-stage.voice", in: view)
-        let progress = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.progress"
-            )
-        )
         let cancel = try button("keyboard.brand-stage.cancel", in: view)
         #expect(!isEffectivelyHidden(microphone))
         #expect(!microphone.isEnabled)
         #expect(microphone.accessibilityValue == "Starting")
-        #expect(isEffectivelyHidden(progress))
+        #expect(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.progress"
+            ) == nil
+        )
         #expect(!isEffectivelyHidden(cancel))
 
         view.render(
@@ -560,50 +521,13 @@ struct BrandStageKeyboardViewTests {
         #expect(!microphone.isEnabled)
         #expect(microphone.accessibilityValue == "Recognizing")
         #expect(activity.phase == .recognizing)
-        #expect(isEffectivelyHidden(progress))
-        #expect(!isEffectivelyHidden(cancel))
-    }
-
-    @Test func fullAccessRecoveryStaysCompactWithoutNavigationInstructions()
-        throws {
-        let view = makeView(width: 393)
-        view.render(
-            presentation(
-                status: .fullAccessRequired,
-                voiceStage: .recovery(.enableFullAccess)
-            )
-        )
-        layout(view)
-
-        let route = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.recovery-detail"
-            )
-        )
-        let followUp = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.recovery-follow-up"
-            )
-        )
-        let shortcut = try #require(
-            view.descendant(
-                UILabel.self,
-                identifier: "keyboard.brand-stage.recovery-shortcut"
-            )
-        )
-
         #expect(
-            route.text
-                == "Full Access is required for keyboard voice controls."
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.progress"
+            ) == nil
         )
-        #expect(route.font.fontDescriptor.symbolicTraits.contains(.traitBold))
-        #expect(followUp.text == nil)
-        #expect(shortcut.text == nil)
-        #expect(!isEffectivelyHidden(route))
-        #expect(isEffectivelyHidden(followUp))
-        #expect(isEffectivelyHidden(shortcut))
+        #expect(!isEffectivelyHidden(cancel))
     }
 
     @Test func compactPhoneLandscapeKeepsVoiceIdentityAndControlsInBounds()

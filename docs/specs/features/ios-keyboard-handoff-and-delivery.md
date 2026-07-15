@@ -164,6 +164,9 @@ microphone appear active.
   this flow, the release fallback is an app-only build without the embedded
   keyboard extension, keyboard onboarding, or dead keyboard controls.
 - HoldType does not ship a manual-session keyboard as the fallback.
+- Existing containing-app session controls may remain temporarily as a bounded
+  qualification diagnostic. They are not the production keyboard entry point
+  and do not change the microphone-first contract.
 
 ## Acceptance Criteria
 

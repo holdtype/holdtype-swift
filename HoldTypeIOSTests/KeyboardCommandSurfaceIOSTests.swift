@@ -18,44 +18,22 @@ struct KeyboardCommandSurfaceIOSTests {
             "Starting…",
             "Listening…",
             "Processing…",
-            "Session not running",
             "Allow Microphone",
             "No Network",
             "Dictation failed",
         ])
         #expect(KeyboardVoiceStatus.ready.accessibilityAnnouncement == nil)
-        #expect(
-            KeyboardVoiceStatus.sessionNotRunning.accessibilityAnnouncement
-                == "Session not running"
-        )
     }
 
-    @Test func recoveryCopyIsCompactAndContainsNoManualNavigation() {
-        #expect(KeyboardVoiceRecovery.startSession.title == "Ready to dictate")
+    @Test func retiredManualSessionLabelsAreNotProductionStatuses() {
+        let labels = Set(KeyboardVoiceStatus.allCases.map(\.rawValue))
+        #expect(!labels.contains("Session not running"))
+        #expect(!labels.contains("Start a voice session"))
         #expect(
-            KeyboardVoiceRecovery.startSession.instruction
-                == "Tap the microphone to start."
+            !labels.contains(
+                "Open HoldType → Voice → Keyboard Dictation Session"
+            )
         )
-        #expect(
-            KeyboardVoiceRecovery.enableFullAccess.instruction
-                == "Full Access is required for keyboard voice controls."
-        )
-        #expect(
-            KeyboardVoiceRecovery.enableFullAccess.followUpInstruction == nil
-        )
-        #expect(
-            KeyboardVoiceRecovery.enableFullAccess.shortcutInstruction == nil
-        )
-        #expect(
-            KeyboardVoiceRecovery.requestFailed.instruction
-                == "Tap the microphone to try again."
-        )
-        let allInstructions = [
-            KeyboardVoiceRecovery.startSession.instruction,
-            KeyboardVoiceRecovery.enableFullAccess.instruction,
-            KeyboardVoiceRecovery.requestFailed.instruction,
-        ]
-        #expect(allInstructions.allSatisfy { !$0.contains("Open HoldType") })
     }
 
     @Test func cursorDragAccumulatesThresholdsAndReportsDirection() {

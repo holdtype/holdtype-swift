@@ -47,6 +47,9 @@ the exact setting that makes the requested action usable.
 - Keyboard recovery reuses the bounded keyboard-to-app launch route. The launch
   carries only a closed route identifier and no settings, prompts, credentials,
   transcript text, or host content.
+- The keyboard itself contains no written navigation route. Its microphone
+  opens the exact containing-app owner; full setup instructions remain on that
+  destination.
 
 ## Translation
 

@@ -1,7 +1,8 @@
 # HoldType iOS V1.1 Release Contract
 
-Status: canonical iOS product contract; approved and revised 2026-07-14 for
-keyboard-controlled dictation MVP.
+Status: canonical iOS product contract; approved and revised 2026-07-15 for
+keyboard-to-app handoff. `ios-keyboard-handoff-and-delivery.md` wins any
+conflict about keyboard launch, capture, reconnection, or result delivery.
 
 `V1.1` is the first planned iOS release designation. It does not imply that an
 iOS V1.0 was previously shipped.
@@ -10,15 +11,14 @@ This spec supersedes conflicting P5H-P8 behavior for V1.1. Detailed legacy iOS
 specs remain research and implementation evidence, but they do not expand this
 release unless this file explicitly links to that behavior.
 
-Keyboard MVP update, 2026-07-14: `History` and the permanent Settings action are
-removed from the keyboard and remain containing-app destinations. Unavailable
-voice states replace the microphone with a complete recovery instruction. The
-microphone becomes actionable through an explicit
-app-owned Keyboard Dictation Session: the extension sends bounded Start, Finish,
-or Cancel commands while the containing app owns microphone capture, OpenAI,
-text rules, Latest, and History. The extension never accesses the microphone or
-launches the containing app. This architecture remains a signed-device
-feasibility gate before it becomes a release claim.
+Keyboard MVP update, 2026-07-15: `History` and permanent Settings remain
+containing-app destinations. The central microphone always stays the keyboard's
+entry point. Without a healthy warm session it writes a bounded handoff intent
+and opens HoldType; valid preflight starts app-owned capture automatically and
+presents the swipe-back sheet. The extension sends bounded Start, Finish,
+Cancel, delivery-claim, and acknowledgement commands while the containing app
+owns microphone capture, OpenAI, text rules, Latest, and History. The extension
+never accesses the microphone. Signed-device qualification remains required.
 
 ## Goal
 
@@ -39,7 +39,7 @@ V1.1 includes:
 
 - iPhone setup, Voice, Dictation Rules, compact History, Usage, and Settings;
 - foreground recording and OpenAI transcription in the containing app;
-- one explicit, bounded, app-owned Keyboard Dictation Session;
+- one bounded, app-owned keyboard handoff session;
 - existing optional correction and translation;
 - one recoverable pending recording;
 - one Latest Result;
@@ -49,7 +49,8 @@ V1.1 includes:
   local History playback when the user explicitly enables it;
 - one production-quality iPhone command-keyboard surface with actionable Start,
   Finish, and Cancel voice controls while that session is available;
-- no Settings, History, or containing-app launch action inside the extension;
+- no separate Settings, History, or containing-app launch button inside the
+  extension; the microphone owns cold handoff;
 - automatic insertion only for the same still-live keyboard request and host
   context;
 - an explicit `Latest` insertion path after the user returns to the host;
@@ -161,23 +162,19 @@ destination. History remains a separate tab and is not previewed on Voice.
   starts the first recording or explicitly reviews permission setup.
 - The app exposes one practice field for keyboard switching and insertion in a
   compact Voice toolbar sheet rather than the primary Voice canvas.
-- Setup exposes one plain `Start Keyboard Session` action, a visible session
-  state, and a Stop action. Starting a session alone neither creates a recording
-  nor contacts the provider.
-- Setup states that the containing app owns recording even when the user controls
-  it from the keyboard. If the session is unavailable, the keyboard says
-  `Session not running`, shows the exact Voice-screen recovery path, and never
-  launches the app itself.
+- The production path does not expose a required `Start Keyboard Session`
+  action. A valid cold microphone request creates the bounded session and starts
+  its first capture.
+- Setup states that the containing app owns recording even when the user
+  controls it from the keyboard. If the session is unavailable, the same
+  microphone opens HoldType without written manual navigation in the keyboard.
 - Setup explains that History and Settings are opened from the containing app.
 - Setup explains that normal typing remains on the user's system keyboard and
   that Globe switches between it and HoldType.
-- Full Access recovery keeps the complete iPhone Settings route visibly
-  emphasized. `Shortcut: hold 🌐 → Keyboard Settings` appears only as a
-  secondary hint and never replaces the full route.
-- Keyboard and Full Access recovery open one dedicated in-app setup destination
-  with a public Open System Settings action and practice field. The containing
-  app reports Full Access as not currently verified rather than claiming it can
-  read the system toggle directly.
+- Full Access recovery opens the dedicated in-app setup destination with a
+  public Open System Settings action and practice field. Complete system steps
+  live there, not in the keyboard. The containing app reports Full Access as
+  not currently verified rather than claiming it can read the toggle directly.
 - Punctuation, Space, Delete, Return, Globe, and an already-available
   restricted-mode Latest do not require provider setup, microphone permission,
   network, or Full Access. Keyboard-controlled dictation does require Full
@@ -365,9 +362,9 @@ The first-release surface provides:
 - a compact top row with Quick Insert and one labeled `Auto` menu on the left,
   the HoldType mark centered without status text, and `Latest` insertion on the
   right;
-- one medium actionable microphone only while an app-owned Keyboard Dictation
-  Session can start or finish real recording; unavailable states show complete
-  recovery copy and processing shows progress instead of a disabled microphone;
+- one medium central Voice indicator for Ready, Opening, Starting, Listening,
+  Processing, and compact failures; the microphone starts warm capture or cold
+  handoff and becomes Finish while Listening;
 - one direct, reversible Quick Insert workspace containing bundled local
   punctuation and emoji; it replaces the Voice workspace without an
   intermediate launcher, has no visible title, shows two emoji rows in regular
@@ -391,8 +388,8 @@ The first-release surface provides:
   and Processing states keep Voice visible and disable Quick Insert and Auto.
 
 The HoldType mark is identity only, not a button or status surface. No state
-label appears under or beside it; all state and recovery information lives in
-the voice stage. The keyboard
+label appears under or beside it; all operational state lives in the voice
+stage. The keyboard
 contains no alphabet, number deck, `A` probe key, `Refresh`, Shift, Caps Lock,
 `123`, predictions, or autocorrection. Accepted results may contain arbitrary
 Unicode; ordinary free typing and system emoji remain available through Globe.
@@ -407,10 +404,9 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   provider pipeline, persistence owner, or recovery path. Foreground Voice,
   Pending Retry/Discard, and a keyboard request are mutually exclusive while
   any one of them owns Voice work.
-- The user explicitly starts one bounded Keyboard Dictation Session in the
-  containing app. An unavailable or expired session produces `Session not
-  running` plus the exact Voice-screen recovery path; the keyboard does not
-  launch the app.
+- An unavailable or expired session makes the next microphone tap write one
+  bounded intent and open HoldType. The keyboard shows `Opening HoldType…`, not
+  a manual-session instruction.
 - Keyboard-controlled voice requires Allow Full Access so the extension can
   write one bounded command to the App Group boundary. Local editing, Globe,
   and safe Latest fallback remain functional without it.
@@ -551,7 +547,8 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - Release navigation contains no placeholder destination.
 - Normal iPhone launch shows Voice, Rules, History, Usage, and Settings in that
   order in the tab shell; qualification routes never become a production root.
-- Keyboard tests cover both appearances, recovery instructions, punctuation,
+- Keyboard tests cover both appearances, absence of retired manual-session copy,
+  central indicator states, punctuation,
   Delete repeat, Space cursor movement, Return traits, session-state honesty,
   bounded command/state decoding, stale-request rejection, one History-derived
   Latest item, automatic insertion ownership, and explicit Latest insertion.
@@ -574,9 +571,9 @@ V1.1 is not release-complete until a recorded device pass proves:
   Allow Full Access off;
 - Full Access setup and one-writer command/state exchange with it on;
 - secure-field, phone-pad, and host-opt-out fallback;
-- absence of a Settings launch, containing-app launch, or private Settings
-  workaround in the extension;
-- app-owned Keyboard Dictation Session start, availability, expiry, and stop;
+- absence of a separate Settings or containing-app launch button and absence of
+  any private Settings workaround in the extension;
+- cold microphone handoff, warm session availability, expiry, and reuse;
 - keyboard Start, acknowledged Listening, Finish, Cancel, Processing, timeout,
   and one accepted insertion in a still-owned host context;
 - background transition, interruption, Low Power Mode, and process-eviction
@@ -625,10 +622,10 @@ Observed competitor behavior alone does not pass this gate.
 
 ## Voice Activation Decision
 
-The selected MVP is an app-owned Keyboard Dictation Session, not microphone
-access inside the extension. The keyboard controls a session that the user
-started in HoldType, and inserts only a result still owned by the live request
-and host context. It never launches HoldType, fakes Listening, or records idle
+The selected MVP is an app-owned keyboard handoff session, not microphone
+access inside the extension. The keyboard microphone opens HoldType when a
+session must be created, and inserts only a result still owned by the request,
+delivery claim, and host context. It never fakes Listening or records idle
 speech. The signed-device feasibility spike is a stop gate: failure does not
 justify private APIs, indefinite background tricks, another persistence system,
 or a QWERTY detour.

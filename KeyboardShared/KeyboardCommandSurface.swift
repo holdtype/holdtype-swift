@@ -15,7 +15,6 @@ enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
     case starting = "Starting…"
     case listening = "Listening…"
     case processing = "Processing…"
-    case sessionNotRunning = "Session not running"
     case allowMicrophone = "Allow Microphone"
     case noNetwork = "No Network"
     case dictationFailed = "Dictation failed"
@@ -30,7 +29,6 @@ enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
              .starting,
              .listening,
              .processing,
-             .sessionNotRunning,
              .allowMicrophone,
              .noNetwork,
              .dictationFailed:
@@ -39,54 +37,7 @@ enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
     }
 }
 
-enum KeyboardVoiceRecovery: Equatable, Sendable {
-    case startSession
-    case enableFullAccess
-    case requestFailed
-
-    var title: String {
-        switch self {
-        case .startSession:
-            "Ready to dictate"
-        case .enableFullAccess:
-            "Enable Full Access"
-        case .requestFailed:
-            "Dictation stopped"
-        }
-    }
-
-    var emphasizedInstruction: String {
-        switch self {
-        case .startSession:
-            "Tap the microphone to start."
-        case .enableFullAccess:
-            "Full Access is required for keyboard voice controls."
-        case .requestFailed:
-            "Tap the microphone to try again."
-        }
-    }
-
-    var followUpInstruction: String? {
-        nil
-    }
-
-    var shortcutInstruction: String? {
-        nil
-    }
-
-    var instruction: String {
-        [
-            emphasizedInstruction,
-            followUpInstruction,
-            shortcutInstruction,
-        ]
-        .compactMap { $0 }
-        .joined(separator: " ")
-    }
-}
-
 enum KeyboardVoiceStagePresentation: Equatable, Sendable {
-    case recovery(KeyboardVoiceRecovery)
     case ready
     case opening
     case starting
