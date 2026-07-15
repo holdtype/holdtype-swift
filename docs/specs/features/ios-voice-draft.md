@@ -1,6 +1,6 @@
 # iOS Voice Draft
 
-Status: approved product contract; 2026-07-14.
+Status: approved product contract; revised 2026-07-15.
 
 ## Goal
 
@@ -16,13 +16,16 @@ without opening the custom keyboard.
   alive.
 - History remains a separate containing-app tab. Voice contains no History
   list or preview and adds no duplicate History toolbar action.
-- Append, Auto Translate, and Auto Correction are session modes in the bottom
-  Draft settings row. The existing one-shot Translate and Correction actions,
-  plus Undo, Redo, and Copy, remain together as a compact leading icon group
-  in the top action area. Clear remains the only trailing action and is a
-  neutral labeled Draft action, not a red delete or History action. On compact
-  widths or at large Dynamic Type sizes, the leading icon group may wrap
-  internally without moving Clear into that group or removing its label.
+- Append, Auto Translate, and Auto Correction are session modes in one compact
+  `Auto` menu at the leading edge of the bottom Draft action area. Flexible
+  space separates that menu from the labeled `Copy` capsule at the trailing
+  edge. Neither control expands to fill the row. The existing one-shot
+  Translate and Correction actions, plus Undo and Redo, remain together as a
+  compact leading icon group in the top action area. Clear remains the only
+  trailing top action and is a neutral labeled Draft action, not a red delete
+  or History action. On compact widths or at large Dynamic Type sizes, the
+  leading icon group may wrap internally without moving Clear into that group
+  or removing its label.
   Keyboard Dictation Session and the practice field remain reachable from the
   compact Voice More menu; the keyboard tools are presented as a sheet and
   none of them occupies the primary Voice canvas.
@@ -82,7 +85,9 @@ without opening the custom keyboard.
   separately from the bounded accepted result identifiers used for exact-once
   append. It contains no audio, provider payload, prompt, credential, host
   context, or creation-history log.
-- Copy writes the entire current Draft to the clipboard.
+- Copy writes the entire current Draft to the clipboard. It remains visible in
+  the bottom Draft action area, is unavailable while the visible working text
+  is empty, and has at least a 44-point tap target.
 - A Draft containing only spaces, tabs, or line breaks is treated as empty.
   Committing such an edit stores the canonical empty Draft rather than a hidden
   visually blank state.
@@ -183,14 +188,19 @@ without opening the custom keyboard.
 
 ## Voice Session Modes
 
-- Append, Auto Translate, and Auto Correction are compact labeled toggles below
-  the text editor. Their visible labels are `Auto-Append`, `Auto-Translate`, and
-  `Auto-Correct`; the row adds no heading or explanatory copy. A divider
-  separates these controls from the editable text. Each control has a minimum
-  44-point target and keeps its label readable as the layout adapts. Off uses a
-  neutral treatment. On uses an accent treatment plus a checkmark so state does
-  not depend on color alone. Accessibility exposes the same label and an
-  explicit On or Off value.
+- A compact labeled `Auto` menu below the text editor contains the independent
+  `Auto-Append`, `Auto-Translate`, and `Auto-Correct` toggles. The menu has no
+  heading, subtitles, or explanatory copy. It presents in a compact popover
+  above its leading-edge button in the normal portrait Voice layout and may
+  reposition only when needed to remain onscreen. Each selected item shows a
+  native checkmark, and toggling one item keeps the menu available so the user
+  can change multiple modes in one visit.
+- The `Auto` button has an intrinsic width and at least a 44-point tap target.
+  With no selected modes it uses a neutral treatment and no count badge. With
+  one or more selected modes it uses an accent treatment and a numeric badge
+  showing the selected count. Accessibility exposes the count as `N of 3 on`.
+  Flexible space keeps the independently sized `Copy` action aligned to the
+  trailing edge of the same row.
 - All three modes start off on cold launch. They remain selected for subsequent
   containing-app Voice attempts in the current process until the user turns
   them off. They do not rewrite durable Settings.
@@ -269,8 +279,9 @@ without opening the custom keyboard.
   setup, Pending recovery, full Draft, unavailable states, adaptive type
   thresholds, and follow-tail suspension and resumption.
 - Simulator QA covers cold launch without focus, tap-to-edit, keyboard Done and
-  dismissal, Copy, Clear/Undo, short and overflowing Drafts, Append while at
-  the end and while reading earlier text, selection, ready, listening,
+  dismissal, the labeled bottom Copy action at compact and accessibility
+  sizes, Clear/Undo, short and overflowing Drafts, Append while at the end and
+  while reading earlier text, selection, ready, listening,
   recognition, setup, Draft failure and recovery routing, both appearances,
   Dynamic Type, Reduce Motion, and Reduce Transparency. A signed physical
   iPhone proves real microphone metering and Full Access behavior.
