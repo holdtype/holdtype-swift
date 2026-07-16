@@ -1,22 +1,48 @@
 # KBD-FLOW-8 Signed-Device Qualification — 2026-07-15
 
-Status: **In progress.** Signed build, product inspection, and installation
-passed. Runtime launch and the physical keyboard/host matrix remain pending
-because the connected iPhone was locked.
+Status: **In progress.** Signed build, product inspection, installation, and
+focused handoff tests pass. The physical keyboard/host runtime matrix is now
+running with operator observation on the unlocked iPhone.
 
 ## Device And Build
 
-- Source checkpoint: `0d1368d` (`Remove legacy keyboard recovery surfaces`)
+- Initial source checkpoint: `0d1368d`
+  (`Remove legacy keyboard recovery surfaces`)
+- Current isolated handoff checkpoint: `b8bb0f2`
+  (`Keep keyboard handoff failures inside sheet`)
 - Device: Evgeny’s iPhone, iPhone 14 Pro Max (`iPhone15,3`)
 - iOS: 26.5.2 (`23F84`)
 - UDID: `00008120-001A19991E7BC01E`
 - CoreDevice identifier: `DE70161A-3200-5D58-BF1E-DEA8B56FABC2`
 - Development team: `PUA6HH22D7`
-- Build result: `HoldType-iOS` Debug device build succeeded
-- Installation result: app and embedded keyboard installed successfully
+- Build result: `HoldType-iOS` Debug device build succeeded for `b8bb0f2`
+- Installation result: the `b8bb0f2` app and embedded keyboard installed
+  successfully on 2026-07-16
 
 The build command selected only the `HoldType-iOS` scheme and physical iPhone
 destination. It did not build or test the macOS app.
+
+The 2026-07-16 device product was built from a clean archive of `b8bb0f2`, not
+from the concurrent dirty working tree. The later master checkpoint `bc7f6f8`
+adds the separate keyboard Auto modes popover and is not yet part of this
+isolated handoff runtime result.
+
+## Focused Handoff Verification
+
+Simulator: iPhone 17 Pro, iOS 26.5
+(`2388F192-115A-45FF-B5C3-2B666B4E42F7`).
+
+Focused suites:
+
+- `IOSKeyboardDictationSessionCoordinatorTests`;
+- `IOSKeyboardHandoffSheetTests`.
+
+Result: **20 tests in 2 suites passed.** The checks cover Starting, Listening,
+Processing, runtime failure, expiry, close/cancel, stale direct start, accepted
+completion, and exclusive delivery. A generic unsigned iOS
+`build-for-testing` also succeeded. These results prove deterministic handoff
+state reduction; they do not substitute for physical microphone or host-field
+interaction.
 
 ## Signed Product Inspection
 
@@ -29,7 +55,7 @@ destination. It did not build or test the macOS app.
 - The keyboard declares `RequestsOpenAccess = true`.
 - Embedded-binary validation passed during the signed build.
 
-## Runtime Boundary
+## Runtime History
 
 CoreDevice installed the app, then rejected the launch because the physical
 iPhone was locked:
@@ -43,12 +69,29 @@ Unlocking the physical phone is not available to Mac automation. No runtime
 state, microphone lifecycle, swipe-back behavior, host-field insertion, or
 TestFlight result is claimed from this attempt.
 
+On 2026-07-16 CoreDevice confirmed the same phone is booted, paired, connected,
+in Developer Mode, and available for development services. The signed
+`b8bb0f2` product installed successfully without automatically launching the
+containing app. The first bounded runtime case is now awaiting the operator's
+observed result:
+
+1. cold HoldType;
+2. Notes with the HoldType keyboard and an active insertion point;
+3. tap the existing keyboard Voice indicator once;
+4. observe the handoff sheet reach Listening;
+5. use the bottom system return gesture;
+6. dictate a short phrase and tap the indicator again for Finish;
+7. observe Processing, exactly-once insertion, keyboard retention, and whether
+   HoldType reopens unexpectedly.
+
 ## Remaining Matrix
 
-After the phone is unlocked, resume from app launch and run the KBD-FLOW-8
-physical matrix in the plan. In particular, do not substitute iPhone Mirroring
-for custom-keyboard interaction: Mirroring is only a containing-app inspection
-surface and may suppress the onscreen iPhone keyboard.
+Record the observed nominal cold-handoff result first. Then continue the full
+KBD-FLOW-8 matrix from the plan, including Cancel, failure/expiry, warm reuse,
+extension recreation, changed document/host, Latest fallback, and ordinary
+standalone Voice. Do not substitute iPhone Mirroring for custom-keyboard
+interaction: Mirroring is only a containing-app inspection surface and may
+suppress the onscreen iPhone keyboard.
 
 ## Scope Boundary
 
