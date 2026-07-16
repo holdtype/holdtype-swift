@@ -14,6 +14,7 @@ struct BrandStageKeyboardViewTests {
 
     @Test func renderExposesTheApprovedControlsAndRoutesEachActionOnce() throws {
         let view = makeView(width: 393)
+        var historyCount = 0
         var latestCount = 0
         var automaticVoiceActions: [KeyboardVoiceAction] = []
         var quickInsertions: [String] = []
@@ -22,6 +23,7 @@ struct BrandStageKeyboardViewTests {
         var deleteStopCount = 0
         var returnCount = 0
 
+        view.onHistoryRequested = { historyCount += 1 }
         view.onLatestRequested = { latestCount += 1 }
         view.onAutomaticVoiceActionChanged = {
             automaticVoiceActions.append($0)
@@ -60,6 +62,7 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.settings"
             ) == nil
         )
+        let history = try button("keyboard.brand-stage.history", in: view)
         let latest = try button("keyboard.brand-stage.latest", in: view)
         let quickInsertToggle = try button(
             "keyboard.brand-stage.quick-insert-toggle",
@@ -85,12 +88,15 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.voice-indicator"
             )
         )
-        let logo = try #require(
+        #expect(
             view.descendant(
                 UIImageView.self,
                 identifier: "keyboard.brand-stage.logo"
-            )
+            ) == nil
         )
+        #expect(history.accessibilityLabel == "Open History")
+        #expect(history.bounds.width >= 43.9)
+        #expect(history.bounds.height >= 43.9)
         #expect(quickInsertToggle.accessibilityLabel == "Open Quick Insert")
         #expect(auto.isEnabled)
         #expect(auto.configuration?.title == "Auto")
@@ -126,11 +132,15 @@ struct BrandStageKeyboardViewTests {
         #expect(microphone.bounds.width >= 127.9)
         #expect(microphone.bounds.height >= 127.9)
         #expect(activity.phase == .ready)
-        #expect(isEffectivelyHidden(logo))
         #expect(
             frame(of: auto, in: view).minX
                 - frame(of: quickInsertToggle, in: view).maxX >= 3.9
         )
+        #expect(
+            frame(of: latest, in: view).minX
+                - frame(of: history, in: view).maxX >= 3.9
+        )
+        #expect(frame(of: auto, in: view).maxX < frame(of: history, in: view).minX)
 
         quickInsertToggle.sendActions(for: .touchUpInside)
         layout(view)
@@ -156,6 +166,7 @@ struct BrandStageKeyboardViewTests {
         #expect(returnButton.configuration?.title == "Send")
         #expect(returnButton.accessibilityLabel == "Send")
 
+        history.sendActions(for: .touchUpInside)
         latest.sendActions(for: .touchUpInside)
         period.sendActions(for: .touchUpInside)
         layout(view)
@@ -189,6 +200,7 @@ struct BrandStageKeyboardViewTests {
         delete.sendActions(for: .touchUpInside)
         returnButton.sendActions(for: .touchUpInside)
 
+        #expect(historyCount == 1)
         #expect(latestCount == 1)
         #expect(automaticVoiceActions == [.translate, .translateAndImprove])
         #expect(auto.configuration?.title == "Auto 2")
@@ -590,9 +602,18 @@ struct BrandStageKeyboardViewTests {
                 "keyboard.brand-stage.latest",
                 in: view
             )
+            let history = try button(
+                "keyboard.brand-stage.history",
+                in: view
+            )
 
+            #expect(history.bounds.width >= 43.9)
             #expect(latest.bounds.width >= 95.9)
             assertFullTopActionTitle(latest)
+            #expect(
+                frame(of: latest, in: view).minX
+                    - frame(of: history, in: view).maxX >= 3.9
+            )
         }
     }
 
@@ -748,6 +769,31 @@ struct BrandStageKeyboardViewTests {
             keyColor.resolvedColor(with: light)
                 != keyColor.resolvedColor(with: dark)
         )
+
+        let neutralKeyIdentifiers = [
+            "keyboard.brand-stage.quick-insert-toggle",
+            "keyboard.brand-stage.auto",
+            "keyboard.brand-stage.history",
+            "keyboard.brand-stage.latest",
+            "keyboard.brand-stage.quick-insert.punctuation.period",
+            "keyboard.brand-stage.next-keyboard",
+            "keyboard.brand-stage.space",
+            "keyboard.brand-stage.delete",
+            "keyboard.brand-stage.return",
+        ]
+        for style in [light, dark] {
+            let referenceColor = try #require(
+                button("keyboard.brand-stage.space", in: view)
+                    .configuration?.baseBackgroundColor
+            ).resolvedColor(with: style)
+            for identifier in neutralKeyIdentifiers {
+                let candidateColor = try #require(
+                    button(identifier, in: view)
+                        .configuration?.baseBackgroundColor
+                ).resolvedColor(with: style)
+                #expect(candidateColor == referenceColor)
+            }
+        }
 
         let originalFrames = controlFrames(in: view)
         view.overrideUserInterfaceStyle = .dark
@@ -981,12 +1027,6 @@ struct BrandStageKeyboardViewTests {
                     showsInputModeSwitchKey: showsGlobe
                 )
                 let view = fixture.view
-                let logo = try #require(
-                    view.descendant(
-                        UIImageView.self,
-                        identifier: "keyboard.brand-stage.logo"
-                    )
-                )
                 let voice = try #require(
                     view.descendant(
                         UIView.self,
@@ -998,9 +1038,12 @@ struct BrandStageKeyboardViewTests {
                     in: view
                 )
 
-                #expect(logo.bounds.width >= 24)
-                #expect(logo.bounds.height >= 24)
-                #expect(isEffectivelyHidden(logo))
+                #expect(
+                    view.descendant(
+                        UIImageView.self,
+                        identifier: "keyboard.brand-stage.logo"
+                    ) == nil
+                )
                 #expect(!isEffectivelyHidden(voice))
                 #expect(voice.bounds.width >= 87.9)
                 #expect(voice.bounds.height >= 87.9)
@@ -1392,6 +1435,7 @@ struct BrandStageKeyboardViewTests {
         var identifiers = [
             "keyboard.brand-stage.quick-insert-toggle",
             "keyboard.brand-stage.auto",
+            "keyboard.brand-stage.history",
             "keyboard.brand-stage.latest",
             "keyboard.brand-stage.space",
             "keyboard.brand-stage.delete",

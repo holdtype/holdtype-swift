@@ -54,11 +54,11 @@ through `UITextDocumentProxy`.
 
 The keyboard keeps one stable composition in Light and Dark Mode:
 
-1. Top rail: a compact group of three separate 44-point utility buttons on the
-   left and `Latest` on the right. The group contains Quick Insert, Translate,
-   and Improve actions represented by the standard smile, translation, and
-   magic-wand symbols. The buttons use one visual treatment and a small visible
-   gap; they do not become a mutually exclusive segmented control.
+1. Top rail: Quick Insert and `Auto` form the leading group. A separate
+   44-point History action sits immediately before `Latest` in the trailing
+   group. The center remains an unoccupied flexible gap with no logo, label, or
+   control. Every neutral key in the rail uses the same surface treatment as
+   the editing keys below.
 2. Workspace: either the Voice stage or Quick Insert. One toggle tap replaces
    Voice directly with Quick Insert; there is no intermediate launcher, task
    picker, menu, or containing-app transition. The close icon restores the
@@ -91,9 +91,10 @@ layouts keep a centered maximum content width. V1.1 release qualification is
 iPhone-first; iPad remains compatibility UI.
 
 The surface has rounded top corners and stays visually distinct from the host
-application. The HoldType mark uses a transparent background in both themes.
-The interface contains no History button, transcript card, alphabet layout,
-number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
+application. The central recording and recognition activity is the keyboard's
+only HoldType mark; the top rail contains no duplicate logo. The interface
+contains no transcript card, alphabet layout, number deck, Shift, Caps Lock,
+`123`, prediction row, or manual Refresh.
 
 ## Setup And Recovery Actions
 
@@ -152,6 +153,10 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   Access.
 - `Latest` inserts the first entry in accepted History and remains enabled for
   as long as that entry exists. It has no independent age or expiry policy.
+- History opens the containing app at its canonical History destination. The
+  keyboard never receives History rows, text previews, or History actions.
+  The launch remains subject to the same platform and App Review gate as other
+  keyboard-to-containing-app routes.
 
 ## Automatic Voice Modes
 
@@ -308,8 +313,8 @@ without showing `Inserted` or rendering a result preview.
 
 ## Accessibility And Appearance
 
-- VoiceOver names Quick Insert, Auto and its selected modes, the microphone
-  state/action, Latest, Globe, Space, Delete, and
+- VoiceOver names Quick Insert, Auto and its selected modes, History, the
+  microphone state/action, Latest, Globe, Space, Delete, and
   adaptive Return.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
@@ -317,6 +322,9 @@ without showing `Inserted` or rendering a result preview.
 - Reduce Motion keeps both side waveforms visible as complete static silhouettes
   for the current cyan or purple phase.
 - Theme follows system appearance. Light and Dark use identical geometry.
+- Top-rail, Quick Insert, punctuation, and editing keys share one neutral key
+  surface color in each appearance. Active, pressed, and disabled treatments
+  may change emphasis without introducing another base key color.
 - Re-rendering an unchanged voice phase does not rebuild the central activity
   artwork, restart its orbit or pulse, move accessibility focus, or flash the
   utility controls. A real phase, size, lifecycle, or Reduce Motion change may

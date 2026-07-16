@@ -49,6 +49,21 @@ struct IOSKeyboardHandoffLaunchRouterTests {
         #expect(consumeCount == 0)
     }
 
+    @Test func historyRoutingRemainsIndependentOfHandoffStorage() throws {
+        var consumeCount = 0
+        let router = IOSKeyboardHandoffLaunchRouter(
+            now: { Date() },
+            consume: { _, _ in
+                consumeCount += 1
+                return nil
+            }
+        )
+        let url = try #require(KeyboardHistoryLaunchRoute().url)
+
+        #expect(router.resolve(url) == .destination(.history))
+        #expect(consumeCount == 0)
+    }
+
     @Test func malformedAndUnmatchedLaunchesAreInert() throws {
         let requestID = UUID()
         var consumedRequestIDs: [UUID] = []

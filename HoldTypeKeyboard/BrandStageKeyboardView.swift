@@ -16,6 +16,7 @@ final class BrandStageKeyboardView: UIView {
     private static let minimumEditingKeyWidth: CGFloat = 44
     private static let defaultReturnKeyWidth: CGFloat = 56
 
+    var onHistoryRequested: (() -> Void)?
     var onLatestRequested: (() -> Void)?
     var onMicrophoneRequested: (() -> Void)?
     var onQuickInsertRequested: ((String) -> Void)?
@@ -37,8 +38,8 @@ final class BrandStageKeyboardView: UIView {
     private let automaticModesDismissControl = UIControl()
     private let automaticModesPanel = KeyboardAutomaticModesPanelView()
     private let topLeadingContainer = UIView()
+    private let historyButton = UIButton(type: .system)
     private let latestButton = UIButton(type: .system)
-    private let logoImageView = UIImageView()
     private let stageContainer = UIView()
     private let voiceStage = UIView()
     private let quickInsertStage = UIStackView()
@@ -57,8 +58,6 @@ final class BrandStageKeyboardView: UIView {
     private var microphoneHeightConstraint: NSLayoutConstraint?
     private var stageMinimumHeightConstraint: NSLayoutConstraint?
     private var preferredHeightConstraint: NSLayoutConstraint?
-    private var logoWidthConstraint: NSLayoutConstraint?
-    private var logoHeightConstraint: NSLayoutConstraint?
     private var rootTopConstraint: NSLayoutConstraint?
     private var rootBottomConstraint: NSLayoutConstraint?
     private var compactLayoutConstraints: [NSLayoutConstraint] = []
@@ -182,7 +181,6 @@ final class BrandStageKeyboardView: UIView {
         quickInsertStage.isHidden = !quickInsertIsPresented
         voiceStage.isHidden = quickInsertIsPresented
         voiceWaveformView.setPresentationVisible(!quickInsertIsPresented)
-        logoImageView.isHidden = true
 
         stageContainer.accessibilityValue = quickInsertIsPresented
             ? "Quick Insert"
@@ -238,8 +236,6 @@ final class BrandStageKeyboardView: UIView {
         quickInsertEmojiPrimaryScrollView.isHidden = isCompactPhone
         quickInsertEmojiSecondaryScrollView.isHidden = isCompactPhone
         quickInsertEmojiCompactScrollView.isHidden = !isCompactPhone
-        logoWidthConstraint?.constant = isCompactPhone ? 28 : 34
-        logoHeightConstraint?.constant = isCompactPhone ? 28 : 34
         microphoneWidthConstraint?.constant = isCompactPhone ? 88 : 128
         microphoneHeightConstraint?.constant = isCompactPhone ? 88 : 128
         stageMinimumHeightConstraint?.constant = isCompactPhone ? 96 : 128
@@ -434,6 +430,13 @@ final class BrandStageKeyboardView: UIView {
         autoButton.setContentHuggingPriority(.required, for: .horizontal)
         autoButton.accessibilityIdentifier = "keyboard.brand-stage.auto"
 
+        configureUtilityKey(
+            historyButton,
+            systemImage: "clock.arrow.circlepath",
+            accessibilityLabel: "Open History"
+        )
+        historyButton.accessibilityIdentifier = "keyboard.brand-stage.history"
+
         configureTopAction(
             latestButton,
             title: "Latest",
@@ -441,28 +444,6 @@ final class BrandStageKeyboardView: UIView {
             accessibilityLabel: "Insert latest"
         )
         latestButton.accessibilityIdentifier = "keyboard.brand-stage.latest"
-
-        logoImageView.image = UIImage(named: "HoldTypeMark")
-            ?? UIImage(systemName: "waveform.circle.fill")
-        logoImageView.translatesAutoresizingMaskIntoConstraints = false
-        logoImageView.contentMode = .scaleAspectFit
-        logoImageView.image = logoImageView.image?.withRenderingMode(
-            .alwaysOriginal
-        )
-        logoImageView.isAccessibilityElement = false
-        logoImageView.accessibilityIdentifier = "keyboard.brand-stage.logo"
-        let logoWidth = logoImageView.widthAnchor.constraint(
-            equalToConstant: 34
-        )
-        let logoHeight = logoImageView.heightAnchor.constraint(
-            equalToConstant: 34
-        )
-        logoWidthConstraint = logoWidth
-        logoHeightConstraint = logoHeight
-        NSLayoutConstraint.activate([
-            logoWidth,
-            logoHeight,
-        ])
 
         let utilityStack = UIStackView(
             arrangedSubviews: [
@@ -494,21 +475,29 @@ final class BrandStageKeyboardView: UIView {
             autoButton.heightAnchor.constraint(equalToConstant: 44),
         ])
 
+        let trailingStack = UIStackView(
+            arrangedSubviews: [
+                historyButton,
+                latestButton,
+            ]
+        )
+        trailingStack.translatesAutoresizingMaskIntoConstraints = false
+        trailingStack.axis = .horizontal
+        trailingStack.alignment = .center
+        trailingStack.distribution = .fill
+        trailingStack.spacing = 4
+        trailingStack.accessibilityIdentifier =
+            "keyboard.brand-stage.trailing-actions"
+
         let rail = UIView()
         rail.translatesAutoresizingMaskIntoConstraints = false
         rail.addSubview(topLeadingContainer)
-        rail.addSubview(logoImageView)
-        rail.addSubview(latestButton)
+        rail.addSubview(trailingStack)
         topLeadingContainer.translatesAutoresizingMaskIntoConstraints = false
-        latestButton.translatesAutoresizingMaskIntoConstraints = false
         latestButton.setContentCompressionResistancePriority(
             .required,
             for: .horizontal
         )
-        let centersLogo = logoImageView.centerXAnchor.constraint(
-            equalTo: rail.centerXAnchor
-        )
-        centersLogo.priority = UILayoutPriority(998)
         NSLayoutConstraint.activate([
             topLeadingContainer.leadingAnchor.constraint(
                 equalTo: rail.leadingAnchor
@@ -517,18 +506,16 @@ final class BrandStageKeyboardView: UIView {
                 equalTo: rail.centerYAnchor
             ),
             topLeadingContainer.heightAnchor.constraint(equalToConstant: 44),
-            logoImageView.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
-            centersLogo,
             topLeadingContainer.trailingAnchor.constraint(
-                lessThanOrEqualTo: logoImageView.leadingAnchor,
-                constant: -3
+                lessThanOrEqualTo: trailingStack.leadingAnchor,
+                constant: -4
             ),
-            latestButton.trailingAnchor.constraint(equalTo: rail.trailingAnchor),
-            latestButton.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
-            latestButton.leadingAnchor.constraint(
-                greaterThanOrEqualTo: logoImageView.trailingAnchor,
-                constant: 3
+            trailingStack.trailingAnchor.constraint(
+                equalTo: rail.trailingAnchor
             ),
+            trailingStack.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
+            trailingStack.heightAnchor.constraint(equalToConstant: 44),
+            historyButton.widthAnchor.constraint(equalToConstant: 44),
             latestButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
             latestButton.heightAnchor.constraint(equalToConstant: 44),
             rail.heightAnchor.constraint(greaterThanOrEqualToConstant: 48),
@@ -887,6 +874,11 @@ final class BrandStageKeyboardView: UIView {
         automaticModesPanel.onDismissRequested = { [weak self] in
             self?.dismissAutomaticModesPanel()
         }
+        historyButton.addTarget(
+            self,
+            action: #selector(historyTapped),
+            for: .touchUpInside
+        )
         latestButton.addTarget(
             self,
             action: #selector(latestTapped),
@@ -984,7 +976,7 @@ final class BrandStageKeyboardView: UIView {
             bottom: 0,
             trailing: 8
         )
-        configuration.baseBackgroundColor = Self.editingKeyBackground
+        configuration.baseBackgroundColor = Self.keySurfaceBackground
         configuration.baseForegroundColor = Self.keyForeground
         configuration.titleTextAttributesTransformer =
             UIConfigurationTextAttributesTransformer { incoming in
@@ -1102,16 +1094,12 @@ final class BrandStageKeyboardView: UIView {
         }
     }
 
-    private func keyBackground(for button: UIButton) -> UIColor {
-        if button === latestButton
-            || button === quickInsertButton
-            || button === autoButton {
-            return Self.topActionBackground
-        }
-        if quickInsertButtons.contains(where: { $0 === button }) {
-            return Self.punctuationKeyBackground
-        }
-        return Self.editingKeyBackground
+    private func keyBackground(for _: UIButton) -> UIColor {
+        Self.keySurfaceBackground
+    }
+
+    @objc private func historyTapped() {
+        onHistoryRequested?()
     }
 
     @objc private func latestTapped() {
@@ -1302,19 +1290,7 @@ final class BrandStageKeyboardView: UIView {
             : UIColor(red: 0.69, green: 0.72, blue: 0.79, alpha: 1)
     }
 
-    private static let topActionBackground = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.105, green: 0.12, blue: 0.17, alpha: 1)
-            : UIColor(red: 0.975, green: 0.98, blue: 0.995, alpha: 1)
-    }
-
-    private static let punctuationKeyBackground = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.13, green: 0.145, blue: 0.19, alpha: 1)
-            : UIColor(red: 0.985, green: 0.99, blue: 1, alpha: 1)
-    }
-
-    private static let editingKeyBackground = UIColor { traits in
+    private static let keySurfaceBackground = UIColor { traits in
         traits.userInterfaceStyle == .dark
             ? UIColor(red: 0.18, green: 0.195, blue: 0.24, alpha: 1)
             : .white

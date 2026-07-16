@@ -5,9 +5,33 @@
 //  Created by Codex on 7/13/26.
 //
 
+import Foundation
 import Testing
 
 struct KeyboardCommandSurfaceIOSTests {
+
+    @Test func historyRouteAcceptsOnlyTheCanonicalURL() throws {
+        let route = KeyboardHistoryLaunchRoute()
+        let url = try #require(route.url)
+
+        #expect(url.absoluteString == "holdtype://history")
+        #expect(KeyboardHistoryLaunchRoute(url: url) != nil)
+
+        for rawURL in [
+            "holdtype://history/",
+            "holdtype://history/entry",
+            "holdtype://history?source=keyboard",
+            "holdtype://history#recent",
+            "holdtype://user@history",
+            "https://history",
+        ] {
+            #expect(
+                KeyboardHistoryLaunchRoute(
+                    url: try #require(URL(string: rawURL))
+                ) == nil
+            )
+        }
+    }
 
     @Test func voiceStatusUsesOnlyShortProductLabels() {
         #expect(KeyboardVoiceStatus.allCases.map(\.rawValue) == [

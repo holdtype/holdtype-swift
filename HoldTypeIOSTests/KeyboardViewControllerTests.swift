@@ -118,6 +118,25 @@ struct KeyboardViewControllerTests {
         ])
     }
 
+    @Test func historyActionOpensTheCanonicalContainingAppRoute() throws {
+        let harness = KeyboardControllerHarness()
+        let controller = harness.makeController()
+        controller.loadViewIfNeeded()
+
+        let historyButton = try button(
+            "keyboard.brand-stage.history",
+            in: controller.view
+        )
+        historyButton.sendActions(for: .touchUpInside)
+
+        #expect(harness.openedURLs == [
+            try #require(KeyboardHistoryLaunchRoute().url),
+        ])
+        #expect(harness.proxy.insertedTexts.isEmpty)
+        #expect(harness.savedCommands.isEmpty)
+        #expect(harness.savedHandoffIntents.isEmpty)
+    }
+
     @Test func oldHistoryLatestRemainsInsertableWithoutSchedulingExpiry() throws {
         let createdAt = Date(timeIntervalSince1970: 1_750_000_000)
         let latest = try KeyboardBridgeItem.latest(

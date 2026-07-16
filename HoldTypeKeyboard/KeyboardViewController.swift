@@ -416,6 +416,9 @@ final class KeyboardViewController: UIInputViewController {
             action: #selector(handleInputModeList(from:with:)),
             for: .allTouchEvents
         )
+        keyboardView.onHistoryRequested = { [weak self] in
+            self?.openHistory()
+        }
         keyboardView.onLatestRequested = { [weak self] in
             guard let self, let latestItem else { return }
             insert(latestItem)
@@ -943,6 +946,16 @@ final class KeyboardViewController: UIInputViewController {
         }
         automaticVoiceAction = action
         render()
+    }
+
+    private func openHistory() {
+        guard let url = KeyboardHistoryLaunchRoute().url else { return }
+        openContainingApp(url) {
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: "Could not open HoldType History."
+            )
+        }
     }
 
     private func openTranslationSettings() {

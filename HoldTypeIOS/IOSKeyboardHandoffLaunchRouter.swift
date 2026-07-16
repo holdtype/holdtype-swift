@@ -2,6 +2,7 @@ import Foundation
 
 enum IOSContainingAppLaunchDecision: Equatable {
     case ignore
+    case destination(IOSContainingAppDestination)
     case settings(IOSSettingsAttention)
     case keyboardHandoff(KeyboardHandoffIntentRecord)
 }
@@ -32,6 +33,9 @@ struct IOSKeyboardHandoffLaunchRouter {
     )
 
     func resolve(_ url: URL) -> IOSContainingAppLaunchDecision {
+        if KeyboardHistoryLaunchRoute(url: url) != nil {
+            return .destination(.history)
+        }
         if let attention = IOSSettingsAttention(launchURL: url) {
             return .settings(attention)
         }

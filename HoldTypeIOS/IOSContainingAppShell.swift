@@ -105,6 +105,8 @@ struct IOSContainingAppShell: View {
             switch launchRouter.resolve(url) {
             case .ignore:
                 break
+            case .destination(let destination):
+                requestDestination(destination)
             case .settings(let attention):
                 openSettings(.attention(attention))
             case .keyboardHandoff(let intent):
