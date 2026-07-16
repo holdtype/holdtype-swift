@@ -797,22 +797,31 @@ final class IOSKeyboardDictationSessionCoordinator {
 @MainActor
 @Observable
 final class IOSKeyboardHandoffPresentationOwner {
+    private static let maximumStartAttemptCount = 8
+
     private(set) var presentation: IOSKeyboardHandoffSheetPresentation?
 
     @ObservationIgnored
     private let session: IOSKeyboardDictationSessionCoordinator
     @ObservationIgnored
     private let preflight: IOSKeyboardHandoffPreflightClient
+    @ObservationIgnored
+    private let waitBeforeStartRetry: @MainActor @Sendable () async -> Void
     private var activeRequestID: UUID?
+    private var armingRequestID: UUID?
     private var generation: UInt64 = 0
     private var cancellationTask: Task<Void, Never>?
 
     init(
         session: IOSKeyboardDictationSessionCoordinator,
-        preflight: IOSKeyboardHandoffPreflightClient = .passThrough()
+        preflight: IOSKeyboardHandoffPreflightClient = .passThrough(),
+        waitBeforeStartRetry: @escaping @MainActor @Sendable () async -> Void = {
+            try? await Task.sleep(for: .milliseconds(150))
+        }
     ) {
         self.session = session
         self.preflight = preflight
+        self.waitBeforeStartRetry = waitBeforeStartRetry
     }
 
     func start(_ intent: KeyboardHandoffIntentRecord) async {
@@ -848,18 +857,33 @@ final class IOSKeyboardHandoffPresentationOwner {
             return
         }
 
-        let started = await session.startHandoff(intent) {
-            [weak self] requestID, event in
-            self?.receive(event, requestID: requestID)
+        armingRequestID = intent.requestID
+        for startAttemptIndex in 0..<Self.maximumStartAttemptCount {
+            if startAttemptIndex > 0 {
+                await waitBeforeStartRetry()
+            }
+            guard generation == currentGeneration,
+                  activeRequestID == intent.requestID else {
+                return
+            }
+
+            let started = await session.startHandoff(intent) {
+                [weak self] requestID, event in
+                self?.receive(event, requestID: requestID)
+            }
+            guard generation == currentGeneration,
+                  activeRequestID == intent.requestID else {
+                return
+            }
+            if started {
+                armingRequestID = nil
+                return
+            }
         }
-        guard generation == currentGeneration,
-              activeRequestID == intent.requestID else {
-            return
-        }
-        if !started {
-            activeRequestID = nil
-            presentation = nil
-        }
+
+        armingRequestID = nil
+        activeRequestID = nil
+        presentation = nil
     }
 
     func cancelFromSheet() {
@@ -883,6 +907,7 @@ final class IOSKeyboardHandoffPresentationOwner {
         await session.cancelHandoff(requestID: requestID)
         guard activeRequestID == requestID else { return }
         generation &+= 1
+        armingRequestID = nil
         activeRequestID = nil
         presentation = nil
     }
@@ -905,6 +930,7 @@ final class IOSKeyboardHandoffPresentationOwner {
             activeRequestID = nil
             presentation = nil
         case .terminal(.failed), .terminal(.expired):
+            guard armingRequestID != requestID else { return }
             activeRequestID = nil
             presentation = nil
         }

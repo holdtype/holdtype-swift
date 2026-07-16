@@ -88,6 +88,9 @@ resolved by silently degrading the keyboard into that manual-session design.
   reappear or block the new request. Accepted text already committed to Latest
   or History is preserved. Recovery owned by ordinary Voice is never discarded
   by this keyboard rule.
+- While that keyboard-only cleanup is finishing, the new handoff sheet remains
+  visible in Starting and retries admission silently. A transient stale-session
+  conflict must not dismiss the sheet or expose the unchanged Voice screen.
 - A fresh microphone tap from a different host app or input is the same
   unconditional supersession boundary. HoldType silently stops and retires the
   prior keyboard attempt, discards its uncommitted result, and starts the new

@@ -269,6 +269,44 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
     }
 
     @Test
+    func transientRetirementFailureKeepsStartingSheetAndRetriesSilently()
+        async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(
+            session: coordinator,
+            waitBeforeStartRetry: {}
+        )
+
+        await owner.start(harness.intent())
+        try await eventually {
+            harness.workflow.runRequestIDs == [harness.sessionID]
+        }
+        let staleAttemptID = try #require(harness.states.last?.attemptID)
+        harness.workflow.resolve(.failed)
+        try await eventually { owner.presentation == nil }
+
+        harness.supersessionResults = [false, true]
+        await owner.start(harness.intent(requestID: UUID()))
+
+        try await eventually {
+            harness.workflow.runRequestIDs.count == 2
+        }
+        #expect(owner.presentation?.phase == .starting)
+        #expect(harness.retiredAttemptIDs == [
+            staleAttemptID,
+            staleAttemptID,
+        ])
+        #expect(harness.workflow.runRequestIDs == [
+            harness.sessionID,
+            harness.sessionID,
+        ])
+
+        harness.workflow.resolve(.cancelled)
+        try await eventually { owner.presentation == nil }
+    }
+
+    @Test
     func freshHandoffWaitsForAnOlderSheetCloseWithoutBeingCleared()
         async throws {
         let harness = KeyboardSessionHarness()
@@ -544,6 +582,7 @@ private final class KeyboardSessionHarness {
     var states: [HoldTypeIOS.KeyboardDictationStateRecord] = []
     var persistedState: HoldTypeIOS.KeyboardDictationStateRecord?
     var retiredAttemptIDs: [UUID] = []
+    var supersessionResults: [Bool] = []
     var postCount = 0
     var expiryAction: (@MainActor () -> Void)?
     let backgroundTaskID = UIBackgroundTaskIdentifier(rawValue: 42)
@@ -562,7 +601,11 @@ private final class KeyboardSessionHarness {
                 supersession: IOSKeyboardHandoffSupersessionClient {
                     [weak self] attemptID in
                     self?.retiredAttemptIDs.append(attemptID)
-                    return true
+                    guard let self,
+                          !self.supersessionResults.isEmpty else {
+                        return true
+                    }
+                    return self.supersessionResults.removeFirst()
                 },
                 permission: IOSForegroundVoiceWorkflowPermissionClient(
                     read: { .granted },
