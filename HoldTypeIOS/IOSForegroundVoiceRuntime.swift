@@ -329,6 +329,7 @@ final class IOSForegroundVoiceRuntime {
         self.workflow = workflow
         keyboardDictationSession = IOSKeyboardDictationSessionCoordinator(
             workflow: workflow.keyboardDictationClient,
+            supersession: .live(persistenceOwner: persistenceOwner),
             permission: permissionOwner.client
         )
         let controller = factories.makeController(

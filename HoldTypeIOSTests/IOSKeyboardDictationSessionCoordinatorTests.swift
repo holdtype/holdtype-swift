@@ -203,6 +203,77 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
     }
 
     @Test
+    func freshHandoffRetiresPriorFailedKeyboardAttemptBeforeRecording()
+        async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        let first = harness.intent()
+
+        await owner.start(first)
+        try await eventually {
+            harness.workflow.runRequestIDs == [harness.sessionID]
+        }
+        let failedAttemptID = try #require(harness.states.last?.attemptID)
+        harness.workflow.resolve(.failed)
+        try await eventually {
+            owner.presentation?.runtimeFailure == .interrupted
+        }
+
+        let second = harness.intent(requestID: UUID())
+        await owner.start(second)
+        try await eventually {
+            harness.workflow.runRequestIDs == [
+                harness.sessionID,
+                harness.sessionID,
+            ]
+        }
+
+        #expect(harness.retiredAttemptIDs == [failedAttemptID])
+        #expect(owner.presentation?.phase == .starting)
+        harness.workflow.resolve(.cancelled)
+        try await eventually { owner.presentation == nil }
+    }
+
+    @Test
+    func freshHandoffWaitsForAnOlderSheetCloseWithoutBeingCleared()
+        async throws {
+        let harness = KeyboardSessionHarness()
+        let coordinator = harness.makeCoordinator()
+        let owner = IOSKeyboardHandoffPresentationOwner(session: coordinator)
+        await owner.start(harness.intent())
+        try await eventually {
+            harness.workflow.runRequestIDs == [harness.sessionID]
+        }
+        harness.workflow.emit(.listening)
+        try await eventually { owner.presentation?.phase == .listening }
+
+        owner.cancelFromSheet()
+        try await eventually {
+            harness.workflow.cancelRequestIDs == [harness.sessionID]
+        }
+
+        let replacement = Task { @MainActor in
+            await owner.start(harness.intent(requestID: UUID()))
+        }
+        await Task.yield()
+        #expect(owner.presentation?.phase == .starting)
+
+        harness.workflow.resolve(.cancelled)
+        await replacement.value
+        try await eventually {
+            harness.workflow.runRequestIDs == [
+                harness.sessionID,
+                harness.sessionID,
+            ]
+        }
+        #expect(owner.presentation?.phase == .starting)
+
+        harness.workflow.resolve(.cancelled)
+        try await eventually { owner.presentation == nil }
+    }
+
+    @Test
     func closeDuringArmingInvalidatesLatePreparation() async throws {
         let harness = KeyboardSessionHarness()
         harness.workflow.suspendsTranslationAvailability = true
@@ -437,6 +508,8 @@ private final class KeyboardSessionHarness {
     var now = Date(timeIntervalSince1970: 1_800_000_000)
     var command: HoldTypeIOS.KeyboardDictationCommandRecord?
     var states: [HoldTypeIOS.KeyboardDictationStateRecord] = []
+    var persistedState: HoldTypeIOS.KeyboardDictationStateRecord?
+    var retiredAttemptIDs: [UUID] = []
     var postCount = 0
     var expiryAction: (@MainActor () -> Void)?
     let backgroundTaskID = UIBackgroundTaskIdentifier(rawValue: 42)
@@ -452,6 +525,11 @@ private final class KeyboardSessionHarness {
         IOSKeyboardDictationSessionCoordinator(
             dependencies: IOSKeyboardDictationSessionDependencies(
                 workflow: workflow.client,
+                supersession: IOSKeyboardHandoffSupersessionClient {
+                    [weak self] attemptID in
+                    self?.retiredAttemptIDs.append(attemptID)
+                    return true
+                },
                 permission: IOSForegroundVoiceWorkflowPermissionClient(
                     read: { .granted },
                     requestIfUndetermined: { .granted }
@@ -463,8 +541,10 @@ private final class KeyboardSessionHarness {
                     }
                     return command
                 },
+                loadState: { [weak self] _ in self?.persistedState },
                 saveState: { [weak self] state in
                     self?.states.append(state)
+                    self?.persistedState = state
                 },
                 postStateChanged: { [weak self] in self?.postCount += 1 },
                 applicationIsActive: { true },

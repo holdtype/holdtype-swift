@@ -78,6 +78,14 @@ resolved by silently degrading the keyboard into that manual-session design.
 - A runtime failure or expiry remains a keyboard-owned status in the handoff
   sheet until the user closes it. Successful completion dismisses the sheet.
   Neither outcome routes to or changes ordinary Voice presentation.
+- Every fresh keyboard microphone tap immediately supersedes the prior
+  keyboard request, including a failed, expired, interrupted, processing, or
+  undelivered attempt. Before admitting the new capture, HoldType cancels any
+  remaining keyboard work and retires only local recovery whose attempt
+  identity matches that prior keyboard request. The old sheet status must not
+  reappear or block the new request. Accepted text already committed to Latest
+  or History is preserved. Recovery owned by ordinary Voice is never discarded
+  by this keyboard rule.
 - HoldType does not claim it can return to the host automatically. The user may
   need to swipe back or use the normal iOS app-switching gesture.
 - If the user taps keyboard Translate while its saved route is incomplete, the
@@ -117,7 +125,7 @@ The keyboard may present these product states:
 - `Result ready`: safe automatic insertion is pending or explicit recovery is
   available;
 - `Failed` or `Expired`: the request cannot continue and a new microphone tap
-  starts a fresh request.
+  starts a fresh request after retiring the previous keyboard attempt.
 
 No surface may claim `Listening` before the containing app has started real
 capture. Stale state from an earlier request must never make the current

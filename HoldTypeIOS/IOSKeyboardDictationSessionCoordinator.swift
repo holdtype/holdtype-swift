@@ -18,8 +18,10 @@ nonisolated enum IOSKeyboardHandoffTerminalDisposition: Equatable, Sendable {
 @MainActor
 struct IOSKeyboardDictationSessionDependencies {
     let workflow: IOSKeyboardDictationWorkflowClient
+    let supersession: IOSKeyboardHandoffSupersessionClient
     let permission: IOSForegroundVoiceWorkflowPermissionClient
     let loadCommand: (Date) throws -> KeyboardDictationCommandRecord?
+    let loadState: (Date) throws -> KeyboardDictationStateRecord?
     let saveState: (KeyboardDictationStateRecord) throws -> Void
     let postStateChanged: () -> Void
     let applicationIsActive: () -> Bool
@@ -94,15 +96,20 @@ final class IOSKeyboardDictationSessionCoordinator {
 
     convenience init(
         workflow: IOSKeyboardDictationWorkflowClient,
+        supersession: IOSKeyboardHandoffSupersessionClient = .passThrough(),
         permission: IOSForegroundVoiceWorkflowPermissionClient
     ) {
         let store = try? KeyboardDictationBridgeStore.appGroup()
         self.init(
             dependencies: IOSKeyboardDictationSessionDependencies(
                 workflow: workflow,
+                supersession: supersession,
                 permission: permission,
                 loadCommand: { date in
                     try store?.loadCommand(at: date)
+                },
+                loadState: { date in
+                    try store?.loadState(at: date)
                 },
                 saveState: { record in
                     guard let store else {
@@ -153,11 +160,13 @@ final class IOSKeyboardDictationSessionCoordinator {
                     finish: { _ in false },
                     cancel: { _ in false }
                 ),
+                supersession: .passThrough(),
                 permission: IOSForegroundVoiceWorkflowPermissionClient(
                     read: { .unavailable },
                     requestIfUndetermined: { .unavailable }
                 ),
                 loadCommand: { _ in nil },
+                loadState: { _ in nil },
                 saveState: { _ in
                     throw KeyboardDictationBridgeStoreError.writeFailed
                 },
@@ -260,11 +269,19 @@ final class IOSKeyboardDictationSessionCoordinator {
             return false
         }
 
+        let supersededAttemptID = activeAttempt?.attemptID
+            ?? (try? dependencies.loadState(.distantPast))?.attemptID
         let previousTask = workflowTask
         cancelCurrentWorkflow()
         await previousTask?.value
         workflowTask = nil
         finishSessionLifetime()
+
+        if let supersededAttemptID,
+           !(await dependencies.supersession.retire(supersededAttemptID)) {
+            presentation = .failed("Try Again")
+            return false
+        }
 
         let now = dependencies.now()
         guard intent.isPending(at: now),
@@ -802,6 +819,16 @@ final class IOSKeyboardHandoffPresentationOwner {
         presentation = IOSKeyboardHandoffSheetPresentation(
             phase: .starting
         )
+
+        // A close from the previous sheet may still be waiting for recorder
+        // cancellation. A fresh request supersedes its presentation
+        // immediately, but does not race that cleanup inside the shared
+        // keyboard session.
+        await cancellationTask?.value
+        guard generation == currentGeneration,
+              activeRequestID == intent.requestID else {
+            return
+        }
 
         let preflightResult = await preflight.run(intent)
         guard generation == currentGeneration,

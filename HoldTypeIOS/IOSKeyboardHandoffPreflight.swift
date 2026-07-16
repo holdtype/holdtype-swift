@@ -1,7 +1,70 @@
 import Foundation
 import HoldTypeDomain
 import HoldTypeIOSCore
-import HoldTypePersistence
+@_spi(HoldTypeIOSCore) import HoldTypePersistence
+
+struct IOSKeyboardHandoffSupersessionClient: Sendable {
+    let retire: @MainActor @Sendable (UUID) async -> Bool
+
+    nonisolated static func passThrough() -> Self {
+        Self { _ in true }
+    }
+
+    static func live(
+        persistenceOwner: IOSV1ForegroundVoicePersistenceOwner
+    ) -> Self {
+        Self { attemptID in
+            // Complete accepted-output cleanup first. This preserves Latest
+            // and History while removing only its obsolete local audio owner.
+            _ = await persistenceOwner.recoverContainingAppLifecycle(
+                .foregroundOpportunity
+            )
+
+            do {
+                if let pending = try await persistenceOwner.load(),
+                   pending.recording.attemptID == attemptID {
+                    guard pending.recording.phase != .acceptedCleanup else {
+                        return false
+                    }
+                    _ = try await persistenceOwner.discard(
+                        expected: pending.expectation
+                    )
+                }
+
+                switch await persistenceOwner
+                    .reconcileCaptureSourcesAtLaunch() {
+                case .recoverable(let captureAttemptID)
+                    where captureAttemptID == attemptID:
+                    try await persistenceOwner.discardCapture(
+                        attemptID: attemptID
+                    )
+                case .discardOnly(let captureAttemptID)
+                    where captureAttemptID == attemptID:
+                    try await persistenceOwner.discardCapture(
+                        attemptID: attemptID
+                    )
+                case .empty, .blocked, .recoverable(_), .discardOnly(_):
+                    break
+                }
+
+                let remainingPending = try await persistenceOwner.load()
+                guard remainingPending?.recording.attemptID != attemptID else {
+                    return false
+                }
+                switch await persistenceOwner
+                    .reconcileCaptureSourcesAtLaunch() {
+                case .recoverable(let captureAttemptID),
+                     .discardOnly(let captureAttemptID):
+                    return captureAttemptID != attemptID
+                case .empty, .blocked:
+                    return true
+                }
+            } catch {
+                return false
+            }
+        }
+    }
+}
 
 nonisolated enum IOSKeyboardHandoffPreflightIssue: Equatable, Sendable {
     case localDataUnavailable

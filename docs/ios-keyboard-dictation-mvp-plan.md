@@ -381,6 +381,10 @@ wrong-field insertion or manual-session message.
 7. Return an unexpired, healthy session to Ready for another keyboard attempt.
 8. Let an expired or unavailable session cause the next microphone tap to open
    HoldType again.
+9. Treat every new microphone tap as an atomic supersession boundary: cancel
+   remaining work and retire identity-matched local recovery from the previous
+   keyboard attempt before admitting the new one, while preserving committed
+   Latest/History and leaving ordinary Voice recovery untouched.
 
 Exit when one accepted result inserts at most once, fallback remains recoverable,
 and warm/cold transitions are deterministic.
