@@ -666,6 +666,120 @@ struct BrandStageKeyboardViewTests {
         )
     }
 
+    @Test func voiceWaveformsStayMirroredAndFollowEveryVoicePhase() throws {
+        let view = makeView(width: 393)
+        let expectedPhases: [
+            (KeyboardVoiceStagePresentation, KeyboardVoiceWaveformPhase)
+        ] = [
+            (.ready, .ready),
+            (.opening, .starting),
+            (.starting, .starting),
+            (.listening, .listening),
+            (.processing, .processing),
+        ]
+
+        for (stage, expectedPhase) in expectedPhases {
+            view.render(presentation(voiceStage: stage))
+            layout(view)
+
+            let waveform = try voiceWaveform(in: view)
+            #expect(waveform.phase == expectedPhase)
+            #expect(waveform.barCountPerSide == 21)
+            assertMirroredWaveform(waveform)
+        }
+
+        #expect(
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.cancel"
+            ) == nil
+        )
+    }
+
+    @Test func quickInsertSuspendsAndRestoresWaveformMotion() throws {
+        let window = UIWindow(
+            frame: CGRect(x: 0, y: 0, width: 393, height: 302)
+        )
+        let hostController = UIViewController()
+        window.rootViewController = hostController
+        window.isHidden = false
+        defer { window.isHidden = true }
+
+        let view = BrandStageKeyboardView(frame: window.bounds)
+        hostController.view.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(
+                equalTo: hostController.view.leadingAnchor
+            ),
+            view.trailingAnchor.constraint(
+                equalTo: hostController.view.trailingAnchor
+            ),
+            view.topAnchor.constraint(equalTo: hostController.view.topAnchor),
+            view.bottomAnchor.constraint(
+                equalTo: hostController.view.bottomAnchor
+            ),
+        ])
+        view.render(
+            presentation(
+                status: .listening,
+                voiceStage: .listening
+            )
+        )
+        hostController.view.layoutIfNeeded()
+
+        let waveform = try voiceWaveform(in: view)
+        let toggle = try button(
+            "keyboard.brand-stage.quick-insert-toggle",
+            in: view
+        )
+        #expect(waveform.presentationIsVisible)
+        #expect(
+            waveform.hasActiveAnimations
+                == !UIAccessibility.isReduceMotionEnabled
+        )
+
+        toggle.sendActions(for: .touchUpInside)
+        hostController.view.layoutIfNeeded()
+        #expect(!waveform.presentationIsVisible)
+        #expect(!waveform.hasActiveAnimations)
+
+        toggle.sendActions(for: .touchUpInside)
+        hostController.view.layoutIfNeeded()
+        #expect(waveform.presentationIsVisible)
+        #expect(waveform.phase == .listening)
+        #expect(
+            waveform.hasActiveAnimations
+                == !UIAccessibility.isReduceMotionEnabled
+        )
+    }
+
+    @Test func waveformMotionPolicyPreservesTruthAndReduceMotion() {
+        #expect(
+            KeyboardVoiceWaveformPhase.ready.motion(reduceMotion: false)
+                == .staticSilhouette
+        )
+        #expect(
+            KeyboardVoiceWaveformPhase.starting.motion(reduceMotion: false)
+                == .opacitySweep
+        )
+        #expect(
+            KeyboardVoiceWaveformPhase.listening.motion(reduceMotion: false)
+                == .listeningPulse
+        )
+        #expect(
+            KeyboardVoiceWaveformPhase.processing.motion(reduceMotion: false)
+                == .processingSweep
+        )
+        #expect(
+            KeyboardVoiceWaveformPhase.listening.motion(reduceMotion: true)
+                == .staticSilhouette
+        )
+        #expect(
+            KeyboardVoiceWaveformPhase.processing.motion(reduceMotion: true)
+                == .staticSilhouette
+        )
+    }
+
     @Test func startingAndProcessingKeepTheCentralVoiceIndicatorVisible()
         throws {
         let view = makeView(width: 393)
@@ -814,6 +928,25 @@ struct BrandStageKeyboardViewTests {
                     in: view
                 )
                 #expect(globe.isHidden == !showsGlobe)
+            }
+        }
+    }
+
+    @Test func compactPhoneWaveformsRemainMirroredAndInBounds() throws {
+        for width in Self.compactLandscapeWidths {
+            let fixture = makeCompactLandscapeFixture(
+                width: width,
+                showsInputModeSwitchKey: true
+            )
+            let view = fixture.view
+            let waveform = try voiceWaveform(in: view)
+
+            assertMirroredWaveform(waveform)
+            for frame in waveform.leftBarFrames + waveform.rightBarFrames {
+                #expect(frame.minX >= -0.1)
+                #expect(frame.maxX <= waveform.bounds.maxX + 0.1)
+                #expect(frame.minY >= -0.1)
+                #expect(frame.maxY <= waveform.bounds.maxY + 0.1)
             }
         }
     }
@@ -1066,6 +1199,36 @@ struct BrandStageKeyboardViewTests {
         let contentView = try #require(activity.subviews.first)
         let orbitView = try #require(contentView.subviews.first)
         return (orbitView.layer.sublayers ?? []).map(ObjectIdentifier.init)
+    }
+
+    private func voiceWaveform(
+        in view: UIView
+    ) throws -> KeyboardVoiceWaveformView {
+        try #require(
+            view.descendant(
+                KeyboardVoiceWaveformView.self,
+                identifier: "keyboard.brand-stage.voice-waveform"
+            )
+        )
+    }
+
+    private func assertMirroredWaveform(
+        _ waveform: KeyboardVoiceWaveformView
+    ) {
+        let leftFrames = waveform.leftBarFrames
+        let rightFrames = waveform.rightBarFrames
+        #expect(leftFrames.count == 21)
+        #expect(rightFrames.count == 21)
+
+        for index in leftFrames.indices {
+            #expect(abs(leftFrames[index].height - rightFrames[index].height) < 0.1)
+            #expect(
+                abs(
+                    leftFrames[index].midX + rightFrames[index].midX
+                        - waveform.bounds.midX * 2
+                ) < 0.6
+            )
+        }
     }
 
     private func controlFrames(in view: UIView) -> [String: CGRect] {

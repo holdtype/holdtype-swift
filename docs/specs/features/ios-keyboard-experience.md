@@ -75,7 +75,10 @@ The approved Brand Stage reference remains the geometry source of truth. On
 iPhone the surface uses approximately 18-point side insets, 8-point editing-key
 gaps, an approximately 128-point Voice activity control in regular-height
 portrait and an approximately 88-point control in compact-height landscape,
-and an editing-key relationship close to `Globe : Space : Delete : Return` of
+plus one bounded 21-bar waveform on each side of that activity. The waveforms
+stay centered with the activity, mirror the approved Brand Stage silhouette,
+and adapt their spacing and height without stretching the central artwork. The
+editing-key relationship remains close to `Globe : Space : Delete : Return` of
 `1 : 4.35 : 1.15 : 1.25`. Every action is at least 44 by 44 points.
 
 Compact-height landscape may use the existing two-column reflow. Wider iPad
@@ -201,22 +204,29 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   request identifier.
 - Ready uses the same full-color cyan HoldType recording artwork as the
   containing app, scaled to the keyboard workspace and presented statically as
-  the primary Start action. It contains no microphone glyph, side waveforms,
-  duplicate logo, or visible Ready label.
+  the primary Start action. A static low-energy cyan waveform appears on each
+  side. The activity contains no microphone glyph, duplicate logo, or visible
+  Ready label.
 - The app acknowledges actual capture before the keyboard presents
   `Listening…`; an optimistic or fabricated listening state is forbidden.
 - Listening keeps the recording artwork in the same location and adds the same
-  restrained orbit rotation and pulse as the containing app. Tapping that
-  activity requests Finish. No separate Cancel control appears beside it or
-  shifts the activity away from the workspace center; cancellation before the
-  return gesture remains available from the handoff sheet's close action.
+  restrained orbit rotation and pulse as the containing app. Both cyan
+  waveforms animate through deterministic, slightly phase-shifted height and
+  opacity cycles. They are phase-driven decorative motion, not a microphone
+  power meter. Tapping the activity requests Finish. No separate Cancel control
+  appears beside it or shifts the activity away from the workspace center;
+  cancellation before the return gesture remains available from the handoff
+  sheet's close action.
 - A second tap requests Finish.
-- Starting keeps the central Voice indicator in its bounded starting state
-  until real capture is acknowledged.
+- Opening and Starting keep the central Voice indicator in its bounded starting
+  state until real capture is acknowledged. Their cyan waveforms may use a slow
+  opacity sweep but do not change height like Listening or imply microphone
+  power.
 - After actual capture stops, the keyboard replaces the recording artwork with
   the containing app's purple recognition artwork and slower orbit animation
-  while the existing app-owned OpenAI and text-rule pipeline runs. The activity
-  stays centered and unavailable as a primary action while processing.
+  while the existing app-owned OpenAI and text-rule pipeline runs. Both purple
+  waveforms use a slower edge-to-center processing cycle. The activity stays
+  centered and unavailable as a primary action while processing.
 - If the same live keyboard request still owns the active host context, one
   accepted result performs exactly one `insertText` call.
 - If the extension is dismissed, restarted, changes host context, loses the
@@ -297,6 +307,8 @@ without showing `Inserted` or rendering a result preview.
 - Listening, processing, success, and failure never rely on color alone.
 - Increase Contrast strengthens boundaries; Reduce Transparency replaces
   material effects with opaque system colors.
+- Reduce Motion keeps both side waveforms visible as complete static silhouettes
+  for the current cyan or purple phase.
 - Theme follows system appearance. Light and Dark use identical geometry.
 - Re-rendering an unchanged voice phase does not rebuild the central activity
   artwork, restart its orbit or pulse, move accessibility focus, or flash the

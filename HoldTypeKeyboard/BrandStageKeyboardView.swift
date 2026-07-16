@@ -48,6 +48,7 @@ final class BrandStageKeyboardView: UIView {
     private let deleteButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
     private let microphoneView = UIButton(type: .system)
+    private let voiceWaveformView = KeyboardVoiceWaveformView()
     private let voiceActivityIndicator = KeyboardVoiceActivityIndicatorView()
     private var microphoneWidthConstraint: NSLayoutConstraint?
     private var microphoneHeightConstraint: NSLayoutConstraint?
@@ -146,23 +147,28 @@ final class BrandStageKeyboardView: UIView {
         switch presentation {
         case .ready:
             microphoneView.isEnabled = true
+            voiceWaveformView.render(.ready)
             voiceActivityIndicator.render(.ready)
             microphoneView.accessibilityLabel = "Start keyboard dictation"
             microphoneView.accessibilityValue = "Ready"
         case .opening:
+            voiceWaveformView.render(.starting)
             voiceActivityIndicator.render(.ready)
             microphoneView.accessibilityLabel = "Opening HoldType"
             microphoneView.accessibilityValue = "Please wait"
         case .listening:
             microphoneView.isEnabled = true
+            voiceWaveformView.render(.listening)
             voiceActivityIndicator.render(.listening)
             microphoneView.accessibilityLabel = "Finish keyboard dictation"
             microphoneView.accessibilityValue = "Listening"
         case .starting:
+            voiceWaveformView.render(.starting)
             voiceActivityIndicator.render(.ready)
             microphoneView.accessibilityLabel = "Starting keyboard dictation"
             microphoneView.accessibilityValue = "Starting"
         case .processing:
+            voiceWaveformView.render(.processing)
             voiceActivityIndicator.render(.recognizing)
             microphoneView.accessibilityLabel = "Processing keyboard dictation"
             microphoneView.accessibilityValue = "Recognizing"
@@ -172,6 +178,7 @@ final class BrandStageKeyboardView: UIView {
     private func updateWorkspaceVisibility() {
         quickInsertStage.isHidden = !quickInsertIsPresented
         voiceStage.isHidden = quickInsertIsPresented
+        voiceWaveformView.setPresentationVisible(!quickInsertIsPresented)
         logoImageView.isHidden = true
 
         stageContainer.accessibilityValue = quickInsertIsPresented
@@ -593,7 +600,9 @@ final class BrandStageKeyboardView: UIView {
     private func configureVoiceStage() {
         voiceStage.translatesAutoresizingMaskIntoConstraints = false
         microphoneView.translatesAutoresizingMaskIntoConstraints = false
+        voiceWaveformView.translatesAutoresizingMaskIntoConstraints = false
         voiceActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        voiceStage.addSubview(voiceWaveformView)
         voiceStage.addSubview(microphoneView)
         microphoneView.addSubview(voiceActivityIndicator)
 
@@ -602,6 +611,8 @@ final class BrandStageKeyboardView: UIView {
         microphoneView.isAccessibilityElement = true
         microphoneView.accessibilityTraits.insert(.button)
         microphoneView.accessibilityIdentifier = "keyboard.brand-stage.voice"
+        voiceWaveformView.accessibilityIdentifier =
+            "keyboard.brand-stage.voice-waveform"
         voiceActivityIndicator.accessibilityIdentifier =
             "keyboard.brand-stage.voice-indicator"
         let microphoneWidth = microphoneView.widthAnchor.constraint(
@@ -613,6 +624,18 @@ final class BrandStageKeyboardView: UIView {
         microphoneWidthConstraint = microphoneWidth
         microphoneHeightConstraint = microphoneHeight
         NSLayoutConstraint.activate([
+            voiceWaveformView.leadingAnchor.constraint(
+                equalTo: voiceStage.leadingAnchor
+            ),
+            voiceWaveformView.trailingAnchor.constraint(
+                equalTo: voiceStage.trailingAnchor
+            ),
+            voiceWaveformView.topAnchor.constraint(
+                equalTo: voiceStage.topAnchor
+            ),
+            voiceWaveformView.bottomAnchor.constraint(
+                equalTo: voiceStage.bottomAnchor
+            ),
             microphoneView.centerXAnchor.constraint(
                 equalTo: voiceStage.centerXAnchor
             ),

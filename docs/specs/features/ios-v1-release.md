@@ -360,9 +360,11 @@ The first-release surface provides:
 - a compact top row with Quick Insert and one labeled `Auto` menu on the left,
   the HoldType mark centered without status text, and `Latest` insertion on the
   right;
-- one medium central Voice indicator for Ready, Opening, Starting, Listening,
-  Processing, and compact failures; the microphone starts warm capture or cold
-  handoff and becomes Finish while Listening;
+- one medium central Voice indicator with bounded symmetric side waveforms for
+  Ready, Opening, Starting, Listening, Processing, and compact failures; the
+  microphone starts warm capture or cold handoff and becomes Finish while
+  Listening, while phase-driven waveform motion never claims to be live audio
+  metering;
 - one direct, reversible Quick Insert workspace containing bundled local
   punctuation and emoji; it replaces the Voice workspace without an
   intermediate launcher, has no visible title, shows two emoji rows in regular
