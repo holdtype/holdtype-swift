@@ -100,6 +100,15 @@ Verifier result: **53 passed, 0 failed, 0 manual.** Verifier regression result:
 keyboard isolation. It is development-signed evidence, not yet an App Store
 distribution signature or an uploaded TestFlight candidate.
 
+A clean local archive of checkpoint `be33560` also succeeded at
+`/tmp/holdtype-kbd-flow8-archive.gwGPJz/HoldType-iOS-be33560.xcarchive`.
+Its embedded app independently passes the same **53/53** verifier checks and
+identifies as version `1.0` build `1`, bundle `app.holdtype.HoldType.ios`, team
+`PUA6HH22D7`. The archive uses the installed Apple Development identity. No
+Apple Distribution identity is currently installed, and no App Store export,
+certificate creation, or upload was attempted. Therefore this is archive
+readiness evidence, not an internal TestFlight candidate.
+
 ## Runtime History
 
 CoreDevice installed the app, then rejected the launch because the physical
