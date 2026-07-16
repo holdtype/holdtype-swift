@@ -362,10 +362,12 @@ handoff starts one real capture and one sheet.
    the keyboard activity indicator.
 5. Remove instructional navigation copy from every keyboard recovery state.
 6. Preserve compact operational and runtime failures in the existing error area.
-7. Keep source document identity as an independent automatic-insertion gate. A
-   changed or temporarily missing identity must not hide Listening or prevent
-   Finish for the matching consumed handoff, and it must not discard the
-   accepted result.
+7. Keep document identity as an independent automatic-insertion gate. UIKit may
+   issue a new proxy identifier when the user returns to the same input, so the
+   first non-empty identifier after exact consumed-handoff reconnection becomes
+   the delivery anchor. A later change or temporarily missing identity must not
+   hide Listening or prevent Finish, and it must not discard the accepted
+   result.
 
 Exit when recreation, return, focus-change, and expiry tests pass without a
 wrong-field insertion or manual-session message.

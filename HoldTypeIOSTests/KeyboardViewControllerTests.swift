@@ -686,10 +686,11 @@ struct KeyboardViewControllerTests {
         #expect(finish.sourceDocumentID == sourceDocumentID)
     }
 
-    @Test func consumedHandoffNeverWeakensAutomaticInsertionGate() throws {
+    @Test func consumedHandoffAnchorsReturnedDocumentAndInsertsOnce() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()
         let sourceDocumentID = UUID()
+        let returnedDocumentID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
             dictationState: try #require(
@@ -704,7 +705,7 @@ struct KeyboardViewControllerTests {
                     expiresAt: now.addingTimeInterval(60)
                 )
             ),
-            requestID: UUID(),
+            requestID: returnedDocumentID,
             consumedHandoffIntent: try #require(
                 consumedHandoffIntent(
                     requestID: requestID,
@@ -715,6 +716,76 @@ struct KeyboardViewControllerTests {
         )
         let recreatedController = harness.makeController()
         recreatedController.loadViewIfNeeded()
+
+        let claim = try #require(harness.savedCommands.last)
+        #expect(claim.kind == .claimDelivery)
+        #expect(harness.proxy.insertedTexts.isEmpty)
+
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: claim.sessionID,
+                attemptID: claim.attemptID,
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                deliveryClaimID: harness.deliveryClaimID,
+                phase: .resultReady,
+                result: "Returned document result",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        recreatedController.textDidChange(nil)
+
+        #expect(harness.proxy.insertedTexts == ["Returned document result"])
+        #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
+    }
+
+    @Test func documentChangeAfterReturnedAnchorPreventsInsertion() throws {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let sessionID = UUID()
+        let attemptID = UUID()
+        let requestID = UUID()
+        let sourceDocumentID = UUID()
+        let returnedDocumentID = UUID()
+        let harness = KeyboardControllerHarness(
+            now: now,
+            dictationState: try #require(
+                KeyboardDictationStateRecord(
+                    sessionID: sessionID,
+                    attemptID: attemptID,
+                    requestID: requestID,
+                    sourceDocumentID: sourceDocumentID,
+                    phase: .listening,
+                    publishedAt: now,
+                    expiresAt: now.addingTimeInterval(60)
+                )
+            ),
+            requestID: returnedDocumentID,
+            consumedHandoffIntent: try #require(
+                consumedHandoffIntent(
+                    requestID: requestID,
+                    sourceDocumentID: sourceDocumentID,
+                    now: now
+                )
+            )
+        )
+        let recreatedController = harness.makeController()
+        recreatedController.loadViewIfNeeded()
+
+        harness.currentDocumentIdentifier = UUID()
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                phase: .resultReady,
+                result: "Wrong document result",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        recreatedController.textDidChange(nil)
 
         #expect(harness.proxy.insertedTexts.isEmpty)
         #expect(harness.savedCommands.isEmpty)

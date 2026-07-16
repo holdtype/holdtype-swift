@@ -106,8 +106,8 @@ resolved by silently degrading the keyboard into that manual-session design.
 - Finish stops recording and starts the existing app-owned transcription and
   optional correction/translation pipeline.
 - A fresh accepted result inserts automatically only when the current document
-  still matches the request's originating document and delivery has not already
-  been claimed.
+  still matches the post-return delivery anchor for the exact consumed request
+  and delivery has not already been claimed.
 - If safe automatic delivery is no longer possible, the result remains in
   Latest and the keyboard offers an explicit Insert recovery action. That is an
   exception path, not the normal workflow.
@@ -147,21 +147,25 @@ microphone appear active.
   attempt, and request match both shared state and the last app-consumed
   keyboard handoff. Extension-process identity is never a valid ownership
   boundary.
-- Originating document identity is a separate delivery gate. A matching value
-  permits automatic insertion; a missing or changed value never prevents the
-  user from seeing Listening or finishing the matching capture, but it makes
-  automatic insertion ineligible and preserves the accepted result in Latest.
-- If UIKit temporarily withholds the current document identifier after
-  recreating the extension, the keyboard may repeat that local read for a
-  short bounded interval while the result remains fresh. It must not request a
-  delivery claim or insert until the current non-empty identifier exactly
-  matches the originating identifier; two missing values are never a match.
+- Originating document identity remains pre-handoff evidence, but UIKit may
+  issue a different proxy identifier when the user returns to the same input
+  after the containing app handoff. After reconnection through the exact
+  consumed request, the first non-empty returned proxy identifier becomes the
+  delivery anchor for that keyboard lifetime.
+- A missing returned identifier never prevents the user from seeing Listening
+  or finishing the matching capture. The keyboard may repeat that local read
+  for a short bounded interval while the result remains fresh, but it must not
+  request a delivery claim or insert until a non-empty delivery anchor exists.
+- If the current identifier changes after the returned delivery anchor is
+  established, automatic insertion is ineligible and the accepted result
+  remains in Latest. Two missing values are never a match.
 
 ## Delivery Guarantees
 
 - One accepted result may be inserted automatically at most once.
-- Delivery eligibility requires the same request, a matching originating
-  document, an unexpired result, and no prior insertion claim.
+- Delivery eligibility requires the same consumed request, a current document
+  matching its post-return delivery anchor, an unexpired result, and no prior
+  insertion claim.
 - The keyboard writes a fresh opaque delivery-claim identifier and waits for
   the containing app to grant that exact claim before calling `insertText`.
 - A recreated extension does not inherit another process's granted claim, so
