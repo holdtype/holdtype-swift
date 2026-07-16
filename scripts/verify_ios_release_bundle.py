@@ -25,6 +25,9 @@ MICROPHONE_PURPOSE = (
 )
 DEFAULT_TOOL_TIMEOUT_SECONDS = 10.0
 SHARED_APP_GROUP = "group.app.holdtype.HoldType.shared"
+APP_BACKGROUND_MODES = ["audio"]
+BUNDLE_SCAN_IGNORED_PATHS = {"embedded.mobileprovision"}
+BUNDLE_SCAN_IGNORED_DIRECTORIES = {"_CodeSignature"}
 
 SYSTEM_DEPENDENCY_PREFIXES = (
     "/System/Library/",
@@ -241,7 +244,9 @@ def check_compiled_rgb_png(
         return fail_check(name, f"missing PNG signature in {path}")
 
     offset = 8
-    ihdr: tuple[int, int, int, int] | None = None
+    ihdr: tuple[int, int, int, int, int, int, int] | None = None
+    idat_payloads: list[bytes] = []
+    saw_cgbi = False
     saw_idat = False
     saw_iend = False
     saw_transparency = False
@@ -262,14 +267,17 @@ def check_compiled_rgb_png(
             if actual_crc != expected_crc:
                 raise ValueError(f"invalid {chunk_type!r} CRC")
 
-            if chunk_type == b"IHDR":
-                if ihdr is not None or offset != 8 or length != 13:
+            if chunk_type == b"CgBI":
+                if ihdr is not None or saw_cgbi or offset != 8:
+                    raise ValueError("invalid CgBI placement")
+                saw_cgbi = True
+            elif chunk_type == b"IHDR":
+                expected_offset = 8 + (16 if saw_cgbi else 0)
+                if ihdr is not None or offset != expected_offset or length != 13:
                     raise ValueError("invalid IHDR placement or size")
-                width, height, bit_depth, color_type = struct.unpack(
-                    ">IIBB", chunk_data[:10]
-                )
-                ihdr = (width, height, bit_depth, color_type)
+                ihdr = struct.unpack(">IIBBBBB", chunk_data)
             elif chunk_type == b"IDAT":
+                idat_payloads.append(chunk_data)
                 saw_idat = True
             elif chunk_type == b"tRNS":
                 saw_transparency = True
@@ -282,18 +290,94 @@ def check_compiled_rgb_png(
     except (ValueError, struct.error) as error:
         return fail_check(name, f"invalid PNG {path}: {error}")
 
-    expected = (expected_width, expected_height, 8, 2)
-    if ihdr != expected:
-        return fail_check(name, f"expected opaque RGB8 {expected}, got {ihdr!r}")
+    expected_prefix = (expected_width, expected_height, 8)
+    if ihdr is None or ihdr[:3] != expected_prefix or ihdr[4:] != (0, 0, 0):
+        return fail_check(
+            name,
+            f"expected {expected_width}x{expected_height} non-interlaced RGB8, got {ihdr!r}",
+        )
+    color_type = ihdr[3]
+    if color_type not in ({2, 6} if saw_cgbi else {2}):
+        return fail_check(
+            name,
+            f"expected opaque RGB8, got color type {color_type}",
+        )
     if not saw_idat or not saw_iend or saw_transparency:
         return fail_check(
             name,
             "compiled icon must contain IDAT/IEND and no transparency chunk",
         )
+    if saw_cgbi and color_type == 6:
+        alpha_error = check_cgbi_alpha(
+            b"".join(idat_payloads),
+            width=expected_width,
+            height=expected_height,
+        )
+        if alpha_error is not None:
+            return fail_check(name, f"invalid optimized icon {path}: {alpha_error}")
     return pass_check(
         name,
         f"{path.name}: {expected_width}x{expected_height}, opaque RGB8",
     )
+
+
+def check_cgbi_alpha(payload: bytes, *, width: int, height: int) -> str | None:
+    """Validate that an Apple-optimized BGRA8 PNG has no translucent pixels."""
+    try:
+        decoded = zlib.decompress(payload, -zlib.MAX_WBITS)
+    except zlib.error as error:
+        return f"invalid CgBI deflate stream: {error}"
+
+    bytes_per_pixel = 4
+    stride = width * bytes_per_pixel
+    expected_size = height * (stride + 1)
+    if len(decoded) != expected_size:
+        return f"expected {expected_size} decoded bytes, got {len(decoded)}"
+
+    previous = bytearray(stride)
+    offset = 0
+    for _ in range(height):
+        filter_type = decoded[offset]
+        offset += 1
+        filtered = decoded[offset : offset + stride]
+        offset += stride
+        row = bytearray(stride)
+        for index, value in enumerate(filtered):
+            left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+            above = previous[index]
+            upper_left = (
+                previous[index - bytes_per_pixel]
+                if index >= bytes_per_pixel
+                else 0
+            )
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = above
+            elif filter_type == 3:
+                predictor = (left + above) // 2
+            elif filter_type == 4:
+                base = left + above - upper_left
+                left_distance = abs(base - left)
+                above_distance = abs(base - above)
+                upper_left_distance = abs(base - upper_left)
+                predictor = (
+                    left
+                    if left_distance <= above_distance
+                    and left_distance <= upper_left_distance
+                    else above
+                    if above_distance <= upper_left_distance
+                    else upper_left
+                )
+            else:
+                return f"unsupported PNG filter {filter_type}"
+            row[index] = (value + predictor) & 0xFF
+        if any(row[index] != 0xFF for index in range(3, stride, 4)):
+            return "contains translucent pixels"
+        previous = row
+    return None
 
 
 def check_exact(plist: dict[str, object], key: str, expected: object, name: str) -> Check:
@@ -482,6 +566,12 @@ def scan_bundle_bytes(
     for path in sorted(bundle.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue
+        relative_path = path.relative_to(bundle)
+        if (
+            str(relative_path) in BUNDLE_SCAN_IGNORED_PATHS
+            or BUNDLE_SCAN_IGNORED_DIRECTORIES.intersection(relative_path.parts)
+        ):
+            continue
         carry = b""
         try:
             with path.open("rb") as handle:
@@ -495,7 +585,7 @@ def scan_bundle_bytes(
                             matches.add(marker)
                     carry = haystack[-(maximum_marker_length - 1) :]
         except OSError as error:
-            errors.append(f"{path.relative_to(bundle)}: {error}")
+            errors.append(f"{relative_path}: {error}")
     return sorted(matches), errors
 
 
@@ -807,7 +897,12 @@ def check_plist_boundaries(
             "NSSpeechRecognitionUsageDescription",
             "app:speech-purpose",
         ),
-        check_absent(app_plist, "UIBackgroundModes", "app:background-modes"),
+        check_exact(
+            app_plist,
+            "UIBackgroundModes",
+            APP_BACKGROUND_MODES,
+            "app:background-modes",
+        ),
         check_exact(
             keyboard_plist,
             "CFBundleIdentifier",
@@ -874,7 +969,7 @@ def check_plist_boundaries(
                 check_exact(
                     attributes,
                     "RequestsOpenAccess",
-                    False,
+                    True,
                     "keyboard:open-access",
                 )
             )

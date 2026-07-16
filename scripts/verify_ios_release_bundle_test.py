@@ -51,6 +51,9 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
                 "CFBundleShortVersionString": "1.0",
                 "CFBundleVersion": "1",
                 "NSMicrophoneUsageDescription": self.module.MICROPHONE_PURPOSE,
+                "UIBackgroundModes": copy.deepcopy(
+                    self.module.APP_BACKGROUND_MODES
+                ),
             },
         )
         self.write_plist(
@@ -62,7 +65,7 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
                 "CFBundleShortVersionString": "1.0",
                 "CFBundleVersion": "1",
                 "NSExtension": {
-                    "NSExtensionAttributes": {"RequestsOpenAccess": False},
+                    "NSExtensionAttributes": {"RequestsOpenAccess": True},
                     "NSExtensionPointIdentifier": "com.apple.keyboard-service",
                     "NSExtensionPrincipalClass": (
                         "HoldTypeKeyboard.KeyboardViewController"
@@ -114,6 +117,8 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         height: int,
         *,
         color_type: int = 2,
+        alpha: int = 0x80,
+        ios_optimized: bool = False,
     ) -> None:
         def chunk(kind: bytes, payload: bytes) -> bytes:
             checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
@@ -126,15 +131,23 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
 
         pixels = {
             2: b"\x00\x00\x00",
-            6: b"\x00\x00\x00\x80",
+            6: b"\x00\x00\x00" + bytes([alpha]),
         }
         pixel = pixels[color_type]
         ihdr = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
         scanline = b"\x00" + (pixel * width)
+        compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+        compressed = (
+            compressor.compress(scanline * height) + compressor.flush()
+            if ios_optimized
+            else zlib.compress(scanline * height)
+        )
+        cgbi = chunk(b"CgBI", b"\x50\x00\x20\x06") if ios_optimized else b""
         path.write_bytes(
             b"\x89PNG\r\n\x1a\n"
+            + cgbi
             + chunk(b"IHDR", ihdr)
-            + chunk(b"IDAT", zlib.compress(scanline * height))
+            + chunk(b"IDAT", compressed)
             + chunk(b"IEND", b"")
         )
 
@@ -238,7 +251,7 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         app_plist_path = self.app / "Info.plist"
         app_plist = self.read_plist(app_plist_path)
         app_plist["NSSpeechRecognitionUsageDescription"] = "speech"
-        app_plist["UIBackgroundModes"] = ["audio"]
+        app_plist["UIBackgroundModes"] = ["location"]
         self.write_plist(app_plist_path, app_plist)
         keyboard_plist_path = (
             self.app / "PlugIns" / "HoldTypeKeyboard.appex" / "Info.plist"
@@ -251,7 +264,7 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         attributes = extension["NSExtensionAttributes"]
         if not isinstance(attributes, dict):
             raise AssertionError("fixture attributes are not a dictionary")
-        attributes["RequestsOpenAccess"] = True
+        attributes["RequestsOpenAccess"] = False
         self.write_plist(keyboard_plist_path, keyboard_plist)
 
         checks = self.checks_by_name()
@@ -312,6 +325,43 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         self.assertEqual(checks["app:icon:iphone"].status, "fail")
         self.assertEqual(checks["app:icon:ipad"].status, "fail")
 
+    def test_accepts_opaque_ios_optimized_compiled_app_icons(self) -> None:
+        self.write_png(
+            self.app / "AppIcon60x60@2x.png",
+            120,
+            120,
+            color_type=6,
+            alpha=0xFF,
+            ios_optimized=True,
+        )
+        self.write_png(
+            self.app / "AppIcon76x76@2x~ipad.png",
+            152,
+            152,
+            color_type=6,
+            alpha=0xFF,
+            ios_optimized=True,
+        )
+
+        checks = self.checks_by_name()
+
+        self.assertEqual(checks["app:icon:iphone"].status, "pass")
+        self.assertEqual(checks["app:icon:ipad"].status, "pass")
+
+    def test_rejects_translucent_ios_optimized_compiled_app_icon(self) -> None:
+        self.write_png(
+            self.app / "AppIcon60x60@2x.png",
+            120,
+            120,
+            color_type=6,
+            alpha=0x80,
+            ios_optimized=True,
+        )
+
+        checks = self.checks_by_name()
+
+        self.assertEqual(checks["app:icon:iphone"].status, "fail")
+
     def test_rejects_internal_ui_markers_in_executable_or_bundle_resource(self) -> None:
         app_executable = self.app / "HoldType-iOS"
         self.write_mach_o(
@@ -361,6 +411,17 @@ class IOSReleaseBundleVerifierTests(unittest.TestCase):
         self.assertEqual(byte_check.status, "fail")
         self.assertIn("IOSTranscriptionUsage", byte_check.message)
         self.assertIn("ios-transcription-usage.json", byte_check.message)
+
+    def test_ignores_signing_metadata_in_bundle_byte_scan(self) -> None:
+        keyboard = self.app / "PlugIns" / "HoldTypeKeyboard.appex"
+        (keyboard / "embedded.mobileprovision").write_text("Keychain api.openai.com")
+        signature = keyboard / "_CodeSignature"
+        signature.mkdir()
+        (signature / "CodeResources").write_text("HoldTypeOpenAI")
+
+        checks = self.checks_by_name()
+
+        self.assertEqual(checks["keyboard:bytes:forbidden"].status, "pass")
 
     def test_requires_exact_codesign_bundle_identifiers(self) -> None:
         def executable_identifier_runner(command):

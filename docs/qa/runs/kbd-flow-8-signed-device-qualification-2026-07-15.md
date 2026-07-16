@@ -79,6 +79,27 @@ while automatic return and unsupported policy bypass remain out of scope.
 - The keyboard declares `RequestsOpenAccess = true`.
 - Embedded-binary validation passed during the signed build.
 
+## Signed Release Bundle Verification
+
+A clean `Release` generic-iOS product was built from app checkpoint `10c5fb1`
+with development team `PUA6HH22D7`. The repository release-bundle verifier was
+reconciled with the current keyboard handoff contract before inspecting it:
+
+- containing-app background mode is exactly `audio`, which keeps app-owned
+  capture alive after the user swipes back;
+- the production keyboard requires `RequestsOpenAccess = true` for its bounded
+  App Group command boundary;
+- Apple-optimized CgBI app icons are decoded and rejected when any alpha is
+  translucent;
+- provisioning profiles and code-signature metadata are excluded from the
+  keyboard implementation byte scan, while executable and resource bytes
+  remain covered.
+
+Verifier result: **53 passed, 0 failed, 0 manual.** Verifier regression result:
+**18 tests passed.** This proves the signed local Release bundle contract and
+keyboard isolation. It is development-signed evidence, not yet an App Store
+distribution signature or an uploaded TestFlight candidate.
+
 ## Runtime History
 
 CoreDevice installed the app, then rejected the launch because the physical
