@@ -862,28 +862,7 @@ struct KeyboardViewControllerTests {
         #expect(statusText(in: controller.view) == "Opening HoldType…")
     }
 
-    @Test func cancelDoesNotInsertAndRestrictedModeKeepsEditing() throws {
-        let now = Date(timeIntervalSince1970: 1_750_000_000)
-        let requestID = UUID()
-        let harness = KeyboardControllerHarness(
-            now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
-            )
-        )
-        let controller = harness.makeController()
-        controller.loadViewIfNeeded()
-        controller.keyboardView.onMicrophoneRequested?()
-        controller.keyboardView.onCancelRequested?()
-
-        #expect(harness.savedCommands.map(\.kind) == [.start, .cancel])
-        #expect(harness.proxy.insertedTexts.isEmpty)
-
+    @Test func restrictedModeKeepsEditing() throws {
         let restricted = KeyboardControllerHarness(fullAccessOverride: false)
         let restrictedController = restricted.makeController()
         restrictedController.loadViewIfNeeded()

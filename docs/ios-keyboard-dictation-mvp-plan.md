@@ -357,7 +357,9 @@ handoff starts one real capture and one sheet.
 2. Drive the keyboard through:
    `Ready -> Opening HoldType -> Listening -> Processing -> Ready`.
 3. Keep the existing central Voice indicator visible through nominal states.
-4. Route the microphone to Finish while Listening and keep Cancel explicit.
+4. Route the microphone to Finish while Listening. Keep cancellation explicit
+   through the handoff sheet close action without adding a side control beside
+   the keyboard activity indicator.
 5. Remove instructional navigation copy from every keyboard recovery state.
 6. Preserve compact operational and runtime failures in the existing error area.
 7. Keep source document identity as an independent automatic-insertion gate. A
@@ -475,7 +477,8 @@ The feature is complete only when:
   tap afterward;
 - the user swipes back and sees the keyboard in Listening even after extension
   recreation;
-- Finish and Cancel control the same app-owned attempt;
+- Finish from the keyboard and Cancel from the handoff sheet control the same
+  app-owned attempt;
 - accepted text inserts into the originating input at most once;
 - unsafe delivery stays in Latest;
 - a healthy session supports its intended bounded warm path;

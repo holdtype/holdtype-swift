@@ -254,6 +254,11 @@ struct KeyboardViewControllerDependencies {
 
 final class KeyboardViewController: UIInputViewController {
     private static let maximumDocumentIdentifierRetryCount = 20
+    private static let deliveryLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier
+            ?? "app.holdtype.HoldType.ios.keyboard",
+        category: "delivery"
+    )
 
     let keyboardView = BrandStageKeyboardView()
     private let deleteRepeater = KeyboardDeleteRepeater()
@@ -376,9 +381,6 @@ final class KeyboardViewController: UIInputViewController {
         keyboardView.onMicrophoneRequested = { [weak self] in
             self?.handleMicrophoneCommand()
         }
-        keyboardView.onCancelRequested = { [weak self] in
-            self?.sendDictationCommand(.cancel)
-        }
         keyboardView.onQuickInsertRequested = { [weak self] text in
             self?.insertText(text)
         }
@@ -433,7 +435,6 @@ final class KeyboardViewController: UIInputViewController {
                 voiceStage: dictationPresentation.voiceStage,
                 automaticVoiceAction: automaticVoiceAction,
                 latestIsEnabled: latestItem != nil,
-                cancelIsVisible: dictationPresentation.cancelIsVisible,
                 returnKey: KeyboardReturnKeyPresentation(
                     semantic: Self.returnSemantic(
                         for: activeDocumentProxy.returnKeyType ?? .default
@@ -447,74 +448,66 @@ final class KeyboardViewController: UIInputViewController {
 
     private var currentDictationPresentation: (
         status: KeyboardVoiceStatus,
-        voiceStage: KeyboardVoiceStagePresentation,
-        cancelIsVisible: Bool
+        voiceStage: KeyboardVoiceStagePresentation
     ) {
         guard hasSharedContainerAccess else {
             recordKeyboardState(.noSharedAccess)
             return (
                 .fullAccessRequired,
-                .ready,
-                false
+                .ready
             )
         }
         if pendingHandoffRequestID != nil {
             return (
                 .openingHoldType,
-                .opening,
-                false
+                .opening
             )
         }
         guard !forcesSessionNotRunning, let dictationState else {
             return (
                 handoffLaunchFailed ? .launchFailed : .ready,
-                .ready,
-                false
+                .ready
             )
         }
         if pendingDictationCommand == .start,
            owns(dictationState) {
-            return (.starting, .starting, true)
+            return (.starting, .starting)
         }
         if pendingDictationCommand == .finish,
            owns(dictationState) {
-            return (.processing, .processing, true)
+            return (.processing, .processing)
         }
         switch dictationState.phase {
         case .ready:
             if dictationState.hasActiveAttempt, owns(dictationState) {
-                return (.openingHoldType, .opening, true)
+                return (.openingHoldType, .opening)
             }
-            return (.ready, .ready, false)
+            return (.ready, .ready)
         case .listening
             where !owns(dictationState):
             return (
                 .ready,
-                .ready,
-                false
+                .ready
             )
         case .listening:
-            return (.listening, .listening, true)
+            return (.listening, .listening)
         case .processing
             where !owns(dictationState):
             return (
                 .ready,
-                .ready,
-                false
+                .ready
             )
         case .processing:
-            return (.processing, .processing, true)
+            return (.processing, .processing)
         case .resultReady, .unavailable:
             return (
                 .ready,
-                .ready,
-                false
+                .ready
             )
         case .failed:
             return (
                 .dictationFailed,
-                .ready,
-                false
+                .ready
             )
         }
     }
@@ -618,28 +611,37 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func handleResultReady(_ state: KeyboardDictationStateRecord) {
+        Self.deliveryLogger.info("result observed")
         guard let requestID = state.requestID,
               owns(state),
               insertedDictationRequestID != requestID,
               let result = state.result,
               let ownership = activeDictationOwnership else {
+            Self.deliveryLogger.error("result rejected before document gate")
             cancelDocumentIdentifierRetry()
             return
         }
         let currentDocumentID = activeDocumentIdentifier
         guard ownership.belongsToDocument(currentDocumentID) else {
             if currentDocumentID == nil, ownership.sourceDocumentID != nil {
+                Self.deliveryLogger.info("document unavailable; retry scheduled")
                 scheduleDocumentIdentifierRetry(for: requestID)
             } else {
+                Self.deliveryLogger.error("document gate rejected result")
                 cancelDocumentIdentifierRetry()
             }
             return
         }
         cancelDocumentIdentifierRetry()
         if let grantedClaimID = state.deliveryClaimID {
-            guard pendingDeliveryClaimID == grantedClaimID else { return }
+            guard pendingDeliveryClaimID == grantedClaimID else {
+                Self.deliveryLogger.error("delivery grant has no local claim")
+                return
+            }
+            Self.deliveryLogger.info("delivery grant accepted")
             insertedDictationRequestID = requestID
             insertText(result)
+            Self.deliveryLogger.info("document proxy insertion requested")
             dependencies.recordDiagnostic(.keyboardInserted(.dictation))
             _ = sendDictationCommand(
                 .acknowledgeDelivery,
@@ -649,10 +651,12 @@ final class KeyboardViewController: UIInputViewController {
         } else if pendingDeliveryClaimID == nil {
             let claimID = dependencies.makeDeliveryClaimID()
             pendingDeliveryClaimID = claimID
+            Self.deliveryLogger.info("delivery claim requested")
             if !sendDictationCommand(
                 .claimDelivery,
                 deliveryClaimID: claimID
             ) {
+                Self.deliveryLogger.error("delivery claim could not be sent")
                 pendingDeliveryClaimID = nil
             }
         }

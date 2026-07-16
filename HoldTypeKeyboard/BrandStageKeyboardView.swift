@@ -5,7 +5,6 @@ struct BrandStageKeyboardPresentation: Equatable {
     let voiceStage: KeyboardVoiceStagePresentation
     let automaticVoiceAction: KeyboardVoiceAction
     let latestIsEnabled: Bool
-    let cancelIsVisible: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
     let showsInputModeSwitchKey: Bool
@@ -27,7 +26,6 @@ private extension KeyboardVoiceStagePresentation {
 final class BrandStageKeyboardView: UIView {
     var onLatestRequested: (() -> Void)?
     var onMicrophoneRequested: (() -> Void)?
-    var onCancelRequested: (() -> Void)?
     var onQuickInsertRequested: ((String) -> Void)?
     var onAutomaticVoiceActionChanged: ((KeyboardVoiceAction) -> Void)?
     var onSpaceRequested: (() -> Void)?
@@ -62,7 +60,6 @@ final class BrandStageKeyboardView: UIView {
     private let returnButton = UIButton(type: .system)
     private let microphoneView = UIButton(type: .system)
     private let voiceActivityIndicator = KeyboardVoiceActivityIndicatorView()
-    private let cancelButton = UIButton(type: .system)
     private var microphoneWidthConstraint: NSLayoutConstraint?
     private var microphoneHeightConstraint: NSLayoutConstraint?
     private var stageMinimumHeightConstraint: NSLayoutConstraint?
@@ -139,10 +136,7 @@ final class BrandStageKeyboardView: UIView {
         autoButton.isEnabled = !presentation.voiceStage
             .keepsVoiceWorkspaceVisible
         latestButton.isEnabled = presentation.latestIsEnabled
-        renderVoiceStage(
-            presentation.voiceStage,
-            cancelIsVisible: presentation.cancelIsVisible
-        )
+        renderVoiceStage(presentation.voiceStage)
         updateInputModeSwitchKeyVisibility(
             presentation.showsInputModeSwitchKey
         )
@@ -164,13 +158,10 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func renderVoiceStage(
-        _ presentation: KeyboardVoiceStagePresentation,
-        cancelIsVisible: Bool
+        _ presentation: KeyboardVoiceStagePresentation
     ) {
         microphoneView.isEnabled = false
         microphoneView.accessibilityValue = nil
-        cancelButton.isHidden = true
-        cancelButton.isEnabled = false
         switch presentation {
         case .ready:
             microphoneView.isEnabled = true
@@ -186,20 +177,14 @@ final class BrandStageKeyboardView: UIView {
             voiceActivityIndicator.render(.listening)
             microphoneView.accessibilityLabel = "Finish keyboard dictation"
             microphoneView.accessibilityValue = "Listening"
-            cancelButton.isHidden = !cancelIsVisible
-            cancelButton.isEnabled = cancelIsVisible
         case .starting:
             voiceActivityIndicator.render(.ready)
             microphoneView.accessibilityLabel = "Starting keyboard dictation"
             microphoneView.accessibilityValue = "Starting"
-            cancelButton.isHidden = !cancelIsVisible
-            cancelButton.isEnabled = cancelIsVisible
         case .processing:
             voiceActivityIndicator.render(.recognizing)
             microphoneView.accessibilityLabel = "Processing keyboard dictation"
             microphoneView.accessibilityValue = "Recognizing"
-            cancelButton.isHidden = !cancelIsVisible
-            cancelButton.isEnabled = cancelIsVisible
         }
     }
 
@@ -628,9 +613,7 @@ final class BrandStageKeyboardView: UIView {
         voiceStage.translatesAutoresizingMaskIntoConstraints = false
         microphoneView.translatesAutoresizingMaskIntoConstraints = false
         voiceActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
         voiceStage.addSubview(microphoneView)
-        voiceStage.addSubview(cancelButton)
         microphoneView.addSubview(voiceActivityIndicator)
 
         microphoneView.layer.masksToBounds = false
@@ -671,23 +654,6 @@ final class BrandStageKeyboardView: UIView {
             ),
         ])
 
-        var cancelConfiguration = UIButton.Configuration.bordered()
-        cancelConfiguration.title = "Cancel"
-        cancelConfiguration.cornerStyle = .medium
-        cancelButton.configuration = cancelConfiguration
-        cancelButton.isHidden = true
-        cancelButton.accessibilityIdentifier =
-            "keyboard.brand-stage.cancel"
-        cancelButton.widthAnchor.constraint(equalToConstant: 72).isActive = true
-        cancelButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        NSLayoutConstraint.activate([
-            cancelButton.trailingAnchor.constraint(
-                equalTo: voiceStage.trailingAnchor
-            ),
-            cancelButton.centerYAnchor.constraint(
-                equalTo: voiceStage.centerYAnchor
-            ),
-        ])
     }
 
     private func configureQuickInsertStage() {
@@ -917,11 +883,6 @@ final class BrandStageKeyboardView: UIView {
         microphoneView.addTarget(
             self,
             action: #selector(microphoneTapped),
-            for: .touchUpInside
-        )
-        cancelButton.addTarget(
-            self,
-            action: #selector(cancelTapped),
             for: .touchUpInside
         )
         spaceButton.addTarget(
@@ -1279,10 +1240,6 @@ final class BrandStageKeyboardView: UIView {
 
     @objc private func microphoneTapped() {
         onMicrophoneRequested?()
-    }
-
-    @objc private func cancelTapped() {
-        onCancelRequested?()
     }
 
     @objc private func spaceTapped() {

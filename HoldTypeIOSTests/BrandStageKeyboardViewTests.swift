@@ -255,8 +255,7 @@ struct BrandStageKeyboardViewTests {
         view.render(
             presentation(
                 status: .listening,
-                voiceStage: .listening,
-                cancelIsVisible: true
+                voiceStage: .listening
             )
         )
         layout(view)
@@ -448,8 +447,7 @@ struct BrandStageKeyboardViewTests {
         view.render(
             presentation(
                 status: .listening,
-                voiceStage: .listening,
-                cancelIsVisible: true
+                voiceStage: .listening
             )
         )
         layout(view)
@@ -643,14 +641,12 @@ struct BrandStageKeyboardViewTests {
         view.render(
             presentation(
                 status: .starting,
-                voiceStage: .starting,
-                cancelIsVisible: true
+                voiceStage: .starting
             )
         )
         layout(view)
 
         let microphone = try button("keyboard.brand-stage.voice", in: view)
-        let cancel = try button("keyboard.brand-stage.cancel", in: view)
         #expect(!isEffectivelyHidden(microphone))
         #expect(!microphone.isEnabled)
         #expect(microphone.accessibilityValue == "Starting")
@@ -660,13 +656,17 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.progress"
             ) == nil
         )
-        #expect(!isEffectivelyHidden(cancel))
+        #expect(
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.cancel"
+            ) == nil
+        )
 
         view.render(
             presentation(
                 status: .processing,
-                voiceStage: .processing,
-                cancelIsVisible: true
+                voiceStage: .processing
             )
         )
         layout(view)
@@ -687,7 +687,12 @@ struct BrandStageKeyboardViewTests {
                 identifier: "keyboard.brand-stage.progress"
             ) == nil
         )
-        #expect(!isEffectivelyHidden(cancel))
+        #expect(
+            view.descendant(
+                UIButton.self,
+                identifier: "keyboard.brand-stage.cancel"
+            ) == nil
+        )
     }
 
     @Test func compactPhoneLandscapeKeepsVoiceIdentityAndControlsInBounds()
@@ -980,7 +985,6 @@ struct BrandStageKeyboardViewTests {
         voiceStage: KeyboardVoiceStagePresentation = .ready,
         automaticVoiceAction: KeyboardVoiceAction = .standard,
         latestIsEnabled: Bool = false,
-        cancelIsVisible: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
         showsInputModeSwitchKey: Bool = true
     ) -> BrandStageKeyboardPresentation {
@@ -989,7 +993,6 @@ struct BrandStageKeyboardViewTests {
             voiceStage: voiceStage,
             automaticVoiceAction: automaticVoiceAction,
             latestIsEnabled: latestIsEnabled,
-            cancelIsVisible: cancelIsVisible,
             returnKey: returnKey,
             returnIsEnabled: true,
             showsInputModeSwitchKey: showsInputModeSwitchKey

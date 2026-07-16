@@ -92,7 +92,9 @@ resolved by silently degrading the keyboard into that manual-session design.
   Processing, failure, expiry, and recovery messages. Identity or decorative
   areas do not duplicate these messages.
 - While real capture is active, the same microphone action finishes dictation.
-  Cancel remains a separate explicit action.
+  The keyboard workspace has no separate Cancel control beside the centered
+  activity indicator. Before returning to the host, the sheet's close action
+  remains the explicit cancellation path.
 - Finish stops recording and starts the existing app-owned transcription and
   optional correction/translation pipeline.
 - A fresh accepted result inserts automatically only when the current document
@@ -204,7 +206,8 @@ microphone appear active.
   handoff sheet reflects Starting, Listening, Processing, and runtime failure
   without duplicating or mutating Voice.
 - Returning to the host reconnects a recreated extension to the active request.
-- Finish and Cancel from the keyboard control the app-owned recording.
+- Finish from the keyboard and Cancel from the handoff sheet control the same
+  app-owned recording.
 - Accepted text inserts exactly once into the originating document when it is
   still eligible.
 - Focus/document changes, stale requests, process loss, and uncertain delivery

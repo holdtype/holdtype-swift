@@ -203,10 +203,10 @@ number deck, Shift, Caps Lock, `123`, prediction row, or manual Refresh.
   `Listening…`; an optimistic or fabricated listening state is forbidden.
 - Listening keeps the recording artwork in the same location and adds the same
   restrained orbit rotation and pulse as the containing app. Tapping that
-  activity requests Finish. A visible Cancel action remains separate and does
-  not shift the activity away from the workspace center.
-- A second tap requests Finish. A visible Cancel action requests cancellation
-  and never submits the cancelled audio.
+  activity requests Finish. No separate Cancel control appears beside it or
+  shifts the activity away from the workspace center; cancellation before the
+  return gesture remains available from the handoff sheet's close action.
+- A second tap requests Finish.
 - Starting keeps the central Voice indicator in its bounded starting state
   until real capture is acknowledged.
 - After actual capture stops, the keyboard replaces the recording artwork with
