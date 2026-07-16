@@ -583,7 +583,6 @@ final class IOSKeyboardDictationSessionCoordinator {
                 failAndStop("Result available in Latest")
                 return
             }
-            endBackgroundTask()
             presentation = .resultReady
             emitHandoff(
                 .terminal(.completed),

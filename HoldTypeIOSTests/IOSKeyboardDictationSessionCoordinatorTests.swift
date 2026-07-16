@@ -383,6 +383,8 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.workflow.resolve(.accepted("Exactly once"))
         try await eventually { coordinator.presentation == .resultReady }
 
+        #expect(harness.endedBackgroundTaskIDs.isEmpty)
+
         let claimID = UUID()
         harness.command = harness.command(
             .claimDelivery,
@@ -413,6 +415,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         #expect(harness.states.last?.hasActiveAttempt == false)
         #expect(harness.states.last?.result == nil)
         #expect(coordinator.presentation == .ready(harness.sessionDeadline))
+        #expect(harness.endedBackgroundTaskIDs.isEmpty)
 
         let nextRequestID = UUID()
         harness.command = harness.command(.start, requestID: nextRequestID)
@@ -421,6 +424,9 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
             harness.workflow.runRequestIDs == [requestID, nextRequestID]
         }
         harness.workflow.resolve(.cancelled)
+
+        coordinator.stopSession()
+        #expect(harness.endedBackgroundTaskIDs == [harness.backgroundTaskID])
     }
 }
 
@@ -433,6 +439,8 @@ private final class KeyboardSessionHarness {
     var states: [HoldTypeIOS.KeyboardDictationStateRecord] = []
     var postCount = 0
     var expiryAction: (@MainActor () -> Void)?
+    let backgroundTaskID = UIBackgroundTaskIdentifier(rawValue: 42)
+    var endedBackgroundTaskIDs: [UIBackgroundTaskIdentifier] = []
 
     var sessionDeadline: Date {
         now.addingTimeInterval(
@@ -460,8 +468,12 @@ private final class KeyboardSessionHarness {
                 },
                 postStateChanged: { [weak self] in self?.postCount += 1 },
                 applicationIsActive: { true },
-                beginBackgroundTask: { _ in .invalid },
-                endBackgroundTask: { _ in },
+                beginBackgroundTask: { [weak self] _ in
+                    self?.backgroundTaskID ?? .invalid
+                },
+                endBackgroundTask: { [weak self] identifier in
+                    self?.endedBackgroundTaskIDs.append(identifier)
+                },
                 scheduleExpiry: { [weak self] _, action in
                     self?.expiryAction = action
                     return nil
