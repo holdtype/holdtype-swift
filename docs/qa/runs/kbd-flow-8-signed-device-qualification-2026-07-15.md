@@ -27,6 +27,14 @@ from the concurrent dirty working tree. The later master checkpoint `bc7f6f8`
 adds the separate keyboard Auto modes popover and is not yet part of this
 isolated handoff runtime result.
 
+The combined master candidate `072e31a` also passes a signed generic iOS build
+from a clean source archive. Its app and embedded keyboard sign and validate
+successfully. A direct-device build could not acquire the phone as an Xcode
+destination because the temporarily network-connected device requested an
+unlock or cable connection. The `072e31a` product therefore remains built but
+not installed; it must not replace `b8bb0f2` until the isolated runtime case
+below is observed.
+
 ## Focused Handoff Verification
 
 Simulator: iPhone 17 Pro, iOS 26.5
