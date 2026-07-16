@@ -312,6 +312,16 @@ final class KeyboardViewController: UIInputViewController {
     private var allowsStateReconnection = true
     private var automaticVoiceAction: KeyboardVoiceAction = .standard
 
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        hasDictationKey = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        hasDictationKey = true
+    }
+
     convenience init(dependencies: KeyboardViewControllerDependencies) {
         self.init(nibName: nil, bundle: nil)
         self.dependencies = dependencies
@@ -336,7 +346,6 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        hasDictationKey = true
         showsInputModeSwitchKey = shouldShowInputModeSwitchKey
         configureKeyboardView()
         reloadSharedSnapshot()
@@ -349,6 +358,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        hasDictationKey = true
         recordKeyboardState(.opened)
         beginExtensionLifetime()
         showsInputModeSwitchKey = shouldShowInputModeSwitchKey

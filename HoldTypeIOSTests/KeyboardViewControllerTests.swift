@@ -274,6 +274,10 @@ struct KeyboardViewControllerTests {
         let requestID = UUID()
         let harness = KeyboardControllerHarness(requestID: requestID)
         let controller = harness.makeController()
+
+        // UIKit may inspect this declaration before loading the extension's
+        // view to decide whether it should add its own Dictation button.
+        #expect(controller.hasDictationKey)
         controller.loadViewIfNeeded()
 
         #expect(controller.hasDictationKey)

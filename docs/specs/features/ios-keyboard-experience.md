@@ -27,9 +27,9 @@ through `UITextDocumentProxy`.
 - System setup and product settings remain in the containing app. A blocker
   routes to its exact owner; a valid cold request starts capture automatically
   and presents the swipe-back sheet.
-- HoldType declares that it supplies dictation. iOS therefore disables or
-  suppresses its own Dictation key; on systems that retain the disabled icon in
-  the bottom strip, that icon remains Apple-owned and is not a HoldType action.
+- HoldType declares that it supplies dictation before the keyboard view is
+  presented, so iOS does not add a duplicate system Dictation button beside the
+  HoldType voice control.
 - Physical-device evidence must prove that the app-owned background session can
   receive commands reliably and with acceptable privacy, energy, and App Review
   behavior. Simulator success cannot settle this boundary.
