@@ -10,6 +10,8 @@ running with operator observation on the unlocked iPhone.
   (`Remove legacy keyboard recovery surfaces`)
 - Current isolated handoff checkpoint: `b8bb0f2`
   (`Keep keyboard handoff failures inside sheet`)
+- Current deterministic qualification checkpoint: `10c5fb1`
+  (`Qualify keyboard safe-area handoff matrix`)
 - Device: Evgeny’s iPhone, iPhone 14 Pro Max (`iPhone15,3`)
 - iOS: 26.5.2 (`23F84`)
 - UDID: `00008120-001A19991E7BC01E`
@@ -27,13 +29,13 @@ from the concurrent dirty working tree. The later master checkpoint `bc7f6f8`
 adds the separate keyboard Auto modes popover and is not yet part of this
 isolated handoff runtime result.
 
-The combined master candidate `072e31a` also passes a signed generic iOS build
-from a clean source archive. Its app and embedded keyboard sign and validate
-successfully. A direct-device build could not acquire the phone as an Xcode
-destination because the temporarily network-connected device requested an
-unlock or cable connection. The `072e31a` product therefore remains built but
-not installed; it must not replace `b8bb0f2` until the isolated runtime case
-below is observed.
+The combined master candidate `072e31a` also passed an earlier signed generic
+iOS build from a clean source archive. The later `10c5fb1` checkpoint now
+passes the same signed generic iOS build and embedded-binary validation. Its app
+and keyboard use development team `PUA6HH22D7`, share App Group
+`group.app.holdtype.HoldType.shared`, and contain the required microphone and
+Full Access declarations. The device was reported as unavailable immediately
+after this build, so `10c5fb1` is not installed yet.
 
 ## Focused Handoff Verification
 
