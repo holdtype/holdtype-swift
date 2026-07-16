@@ -138,6 +138,31 @@ observed result:
 7. observe Processing, exactly-once insertion, keyboard retention, and whether
    HoldType reopens unexpectedly.
 
+## Qualification Matrix Ledger
+
+`Automated pass` proves deterministic state and delivery logic only. A row
+remains `Physical pending` wherever the KBD-FLOW-8 plan requires real
+microphone, extension lifecycle, host-field, permission, or system-gesture
+evidence.
+
+| Path | Automated evidence | Physical evidence |
+| --- | --- | --- |
+| Cold valid Start, sheet, swipe, Finish, insert | Start/Finish and sheet reducers pass | Pending |
+| Healthy warm repeat | Warm acknowledgement and reuse pass | Pending |
+| Setup blockers and fresh tap after repair | Preflight and targeted routing pass in focused tests | Pending |
+| Full Access off/on | Restricted editing and route selection pass | Pending |
+| Microphone undecided/granted/denied | Permission behavior is not claimed by the keyboard matrix | Pending |
+| Standard, Translate, Improve, combined | Mode combinations and cold Translation intent pass | Pending where available |
+| Sheet Starting, Listening, close, expiry, stale relaunch | All named reducer/coordinator paths pass | Pending |
+| Extension retained and recreated | Durable reconnect and nil-document recovery pass | Pending |
+| Same field, changed field, changed host | Document/host insertion gates pass | Pending |
+| Finish and Cancel | Same-attempt completion/cancellation pass | Pending |
+| Offline, timeout, interruption, provider failure, app termination | Provider failure passes; remaining runtime boundaries are not claimed | Pending |
+| Automatic insertion, Latest, duplicate delivery | Exactly-once claim and Latest fallback pass | Pending |
+| Expiry followed by fresh cold handoff | Expired reconnect and next-launch transition pass | Pending |
+| Ordinary standalone Voice with no sheet | Outside the selected keyboard automation | Pending observation only |
+| Internal TestFlight candidate | Local archive and 53/53 bundle checks pass | Distribution identity/export/upload pending |
+
 ## Remaining Matrix
 
 Record the observed nominal cold-handoff result first. Then continue the full
