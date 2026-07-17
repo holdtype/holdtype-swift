@@ -10,6 +10,41 @@ import Testing
 @testable import HoldType
 
 struct RuntimeDiagnosticsLogStoreTests {
+    @Test func recordingTerminalEventUsesCompactSanitizedFields() throws {
+        let attemptID = try #require(
+            UUID(uuidString: "12345678-90AB-CDEF-1234-567890ABCDEF")
+        )
+        let recorder = CapturingRuntimeDiagnosticLogRecorder()
+        let logger = OSLogDictationEventLogger(runtimeLogRecorder: recorder)
+
+        logger.record(
+            .recordingTerminal(
+                cause: .ownerTeardown,
+                attemptID: attemptID,
+                durability: .historyCheckpoint,
+                providerAuthorized: false
+            )
+        )
+
+        #expect(
+            recorder.events == [
+                RuntimeDiagnosticEvent(
+                    category: "dictation",
+                    name: "recording_terminal",
+                    fields: [
+                        "attempt_id": "12345678",
+                        "durability": "history_checkpoint",
+                        "provider_authorized": "false",
+                        "terminal_cause": "owner_teardown",
+                    ]
+                )
+            ]
+        )
+        let fields = try #require(recorder.events.first?.fields)
+        #expect(fields.values.allSatisfy { !$0.contains("/") })
+        #expect(fields.values.allSatisfy { !$0.localizedCaseInsensitiveContains("transcript") })
+    }
+
     @Test func recordStoresSanitizedRecentLines() throws {
         let rootURL = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: rootURL) }
@@ -106,5 +141,13 @@ struct RuntimeDiagnosticsLogStoreTests {
             .appendingPathComponent("holdtype-runtime-logs-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         return directoryURL
+    }
+}
+
+private final class CapturingRuntimeDiagnosticLogRecorder: RuntimeDiagnosticLogRecording {
+    private(set) var events: [RuntimeDiagnosticEvent] = []
+
+    func record(_ event: RuntimeDiagnosticEvent) {
+        events.append(event)
     }
 }

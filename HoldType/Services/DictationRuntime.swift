@@ -142,6 +142,17 @@ final class DictationRuntime: ObservableObject {
         hotkeyCoordinator = nil
     }
 
+    func repairInterruptedRecordings() {
+        controller.repairInterruptedRecordings()
+        syncFromController()
+    }
+
+    func prepareForTermination() async {
+        stopHotkeyListening()
+        await controller.prepareForTermination()
+        syncFromController()
+    }
+
     func refreshHotkeyRegistrationStatus() {
         hotkeyRegistrationStatus = hotkeyCoordinator?.registrationStatus
             ?? hotkeyService.currentRegistrationStatus

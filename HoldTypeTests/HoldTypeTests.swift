@@ -391,29 +391,80 @@ struct QuitConfirmationTests {
     }
 
     @MainActor
-    @Test func applicationDelegateUsesInjectedQuitConfirmationPresenter() {
+    @Test func applicationDelegateUsesInjectedQuitConfirmationPresenter() async {
         let presenter = FakeQuitConfirmationPresenter(decision: .cancel)
-        let delegate = HoldTypeAppDelegate(quitConfirmationPresenter: presenter)
+        var prepareCount = 0
+        var terminationReplies: [Bool] = []
+        let delegate = HoldTypeAppDelegate(
+            quitConfirmationPresenter: presenter,
+            prepareForTermination: {
+                prepareCount += 1
+            },
+            replyToTerminationRequest: { _, shouldTerminate in
+                terminationReplies.append(shouldTerminate)
+            }
+        )
 
         #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateCancel)
         #expect(presenter.requestCount == 1)
+        #expect(prepareCount == 0)
 
         presenter.decision = .quit
 
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
+        #expect(presenter.requestCount == 2)
+        await yieldUntil { terminationReplies == [true] }
+        #expect(prepareCount == 1)
+        #expect(terminationReplies == [true])
         #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
         #expect(presenter.requestCount == 2)
     }
 
     @MainActor
-    @Test func applicationDelegateSkipsQuitConfirmationForUpdaterRelaunch() {
+    @Test func applicationDelegateSkipsQuitConfirmationForUpdaterRelaunch() async {
         let presenter = FakeQuitConfirmationPresenter(decision: .cancel)
+        var prepareCount = 0
+        var terminationReplies: [Bool] = []
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: presenter,
-            isUpdaterRelaunchInProgress: { true }
+            isUpdaterRelaunchInProgress: { true },
+            prepareForTermination: {
+                prepareCount += 1
+            },
+            replyToTerminationRequest: { _, shouldTerminate in
+                terminationReplies.append(shouldTerminate)
+            }
         )
 
-        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
         #expect(presenter.requestCount == 0)
+        await yieldUntil { terminationReplies == [true] }
+        #expect(prepareCount == 1)
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
+    }
+
+    @MainActor
+    @Test func applicationDelegateBoundsTerminationPreparation() async {
+        var prepareStarted = false
+        var terminationReplies: [Bool] = []
+        let delegate = HoldTypeAppDelegate(
+            quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
+            prepareForTermination: {
+                prepareStarted = true
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            },
+            replyToTerminationRequest: { _, shouldTerminate in
+                terminationReplies.append(shouldTerminate)
+            },
+            terminationTimeoutNanoseconds: 1_000_000
+        )
+
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
+        await yieldUntil { terminationReplies == [true] }
+
+        #expect(prepareStarted)
+        #expect(terminationReplies == [true])
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
     }
 
     @MainActor
@@ -422,6 +473,7 @@ struct QuitConfirmationTests {
         var stopCount = 0
         var clearHistoryCount = 0
         var maintenanceScheduleCount = 0
+        var repairCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
@@ -438,6 +490,9 @@ struct QuitConfirmationTests {
             },
             scheduleProviderStartupMaintenance: {
                 maintenanceScheduleCount += 1
+            },
+            repairInterruptedRecordings: {
+                repairCount += 1
             }
         )
 
@@ -448,6 +503,7 @@ struct QuitConfirmationTests {
         #expect(stopCount == 1)
         #expect(clearHistoryCount == 1)
         #expect(maintenanceScheduleCount == 1)
+        #expect(repairCount == 1)
         #expect(promptCoordinator.startCount == 1)
         #expect(promptCoordinator.stopCount == 1)
     }
@@ -458,6 +514,7 @@ struct QuitConfirmationTests {
         var stopCount = 0
         var clearHistoryCount = 0
         var maintenanceScheduleCount = 0
+        var repairCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
@@ -474,6 +531,9 @@ struct QuitConfirmationTests {
             },
             scheduleProviderStartupMaintenance: {
                 maintenanceScheduleCount += 1
+            },
+            repairInterruptedRecordings: {
+                repairCount += 1
             }
         )
 
@@ -484,8 +544,19 @@ struct QuitConfirmationTests {
         #expect(stopCount == 0)
         #expect(clearHistoryCount == 0)
         #expect(maintenanceScheduleCount == 0)
+        #expect(repairCount == 0)
         #expect(promptCoordinator.startCount == 0)
         #expect(promptCoordinator.stopCount == 0)
+    }
+
+    @MainActor
+    private func yieldUntil(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<100 {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
     }
 }
 

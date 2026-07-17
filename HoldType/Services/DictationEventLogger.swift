@@ -9,6 +9,24 @@ import Foundation
 import HoldTypeDomain
 import OSLog
 
+enum RecordingTerminalCause: String, Equatable {
+    case userFinished = "user_finished"
+    case configuredLimit = "configured_limit"
+    case platformInterrupted = "platform_interrupted"
+    case internalFailure = "internal_failure"
+    case ownerTeardown = "owner_teardown"
+    case explicitUserDiscard = "explicit_user_discard"
+}
+
+enum RecordingDurabilityOutcome: String, Equatable {
+    case historyCheckpoint = "history_checkpoint"
+    case emergencyFallback = "emergency_fallback"
+    case protectedCapture = "protected_capture"
+    case emptyOrMissingDiscarded = "empty_or_missing_discarded"
+    case explicitlyDiscarded = "explicitly_discarded"
+    case discardFailed = "discard_failed"
+}
+
 enum DictationLogEvent: Equatable {
     case hotkeyEvent(action: GlobalHotkeyAction, intent: DictationOutputIntent)
     case hotkeyStopDeferred
@@ -30,6 +48,12 @@ enum DictationLogEvent: Equatable {
     case outputDeliveryFailed(category: String)
     case recordingCacheHandled(policy: RecordingCachePolicy)
     case recordingCacheFailed(category: String)
+    case recordingTerminal(
+        cause: RecordingTerminalCause,
+        attemptID: UUID,
+        durability: RecordingDurabilityOutcome,
+        providerAuthorized: Bool
+    )
 }
 
 protocol DictationEventLogging {
@@ -99,6 +123,10 @@ struct OSLogDictationEventLogger: DictationEventLogging {
             logger.info("Recording cache handled: \(policy.logName, privacy: .public)")
         case .recordingCacheFailed(let category):
             logger.error("Recording cache failed: \(category, privacy: .public)")
+        case .recordingTerminal(let cause, let attemptID, let durability, let providerAuthorized):
+            logger.info(
+                "Recording terminal: cause \(cause.rawValue, privacy: .public), attempt \(compactRecordingAttemptID(attemptID), privacy: .public), durability \(durability.rawValue, privacy: .public), provider authorized \(providerAuthorized, privacy: .public)"
+            )
         }
 
         runtimeLogRecorder.record(event.runtimeDiagnosticEvent)
@@ -209,12 +237,27 @@ private extension DictationLogEvent {
                 severity: .error,
                 fields: ["error_category": category]
             )
+        case .recordingTerminal(let cause, let attemptID, let durability, let providerAuthorized):
+            return RuntimeDiagnosticEvent(
+                category: "dictation",
+                name: "recording_terminal",
+                fields: [
+                    "attempt_id": compactRecordingAttemptID(attemptID),
+                    "durability": durability.rawValue,
+                    "provider_authorized": String(providerAuthorized),
+                    "terminal_cause": cause.rawValue,
+                ]
+            )
         }
     }
 
     private static func durationLogValue(_ duration: TimeInterval) -> String {
         String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), duration)
     }
+}
+
+private func compactRecordingAttemptID(_ attemptID: UUID) -> String {
+    String(attemptID.uuidString.lowercased().prefix(8))
 }
 
 private extension GlobalHotkeyAction {

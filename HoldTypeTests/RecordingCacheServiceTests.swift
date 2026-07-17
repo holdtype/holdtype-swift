@@ -146,6 +146,46 @@ struct RecordingCacheServiceTests {
         #expect(FileManager.default.fileExists(atPath: textURL.path))
     }
 
+    @MainActor
+    @Test func activeCaptureIsExcludedFromEveryCacheMutation() throws {
+        let rootURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let cacheURL = rootURL.appendingPathComponent("Recordings", isDirectory: true)
+        let service = RecordingCacheService(directoryURL: cacheURL, legacyDirectoryURL: nil)
+        let journal = RecordingCaptureJournal(directoryURL: cacheURL)
+        let lease = try journal.prepareCapture(
+            settings: .defaults,
+            maximumDuration: 300
+        )
+        let contents = Data("active capture".utf8)
+        try contents.write(to: lease.audioFileURL)
+        _ = try writeRecording(
+            named: "ordinary.m4a",
+            bytes: 1,
+            in: cacheURL
+        )
+
+        #expect(try service.summary().items.map(\.fileName) == ["ordinary.m4a"])
+        #expect(throws: RecordingCacheServiceError.recordingProtected) {
+            try service.handleCompletedRecording(
+                at: lease.audioFileURL,
+                policy: .deleteImmediately
+            )
+        }
+        #expect(throws: RecordingCacheServiceError.recordingProtected) {
+            try service.deleteRecording(at: lease.audioFileURL)
+        }
+
+        try service.applyRetentionPolicy(.keepLast(0))
+        #expect(FileManager.default.fileExists(atPath: lease.audioFileURL.path))
+        #expect(try Data(contentsOf: lease.audioFileURL) == contents)
+
+        try service.clearCache()
+        #expect(FileManager.default.fileExists(atPath: lease.audioFileURL.path))
+        #expect(try Data(contentsOf: lease.audioFileURL) == contents)
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-recording-cache-tests-\(UUID().uuidString)", isDirectory: true)

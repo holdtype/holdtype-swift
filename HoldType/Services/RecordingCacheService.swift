@@ -46,6 +46,7 @@ enum RecordingCacheServiceError: Error, Equatable, LocalizedError {
     case directoryUnavailable
     case listingFailed
     case unsupportedRecordingURL
+    case recordingProtected
     case deleteFailed
     case clearFailed
 
@@ -57,6 +58,8 @@ enum RecordingCacheServiceError: Error, Equatable, LocalizedError {
             return "Recording cache could not be read."
         case .unsupportedRecordingURL:
             return "Only HoldType recording cache files can be changed."
+        case .recordingProtected:
+            return "An active or unfinished recording cannot be removed from the cache."
         case .deleteFailed:
             return "Recording cache file could not be deleted."
         case .clearFailed:
@@ -152,6 +155,9 @@ struct RecordingCacheService: RecordingCacheManaging {
         guard isManagedRecordingFileURL(fileURL) else {
             return
         }
+        guard !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
+            throw RecordingCacheServiceError.recordingProtected
+        }
 
         switch policy.normalized {
         case .deleteImmediately:
@@ -177,6 +183,9 @@ struct RecordingCacheService: RecordingCacheManaging {
     func deleteRecording(at fileURL: URL) throws {
         guard isManagedRecordingFileURL(fileURL) else {
             throw RecordingCacheServiceError.unsupportedRecordingURL
+        }
+        guard !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
+            throw RecordingCacheServiceError.recordingProtected
         }
 
         let path = fileURL.path
@@ -245,7 +254,8 @@ struct RecordingCacheService: RecordingCacheManaging {
 
         return fileURLs.compactMap { fileURL in
             guard Self.supportedFileExtensions.contains(fileURL.pathExtension.lowercased()),
-                  isManagedRecordingFileURL(fileURL) else {
+                  isManagedRecordingFileURL(fileURL),
+                  !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
                 return nil
             }
 

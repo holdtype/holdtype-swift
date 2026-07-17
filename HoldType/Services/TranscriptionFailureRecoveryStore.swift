@@ -342,10 +342,12 @@ protocol TranscriptionFailureRecoveryRecording: AnyObject {
     func markSaved(id: FailedTranscriptionAttempt.ID, acceptedTranscriptText: String) throws
     func repairLocalRecovery(id: FailedTranscriptionAttempt.ID) throws
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws
+    func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID)
     func recordProviderAccepted(
         id: FailedTranscriptionAttempt.ID,
         acceptedTranscriptText: String
     )
+    func markAcceptedHistoryCommitFailed(id: FailedTranscriptionAttempt.ID)
     func updateFailedAttempt(id: FailedTranscriptionAttempt.ID, reason: FailedTranscriptionReason) throws
     @discardableResult
     func removeFailedAttempt(id: FailedTranscriptionAttempt.ID) throws -> Bool
@@ -404,10 +406,14 @@ extension TranscriptionFailureRecoveryRecording {
 
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws {}
 
+    func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID) {}
+
     func recordProviderAccepted(
         id: FailedTranscriptionAttempt.ID,
         acceptedTranscriptText: String
     ) {}
+
+    func markAcceptedHistoryCommitFailed(id: FailedTranscriptionAttempt.ID) {}
 }
 
 enum TranscriptionFailureRecoveryError: Error, Equatable, LocalizedError {
@@ -810,6 +816,46 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         if let failClosedAttempt = failedAttempts.first(where: { $0.id == id }) {
             try? persistSavedStateRepairMarker(failClosedAttempt)
         }
+    }
+
+    func markAcceptedHistoryCommitFailed(id: FailedTranscriptionAttempt.ID) {
+        guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
+              failedAttempts[index].state != .saved,
+              failedAttempts[index].acceptedTranscriptText != nil else {
+            return
+        }
+
+        var failClosedAttempts = failedAttempts
+        failClosedAttempts[index].state = .failed
+        failClosedAttempts[index].reason = .savedStatePersistenceFailed
+        failClosedAttempts[index].updatedAt = now()
+        failClosedAttempts = failClosedAttempts.sorted { $0.updatedAt > $1.updatedAt }
+        if let failClosedAttempt = failClosedAttempts.first(where: { $0.id == id }) {
+            // Preserve the provider-accepted text even if the canonical
+            // metadata write is the component currently failing. The repair
+            // marker and provider dispatch seal block a second paid request.
+            try? persistSavedStateRepairMarker(failClosedAttempt)
+        }
+        try? persist(failClosedAttempts)
+        failedAttempts = failClosedAttempts
+    }
+
+    func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID) {
+        guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
+              failedAttempts[index].state != .saved,
+              failedAttempts[index].acceptedTranscriptText == nil else {
+            return
+        }
+
+        var uncertainAttempts = failedAttempts
+        uncertainAttempts[index].state = .failed
+        uncertainAttempts[index].reason = .providerOutcomeUncertain
+        uncertainAttempts[index].updatedAt = now()
+        uncertainAttempts = uncertainAttempts.sorted { $0.updatedAt > $1.updatedAt }
+        // Keep the provider-dispatch marker for the full lifetime of the
+        // retained audio. It is the durable proof that retry may double-submit.
+        try? persist(uncertainAttempts)
+        failedAttempts = uncertainAttempts
     }
 
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws {

@@ -747,6 +747,96 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(presentation.showsRetry == false)
     }
 
+    @Test func acceptedHistoryCommitFailureIsImmediatelyVisibleAndNeverProviderRetryable() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let sourceURL = try makeAudioFile(
+            in: fixture.rootURL,
+            named: "accepted-history-commit-failure.m4a"
+        )
+        let store = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL
+        )
+        let checkpoint = try store.recordProcessingCheckpoint(
+            audioFileURL: sourceURL,
+            settings: .defaults,
+            audioDuration: 19,
+            completionKind: .standard
+        )
+        try store.sealProviderDispatch(id: checkpoint.id)
+        store.recordProviderAccepted(
+            id: checkpoint.id,
+            acceptedTranscriptText: "Accepted exactly once"
+        )
+
+        store.markAcceptedHistoryCommitFailed(id: checkpoint.id)
+
+        let retained = try #require(store.failedAttempts.first)
+        #expect(retained.state == .failed)
+        #expect(retained.reason == .savedStatePersistenceFailed)
+        #expect(retained.acceptedTranscriptText == "Accepted exactly once")
+        #expect(retained.canRetry == false)
+        #expect(retained.canDelete)
+        #expect(FileManager.default.fileExists(atPath: retained.audioFileURL.path))
+        #expect(throws: TranscriptionFailureRecoveryError.attemptUnavailable) {
+            try store.sealProviderDispatch(id: retained.id)
+        }
+
+        let relaunched = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL
+        )
+        let restored = try #require(relaunched.failedAttempts.first)
+        #expect(restored.id == retained.id)
+        #expect(restored.state == .failed)
+        #expect(restored.reason == .savedStatePersistenceFailed)
+        #expect(restored.acceptedTranscriptText == "Accepted exactly once")
+        #expect(restored.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: restored.audioFileURL.path))
+    }
+
+    @Test func cancelledSealedDispatchRemainsUncertainAcrossRelaunch() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+        let sourceURL = try makeAudioFile(
+            in: fixture.rootURL,
+            named: "cancelled-sealed-dispatch.m4a"
+        )
+        let store = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL
+        )
+        let checkpoint = try store.recordProcessingCheckpoint(
+            audioFileURL: sourceURL,
+            settings: .defaults,
+            audioDuration: 17,
+            completionKind: .standard
+        )
+        try store.sealProviderDispatch(id: checkpoint.id)
+
+        store.markProviderOutcomeUncertain(id: checkpoint.id)
+
+        let retained = try #require(store.failedAttempts.first)
+        #expect(retained.state == .failed)
+        #expect(retained.reason == .providerOutcomeUncertain)
+        #expect(retained.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: retained.audioFileURL.path))
+        let dispatchMarkerURL = fixture.recoveryURL.appendingPathComponent(
+            "ProviderDispatch-\(checkpoint.id.uuidString.lowercased()).json"
+        )
+        #expect(FileManager.default.fileExists(atPath: dispatchMarkerURL.path))
+        #expect(throws: TranscriptionFailureRecoveryError.attemptUnavailable) {
+            try store.sealProviderDispatch(id: retained.id)
+        }
+
+        let relaunched = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL
+        )
+        let restored = try #require(relaunched.failedAttempts.first)
+        #expect(restored.id == retained.id)
+        #expect(restored.reason == .providerOutcomeUncertain)
+        #expect(restored.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: dispatchMarkerURL.path))
+    }
+
     @Test func savedAcceptedDeleteDoubleFaultKeepsLifetimeDispatchSeal() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.rootURL) }

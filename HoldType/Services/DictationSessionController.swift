@@ -26,6 +26,13 @@ private struct PendingFailedTranscriptionRetry {
     let outputMode: FailedTranscriptionRetryOutputMode
 }
 
+private enum DeferredRecordingTerminalOutcome {
+    case automatic(
+        Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
+    )
+    case maximumDurationAwaitingArtifact
+}
+
 protocol RecordingStopTailSleeping {
     func sleep(seconds: TimeInterval) async throws
 }
@@ -48,6 +55,8 @@ final class DictationSessionController {
         "Recording limit reached. Recording saved to History; transcribing..."
     private static let recordingLimitSaveFailedStatusText =
         "Text was accepted, but the recording that reached the limit could not be marked as saved."
+    private static let acceptedHistorySaveFailedStatusText =
+        "Text was accepted, but History could not save it. The recording remains in Saved Recordings."
 
     private let recorder: any AudioRecorderService
     private let transcriptionService: any OpenAITranscriptionServing
@@ -65,6 +74,7 @@ final class DictationSessionController {
     private let transcriptionUsageRecorder: any TranscriptionUsageRecording
     private let transcriptionIDGenerator: () -> UUID
     private let recordingCache: any RecordingCacheLifecycleHandling
+    private let recordingCaptureJournal: any RecordingCaptureJournaling
     private let recordingStopTailSleeper: any RecordingStopTailSleeping
     private let eventLogger: any DictationEventLogging
     private let credentialResolverForUngatedActions: (any OpenAICredentialResolving)?
@@ -76,9 +86,14 @@ final class DictationSessionController {
     private var activeCredential: OpenAICredential?
     private var activeRecordingStopTailTask: Task<Void, Error>?
     private var pendingFailedTranscriptionRetry: PendingFailedTranscriptionRetry?
-    private var pendingMaximumDurationCompletion = false
+    private var deferredRecordingTerminalOutcome: DeferredRecordingTerminalOutcome?
     private var activeRecoveryCheckpointID: FailedTranscriptionAttempt.ID?
+    private var activeProviderDispatchCheckpointID: FailedTranscriptionAttempt.ID?
     private var activeRecordingDurationLimit: RecordingDurationLimit?
+    private var activeRecordingCaptureLease: RecordingCaptureLease?
+    private var activeRecordingSettings: AppSettings?
+    private var terminationRequested = false
+    private var loggedTerminalAttemptIDs: Set<UUID> = []
 
     private(set) var recordingCountdown: VoiceSessionCountdown? {
         didSet {
@@ -120,12 +135,10 @@ final class DictationSessionController {
 
         guard case .failure = status,
               let presentation = failurePresentation,
-              presentation.canRetry,
               let failedAttemptID = presentation.failedAttemptID,
-              let retainedAttempt = transcriptionFailureRecovery.failedAttempts.first(
+              transcriptionFailureRecovery.failedAttempts.contains(
                   where: { $0.id == failedAttemptID }
-              ),
-              retainedAttempt.reason.canRetry else {
+              ) else {
             return nil
         }
 
@@ -151,6 +164,7 @@ final class DictationSessionController {
         transcriptionUsageRecorder: (any TranscriptionUsageRecording)? = nil,
         transcriptionIDGenerator: @escaping () -> UUID = UUID.init,
         recordingCache: any RecordingCacheLifecycleHandling = RecordingCacheService.shared,
+        recordingCaptureJournal: any RecordingCaptureJournaling = RecordingCaptureJournal.shared,
         recordingStopTailSleeper: any RecordingStopTailSleeping = TaskRecordingStopTailSleeper(),
         eventLogger: any DictationEventLogging = OSLogDictationEventLogger(),
         credentialResolverForUngatedActions: (any OpenAICredentialResolving)? = nil,
@@ -176,6 +190,7 @@ final class DictationSessionController {
         self.transcriptionUsageRecorder = transcriptionUsageRecorder ?? OpenAIUsageStore.shared
         self.transcriptionIDGenerator = transcriptionIDGenerator
         self.recordingCache = recordingCache
+        self.recordingCaptureJournal = recordingCaptureJournal
         self.recordingStopTailSleeper = recordingStopTailSleeper
         self.eventLogger = eventLogger
         self.credentialResolverForUngatedActions = credentialResolverForUngatedActions
@@ -197,6 +212,9 @@ final class DictationSessionController {
         intent: DictationOutputIntent = .standard,
         credential: OpenAICredential? = nil
     ) async {
+        guard !terminationRequested else {
+            return
+        }
         guard beginExclusiveAction() else {
             return
         }
@@ -222,9 +240,27 @@ final class DictationSessionController {
 
             activeRecordingStopTailTask?.cancel()
             activeRecordingStopTailTask = nil
+            let captureLease = activeRecordingCaptureLease
             recorder.cancelRecording()
+            if let captureLease {
+                let durability: RecordingDurabilityOutcome
+                do {
+                    try recordingCaptureJournal.discardCapture(captureLease)
+                    durability = .explicitlyDiscarded
+                } catch {
+                    durability = .discardFailed
+                }
+                recordRecordingTerminal(
+                    cause: .explicitUserDiscard,
+                    attemptID: captureLease.id,
+                    durability: durability,
+                    providerAuthorized: false
+                )
+            }
+            activeRecordingCaptureLease = nil
+            activeRecordingSettings = nil
             stopRecordingDurationMonitoring()
-            pendingMaximumDurationCompletion = false
+            deferredRecordingTerminalOutcome = nil
             cancelActiveSession()
             activeCredential = nil
             outputStatusText = nil
@@ -313,6 +349,7 @@ final class DictationSessionController {
             )
             activeRecoveryCheckpointID = attempt.id
             try transcriptionFailureRecovery.sealProviderDispatch(id: attempt.id)
+            activeProviderDispatchCheckpointID = attempt.id
             eventLogger.record(.transcriptionStarted)
             let rawTranscript = try await transcriptionService.transcribe(
                 transcriptionRequest,
@@ -328,6 +365,9 @@ final class DictationSessionController {
                 id: attempt.id,
                 acceptedTranscriptText: transcribedTranscript.text
             )
+            if activeProviderDispatchCheckpointID == attempt.id {
+                activeProviderDispatchCheckpointID = nil
+            }
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
                 model: transcriptionRequest.model,
@@ -346,6 +386,7 @@ final class DictationSessionController {
             let retainsMaximumDurationRecording =
                 attempt.completionKind == .maximumDuration
             var savedRecordingUpdateFailed = false
+            var acceptedHistoryCommitted = true
             if retainsMaximumDurationRecording {
                 do {
                     try transcriptionFailureRecovery.markSaved(
@@ -362,16 +403,23 @@ final class DictationSessionController {
             failurePresentation = nil
 
             if !retainsMaximumDurationRecording {
-                recordRecoveryHistory(
+                acceptedHistoryCommitted = recordRecoveryHistory(
                     acceptedTranscript,
                     settings: settings,
                     audioDuration: attempt.audioDuration,
                     cachedAudioFileURL: nil
                 )
-                do {
-                    _ = try transcriptionFailureRecovery.removeFailedAttempt(id: retry.id)
-                } catch {
-                    outputStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
+                if acceptedHistoryCommitted {
+                    do {
+                        _ = try transcriptionFailureRecovery.removeFailedAttempt(id: retry.id)
+                    } catch {
+                        outputStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
+                    }
+                } else {
+                    transcriptionFailureRecovery.markAcceptedHistoryCommitFailed(
+                        id: retry.id
+                    )
+                    savedRecordingUpdateFailed = true
                 }
             }
             if activeRecoveryCheckpointID == attempt.id {
@@ -387,9 +435,13 @@ final class DictationSessionController {
             )
             do {
                 let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
-                outputStatusText = savedRecordingUpdateFailed
-                    ? Self.recordingLimitSaveFailedStatusText
-                    : deliveryStatusText
+                if !acceptedHistoryCommitted {
+                    outputStatusText = Self.acceptedHistorySaveFailedStatusText
+                } else if savedRecordingUpdateFailed {
+                    outputStatusText = Self.recordingLimitSaveFailedStatusText
+                } else {
+                    outputStatusText = deliveryStatusText
+                }
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return
@@ -405,8 +457,7 @@ final class DictationSessionController {
                 return
             }
 
-            let reason = FailedTranscriptionReason(error: error)
-            try? transcriptionFailureRecovery.updateFailedAttempt(id: retry.id, reason: reason)
+            recordProviderFailure(id: retry.id, error: error)
             if activeRecoveryCheckpointID == attempt.id {
                 activeRecoveryCheckpointID = nil
             }
@@ -436,7 +487,31 @@ final class DictationSessionController {
 
     private func completeExclusiveAction() {
         isPerformingAction = false
+        if runDeferredRecordingTerminalOutcomeIfNeeded() {
+            return
+        }
         runPendingFailedTranscriptionRetryIfNeeded()
+    }
+
+    private func runDeferredRecordingTerminalOutcomeIfNeeded() -> Bool {
+        guard !isPerformingAction,
+              activeSessionID != nil,
+              status.voiceWorkPhase == .listening,
+              let outcome = deferredRecordingTerminalOutcome else {
+            if activeSessionID == nil {
+                deferredRecordingTerminalOutcome = nil
+            }
+            return false
+        }
+
+        deferredRecordingTerminalOutcome = nil
+        switch outcome {
+        case .automatic(let result):
+            handleAutomaticRecorderStop(result)
+        case .maximumDurationAwaitingArtifact:
+            handleRecordingMaximumDurationWatchdog()
+        }
+        return true
     }
 
     private func runPendingFailedTranscriptionRetryIfNeeded() {
@@ -478,6 +553,7 @@ final class DictationSessionController {
         nextSessionID += 1
         activeSessionID = nextSessionID
         activeOutputIntent = intent
+        activeProviderDispatchCheckpointID = nil
         return nextSessionID
     }
 
@@ -507,16 +583,18 @@ final class DictationSessionController {
         activeSessionID = nil
         activeOutputIntent = nil
         activeCredential = nil
-        pendingMaximumDurationCompletion = false
+        deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
+        activeProviderDispatchCheckpointID = nil
     }
 
     private func cancelActiveSession() {
         activeSessionID = nil
         activeOutputIntent = nil
         activeCredential = nil
-        pendingMaximumDurationCompletion = false
+        deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
+        activeProviderDispatchCheckpointID = nil
     }
 
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
@@ -547,13 +625,25 @@ final class DictationSessionController {
         let sessionID = beginSession(intent: intent)
         let recordingDurationLimit = settings.recordingDurationLimit
         activeRecordingDurationLimit = recordingDurationLimit
-        pendingMaximumDurationCompletion = false
+        activeRecordingSettings = settings
+        deferredRecordingTerminalOutcome = nil
         eventLogger.record(.recordingStartRequested)
 
         do {
+            let captureLease: RecordingCaptureLease?
+            if recorder.acceptsPreparedRecordingFileURL {
+                captureLease = try recordingCaptureJournal.prepareCapture(
+                    settings: settings,
+                    maximumDuration: recordingDurationLimit.duration
+                )
+            } else {
+                captureLease = nil
+            }
+            activeRecordingCaptureLease = captureLease
             historyAudioPlaybackStopper.stopPlayback()
             try await recorder.startRecording(
-                maximumDuration: recordingDurationLimit.duration
+                maximumDuration: recordingDurationLimit.duration,
+                outputFileURL: captureLease?.audioFileURL
             )
             guard isCurrentSession(sessionID) else {
                 return
@@ -564,10 +654,24 @@ final class DictationSessionController {
             playCue(.startRecording, settings: settings)
             startRecordingDurationMonitoring(sessionID: sessionID, settings: settings)
         } catch {
+            let recoveredAttempt = preserveInterruptedCapture(
+                completionKind: .standard,
+                terminalCause: .platformInterrupted
+            )
             stopRecordingDurationMonitoring()
             finishSession(sessionID)
             eventLogger.record(.recordingStartFailed(category: Self.operatorLogCategory(for: error)))
-            status = .failure(message: Self.userFacingMessage(for: error))
+            let message = Self.userFacingMessage(for: error)
+            if recoveredAttempt != nil {
+                outputStatusText = "Recording interrupted — saved to History."
+            }
+            status = .failure(message: message)
+            failurePresentation = failurePresentation(
+                message: message,
+                error: error,
+                failedAttempt: recoveredAttempt,
+                showsRecoveryPrompt: recoveredAttempt != nil
+            )
         }
     }
 
@@ -579,6 +683,8 @@ final class DictationSessionController {
     ) async {
         outputStatusText = nil
         failurePresentation = nil
+        let userFinishOwnedAuthority = automaticCompletion == nil
+            && automaticReasonAwaitingArtifact == nil
         let sessionID = currentOrNewSessionID(intent: intent)
         let outputIntent = currentOutputIntent(fallback: intent)
         var stage: VoiceAttemptStage = .recordingFinalization
@@ -598,10 +704,11 @@ final class DictationSessionController {
         }
 
         do {
-            let settings = settingsProvider()
+            let settings = activeRecordingSettings ?? settingsProvider()
+            completedRecordingSettings = settings
             let recordingDurationLimit = activeRecordingDurationLimit
                 ?? settings.recordingDurationLimit
-            let artifact: AudioRecordingArtifact
+            var artifact: AudioRecordingArtifact
             if let automaticCompletion = resolvedAutomaticCompletion {
                 artifact = automaticCompletion.artifact
                 switch automaticCompletion.reason {
@@ -625,7 +732,35 @@ final class DictationSessionController {
             } else {
                 eventLogger.record(.recordingStopRequested)
                 try await waitForRecordingStopTail(settings: settings)
-                artifact = try await recorder.stopRecording()
+                let stopOutcome = try await recorder.stopRecordingOutcome()
+                artifact = stopOutcome.artifact
+                resolvedAutomaticCompletion = stopOutcome.automaticCompletion
+            }
+            if let deferredOutcome = takeDeferredRecordingTerminalOutcome() {
+                switch deferredOutcome {
+                case .maximumDurationAwaitingArtifact:
+                    resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                        artifact: artifact,
+                        reason: .maximumDuration
+                    )
+                case .automatic(.success(let completion)):
+                    let deferredUnexpectedMayOwnAuthority =
+                        !userFinishOwnedAuthority || resolvedAutomaticCompletion != nil
+                    if resolvedAutomaticCompletion?.reason != .maximumDuration,
+                       completion.reason == .maximumDuration
+                        || deferredUnexpectedMayOwnAuthority {
+                        resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                            artifact: artifact,
+                            reason: completion.reason,
+                            recorderReportedSuccess: completion.recorderReportedSuccess
+                        )
+                    }
+                case .automatic(.failure(let error)):
+                    // A joined stop that produced a non-empty artifact is more
+                    // authoritative than a racing delegate failure. Keep the
+                    // anomaly in diagnostics without discarding the artifact.
+                    recordFailure(error, at: .recordingFinalization)
+                }
             }
             if let automaticCompletion = resolvedAutomaticCompletion,
                automaticCompletion.reason != .maximumDuration,
@@ -646,9 +781,7 @@ final class DictationSessionController {
                     reason: .maximumDuration,
                     recorderReportedSuccess: recorderReportedSuccess
                 )
-                pendingMaximumDurationCompletion = false
                 outputStatusText = Self.recordingLimitSavingStatusText
-                eventLogger.record(.recordingLimitReached)
             }
             if resolvedAutomaticCompletion == nil,
                recorder.lastFinalizationReachedMaximumDuration {
@@ -656,19 +789,7 @@ final class DictationSessionController {
                     artifact: artifact,
                     reason: .maximumDuration
                 )
-                pendingMaximumDurationCompletion = false
                 outputStatusText = Self.recordingLimitSavingStatusText
-                eventLogger.record(.recordingLimitReached)
-            }
-            if resolvedAutomaticCompletion == nil,
-               pendingMaximumDurationCompletion {
-                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
-                    artifact: artifact,
-                    reason: .maximumDuration
-                )
-                pendingMaximumDurationCompletion = false
-                outputStatusText = Self.recordingLimitSavingStatusText
-                eventLogger.record(.recordingLimitReached)
             }
             if resolvedAutomaticCompletion == nil,
                automaticReasonAwaitingArtifact == nil,
@@ -685,6 +806,12 @@ final class DictationSessionController {
                     reason: .maximumDuration
                 )
                 outputStatusText = Self.recordingLimitSavingStatusText
+            }
+            let recordingLimitWasLoggedBeforeFinalization =
+                automaticCompletion?.reason == .maximumDuration
+                || automaticReasonAwaitingArtifact == .maximumDuration
+            if resolvedAutomaticCompletion?.reason == .maximumDuration,
+               !recordingLimitWasLoggedBeforeFinalization {
                 eventLogger.record(.recordingLimitReached)
             }
             completedArtifact = artifact
@@ -692,8 +819,6 @@ final class DictationSessionController {
             eventLogger.record(
                 .recordingStopped(duration: artifact.duration, byteCount: artifact.byteCount)
             )
-
-            completedRecordingSettings = settings
 
             guard isCurrentSession(sessionID) else {
                 return
@@ -728,12 +853,70 @@ final class DictationSessionController {
                     : .standard
             )
             activeRecoveryCheckpointID = recoveryCheckpoint?.id
+            if let captureLease = activeRecordingCaptureLease,
+               let recoveryCheckpoint {
+                artifact = try recordingCaptureJournal.releaseCapture(
+                    captureLease,
+                    artifact: artifact,
+                    recoveryAttemptID: recoveryCheckpoint.id
+                )
+                completedArtifact = artifact
+                activeRecordingCaptureLease = nil
+            }
+            activeRecordingSettings = nil
             allowsRecordingCacheHandling = true
+            let terminalCause = Self.recordingTerminalCause(
+                automaticCompletion: resolvedAutomaticCompletion,
+                userFinishOwnedAuthority: userFinishOwnedAuthority
+            )
+            let providerAuthorized = terminalCause == .userFinished
+                || terminalCause == .configuredLimit
+            if let recoveryCheckpoint {
+                recordRecordingTerminal(
+                    cause: terminalCause,
+                    attemptID: recoveryCheckpoint.id,
+                    durability: .historyCheckpoint,
+                    providerAuthorized: providerAuthorized
+                )
+            }
+            if terminationRequested, let recoveryCheckpoint {
+                try? transcriptionFailureRecovery.updateFailedAttempt(
+                    id: recoveryCheckpoint.id,
+                    reason: .processingInterrupted
+                )
+                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
+                    activeRecoveryCheckpointID = nil
+                }
+                outputStatusText = "Recording interrupted — saved to History."
+                finishSession(sessionID)
+                status = .idle
+                return
+            }
+            if terminalCause == .platformInterrupted,
+               let recoveryCheckpoint {
+                try? transcriptionFailureRecovery.updateFailedAttempt(
+                    id: recoveryCheckpoint.id,
+                    reason: .processingInterrupted
+                )
+                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
+                    activeRecoveryCheckpointID = nil
+                }
+                let message = "Recording ended unexpectedly."
+                outputStatusText = "Recording interrupted — saved to History."
+                finishSession(sessionID)
+                status = .failure(message: message)
+                failurePresentation = failurePresentation(
+                    message: message,
+                    error: AudioRecorderServiceError.stopFailed,
+                    failedAttempt: transcriptionFailureRecovery.failedAttempts.first {
+                        $0.id == recoveryCheckpoint.id
+                    } ?? recoveryCheckpoint,
+                    showsRecoveryPrompt: true
+                )
+                return
+            }
             if resolvedAutomaticCompletion?.reason == .maximumDuration {
                 outputStatusText = Self.recordingLimitTranscribingStatusText
-            } else if let reason = resolvedAutomaticCompletion?.reason,
-                      case .unexpected = reason {
-                outputStatusText = "Recording ended unexpectedly. Recording saved to History; transcribing..."
             }
 
             if outputIntent == .translate,
@@ -760,6 +943,7 @@ final class DictationSessionController {
                 try transcriptionFailureRecovery.sealProviderDispatch(
                     id: recoveryCheckpoint.id
                 )
+                activeProviderDispatchCheckpointID = recoveryCheckpoint.id
             }
             eventLogger.record(.transcriptionStarted)
             let rawTranscript = try await transcriptionService.transcribe(
@@ -777,6 +961,9 @@ final class DictationSessionController {
                     id: recoveryCheckpoint.id,
                     acceptedTranscriptText: transcribedTranscript.text
                 )
+                if activeProviderDispatchCheckpointID == recoveryCheckpoint.id {
+                    activeProviderDispatchCheckpointID = nil
+                }
             }
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
@@ -821,21 +1008,29 @@ final class DictationSessionController {
             lastTranscriptText = acceptedTranscript.text
             status = .success(transcript: acceptedTranscript.text)
             failurePresentation = nil
+            var acceptedHistoryCommitted = true
             if !retainsMaximumDurationRecording {
-                recordRecoveryHistory(
+                acceptedHistoryCommitted = recordRecoveryHistory(
                     acceptedTranscript,
                     settings: settings,
                     audioDuration: artifact.duration,
                     cachedAudioFileURL: artifact.fileURL
                 )
+                if !acceptedHistoryCommitted {
+                    savedRecordingUpdateFailed = true
+                }
             }
             if let recoveryCheckpoint {
-                if !retainsMaximumDurationRecording {
+                if !retainsMaximumDurationRecording, acceptedHistoryCommitted {
                     do {
                         _ = try transcriptionFailureRecovery.removeFailedAttempt(id: recoveryCheckpoint.id)
                     } catch {
                         outputStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
                     }
+                } else if !retainsMaximumDurationRecording {
+                    transcriptionFailureRecovery.markAcceptedHistoryCommitFailed(
+                        id: recoveryCheckpoint.id
+                    )
                 }
                 if activeRecoveryCheckpointID == recoveryCheckpoint.id {
                     activeRecoveryCheckpointID = nil
@@ -849,9 +1044,13 @@ final class DictationSessionController {
             )
             do {
                 let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
-                outputStatusText = savedRecordingUpdateFailed
-                    ? Self.recordingLimitSaveFailedStatusText
-                    : deliveryStatusText
+                if !acceptedHistoryCommitted {
+                    outputStatusText = Self.acceptedHistorySaveFailedStatusText
+                } else if savedRecordingUpdateFailed {
+                    outputStatusText = Self.recordingLimitSaveFailedStatusText
+                } else {
+                    outputStatusText = deliveryStatusText
+                }
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return
@@ -863,26 +1062,42 @@ final class DictationSessionController {
 
             finishSession(sessionID)
         } catch is CancellationError {
+            var interruptedAttempt: FailedTranscriptionAttempt?
             if let recoveryCheckpoint {
-                try? transcriptionFailureRecovery.updateFailedAttempt(
-                    id: recoveryCheckpoint.id,
-                    reason: .processingInterrupted
-                )
-                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
-                    activeRecoveryCheckpointID = nil
+                markRecoveryCheckpointInterrupted(id: recoveryCheckpoint.id)
+                interruptedAttempt = transcriptionFailureRecovery.failedAttempts.first {
+                    $0.id == recoveryCheckpoint.id
                 }
+            } else {
+                interruptedAttempt = preserveInterruptedCapture(
+                    completionKind: resolvedAutomaticCompletion?.reason == .maximumDuration
+                        ? .maximumDuration
+                        : .standard,
+                    terminalCause: .ownerTeardown
+                )
             }
             guard isCurrentSession(sessionID) else {
                 return
             }
 
-            recorder.cancelRecording()
+            allowsRecordingCacheHandling = activeRecordingCaptureLease == nil
             stopRecordingDurationMonitoring()
             finishSession(sessionID)
             activeCredential = nil
-            outputStatusText = nil
-            failurePresentation = nil
-            status = .idle
+            if interruptedAttempt != nil {
+                outputStatusText = "Recording interrupted — saved to History."
+                status = .failure(message: "Recording processing was interrupted.")
+                failurePresentation = failurePresentation(
+                    message: "Recording processing was interrupted.",
+                    error: CancellationError(),
+                    failedAttempt: interruptedAttempt,
+                    showsRecoveryPrompt: true
+                )
+            } else {
+                outputStatusText = nil
+                failurePresentation = nil
+                status = .idle
+            }
         } catch {
             guard isCurrentSession(sessionID) else {
                 return
@@ -892,20 +1107,40 @@ final class DictationSessionController {
                 attempt: FailedTranscriptionAttempt?,
                 allowsRecordingCacheHandling: Bool
             )
-            if let recoveryCheckpoint {
-                let reason = FailedTranscriptionReason(error: error)
-                try? transcriptionFailureRecovery.updateFailedAttempt(
-                    id: recoveryCheckpoint.id,
-                    reason: reason
+            let recoveredInterruptedCapture = activeRecordingCaptureLease != nil
+                && recoveryCheckpoint == nil
+            if recoveredInterruptedCapture {
+                recoveryResult = (
+                    preserveInterruptedCapture(
+                        completionKind: resolvedAutomaticCompletion?.reason == .maximumDuration
+                            ? .maximumDuration
+                            : .standard,
+                        reuseCheckpointFallback: checkpointAttempted,
+                        terminalCause: .internalFailure,
+                        providerAuthorized: resolvedAutomaticCompletion?.reason == .maximumDuration
+                            || userFinishOwnedAuthority
+                    ),
+                    false
                 )
+            } else if let recoveryCheckpoint {
+                recordProviderFailure(id: recoveryCheckpoint.id, error: error)
                 if activeRecoveryCheckpointID == recoveryCheckpoint.id {
                     activeRecoveryCheckpointID = nil
+                }
+                let hadProtectedCapture = activeRecordingCaptureLease != nil
+                if let captureLease = activeRecordingCaptureLease {
+                    try? recordingCaptureJournal.retireCaptureAfterRecovery(
+                        captureLease,
+                        recoveryAttemptID: recoveryCheckpoint.id
+                    )
+                    activeRecordingCaptureLease = nil
+                    activeRecordingSettings = nil
                 }
                 recoveryResult = (
                     transcriptionFailureRecovery.failedAttempts.first {
                         $0.id == recoveryCheckpoint.id
                     },
-                    true
+                    !hadProtectedCapture
                 )
             } else if checkpointAttempted,
                       let completedArtifact,
@@ -938,12 +1173,15 @@ final class DictationSessionController {
             if checkpointAttempted, recoveryCheckpoint == nil {
                 outputStatusText = message
             }
+            if recoveredInterruptedCapture, recoveryResult.attempt != nil {
+                outputStatusText = "Recording interrupted — saved to History."
+            }
             status = .failure(message: message)
             failurePresentation = failurePresentation(
                 message: message,
                 error: error,
                 failedAttempt: recoveryResult.attempt,
-                showsRecoveryPrompt: stage == .transcription
+                showsRecoveryPrompt: recoveryResult.attempt != nil
             )
         }
     }
@@ -953,11 +1191,385 @@ final class DictationSessionController {
             return
         }
 
+        markRecoveryCheckpointInterrupted(id: activeRecoveryCheckpointID)
+    }
+
+    private func markRecoveryCheckpointInterrupted(
+        id: FailedTranscriptionAttempt.ID
+    ) {
+        if activeProviderDispatchCheckpointID == id {
+            transcriptionFailureRecovery.markProviderOutcomeUncertain(id: id)
+            activeProviderDispatchCheckpointID = nil
+        } else {
+            try? transcriptionFailureRecovery.updateFailedAttempt(
+                id: id,
+                reason: .processingInterrupted
+            )
+        }
+        if activeRecoveryCheckpointID == id {
+            activeRecoveryCheckpointID = nil
+        }
+    }
+
+    private func recordProviderFailure(
+        id: FailedTranscriptionAttempt.ID,
+        error: Error
+    ) {
+        guard activeProviderDispatchCheckpointID == id else {
+            try? transcriptionFailureRecovery.updateFailedAttempt(
+                id: id,
+                reason: FailedTranscriptionReason(error: error)
+            )
+            return
+        }
+
+        activeProviderDispatchCheckpointID = nil
+        guard Self.providerOutcomeIsDefinitive(for: error) else {
+            // A transport failure after dispatch may arrive after the provider
+            // accepted the audio. Keep the lifetime dispatch seal and require
+            // an explicit duplicate-submission flow instead of ordinary Retry.
+            transcriptionFailureRecovery.markProviderOutcomeUncertain(id: id)
+            return
+        }
+
         try? transcriptionFailureRecovery.updateFailedAttempt(
-            id: activeRecoveryCheckpointID,
-            reason: .processingInterrupted
+            id: id,
+            reason: FailedTranscriptionReason(error: error)
         )
-        self.activeRecoveryCheckpointID = nil
+    }
+
+    private static func providerOutcomeIsDefinitive(for error: Error) -> Bool {
+        guard !(error is CancellationError),
+              let error = error as? OpenAITranscriptionServiceError else {
+            return false
+        }
+
+        switch error {
+        case .timedOut,
+             .networkUnavailable,
+             .networkFailure,
+             .cancelled:
+            return false
+        case .missingAPIKey,
+             .apiKeyUnavailable,
+             .invalidRecording,
+             .invalidRequest,
+             .multipartMetadataTooLarge,
+             .invalidAPIKey,
+             .rateLimited,
+             .providerUnavailable,
+             .badRequest,
+             .providerRejected,
+             .invalidResponse,
+             .emptyTranscript,
+             .dictionaryEcho,
+             .contextEcho:
+            return true
+        }
+    }
+
+    private static func recordingTerminalCause(
+        automaticCompletion: AudioRecorderAutomaticCompletion?,
+        userFinishOwnedAuthority: Bool
+    ) -> RecordingTerminalCause {
+        if let automaticCompletion {
+            switch automaticCompletion.reason {
+            case .maximumDuration:
+                return .configuredLimit
+            case .unexpected:
+                return .platformInterrupted
+            }
+        }
+        if userFinishOwnedAuthority {
+            return .userFinished
+        }
+        return .platformInterrupted
+    }
+
+    private func recordRecordingTerminal(
+        cause: RecordingTerminalCause,
+        attemptID: UUID,
+        durability: RecordingDurabilityOutcome,
+        providerAuthorized: Bool
+    ) {
+        guard loggedTerminalAttemptIDs.insert(attemptID).inserted else {
+            return
+        }
+        eventLogger.record(
+            .recordingTerminal(
+                cause: cause,
+                attemptID: attemptID,
+                durability: durability,
+                providerAuthorized: providerAuthorized
+            )
+        )
+    }
+
+    func repairInterruptedRecordings() {
+        let recoveredCount = recordingCaptureJournal.repairInterruptedCaptures(
+            into: transcriptionFailureRecovery,
+            onRepair: { [weak self] attemptID, durability in
+                self?.recordRecordingTerminal(
+                    cause: .ownerTeardown,
+                    attemptID: attemptID,
+                    durability: durability,
+                    providerAuthorized: false
+                )
+            }
+        )
+        guard recoveredCount > 0 else {
+            return
+        }
+
+        outputStatusText = recoveredCount == 1
+            ? "An interrupted recording was recovered to History."
+            : "\(recoveredCount) interrupted recordings were recovered to History."
+    }
+
+    func prepareForTermination() async {
+        terminationRequested = true
+        activeRecordingStopTailTask?.cancel()
+        stopRecordingDurationMonitoring()
+
+        if status.voiceWorkPhase == .processing {
+            markActiveRecoveryCheckpointInterrupted()
+            transcriptionService.cancelActiveTranscription()
+            textCorrectionService.cancelActiveCorrection()
+            translationService.cancelActiveTranslation()
+            cancelActiveSession()
+            status = .idle
+            return
+        }
+
+        guard status.voiceWorkPhase == .listening,
+              !isPerformingAction,
+              let sessionID = activeSessionID else {
+            // The start/stop action already in flight still owns the recorder.
+            // Its start-time journal is the bounded termination fallback.
+            return
+        }
+
+        isPerformingAction = true
+        defer { isPerformingAction = false }
+        let settings = activeRecordingSettings ?? settingsProvider()
+        let completionKind = completionKindForDeferredTerminalOutcome()
+        deferredRecordingTerminalOutcome = nil
+
+        do {
+            let artifact = try await recorder.stopRecording()
+            let checkpoint = try transcriptionFailureRecovery.recordProcessingCheckpoint(
+                audioFileURL: artifact.fileURL,
+                settings: settings,
+                audioDuration: artifact.duration,
+                completionKind: completionKind
+            )
+            try? transcriptionFailureRecovery.updateFailedAttempt(
+                id: checkpoint.id,
+                reason: .processingInterrupted
+            )
+            if let captureLease = activeRecordingCaptureLease {
+                try? recordingCaptureJournal.retireCaptureAfterRecovery(
+                    captureLease,
+                    recoveryAttemptID: checkpoint.id
+                )
+            } else {
+                try? recordingCache.handleCompletedRecording(
+                    artifact,
+                    policy: .deleteImmediately
+                )
+            }
+            activeRecordingCaptureLease = nil
+            activeRecordingSettings = nil
+            recordRecordingTerminal(
+                cause: .ownerTeardown,
+                attemptID: checkpoint.id,
+                durability: .historyCheckpoint,
+                providerAuthorized: false
+            )
+        } catch {
+            _ = preserveInterruptedCapture(
+                completionKind: completionKind,
+                terminalCause: .ownerTeardown
+            )
+        }
+
+        finishSession(sessionID)
+        status = .idle
+    }
+
+    private func deferRecordingTerminalOutcome(
+        _ outcome: DeferredRecordingTerminalOutcome
+    ) {
+        guard let existing = deferredRecordingTerminalOutcome else {
+            deferredRecordingTerminalOutcome = outcome
+            return
+        }
+
+        switch (existing, outcome) {
+        case (.maximumDurationAwaitingArtifact, _):
+            return
+        case (_, .maximumDurationAwaitingArtifact):
+            deferredRecordingTerminalOutcome = outcome
+        case (.automatic(.success(let completion)), _)
+            where completion.reason == .maximumDuration:
+            return
+        case (_, .automatic(.success(let completion)))
+            where completion.reason == .maximumDuration:
+            deferredRecordingTerminalOutcome = outcome
+        case (.automatic(.success(_)), .automatic(.failure(_))):
+            return
+        default:
+            deferredRecordingTerminalOutcome = outcome
+        }
+    }
+
+    private func takeDeferredRecordingTerminalOutcome() -> DeferredRecordingTerminalOutcome? {
+        defer { deferredRecordingTerminalOutcome = nil }
+        return deferredRecordingTerminalOutcome
+    }
+
+    private func completionKindForDeferredTerminalOutcome() -> TranscriptionRecoveryCompletionKind {
+        switch deferredRecordingTerminalOutcome {
+        case .maximumDurationAwaitingArtifact:
+            return .maximumDuration
+        case .automatic(.success(let completion)) where completion.reason == .maximumDuration:
+            return .maximumDuration
+        case .automatic(_), nil:
+            return .standard
+        }
+    }
+
+    private func preserveInterruptedCapture(
+        completionKind: TranscriptionRecoveryCompletionKind,
+        reuseCheckpointFallback: Bool = false,
+        terminalCause: RecordingTerminalCause? = nil,
+        providerAuthorized: Bool = false
+    ) -> FailedTranscriptionAttempt? {
+        guard let captureLease = activeRecordingCaptureLease else {
+            return nil
+        }
+        let settings = activeRecordingSettings ?? settingsProvider()
+        var terminalAttemptID = captureLease.id
+        var terminalDurability = RecordingDurabilityOutcome.protectedCapture
+        defer {
+            if let terminalCause {
+                recordRecordingTerminal(
+                    cause: terminalCause,
+                    attemptID: terminalAttemptID,
+                    durability: terminalDurability,
+                    providerAuthorized: providerAuthorized
+                )
+            }
+            activeRecordingCaptureLease = nil
+            activeRecordingSettings = nil
+        }
+
+        switch recordingCaptureJournal.inspectCapture(
+            captureLease,
+            fallbackDuration: 0
+        ) {
+        case .nonempty(let artifact):
+            if reuseCheckpointFallback {
+                let fallback = transcriptionFailureRecovery.retainEmergencyFallback(
+                    audioFileURL: artifact.fileURL,
+                    settings: settings,
+                    audioDuration: artifact.duration > 0 ? artifact.duration : nil,
+                    reason: .recoveryOwnershipPersistenceFailed,
+                    completionKind: completionKind
+                )
+                if let fallback,
+                   fallback.audioFileURL.standardizedFileURL
+                    != artifact.fileURL.standardizedFileURL {
+                    try? recordingCaptureJournal.retireCaptureAfterRecovery(
+                        captureLease,
+                        recoveryAttemptID: fallback.id
+                    )
+                }
+                if let fallback {
+                    terminalAttemptID = fallback.id
+                    terminalDurability = .emergencyFallback
+                }
+                // When fallback ownership is the capture itself, its marker
+                // remains the durable launch-repair owner. The controller
+                // still releases this lease so a later recording cannot
+                // accidentally overwrite its in-memory identity.
+                return fallback
+            }
+            do {
+                let checkpoint = try transcriptionFailureRecovery.recordProcessingCheckpoint(
+                    audioFileURL: artifact.fileURL,
+                    settings: settings,
+                    audioDuration: artifact.duration > 0 ? artifact.duration : nil,
+                    completionKind: completionKind
+                )
+                try? transcriptionFailureRecovery.updateFailedAttempt(
+                    id: checkpoint.id,
+                    reason: .processingInterrupted
+                )
+                try? recordingCaptureJournal.retireCaptureAfterRecovery(
+                    captureLease,
+                    recoveryAttemptID: checkpoint.id
+                )
+                terminalAttemptID = checkpoint.id
+                terminalDurability = .historyCheckpoint
+                return transcriptionFailureRecovery.failedAttempts.first {
+                    $0.id == checkpoint.id
+                } ?? checkpoint
+            } catch {
+                let fallback = transcriptionFailureRecovery.retainEmergencyFallback(
+                    audioFileURL: artifact.fileURL,
+                    settings: settings,
+                    audioDuration: artifact.duration > 0 ? artifact.duration : nil,
+                    reason: .recoveryOwnershipPersistenceFailed,
+                    completionKind: completionKind
+                )
+                if let fallback,
+                   fallback.audioFileURL.standardizedFileURL
+                    != artifact.fileURL.standardizedFileURL {
+                    try? recordingCaptureJournal.retireCaptureAfterRecovery(
+                        captureLease,
+                        recoveryAttemptID: fallback.id
+                    )
+                }
+                if let fallback {
+                    terminalAttemptID = fallback.id
+                    terminalDurability = .emergencyFallback
+                }
+                return fallback
+            }
+        case .empty, .missing:
+            try? recordingCaptureJournal.discardCapture(captureLease)
+            terminalDurability = .emptyOrMissingDiscarded
+            return nil
+        case .unavailable:
+            // Keep the durable marker and reserved path for launch repair.
+            return nil
+        }
+    }
+
+    private func handleRecordingFinalizationFailure(
+        _ error: AudioRecorderServiceError,
+        sessionID: Int,
+        completionKind: TranscriptionRecoveryCompletionKind
+    ) {
+        let recoveredAttempt = preserveInterruptedCapture(
+            completionKind: completionKind,
+            terminalCause: .platformInterrupted
+        )
+        stopRecordingDurationMonitoring()
+        finishSession(sessionID)
+        recordFailure(error, at: .recordingFinalization)
+        let message = Self.userFacingMessage(for: error)
+        if recoveredAttempt != nil {
+            outputStatusText = "Recording interrupted — saved to History."
+        }
+        status = .failure(message: message)
+        failurePresentation = failurePresentation(
+            message: message,
+            error: error,
+            failedAttempt: recoveredAttempt,
+            showsRecoveryPrompt: recoveredAttempt != nil
+        )
     }
 
     private func handleAutomaticRecorderStop(
@@ -982,15 +1594,16 @@ final class DictationSessionController {
                 )
             }
         }
-        guard beginExclusiveAction() else {
-            if case .success(let completion) = result,
-               completion.reason == .maximumDuration {
-                pendingMaximumDurationCompletion = true
-            }
+        guard !isPerformingAction else {
+            deferRecordingTerminalOutcome(.automatic(result))
+            return
+        }
+        guard status.voiceWorkPhase == .listening,
+              beginExclusiveAction() else {
             return
         }
 
-        pendingMaximumDurationCompletion = false
+        deferredRecordingTerminalOutcome = nil
         stopRecordingDurationMonitoring()
         let intent = activeOutputIntent ?? .standard
         let credential = activeCredential
@@ -1026,14 +1639,10 @@ final class DictationSessionController {
                     return
                 }
 
-                self.finishSession(sessionID)
-                self.recordFailure(error, at: .recordingFinalization)
-                let message = Self.userFacingMessage(for: error)
-                self.status = .failure(message: message)
-                self.failurePresentation = self.failurePresentation(
-                    message: message,
-                    error: error,
-                    failedAttempt: nil
+                self.handleRecordingFinalizationFailure(
+                    error,
+                    sessionID: sessionID,
+                    completionKind: self.completionKindForDeferredTerminalOutcome()
                 )
             }
         }
@@ -1044,11 +1653,11 @@ final class DictationSessionController {
             return
         }
         guard beginExclusiveAction() else {
-            pendingMaximumDurationCompletion = true
+            deferRecordingTerminalOutcome(.maximumDurationAwaitingArtifact)
             return
         }
 
-        pendingMaximumDurationCompletion = false
+        deferredRecordingTerminalOutcome = nil
         recordingCountdown = nil
         let intent = activeOutputIntent ?? .standard
         let credential = activeCredential
@@ -1147,12 +1756,13 @@ final class DictationSessionController {
         return artifact.duration.isFinite && artifact.duration >= threshold
     }
 
+    @discardableResult
     private func recordRecoveryHistory(
         _ acceptedTranscript: AcceptedTranscript,
         settings: AppSettings,
         audioDuration: TimeInterval?,
         cachedAudioFileURL: URL?
-    ) {
+    ) -> Bool {
         let request = settings.acceptedTranscriptHistoryRequest(
             acceptedTranscript: acceptedTranscript,
             audioDuration: audioDuration,
@@ -1161,8 +1771,10 @@ final class DictationSessionController {
 
         do {
             try transcriptHistory.recordAcceptedTranscript(request)
+            return true
         } catch {
             outputStatusText = Self.userFacingMessage(for: error)
+            return false
         }
     }
 
@@ -1596,6 +2208,8 @@ private extension RecordingCacheServiceError {
             return "listing_failed"
         case .unsupportedRecordingURL:
             return "unsupported_recording_url"
+        case .recordingProtected:
+            return "recording_protected"
         case .deleteFailed:
             return "delete_failed"
         case .clearFailed:

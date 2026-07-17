@@ -24,9 +24,15 @@ enum AudioRecorderStatus: Equatable {
 protocol AudioRecorderService {
     var currentStatus: AudioRecorderStatus { get }
     var lastFinalizationReachedMaximumDuration: Bool { get }
+    var acceptsPreparedRecordingFileURL: Bool { get }
 
     func startRecording(maximumDuration: TimeInterval) async throws
+    func startRecording(
+        maximumDuration: TimeInterval,
+        outputFileURL: URL?
+    ) async throws
     func stopRecording() async throws -> AudioRecordingArtifact
+    func stopRecordingOutcome() async throws -> AudioRecorderStopOutcome
     func cancelRecording()
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?)
 }
@@ -52,16 +58,36 @@ struct AudioRecorderAutomaticCompletion: Equatable {
     }
 }
 
+struct AudioRecorderStopOutcome: Equatable {
+    let artifact: AudioRecordingArtifact
+    let automaticCompletion: AudioRecorderAutomaticCompletion?
+}
+
 typealias AudioRecorderAutomaticStopHandler = @MainActor (
     Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
 ) -> Void
 
 extension AudioRecorderService {
     var lastFinalizationReachedMaximumDuration: Bool { false }
+    var acceptsPreparedRecordingFileURL: Bool { false }
 
     func startRecording() async throws {
         try await startRecording(
             maximumDuration: RecordingDurationLimit.default.duration
+        )
+    }
+
+    func startRecording(
+        maximumDuration: TimeInterval,
+        outputFileURL: URL?
+    ) async throws {
+        try await startRecording(maximumDuration: maximumDuration)
+    }
+
+    func stopRecordingOutcome() async throws -> AudioRecorderStopOutcome {
+        AudioRecorderStopOutcome(
+            artifact: try await stopRecording(),
+            automaticCompletion: nil
         )
     }
 
@@ -290,6 +316,12 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
 
     private static let automaticLimitClassificationTolerance: TimeInterval = 0.5
 
+    private struct AutomaticFinalizationContext {
+        let recorderReportedSuccess: Bool
+        let monotonicElapsed: TimeInterval?
+        let maximumRecordingDuration: TimeInterval
+    }
+
     private let permissionStatusProvider: () -> MicrophonePermissionStatus
     private let recorderFactory: any AudioRecorderEngineFactory
     private let makeRecordingFileURL: () throws -> URL
@@ -309,10 +341,13 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private var finalizationTask: Task<AudioRecordingArtifact, Error>?
     private var finalizationAttemptID: UUID?
     private var finalizingRecorder: (any AudioRecorderEngine)?
+    private var automaticFinalizationContext: AutomaticFinalizationContext?
+    private var lastAutomaticCompletion: AudioRecorderAutomaticCompletion?
     private var automaticStopHandler: AudioRecorderAutomaticStopHandler?
 
     private(set) var currentStatus: AudioRecorderStatus = .idle
     private(set) var lastFinalizationReachedMaximumDuration = false
+    let acceptsPreparedRecordingFileURL = true
 
     init(
         permissionStatusProvider: @escaping () -> MicrophonePermissionStatus = {
@@ -369,6 +404,16 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     }
 
     func startRecording(maximumDuration: TimeInterval) async throws {
+        try await startRecording(
+            maximumDuration: maximumDuration,
+            outputFileURL: nil
+        )
+    }
+
+    func startRecording(
+        maximumDuration: TimeInterval,
+        outputFileURL preparedOutputFileURL: URL?
+    ) async throws {
         lastFinalizationReachedMaximumDuration = false
         let resolvedMaximumDuration = maximumDuration.isFinite
             && maximumDuration > 0
@@ -385,8 +430,11 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             throw AudioRecorderServiceError.alreadyRecording
         }
 
+        automaticFinalizationContext = nil
+        lastAutomaticCompletion = nil
+
         do {
-            let outputFileURL = try makeRecordingFileURL()
+            let outputFileURL = try preparedOutputFileURL ?? makeRecordingFileURL()
             let recorder = try recorderFactory.makeRecorder(
                 outputFileURL: outputFileURL,
                 settings: Self.recordingSettings
@@ -410,7 +458,9 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             guard recorder.record(forDuration: resolvedMaximumDuration) else {
                 clearActiveRecording(ifAttemptID: attemptID)
                 recorder.setRecordingFinishedHandler(nil)
-                recorder.deleteRecording()
+                if preparedOutputFileURL == nil {
+                    recorder.deleteRecording()
+                }
                 let error = AudioRecorderServiceError.startFailed
                 fail(with: error)
                 throw error
@@ -428,17 +478,36 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     }
 
     func stopRecording() async throws -> AudioRecordingArtifact {
+        try await stopRecordingOutcome().artifact
+    }
+
+    func stopRecordingOutcome() async throws -> AudioRecorderStopOutcome {
         // A key-up may already be waiting in the configured stop tail when the
         // recorder reaches its hard limit. The automatic callback can finish
-        // first; the manual consumer must still join that exact artifact.
+        // first; the manual consumer must still join that exact artifact and
+        // inherit the terminal authority that began finalization.
         if case .finished(let artifact) = currentStatus {
-            return artifact
+            return AudioRecorderStopOutcome(
+                artifact: artifact,
+                automaticCompletion: lastAutomaticCompletion
+            )
         }
 
         if let finalizationTask, let finalizationAttemptID {
-            return try await awaitFinalization(
+            let automaticContext = automaticFinalizationContext
+            let artifact = try await awaitFinalization(
                 finalizationTask,
                 attemptID: finalizationAttemptID
+            )
+            let automaticCompletion = automaticContext.map {
+                makeAutomaticCompletion(artifact: artifact, context: $0)
+            }
+            if let automaticCompletion {
+                lastAutomaticCompletion = automaticCompletion
+            }
+            return AudioRecorderStopOutcome(
+                artifact: artifact,
+                automaticCompletion: automaticCompletion
             )
         }
 
@@ -457,6 +526,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             elapsedRecordingDuration(),
             maximumDuration: maximumRecordingDuration
         )
+        automaticFinalizationContext = nil
+        lastAutomaticCompletion = nil
         clearActiveRecording(ifAttemptID: attemptID)
         recorder.setRecordingFinishedHandler(nil)
         recorder.stop()
@@ -467,7 +538,11 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             engineDuration: engineDuration
         )
         beginFinalization(task, attemptID: attemptID, recorder: recorder)
-        return try await awaitFinalization(task, attemptID: attemptID)
+        let artifact = try await awaitFinalization(task, attemptID: attemptID)
+        return AudioRecorderStopOutcome(
+            artifact: artifact,
+            automaticCompletion: nil
+        )
     }
 
     func cancelRecording() {
@@ -488,6 +563,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         recorder?.deleteRecording()
         activeRecorder = nil
         activeFileURL = nil
+        automaticFinalizationContext = nil
+        lastAutomaticCompletion = nil
         lastFinalizationReachedMaximumDuration = false
 
         do {
@@ -520,6 +597,13 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             monotonicElapsed,
             maximumDuration: maximumRecordingDuration
         )
+        let automaticContext = AutomaticFinalizationContext(
+            recorderReportedSuccess: recorderReportedSuccess,
+            monotonicElapsed: monotonicElapsed,
+            maximumRecordingDuration: maximumRecordingDuration
+        )
+        automaticFinalizationContext = automaticContext
+        lastAutomaticCompletion = nil
         clearActiveRecording(ifAttemptID: attemptID)
         recorder.setRecordingFinishedHandler(nil)
 
@@ -533,22 +617,15 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         let result: Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
         do {
             let artifact = try await awaitFinalization(task, attemptID: attemptID)
-            let reason = automaticCompletionReason(
-                recorderReportedSuccess: recorderReportedSuccess,
-                monotonicElapsed: monotonicElapsed,
-                finalizedMediaDuration: artifact.duration,
-                maximumDuration: maximumRecordingDuration
+            let completion = makeAutomaticCompletion(
+                artifact: artifact,
+                context: automaticContext
             )
-            if reason == .maximumDuration {
+            lastAutomaticCompletion = completion
+            if completion.reason == .maximumDuration {
                 lastFinalizationReachedMaximumDuration = true
             }
-            result = .success(
-                AudioRecorderAutomaticCompletion(
-                    artifact: artifact,
-                    reason: reason,
-                    recorderReportedSuccess: recorderReportedSuccess
-                )
-            )
+            result = .success(completion)
         } catch let error as AudioRecorderServiceError {
             result = .failure(error)
         } catch {
@@ -641,6 +718,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         finalizationTask = nil
         finalizationAttemptID = nil
         finalizingRecorder = nil
+        automaticFinalizationContext = nil
     }
 
     private func shouldDeleteRecording(after error: AudioRecorderServiceError) -> Bool {
@@ -685,6 +763,22 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         }
 
         return .unexpected(recorderReportedSuccess: recorderReportedSuccess)
+    }
+
+    private func makeAutomaticCompletion(
+        artifact: AudioRecordingArtifact,
+        context: AutomaticFinalizationContext
+    ) -> AudioRecorderAutomaticCompletion {
+        AudioRecorderAutomaticCompletion(
+            artifact: artifact,
+            reason: automaticCompletionReason(
+                recorderReportedSuccess: context.recorderReportedSuccess,
+                monotonicElapsed: context.monotonicElapsed,
+                finalizedMediaDuration: artifact.duration,
+                maximumDuration: context.maximumRecordingDuration
+            ),
+            recorderReportedSuccess: context.recorderReportedSuccess
+        )
     }
 
     private func durationReachedAutomaticLimit(
