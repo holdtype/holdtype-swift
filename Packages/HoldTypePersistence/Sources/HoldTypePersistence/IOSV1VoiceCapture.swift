@@ -306,6 +306,7 @@ actor IOSV1VoiceCaptureOwner {
         outputIntent: DictationOutputIntent,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
         forcesTextCorrection: Bool = false,
+        recordingDurationLimit: RecordingDurationLimit = .default,
         createdAt: Date = Date()
     ) async throws -> IOSV1VoiceCaptureLease {
         if let liveLease, liveLease.isOpen {
@@ -331,6 +332,7 @@ actor IOSV1VoiceCaptureOwner {
                 outputIntent: outputIntent,
                 draftInsertionMode: draftInsertionMode,
                 forcesTextCorrection: forcesTextCorrection,
+                recordingDurationLimit: recordingDurationLimit,
                 phase: .recording
             )
             _ = try await repository.installCapture(record)
@@ -348,7 +350,8 @@ actor IOSV1VoiceCaptureOwner {
             repository: repository,
             handle: handle,
             fileSystem: fileSystem,
-            mediaValidator: mediaValidator
+            mediaValidator: mediaValidator,
+            recordingDurationLimit: recordingDurationLimit
         )
         liveLease = lease
         return lease
@@ -369,18 +372,21 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
     private let handle: IOSV1VoiceCaptureFileHandle
     private let fileSystem: any IOSV1VoiceCaptureFileSystem
     private let mediaValidator: any IOSV1VoiceCaptureMediaValidating
+    private let recordingDurationLimit: RecordingDurationLimit
     private var state = State()
 
     init(
         repository: IOSVoiceStateRepository,
         handle: IOSV1VoiceCaptureFileHandle,
         fileSystem: any IOSV1VoiceCaptureFileSystem,
-        mediaValidator: any IOSV1VoiceCaptureMediaValidating
+        mediaValidator: any IOSV1VoiceCaptureMediaValidating,
+        recordingDurationLimit: RecordingDurationLimit = .default
     ) {
         self.repository = repository
         self.handle = handle
         self.fileSystem = fileSystem
         self.mediaValidator = mediaValidator
+        self.recordingDurationLimit = recordingDurationLimit
     }
 
     var isOpen: Bool {
@@ -433,7 +439,7 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
                 finish()
                 throw IOSV1VoiceCaptureError.mediaValidationFailed
             }
-            let maximumDuration = VoiceSessionPreferences
+            let maximumDuration = recordingDurationLimit
                 .maximumFinalizedMediaDurationMilliseconds
             let monotonicFallback = fallbackDurationMilliseconds
                 .flatMap { $0 >= 300 ? min($0, maximumDuration) : nil } ?? 0
@@ -462,8 +468,8 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
                 finish()
                 throw IOSV1VoiceCaptureError.sourceChanged
             }
-            // The recorder requests its stop at five minutes, but a delayed
-            // callback can make the monotonic fallback larger. Clamp that
+            // The recorder requests its stop at the configured limit, but a
+            // delayed callback can make the monotonic fallback larger. Clamp that
             // fallback to the finalized-media tolerance. An abnormal media
             // probe without a trustworthy fallback becomes duration 0, so the
             // source remains recoverable instead of being deleted here.
@@ -478,6 +484,7 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
                     repository: repository,
                     lease: self,
                     attemptID: handle.attemptID,
+                    recordingDurationLimit: recordingDurationLimit,
                     durationMilliseconds: duration,
                     byteCount: after.byteCount
                 )
@@ -567,6 +574,7 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
 
 final class IOSV1VoiceCompletedCapture: @unchecked Sendable {
     let attemptID: UUID
+    let recordingDurationLimit: RecordingDurationLimit
     let durationMilliseconds: Int64
     let byteCount: Int64
     private let repository: IOSVoiceStateRepository
@@ -576,12 +584,14 @@ final class IOSV1VoiceCompletedCapture: @unchecked Sendable {
         repository: IOSVoiceStateRepository,
         lease: IOSV1VoiceCaptureLease,
         attemptID: UUID,
+        recordingDurationLimit: RecordingDurationLimit,
         durationMilliseconds: Int64,
         byteCount: Int64
     ) {
         self.repository = repository
         self.lease = lease
         self.attemptID = attemptID
+        self.recordingDurationLimit = recordingDurationLimit
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
     }

@@ -113,6 +113,7 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
     let outputIntent: DictationOutputIntent
     let draftInsertionMode: IOSVoiceDraftInsertionMode
     let forcesTextCorrection: Bool
+    let recordingDurationLimit: RecordingDurationLimit
     let phase: IOSVoiceStateCapturePhase
     let durationMilliseconds: Int64?
     let byteCount: Int64?
@@ -124,6 +125,7 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
         outputIntent: DictationOutputIntent,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
         forcesTextCorrection: Bool = false,
+        recordingDurationLimit: RecordingDurationLimit = .default,
         phase: IOSVoiceStateCapturePhase,
         durationMilliseconds: Int64? = nil,
         byteCount: Int64? = nil
@@ -147,6 +149,7 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
         self.outputIntent = outputIntent
         self.draftInsertionMode = draftInsertionMode
         self.forcesTextCorrection = forcesTextCorrection
+        self.recordingDurationLimit = recordingDurationLimit
         self.phase = phase
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
@@ -164,6 +167,7 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
             outputIntent: outputIntent,
             draftInsertionMode: draftInsertionMode,
             forcesTextCorrection: forcesTextCorrection,
+            recordingDurationLimit: recordingDurationLimit,
             phase: phase,
             durationMilliseconds: durationMilliseconds,
             byteCount: byteCount
@@ -1058,7 +1062,7 @@ private enum IOSVoiceStateValidation {
 }
 
 private enum IOSVoiceStateWireCodec {
-    private static let schemaVersion = 4
+    private static let schemaVersion = 5
     private static let rootKeys: Set<String> = [
         "schemaVersion", "capture", "pending", "latest",
     ]
@@ -1066,8 +1070,11 @@ private enum IOSVoiceStateWireCodec {
         "attemptID", "audioRelativeIdentifier", "createdAtMilliseconds",
         "outputIntent", "phase", "durationMilliseconds", "byteCount",
     ]
-    private static let captureKeys = captureV1Keys.union([
+    private static let captureV2Keys = captureV1Keys.union([
         "draftInsertionMode", "forcesTextCorrection",
+    ])
+    private static let captureKeys = captureV2Keys.union([
+        "recordingDurationLimitMinutes",
     ])
     private static let pendingV1Keys: Set<String> = [
         "attemptID", "audioRelativeIdentifier", "createdAtMilliseconds",
@@ -1146,9 +1153,14 @@ private enum IOSVoiceStateWireCodec {
         guard (1...schemaVersion).contains(version) else {
             throw IOSVoiceStateRepositoryError.unsupportedSchemaVersion
         }
+        let captureValidationKeys: Set<String> = switch version {
+        case 1: captureV1Keys
+        case 2...4: captureV2Keys
+        default: captureKeys
+        }
         try validateOptionalObject(
             object["capture"],
-            keys: version == 1 ? captureV1Keys : captureKeys
+            keys: captureValidationKeys
         )
         let pendingValidationKeys: Set<String> = switch version {
         case 1: pendingV1Keys
@@ -1269,6 +1281,7 @@ private enum IOSVoiceStateWireCodec {
         let outputIntent: String
         let draftInsertionMode: String?
         let forcesTextCorrection: Bool?
+        let recordingDurationLimitMinutes: Int?
         let phase: String
         let durationMilliseconds: Int64?
         let byteCount: Int64?
@@ -1282,6 +1295,7 @@ private enum IOSVoiceStateWireCodec {
             outputIntent = capture.outputIntent.rawValue
             draftInsertionMode = capture.draftInsertionMode.rawValue
             forcesTextCorrection = capture.forcesTextCorrection
+            recordingDurationLimitMinutes = capture.recordingDurationLimit.minutes
             phase = capture.phase.rawValue
             durationMilliseconds = capture.durationMilliseconds
             byteCount = capture.byteCount
@@ -1310,6 +1324,20 @@ private enum IOSVoiceStateWireCodec {
                 insertionMode = mode
                 correction = forcesTextCorrection
             }
+            let recordingDurationLimit: RecordingDurationLimit
+            if schemaVersion < 5 {
+                recordingDurationLimit = .default
+            } else {
+                guard
+                    let recordingDurationLimitMinutes,
+                    let value = RecordingDurationLimit(
+                        validatingMinutes: recordingDurationLimitMinutes
+                    )
+                else {
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
+                recordingDurationLimit = value
+            }
             return try IOSVoiceStateCapture(
                 attemptID: identifier,
                 audioRelativeIdentifier: audioRelativeIdentifier,
@@ -1319,6 +1347,7 @@ private enum IOSVoiceStateWireCodec {
                 outputIntent: output,
                 draftInsertionMode: insertionMode,
                 forcesTextCorrection: correction,
+                recordingDurationLimit: recordingDurationLimit,
                 phase: phase,
                 durationMilliseconds: durationMilliseconds,
                 byteCount: byteCount
@@ -1332,6 +1361,7 @@ private enum IOSVoiceStateWireCodec {
             case outputIntent
             case draftInsertionMode
             case forcesTextCorrection
+            case recordingDurationLimitMinutes
             case phase
             case durationMilliseconds
             case byteCount
@@ -1356,6 +1386,10 @@ private enum IOSVoiceStateWireCodec {
             try container.encode(
                 forcesTextCorrection,
                 forKey: .forcesTextCorrection
+            )
+            try container.encode(
+                recordingDurationLimitMinutes,
+                forKey: .recordingDurationLimitMinutes
             )
             try container.encode(phase, forKey: .phase)
             if let durationMilliseconds {

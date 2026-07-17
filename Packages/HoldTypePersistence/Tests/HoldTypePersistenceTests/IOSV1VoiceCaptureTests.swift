@@ -70,6 +70,63 @@ struct IOSV1VoiceCaptureTests {
         }
     }
 
+    @Test func selectedLimitControlsCanonicalFinalizationAndSurvivesRelaunch()
+        async throws {
+        for minutes in [1, 15] {
+            let limit = RecordingDurationLimit(minutes: minutes)
+            let duration = limit.maximumFinalizedMediaDurationMilliseconds
+            let fixture = CaptureFixture(durationMilliseconds: duration)
+            let lease = try await fixture.owner.createCapture(
+                attemptID: CaptureIDs.attempt,
+                outputIntent: .standard,
+                recordingDurationLimit: limit,
+                createdAt: CaptureDates.created
+            )
+            try await lease.beginFinalizing()
+
+            guard case .completed(let completed) = try await lease
+                .completeAfterRecorderClose() else {
+                Issue.record("Expected configured-limit capture")
+                continue
+            }
+
+            #expect(completed.recordingDurationLimit == limit)
+            #expect(completed.durationMilliseconds == duration)
+            let persisted = try await fixture.repository.load().capture
+            #expect(persisted?.recordingDurationLimit == limit)
+            #expect(persisted?.durationMilliseconds == duration)
+            completed.release()
+        }
+    }
+
+    @Test func mediaBeyondSelectedLimitUsesTheAttemptSpecificFallback()
+        async throws {
+        let limit = RecordingDurationLimit(minutes: 1)
+        let fixture = CaptureFixture(durationMilliseconds: 62_001)
+        let lease = try await fixture.owner.createCapture(
+            attemptID: CaptureIDs.attempt,
+            outputIntent: .standard,
+            recordingDurationLimit: limit,
+            createdAt: CaptureDates.created
+        )
+        try await lease.beginFinalizing()
+
+        guard case .completed(let completed) = try await lease
+            .completeAfterRecorderClose(
+                fallbackDurationMilliseconds: 80_000
+            ) else {
+            Issue.record("Expected recoverable configured-limit capture")
+            return
+        }
+
+        #expect(
+            completed.durationMilliseconds
+                == limit.maximumFinalizedMediaDurationMilliseconds
+        )
+        #expect(fixture.fileSystem.removeCount == 0)
+        completed.release()
+    }
+
     @Test func abnormalPositiveDurationBecomesUnknownInsteadOfBlocked()
         async throws {
         let duration: Int64 = 302_001

@@ -23,6 +23,61 @@ public enum RecordingStopTailDuration: String, CaseIterable, Codable, Equatable,
     }
 }
 
+/// The user-selected maximum length of one retained recording attempt.
+///
+/// The value is stored in whole minutes so Settings can expose the complete
+/// supported range without admitting an invalid runtime duration.
+public struct RecordingDurationLimit: Equatable, Hashable, Sendable {
+    public static let minimumMinutes = 1
+    public static let maximumMinutes = 15
+    public static let defaultMinutes = 5
+    public static let supportedMinutes = minimumMinutes...maximumMinutes
+    public static let `default` = RecordingDurationLimit(minutes: defaultMinutes)
+    public static let defaultValue = `default`
+    public static let maximumSupportedFinalizedMediaDurationMilliseconds =
+        Int64(maximumMinutes * 60) * 1_000 + 2_000
+    public static let allValues = supportedMinutes.map {
+        RecordingDurationLimit(minutes: $0)
+    }
+
+    public let minutes: Int
+
+    /// Returns `nil` rather than silently changing an invalid external value.
+    public init?(validatingMinutes minutes: Int) {
+        guard Self.supportedMinutes.contains(minutes) else {
+            return nil
+        }
+        self.minutes = minutes
+    }
+
+    /// Clamps a UI or migrated persistence value to the supported range.
+    public init(minutes: Int) {
+        self.minutes = Self.clampedMinutes(minutes)
+    }
+
+    public init(clampingMinutes minutes: Int) {
+        self.init(minutes: minutes)
+    }
+
+    public static func clampedMinutes(_ minutes: Int) -> Int {
+        min(max(minutes, minimumMinutes), maximumMinutes)
+    }
+
+    public var wholeSeconds: Int {
+        minutes * 60
+    }
+
+    public var duration: TimeInterval {
+        TimeInterval(wholeSeconds)
+    }
+
+    /// The finalized media probe may include up to two seconds of recorder
+    /// close post-roll beyond the selected capture deadline.
+    public var maximumFinalizedMediaDurationMilliseconds: Int64 {
+        Int64(wholeSeconds) * 1_000 + 2_000
+    }
+}
+
 public enum VoiceSessionWarningUrgency: Equatable, Sendable {
     case amber
     case red
@@ -59,14 +114,14 @@ public struct VoiceSessionCountdown: Equatable, Sendable {
 
 public enum VoiceSessionMilestone: Equatable, Sendable {
     case warning(VoiceSessionWarning)
-    case maximumDurationReached
+    case maximumDurationReached(elapsedWholeSeconds: Int)
 
     public var elapsedWholeSeconds: Int {
         switch self {
         case .warning(let warning):
             return warning.elapsedWholeSeconds
-        case .maximumDurationReached:
-            return VoiceSessionWarningSchedule.maximumDurationWholeSeconds
+        case .maximumDurationReached(let elapsedWholeSeconds):
+            return elapsedWholeSeconds
         }
     }
 }
@@ -75,38 +130,69 @@ public enum VoiceSessionMilestone: Equatable, Sendable {
 ///
 /// Consumers schedule or compare these integer offsets against a monotonic
 /// clock; no warning depends on exact `TimeInterval` equality.
-public enum VoiceSessionWarningSchedule {
-    public static let maximumDurationWholeSeconds = 300
-    public static let countdownStartElapsedWholeSecond = 240
-
-    public static let warnings: [VoiceSessionWarning] = [
-        warning(at: 240),
-        warning(at: 270),
-        warning(at: 290),
-        warning(at: 292),
-        warning(at: 294),
-        warning(at: 295),
-        warning(at: 296),
-        warning(at: 297),
-        warning(at: 298),
-        warning(at: 299),
+public struct VoiceSessionWarningSchedule: Equatable, Sendable {
+    public static let warningRemainingWholeSeconds = [
+        60,
+        30,
+        10,
+        8,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1,
     ]
 
-    public static let milestones: [VoiceSessionMilestone] =
-        warnings.map(VoiceSessionMilestone.warning)
-        + [.maximumDurationReached]
+    public let maximumDurationWholeSeconds: Int
+    public let countdownStartElapsedWholeSecond: Int
+    public let warnings: [VoiceSessionWarning]
+    public let milestones: [VoiceSessionMilestone]
 
-    public static func warning(
+    public init(limit: RecordingDurationLimit) {
+        maximumDurationWholeSeconds = limit.wholeSeconds
+        countdownStartElapsedWholeSecond = max(
+            0,
+            limit.wholeSeconds - 60
+        )
+        warnings = Self.warningRemainingWholeSeconds.compactMap {
+            remainingWholeSeconds in
+            let elapsedWholeSeconds = limit.wholeSeconds
+                - remainingWholeSeconds
+            // A one-minute limit begins inside the countdown window. Do not
+            // play its first warning immediately when recording starts.
+            guard elapsedWholeSeconds > 0 else {
+                return nil
+            }
+            return VoiceSessionWarning(
+                elapsedWholeSeconds: elapsedWholeSeconds,
+                remainingWholeSeconds: remainingWholeSeconds,
+                urgency: Self.urgency(
+                    remainingWholeSeconds: remainingWholeSeconds
+                )
+            )
+        }
+        milestones = warnings.map(VoiceSessionMilestone.warning)
+            + [
+                .maximumDurationReached(
+                    elapsedWholeSeconds: limit.wholeSeconds
+                )
+            ]
+    }
+
+    public func warning(
         atElapsedWholeSecond elapsedWholeSecond: Int
     ) -> VoiceSessionWarning? {
         warnings.first { $0.elapsedWholeSeconds == elapsedWholeSecond }
     }
 
-    public static func milestone(
+    public func milestone(
         atElapsedWholeSecond elapsedWholeSecond: Int
     ) -> VoiceSessionMilestone? {
         if elapsedWholeSecond == maximumDurationWholeSeconds {
-            return .maximumDurationReached
+            return .maximumDurationReached(
+                elapsedWholeSeconds: maximumDurationWholeSeconds
+            )
         }
 
         return warning(atElapsedWholeSecond: elapsedWholeSecond).map(
@@ -114,7 +200,7 @@ public enum VoiceSessionWarningSchedule {
         )
     }
 
-    public static func milestones(
+    public func milestones(
         afterElapsedWholeSecond previousElapsedWholeSecond: Int,
         throughElapsedWholeSecond currentElapsedWholeSecond: Int
     ) -> [VoiceSessionMilestone] {
@@ -128,7 +214,7 @@ public enum VoiceSessionWarningSchedule {
         }
     }
 
-    public static func countdown(
+    public func countdown(
         atElapsedWholeSecond elapsedWholeSecond: Int
     ) -> VoiceSessionCountdown? {
         guard
@@ -140,41 +226,36 @@ public enum VoiceSessionWarningSchedule {
 
         return VoiceSessionCountdown(
             remainingWholeSeconds: maximumDurationWholeSeconds - elapsedWholeSecond,
-            urgency: urgency(atElapsedWholeSecond: elapsedWholeSecond)
-        )
-    }
-
-    private static func warning(at elapsedWholeSecond: Int) -> VoiceSessionWarning {
-        VoiceSessionWarning(
-            elapsedWholeSeconds: elapsedWholeSecond,
-            remainingWholeSeconds: maximumDurationWholeSeconds - elapsedWholeSecond,
-            urgency: urgency(atElapsedWholeSecond: elapsedWholeSecond)
+            urgency: Self.urgency(
+                remainingWholeSeconds:
+                    maximumDurationWholeSeconds - elapsedWholeSecond
+            )
         )
     }
 
     private static func urgency(
-        atElapsedWholeSecond elapsedWholeSecond: Int
+        remainingWholeSeconds: Int
     ) -> VoiceSessionWarningUrgency {
-        elapsedWholeSecond < 290 ? .amber : .red
+        remainingWholeSeconds > 10 ? .amber : .red
     }
 }
 
 public struct VoiceSessionPreferences: Equatable, Sendable {
-    public static let maximumUtteranceDuration: TimeInterval =
-        TimeInterval(VoiceSessionWarningSchedule.maximumDurationWholeSeconds)
-    public static let maximumFinalizedMediaDurationMilliseconds: Int64 =
-        302_000
+    /// Separate lifecycle hypothesis; it is not the per-recording limit.
     public static let quickSessionDuration: TimeInterval = 300
     public static let defaults = VoiceSessionPreferences()
 
     public var audioCuesEnabled: Bool
     public var recordingStopTailDuration: RecordingStopTailDuration
+    public var recordingDurationLimit: RecordingDurationLimit
 
     public init(
         audioCuesEnabled: Bool = true,
-        recordingStopTailDuration: RecordingStopTailDuration = .off
+        recordingStopTailDuration: RecordingStopTailDuration = .off,
+        recordingDurationLimit: RecordingDurationLimit = .default
     ) {
         self.audioCuesEnabled = audioCuesEnabled
         self.recordingStopTailDuration = recordingStopTailDuration
+        self.recordingDurationLimit = recordingDurationLimit
     }
 }

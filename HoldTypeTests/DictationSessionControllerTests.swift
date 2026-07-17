@@ -457,7 +457,7 @@ struct DictationSessionControllerTests {
         #expect(controller.status == .success(transcript: "Accepted despite save failure"))
         #expect(
             controller.outputStatusText
-                == "Text was accepted, but the five-minute recording could not be marked as saved."
+                == "Text was accepted, but the recording that reached the limit could not be marked as saved."
         )
         #expect(transcriptionService.calls.count == 1)
         #expect(transcriptOutput.calls.count == 1)
@@ -2870,10 +2870,11 @@ struct DictationSessionControllerTests {
     }
 
     @Test func finalMinuteCountdownWarnsOnlyOnPrivateAudioOutput() async {
+        let recorder = FakeAudioRecorderService()
         let monitor = FakeRecordingDurationMonitor()
         let cuePlayer = FakeDictationCuePlayer()
         let controller = makeController(
-            recorder: FakeAudioRecorderService(),
+            recorder: recorder,
             transcriptionService: FakeControllerTranscriptionService(),
             transcriptOutput: FakeTranscriptOutput(),
             cuePlayer: cuePlayer,
@@ -2884,6 +2885,8 @@ struct DictationSessionControllerTests {
         )
 
         await controller.performRecordingAction()
+        #expect(recorder.requestedMaximumDurations == [300])
+        #expect(monitor.requestedMaximumDurations == [300])
         monitor.emit(elapsedWholeSecond: 240)
 
         #expect(controller.recordingCountdown == VoiceSessionCountdown(
@@ -2905,6 +2908,108 @@ struct DictationSessionControllerTests {
         controller.cancelRecording()
         #expect(controller.recordingCountdown == nil)
         #expect(monitor.stopCount == 1)
+    }
+
+    @Test func selectedLimitIsFrozenForCurrentRecordingAndReloadedForNextRecording() async {
+        var settings = AppSettings.defaults
+        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 1)
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-one-minute-limit.m4a"),
+            duration: 59.7,
+            byteCount: 480_000
+        )
+        let recorder = FakeAudioRecorderService(stopResult: .success(artifact))
+        let monitor = FakeRecordingDurationMonitor()
+        let cuePlayer = FakeDictationCuePlayer()
+        let eventLogger = FakeDictationEventLogger()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: FakeControllerTranscriptionService(
+                result: .success("One-minute transcript")
+            ),
+            settingsProvider: { settings },
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            recordingDurationMonitor: monitor,
+            privateAudioOutputRouteProvider: FakePrivateAudioOutputRouteProvider(
+                isPrivate: true
+            ),
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger
+        )
+
+        await controller.performRecordingAction()
+        #expect(recorder.requestedMaximumDurations == [60])
+        #expect(monitor.requestedMaximumDurations == [60])
+
+        monitor.emit(elapsedWholeSecond: 30)
+        #expect(controller.recordingCountdown == VoiceSessionCountdown(
+            remainingWholeSeconds: 30,
+            urgency: .amber
+        ))
+        #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.amber))
+
+        monitor.emit(elapsedWholeSecond: 50)
+        #expect(controller.recordingCountdown == VoiceSessionCountdown(
+            remainingWholeSeconds: 10,
+            urgency: .red
+        ))
+        #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.red))
+
+        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 15)
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .unexpected(recorderReportedSuccess: false)
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(controller.status == .success(transcript: "One-minute transcript"))
+        #expect(failureRecovery.failedAttempts.first?.completionKind == .maximumDuration)
+        #expect(cuePlayer.playedCues.last == .recordingLimitReached)
+        #expect(eventLogger.events.filter { $0 == .recordingLimitReached }.count == 1)
+
+        await controller.performRecordingAction()
+        #expect(recorder.requestedMaximumDurations == [60, 900])
+        #expect(monitor.requestedMaximumDurations == [60, 900])
+        controller.cancelRecording()
+    }
+
+    @Test func oneMinuteWatchdogFinishesExactlyOnce() async {
+        var settings = AppSettings.defaults
+        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 1)
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-one-minute-watchdog.m4a"),
+            duration: 60,
+            byteCount: 500_000
+        )
+        let recorder = FakeAudioRecorderService(stopResult: .success(artifact))
+        let monitor = FakeRecordingDurationMonitor()
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("One-minute watchdog transcript")
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            settings: settings,
+            transcriptOutput: FakeTranscriptOutput(),
+            recordingDurationMonitor: monitor
+        )
+
+        await controller.performRecordingAction()
+        monitor.emit(elapsedWholeSecond: 60)
+        monitor.emit(elapsedWholeSecond: 60)
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(controller.status == .success(
+            transcript: "One-minute watchdog transcript"
+        ))
+        #expect(recorder.stopCount == 1)
+        #expect(transcriptionService.calls.count == 1)
     }
 
     @Test func speakerRouteShowsCountdownWithoutInjectingWarningCue() async {
@@ -3816,6 +3921,7 @@ struct DictationSessionControllerTests {
         textCorrectionService: FakeTextCorrectionService? = nil,
         translationService: FakeTranslationService? = nil,
         settings: AppSettings = .defaults,
+        settingsProvider: (() -> AppSettings)? = nil,
         transcriptOutput: FakeTranscriptOutput,
         cuePlayer: FakeDictationCuePlayer? = nil,
         recordingDurationMonitor: FakeRecordingDurationMonitor? = nil,
@@ -3842,7 +3948,7 @@ struct DictationSessionControllerTests {
             transcriptionService: transcriptionService,
             textCorrectionService: textCorrectionService ?? FakeTextCorrectionService(),
             translationService: translationService ?? FakeTranslationService(),
-            settingsProvider: { settings },
+            settingsProvider: settingsProvider ?? { settings },
             transcriptOutput: transcriptOutput,
             cuePlayer: cuePlayer,
             recordingDurationMonitor: recordingDurationMonitor,
@@ -4021,10 +4127,15 @@ private final class FakeDictationEventLogger: DictationEventLogging {
 private final class FakeRecordingDurationMonitor: RecordingDurationMonitoring {
     private(set) var startCount = 0
     private(set) var stopCount = 0
+    private(set) var requestedMaximumDurations: [Int] = []
     private var onElapsedWholeSecond: (@MainActor (Int) -> Void)?
 
-    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void) {
+    func start(
+        maximumDurationWholeSeconds: Int,
+        onElapsedWholeSecond: @escaping @MainActor (Int) -> Void
+    ) {
         startCount += 1
+        requestedMaximumDurations.append(maximumDurationWholeSeconds)
         self.onElapsedWholeSecond = onElapsedWholeSecond
     }
 

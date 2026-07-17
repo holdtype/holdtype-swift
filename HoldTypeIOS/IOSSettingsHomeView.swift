@@ -398,7 +398,13 @@ private struct IOSSettingsSummaryList: View {
         let tail = stopTailName(
             settings.voiceSessionPreferences.recordingStopTailDuration
         )
+        let limitMinutes = settings.voiceSessionPreferences
+            .recordingDurationLimit.minutes
+        let limit = "\(limitMinutes) "
+            + (limitMinutes == 1 ? "minute" : "minutes")
         return cues
+            + " · Limit "
+            + limit
             + " · Finish buffer "
             + tail
             + " · "

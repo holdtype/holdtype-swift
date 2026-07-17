@@ -3,23 +3,42 @@ import HoldTypeDomain
 
 @MainActor
 protocol RecordingDurationMonitoring: AnyObject {
-    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void)
+    func start(
+        maximumDurationWholeSeconds: Int,
+        onElapsedWholeSecond: @escaping @MainActor (Int) -> Void
+    )
     func stop()
+}
+
+extension RecordingDurationMonitoring {
+    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void) {
+        start(
+            maximumDurationWholeSeconds: RecordingDurationLimit.default.wholeSeconds,
+            onElapsedWholeSecond: onElapsedWholeSecond
+        )
+    }
 }
 
 @MainActor
 final class ContinuousRecordingDurationMonitor: RecordingDurationMonitoring {
     private var task: Task<Void, Never>?
 
-    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void) {
+    func start(
+        maximumDurationWholeSeconds: Int,
+        onElapsedWholeSecond: @escaping @MainActor (Int) -> Void
+    ) {
         stop()
+        let resolvedMaximumDurationWholeSeconds = max(
+            1,
+            maximumDurationWholeSeconds
+        )
         task = Task { @MainActor in
             let clock = ContinuousClock()
             let startedAt = clock.now
             var lastDeliveredSecond = 0
 
             while !Task.isCancelled,
-                  lastDeliveredSecond < VoiceSessionWarningSchedule.maximumDurationWholeSeconds {
+                  lastDeliveredSecond < resolvedMaximumDurationWholeSeconds {
                 do {
                     try await clock.sleep(for: .seconds(1))
                 } catch {
@@ -28,7 +47,7 @@ final class ContinuousRecordingDurationMonitor: RecordingDurationMonitoring {
 
                 let elapsedComponents = startedAt.duration(to: clock.now).components
                 let elapsedWholeSecond = min(
-                    VoiceSessionWarningSchedule.maximumDurationWholeSeconds,
+                    resolvedMaximumDurationWholeSeconds,
                     max(0, Int(elapsedComponents.seconds))
                 )
                 guard elapsedWholeSecond > lastDeliveredSecond else {

@@ -74,7 +74,9 @@ struct IOSForegroundVoiceFeedbackBridgeTests {
         let bridge = fixture.makeBridge { warning, audioCuesEnabled in
             received.append((warning, audioCuesEnabled))
         }
-        let warning = VoiceSessionWarningSchedule.warnings[0]
+        let warning = VoiceSessionWarningSchedule(
+            limit: .defaultValue
+        ).warnings[0]
 
         #expect(await bridge.playStartBoundary(audioCuesEnabled: false))
         guard let handle = requireFeedbackHandle(bridge) else { return }

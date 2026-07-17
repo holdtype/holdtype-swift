@@ -78,7 +78,7 @@ struct IOSAppSettingsPersistenceIOSTests {
         let fixtures: [(Data, IOSAppSettingsRepositoryError)] = [
             (Data("not-json".utf8), .malformedData),
             (
-                Data(#"{"schemaVersion":3}"#.utf8),
+                Data(#"{"schemaVersion":4}"#.utf8),
                 .unsupportedSchemaVersion
             ),
             (
@@ -140,7 +140,7 @@ struct IOSAppSettingsPersistenceIOSTests {
                 with: Data(contentsOf: fileURL)
             ) as? [String: Any]
         )
-        #expect(root["schemaVersion"] as? Int == 2)
+        #expect(root["schemaVersion"] as? Int == 3)
     }
 
     @Test func sourceAndEncodingLimitsHaveDistinctPublicFailures() async throws {
@@ -212,7 +212,8 @@ struct IOSAppSettingsPersistenceIOSTests {
             ),
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
-                recordingStopTailDuration: .seconds1
+                recordingStopTailDuration: .seconds1,
+                recordingDurationLimit: RecordingDurationLimit(minutes: 15)
             ),
             recordingCachePolicy: .unlimited
         )

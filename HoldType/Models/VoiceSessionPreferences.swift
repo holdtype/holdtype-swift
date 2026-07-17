@@ -1,7 +1,14 @@
 import HoldTypeDomain
 
 typealias RecordingStopTailDuration = HoldTypeDomain.RecordingStopTailDuration
+typealias RecordingDurationLimit = HoldTypeDomain.RecordingDurationLimit
 typealias VoiceSessionPreferences = HoldTypeDomain.VoiceSessionPreferences
+
+extension RecordingDurationLimit {
+    var displayName: String {
+        minutes == 1 ? "1 minute" : "\(minutes) minutes"
+    }
+}
 
 extension RecordingStopTailDuration {
     var displayName: String {

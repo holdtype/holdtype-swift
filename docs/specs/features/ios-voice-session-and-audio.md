@@ -14,7 +14,7 @@ microphone activity or losing completed recordings.
 
 - foreground one-shot recording in the containing app
 - microphone and audio-session lifecycle
-- five-minute per-utterance maximum
+- configurable 1-15 minute per-utterance maximum, five minutes by default
 - fixed five-minute Quick Session hypothesis
 - recording tail, cues, interruptions, routes, lock, and background behavior
 - completed recording journaling and provider handoff
@@ -49,9 +49,12 @@ microphone activity or losing completed recordings.
 - Cancel during capture or tail stops the recorder, removes the current
   incomplete artifact, deactivates the audio session, and makes no provider
   request.
-- A single retained utterance has a five-minute maximum. Reaching it performs a
-  normal automatic Finish: HoldType closes capture, protects the completed
-  artifact as Pending, and continues normal provider processing exactly once.
+- A single retained utterance has the maximum selected in Settings: one through
+  fifteen whole minutes, five minutes by default. The value is frozen when Start
+  succeeds; changing Settings affects only the next attempt. Reaching the frozen
+  limit performs a normal automatic Finish: HoldType closes capture, protects
+  the completed artifact as Pending, and continues normal provider processing
+  exactly once.
 - A valid completed runtime artifact carries an opaque descriptor-bound capture
   capability plus duration and byte count. Only the AVFoundation adapter sees
   its transient app-local URL. Before any provider request, Persistence maps
@@ -67,25 +70,27 @@ microphone activity or losing completed recordings.
 ### P4D Capture Validity And Durable Finalization
 
 - Automatic provider admission requires a trusted finalized duration from 300
-  through 302,000 milliseconds and a positive byte count below the Pending
-  limit. If the media probe reports invalid metadata or less than 300
-  milliseconds, the recorder's frozen monotonic elapsed time is the fallback;
-  that fallback is clamped to the 302,000-millisecond finalized-media bound and
-  committed durably before provider work. A media value beyond that bound is
-  suspect and uses the same bounded fallback or unknown `0`.
+  milliseconds through the attempt's frozen recording limit plus 2,000
+  milliseconds and a positive byte count below the Pending limit. The absolute
+  supported-media ceiling is 902,000 milliseconds. If the media probe reports
+  invalid metadata or less than 300 milliseconds, the recorder's frozen
+  monotonic elapsed time is the fallback; that fallback is clamped to the
+  attempt-specific finalized-media bound and committed durably before provider
+  work. A media value beyond that bound is suspect and uses the same bounded
+  fallback or unknown `0`.
 - Exact empty Done is removed. Every non-empty bounded finalized source is
   durably completed instead of being deleted: without a trusted media or
   monotonic duration it stores the internal unknown/suspect value `0`, remains
   playable and discardable, and is excluded from automatic provider dispatch.
   Explicit Transcribe/Retry may make one user-authorized provider attempt from
   that descriptor-validated source.
-- Reaching the 300-second capture deadline is a successful automatic Finish,
+- Reaching the frozen capture deadline is a successful automatic Finish,
   not a maximum-duration failure. For a bounded positive-byte artifact, a
   duration beyond the post-close tolerance uses the clamped monotonic fallback
   or unknown duration `0`; it remains recoverable and is never deleted solely
   because of duration. Oversize or identity/protection uncertainty remains
   blocked local recovery.
-- Frozen monotonic elapsed time at or beyond 300 seconds outranks the recorder
+- Frozen monotonic elapsed time at or beyond the selected deadline outranks the recorder
   delegate's `successfully` flag when choosing the terminal cause. A false flag
   remains diagnostic evidence, but the attempt still follows the one
   maximum-duration completed path, protected retention, and exactly-once
@@ -146,9 +151,10 @@ microphone activity or losing completed recordings.
   deactivation for recording, cues, and local playback.
 - Recording start/stop cues are short and non-verbal. Haptics/text state remain
   available when audio cues are muted by system behavior.
-- The final-minute warning schedule is 4:00, 4:30, 4:50, 4:52, 4:54, and every
-  second from 4:55 through 4:59. The 5:00 boundary closes the recorder before
-  its distinct stopped-at-limit feedback.
+- Warnings are relative to the selected boundary: 60, 30, 10, 8, and 6 seconds
+  remaining, then every second from 5 through 1. A one-minute limit omits the
+  warning at Start, so its first audible warning has 30 seconds remaining. The
+  boundary closes the recorder before its distinct stopped-at-limit feedback.
 - In-capture warning tones play only when the current route is private, such as
   headphones or AirPods. The built-in speaker uses countdown text and haptics
   so warning audio is not captured in the utterance.
@@ -410,7 +416,7 @@ microphone activity or losing completed recordings.
 ## Quick Session hypothesis
 
 - Quick Session is fixed at five minutes for the first implementation and is
-  separate from the five-minute maximum for one utterance.
+  separate from the user-selected maximum for one utterance.
 - It starts only after an explicit foreground action and separate Quick Session
   consent.
 - The Voice screen shows `Voice session on`, remaining time, current phase, and

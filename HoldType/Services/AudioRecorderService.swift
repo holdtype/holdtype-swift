@@ -25,7 +25,7 @@ protocol AudioRecorderService {
     var currentStatus: AudioRecorderStatus { get }
     var lastFinalizationReachedMaximumDuration: Bool { get }
 
-    func startRecording() async throws
+    func startRecording(maximumDuration: TimeInterval) async throws
     func stopRecording() async throws -> AudioRecordingArtifact
     func cancelRecording()
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?)
@@ -58,6 +58,12 @@ typealias AudioRecorderAutomaticStopHandler = @MainActor (
 
 extension AudioRecorderService {
     var lastFinalizationReachedMaximumDuration: Bool { false }
+
+    func startRecording() async throws {
+        try await startRecording(
+            maximumDuration: RecordingDurationLimit.default.duration
+        )
+    }
 
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?) {}
 }
@@ -279,7 +285,7 @@ nonisolated private final class FinalizedMediaDurationResolution: @unchecked Sen
 
 final class AVFoundationAudioRecorderService: AudioRecorderService {
     static let defaultMaximumRecordingDuration =
-        VoiceSessionPreferences.maximumUtteranceDuration
+        RecordingDurationLimit.default.duration
     static let defaultFinalizedMediaDurationTimeout: TimeInterval = 2
 
     private static let automaticLimitClassificationTolerance: TimeInterval = 0.5
@@ -288,7 +294,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private let recorderFactory: any AudioRecorderEngineFactory
     private let makeRecordingFileURL: () throws -> URL
     private let fileManager: FileManager
-    private let maximumRecordingDuration: TimeInterval
+    private let defaultMaximumRecordingDuration: TimeInterval
     private let finalizedMediaDurationProvider: @Sendable (URL) async throws -> TimeInterval
     private let finalizedMediaDurationTimeout: TimeInterval
     private let finalizedMediaDurationTimeoutSleeper:
@@ -299,6 +305,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private var activeFileURL: URL?
     private var activeAttemptID: UUID?
     private var activeRecordingStartTime: TimeInterval?
+    private var activeMaximumRecordingDuration: TimeInterval?
     private var finalizationTask: Task<AudioRecordingArtifact, Error>?
     private var finalizationAttemptID: UUID?
     private var finalizingRecorder: (any AudioRecorderEngine)?
@@ -336,7 +343,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         self.permissionStatusProvider = permissionStatusProvider
         self.recorderFactory = recorderFactory
         self.fileManager = fileManager
-        self.maximumRecordingDuration = maximumRecordingDuration > 0
+        self.defaultMaximumRecordingDuration = maximumRecordingDuration.isFinite
+            && maximumRecordingDuration > 0
             ? maximumRecordingDuration
             : Self.defaultMaximumRecordingDuration
         self.finalizedMediaDurationProvider = finalizedMediaDurationProvider
@@ -355,7 +363,17 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     }
 
     func startRecording() async throws {
+        try await startRecording(
+            maximumDuration: defaultMaximumRecordingDuration
+        )
+    }
+
+    func startRecording(maximumDuration: TimeInterval) async throws {
         lastFinalizationReachedMaximumDuration = false
+        let resolvedMaximumDuration = maximumDuration.isFinite
+            && maximumDuration > 0
+            ? maximumDuration
+            : defaultMaximumRecordingDuration
         let permissionStatus = permissionStatusProvider()
         guard permissionStatus.canRecord else {
             let error = startError(for: permissionStatus)
@@ -379,6 +397,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             activeFileURL = outputFileURL
             activeAttemptID = attemptID
             activeRecordingStartTime = monotonicClock()
+            activeMaximumRecordingDuration = resolvedMaximumDuration
             recorder.setRecordingFinishedHandler { [weak self] recorderReportedSuccess in
                 Task { @MainActor [weak self] in
                     await self?.finishAutomatically(
@@ -388,7 +407,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
                 }
             }
 
-            guard recorder.record(forDuration: maximumRecordingDuration) else {
+            guard recorder.record(forDuration: resolvedMaximumDuration) else {
                 clearActiveRecording(ifAttemptID: attemptID)
                 recorder.setRecordingFinishedHandler(nil)
                 recorder.deleteRecording()
@@ -432,8 +451,11 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         }
 
         let engineDuration = normalizedDuration(recorder.currentTime)
+        let maximumRecordingDuration = activeMaximumRecordingDuration
+            ?? defaultMaximumRecordingDuration
         lastFinalizationReachedMaximumDuration = durationReachedAutomaticLimit(
-            elapsedRecordingDuration()
+            elapsedRecordingDuration(),
+            maximumDuration: maximumRecordingDuration
         )
         clearActiveRecording(ifAttemptID: attemptID)
         recorder.setRecordingFinishedHandler(nil)
@@ -460,6 +482,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
 
         activeAttemptID = nil
         activeRecordingStartTime = nil
+        activeMaximumRecordingDuration = nil
         recorder?.setRecordingFinishedHandler(nil)
         recorder?.stop()
         recorder?.deleteRecording()
@@ -491,8 +514,11 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
 
         let engineDuration = normalizedDuration(recorder.currentTime)
         let monotonicElapsed = elapsedRecordingDuration()
+        let maximumRecordingDuration = activeMaximumRecordingDuration
+            ?? defaultMaximumRecordingDuration
         lastFinalizationReachedMaximumDuration = durationReachedAutomaticLimit(
-            monotonicElapsed
+            monotonicElapsed,
+            maximumDuration: maximumRecordingDuration
         )
         clearActiveRecording(ifAttemptID: attemptID)
         recorder.setRecordingFinishedHandler(nil)
@@ -510,7 +536,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             let reason = automaticCompletionReason(
                 recorderReportedSuccess: recorderReportedSuccess,
                 monotonicElapsed: monotonicElapsed,
-                finalizedMediaDuration: artifact.duration
+                finalizedMediaDuration: artifact.duration,
+                maximumDuration: maximumRecordingDuration
             )
             if reason == .maximumDuration {
                 lastFinalizationReachedMaximumDuration = true
@@ -607,6 +634,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         activeFileURL = nil
         activeAttemptID = nil
         activeRecordingStartTime = nil
+        activeMaximumRecordingDuration = nil
     }
 
     private func clearFinalization() {
@@ -640,10 +668,17 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private func automaticCompletionReason(
         recorderReportedSuccess: Bool,
         monotonicElapsed: TimeInterval?,
-        finalizedMediaDuration: TimeInterval
+        finalizedMediaDuration: TimeInterval,
+        maximumDuration: TimeInterval
     ) -> AudioRecorderAutomaticCompletionReason {
-        let elapsedReachedLimit = durationReachedAutomaticLimit(monotonicElapsed)
-        let mediaReachedLimit = durationReachedAutomaticLimit(finalizedMediaDuration)
+        let elapsedReachedLimit = durationReachedAutomaticLimit(
+            monotonicElapsed,
+            maximumDuration: maximumDuration
+        )
+        let mediaReachedLimit = durationReachedAutomaticLimit(
+            finalizedMediaDuration,
+            maximumDuration: maximumDuration
+        )
 
         if elapsedReachedLimit || mediaReachedLimit {
             return .maximumDuration
@@ -652,16 +687,19 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         return .unexpected(recorderReportedSuccess: recorderReportedSuccess)
     }
 
-    private func durationReachedAutomaticLimit(_ duration: TimeInterval?) -> Bool {
+    private func durationReachedAutomaticLimit(
+        _ duration: TimeInterval?,
+        maximumDuration: TimeInterval
+    ) -> Bool {
         guard let duration, duration.isFinite else {
             return false
         }
 
         let tolerance = min(
             Self.automaticLimitClassificationTolerance,
-            maximumRecordingDuration * 0.02
+            maximumDuration * 0.02
         )
-        return duration >= maximumRecordingDuration - tolerance
+        return duration >= maximumDuration - tolerance
     }
 
     private static func boundedFinalizedMediaDuration(

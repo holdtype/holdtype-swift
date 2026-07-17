@@ -424,9 +424,16 @@ final class IOSVoiceRecorderAdapter {
         IOSVoiceRecorderDiagnostic
     ) -> Void
 
-    nonisolated static let maximumDuration: TimeInterval = 300
-    nonisolated static let maximumDurationWatchdog: Duration = .seconds(300)
-    nonisolated static let recorderSafetyDuration: TimeInterval = 301
+    // Default-value aliases remain useful to qualification tests and callers
+    // that do not choose a custom limit. Live attempts use the frozen instance
+    // value below.
+    nonisolated static let maximumDuration =
+        RecordingDurationLimit.defaultValue.duration
+    nonisolated static let maximumDurationWatchdog: Duration = .seconds(
+        RecordingDurationLimit.defaultValue.wholeSeconds
+    )
+    nonisolated static let recorderSafetyDuration =
+        RecordingDurationLimit.defaultValue.duration + 1
 
     private enum Phase {
         case idle
@@ -572,6 +579,7 @@ final class IOSVoiceRecorderAdapter {
     private let captureSource: any IOSVoiceRecorderCaptureSourceSystem
     private let client: IOSVoiceRecorderClient
     private let diagnose: DiagnosticHandler
+    private let recordingDurationLimit: RecordingDurationLimit
     private var phase = Phase.idle
     private var activeAttempt: Attempt?
     private var nextGeneration: UInt64 = 0
@@ -599,6 +607,7 @@ final class IOSVoiceRecorderAdapter {
 
     convenience init(
         lease: IOSV1ForegroundVoiceCaptureLease,
+        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
         client: IOSVoiceRecorderClient = .live,
         diagnose: @escaping DiagnosticHandler = { _ in }
     ) {
@@ -606,6 +615,7 @@ final class IOSVoiceRecorderAdapter {
             captureSource: IOSVoiceRecorderCaptureSourceLeaseSystem(
                 lease: lease
             ),
+            recordingDurationLimit: recordingDurationLimit,
             client: client,
             diagnose: diagnose
         )
@@ -613,10 +623,12 @@ final class IOSVoiceRecorderAdapter {
 
     init(
         captureSource: any IOSVoiceRecorderCaptureSourceSystem,
+        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
         client: IOSVoiceRecorderClient,
         diagnose: @escaping DiagnosticHandler = { _ in }
     ) {
         self.captureSource = captureSource
+        self.recordingDurationLimit = recordingDurationLimit
         self.client = client
         self.diagnose = diagnose
     }
@@ -767,7 +779,7 @@ final class IOSVoiceRecorderAdapter {
 
         attempt.recordingStartedAt = client.monotonicNow()
         let didRecord = recorder.record(
-            forDuration: Self.recorderSafetyDuration
+            forDuration: recorderSafetyDuration
         )
         markTaskCancellationIfNeeded(attempt)
         if let result = await finishPendingArmingStopIfNeeded(attempt) {
@@ -845,7 +857,7 @@ final class IOSVoiceRecorderAdapter {
         }
         let value = recorder.currentTime
         guard value.isFinite, value >= 0 else { return nil }
-        return min(value, Self.maximumDuration)
+        return min(value, maximumDuration)
     }
 
     func isActivelyRecording(
@@ -1247,7 +1259,7 @@ final class IOSVoiceRecorderAdapter {
         let now = client.monotonicNow()
         guard now.isFinite,
               now >= startedAt,
-              now - startedAt >= Self.maximumDuration else {
+              now - startedAt >= maximumDuration else {
             return .recorderEnded
         }
         return .maximumDuration
@@ -1266,9 +1278,10 @@ final class IOSVoiceRecorderAdapter {
 
     private func scheduleMaximumDuration(for attempt: Attempt) {
         let sleep = client.sleep
+        let maximumDurationWatchdog = maximumDurationWatchdog
         attempt.maximumDurationTask = Task { @MainActor [weak self] in
             do {
-                try await sleep(Self.maximumDurationWatchdog)
+                try await sleep(maximumDurationWatchdog)
             } catch {
                 guard !Task.isCancelled, !(error is CancellationError) else {
                     return
@@ -1290,6 +1303,18 @@ final class IOSVoiceRecorderAdapter {
         nextGeneration &+= 1
         if nextGeneration == 0 { nextGeneration = 1 }
         return nextGeneration
+    }
+
+    private var maximumDuration: TimeInterval {
+        recordingDurationLimit.duration
+    }
+
+    private var maximumDurationWatchdog: Duration {
+        .seconds(recordingDurationLimit.wholeSeconds)
+    }
+
+    private var recorderSafetyDuration: TimeInterval {
+        maximumDuration + 1
     }
 }
 

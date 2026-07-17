@@ -41,7 +41,7 @@ struct IOSAppSettingsRepositoryTests {
         #expect(IOSAppSettingsStorageLocation.fileName == "ios-app-settings.json")
     }
 
-    @Test func canonicalV2SaveOmitsLegacyTranslatePreferenceAndNormalizesIt() async throws {
+    @Test func canonicalV3SaveIncludesRecordingLimitAndNormalizesLegacyValues() async throws {
         let settings = fixtureSettings()
         let fileSystem = IOSAppSettingsFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -49,12 +49,8 @@ struct IOSAppSettingsRepositoryTests {
         try await repository.save(settings)
 
         let expected =
-            #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":1,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingStopTailDuration":"seconds1_5"}}"#
-        let expectedV2 = expected.replacingOccurrences(
-            of: "\"schemaVersion\":1",
-            with: "\"schemaVersion\":2"
-        )
-        #expect(fileSystem.data == Data(expectedV2.utf8))
+            #"{"localTextCleanupEnabled":false,"recordingCache":{"mode":"keepLast","retainedRecordingLimit":25},"schemaVersion":3,"textCorrection":{"customModel":" correction-model ","isEnabled":true,"modelPreset":"custom","prompt":" correction prompt "},"transcription":{"customLanguageCode":" SR ","language":"custom","model":" transcription-model ","prompt":" transcription prompt "},"translation":{"customSourceLanguageCode":" ES ","customTargetLanguageCode":" FR ","model":" translation-model ","prompt":" translation prompt ","sourceLanguage":"spanish","sourceMode":"override","targetLanguage":"french"},"voice":{"audioCuesEnabled":false,"recordingDurationLimitMinutes":12,"recordingStopTailDuration":"seconds1_5"}}"#
+        #expect(fileSystem.data == Data(expected.utf8))
         var normalizedSettings = settings
         normalizedSettings.translationConfiguration.actionPreferenceEnabled = true
         #expect(try await repository.load() == normalizedSettings)
@@ -250,7 +246,7 @@ struct IOSAppSettingsRepositoryTests {
                 .unsupportedSchemaVersion
             ),
             (
-                Data(#"{"schemaVersion":3}"#.utf8),
+                Data(#"{"schemaVersion":4}"#.utf8),
                 .unsupportedSchemaVersion
             ),
         ]
@@ -295,6 +291,7 @@ struct IOSAppSettingsRepositoryTests {
         ]
         let integerPaths = [
             ["recordingCache", "retainedRecordingLimit"],
+            ["voice", "recordingDurationLimitMinutes"],
         ]
         let allPaths = groupPaths + stringAndEnumPaths + booleanPaths + integerPaths
 
@@ -644,6 +641,35 @@ struct IOSAppSettingsRepositoryTests {
         #expect(try await repository.load().recordingCachePolicy == .keepLast(1))
     }
 
+    @Test func recordingDurationLimitMigratesAndClampsCanonicalIntegers() async throws {
+        for schemaVersion in [1, 2] {
+            let source = Data(
+                "{\"schemaVersion\":\(schemaVersion),\"voice\":{}}".utf8
+            )
+            let repository = makeRepository(
+                fileSystem: IOSAppSettingsFileSystemFake(data: source)
+            )
+            #expect(
+                try await repository.load().voiceSessionPreferences
+                    .recordingDurationLimit == .defaultValue
+            )
+        }
+
+        for (stored, expected) in [(0, 1), (1, 1), (15, 15), (16, 15)] {
+            let sourceString =
+                "{\"schemaVersion\":3,\"voice\":{" +
+                "\"recordingDurationLimitMinutes\":\(stored)}}"
+            let source = Data(sourceString.utf8)
+            let repository = makeRepository(
+                fileSystem: IOSAppSettingsFileSystemFake(data: source)
+            )
+            #expect(
+                try await repository.load().voiceSessionPreferences
+                    .recordingDurationLimit.minutes == expected
+            )
+        }
+    }
+
     private func canonicalDefaultsData() async throws -> Data {
         let fileSystem = IOSAppSettingsFileSystemFake()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -737,7 +763,8 @@ struct IOSAppSettingsRepositoryTests {
             ),
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
-                recordingStopTailDuration: .seconds1_5
+                recordingStopTailDuration: .seconds1_5,
+                recordingDurationLimit: RecordingDurationLimit(minutes: 12)
             ),
             recordingCachePolicy: .keepLast(25)
         )

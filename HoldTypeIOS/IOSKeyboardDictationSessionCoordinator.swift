@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 import Observation
 import UIKit
 
@@ -585,8 +586,10 @@ final class IOSKeyboardDictationSessionCoordinator {
         }
         let phase: KeyboardDictationStatePhase
         switch progress {
-        case .listening:
-            let deadline = stateDeadline(for: .listening)
+        case .listening(let limit):
+            let deadline = dependencies.now().addingTimeInterval(
+                limit.duration + Self.listeningFinalizationGrace
+            )
             self.deadline = deadline
             // Background audio now owns continuation; retire the finite warm
             // assertion so finalization can acquire a fresh bounded one.
@@ -800,6 +803,11 @@ final class IOSKeyboardDictationSessionCoordinator {
             )
         )
     }
+
+    /// The App Group Listening record outlives capture by only the bounded
+    /// recorder-close tolerance. Ready continues to use its independent
+    /// 60-second warm-session lifetime.
+    private static let listeningFinalizationGrace: TimeInterval = 2
 
     private func endBackgroundTask() {
         guard backgroundTask != .invalid else { return }

@@ -289,12 +289,14 @@ final class IOSForegroundVoiceRuntime {
                 attemptID,
                 outputIntent,
                 draftInsertionMode,
-                forcesTextCorrection in
+                forcesTextCorrection,
+                recordingDurationLimit in
                 try await recorderBridge.makeRecording(
                     attemptID: attemptID,
                     outputIntent: outputIntent,
                     draftInsertionMode: draftInsertionMode,
-                    forcesTextCorrection: forcesTextCorrection
+                    forcesTextCorrection: forcesTextCorrection,
+                    recordingDurationLimit: recordingDurationLimit
                 )
             },
             beginFinalization: { onExpiration in

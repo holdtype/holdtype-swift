@@ -279,7 +279,7 @@ private final class RecordingActionRecorder: AudioRecorderService {
         self.onStop = onStop
     }
 
-    func startRecording() async throws {
+    func startRecording(maximumDuration: TimeInterval) async throws {
         startCount += 1
         try await onStart?()
         currentStatus = .recording

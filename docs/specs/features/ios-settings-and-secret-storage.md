@@ -88,7 +88,8 @@ and the OpenAI API key.
 - keep latest result: on
 - voice start/stop cues: on
 - recording tail: Off
-- per-utterance maximum: five minutes
+- per-utterance maximum: five minutes by default, user-selectable from one to
+  fifteen whole minutes
 - Quick Session: unavailable and deferred in V1.1; no control
 - compact successful-text History: on under `ios-v1-release.md`
 - recording cache: off; when enabled keep last 20 by default, with unlimited
@@ -749,10 +750,12 @@ result after the operation returns.
   the next dictation.
   Reset restores standard provider behavior and immediately enters that valid
   change in the autosave queue.
-- Voice & Recording exposes recording cues, an outcome-oriented stop-tail
-  control, and Recording Cache controls. The fixed five-minute safety limit is
-  enforced but is not presented as an editable setting. Cache is off by
-  default; enabling it starts at the last 20 recordings, and unlimited
+- Voice & Recording exposes recording cues, a `Maximum recording length`
+  control from 1 through 15 whole minutes, an outcome-oriented stop-tail
+  control, and Recording Cache controls. Five minutes is the default. A saved
+  change applies to the next recording and never changes an attempt already in
+  progress. Cache is off by default; enabling it starts at the last 20
+  recordings, and unlimited
   retention is an explicit choice. `Keep Latest Result` is not
   editable in P3: turning it off requires coordinated accepted-output,
   bridge-revocation, and History-outbox cleanup under `ios-output-actions.md`.

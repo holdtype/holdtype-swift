@@ -58,7 +58,7 @@ struct IOSPendingRecordingHistoryStateOwnerTests {
             .pending(
                 try pendingObservation(
                     phase: .failed,
-                    durationMilliseconds: 302_001
+                    durationMilliseconds: 902_001
                 )
             ),
             supportsPlayback: true

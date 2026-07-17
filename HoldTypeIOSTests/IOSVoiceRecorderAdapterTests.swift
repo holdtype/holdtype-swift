@@ -94,6 +94,35 @@ struct IOSVoiceRecorderAdapterTests {
         }
     }
 
+    @Test func selectedLimitDrivesRecorderSafetyWatchdogAndPresentationClamp()
+        async throws {
+        for minutes in [1, 15] {
+            let fixture = VoiceRecorderFixture()
+            let limit = RecordingDurationLimit(minutes: minutes)
+            fixture.recorder.currentTimeValue = limit.duration + 30
+            let adapter = fixture.makeAdapter(
+                recordingDurationLimit: limit
+            )
+            let token = IOSVoiceRecorderAttemptToken()
+
+            #expect(await adapter.start(for: token) == .recording)
+            try await recorderEventually { fixture.sleep.waiterCount == 1 }
+            #expect(
+                fixture.log.calls.contains(.record(limit.duration + 1))
+            )
+            #expect(
+                fixture.sleep.requestedDurations
+                    == [.seconds(limit.wholeSeconds)]
+            )
+            #expect(
+                adapter.presentationCurrentTime(for: token)
+                    == limit.duration
+            )
+
+            _ = await adapter.stop(for: token, reason: .cancelled)
+        }
+    }
+
     @Test func taskCancellationDuringEitherCheckpointCannotBeginRecording()
         async throws {
         for checkpoint in [1, 2] {
@@ -1419,10 +1448,12 @@ private final class VoiceRecorderFixture {
     )
 
     func makeAdapter(
+        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
         diagnose: @escaping IOSVoiceRecorderAdapter.DiagnosticHandler = { _ in }
     ) -> IOSVoiceRecorderAdapter {
         IOSVoiceRecorderAdapter(
             captureSource: source,
+            recordingDurationLimit: recordingDurationLimit,
             client: client,
             diagnose: diagnose
         )

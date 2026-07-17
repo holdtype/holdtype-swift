@@ -15,8 +15,8 @@ memory only and are cleared when the app quits.
 
 An unfinished recording is a separate safety checkpoint. HoldType protects its
 audio and compact recovery metadata on local disk before the first provider
-request, so a five-minute dictation or provider failure does not disappear. A
-recording that reaches the five-minute limit remains in this bounded store even
+request, so a long dictation or provider failure does not disappear. A
+recording that reaches its configured limit remains in this bounded store even
 after successful transcription, together with its accepted text. This is an
 explicit recovery exception, not general durable transcript persistence or the
 normal recording cache.
@@ -54,10 +54,10 @@ This spec covers:
 ## Non-goals
 
 - durable disk-backed transcript persistence outside the bounded successful
-  five-minute recording exception
+  limit-completed recording exception
 - durable raw audio retention outside bounded unfinished-attempt recovery, the
-  successful five-minute recording exception, or the explicit normal recording
-  cache setting
+  successful limit-completed recording exception, or the explicit normal
+  recording cache setting
 - cloud sync, accounts, sharing, or telemetry
 - full search, semantic notes, tags, folders, or review workflows
 - SQLite or another database requirement for the MVP
@@ -78,32 +78,32 @@ This spec covers:
   handoff can fail.
 - Every non-empty completed recording becomes a saved `Processing` recovery
   row before provider work begins, regardless of the accepted-history toggle.
-- A five-minute automatic Finish uses the same saved row and starts
+- An automatic Finish at the configured limit uses the same saved row and starts
   transcription automatically exactly once.
 - After that automatic Finish transcribes successfully, its row becomes
   `Saved and transcribed`, displays the accepted text, and keeps Play plus an
   explicit Delete action. It never offers Retry because its provider work has
   already succeeded.
-- A successful five-minute row is the sole History row for that result; HoldType
-  does not add a duplicate session-only accepted row with the same text.
-- The successful five-minute row and protected audio survive relaunch, accepted
-  History being disabled or cleared, normal recording-cache cleanup including
-  `Delete immediately`, and normal app quit. Only explicit Delete or bounded
-  recovery retention removes them.
+- A successful limit-completed row is the sole History row for that result;
+  HoldType does not add a duplicate session-only accepted row with the same text.
+- The successful limit-completed row and protected audio survive relaunch,
+  accepted History being disabled or cleared, normal recording-cache cleanup
+  including `Delete immediately`, and normal app quit. Only explicit Delete or
+  bounded recovery retention removes them.
 - A completed recording that fails during
   transcription for a recoverable OpenAI, network, timeout, rate-limit,
   unreadable-response, or empty-result reason changes that row to a failed
   attempt without deleting its audio.
-- The five-minute completion identity is part of the durable checkpoint. If its
-  first provider attempt fails, that identity survives relaunch; an explicit
-  Retry success promotes the same row to `Saved and transcribed` instead of
-  deleting its audio or creating a normal accepted-history row.
+- The maximum-duration completion identity is part of the durable checkpoint.
+  If its first provider attempt fails, that identity survives relaunch; an
+  explicit Retry success promotes the same row to `Saved and transcribed`
+  instead of deleting its audio or creating a normal accepted-history row.
 - The completion identity is durably associated with the protected recovery
   audio before provider work. If the main recovery index cannot be written
   after the audio copy succeeds, relaunch reconstruction must recover that
   identity from the app-owned audio filename or bounded local checkpoint
-  metadata rather than treating a five-minute recording as a normal ephemeral
-  attempt.
+  metadata rather than treating a limit-completed recording as a normal
+  ephemeral attempt.
 - Provider work for any completed non-empty recording may start only after a
   durable dispatch seal is tied to its app-owned recovery audio. If the audio
   copy or dispatch seal cannot be written, provider Retry stays hidden and the
@@ -163,10 +163,10 @@ This spec covers:
   current Last Transcript or the recovery history row created for the accepted
   transcript.
 - Recovery history keeps at most the 20 most recent accepted transcripts and a
-  small bounded set shared by recent failed attempts and successful five-minute
-  recordings. Older protected artifacts may be removed automatically only
-  after no provider operation owns them and that saved-recording limit is
-  exceeded.
+  small bounded set shared by recent failed attempts and successful
+  limit-completed recordings. Older protected artifacts may be removed
+  automatically only after no provider operation owns them and that
+  saved-recording limit is exceeded.
 - The menu bar exposes a Transcript History window.
 - Opening Transcript History brings the window to the front, including when it
   already exists behind another app window.
@@ -194,11 +194,11 @@ This spec covers:
 - Deleting one history row removes only that row. It does not delete Keychain
   secrets, settings, normal recording cache state, cached recordings linked for
   local playback, Last Transcript current-session state, or other history rows.
-  Deleting a failed attempt or successful five-minute recording also removes
-  only that row's protected audio. The UI reports deletion only after both its
-  recovery metadata and exact audio artifact were removed; if either operation
-  fails, the saved row remains or is reconstructed and the failure is shown
-  instead of a false success message.
+  Deleting a failed attempt or successful limit-completed recording also
+  removes only that row's protected audio. The UI reports deletion only after
+  both its recovery metadata and exact audio artifact were removed; if either
+  operation fails, the saved row remains or is reconstructed and the failure
+  is shown instead of a false success message.
 - Clearing accepted history removes only accepted session entries. It does not
   delete Keychain secrets, settings, normal recording cache state, or Last
   Transcript current-session state. Saved recording rows require their own
@@ -239,9 +239,10 @@ Each saved recording entry should store only:
 - language setting used for display
 - optional audio duration, if already known from the completed session
 - temporary app-owned audio file reference needed for retry
-- optional accepted transcript text, present only after a five-minute recording
+- optional accepted transcript text, present only after a limit-completed recording
   transcribes successfully
-- completion kind identifying a normal attempt or five-minute automatic Finish
+- completion kind identifying a normal attempt or automatic Finish at the
+  configured limit
 
 Saved recording entries must not store provider responses, authorization
 headers, API keys, prompt text, nearby active-text context, custom dictionary
@@ -253,15 +254,15 @@ entries, rejected transcript candidates, or debug payloads.
   slice.
 - Recovery metadata and audio are local-only, app-owned, and bounded. Unfinished
   rows persist until successful processing or explicit deletion. A successful
-  five-minute row additionally persists only its accepted transcript text until
-  explicit deletion or retention pruning. No row contains provider payload,
+  limit-completed row additionally persists only its accepted transcript text
+  until explicit deletion or retention pruning. No row contains provider payload,
   credential, prompt, nearby context, or raw log content.
 - No history entry may be sent to a server except when the user later uses a
   separate feature that explicitly sends text and has its own spec.
 - Default logs must not include transcript text or history entry contents.
 - Default logs must not include recording cache paths, failed-attempt audio
   paths, playback paths, or retry payloads.
-- Durable transcript history beyond the bounded successful five-minute
+- Durable transcript history beyond the bounded successful limit-completed
   recording exception requires a future spec update before implementation.
 
 ## Edge cases and failure policy
@@ -297,7 +298,7 @@ entries, rejected transcript candidates, or debug payloads.
   `Transcription outcome uncertain` row with provider Retry permanently hidden.
   It must never claim that the unavailable text was durably saved.
 - If the main Processing checkpoint write fails after its protected audio copy
-  succeeds, bounded checkpoint metadata preserves the five-minute identity
+  succeeds, bounded checkpoint metadata preserves the maximum-duration identity
   across relaunch. Before relaunch, the same owned checkpoint is reused for an
   emergency row; provider success immediately makes that row non-retryable even
   if its saved-state transition also fails.
@@ -305,7 +306,7 @@ entries, rejected transcript candidates, or debug payloads.
   reconstructs a bounded set of retryable rows from its own non-empty regular
   `Recording-<timestamp>-<UUID>` and
   `Recording-Max-<timestamp>-<UUID>` files and atomically repairs the metadata
-  when possible. The Max filename preserves five-minute retention even if both
+  when possible. The Max filename preserves maximum-duration retention even if both
   compact checkpoint writes fail. Reconstruction does not follow symbolic
   links and ignores directories, special files, malformed names, and unmanaged
   files.
@@ -313,7 +314,7 @@ entries, rejected transcript candidates, or debug payloads.
   stop offering Play or report a compact playback failure without logging the
   file path.
 - If the app terminates normally, accepted session history is cleared while
-  unfinished and successful five-minute saved recordings remain recoverable.
+  unfinished and successful limit-completed saved recordings remain recoverable.
 
 ## Verification mapping
 
@@ -321,7 +322,7 @@ entries, rejected transcript candidates, or debug payloads.
   disabling it clears current entries, and the setting persists.
 - History tests should cover accepted append, max-20 accepted retention, failed
   attempt append, failed-attempt retention and audio cleanup, clear,
-  disabled accepted-history behavior, successful five-minute saved-row
+  disabled accepted-history behavior, successful limit-completed saved-row
   round-trip and retention, saved-row survival while disabled, relaunch
   recovery, row deletion, recovery and cache-gated local playback, retry
   exclusion after success, retry success, retry failure, checkpoint-index

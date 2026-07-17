@@ -191,12 +191,15 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Done stops microphone capture before provider processing continues.
 - A valid completed recording becomes locally recoverable before the first
   provider request.
-- Reaching five minutes performs the same Finish automatically: capture closes,
-  the completed audio becomes Pending, and provider processing continues once.
+- Reaching the 1-15 minute limit selected in Settings performs the same Finish
+  automatically: capture closes, the completed audio becomes Pending, and
+  provider processing continues once. Five minutes is the default, and the
+  value is frozen when recording starts.
   It is not a maximum-duration failure.
-- Voice shows a countdown during the last minute. It warns at 4:00 and 4:30,
-  at 4:50, 4:52, and 4:54, and each second from 4:55 through 4:59. At 5:00 it
-  confirms that recording stopped and was saved.
+- Voice shows a countdown during the last minute. It warns with 60, 30, 10, 8,
+  6, then 5 through 1 seconds remaining; the warning at Start is omitted for a
+  one-minute limit. At the selected boundary it confirms that recording stopped
+  and was saved.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
 - Standard dictation is always the primary action. Auto Clear, Auto Translate,
@@ -324,13 +327,13 @@ destination. History remains a separate tab and is not previewed on Voice.
   Its Play button resolves a separately retained Recording Cache file by
   `resultID`. The Saved Recording card instead uses the canonical Pending
   playback capability and disappears only after success or explicit deletion.
-- A successful recording finalized at the five-minute boundary is an explicit
+- A successful recording finalized at its selected boundary is an explicit
   exception: History shows its audio in an independent `Saved Recordings`
   section, newest first, with Play and exact Discard. This section is not an
   accepted-text History row and is bounded to the newest five recordings.
 - Saved Recordings survive relaunch, `Save History` being off, Clear Accepted
   History, and the default `Delete immediately` Recording Cache policy. Those
-  controls never own or remove protected five-minute audio.
+  controls never own or remove protected limit-ended audio.
 - A new install enables `Save History` but leaves Recording Cache off. History
   and Recording settings own the matching controls and explanatory copy.
 - Turning `Save History` off requires confirmation, stops future appends, and
@@ -362,14 +365,15 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Recording Cache is optional: cache read, retention, or write failure never
   changes an accepted dictation into a failed result or blocks accepted Pending
   cleanup. The next reconciliation opportunity may retry cache maintenance.
-- The successful five-minute exception is stored under the separate managed
+- The successful limit-ended exception is stored under the separate managed
   `saved-v1-*` namespace before the only Pending source is unlinked. Its publish
   failure leaves Pending in `acceptedCleanup` with the source intact and shows
   no false Saved Recording; relaunch retries only that local publish and cleanup
   and never repeats provider work.
-- Done racing the five-minute watchdog cannot downgrade this ownership. A
-  canonical finalized duration at or above 299.5 seconds receives the same
-  protected retention as an explicit maximum-duration stop.
+- Done racing the selected-limit watchdog cannot downgrade this ownership. A
+  canonical finalized duration within 500 milliseconds of the attempt's frozen
+  boundary receives the same protected retention as an explicit
+  maximum-duration stop.
 - A History row shows Play only while Recording Cache is enabled and the exact
   cache file for that row still exists. Saving cache-off reconciles managed
   cache files immediately; clearing or retention pruning a file also removes

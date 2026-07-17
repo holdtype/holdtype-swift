@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 import Testing
 import UIKit
@@ -22,7 +23,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         #expect(harness.workflow.runActions == [.translateAndImprove])
         #expect(harness.states.map(\.phase) == [.ready])
 
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         try await eventually {
             owner.presentation?.phase == .listening
         }
@@ -56,7 +57,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         try await eventually {
             owner.presentation?.phase == .listening
         }
@@ -108,7 +109,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             expiredHarness.workflow.runRequestIDs == [expiredHarness.sessionID]
         }
-        expiredHarness.workflow.emit(.listening)
+        expiredHarness.workflow.emit(.listening(.defaultValue))
         try await eventually {
             expiredOwner.presentation?.phase == .listening
         }
@@ -237,7 +238,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         try await eventually {
             coordinator.presentation == .listening(
                 harness.listeningDeadline
@@ -281,7 +282,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         try await eventually { owner.presentation?.phase == .listening }
 
         let second = harness.intent(
@@ -502,7 +503,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         try await eventually { owner.presentation?.phase == .listening }
 
         owner.cancelFromSheet()
@@ -557,6 +558,37 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
     }
 
     @Test
+    func listeningStateUsesTheFrozenOneOrFifteenMinuteLimit() async throws {
+        for (minutes, expectedLifetime) in [(1, 62.0), (15, 902.0)] {
+            let harness = KeyboardSessionHarness()
+            let coordinator = harness.makeCoordinator()
+            await coordinator.startSession()
+            let requestID = UUID()
+
+            harness.command = harness.command(.start, requestID: requestID)
+            coordinator.receiveCurrentCommand()
+            try await eventually {
+                harness.workflow.runRequestIDs == [requestID]
+            }
+
+            let limit = RecordingDurationLimit(minutes: minutes)
+            harness.workflow.emit(.listening(limit))
+            try await eventually {
+                harness.states.last?.phase == .listening
+            }
+
+            let expectedDeadline = harness.now.addingTimeInterval(
+                expectedLifetime
+            )
+            #expect(harness.states.last?.expiresAt == expectedDeadline)
+            #expect(coordinator.presentation == .listening(expectedDeadline))
+
+            harness.workflow.resolve(.cancelled)
+            try await eventually { coordinator.presentation == .stopped }
+        }
+    }
+
+    @Test
     func startFinishPublishesAcceptedResultOnce() async throws {
         let harness = KeyboardSessionHarness()
         let coordinator = harness.makeCoordinator()
@@ -572,7 +604,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
 
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.accepted("Processed keyboard text"))
@@ -601,7 +633,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         harness.command = harness.command(.cancel, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.cancelled)
@@ -681,7 +713,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.failed)
@@ -705,7 +737,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening)
+        harness.workflow.emit(.listening(.defaultValue))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.accepted("Exactly once"))
@@ -793,7 +825,7 @@ private final class KeyboardSessionHarness {
 
     var listeningDeadline: Date {
         now.addingTimeInterval(
-            KeyboardDictationBridgeConfiguration.listeningStateLifetime
+            RecordingDurationLimit.defaultValue.duration + 2
         )
     }
 

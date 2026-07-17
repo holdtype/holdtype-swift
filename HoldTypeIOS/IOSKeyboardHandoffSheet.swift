@@ -140,7 +140,7 @@ struct IOSKeyboardHandoffSavedRecordingContent: Equatable, Sendable {
                 "HoldType couldn't safely recover the processing result. "
                     + "You can play or delete the saved audio."
             case .durationLimitExceeded:
-                "This recording exceeds the five-minute transcription limit. "
+                "This recording exceeds the supported transcription limit. "
                     + "You can play or delete the saved audio."
             case .audioUnavailable, nil:
                 "Your audio is preserved, but it isn't currently available "

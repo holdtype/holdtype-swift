@@ -717,7 +717,7 @@ enum IOSVoiceHomePresentation {
         case .maximumDuration:
             copy = (
                 "Maximum duration reached",
-                "The five-minute recording limit ended this attempt.",
+                "The selected recording limit ended this attempt.",
                 "timer",
                 .warning
             )

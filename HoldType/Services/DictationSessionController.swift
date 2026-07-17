@@ -42,6 +42,12 @@ final class DictationSessionController {
     static let savedRecordingActionsUnavailableMessage =
         "Finish the current dictation before using a saved recording."
     private static let maximumDurationClassificationTolerance: TimeInterval = 0.5
+    private static let recordingLimitSavingStatusText =
+        "Recording limit reached. Saving recording..."
+    private static let recordingLimitTranscribingStatusText =
+        "Recording limit reached. Recording saved to History; transcribing..."
+    private static let recordingLimitSaveFailedStatusText =
+        "Text was accepted, but the recording that reached the limit could not be marked as saved."
 
     private let recorder: any AudioRecorderService
     private let transcriptionService: any OpenAITranscriptionServing
@@ -72,6 +78,7 @@ final class DictationSessionController {
     private var pendingFailedTranscriptionRetry: PendingFailedTranscriptionRetry?
     private var pendingMaximumDurationCompletion = false
     private var activeRecoveryCheckpointID: FailedTranscriptionAttempt.ID?
+    private var activeRecordingDurationLimit: RecordingDurationLimit?
 
     private(set) var recordingCountdown: VoiceSessionCountdown? {
         didSet {
@@ -381,7 +388,7 @@ final class DictationSessionController {
             do {
                 let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
                 outputStatusText = savedRecordingUpdateFailed
-                    ? "Text was accepted, but the five-minute recording could not be marked as saved."
+                    ? Self.recordingLimitSaveFailedStatusText
                     : deliveryStatusText
             } catch {
                 guard isCurrentSession(sessionID) else {
@@ -501,6 +508,7 @@ final class DictationSessionController {
         activeOutputIntent = nil
         activeCredential = nil
         pendingMaximumDurationCompletion = false
+        activeRecordingDurationLimit = nil
     }
 
     private func cancelActiveSession() {
@@ -508,6 +516,7 @@ final class DictationSessionController {
         activeOutputIntent = nil
         activeCredential = nil
         pendingMaximumDurationCompletion = false
+        activeRecordingDurationLimit = nil
     }
 
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
@@ -536,12 +545,16 @@ final class DictationSessionController {
         }
 
         let sessionID = beginSession(intent: intent)
+        let recordingDurationLimit = settings.recordingDurationLimit
+        activeRecordingDurationLimit = recordingDurationLimit
         pendingMaximumDurationCompletion = false
         eventLogger.record(.recordingStartRequested)
 
         do {
             historyAudioPlaybackStopper.stopPlayback()
-            try await recorder.startRecording()
+            try await recorder.startRecording(
+                maximumDuration: recordingDurationLimit.duration
+            )
             guard isCurrentSession(sessionID) else {
                 return
             }
@@ -586,19 +599,21 @@ final class DictationSessionController {
 
         do {
             let settings = settingsProvider()
+            let recordingDurationLimit = activeRecordingDurationLimit
+                ?? settings.recordingDurationLimit
             let artifact: AudioRecordingArtifact
             if let automaticCompletion = resolvedAutomaticCompletion {
                 artifact = automaticCompletion.artifact
                 switch automaticCompletion.reason {
                 case .maximumDuration:
-                    outputStatusText = "Five-minute limit reached. Saving recording..."
+                    outputStatusText = Self.recordingLimitSavingStatusText
                 case .unexpected:
                     outputStatusText = "Recording ended unexpectedly. Saving recording..."
                 }
             } else if let automaticReasonAwaitingArtifact {
                 switch automaticReasonAwaitingArtifact {
                 case .maximumDuration:
-                    outputStatusText = "Five-minute limit reached. Saving recording..."
+                    outputStatusText = Self.recordingLimitSavingStatusText
                 case .unexpected:
                     outputStatusText = "Recording ended unexpectedly. Saving recording..."
                 }
@@ -615,7 +630,10 @@ final class DictationSessionController {
             if let automaticCompletion = resolvedAutomaticCompletion,
                automaticCompletion.reason != .maximumDuration,
                recorder.lastFinalizationReachedMaximumDuration
-                || Self.finalizedArtifactReachedMaximumDuration(artifact) {
+                || Self.finalizedArtifactReachedMaximumDuration(
+                    artifact,
+                    limit: recordingDurationLimit
+                ) {
                 let recorderReportedSuccess: Bool?
                 switch automaticCompletion.reason {
                 case .maximumDuration:
@@ -629,7 +647,7 @@ final class DictationSessionController {
                     recorderReportedSuccess: recorderReportedSuccess
                 )
                 pendingMaximumDurationCompletion = false
-                outputStatusText = "Five-minute limit reached. Saving recording..."
+                outputStatusText = Self.recordingLimitSavingStatusText
                 eventLogger.record(.recordingLimitReached)
             }
             if resolvedAutomaticCompletion == nil,
@@ -639,7 +657,7 @@ final class DictationSessionController {
                     reason: .maximumDuration
                 )
                 pendingMaximumDurationCompletion = false
-                outputStatusText = "Five-minute limit reached. Saving recording..."
+                outputStatusText = Self.recordingLimitSavingStatusText
                 eventLogger.record(.recordingLimitReached)
             }
             if resolvedAutomaticCompletion == nil,
@@ -649,12 +667,15 @@ final class DictationSessionController {
                     reason: .maximumDuration
                 )
                 pendingMaximumDurationCompletion = false
-                outputStatusText = "Five-minute limit reached. Saving recording..."
+                outputStatusText = Self.recordingLimitSavingStatusText
                 eventLogger.record(.recordingLimitReached)
             }
             if resolvedAutomaticCompletion == nil,
                automaticReasonAwaitingArtifact == nil,
-               Self.finalizedArtifactReachedMaximumDuration(artifact) {
+               Self.finalizedArtifactReachedMaximumDuration(
+                   artifact,
+                   limit: recordingDurationLimit
+               ) {
                 // Key-up may win the exact-once boundary just before the
                 // recorder delegate or controller watchdog. Preserve the
                 // product-level maximum reason from the finalized artifact so
@@ -663,7 +684,7 @@ final class DictationSessionController {
                     artifact: artifact,
                     reason: .maximumDuration
                 )
-                outputStatusText = "Five-minute limit reached. Saving recording..."
+                outputStatusText = Self.recordingLimitSavingStatusText
                 eventLogger.record(.recordingLimitReached)
             }
             completedArtifact = artifact
@@ -709,7 +730,7 @@ final class DictationSessionController {
             activeRecoveryCheckpointID = recoveryCheckpoint?.id
             allowsRecordingCacheHandling = true
             if resolvedAutomaticCompletion?.reason == .maximumDuration {
-                outputStatusText = "Five-minute limit reached. Recording saved to History; transcribing..."
+                outputStatusText = Self.recordingLimitTranscribingStatusText
             } else if let reason = resolvedAutomaticCompletion?.reason,
                       case .unexpected = reason {
                 outputStatusText = "Recording ended unexpectedly. Recording saved to History; transcribing..."
@@ -829,7 +850,7 @@ final class DictationSessionController {
             do {
                 let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
                 outputStatusText = savedRecordingUpdateFailed
-                    ? "Text was accepted, but the five-minute recording could not be marked as saved."
+                    ? Self.recordingLimitSaveFailedStatusText
                     : deliveryStatusText
             } catch {
                 guard isCurrentSession(sessionID) else {
@@ -1079,23 +1100,27 @@ final class DictationSessionController {
         settings: AppSettings
     ) {
         recordingCountdown = nil
-        recordingDurationMonitor.start { [weak self] elapsedWholeSecond in
+        let schedule = VoiceSessionWarningSchedule(
+            limit: settings.recordingDurationLimit
+        )
+        recordingDurationMonitor.start(
+            maximumDurationWholeSeconds: schedule.maximumDurationWholeSeconds
+        ) { [weak self] elapsedWholeSecond in
             guard let self,
                   self.isCurrentSession(sessionID),
                   self.status.voiceWorkPhase == .listening else {
                 return
             }
 
-            if elapsedWholeSecond
-                >= VoiceSessionWarningSchedule.maximumDurationWholeSeconds {
+            if elapsedWholeSecond >= schedule.maximumDurationWholeSeconds {
                 self.handleRecordingMaximumDurationWatchdog()
                 return
             }
 
-            self.recordingCountdown = VoiceSessionWarningSchedule.countdown(
+            self.recordingCountdown = schedule.countdown(
                 atElapsedWholeSecond: elapsedWholeSecond
             )
-            guard let warning = VoiceSessionWarningSchedule.warning(
+            guard let warning = schedule.warning(
                 atElapsedWholeSecond: elapsedWholeSecond
             ),
                 settings.soundEnabled,
@@ -1114,9 +1139,10 @@ final class DictationSessionController {
     }
 
     private static func finalizedArtifactReachedMaximumDuration(
-        _ artifact: AudioRecordingArtifact
+        _ artifact: AudioRecordingArtifact,
+        limit: RecordingDurationLimit
     ) -> Bool {
-        let threshold = VoiceSessionPreferences.maximumUtteranceDuration
+        let threshold = limit.duration
             - maximumDurationClassificationTolerance
         return artifact.duration.isFinite && artifact.duration >= threshold
     }

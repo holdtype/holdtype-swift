@@ -364,8 +364,8 @@ passes.
 - Quick Session is hidden or clearly unavailable until the M0B prerequisites
   and the minimal M0C physical-device gate pass.
 - The first approved hypothesis is a fixed five-minute armed session started by
-  an explicit foreground action. Its duration is separate from the five-minute
-  maximum for one retained utterance.
+  an explicit foreground action. Its duration is separate from the
+  user-selected maximum for one retained utterance.
 - Before first use, the app explains that the microphone session remains
   active while armed, may continue in the background, consumes battery, shows
   the system microphone indicator, and ends through Stop or expiry.

@@ -5,6 +5,7 @@
 //  Created by Codex on 6/20/26.
 //
 
+import CoreFoundation
 import Foundation
 import HoldTypeDomain
 
@@ -53,6 +54,8 @@ struct AppSettings: Equatable {
         showFloatingIndicator: true,
         recordingStopTailDuration:
             VoiceSessionPreferences.defaults.recordingStopTailDuration,
+        recordingDurationLimit:
+            VoiceSessionPreferences.defaults.recordingDurationLimit,
         saveTranscriptHistory: RetentionConfiguration.defaults.historyEnabled,
         recordingCachePolicy: RetentionConfiguration.defaults.recordingCachePolicy
     )
@@ -85,6 +88,7 @@ struct AppSettings: Equatable {
     var soundEnabled: Bool
     var showFloatingIndicator: Bool
     var recordingStopTailDuration: RecordingStopTailDuration = .off
+    var recordingDurationLimit: RecordingDurationLimit = .default
     var saveTranscriptHistory: Bool
     var recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
 
@@ -187,7 +191,8 @@ struct AppSettings: Equatable {
     var voiceSessionPreferences: VoiceSessionPreferences {
         VoiceSessionPreferences(
             audioCuesEnabled: soundEnabled,
-            recordingStopTailDuration: recordingStopTailDuration
+            recordingStopTailDuration: recordingStopTailDuration,
+            recordingDurationLimit: recordingDurationLimit
         )
     }
 
@@ -357,6 +362,7 @@ struct AppSettingsStore {
         Key.soundEnabled,
         Key.showFloatingIndicator,
         Key.recordingStopTailDuration,
+        Key.recordingDurationLimitMinutes,
         Key.saveTranscriptHistory,
         Key.recordingCachePolicyMode,
         Key.recordingCacheRetainedRecordingLimit,
@@ -395,6 +401,8 @@ struct AppSettingsStore {
         static let soundEnabled = keyPrefix + "soundEnabled"
         static let showFloatingIndicator = keyPrefix + "showFloatingIndicator"
         static let recordingStopTailDuration = keyPrefix + "recordingStopTailDuration"
+        static let recordingDurationLimitMinutes =
+            keyPrefix + "recordingDurationLimitMinutes"
         static let saveTranscriptHistory = keyPrefix + "saveTranscriptHistory"
         static let recordingCachePolicyMode = keyPrefix + "recordingCachePolicyMode"
         static let recordingCacheRetainedRecordingLimit =
@@ -488,6 +496,9 @@ struct AppSettingsStore {
             recordingStopTailDuration: loadRecordingStopTailDuration(
                 defaultValue: defaultSettings.recordingStopTailDuration
             ),
+            recordingDurationLimit: loadRecordingDurationLimit(
+                defaultValue: defaultSettings.recordingDurationLimit
+            ),
             saveTranscriptHistory: loadSaveTranscriptHistory(
                 defaultValue: defaultSettings.saveTranscriptHistory
             ),
@@ -547,6 +558,10 @@ struct AppSettingsStore {
         userDefaults.set(
             settings.recordingStopTailDuration.rawValue,
             forKey: Key.recordingStopTailDuration
+        )
+        userDefaults.set(
+            settings.recordingDurationLimit.minutes,
+            forKey: Key.recordingDurationLimitMinutes
         )
         userDefaults.set(settings.saveTranscriptHistory, forKey: Key.saveTranscriptHistory)
         saveRecordingCachePolicy(settings.recordingCachePolicy)
@@ -671,6 +686,21 @@ struct AppSettingsStore {
         }
 
         return RecordingStopTailDuration(rawValue: rawValue) ?? defaultValue
+    }
+
+    private func loadRecordingDurationLimit(
+        defaultValue: RecordingDurationLimit
+    ) -> RecordingDurationLimit {
+        guard let savedNumber = userDefaults.object(
+            forKey: Key.recordingDurationLimitMinutes
+        ) as? NSNumber,
+            CFGetTypeID(savedNumber) == CFNumberGetTypeID(),
+            !CFNumberIsFloatType(savedNumber)
+        else {
+            return defaultValue
+        }
+
+        return RecordingDurationLimit(minutes: savedNumber.intValue)
     }
 
     private func loadTextReplacementRules(defaultValue: [TextReplacementRule]) -> [TextReplacementRule] {

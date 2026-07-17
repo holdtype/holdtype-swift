@@ -364,7 +364,8 @@ struct IOSAppSettingsEditorSupportTests {
 
         let voice = VoiceSessionPreferences(
             audioCuesEnabled: true,
-            recordingStopTailDuration: .seconds2
+            recordingStopTailDuration: .seconds2,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 12)
         )
         let voiceDraft = IOSVoiceRecordingSettingsDraft(
             preferences: voice,
@@ -638,7 +639,8 @@ struct IOSAppSettingsEditorSupportTests {
             ),
             voiceSessionPreferences: VoiceSessionPreferences(
                 audioCuesEnabled: false,
-                recordingStopTailDuration: .seconds1
+                recordingStopTailDuration: .seconds1,
+                recordingDurationLimit: RecordingDurationLimit(minutes: 1)
             ),
             recordingCachePolicy: .keepLast(3)
         )

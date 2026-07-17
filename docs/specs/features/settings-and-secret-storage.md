@@ -161,6 +161,16 @@ This spec covers:
 - The default recording tail is Off. Off stops recording immediately.
 - The recording tail is a fixed post-release delay. It must not perform silence
   detection, speech analysis, or automatic endpoint detection.
+- The Settings window should include a Maximum recording length control in
+  Behavior. It offers each whole-minute value from 1 through 15 and defaults
+  to 5 minutes.
+- The control explains that reaching the selected length automatically finishes
+  and saves the recording before transcription. A shorter value bounds how
+  much audio one attempt can send to the provider; it is a HoldType setting,
+  not a duration limit imposed by OpenAI.
+- The selected maximum is frozen when a recording starts. A Settings change
+  applies to the next recording and must not alter an attempt already in
+  progress.
 - The Settings window should include a `Start HoldType at login` control in
   Behavior and duplicate the same control in Permissions availability setup.
   This control lets the user ask macOS to launch HoldType when the user logs in
@@ -368,6 +378,7 @@ The MVP non-secret settings default to:
 - dictation start/stop sounds: on
 - floating recording indicator: on
 - recording tail after release: off
+- maximum recording length: 5 minutes
 - start HoldType at login: off
 - keep transcript recovery history: on
 - do not keep recording cache: on
@@ -481,6 +492,7 @@ UserDefaults may store:
 - soundEnabled
 - showFloatingIndicator
 - recording stop tail duration
+- maximum recording length in whole minutes, normalized to 1 through 15
 - saveTranscriptHistory
 - recording cache retention policy
 - prompt
@@ -533,9 +545,9 @@ selected entry must not start, stop, cancel, or otherwise affect dictation.
 
 - Add tests or manual QA for saving/loading settings, saving/loading/deleting
   API key, missing key errors, local usage price calculation, projection math,
-  unknown-model cost handling, recording cache listing/clear/retention, reset
-  behavior, and ensuring logs do not contain the API key when implementation
-  exists.
+  unknown-model cost handling, maximum recording length default/range/migration,
+  recording cache listing/clear/retention, reset behavior, and ensuring logs do
+  not contain the API key when implementation exists.
 
 ## Unknowns requiring confirmation
 

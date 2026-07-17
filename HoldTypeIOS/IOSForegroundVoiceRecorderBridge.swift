@@ -74,7 +74,8 @@ final class IOSForegroundVoiceRecorderBridge {
         UUID,
         DictationOutputIntent,
         IOSVoiceDraftInsertionMode,
-        Bool
+        Bool,
+        RecordingDurationLimit
     ) async throws -> IOSForegroundVoiceRecorderBridgeDriver
     typealias PreparePending = @MainActor @Sendable (
         IOSVoiceRecorderCompletedCaptureHandoff,
@@ -98,15 +99,18 @@ final class IOSForegroundVoiceRecorderBridge {
             attemptID,
             outputIntent,
             draftInsertionMode,
-            forcesTextCorrection in
+            forcesTextCorrection,
+            recordingDurationLimit in
             let lease = try await persistenceOwner.createCapture(
                 attemptID: attemptID,
                 outputIntent: outputIntent,
                 draftInsertionMode: draftInsertionMode,
-                forcesTextCorrection: forcesTextCorrection
+                forcesTextCorrection: forcesTextCorrection,
+                recordingDurationLimit: recordingDurationLimit
             )
             let adapter = IOSVoiceRecorderAdapter(
                 lease: lease,
+                recordingDurationLimit: recordingDurationLimit,
                 client: recorderClient,
                 diagnose: diagnose
             )
@@ -136,19 +140,24 @@ final class IOSForegroundVoiceRecorderBridge {
         attemptID: UUID,
         outputIntent: DictationOutputIntent,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
-        forcesTextCorrection: Bool = false
+        forcesTextCorrection: Bool = false,
+        recordingDurationLimit: RecordingDurationLimit = .defaultValue
     ) async throws -> IOSForegroundVoiceWorkflowRecording {
         let driver = try await makeDriver(
             attemptID,
             outputIntent,
             draftInsertionMode,
-            forcesTextCorrection
+            forcesTextCorrection,
+            recordingDurationLimit
         )
         let owner = AttemptOwner(
             driver: driver,
             preparePending: preparePending,
             feedback: feedback,
-            feedbackHandle: feedback?.recorderAttemptHandle
+            feedbackHandle: feedback?.recorderAttemptHandle,
+            warningSchedule: VoiceSessionWarningSchedule(
+                limit: recordingDurationLimit
+            )
         )
         return owner.recording
     }
@@ -162,6 +171,7 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
         IOSForegroundVoiceRecorderBridge.PreparePending
     private let feedback: IOSForegroundVoiceFeedbackBridge?
     private let feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?
+    private let warningSchedule: VoiceSessionWarningSchedule
 
     private var receiveTerminal: (@MainActor @Sendable (
         IOSForegroundVoiceWorkflowCaptureStopReason
@@ -182,12 +192,16 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
         preparePending: @escaping
             IOSForegroundVoiceRecorderBridge.PreparePending,
         feedback: IOSForegroundVoiceFeedbackBridge?,
-        feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?
+        feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?,
+        warningSchedule: VoiceSessionWarningSchedule = .init(
+            limit: .defaultValue
+        )
     ) {
         self.driver = driver
         self.preparePending = preparePending
         self.feedback = feedback
         self.feedbackHandle = feedbackHandle
+        self.warningSchedule = warningSchedule
     }
 
     var recording: IOSForegroundVoiceWorkflowRecording {
@@ -336,8 +350,9 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
         }
         let clock = ContinuousClock()
         let startedAt = clock.now
+        let warnings = warningSchedule.warnings
         limitWarningTask = Task { @MainActor [weak self] in
-            for warning in VoiceSessionWarningSchedule.warnings {
+            for warning in warnings {
                 do {
                     try await clock.sleep(
                         until: startedAt.advanced(

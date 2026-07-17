@@ -425,6 +425,7 @@ public enum IOSV1ForegroundVoiceCaptureRecoveryObservation:
 @_spi(HoldTypeIOSCore)
 public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
     public let attemptID: UUID
+    public let recordingDurationLimit: RecordingDurationLimit
     public let durationMilliseconds: Int64
     public let byteCount: Int64
     public let availability: IOSV1PendingRecordingAvailability
@@ -436,6 +437,7 @@ public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
         availability: IOSV1PendingRecordingAvailability
     ) {
         attemptID = capture.attemptID
+        recordingDurationLimit = capture.recordingDurationLimit
         durationMilliseconds = capture.durationMilliseconds ?? 0
         byteCount = capture.byteCount ?? 0
         self.availability = availability
@@ -445,6 +447,7 @@ public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
 #if DEBUG
     public static func qualificationFixture(
         attemptID: UUID = UUID(),
+        recordingDurationLimit: RecordingDurationLimit = .default,
         durationMilliseconds: Int64 = 1_000,
         byteCount: Int64 = 1_024,
         availability: IOSV1PendingRecordingAvailability = .available
@@ -458,6 +461,7 @@ public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
                     ),
                 createdAt: Date(timeIntervalSince1970: 1_800_000_000),
                 outputIntent: .standard,
+                recordingDurationLimit: recordingDurationLimit,
                 phase: .completed,
                 durationMilliseconds: durationMilliseconds,
                 byteCount: byteCount
@@ -471,6 +475,7 @@ public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
 @_spi(HoldTypeIOSCore)
 public struct IOSV1CompletedCaptureRecoveryExpectation: Equatable, Sendable {
     public let attemptID: UUID
+    public let recordingDurationLimit: RecordingDurationLimit
     public let durationMilliseconds: Int64
     public let byteCount: Int64
 
@@ -478,6 +483,7 @@ public struct IOSV1CompletedCaptureRecoveryExpectation: Equatable, Sendable {
 
     public init(recording: IOSV1CompletedCaptureRecoveryObservation) {
         attemptID = recording.attemptID
+        recordingDurationLimit = recording.recordingDurationLimit
         durationMilliseconds = recording.durationMilliseconds
         byteCount = recording.byteCount
         capture = recording.capture
@@ -569,6 +575,9 @@ public final class IOSV1ForegroundVoiceCaptureLease: @unchecked Sendable {
 @_spi(HoldTypeIOSCore)
 public final class IOSV1ForegroundVoiceCompletedCapture: @unchecked Sendable {
     public var attemptID: UUID { completed.attemptID }
+    public var recordingDurationLimit: RecordingDurationLimit {
+        completed.recordingDurationLimit
+    }
     public var durationMilliseconds: Int64 { completed.durationMilliseconds }
     public var byteCount: Int64 { completed.byteCount }
 
@@ -1114,7 +1123,8 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         attemptID: UUID,
         outputIntent: DictationOutputIntent,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
-        forcesTextCorrection: Bool = false
+        forcesTextCorrection: Bool = false,
+        recordingDurationLimit: RecordingDurationLimit = .default
     ) async throws -> IOSV1ForegroundVoiceCaptureLease {
         await acquireOperation()
         defer { releaseOperation() }
@@ -1123,6 +1133,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
             outputIntent: outputIntent,
             draftInsertionMode: draftInsertionMode,
             forcesTextCorrection: forcesTextCorrection,
+            recordingDurationLimit: recordingDurationLimit,
             createdAt: now()
         )
         return IOSV1ForegroundVoiceCaptureLease(
@@ -1144,7 +1155,8 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         }
         let resolvedRetention = IOSAcceptedAudioRetention.resolved(
             requested: acceptedAudioRetention,
-            finalizedDurationMilliseconds: capture.durationMilliseconds
+            finalizedDurationMilliseconds: capture.durationMilliseconds,
+            recordingDurationLimit: capture.recordingDurationLimit
         )
         let promoted: IOSV1PendingRecording
         do {
@@ -1254,7 +1266,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                             .mediaValidationTimeoutNanoseconds
                 )
                 duration = measured >= 300
-                    && measured <= VoiceSessionPreferences
+                    && measured <= capture.recordingDurationLimit
                         .maximumFinalizedMediaDurationMilliseconds
                     ? measured : 0
             } catch IOSV1VoiceCaptureError.mediaValidationFailed {
@@ -1348,7 +1360,9 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                     transcriptionConfiguration: transcriptionConfiguration,
                     acceptedAudioRetention: Self.recoveredAudioRetention(
                         durationMilliseconds:
-                            capture.durationMilliseconds ?? 0
+                            capture.durationMilliseconds ?? 0,
+                        recordingDurationLimit:
+                            capture.recordingDurationLimit
                     ),
                     initialStatus: .failed
                 )
@@ -1372,7 +1386,9 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                     transcriptionConfiguration: transcriptionConfiguration,
                     acceptedAudioRetention: Self.recoveredAudioRetention(
                         durationMilliseconds:
-                            expected.durationMilliseconds
+                            expected.durationMilliseconds,
+                        recordingDurationLimit:
+                            expected.recordingDurationLimit
                     ),
                     initialStatus: .failed
                 )
@@ -1940,8 +1956,8 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         do {
             let hasAdmissibleDuration = recording.durationMilliseconds > 0
                 && recording.durationMilliseconds
-                    <= VoiceSessionPreferences
-                        .maximumFinalizedMediaDurationMilliseconds
+                    <= RecordingDurationLimit
+                        .maximumSupportedFinalizedMediaDurationMilliseconds
             let isExplicitUnknownDurationAttempt = permitsUnknownDuration
                 && recording.durationMilliseconds == 0
             guard hasAdmissibleDuration
@@ -2161,15 +2177,17 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
     }
 
     private static func recoveredAudioRetention(
-        durationMilliseconds: Int64
+        durationMilliseconds: Int64,
+        recordingDurationLimit: RecordingDurationLimit
     ) -> IOSAcceptedAudioRetention {
-        // Unknown recovery may be the exact five-minute recording whose media
+        // Unknown recovery may be the exact limit-ended recording whose media
         // metadata probe failed. Preserve it conservatively after acceptance;
         // bounded Saved Recordings, not an optional cache policy, owns it.
         if durationMilliseconds == 0 { return .savedFiveMinute }
         return IOSAcceptedAudioRetention.resolved(
             requested: .recordingCachePolicy,
-            finalizedDurationMilliseconds: durationMilliseconds
+            finalizedDurationMilliseconds: durationMilliseconds,
+            recordingDurationLimit: recordingDurationLimit
         )
     }
 

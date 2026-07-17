@@ -9,32 +9,44 @@ public enum IOSAcceptedAudioCacheError: Error, Equatable, Sendable {
 }
 
 /// Selects whether accepted audio follows the user's optional Recording Cache
-/// policy or remains a bounded Saved Recording after the five-minute boundary.
+/// policy or remains a bounded Saved Recording after the configured boundary.
 public enum IOSAcceptedAudioRetention: String, Equatable, Sendable {
     case recordingCachePolicy
     case savedFiveMinute
 
+    /// Semantic name for the legacy on-disk `savedFiveMinute` raw value.
+    public static let savedRecordingLimit = Self.savedFiveMinute
+
     /// Canonical media can land just below the watchdog boundary when Done
     /// wins stop authority. Resolve from finalized media truth too, so that
-    /// race cannot downgrade a five-minute recording to optional cache audio.
+    /// race cannot downgrade a limit-ended recording to optional cache audio.
     public static let savedFiveMinuteMinimumDurationMilliseconds = Int64(
-        VoiceSessionWarningSchedule.maximumDurationWholeSeconds * 1_000
+        RecordingDurationLimit.default.wholeSeconds * 1_000
     ) - 500
+
+    public static func savedRecordingMinimumDurationMilliseconds(
+        for recordingDurationLimit: RecordingDurationLimit
+    ) -> Int64 {
+        Int64(recordingDurationLimit.wholeSeconds) * 1_000 - 500
+    }
 
     public static func resolved(
         requested: Self,
-        finalizedDurationMilliseconds: Int64
+        finalizedDurationMilliseconds: Int64,
+        recordingDurationLimit: RecordingDurationLimit
     ) -> Self {
         if requested == .savedFiveMinute
             || finalizedDurationMilliseconds
-                >= savedFiveMinuteMinimumDurationMilliseconds {
+                >= savedRecordingMinimumDurationMilliseconds(
+                    for: recordingDurationLimit
+                ) {
             return .savedFiveMinute
         }
         return .recordingCachePolicy
     }
 }
 
-/// Content-free identity for one completed five-minute Saved Recording.
+/// Content-free identity for one completed limit-ended Saved Recording.
 public struct IOSSavedAcceptedRecording: Equatable, Identifiable, Sendable {
     public let resultID: UUID
     public let createdAt: Date
@@ -93,7 +105,7 @@ public actor IOSAcceptedAudioCache {
     }
 
     /// Resolves only the independently retained copy that can prove a prior
-    /// five-minute publish completed before Pending cleanup was interrupted.
+    /// limit-ended publish completed before Pending cleanup was interrupted.
     /// Result identity alone is insufficient: the managed namespace, media
     /// extension, and exact byte count must all still match Pending metadata.
     func savedAudioFileURLIfAvailable(
@@ -121,7 +133,7 @@ public actor IOSAcceptedAudioCache {
         return match.url
     }
 
-    /// Returns the independently retained five-minute recordings newest first.
+    /// Returns independently retained limit-ended recordings newest first.
     /// Text History and Recording Cache settings do not own this list.
     public func savedRecordings() throws -> [IOSSavedAcceptedRecording] {
         try managedFiles()
@@ -169,7 +181,7 @@ public actor IOSAcceptedAudioCache {
     }
 
     /// Applies policy only to ordinary accepted cache entries. Saved
-    /// five-minute recordings remain independently playable.
+    /// limit-ended recordings remain independently playable.
     public func playableAudioFileURL(
         resultID: UUID,
         policy: RecordingCachePolicy

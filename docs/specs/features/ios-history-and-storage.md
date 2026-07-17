@@ -657,10 +657,13 @@ before asking the recorder to close. Cancel first writes and synchronizes
 The action never exposes cancelled bytes through Recover Recording; a crash or
 uncertain unlink leaves discarding state for bounded cleanup. After close,
 Persistence validates the descriptor-bound media, positive byte count, stable
-modification time, and duration evidence. A media duration in
-`300...302000` milliseconds is canonical. Otherwise a frozen live monotonic
-duration of at least 300 milliseconds is canonical after clamping to `302000`;
-without that evidence duration `0` records an internal unknown/suspect value.
+modification time, and duration evidence. The capture journal stores the
+1-15 minute limit frozen at Start; legacy capture records migrate as five-minute
+attempts. A media duration from 300 milliseconds through that frozen limit plus
+2,000 milliseconds is canonical. Otherwise a frozen live monotonic duration of
+at least 300 milliseconds is canonical after clamping to the same per-attempt
+bound; without that evidence duration `0` records an internal unknown/suspect
+value. The absolute supported-media ceiling is 902,000 milliseconds.
 Only exact empty media enters automatic non-provider cleanup. Descriptor-proven
 absence is Discard-only without automatic deletion. Bounded non-empty media
 writes and synchronizes the completion value, then writes and
@@ -836,7 +839,7 @@ Preparing a pending attempt follows this order:
 The source must be an owned, no-follow, single-link regular `.m4a` or `.wav`
 whose positive byte count exactly matches the runtime artifact and is strictly
 less than 25,000,000 bytes. Duration is canonicalized to the nearest whole
-millisecond using `toNearestOrAwayFromZero` and must fall in `0...302000`.
+millisecond using `toNearestOrAwayFromZero` and must fall in `0...902000`.
 Zero is reserved for a positive-byte recovery source whose duration could not
 be trusted; it is never inferred for empty media and never authorizes automatic
 provider dispatch.
@@ -884,7 +887,7 @@ probe is unresolved is instead retained with journal duration `0`; an explicit
 Transcribe/Retry may send those exact bytes, with structural request duration
 `1`, and surfaces any provider rejection without deleting local audio. For a
 positive journal duration, the validated media duration must itself fall in
-`1...302000` milliseconds and differ from the journal value by no more than 250
+`1...902000` milliseconds and differ from the journal value by no more than 250
 milliseconds.
 
 If protected-audio publication fails, only the owned temporary file may be

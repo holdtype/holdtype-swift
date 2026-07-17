@@ -14,7 +14,8 @@ struct IOSForegroundVoiceRecorderBridgeTests {
         let bridge = fixture.makeBridge()
         let recording = try await bridge.makeRecording(
             attemptID: attemptID,
-            outputIntent: .translate
+            outputIntent: .translate,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 15)
         )
         let observation = recording.observeTerminal { _ in }
 
@@ -24,6 +25,10 @@ struct IOSForegroundVoiceRecorderBridgeTests {
         #expect(isDiscarded(await recording.stop(.cancelled)))
         #expect(fixture.createdAttemptID == attemptID)
         #expect(fixture.createdOutputIntent == .translate)
+        #expect(
+            fixture.createdRecordingDurationLimit
+                == RecordingDurationLimit(minutes: 15)
+        )
         #expect(fixture.stopReasons == [.cancelled])
 
         observation.cancel()
@@ -130,7 +135,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             isActivelyRecording: { _ in true }
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
-            makeDriver: { _, _, _, _ in driver },
+            makeDriver: { _, _, _, _, _ in driver },
             preparePending: { handoff, configuration, retention in
                 try await handoff.preparePending(
                     using: IOSV1ForegroundVoicePersistenceOwner(
@@ -304,7 +309,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             isActivelyRecording: { _ in true }
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
-            makeDriver: { _, _, _, _ in driver },
+            makeDriver: { _, _, _, _, _ in driver },
             preparePending: { _, _, _ in throw RecorderBridgeError.failed },
             feedback: feedback
         )
@@ -400,6 +405,7 @@ private final class RecorderBridgeFixture {
     var inputLevel = 0.64
     private(set) var createdAttemptID: UUID?
     private(set) var createdOutputIntent: DictationOutputIntent?
+    private(set) var createdRecordingDurationLimit: RecordingDurationLimit?
     private(set) var stopReasons: [IOSVoiceRecorderStopReason] = []
 
     lazy var driver = IOSForegroundVoiceRecorderBridgeDriver(
@@ -427,10 +433,12 @@ private final class RecorderBridgeFixture {
                 [weak self] attemptID,
                 outputIntent,
                 _,
-                _ in
+                _,
+                recordingDurationLimit in
                 guard let self else { throw RecorderBridgeError.failed }
                 createdAttemptID = attemptID
                 createdOutputIntent = outputIntent
+                createdRecordingDurationLimit = recordingDurationLimit
                 return driver
             },
             preparePending: { handoff, configuration, retention in

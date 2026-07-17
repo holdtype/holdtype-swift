@@ -32,7 +32,8 @@ This spec covers:
 - using the translations endpoint, realtime transcription, diarization, speaker
   labels, timestamps, subtitles, or streaming transcript deltas
 - retaining audio for analytics or telemetry, or for transcript history outside
-  the explicit local recording cache and bounded five-minute recovery exceptions
+  the explicit local recording cache and bounded maximum-duration recovery
+  exceptions
 - auto-learning dictionary entries from edits in other apps
 - snippets, text expansion, or cloud-synced dictionary behavior
 
@@ -266,9 +267,11 @@ runtime request value still does not own its scratch-file lifecycle.
   It exposes no URL, path, `FileHandle`, raw descriptor, attempt identity, or
   durable storage identifier.
 - The neutral request accepts only `m4a` or `wav`, a positive media duration no
-  greater than 302 seconds, and a positive byte count below the existing
-  25,000,000-byte exclusive limit. The duration tolerance covers recorder
-  closure after HoldType's five-minute automatic Finish; it is not an OpenAI
+  greater than the global supported 902-second finalized-media ceiling, and a
+  positive byte count below the existing 25,000,000-byte exclusive limit.
+  Capture persistence first validates media against the frozen selected limit
+  plus the two-second recorder-close tolerance. The 902-second ceiling is a
+  HoldType safety bound for the maximum 15-minute setting; it is not an OpenAI
   duration limit. Invalid metadata fails before scratch creation or a source
   read.
 - Every reader call has a nonnegative offset and a positive requested size no
@@ -290,7 +293,7 @@ runtime request value still does not own its scratch-file lifecycle.
   cleanup operation.
 - This 60-second provider deadline begins only after capture is closed and
   Pending is durable. It is independent from keyboard Ready expiry and the
-  five-minute Listening deadline.
+  selected Listening deadline.
 - Explicit P4 Retry receives a fresh one-shot reader authorization with a fresh
   transcription ID, current safe Settings and Library values, current consent
   and credential, fresh prompt composition, fresh multipart boundary, and fresh
@@ -451,9 +454,9 @@ runtime request value still does not own its scratch-file lifecycle.
   not be consumed by stale UI cleanup such as hiding a still-visible
   transcribing indicator.
 - A completed recording may be deleted after successful provider acceptance
-  when recording cache retention is off. A successful five-minute automatic
-  Finish keeps its separate bounded recovery copy and accepted text until
-  explicit Delete or retention pruning. Provider failure, timeout, request
+  when recording cache retention is off. A successful automatic Finish at the
+  configured limit keeps its separate bounded recovery copy and accepted text
+  until explicit Delete or retention pruning. Provider failure, timeout, request
   validation failure, or a stopped recorder clock mismatch must leave its
   protected recovery artifact available until explicit Delete/Discard.
 - When recording cache retention is on, the completed recording file may remain
@@ -468,13 +471,13 @@ runtime request value still does not own its scratch-file lifecycle.
   exception is visible in History, bounded by recovery ownership, survives
   relaunch, and is cleared only when the attempt succeeds or the user explicitly
   deletes/discards it.
-- A successful five-minute recovery row is terminal: it has Play and Delete,
+- A successful limit-completed recovery row is terminal: it has Play and Delete,
   never Retry, and does not produce a duplicate session-only accepted History
   row.
-- If the first request for a five-minute recording fails, its durable completion
-  kind survives relaunch. A later explicit Retry success promotes that same row
-  to the terminal saved state and retains its protected audio.
-- Once a provider response for a five-minute recording has been accepted,
+- If the first request for a limit-completed recording fails, its durable
+  completion kind survives relaunch. A later explicit Retry success promotes
+  that same row to the terminal saved state and retains its protected audio.
+- Once a provider response for a limit-completed recording has been accepted,
   provider Retry is permanently disabled even if the main saved-state metadata
   write fails. A durable pre-dispatch seal prevents a second upload. Bounded
   local repair metadata normally preserves the accepted text and fail-closed
@@ -485,7 +488,7 @@ runtime request value still does not own its scratch-file lifecycle.
   repeating provider work.
 - The accepted raw transcription is checkpointed before correction,
   translation, or other downstream text work. If a later local or translation
-  stage fails, the five-minute row is explicitly labelled as a raw
+  stage fails, the limit-completed row is explicitly labelled as a raw
   transcription whose post-processing failed. It keeps the raw accepted text,
   Play, Delete, and `Save Raw Transcription` only. It must not clear the
   dispatch seal, imply translation succeeded, or expose a provider Retry that
@@ -588,8 +591,8 @@ runtime request value still does not own its scratch-file lifecycle.
 - Transcript text is accepted only after response parsing, trimming, and empty
   result validation.
 - Transcription recovery stores compact state metadata plus a protected local
-  audio file reference. A successful five-minute row additionally stores only
-  its accepted transcript text. It must not store API keys, authorization
+  audio file reference. A successful limit-completed row additionally stores
+  only its accepted transcript text. It must not store API keys, authorization
   headers, provider responses, prompt text, nearby active-text context, custom
   dictionary entries, or rejected transcript candidates.
 - The text-correction workflow receives only accepted transcript text, not raw

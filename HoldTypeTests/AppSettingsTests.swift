@@ -71,6 +71,8 @@ struct AppSettingsTests {
         #expect(settings.showFloatingIndicator)
         #expect(settings.recordingStopTailDuration == .off)
         #expect(settings.recordingStopTailDuration.duration == 0)
+        #expect(settings.recordingDurationLimit == .default)
+        #expect(settings.recordingDurationLimit.minutes == 5)
         #expect(settings.saveTranscriptHistory)
         #expect(settings.recordingCachePolicy == .deleteImmediately)
         #expect(settings.recordingCachePolicy.keepsRecordings == false)
@@ -721,6 +723,7 @@ struct AppSettingsTests {
             soundEnabled: false,
             showFloatingIndicator: true,
             recordingStopTailDuration: .seconds1_5,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 12),
             saveTranscriptHistory: false,
             recordingCachePolicy: .keepLast(25)
         )
@@ -879,11 +882,13 @@ struct AppSettingsTests {
         var settings = AppSettings.defaults
         settings.soundEnabled = false
         settings.recordingStopTailDuration = .seconds1_5
+        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 12)
         settings.showFloatingIndicator = false
 
         #expect(settings.voiceSessionPreferences == VoiceSessionPreferences(
             audioCuesEnabled: false,
-            recordingStopTailDuration: .seconds1_5
+            recordingStopTailDuration: .seconds1_5,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 12)
         ))
         #expect(RecordingStopTailDuration.allCases.map(\.displayName) == [
             "Off",
@@ -892,6 +897,8 @@ struct AppSettingsTests {
             "1.5 seconds",
             "2.0 seconds",
         ])
+        #expect(RecordingDurationLimit.allValues.map(\.displayName).first == "1 minute")
+        #expect(RecordingDurationLimit.allValues.map(\.displayName).last == "15 minutes")
     }
 
     @Test func projectsOutputDeliveryPreferencesWithoutClaimingRuntimeEligibility() {
@@ -964,8 +971,11 @@ struct AppSettingsTests {
         var settings = AppSettings.defaults
         let soundKey = AppSettingsStore.keyPrefix + "soundEnabled"
         let tailKey = AppSettingsStore.keyPrefix + "recordingStopTailDuration"
+        let durationLimitKey = AppSettingsStore.keyPrefix
+            + "recordingDurationLimitMinutes"
 
         settings.soundEnabled = false
+        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 12)
         for tail in RecordingStopTailDuration.allCases {
             settings.recordingStopTailDuration = tail
             store.save(settings)
@@ -973,9 +983,11 @@ struct AppSettingsTests {
             #expect(defaults.string(forKey: tailKey) == tail.rawValue)
             #expect(store.load().voiceSessionPreferences == VoiceSessionPreferences(
                 audioCuesEnabled: false,
-                recordingStopTailDuration: tail
+                recordingStopTailDuration: tail,
+                recordingDurationLimit: RecordingDurationLimit(minutes: 12)
             ))
         }
+        #expect(defaults.integer(forKey: durationLimitKey) == 12)
 
         defaults.set("legacyUnknownTail", forKey: tailKey)
         #expect(store.load().recordingStopTailDuration == .off)
@@ -983,15 +995,65 @@ struct AppSettingsTests {
 
         defaults.set("not-a-bool", forKey: soundKey)
         defaults.set(Data([0x01]), forKey: tailKey)
+        defaults.set(Data([0x02]), forKey: durationLimitKey)
         #expect(store.load().voiceSessionPreferences == .defaults)
         #expect(defaults.string(forKey: soundKey) == "not-a-bool")
         #expect(defaults.data(forKey: tailKey) == Data([0x01]))
+        #expect(defaults.data(forKey: durationLimitKey) == Data([0x02]))
 
         defaults.removeObject(forKey: soundKey)
         defaults.removeObject(forKey: tailKey)
+        defaults.removeObject(forKey: durationLimitKey)
         #expect(store.load().voiceSessionPreferences == .defaults)
         #expect(defaults.object(forKey: soundKey) == nil)
         #expect(defaults.object(forKey: tailKey) == nil)
+    }
+
+    @Test func recordingDurationLimitPersistenceDefaultsClampsAndRejectsWrongTypes() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = AppSettingsStore(userDefaults: defaults)
+        let key = AppSettingsStore.keyPrefix + "recordingDurationLimitMinutes"
+
+        #expect(store.load().recordingDurationLimit == .default)
+
+        for minutes in [1, 5, 15] {
+            var settings = AppSettings.defaults
+            settings.recordingDurationLimit = RecordingDurationLimit(minutes: minutes)
+            store.save(settings)
+
+            #expect(defaults.integer(forKey: key) == minutes)
+            #expect(store.load().recordingDurationLimit.minutes == minutes)
+        }
+
+        defaults.set(-100, forKey: key)
+        #expect(
+            store.load().recordingDurationLimit.minutes
+                == RecordingDurationLimit.minimumMinutes
+        )
+
+        defaults.set(100, forKey: key)
+        #expect(
+            store.load().recordingDurationLimit.minutes
+                == RecordingDurationLimit.maximumMinutes
+        )
+
+        defaults.set("not-an-integer", forKey: key)
+        #expect(store.load().recordingDurationLimit == .default)
+        #expect(defaults.string(forKey: key) == "not-an-integer")
+
+        defaults.set(Data([0x01]), forKey: key)
+        #expect(store.load().recordingDurationLimit == .default)
+        #expect(defaults.data(forKey: key) == Data([0x01]))
+
+        defaults.set(true, forKey: key)
+        #expect(store.load().recordingDurationLimit == .default)
+        #expect(defaults.bool(forKey: key))
+
+        defaults.set(12.0, forKey: key)
+        #expect(store.load().recordingDurationLimit == .default)
+        #expect(defaults.double(forKey: key) == 12)
     }
 
     @Test func legacyRussianToEnglishShortcutSettingMigratesToTranslationShortcut() {

@@ -48,25 +48,32 @@ This spec covers:
   the completed recording file is finalized. The default tail setting is Off.
 - The recording tail is a fixed delay only. It must not wait for detected
   silence, analyze speech, or extend indefinitely.
-- A single recording attempt has a five-minute maximum. Reaching the limit is
-  a normal automatic Finish: HoldType closes the recorder, protects the
-  completed non-empty artifact, and continues the same transcription workflow
-  exactly once.
+- A single recording attempt has a user-selected maximum from 1 through 15
+  whole minutes. The default is five minutes. Reaching the selected limit is a
+  normal automatic Finish: HoldType closes the recorder, protects the completed
+  non-empty artifact, and continues the same transcription workflow exactly
+  once.
+- The selected maximum is frozen when recording starts. Changing it in
+  Settings affects the next attempt and never shortens or extends capture that
+  is already active.
 - Monotonic elapsed time or finalized media duration at the configured limit
-  is authoritative for the five-minute Finish even when the recorder callback
+  is authoritative for the automatic Finish even when the recorder callback
   reports `successfully = false`. HoldType still diagnoses and logs that false
   callback as an anomaly, but it must not downgrade or delete a limit-length
   recording. An early completion with no limit evidence is unexpected, keeps
   any non-empty artifact, uses normal stop feedback, visibly reports that the
   recording ended unexpectedly and was saved to History, and continues the
-  same recovery/transcription workflow exactly once without claiming that five
-  minutes elapsed.
-- The last minute is visible as a countdown. HoldType warns at 4:00 and 4:30,
-  at 4:50, 4:52, and 4:54, and once per second from 4:55 through 4:59. At 5:00
-  it closes the recorder before presenting a distinct stopped-at-limit cue.
-- A controller-owned monotonic five-minute watchdog must request finalization
-  even if the recorder's completion delegate is lost. The watchdog, delegate,
-  and key-up paths race through the same exact-once finalization boundary.
+  same recovery/transcription workflow exactly once without claiming that the
+  configured limit elapsed.
+- The last minute is visible as a countdown. HoldType warns with 60, 30, 10,
+  8, and 6 seconds remaining, then once per second from 5 through 1. With a
+  one-minute limit, countdown begins immediately but the 60-second warning at
+  recording start is omitted. At the selected limit HoldType closes the
+  recorder before presenting a distinct stopped-at-limit cue.
+- A controller-owned monotonic watchdog matching the frozen selected limit
+  must request finalization even if the recorder's completion delegate is lost.
+  The watchdog, delegate, and key-up paths race through the same exact-once
+  finalization boundary.
 - During active capture an audible warning may play only on a private output
   route that will not feed the microphone, such as connected headphones.
   Speaker routes use the visual countdown and platform haptic feedback; they
@@ -92,7 +99,7 @@ This spec covers:
   completed artifact remains playable and deletable but cannot be uploaded.
   History offers a local Retry Save/Repair action; provider Retry becomes
   available only after that ownership repair succeeds.
-- When the checkpoint belongs to the five-minute automatic Finish and
+- When the checkpoint belongs to an automatic Finish at the configured limit and
   transcription succeeds, it becomes a durable `Saved and transcribed` row
   containing the accepted text. Its protected audio remains playable and
   explicitly deletable, but is never retryable.
@@ -111,8 +118,9 @@ This spec covers:
   transcription timed out.
 - The completed recording file remains a temporary app-owned audio artifact. By
   default, HoldType deletes it after the current attempt finishes. For a
-  successful five-minute Finish, this normal cache cleanup deletes the original
-  capture artifact while the separate bounded History recovery copy remains.
+  successful automatic Finish at the configured limit, this normal cache
+  cleanup deletes the original capture artifact while the separate bounded
+  History recovery copy remains.
 - If the user explicitly enables recording cache retention in Settings, HoldType
   may keep completed `.m4a` recordings after transcription so the user can open
   or save them from Finder.
@@ -130,14 +138,15 @@ This spec covers:
 - Repeated stop or completion actions must not produce duplicate transcription
   uploads, duplicate output handoffs, or multiple accepted transcripts for one
   recording.
-- Key up, the five-minute deadline, and recorder completion may race, but only
-  one of them may finalize the active attempt and start provider work.
-- If key up wins that race, finalized media at or above 299.5 seconds retains
-  the five-minute completion identity. Callback scheduling must not downgrade
-  the result to ordinary ephemeral cleanup.
+- Key up, the selected recording deadline, and recorder completion may race,
+  but only one of them may finalize the active attempt and start provider work.
+- If key up wins that race, finalized media at or above one half-second below
+  the frozen selected limit retains the maximum-duration completion identity.
+  Callback scheduling must not downgrade the result to ordinary ephemeral
+  cleanup.
 - A recorder callback reporting failure cannot override monotonic or finalized
-  media evidence at the five-minute boundary. The anomaly remains observable
-  in diagnostics while History retention follows the five-minute identity.
+  media evidence at the selected-limit boundary. The anomaly remains observable
+  in diagnostics while History retention follows the maximum-duration identity.
 - Stopping or cancelling capture must not silently accept unfinished text.
 - Cancelling capture must clean up only the current recording artifact and must
   leave unrelated temporary files untouched.
@@ -171,7 +180,7 @@ This spec covers:
 - If the app is interrupted by platform lifecycle events, the session should
   stop or fail visibly rather than continue recording invisibly.
 - If the recording reaches the maximum duration, HoldType stops capture,
-  reports that the five-minute limit was reached and the recording was saved,
+  reports that the selected recording limit was reached and the recording was saved,
   and continues normal processing.
 - A stopped recorder's volatile elapsed clock is not authoritative. HoldType
   validates duration from the finalized media artifact and never deletes a
@@ -199,8 +208,8 @@ Audio and raw transcription artifacts are treated as ephemeral session data
 unless recording cache retention is explicitly enabled in Settings. An
 unfinished attempt is an exception: its recovery checkpoint survives ordinary
 history/cache policy until transcription succeeds or the user explicitly
-deletes it. A successful five-minute Finish remains as a second bounded
-exception until explicit Delete or recovery-retention pruning.
+deletes it. A successful automatic Finish at the configured limit remains as a
+second bounded exception until explicit Delete or recovery-retention pruning.
 The recording service should create unique app-owned temporary `.m4a` audio
 artifacts for capture attempts and keep those paths local to HoldType until
 stop, cancel, cache retention, cleanup, or failure handling decides their next
@@ -213,7 +222,7 @@ default logs.
 
 - Add tests or manual QA for permission denied, microphone unavailable,
   start/stop, cancel, timeout, empty speech, empty-file rejection, temp-file
-  cleanup, recording cache retention, five-minute auto-Finish, warning cadence,
+  cleanup, recording cache retention, configurable auto-Finish, warning cadence,
   finalized-media duration, false recorder callbacks at the maximum boundary,
   exact-once finalization, recovery playback, and successful transcription
   states when implementation code exists.

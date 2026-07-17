@@ -923,6 +923,41 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func recordingAttemptFreezesConfiguredDurationLimitForRuntimeAndProgress()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.voiceSessionPreferences.recordingDurationLimit =
+            RecordingDurationLimit(minutes: 1)
+        let fixture = try await WorkflowFixture(
+            settings: settings,
+            permission: .granted,
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        var progress: [IOSForegroundVoiceProgress] = []
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { progress.append($0) }
+            )
+        }
+
+        try await waitUntil { fixture.events.contains("recording-start") }
+        #expect(fixture.events.contains("recording-limit-1"))
+        #expect(
+            progress.contains(
+                .listening(RecordingDurationLimit(minutes: 1))
+            )
+        )
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        _ = await task.value
+    }
+
+    @Test
     func doneAtCanonicalFiveMinuteBoundaryStillUsesProtectedRetention()
         async throws {
         let fixture = try await WorkflowFixture(
@@ -953,6 +988,41 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(fixture.events.count("pending-prepare") == 1)
         #expect(fixture.preparedPendingRetention == .savedFiveMinute)
         #expect(fixture.events.count("provider-process") == 1)
+    }
+
+    @Test
+    func manualStopUsesFrozenFifteenMinuteLimitForProtectedRetention()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.voiceSessionPreferences.recordingDurationLimit =
+            RecordingDurationLimit(minutes: 15)
+        let fixture = try await WorkflowFixture(
+            settings: settings,
+            permission: .granted,
+            completedCapture: true,
+            finalizedCaptureDurationMilliseconds: 360_000,
+            processorAcceptedText: "Accepted before the limit",
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        let resolution = await task.value
+
+        #expect(fixture.stopReasons == [.done])
+        #expect(resolution.outcome == .resultReady)
+        #expect(fixture.preparedPendingRetention == .recordingCachePolicy)
     }
 
     @Test
@@ -2462,7 +2532,7 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(client.finish(requestID))
 
         #expect(await task.value == .accepted("Keyboard pipeline result"))
-        #expect(progress.contains(.listening))
+        #expect(progress.contains(.listening(.defaultValue)))
         #expect(progress.contains(.processing))
         #expect(fixture.events.count("recording-make") == 1)
         #expect(fixture.events.count("provider-process") == 1)
@@ -3294,8 +3364,12 @@ private final class WorkflowFixture {
                     [weak self] attemptID,
                     intent,
                     draftInsertionMode,
-                    forcesTextCorrection in
+                    forcesTextCorrection,
+                    recordingDurationLimit in
                     events.record("recording-make")
+                    events.record(
+                        "recording-limit-\(recordingDurationLimit.minutes)"
+                    )
                     if deactivateSceneDuringMakeRecording {
                         _ = self?.facade.updateActivity(.inactive)
                     }

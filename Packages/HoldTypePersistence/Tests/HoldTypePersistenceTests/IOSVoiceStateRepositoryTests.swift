@@ -237,6 +237,52 @@ struct IOSVoiceStateRepositoryTests {
         }
     }
 
+    @Test func captureRoundTripsItsFrozenRecordingDurationLimit() async throws {
+        for minutes in [1, 15] {
+            let fileSystem = VoiceStateFileSystem()
+            let repository = makeRepository(fileSystem: fileSystem)
+            let capture = try makeCapture(
+                recordingDurationLimit: RecordingDurationLimit(minutes: minutes)
+            )
+
+            _ = try await repository.installCapture(capture)
+
+            let relaunched = try await makeRepository(
+                fileSystem: fileSystem
+            ).load()
+            #expect(relaunched.capture?.recordingDurationLimit.minutes == minutes)
+        }
+    }
+
+    @Test func versionFourCaptureMigratesToTheFiveMinuteDefault() async throws {
+        let bytes = Data(
+            """
+            {"capture":{"attemptID":"AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA","audioRelativeIdentifier":"VoiceState/pending-v1-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.m4a","createdAtMilliseconds":1700000000000,"outputIntent":"standard","draftInsertionMode":"replace","forcesTextCorrection":false,"phase":"recording","durationMilliseconds":null,"byteCount":null},"latest":null,"pending":null,"schemaVersion":4}
+            """.utf8
+        )
+
+        let snapshot = try await makeRepository(
+            fileSystem: VoiceStateFileSystem(bytes: bytes)
+        ).load()
+
+        #expect(snapshot.capture?.recordingDurationLimit == .default)
+    }
+
+    @Test func currentCaptureSchemaRejectsAnInvalidRecordingDurationLimit()
+        async {
+        let bytes = Data(
+            """
+            {"capture":{"attemptID":"AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA","audioRelativeIdentifier":"VoiceState/pending-v1-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.m4a","createdAtMilliseconds":1700000000000,"outputIntent":"standard","draftInsertionMode":"replace","forcesTextCorrection":false,"recordingDurationLimitMinutes":16,"phase":"recording","durationMilliseconds":null,"byteCount":null},"latest":null,"pending":null,"schemaVersion":5}
+            """.utf8
+        )
+
+        await #expect(throws: IOSVoiceStateRepositoryError.invalidRecord) {
+            _ = try await makeRepository(
+                fileSystem: VoiceStateFileSystem(bytes: bytes)
+            ).load()
+        }
+    }
+
     @Test func completedCapturePromotesAtomicallyWithoutChangingAudioIdentity() async throws {
         let fileSystem = VoiceStateFileSystem()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -632,7 +678,7 @@ struct IOSVoiceStateRepositoryTests {
             (Data("not-json".utf8), IOSVoiceStateRepositoryError.malformedData),
             (
                 Data(
-                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":5}"
+                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":6}"
                         .utf8
                 ),
                 IOSVoiceStateRepositoryError.unsupportedSchemaVersion
@@ -733,7 +779,8 @@ struct IOSVoiceStateRepositoryTests {
 private func makeCapture(
     attemptID: UUID = IDs.attempt,
     draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
-    forcesTextCorrection: Bool = false
+    forcesTextCorrection: Bool = false,
+    recordingDurationLimit: RecordingDurationLimit = .default
 ) throws -> IOSVoiceStateCapture {
     try IOSVoiceStateCapture(
         attemptID: attemptID,
@@ -745,6 +792,7 @@ private func makeCapture(
         outputIntent: .standard,
         draftInsertionMode: draftInsertionMode,
         forcesTextCorrection: forcesTextCorrection,
+        recordingDurationLimit: recordingDurationLimit,
         phase: .recording
     )
 }

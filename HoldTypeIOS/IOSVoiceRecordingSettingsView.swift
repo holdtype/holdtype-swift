@@ -54,6 +54,26 @@ struct IOSVoiceRecordingSettingsView: View {
             }
 
             Section("Recording") {
+                Stepper(
+                    maximumRecordingLengthLabel,
+                    value: recordingDurationLimitMinutesBinding,
+                    in: RecordingDurationLimit.supportedMinutes
+                )
+                .iosSettingsField(
+                    .voiceRecordingDurationLimit,
+                    attentionTarget: attentionTarget
+                )
+
+                Text(
+                    "HoldType automatically finishes the recording at this "
+                        + "limit, saves the captured audio, and continues "
+                        + "transcription. Choose a shorter limit to control "
+                        + "the maximum cost of one dictation."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
                 Picker(
                     "Keep Listening After Stop",
                     selection: binding(
@@ -194,6 +214,31 @@ struct IOSVoiceRecordingSettingsView: View {
                 startAutosaveIfNeeded()
             }
         )
+    }
+
+    private var recordingDurationLimitMinutesBinding: Binding<Int> {
+        Binding(
+            get: {
+                session.draft.preferences.recordingDurationLimit.minutes
+            },
+            set: { minutes in
+                var preferences = session.draft.preferences
+                preferences.recordingDurationLimit = RecordingDurationLimit(
+                    clampingMinutes: minutes
+                )
+                guard session.set(
+                    preferences,
+                    at: \.preferences
+                ) else { return }
+                startAutosaveIfNeeded()
+            }
+        )
+    }
+
+    private var maximumRecordingLengthLabel: String {
+        let minutes = session.draft.preferences.recordingDurationLimit.minutes
+        return "Maximum recording length: \(minutes) "
+            + (minutes == 1 ? "minute" : "minutes")
     }
 
     private var recordingCacheRetentionModeBinding: Binding<

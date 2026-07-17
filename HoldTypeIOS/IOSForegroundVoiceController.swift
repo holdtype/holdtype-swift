@@ -80,6 +80,7 @@ struct IOSVoiceSessionModes: Equatable, Sendable {
 
 struct IOSForegroundVoicePresentation: Equatable, Sendable {
     let phase: VoiceWorkPhase
+    let recordingDurationLimit: RecordingDurationLimit?
     let stage: VoiceAttemptStage?
     let outcome: VoiceAttemptOutcome?
     let activeDraftInsertionMode: IOSVoiceDraftInsertionMode?
@@ -99,10 +100,12 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         recovery: IOSForegroundVoiceRecovery,
         availableActions: [IOSForegroundVoiceAction],
         latestAvailability: IOSForegroundVoiceLatestAvailability,
+        recordingDurationLimit: RecordingDurationLimit? = nil,
         activeDraftInsertionMode: IOSVoiceDraftInsertionMode? = nil,
         warning: IOSForegroundVoiceWarning? = nil
     ) {
         self.phase = phase
+        self.recordingDurationLimit = recordingDurationLimit
         self.stage = stage
         self.outcome = outcome
         self.activeDraftInsertionMode = activeDraftInsertionMode
@@ -202,7 +205,7 @@ enum IOSForegroundVoiceOperation: Equatable, Sendable {
 }
 
 enum IOSForegroundVoiceProgress: Equatable, Sendable {
-    case listening
+    case listening(RecordingDurationLimit)
     case finalizing
     case processing(VoiceAttemptStage)
 }
@@ -689,6 +692,7 @@ final class IOSForegroundVoiceController {
         self.activeProgressPosition = projection.position
         publish(
             phase: projection.phase,
+            recordingDurationLimit: projection.recordingDurationLimit,
             stage: projection.stage,
             outcome: presentation.outcome,
             setup: presentation.setup,
@@ -760,6 +764,7 @@ final class IOSForegroundVoiceController {
 
     private func publish(
         phase: VoiceWorkPhase,
+        recordingDurationLimit: RecordingDurationLimit? = nil,
         stage: VoiceAttemptStage?,
         outcome: VoiceAttemptOutcome?,
         setup: IOSForegroundVoiceSetup,
@@ -770,6 +775,9 @@ final class IOSForegroundVoiceController {
         warning: IOSForegroundVoiceWarning? = nil
     ) {
         presentationRevision &+= 1
+        let recordingDurationLimit = phase == .listening
+            ? recordingDurationLimit ?? presentation.recordingDurationLimit
+            : nil
         let translationAvailable = translationAvailable
             ?? presentation.availableActions.contains(.startTranslation)
         let availableActions = availableActions(
@@ -789,6 +797,7 @@ final class IOSForegroundVoiceController {
             recovery: recovery,
             availableActions: availableActions,
             latestAvailability: latestAvailability,
+            recordingDurationLimit: recordingDurationLimit,
             activeDraftInsertionMode: activeDraftInsertionMode,
             warning: warning
         )
@@ -1101,17 +1110,19 @@ final class IOSForegroundVoiceController {
         for progress: IOSForegroundVoiceProgress
     ) -> ProgressProjection? {
         switch progress {
-        case .listening:
+        case .listening(let recordingDurationLimit):
             return ProgressProjection(
                 position: .listening,
                 phase: .listening,
-                stage: nil
+                stage: nil,
+                recordingDurationLimit: recordingDurationLimit
             )
         case .finalizing:
             return ProgressProjection(
                 position: .finalizing,
                 phase: .finalizing,
-                stage: .recordingFinalization
+                stage: .recordingFinalization,
+                recordingDurationLimit: nil
             )
         case .processing(let stage):
             guard let position = progressPosition(for: stage),
@@ -1121,7 +1132,8 @@ final class IOSForegroundVoiceController {
             return ProgressProjection(
                 position: position,
                 phase: .processing,
-                stage: stage
+                stage: stage,
+                recordingDurationLimit: nil
             )
         }
     }
@@ -1175,6 +1187,7 @@ final class IOSForegroundVoiceController {
         let position: ProgressPosition
         let phase: VoiceWorkPhase
         let stage: VoiceAttemptStage?
+        let recordingDurationLimit: RecordingDurationLimit?
     }
 
     private struct TerminalProjection {

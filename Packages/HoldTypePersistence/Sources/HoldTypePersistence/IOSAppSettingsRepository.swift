@@ -92,11 +92,12 @@ public actor IOSAppSettingsRepository {
     }
 }
 
-private let iosAppSettingsCurrentSchemaVersion = 2
+private let iosAppSettingsCurrentSchemaVersion = 3
 
 private enum IOSAppSettingsWireCodec {
     private static let supportedSchemaVersions: Set<Int> = [
         1,
+        2,
         iosAppSettingsCurrentSchemaVersion,
     ]
     private static let rootFields: Set<String> = [
@@ -132,10 +133,13 @@ private enum IOSAppSettingsWireCodec {
         "model",
         "prompt",
     ]
-    private static let voiceFields: Set<String> = [
+    private static let legacyVoiceFields: Set<String> = [
         "audioCuesEnabled",
         "recordingStopTailDuration",
     ]
+    private static let voiceFields = legacyVoiceFields.union([
+        "recordingDurationLimitMinutes",
+    ])
     private static let recordingCacheFields: Set<String> = [
         "mode",
         "retainedRecordingLimit",
@@ -210,7 +214,10 @@ private enum IOSAppSettingsWireCodec {
                 defaultValue: IOSAppSettings.defaults.localTextCleanupEnabled
             ),
             translationConfiguration: try decodeTranslation(from: root),
-            voiceSessionPreferences: try decodeVoice(from: root),
+            voiceSessionPreferences: try decodeVoice(
+                from: root,
+                schemaVersion: schemaVersion
+            ),
             recordingCachePolicy: try decodeRecordingCache(from: root)
         )
     }
@@ -312,13 +319,28 @@ private enum IOSAppSettingsWireCodec {
     }
 
     private static func decodeVoice(
-        from root: WireObjectReader
+        from root: WireObjectReader,
+        schemaVersion: Int
     ) throws -> VoiceSessionPreferences {
         let defaults = IOSAppSettings.defaults.voiceSessionPreferences
         guard let reader = try root.object("voice") else {
             return defaults
         }
-        try reader.rejectUnexpectedFields(allowing: voiceFields)
+        try reader.rejectUnexpectedFields(
+            allowing: schemaVersion >= 3 ? voiceFields : legacyVoiceFields
+        )
+
+        let recordingDurationLimit: RecordingDurationLimit
+        if schemaVersion >= 3 {
+            recordingDurationLimit = RecordingDurationLimit(
+                clampingMinutes: try reader.integer(
+                    "recordingDurationLimitMinutes",
+                    defaultValue: defaults.recordingDurationLimit.minutes
+                )
+            )
+        } else {
+            recordingDurationLimit = defaults.recordingDurationLimit
+        }
 
         return VoiceSessionPreferences(
             audioCuesEnabled: try reader.boolean(
@@ -328,7 +350,8 @@ private enum IOSAppSettingsWireCodec {
             recordingStopTailDuration: try reader.enumeration(
                 "recordingStopTailDuration",
                 defaultValue: defaults.recordingStopTailDuration
-            )
+            ),
+            recordingDurationLimit: recordingDurationLimit
         )
     }
 
@@ -498,7 +521,9 @@ private struct IOSAppSettingsWireV2: Encodable {
         voice = VoiceWireV1(
             audioCuesEnabled: settings.voiceSessionPreferences.audioCuesEnabled,
             recordingStopTailDuration:
-                settings.voiceSessionPreferences.recordingStopTailDuration.rawValue
+                settings.voiceSessionPreferences.recordingStopTailDuration.rawValue,
+            recordingDurationLimitMinutes:
+                settings.voiceSessionPreferences.recordingDurationLimit.minutes
         )
         recordingCache = RecordingCacheWireV1(
             policy: settings.recordingCachePolicy
@@ -533,6 +558,7 @@ private struct TranslationWireV1: Encodable {
 private struct VoiceWireV1: Encodable {
     let audioCuesEnabled: Bool
     let recordingStopTailDuration: String
+    let recordingDurationLimitMinutes: Int
 }
 
 private enum RecordingCachePolicyModeWireV1: String, Encodable {

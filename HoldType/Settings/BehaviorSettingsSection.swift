@@ -53,6 +53,24 @@ struct BehaviorSettingsSection: View {
             )
 
             Picker(
+                "Maximum recording length",
+                selection: $settings.recordingDurationLimit
+            ) {
+                ForEach(RecordingDurationLimit.allValues, id: \.self) { limit in
+                    Text(limit.displayName).tag(limit)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text(
+                "HoldType stops automatically at this limit. Longer recordings "
+                    + "can cost more to transcribe and use more local storage. "
+                    + "Changes apply to the next recording."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            Picker(
                 "Recording tail after release",
                 selection: $settings.recordingStopTailDuration
             ) {

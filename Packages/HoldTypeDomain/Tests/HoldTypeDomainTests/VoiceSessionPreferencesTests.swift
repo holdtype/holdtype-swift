@@ -5,6 +5,7 @@ import Testing
 struct VoiceSessionPreferencesTests {
     @Test func publicValuesAreSendable() {
         requireSendable(RecordingStopTailDuration.self)
+        requireSendable(RecordingDurationLimit.self)
         requireSendable(VoiceSessionWarningUrgency.self)
         requireSendable(VoiceSessionWarning.self)
         requireSendable(VoiceSessionCountdown.self)
@@ -18,11 +19,47 @@ struct VoiceSessionPreferencesTests {
         #expect(preferences == .defaults)
         #expect(preferences.audioCuesEnabled)
         #expect(preferences.recordingStopTailDuration == .off)
-        #expect(VoiceSessionPreferences.maximumUtteranceDuration == 300)
+        #expect(preferences.recordingDurationLimit == .default)
+        #expect(preferences.recordingDurationLimit.minutes == 5)
+        #expect(preferences.recordingDurationLimit.duration == 300)
         #expect(VoiceSessionPreferences.quickSessionDuration == 300)
     }
 
-    @Test func warningScheduleMatchesTheFiveMinuteContract() {
+    @Test func durationLimitValidatesClampsAndDerivesRuntimeBounds() {
+        #expect(RecordingDurationLimit.minimumMinutes == 1)
+        #expect(RecordingDurationLimit.maximumMinutes == 15)
+        #expect(RecordingDurationLimit.defaultMinutes == 5)
+        #expect(RecordingDurationLimit.supportedMinutes == 1...15)
+        #expect(RecordingDurationLimit.allValues.map(\.minutes) == Array(1...15))
+
+        #expect(RecordingDurationLimit(validatingMinutes: 0) == nil)
+        #expect(RecordingDurationLimit(validatingMinutes: 1)?.minutes == 1)
+        #expect(RecordingDurationLimit(validatingMinutes: 15)?.minutes == 15)
+        #expect(RecordingDurationLimit(validatingMinutes: 16) == nil)
+
+        #expect(RecordingDurationLimit(minutes: Int.min).minutes == 1)
+        #expect(RecordingDurationLimit(minutes: 7).minutes == 7)
+        #expect(RecordingDurationLimit(minutes: Int.max).minutes == 15)
+        #expect(RecordingDurationLimit(clampingMinutes: 0).minutes == 1)
+        #expect(RecordingDurationLimit.clampedMinutes(16) == 15)
+
+        let maximum = RecordingDurationLimit(minutes: 15)
+        #expect(maximum.wholeSeconds == 900)
+        #expect(maximum.duration == 900)
+        #expect(maximum.maximumFinalizedMediaDurationMilliseconds == 902_000)
+        #expect(
+            RecordingDurationLimit
+                .maximumSupportedFinalizedMediaDurationMilliseconds
+                == 902_000
+        )
+        #expect(
+            RecordingDurationLimit.defaultValue
+                == RecordingDurationLimit.default
+        )
+    }
+
+    @Test func warningScheduleMatchesTheDefaultFiveMinuteContract() {
+        let schedule = VoiceSessionWarningSchedule(limit: .default)
         let expectedElapsedSeconds = [
             240,
             270,
@@ -36,24 +73,74 @@ struct VoiceSessionPreferencesTests {
             299,
         ]
 
-        #expect(VoiceSessionWarningSchedule.maximumDurationWholeSeconds == 300)
-        #expect(VoiceSessionWarningSchedule.countdownStartElapsedWholeSecond == 240)
+        #expect(schedule.maximumDurationWholeSeconds == 300)
+        #expect(schedule.countdownStartElapsedWholeSecond == 240)
         #expect(
-            VoiceSessionWarningSchedule.warnings.map(\.elapsedWholeSeconds)
+            schedule.warnings.map(\.elapsedWholeSeconds)
                 == expectedElapsedSeconds
         )
         #expect(
-            VoiceSessionWarningSchedule.warnings.map(\.remainingWholeSeconds)
+            schedule.warnings.map(\.remainingWholeSeconds)
                 == expectedElapsedSeconds.map { 300 - $0 }
         )
         #expect(
-            VoiceSessionWarningSchedule.warnings.map(\.urgency)
+            schedule.warnings.map(\.urgency)
                 == [.amber, .amber] + Array(repeating: .red, count: 8)
         )
     }
 
+    @Test func warningsStayAnchoredToTheFinalMinuteForEveryLimit() {
+        let oneMinute = VoiceSessionWarningSchedule(
+            limit: RecordingDurationLimit(minutes: 1)
+        )
+        #expect(oneMinute.maximumDurationWholeSeconds == 60)
+        #expect(oneMinute.countdownStartElapsedWholeSecond == 0)
+        #expect(oneMinute.warnings.map(\.elapsedWholeSeconds) == [
+            30,
+            50,
+            52,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+        ])
+        #expect(oneMinute.warnings.map(\.remainingWholeSeconds) == [
+            30,
+            10,
+            8,
+            6,
+            5,
+            4,
+            3,
+            2,
+            1,
+        ])
+
+        let fifteenMinutes = VoiceSessionWarningSchedule(
+            limit: RecordingDurationLimit(minutes: 15)
+        )
+        #expect(fifteenMinutes.countdownStartElapsedWholeSecond == 840)
+        #expect(fifteenMinutes.warnings.map(\.elapsedWholeSeconds) == [
+            840,
+            870,
+            890,
+            892,
+            894,
+            895,
+            896,
+            897,
+            898,
+            899,
+        ])
+        #expect(fifteenMinutes.warnings.map(\.remainingWholeSeconds)
+            == VoiceSessionWarningSchedule.warningRemainingWholeSeconds)
+    }
+
     @Test func terminalMilestoneIsDistinctFromWarnings() {
-        let milestones = VoiceSessionWarningSchedule.milestones
+        let schedule = VoiceSessionWarningSchedule(limit: .default)
+        let milestones = schedule.milestones
 
         #expect(milestones.count == 11)
         #expect(milestones.dropLast().allSatisfy {
@@ -62,7 +149,10 @@ struct VoiceSessionPreferencesTests {
             }
             return false
         })
-        #expect(milestones.last == .maximumDurationReached)
+        #expect(
+            milestones.last
+                == .maximumDurationReached(elapsedWholeSeconds: 300)
+        )
         #expect(milestones.map(\.elapsedWholeSeconds) == [
             240,
             270,
@@ -77,72 +167,90 @@ struct VoiceSessionPreferencesTests {
             300,
         ])
         #expect(
-            VoiceSessionWarningSchedule.warning(atElapsedWholeSecond: 300) == nil
+            schedule.warning(atElapsedWholeSecond: 300) == nil
         )
         #expect(
-            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 300)
-                == .maximumDurationReached
+            schedule.milestone(atElapsedWholeSecond: 300)
+                == .maximumDurationReached(elapsedWholeSeconds: 300)
         )
     }
 
     @Test func wholeSecondLookupDoesNotDependOnFloatingPointEquality() {
+        let schedule = VoiceSessionWarningSchedule(limit: .default)
         #expect(
-            VoiceSessionWarningSchedule.warning(atElapsedWholeSecond: 240)
-                == VoiceSessionWarningSchedule.warnings[0]
+            schedule.warning(atElapsedWholeSecond: 240)
+                == schedule.warnings[0]
         )
         #expect(
-            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 239) == nil
+            schedule.milestone(atElapsedWholeSecond: 239) == nil
         )
         #expect(
-            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 241) == nil
+            schedule.milestone(atElapsedWholeSecond: 241) == nil
         )
 
-        let crossed = VoiceSessionWarningSchedule.milestones(
+        let crossed = schedule.milestones(
             afterElapsedWholeSecond: 289,
             throughElapsedWholeSecond: 295
         )
         #expect(crossed.map(\.elapsedWholeSeconds) == [290, 292, 294, 295])
-        #expect(VoiceSessionWarningSchedule.milestones(
+        #expect(schedule.milestones(
             afterElapsedWholeSecond: 295,
             throughElapsedWholeSecond: 295
         ).isEmpty)
-        #expect(VoiceSessionWarningSchedule.milestones(
+        #expect(schedule.milestones(
             afterElapsedWholeSecond: 300,
             throughElapsedWholeSecond: 299
         ).isEmpty)
     }
 
-    @Test func countdownUsesWholeSecondsAndChangesUrgencyAtTwoNinety() {
-        #expect(VoiceSessionWarningSchedule.countdown(
+    @Test func countdownUsesWholeSecondsAndChangesUrgencyAtTenRemaining() {
+        let schedule = VoiceSessionWarningSchedule(limit: .default)
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 239
         ) == nil)
-        #expect(VoiceSessionWarningSchedule.countdown(
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 240
         ) == VoiceSessionCountdown(
             remainingWholeSeconds: 60,
             urgency: .amber
         ))
-        #expect(VoiceSessionWarningSchedule.countdown(
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 289
         ) == VoiceSessionCountdown(
             remainingWholeSeconds: 11,
             urgency: .amber
         ))
-        #expect(VoiceSessionWarningSchedule.countdown(
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 290
         ) == VoiceSessionCountdown(
             remainingWholeSeconds: 10,
             urgency: .red
         ))
-        #expect(VoiceSessionWarningSchedule.countdown(
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 299
         ) == VoiceSessionCountdown(
             remainingWholeSeconds: 1,
             urgency: .red
         ))
-        #expect(VoiceSessionWarningSchedule.countdown(
+        #expect(schedule.countdown(
             atElapsedWholeSecond: 300
         ) == nil)
+
+        let oneMinute = VoiceSessionWarningSchedule(
+            limit: RecordingDurationLimit(minutes: 1)
+        )
+        #expect(oneMinute.countdown(
+            atElapsedWholeSecond: 0
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 60,
+            urgency: .amber
+        ))
+        #expect(oneMinute.countdown(
+            atElapsedWholeSecond: 50
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 10,
+            urgency: .red
+        ))
     }
 
     @Test func stopTailCasesPreserveLegacyRawValuesAndDurations() {
@@ -184,17 +292,21 @@ struct VoiceSessionPreferencesTests {
     @Test func customPreferencesPreserveTheirRawValues() {
         var preferences = VoiceSessionPreferences(
             audioCuesEnabled: false,
-            recordingStopTailDuration: .seconds1_5
+            recordingStopTailDuration: .seconds1_5,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 12)
         )
 
         #expect(preferences.audioCuesEnabled == false)
         #expect(preferences.recordingStopTailDuration == .seconds1_5)
+        #expect(preferences.recordingDurationLimit.minutes == 12)
 
         preferences.audioCuesEnabled = true
         preferences.recordingStopTailDuration = .milliseconds500
+        preferences.recordingDurationLimit = RecordingDurationLimit(minutes: 3)
         #expect(preferences == VoiceSessionPreferences(
             audioCuesEnabled: true,
-            recordingStopTailDuration: .milliseconds500
+            recordingStopTailDuration: .milliseconds500,
+            recordingDurationLimit: RecordingDurationLimit(minutes: 3)
         ))
     }
 

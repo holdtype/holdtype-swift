@@ -959,7 +959,9 @@ struct IOSVoiceHomeView: View {
         return VStack(alignment: .leading, spacing: 10) {
             IOSVoiceStatusRow(
                 status: status,
-                listeningStartedAt: listeningStartedAt
+                listeningStartedAt: listeningStartedAt,
+                recordingDurationLimit:
+                    sceneOwner.presentation.recordingDurationLimit
             )
             .accessibilityIdentifier("ios.voice.status")
 
@@ -1469,7 +1471,9 @@ struct IOSVoiceHomeView: View {
         return Section("Dictation") {
             IOSVoiceStatusRow(
                 status: status,
-                listeningStartedAt: listeningStartedAt
+                listeningStartedAt: listeningStartedAt,
+                recordingDurationLimit:
+                    sceneOwner.presentation.recordingDurationLimit
             )
             .accessibilityIdentifier("ios.voice.status")
 
@@ -1647,7 +1651,7 @@ struct IOSVoiceHomeView: View {
                 )
 
             Text(
-                "Start this brief app-owned session immediately before returning to the field where you want to dictate. Its 60-second limit applies only while waiting in Ready; active recording has a five-minute limit, and Processing follows the provider timeout. The existing Voice pipeline owns recording, processing, Latest, and History."
+                "Start this brief app-owned session immediately before returning to the field where you want to dictate. Its 60-second limit applies only while waiting in Ready; active recording uses the limit selected in Voice & Recording, and Processing follows the provider timeout. The existing Voice pipeline owns recording, processing, Latest, and History."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -1920,6 +1924,7 @@ private struct IOSVoiceSetupRow: View {
 private struct IOSVoiceStatusRow: View {
     let status: IOSVoiceStatusPresentation
     let listeningStartedAt: Date?
+    let recordingDurationLimit: RecordingDurationLimit?
 
     var body: some View {
         if let listeningStartedAt {
@@ -1928,9 +1933,9 @@ private struct IOSVoiceStatusRow: View {
                     from: listeningStartedAt,
                     at: context.date
                 )
-                let countdown = VoiceSessionWarningSchedule.countdown(
-                    atElapsedWholeSecond: totalSeconds
-                )
+                let countdown = VoiceSessionWarningSchedule(
+                    limit: recordingDurationLimit ?? .defaultValue
+                ).countdown(atElapsedWholeSecond: totalSeconds)
                 statusContent(
                     timeText: countdown.map(countdownText)
                         ?? elapsedText(totalSeconds),

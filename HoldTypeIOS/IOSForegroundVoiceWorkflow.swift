@@ -172,7 +172,7 @@ nonisolated struct IOSForegroundVoiceWorkflowDurableObservation: Sendable {
 }
 
 nonisolated enum IOSKeyboardDictationWorkflowProgress: Equatable, Sendable {
-    case listening
+    case listening(RecordingDurationLimit)
     case processing
 }
 
@@ -546,7 +546,8 @@ struct IOSForegroundVoiceWorkflowDependencies {
         UUID,
         DictationOutputIntent,
         IOSVoiceDraftInsertionMode,
-        Bool
+        Bool,
+        RecordingDurationLimit
     ) async throws -> IOSForegroundVoiceWorkflowRecording
     typealias BeginFinalization = @MainActor @Sendable (
         @escaping @MainActor @Sendable () -> Void
@@ -1024,8 +1025,8 @@ final class IOSForegroundVoiceWorkflow {
             forcesTextCorrection: action.corrects,
             progress: { value in
                 switch value {
-                case .listening:
-                    progress(.listening)
+                case .listening(let limit):
+                    progress(.listening(limit))
                 case .finalizing, .processing:
                     progress(.processing)
                 }
@@ -1613,7 +1614,9 @@ final class IOSForegroundVoiceWorkflow {
                 recordingAttemptID,
                 intent,
                 attempt.draftInsertionMode,
-                attempt.forcesTextCorrection
+                attempt.forcesTextCorrection,
+                configuration.settings.voiceSessionPreferences
+                    .recordingDurationLimit
             )
         } catch {
             return await blockedPreflight(failure: .localRecovery)
@@ -1785,8 +1788,13 @@ final class IOSForegroundVoiceWorkflow {
         }
 
         attempt.isListening = true
-        progress(.listening)
-        scheduleMaximumDuration(for: attempt)
+        let recordingDurationLimit = configuration.settings
+            .voiceSessionPreferences.recordingDurationLimit
+        progress(.listening(recordingDurationLimit))
+        scheduleMaximumDuration(
+            for: attempt,
+            limit: recordingDurationLimit
+        )
         let trigger = await waitForStop(on: attempt)
         return await resolveStoppedAttempt(
             trigger,
@@ -1900,7 +1908,10 @@ final class IOSForegroundVoiceWorkflow {
                             ? .savedFiveMinute
                             : .recordingCachePolicy,
                         finalizedDurationMilliseconds:
-                            capture.durationMilliseconds
+                            capture.durationMilliseconds,
+                        recordingDurationLimit:
+                            configuration.settings.voiceSessionPreferences
+                                .recordingDurationLimit
                     )
                 )
             } catch {
@@ -3095,11 +3106,14 @@ final class IOSForegroundVoiceWorkflow {
         }
     }
 
-    private func scheduleMaximumDuration(for attempt: Attempt) {
+    private func scheduleMaximumDuration(
+        for attempt: Attempt,
+        limit: RecordingDurationLimit
+    ) {
         let sleep = dependencies.sleep
         attempt.maximumDurationTask = Task { @MainActor [weak self, weak attempt] in
             do {
-                try await sleep(.seconds(300))
+                try await sleep(.seconds(limit.wholeSeconds))
             } catch {
                 guard !Task.isCancelled,
                       let self,

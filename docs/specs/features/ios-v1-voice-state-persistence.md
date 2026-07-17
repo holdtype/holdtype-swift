@@ -51,10 +51,16 @@ The accepted-transcription checkpoint is committed before correction,
 translation, or output delivery begins. If that checkpoint cannot be confirmed,
 the attempt fails locally and transcription is never repeated automatically.
 
+Capture metadata stores the 1-15 minute recording limit frozen at Start. Older
+capture schemas without that field migrate as five-minute attempts. Recovery,
+duration validation, and protected limit-ended retention always use this stored
+value rather than the current Settings value.
+
 Pending also records accepted-audio retention ownership. Ordinary success
-follows the optional Recording Cache policy. A five-minute automatic Finish, or
-canonical finalized media at least 299.5 seconds long when Done wins the stop
-race, uses protected five-minute retention. This does not change provider
+follows the optional Recording Cache policy. A selected-limit automatic Finish,
+or canonical finalized media within 500 milliseconds of that attempt's frozen
+boundary when Done wins the stop race, uses protected limit-ended retention.
+This does not change provider
 eligibility or create a separate provider state.
 
 No durable record stores a credential, prompt, provider body, raw provider
@@ -64,7 +70,8 @@ normalized text and stage evidence above survives process loss.
 ## User Flow
 
 - A completed capture becomes Pending before the first provider request.
-- Reaching five minutes closes capture and follows the same completed-capture
+- Reaching the selected recording limit closes capture and follows the same
+  completed-capture
   path. It becomes Pending, then starts the normal provider operation exactly
   once.
 - Only one Pending attempt may own audio. A second recording stays unavailable
@@ -87,7 +94,7 @@ normalized text and stage evidence above survives process loss.
   attempted. History failure is a nonblocking local warning.
 - Pending metadata and audio cleanup continue after the History attempt,
   whether History succeeds, is disabled, or fails.
-- After protected five-minute success, acceptance publishes the exact audio to
+- After protected limit-ended success, acceptance publishes the exact audio to
   the bounded `saved-v1-*` namespace before unlinking Pending. Publish failure
   leaves `acceptedCleanup` and its only source intact; Latest may remain ready,
   but the app must not show a Saved Recording until publication succeeds.
@@ -124,7 +131,7 @@ normalized text and stage evidence above survives process loss.
   exactly once while accepted usage duration remains unknown. If that attempt
   succeeds, the audio uses bounded Saved Recording retention (newest five), not
   the optional Recording Cache policy, because unknown duration may conceal the
-  five-minute boundary.
+  selected recording boundary.
 - Foreground opportunities do not run orphan repair. They only observe the
   durable state left by live capture or process-launch recovery.
 - A relaunched transcription with no accepted-transcription checkpoint becomes
@@ -138,7 +145,7 @@ normalized text and stage evidence above survives process loss.
   acceptance locally.
 - A relaunched `acceptedCleanup` attempt may idempotently append the matching
   Latest result to enabled compact History, then finish exact local cleanup.
-- For protected five-minute audio, that cleanup first retries only the local
+- For protected limit-ended audio, that cleanup first retries only the local
   Saved Recording publication. It never re-enters provider processing.
 - Local reconciliation never repeats provider work, never duplicates a
   History entry, and never retains Pending solely because History is
@@ -146,8 +153,9 @@ normalized text and stage evidence above survives process loss.
 - Corrupt, unsupported, oversized, locked, or otherwise uncertain state is
   visible as local recovery failure. It blocks a second recording and
   preserves source bytes whenever safe absence cannot be proved.
-- A finalized media duration slightly beyond the five-minute recorder deadline
-  is valid through 302 seconds to tolerate recorder/delegate closure latency.
+- A finalized media duration slightly beyond the frozen recorder deadline is
+  valid through that limit plus two seconds to tolerate recorder/delegate
+  closure latency. The absolute supported ceiling is 902 seconds.
   For bounded positive-byte media beyond that tolerance, live finalization uses
   the clamped monotonic fallback or internal unknown duration `0`; the source
   remains explicit recovery and is never deleted merely for crossing an
@@ -160,7 +168,7 @@ normalized text and stage evidence above survives process loss.
   owns it serializes every mutation.
 - Pending audio is app-private, protected, backup-excluded, and addressed only
   through the exact Pending identity.
-- Successful protected five-minute audio is app-private, protected,
+- Successful protected limit-ended audio is app-private, protected,
   backup-excluded, independent from Pending and accepted-text History, and
   bounded newest-first to five exact recordings.
 - Canonical Latest and all Pending metadata remain app-private, protected, and
@@ -196,11 +204,11 @@ Focused tests must prove:
   starts only translation, and translation-in-flight never repeats translation;
 - output-ready retry commits locally without provider configuration, consent,
   or credentials;
-- five-minute automatic Finish -> Pending -> provider, Pending playback, and
+- selected-limit automatic Finish -> Pending -> provider, Pending playback, and
   post-close duration tolerance;
-- Done/watchdog stop-authority race near 300 seconds preserves protected
+- Done/watchdog stop-authority race near the frozen boundary preserves protected
   retention and dispatches provider work once;
-- five-minute provider failure -> relaunch -> explicit Retry -> success keeps
+- limit-ended provider failure -> relaunch -> explicit Retry -> success keeps
   the same protected retention and creates one `saved-v1-*` recording;
 - failed protected publish keeps `acceptedCleanup` and source bytes, creates no
   false saved row, and relaunch retries no provider work;

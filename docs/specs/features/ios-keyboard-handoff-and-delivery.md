@@ -133,7 +133,8 @@ resolved by silently degrading the keyboard into that manual-session design.
   pipeline and clears the system microphone indicator.
 - The warm-session lifetime is 60 seconds only while the session is idle in
   `Ready`. Entering `Listening` cancels that idle expiry; capture then has its
-  independent five-minute limit. Entering `Processing` closes microphone input
+  independent user-selected recording limit. That limit is frozen at Start;
+  it is 1-15 minutes and defaults to five. Entering `Processing` closes microphone input
   and uses only the provider's own bounded timeout. An old warm-session timer
   must never stop capture or cancel provider work.
 - The keyboard's existing voice/error area owns launch, permission, Listening,
@@ -150,9 +151,9 @@ resolved by silently degrading the keyboard into that manual-session design.
   remains the explicit cancellation path.
 - Finish stops recording and starts the existing app-owned transcription and
   optional correction/translation pipeline.
-- If capture reaches five minutes first, HoldType performs the same Finish
+- If capture reaches its selected limit first, HoldType performs the same Finish
   automatically, saves Pending audio before provider work, and shows
-  `Processing — 5-minute recording saved`. The user does not need to keep the
+  `Processing — recording limit reached; audio saved`. The user does not need to keep the
   extension alive for this finalization.
 - A fresh accepted result inserts automatically only when the current document
   still matches the post-return delivery anchor for the exact consumed request
@@ -289,8 +290,8 @@ microphone appear active.
 - Repeated microphone taps within the same healthy warm session start distinct
   dictation attempts without another containing-app handoff.
 - Ready expires after 60 idle seconds, while Listening continues to its own
-  five-minute automatic Finish and Processing continues to its own timeout.
-- Five-minute Finish preserves one playable Pending recording and starts
+  selected automatic Finish and Processing continues to its own timeout.
+- Limit-ended Finish preserves one playable Pending recording and starts
   provider work once; a later provider failure leaves Play and Retry/Delete.
 - Focus/document changes, stale requests, process loss, and uncertain delivery
   preserve Latest without automatic insertion into the wrong destination.

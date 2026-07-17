@@ -5,6 +5,33 @@ import Testing
 
 @Suite(.serialized)
 struct IOSAcceptedAudioCacheTests {
+    @Test func protectedRetentionUsesTheFrozenRecordingLimit() {
+        let oneMinute = RecordingDurationLimit(minutes: 1)
+        let fifteenMinutes = RecordingDurationLimit(minutes: 15)
+
+        #expect(
+            IOSAcceptedAudioRetention.resolved(
+                requested: .recordingCachePolicy,
+                finalizedDurationMilliseconds: 59_500,
+                recordingDurationLimit: oneMinute
+            ) == .savedFiveMinute
+        )
+        #expect(
+            IOSAcceptedAudioRetention.resolved(
+                requested: .recordingCachePolicy,
+                finalizedDurationMilliseconds: 59_499,
+                recordingDurationLimit: oneMinute
+            ) == .recordingCachePolicy
+        )
+        #expect(
+            IOSAcceptedAudioRetention.resolved(
+                requested: .recordingCachePolicy,
+                finalizedDurationMilliseconds: 899_500,
+                recordingDurationLimit: fifteenMinutes
+            ) == .savedFiveMinute
+        )
+    }
+
     @Test func cacheIsOffByDefaultPolicyAndMissingFilesStayUnavailable()
         async throws {
         let fixture = AudioCacheFixture()

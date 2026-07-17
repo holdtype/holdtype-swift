@@ -257,7 +257,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(fixture.startForcesTextCorrection == [true])
         #expect(controller.presentation.activeDraftInsertionMode == .append)
 
-        fixture.sendProgress(.listening, at: 0)
+        fixture.sendProgress(.listening(.defaultValue), at: 0)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.activeDraftInsertionMode == .append)
 
@@ -493,7 +493,7 @@ struct IOSForegroundVoiceControllerTests {
                 == .available
         )
 
-        fixture.sendProgress(.listening, at: 0)
+        fixture.sendProgress(.listening(.defaultValue), at: 0)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.stage == nil)
         #expect(
@@ -530,7 +530,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.availableActions.isEmpty)
         let outputDelivery = controller.presentation
 
-        fixture.sendProgress(.listening, at: 0)
+        fixture.sendProgress(.listening(.defaultValue), at: 0)
         fixture.sendProgress(.finalizing, at: 0)
         fixture.sendProgress(.processing(.transcription), at: 0)
         fixture.sendProgress(.processing(.postProcessing), at: 0)
@@ -552,7 +552,7 @@ struct IOSForegroundVoiceControllerTests {
         }
         let completed = controller.presentation
 
-        fixture.sendProgress(.listening, at: 0)
+        fixture.sendProgress(.listening(.defaultValue), at: 0)
         #expect(controller.presentation == completed)
 
         let secondStart = try voiceCommand(.startStandard, in: controller)
@@ -587,7 +587,15 @@ struct IOSForegroundVoiceControllerTests {
         let start = try voiceCommand(.startStandard, in: controller)
         #expect(submitVoiceCommand(start, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
-        fixture.sendProgress(.listening, at: 0)
+        let recordingDurationLimit = RecordingDurationLimit(minutes: 1)
+        fixture.sendProgress(
+            .listening(recordingDurationLimit),
+            at: 0
+        )
+        #expect(
+            controller.presentation.recordingDurationLimit
+                == recordingDurationLimit
+        )
 
         let unavailableFinish = try voiceCommand(
             .finishUtterance,
@@ -599,6 +607,10 @@ struct IOSForegroundVoiceControllerTests {
         #expect(fixture.finishAuthorities.count == 1)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.failure == .operationFailed)
+        #expect(
+            controller.presentation.recordingDurationLimit
+                == recordingDurationLimit
+        )
         #expect(
             controller.presentation.availableActions
                 == [.finishUtterance, .cancelUtterance]
@@ -617,6 +629,10 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.failure == nil)
         #expect(
+            controller.presentation.recordingDurationLimit
+                == recordingDurationLimit
+        )
+        #expect(
             controller.presentation.availableActions
                 == [.cancelUtterance]
         )
@@ -633,6 +649,7 @@ struct IOSForegroundVoiceControllerTests {
         try await voiceEventually {
             controller.presentation.phase == .inactive
         }
+        #expect(controller.presentation.recordingDurationLimit == nil)
     }
 
     @Test func cancellationWaitsForDurableResolutionInEveryPhase()
@@ -652,7 +669,7 @@ struct IOSForegroundVoiceControllerTests {
                 terminalLatest: .available
             ),
             VoiceCancellationCase(
-                progress: .listening,
+                progress: .listening(.defaultValue),
                 action: .cancelUtterance,
                 phase: .listening,
                 activeStage: nil,

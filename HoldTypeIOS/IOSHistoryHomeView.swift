@@ -289,7 +289,7 @@ struct IOSHistoryHomeView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "This permanently removes the five-minute audio. Accepted "
+                "This permanently removes the saved recording audio. Accepted "
                     + "text and Latest Result are not changed."
             )
         }
@@ -547,7 +547,7 @@ struct IOSHistoryHomeView: View {
                 )
                 .foregroundStyle(.orange)
                 Text(
-                    "HoldType couldn't confirm saved five-minute audio. "
+                    "HoldType couldn't confirm the saved recording audio. "
                         + "Nothing was removed."
                 )
                 .foregroundStyle(.secondary)
@@ -580,7 +580,7 @@ struct IOSHistoryHomeView: View {
             ForEach(recordings) { recording in
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Five-minute recording")
+                        Text("Saved recording")
                             .font(.headline)
                         Text(
                             recording.createdAt.formatted(
@@ -796,7 +796,7 @@ struct IOSHistoryHomeView: View {
                 "HoldType couldn't safely recover the processing result. "
                     + "Your audio is still saved; you can play or discard it."
             case .durationLimitExceeded:
-                "This recording exceeds the five-minute transcription limit. "
+                "This recording exceeds the supported transcription limit. "
                     + "The audio is still saved; you can play or discard it."
             case .audioUnavailable, nil:
                 "HoldType preserved this recording, but its audio isn't "

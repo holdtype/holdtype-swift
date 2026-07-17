@@ -7,12 +7,12 @@ nonisolated enum KeyboardDictationBridgeConfiguration {
     static let maximumRecordBytes = 4 * 1_024
     static let commandLifetime: TimeInterval = 5
     /// Idle warm-session and terminal delivery lifetime. Active capture has
-    /// its own recorder-owned five-minute boundary.
+    /// its own recorder-owned, user-selected boundary.
     static let sessionLifetime: TimeInterval = 60
-    /// Allows the canonical recorder to close and validate media slightly
-    /// beyond the user-visible five-minute boundary without expiring the
-    /// cross-process Listening snapshot.
-    static let listeningStateLifetime: TimeInterval = 302
+    /// Allows any supported recording limit plus recorder-close tolerance.
+    /// Each live record publishes its exact selected limit plus two seconds;
+    /// this value is only the strict validation ceiling.
+    static let listeningStateLifetime: TimeInterval = 902
     /// The longest configured provider chain is transcription plus optional
     /// correction and translation (60 + 20 + 20 seconds). This validity
     /// window belongs to Processing, not to the idle warm session.

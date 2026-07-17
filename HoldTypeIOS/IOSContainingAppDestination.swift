@@ -122,6 +122,7 @@ enum IOSSettingsField: String, Hashable, Sendable {
     case translationInstructions
     case voiceAudioCues
     case voiceFinishBuffer
+    case voiceRecordingDurationLimit
     case voiceRecordingCache
     case voiceRecordingRetention
     case voiceRecordingLimit

@@ -480,8 +480,8 @@ final class IOSPendingRecordingHistoryStateOwner {
                 if observation.availability != .available {
                     .audioUnavailable
                 } else if recording.durationMilliseconds
-                    > VoiceSessionPreferences
-                        .maximumFinalizedMediaDurationMilliseconds {
+                    > RecordingDurationLimit
+                        .maximumSupportedFinalizedMediaDurationMilliseconds {
                     .durationLimitExceeded
                 } else if recording.phase == .failed
                     && (recording.transcriptionReplayBlocked
@@ -530,8 +530,8 @@ final class IOSPendingRecordingHistoryStateOwner {
                 if recording.availability != .available {
                     .audioUnavailable
                 } else if recording.durationMilliseconds
-                    > VoiceSessionPreferences
-                        .maximumFinalizedMediaDurationMilliseconds {
+                    > RecordingDurationLimit
+                        .maximumSupportedFinalizedMediaDurationMilliseconds {
                     .durationLimitExceeded
                 } else {
                     nil

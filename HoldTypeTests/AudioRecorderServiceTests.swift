@@ -17,7 +17,7 @@ struct AudioRecorderServiceTests {
     @Test func defaultMaximumDurationUsesThePortableUtteranceContract() {
         #expect(
             AVFoundationAudioRecorderService.defaultMaximumRecordingDuration ==
-                VoiceSessionPreferences.maximumUtteranceDuration
+                VoiceSessionPreferences.defaults.recordingDurationLimit.duration
         )
         #expect(AVFoundationAudioRecorderService.defaultMaximumRecordingDuration == 300)
     }
@@ -186,6 +186,55 @@ struct AudioRecorderServiceTests {
         #expect(artifact.byteCount == Int64(fileContents.count))
         #expect(recorder.currentStatus == .finished(artifact: artifact))
         #expect(engine.stopCallCount == 1)
+    }
+
+    @Test func avFoundationRecorderUsesTheMaximumDurationSelectedForEachAttempt() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine()
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording(maximumDuration: 60)
+        #expect(engine.requestedRecordDuration == 60)
+        recorder.cancelRecording()
+
+        try await recorder.startRecording(maximumDuration: 900)
+        #expect(engine.requestedRecordDuration == 900)
+        recorder.cancelRecording()
+    }
+
+    @Test func automaticCompletionUsesTheCurrentAttemptsSelectedMaximum() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 59.7 },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording(maximumDuration: 60)
+        try Data([0x01]).write(to: outputFileURL)
+        engine.simulateAutomaticFinish(successfully: false)
+
+        let result = await withCheckedContinuation { continuation in
+            recorder.setAutomaticStopHandler { result in
+                continuation.resume(returning: result)
+            }
+            engine.replayLastAutomaticFinish()
+        }
+        let completion = try result.get()
+
+        #expect(completion.reason == .maximumDuration)
+        #expect(completion.recorderReportedSuccess == false)
+        #expect(recorder.lastFinalizationReachedMaximumDuration)
     }
 
     @Test func avFoundationRecorderRejectsParallelStartWithoutLosingRecordingState() async throws {

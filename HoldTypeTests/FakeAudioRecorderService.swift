@@ -13,6 +13,7 @@ final class FakeAudioRecorderService: AudioRecorderService {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
+    private(set) var requestedMaximumDurations: [TimeInterval] = []
     private(set) var currentStatus: AudioRecorderStatus
     private(set) var lastFinalizationReachedMaximumDuration = false
     private var automaticStopHandler: AudioRecorderAutomaticStopHandler?
@@ -46,8 +47,9 @@ final class FakeAudioRecorderService: AudioRecorderService {
             stopFinalizationReachedMaximumDuration
     }
 
-    func startRecording() async throws {
+    func startRecording(maximumDuration: TimeInterval) async throws {
         startCount += 1
+        requestedMaximumDurations.append(maximumDuration)
         lastFinalizationReachedMaximumDuration = false
 
         do {
