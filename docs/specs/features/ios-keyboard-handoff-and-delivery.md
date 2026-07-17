@@ -224,23 +224,28 @@ microphone appear active.
   request. An unrelated ordinary app launch does not start the microphone.
 - A recreated keyboard extension reconnects control only when the session,
   attempt, and request match both shared state and the last app-consumed
-  keyboard handoff. That evidence restores Listening, Processing, Finish, and
-  Cancel ownership and identifies which request may seek delivery; it does not
-  by itself prove an insertion destination.
+  keyboard handoff. That exact durable evidence restores Listening, Processing,
+  Finish, and Cancel ownership and identifies the only request whose returned
+  destination may be anchored.
+- UIKit may issue a different document identifier after the user leaves the
+  host app and returns to the same visible field. For one exact consumed
+  handoff, the first non-empty identifier exposed by the active returned
+  controller becomes the immutable delivery anchor for that request. The
+  pre-handoff source remains immutable audit identity but is not required to
+  equal this post-return UIKit identifier.
 - Automatic delivery remains eligible only while the controller is active and
   visible, the durable consumed handoff identifies the exact request, and the
-  current non-empty identifier exactly equals the immutable non-empty source
-  identifier. A hidden controller may observe shared state but cannot claim or
-  consume delivery.
-- UIKit may issue a different identifier after returning to the same visible
-  field. The extension cannot distinguish that case from a different field or
-  host app, so a returned identifier never becomes a replacement anchor.
-- A missing source identifier, a non-empty mismatch, or any previously observed
-  destination change permanently invalidates automatic delivery for that
-  controller lifetime and request. Controller recreation alone does not
-  invalidate delivery when the consumed request and exact non-empty destination
-  still match. Returning from `A -> B -> A` in one controller lifetime does not
-  restore eligibility.
+  current non-empty identifier exactly equals that request's frozen returned
+  delivery anchor. A hidden controller may observe shared state but cannot
+  anchor, claim, or consume delivery.
+- A missing returned identifier is retried only for a short bounded interval.
+  After a returned anchor exists, any non-empty destination change permanently
+  invalidates automatic delivery for that controller lifetime and request.
+  Returning from `B -> C -> B` in one controller lifetime does not restore
+  eligibility.
+- A warm-session attempt that does not leave the host app freezes its current
+  non-empty identifier immediately and never uses the earlier consumed handoff
+  to re-anchor a different request.
 - A temporarily missing current identifier never hides Listening or prevents
   Finish. The originating controller may repeat that local read for a short
   bounded interval while the result remains fresh, but any identifier that
@@ -254,8 +259,8 @@ microphone appear active.
 
 - One accepted result may cause at most one automatic `insertText` invocation.
 - Automatic delivery eligibility requires a currently active and visible
-  controller, the exact consumed active request, an unexpired result, an exact
-  non-empty source/current document match, no prior disqualification in that
+  controller, the exact active request, an unexpired result, an exact non-empty
+  frozen-anchor/current document match, no prior disqualification in that
   controller lifetime, and no prior insertion invocation.
 - The keyboard writes a fresh opaque delivery-claim identifier and waits for
   the containing app to grant that exact claim before calling `insertText`.
@@ -336,10 +341,12 @@ microphone appear active.
   app-owned recording.
 - Accepted text causes at most one automatic insertion invocation, only from a
   currently active and visible controller that proves the exact consumed
-  request and exact non-empty source/current document match.
-- A recreated extension may reconnect, finish, and automatically deliver the
-  exact capture only when that durable request proof and destination match both
-  succeed; a different or missing destination remains manual Latest recovery.
+  request and exact non-empty frozen-anchor/current document match.
+- A recreated extension may reconnect, freeze its first non-empty returned
+  destination, finish, and automatically deliver the exact capture only when
+  durable request proof and the frozen-anchor/current match both succeed; a
+  later different or persistently missing destination remains manual Latest
+  recovery.
 - Repeated microphone taps within the same healthy warm session start distinct
   dictation attempts without another containing-app handoff.
 - Ready expires after 60 idle seconds, while Listening continues to its own

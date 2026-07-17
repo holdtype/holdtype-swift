@@ -1014,7 +1014,7 @@ struct KeyboardViewControllerTests {
     }
 
     @Test
-    func consumedHandoffReconnectsControlButNeverReanchorsDelivery() throws {
+    func consumedHandoffAnchorsReturnedDocumentAndReusesWarmSession() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()
         let sourceDocumentID = UUID()
@@ -1028,7 +1028,7 @@ struct KeyboardViewControllerTests {
                     requestID: requestID,
                     sourceDocumentID: sourceDocumentID,
                     phase: .resultReady,
-                    result: "Preserved in Latest",
+                    result: "Delivered after return",
                     publishedAt: now,
                     expiresAt: now.addingTimeInterval(60)
                 )
@@ -1045,19 +1045,27 @@ struct KeyboardViewControllerTests {
         let recreatedController = harness.makeController()
         recreatedController.loadViewIfNeeded()
 
-        #expect(harness.savedCommands.isEmpty)
+        let claim = try #require(harness.savedCommands.last)
+        #expect(claim.kind == .claimDelivery)
         #expect(harness.proxy.insertedTexts.isEmpty)
+        let pendingState = try #require(harness.dictationState)
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: pendingState.sessionID,
+                attemptID: pendingState.attemptID,
+                requestID: pendingState.requestID,
+                sourceDocumentID: pendingState.sourceDocumentID,
+                deliveryClaimID: claim.deliveryClaimID,
+                phase: .resultReady,
+                result: pendingState.result,
+                publishedAt: pendingState.publishedAt,
+                expiresAt: pendingState.expiresAt
+            )
+        )
+        recreatedController.textDidChange(nil)
 
-        let latestButton = try button(
-            "keyboard.brand-stage.latest",
-            in: recreatedController.view
-        )
-        #expect(latestButton.isEnabled)
-        try insertRecoverableResult(
-            "Preserved in Latest",
-            controller: recreatedController,
-            harness: harness
-        )
+        #expect(harness.proxy.insertedTexts == ["Delivered after return"])
+        #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
 
         let completedState = try #require(harness.dictationState)
         harness.savedCommands.removeAll()
@@ -1099,8 +1107,7 @@ struct KeyboardViewControllerTests {
                     attemptID: UUID(),
                     requestID: requestID,
                     sourceDocumentID: sourceDocumentID,
-                    phase: .resultReady,
-                    result: "Current transient result",
+                    phase: .listening,
                     publishedAt: now,
                     expiresAt: now.addingTimeInterval(60)
                 )
@@ -1116,6 +1123,22 @@ struct KeyboardViewControllerTests {
         )
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
+
+        harness.currentDocumentIdentifier = UUID()
+        let activeState = try #require(harness.dictationState)
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: activeState.sessionID,
+                attemptID: activeState.attemptID,
+                requestID: activeState.requestID,
+                sourceDocumentID: activeState.sourceDocumentID,
+                phase: .resultReady,
+                result: "Current transient result",
+                publishedAt: now.addingTimeInterval(1),
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        controller.textDidChange(nil)
 
         try insertRecoverableResult(
             "Current transient result",

@@ -1022,6 +1022,9 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.workflow.resolve(.cancelled)
 
         coordinator.stopSession()
+        try await eventually {
+            harness.endedBackgroundTaskIDs.count == 3
+        }
         #expect(harness.endedBackgroundTaskIDs == [
             harness.backgroundTaskID,
             harness.backgroundTaskID,
