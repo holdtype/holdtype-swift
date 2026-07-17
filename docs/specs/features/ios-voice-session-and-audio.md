@@ -156,8 +156,9 @@ microphone activity or losing completed recordings.
   warning at Start, so its first audible warning has 30 seconds remaining. The
   boundary closes the recorder before its distinct stopped-at-limit feedback.
 - In-capture warning tones play only when the current route is private, such as
-  headphones or AirPods. The built-in speaker uses countdown text and haptics
-  so warning audio is not captured in the utterance.
+  headphones or AirPods. The built-in speaker uses haptics for warning
+  milestones and countdown text during the final 15 seconds so warning audio is
+  not captured in the utterance.
 - Calls, Siri, alarms, route loss, Bluetooth/AirPods changes, built-in mic mute,
   lock, scene changes, and media-services lost/reset produce explicit
   interruption or recoverable failure state.

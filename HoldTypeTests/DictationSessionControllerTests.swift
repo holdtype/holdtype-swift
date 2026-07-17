@@ -3389,7 +3389,7 @@ struct DictationSessionControllerTests {
         #expect(cuePlayer.playedCues.isEmpty)
     }
 
-    @Test func finalMinuteCountdownWarnsOnlyOnPrivateAudioOutput() async {
+    @Test func finalFifteenSecondCountdownKeepsEarlierPrivateRouteWarnings() async {
         let recorder = FakeAudioRecorderService()
         let monitor = FakeRecordingDurationMonitor()
         let cuePlayer = FakeDictationCuePlayer()
@@ -3409,8 +3409,15 @@ struct DictationSessionControllerTests {
         #expect(monitor.requestedMaximumDurations == [300])
         monitor.emit(elapsedWholeSecond: 240)
 
+        #expect(controller.recordingCountdown == nil)
+        #expect(cuePlayer.playedCues == [
+            .startRecording,
+            .recordingLimitWarning(.amber),
+        ])
+
+        monitor.emit(elapsedWholeSecond: 285)
         #expect(controller.recordingCountdown == VoiceSessionCountdown(
-            remainingWholeSeconds: 60,
+            remainingWholeSeconds: 15,
             urgency: .amber
         ))
         #expect(cuePlayer.playedCues == [
@@ -3446,20 +3453,21 @@ struct DictationSessionControllerTests {
         await controller.performRecordingAction()
         monitor.emit(elapsedWholeSecond: 1)
         monitor.emit(elapsedWholeSecond: 239)
+        monitor.emit(elapsedWholeSecond: 284)
 
         #expect(publishedCountdowns.isEmpty)
 
-        monitor.emit(elapsedWholeSecond: 240)
-        monitor.emit(elapsedWholeSecond: 240)
-        monitor.emit(elapsedWholeSecond: 241)
+        monitor.emit(elapsedWholeSecond: 285)
+        monitor.emit(elapsedWholeSecond: 285)
+        monitor.emit(elapsedWholeSecond: 286)
 
         #expect(publishedCountdowns == [
             VoiceSessionCountdown(
-                remainingWholeSeconds: 60,
+                remainingWholeSeconds: 15,
                 urgency: .amber
             ),
             VoiceSessionCountdown(
-                remainingWholeSeconds: 59,
+                remainingWholeSeconds: 14,
                 urgency: .amber
             ),
         ])
@@ -3469,11 +3477,11 @@ struct DictationSessionControllerTests {
 
         #expect(publishedCountdowns == [
             VoiceSessionCountdown(
-                remainingWholeSeconds: 60,
+                remainingWholeSeconds: 15,
                 urgency: .amber
             ),
             VoiceSessionCountdown(
-                remainingWholeSeconds: 59,
+                remainingWholeSeconds: 14,
                 urgency: .amber
             ),
             nil,
@@ -3514,8 +3522,12 @@ struct DictationSessionControllerTests {
         #expect(monitor.requestedMaximumDurations == [60])
 
         monitor.emit(elapsedWholeSecond: 30)
+        #expect(controller.recordingCountdown == nil)
+        #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.amber))
+
+        monitor.emit(elapsedWholeSecond: 45)
         #expect(controller.recordingCountdown == VoiceSessionCountdown(
-            remainingWholeSeconds: 30,
+            remainingWholeSeconds: 15,
             urgency: .amber
         ))
         #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.amber))

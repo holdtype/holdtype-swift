@@ -35,6 +35,14 @@ struct FloatingIndicatorPresentation: Equatable {
         return "HoldType \(title), \(countdown.remainingWholeSeconds) seconds remaining"
     }
 
+    var showsWarningOrbit: Bool {
+        guard phase == .recording, let countdown else {
+            return false
+        }
+
+        return (1...10).contains(countdown.remainingWholeSeconds)
+    }
+
     static func presentation(
         for status: DictationStatus,
         settings: AppSettings,

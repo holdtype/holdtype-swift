@@ -131,6 +131,8 @@ public enum VoiceSessionMilestone: Equatable, Sendable {
 /// Consumers schedule or compare these integer offsets against a monotonic
 /// clock; no warning depends on exact `TimeInterval` equality.
 public struct VoiceSessionWarningSchedule: Equatable, Sendable {
+    public static let countdownStartRemainingWholeSeconds = 15
+
     public static let warningRemainingWholeSeconds = [
         60,
         30,
@@ -153,7 +155,7 @@ public struct VoiceSessionWarningSchedule: Equatable, Sendable {
         maximumDurationWholeSeconds = limit.wholeSeconds
         countdownStartElapsedWholeSecond = max(
             0,
-            limit.wholeSeconds - 60
+            limit.wholeSeconds - Self.countdownStartRemainingWholeSeconds
         )
         warnings = Self.warningRemainingWholeSeconds.compactMap {
             remainingWholeSeconds in

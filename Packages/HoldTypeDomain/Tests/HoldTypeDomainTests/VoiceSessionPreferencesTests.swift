@@ -74,7 +74,11 @@ struct VoiceSessionPreferencesTests {
         ]
 
         #expect(schedule.maximumDurationWholeSeconds == 300)
-        #expect(schedule.countdownStartElapsedWholeSecond == 240)
+        #expect(
+            VoiceSessionWarningSchedule.countdownStartRemainingWholeSeconds
+                == 15
+        )
+        #expect(schedule.countdownStartElapsedWholeSecond == 285)
         #expect(
             schedule.warnings.map(\.elapsedWholeSeconds)
                 == expectedElapsedSeconds
@@ -89,12 +93,12 @@ struct VoiceSessionPreferencesTests {
         )
     }
 
-    @Test func warningsStayAnchoredToTheFinalMinuteForEveryLimit() {
+    @Test func warningsAndFinalFifteenSecondCountdownRemainIndependent() {
         let oneMinute = VoiceSessionWarningSchedule(
             limit: RecordingDurationLimit(minutes: 1)
         )
         #expect(oneMinute.maximumDurationWholeSeconds == 60)
-        #expect(oneMinute.countdownStartElapsedWholeSecond == 0)
+        #expect(oneMinute.countdownStartElapsedWholeSecond == 45)
         #expect(oneMinute.warnings.map(\.elapsedWholeSeconds) == [
             30,
             50,
@@ -121,7 +125,7 @@ struct VoiceSessionPreferencesTests {
         let fifteenMinutes = VoiceSessionWarningSchedule(
             limit: RecordingDurationLimit(minutes: 15)
         )
-        #expect(fifteenMinutes.countdownStartElapsedWholeSecond == 840)
+        #expect(fifteenMinutes.countdownStartElapsedWholeSecond == 885)
         #expect(fifteenMinutes.warnings.map(\.elapsedWholeSeconds) == [
             840,
             870,
@@ -206,12 +210,12 @@ struct VoiceSessionPreferencesTests {
     @Test func countdownUsesWholeSecondsAndChangesUrgencyAtTenRemaining() {
         let schedule = VoiceSessionWarningSchedule(limit: .default)
         #expect(schedule.countdown(
-            atElapsedWholeSecond: 239
+            atElapsedWholeSecond: 284
         ) == nil)
         #expect(schedule.countdown(
-            atElapsedWholeSecond: 240
+            atElapsedWholeSecond: 285
         ) == VoiceSessionCountdown(
-            remainingWholeSeconds: 60,
+            remainingWholeSeconds: 15,
             urgency: .amber
         ))
         #expect(schedule.countdown(
@@ -240,9 +244,12 @@ struct VoiceSessionPreferencesTests {
             limit: RecordingDurationLimit(minutes: 1)
         )
         #expect(oneMinute.countdown(
-            atElapsedWholeSecond: 0
+            atElapsedWholeSecond: 44
+        ) == nil)
+        #expect(oneMinute.countdown(
+            atElapsedWholeSecond: 45
         ) == VoiceSessionCountdown(
-            remainingWholeSeconds: 60,
+            remainingWholeSeconds: 15,
             urgency: .amber
         ))
         #expect(oneMinute.countdown(

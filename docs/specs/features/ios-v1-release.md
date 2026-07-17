@@ -196,10 +196,10 @@ destination. History remains a separate tab and is not previewed on Voice.
   provider processing continues once. Five minutes is the default, and the
   value is frozen when recording starts.
   It is not a maximum-duration failure.
-- Voice shows a countdown during the last minute. It warns with 60, 30, 10, 8,
-  6, then 5 through 1 seconds remaining; the warning at Start is omitted for a
-  one-minute limit. At the selected boundary it confirms that recording stopped
-  and was saved.
+- Voice shows a countdown during the final 15 seconds. Warning cues remain
+  separate milestones at 60, 30, 10, 8, 6, then 5 through 1 seconds remaining;
+  the warning at Start is omitted for a one-minute limit. At the selected
+  boundary it confirms that recording stopped and was saved.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
 - Standard dictation is always the primary action. Auto Clear, Auto Translate,

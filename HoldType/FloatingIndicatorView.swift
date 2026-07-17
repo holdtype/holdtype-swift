@@ -21,11 +21,7 @@ struct FloatingIndicatorView: View {
             indicator
 
             if let countdown = presentation.countdown {
-                Text("\(countdown.remainingWholeSeconds)")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(accent)
-                    .contentTransition(.numericText())
+                countdownBadge(countdown)
             }
         }
             .frame(width: 72, height: 72)
@@ -54,9 +50,15 @@ struct FloatingIndicatorView: View {
     @ViewBuilder
     private var indicator: some View {
         if reduceMotion {
-            Image(presentation.phase.fullAssetName)
-                .resizable()
-                .scaledToFit()
+            ZStack {
+                Image(presentation.phase.fullAssetName)
+                    .resizable()
+                    .scaledToFit()
+
+                if presentation.showsWarningOrbit {
+                    recordingOrbit
+                }
+            }
         } else {
             ZStack {
                 animatedOrbit
@@ -86,22 +88,22 @@ struct FloatingIndicatorView: View {
         ZStack {
             Circle()
                 .stroke(
-                    accent.opacity(0.82),
+                    orbitAccent.opacity(0.82),
                     lineWidth: 1.35
                 )
                 .frame(width: 66, height: 66)
 
             Circle()
                 .stroke(
-                    accent.opacity(0.58),
+                    orbitAccent.opacity(0.58),
                     lineWidth: 1.15
                 )
                 .frame(width: 58, height: 58)
 
             Circle()
-                .fill(accent)
+                .fill(orbitAccent)
                 .frame(width: 7, height: 7)
-                .shadow(color: accent.opacity(0.8), radius: 4)
+                .shadow(color: orbitAccent.opacity(0.8), radius: 4)
                 .offset(y: -33)
         }
     }
@@ -110,7 +112,7 @@ struct FloatingIndicatorView: View {
         ZStack {
             Circle()
                 .stroke(
-                    accent.opacity(0.68),
+                    orbitAccent.opacity(0.68),
                     lineWidth: 1.15
                 )
                 .frame(width: 62, height: 62)
@@ -118,7 +120,7 @@ struct FloatingIndicatorView: View {
             ForEach(0..<24, id: \.self) { index in
                 Circle()
                     .fill(
-                        accent.opacity(
+                        orbitAccent.opacity(
                             index.isMultiple(of: 3) ? 0.9 : 0.48
                         )
                     )
@@ -132,14 +134,28 @@ struct FloatingIndicatorView: View {
         }
     }
 
-    private var accent: Color {
-        if let countdown = presentation.countdown {
-            switch countdown.urgency {
-            case .amber:
-                return .orange
-            case .red:
-                return .red
+    private func countdownBadge(_ countdown: VoiceSessionCountdown) -> some View {
+        Text("\(countdown.remainingWholeSeconds)")
+            .font(.system(size: 20, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .frame(width: 36, height: 36)
+            .background(
+                Circle()
+                    .fill(.black.opacity(0.78))
+            )
+            .overlay(
+                Circle()
+                    .stroke(.white.opacity(0.28), lineWidth: 1)
+            )
+            .transaction { transaction in
+                transaction.animation = nil
             }
+    }
+
+    private var orbitAccent: Color {
+        if presentation.showsWarningOrbit {
+            return Color(red: 1, green: 0.7, blue: 0.08)
         }
 
         return presentation.phase.accent

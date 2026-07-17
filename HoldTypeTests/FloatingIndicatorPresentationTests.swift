@@ -45,7 +45,30 @@ struct FloatingIndicatorPresentationTests {
         )
 
         #expect(recording?.countdown == countdown)
+        #expect(recording?.showsWarningOrbit == true)
         #expect(recording?.accessibilityLabel == "HoldType Recording, 10 seconds remaining")
+    }
+
+    @Test func warningOrbitBeginsAtTenSeconds() {
+        let elevenSeconds = FloatingIndicatorPresentation(
+            phase: .recording,
+            title: "Recording",
+            countdown: VoiceSessionCountdown(
+                remainingWholeSeconds: 11,
+                urgency: .amber
+            )
+        )
+        let tenSeconds = FloatingIndicatorPresentation(
+            phase: .recording,
+            title: "Recording",
+            countdown: VoiceSessionCountdown(
+                remainingWholeSeconds: 10,
+                urgency: .red
+            )
+        )
+
+        #expect(elevenSeconds.showsWarningOrbit == false)
+        #expect(tenSeconds.showsWarningOrbit == true)
     }
 
     @Test func mapsTranscribingStateToVisibleIndicator() {
@@ -175,7 +198,7 @@ struct FloatingIndicatorPresentationTests {
                 phase: .recording,
                 title: "Recording",
                 countdown: VoiceSessionCountdown(
-                    remainingWholeSeconds: 60,
+                    remainingWholeSeconds: 15,
                     urgency: .amber
                 )
             ),
@@ -183,7 +206,7 @@ struct FloatingIndicatorPresentationTests {
         )
 
         #expect(model.state.animationIdentity == initialIdentity)
-        #expect(model.state.presentation.countdown?.remainingWholeSeconds == 60)
+        #expect(model.state.presentation.countdown?.remainingWholeSeconds == 15)
 
         model.update(
             with: FloatingIndicatorPresentation(
@@ -215,7 +238,7 @@ struct FloatingIndicatorPresentationTests {
                 phase: .recording,
                 title: "Recording",
                 countdown: VoiceSessionCountdown(
-                    remainingWholeSeconds: 60,
+                    remainingWholeSeconds: 15,
                     urgency: .amber
                 )
             )

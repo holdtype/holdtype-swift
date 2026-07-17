@@ -32,9 +32,13 @@ This spec covers:
   visible while the completed audio is being transcribed.
 - While recording, the indicator is a compact cyan visual mark with subtle pulse
   animation.
-- Beginning at 4:00, the recording indicator also shows the remaining minute
-  without exposing transcript content. It becomes amber at 4:00 and red for the
-  final ten seconds, updating once per second.
+- During the final 15 seconds, the recording indicator shows the remaining
+  whole seconds in a centered high-contrast circular badge without exposing
+  transcript content. The badge uses white monospaced digits on a dark fixed
+  background and updates once per second without animating between numbers.
+- From 15 through 11 seconds remaining, the normal cyan recording orbit remains
+  unchanged. From 10 through 1 seconds remaining, the orbit becomes yellow
+  while the countdown badge keeps the same dark-and-white treatment.
 - While transcribing, the indicator switches to a compact purple waiting visual
   with motion distinct from the recording state.
 - The indicator uses one shared visual treatment across light and dark system
@@ -97,7 +101,7 @@ Product states map to the indicator as follows:
 | --- | --- | --- |
 | `idle` | hidden | none |
 | `recording` | visible when enabled | compact cyan recording indicator |
-| `recording, final minute` | visible when enabled | amber/red countdown |
+| `recording, final 15 seconds` | visible when enabled | countdown badge; yellow orbit for final 10 seconds |
 | `transcribing` | visible when enabled | compact purple waiting indicator |
 | `done` | hidden | none |
 | `error` | hidden | none |
@@ -116,6 +120,9 @@ settings, or permission state.
   and does not steal focus once the platform surface exists.
 - Build or runtime verification should confirm that disabling the setting hides
   the indicator without disabling menu status or session behavior.
+- Countdown coverage should verify that the badge begins at 15 seconds, the
+  orbit changes at 10 seconds, and per-second updates do not restart the
+  indicator animation.
 
 ## Unknowns requiring confirmation
 

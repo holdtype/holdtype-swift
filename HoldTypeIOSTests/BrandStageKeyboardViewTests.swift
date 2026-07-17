@@ -507,7 +507,7 @@ struct BrandStageKeyboardViewTests {
             presentation(
                 status: .listening,
                 voiceStage: .listening,
-                listeningCountdownSeconds: 60
+                listeningCountdownSeconds: 15
             )
         )
         layout(view)
@@ -520,13 +520,13 @@ struct BrandStageKeyboardViewTests {
         )
         let microphone = try button("keyboard.brand-stage.voice", in: view)
         #expect(!isEffectivelyHidden(countdown))
-        #expect(countdown.text == "60")
+        #expect(countdown.text == "15")
         #expect(countdown.textColor.isEqual(UIColor.systemOrange))
         #expect(countdown.bounds.width >= 41.9)
         #expect(countdown.bounds.height >= 23.9)
         #expect(
             microphone.accessibilityValue
-                == "Listening, 60 seconds remaining"
+                == "Listening, 15 seconds remaining"
         )
 
         view.render(
