@@ -3,7 +3,7 @@
 Date: 2026-07-17 CEST
 Task: macOS 1.0.4 hotkey and floating-indicator regression repair
 Build/Test: focused tests, full macOS tests, macOS build, and diff hygiene pass
-Runtime QA: blocked
+Runtime QA: PASS for the current Xcode build; production artifact still blocked
 Tool: Computer Use, `xcodebuild`, release scripts, and read-only artifact checks
 
 ## Scenario 1: Manual Recording And Indicator Continuity
@@ -45,16 +45,18 @@ Tool: Computer Use, `xcodebuild`, release scripts, and read-only artifact checks
 
 PASS
 
-## Scenario 2: Real Packaged Right Command Hold
+## Scenario 2: Real Right Command Hold
 
 ### Actions
 
 1. Attempted a bounded synthetic Right Command input while the packaged app was
-   running.
-2. Inspected the compact runtime log for a distinguishable event-tap key down
-   and key up.
-3. Left the packaged app running and requested one physical 12-15 second Right
-   Command hold/release.
+   running; it did not reach the CGSession event tap and was rejected as proof.
+2. A physical hold against the earlier preview proved the regression: the
+   150 ms reconciliation timer generated release after 0.09-0.35 seconds.
+3. Restored the event-tap implementation to the exact 1.0.3 path and removed
+   the timer and sampled key-state dependency.
+4. The operator compiled the repaired source in Xcode and repeated the physical
+   hold test.
 
 ### Expected
 
@@ -66,21 +68,16 @@ PASS
 ### Observed
 
 - The synthetic input did not reach the CGSession event tap and produced no
-  `hotkey_event`. It is not accepted as proof of the real hotkey path.
-- No physical packaged-app edge had been captured when this report was written.
-- Deterministic mapper tests cover stale key-down/key-up snapshots, ambiguous
-  Left Command release, bounded recovery, and exact-once release behavior.
+  `hotkey_event`. It remains excluded from the evidence.
+- The earlier physical run reproduced premature release repeatedly.
+- After the rollback, the operator confirmed from the current Xcode build that
+  Right Command remains held until physical release and the bug is fixed.
+- Deterministic mapper tests prove direct event key down/up and repeat
+  suppression using the same state machine as 1.0.3.
 
 ### Result
 
-BLOCKED
-
-### Blocker
-
-Computer Use cannot generate the required hardware-level Right Command edge.
-The shortest resume action is to remount and launch the existing local preview,
-then perform one physical Right Command hold for 12-15 seconds followed by
-release.
+PASS for the repaired current-source Xcode build.
 
 ## Scenario 3: Local Artifact Qualification
 
@@ -108,10 +105,10 @@ release.
 
 - Local artifact:
   `dist/preview/v1.0.4/HoldType-1.0.4.dmg`.
-- DMG SHA-256:
-  `dd1fe463d6dab55f924761e8c374c1a1952fdf50c6927302457a4c320139411d`.
-- ZIP SHA-256:
-  `a54d5f19a216cc33c1efc7caafc3bf6d1b7109745ced107658310c55278651e9`.
+- Fresh repaired DMG SHA-256:
+  `e534af268581c8e6f15c4bfc08658d2d16f955aa718c1063147f01beaa0ca275`.
+- Fresh repaired ZIP SHA-256:
+  `ee34d96365020b7f85d065df761150b18e08bfb03e6ad03b22e1fe8d1bf9a3e6`.
 - The bundle reports identifier `app.holdtype.HoldType`, version 1.0.4, build 5,
   a valid Apple Development signature, hardened runtime, and
   `com.apple.security.device.audio-input = true`.
@@ -123,8 +120,7 @@ release.
   secret names required by `.github/workflows/release.yml` configured. Recent
   release workflow runs include successful notarized publication runs.
 - The workflow builds, notarizes, and publishes in one job. No run was started
-  for the repaired source because publication is forbidden while the physical
-  packaged-hotkey gate remains open.
+  without explicit publication authorization.
 
 ### Result
 
@@ -142,10 +138,9 @@ replacement candidate.
 - Runtime log:
   `~/Library/Caches/HoldType/Diagnostics/RuntimeLogs/runtime-20260717.log`.
 - Focused hotkey and indicator/controller test runs passed.
-- `GlobalHotkeyServiceTests/rightCommandMapperEmitsHoldEvents` proves a repeated
-  direct key up is ignored, and
-  `listenerStopForcedRightCommandReleaseIsEmittedExactlyOnce` proves the forced
-  listener-stop release path remains exact-once.
+- `GlobalHotkeyServiceTests/rightCommandMapperEmitsHoldEvents` proves direct
+  press/release and repeated key-up suppression; the dedicated key-down and
+  key-up tests prove that the event's own flags are authoritative.
 - `DictationSessionControllerTests/recordingCountdownPublishesOnlyChangedValues`
   proves unchanged pre-countdown ticks and repeated cleanup do not publish.
 - `FloatingIndicatorPresentationTests/coordinatorDeliversRealRuntimeStatusChangeExactlyOnce`
@@ -165,10 +160,9 @@ replacement candidate.
 
 | Requirement | Status | Authoritative evidence |
 | --- | --- | --- |
-| Real Right Command starts recording | BLOCKED | No physical packaged-app edge captured |
-| Release stops the same session once | BLOCKED | Deterministic exact-once tests pass; packaged physical release still missing |
-| Stale samples cannot suppress normal edges | PASS | Stale key-down and key-up mapper tests |
-| Lost release recovers within 400 ms once | PASS | Two-sample recovery and deadline tests |
+| Real Right Command starts recording | PASS | Operator physical test of the repaired Xcode build |
+| Release stops the same session once | PASS | Operator physical test plus deterministic direct-event tests |
+| Sampled key state cannot suppress or terminate normal edges | PASS | Polling and reconciliation removed; source matches 1.0.3 |
 | Indicator stays visually continuous for 10+ seconds | PASS | Two 31-frame live observations over 12+ seconds |
 | Pre-countdown ticks do not recreate the host | PASS | Countdown dedup plus stable hosting-view identity tests |
 | Final-minute countdown changes remain visible | PASS | 60-to-59 publication and presentation mapping tests |
@@ -181,7 +175,6 @@ replacement candidate.
 
 ## Follow-Up
 
-1. Capture one physical packaged Right Command hold/release and append the exact
-   timestamped hotkey/start/stop result here.
-2. Produce and notarize a Developer ID artifact on a release-capable machine.
-3. Do not publish or replace 1.0.4 until both remaining gates pass.
+1. Produce and notarize a Developer ID artifact on the configured release lane
+   only after explicit publication authorization.
+2. Smoke that final artifact before replacing the public 1.0.4 download.

@@ -180,8 +180,9 @@ This spec covers:
 - If no microphone is available, the app should fail before entering a false
   recording state.
 - If the user stops recording immediately, an empty artifact produces a clear
-  no-input message. A non-empty artifact is preserved and may continue to the
-  provider, which may still return an empty/no-speech result.
+  no-input message. A finalized recording shorter than 0.3 seconds produces a
+  clear too-short message and is not sent to the provider. Its positive-byte
+  audio remains eligible for local recovery rather than being silently deleted.
 - If transcription produces low-confidence or empty output, the app should not
   pretend the result is final useful text.
 - If a late transcription result arrives after cancellation or failure, it must
@@ -196,9 +197,10 @@ This spec covers:
   validates duration from the finalized media artifact and never deletes a
   positive-byte recording solely because the stopped clock reports zero or
   disagrees with the file.
-- Missing or empty completed recording artifacts are failed recording results
-  and must not be sent to OpenAI. Any positive-byte completed artifact is
-  preserved for recovery; duration metadata alone must not delete or hide it.
+- Missing, empty, or reliably measured too-short completed recording artifacts
+  are failed recording results and must not be sent to OpenAI. Any positive-byte
+  completed artifact is preserved for recovery; a zero or unavailable duration
+  alone must not delete or hide it.
 - Turning off recording cache retention affects future attempts immediately:
   completed recordings from those attempts are deleted after the attempt
   finishes, whether transcription succeeds or fails.

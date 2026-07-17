@@ -459,7 +459,7 @@ struct AudioRecorderServiceTests {
         )
     }
 
-    @Test func avFoundationRecorderPreservesPositiveFileWhenDurationLooksTooShort() async throws {
+    @Test func avFoundationRecorderRejectsTooShortFileWithoutDeletingRecoveryAudio() async throws {
         let outputFileURL = makeTemporaryRecordingFileURL()
         let engine = FakeAudioRecorderEngine(currentTime: 0.1)
         let factory = CapturingAudioRecorderEngineFactory(engine: engine)
@@ -474,15 +474,26 @@ struct AudioRecorderServiceTests {
         try await recorder.startRecording()
         try Data([0x01]).write(to: outputFileURL)
 
-        let artifact = try await recorder.stopRecording()
+        do {
+            _ = try await recorder.stopRecording()
+            Issue.record("Expected stopRecording to throw")
+        } catch let error as AudioRecorderServiceError {
+            #expect(error == .recordingTooShort(duration: 0.1, minimumDuration: 0.5))
+        } catch {
+            Issue.record("Expected AudioRecorderServiceError, got \(error)")
+        }
 
         #expect(engine.stopCallCount == 1)
         #expect(engine.deleteCallCount == 0)
         #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
-        #expect(artifact.fileURL == outputFileURL)
-        #expect(artifact.duration == 0.1)
-        #expect(artifact.byteCount == 1)
-        #expect(recorder.currentStatus == .finished(artifact: artifact))
+        #expect(
+            recorder.currentStatus == .failed(
+                message: AudioRecorderServiceError.recordingTooShort(
+                    duration: 0.1,
+                    minimumDuration: 0.5
+                ).errorDescription ?? ""
+            )
+        )
     }
 
     @Test func avFoundationRecorderAcceptsCompletedFileAtHardCaptureLimit() async throws {

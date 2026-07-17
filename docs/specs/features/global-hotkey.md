@@ -41,8 +41,6 @@ This spec covers:
   event path cannot safely deliver key-up events.
 - The native implementation must distinguish `Right Command` from generic
   Command before presenting it as the active shortcut.
-- Holding or releasing Left Command must not keep a released Right Command
-  logically pressed or finish a Right Command recording by itself.
 - In hold-to-record mode:
   - key down starts one recording session when the app is idle and microphone
     permission is available;
@@ -52,11 +50,6 @@ This spec covers:
     succeeds;
   - key repeat or a second key down while the key is already held must be
     ignored.
-  - while a press owns an active recording, HoldType must reconcile the
-    logical shortcut state with the physical `Right Command` key state;
-  - if the native event stream loses key up, two consecutive physical-up
-    observations must finish that recording exactly once within 400
-    milliseconds and leave the next press eligible to start a fresh session.
 - If reliable key-up handling is not available for the MVP implementation, the
   app may fall back to toggle mode.
 - In toggle mode:
@@ -136,13 +129,6 @@ This spec covers:
 - If the app is recording and the shortcut service is stopped or loses its
   event stream, the app should fail or stop the current session visibly rather
   than continue hidden recording.
-- A temporarily disabled native event tap must be re-enabled and reconciled
-  with physical key state. If the owning key is no longer down, HoldType must
-  synthesize one release rather than leave the shortcut latched.
-- Sleep, wake, active-session loss, and listener shutdown must reconcile or
-  release a pressed shortcut owner before the listener discards its state.
-- Reconciliation logs contain only the compact reason and shortcut state. They
-  never include dictated text, audio paths, or provider data.
 - If microphone permission is denied, a shortcut press should show the same
   blocked state as the menu start action and must not enter recording.
 - Accessibility permission is not required to start recording. If it is missing
@@ -175,9 +161,7 @@ custom user input.
 - Spec-only changes require `git diff --check`.
 - Native implementation should add fake-backed tests for hold-mode key down/up,
   toggle-mode press handling, repeat suppression, transcribing-state rejection,
-  registration failure, fallback registration, lost key up, Left Command held
-  during Right Command release, event-tap disablement, and exact-once
-  reconciliation.
+  registration failure, and fallback registration.
 - Runtime smoke is required only when a task changes the visible running app
   surface or actual macOS hotkey registration.
 

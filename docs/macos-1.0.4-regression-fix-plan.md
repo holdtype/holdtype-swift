@@ -1,7 +1,7 @@
 # macOS 1.0.4 Regression Fix Plan
 
-Status: implementation and deterministic verification complete; final runtime
-and production-artifact gates remain open.
+Status: source repair complete and physically verified from the current Xcode
+build; production-artifact qualification remains separate.
 
 ## Goal
 
@@ -12,8 +12,8 @@ candidate:
 - the floating recording indicator must appear immediately and animate
   continuously without restarting once per second;
 - manual menu recording must continue to work independently of the hotkey;
-- the fix must preserve the lost-key-up recovery added after 1.0.3 and must not
-  roll back unrelated recording durability or iOS work.
+- the fix must restore the proven 1.0.3 hotkey event path without rolling back
+  unrelated recording durability or iOS work.
 
 The implementation goal was approved and started on 2026-07-17.
 
@@ -21,34 +21,46 @@ The implementation goal was approved and started on 2026-07-17.
 
 Completed on 2026-07-17:
 
-- the Right Command mapper now treats the event flags as authoritative for
-  normal key-down/key-up edges and uses HID state only for ambiguous release
-  reconciliation;
+- the Right Command mapper and event-tap service now match the working 1.0.3
+  implementation: real `flagsChanged` events are authoritative and there is no
+  background modifier-key polling or reconciliation timer;
 - unchanged countdown values and equivalent indicator presentations are
   suppressed;
 - the indicator panel keeps one hosting view and changes animation identity
   only when it becomes visible again or changes phase;
 - focused hotkey, countdown, coordinator, and panel-host tests pass;
-- a strict acceptance audit additionally proves direct and recovered release
-  exact-once behavior, one real runtime status delivery, stable panel/host
-  identity across hide/show, non-key/non-main behavior, and input transparency;
+- a strict acceptance audit additionally proves direct release exact-once
+  behavior, one real runtime status delivery, stable panel/host identity across
+  hide/show, non-key/non-main behavior, and input transparency;
 - the full macOS test suite, macOS build, and `git diff --check` pass;
 - debug and packaged menu recording both completed live transcription, and the
   recording indicator remained visible with continuous orbit motion for more
   than 12 seconds;
 - a signed local 1.0.4 (5) preview DMG was built, mounted read-only, launched,
   and exercised through the real menu bar UI.
+- after the hotkey rollback, the operator compiled the current source in Xcode
+  and confirmed that a physical Right Command hold no longer releases itself;
+- the post-audit focused tests, full macOS test target, macOS build, and fresh
+  Apple Development preview build all pass.
 
-Open gates:
+Runtime correction discovered on 2026-07-17:
 
-- Computer Use cannot synthesize a Right Command hardware edge that reaches
-  the CGSession event tap. One physical packaged-app hold/release is still
-  required before the real-hotkey runtime gate can pass.
+- a physical packaged-app hold reached the CGSession event tap and started
+  recording, but the post-1.0.3 reconciliation timer synthesized `key_up` after
+  0.09-0.35 seconds while the key was still physically held;
+- a bounded probe confirmed that `CGEventSource.keyState` remained false for
+  Right Command throughout the hold, so it is not a valid modifier-key signal
+  on this machine;
+- the user directed the repair back to the known-good 1.0.3 implementation
+  instead of introducing another physical-state mechanism.
+
+Remaining release gate:
+
 - This Mac has an Apple Development identity but no Developer ID Application
   identity or notarization profile. GitHub Actions has the required production
   secret names configured, but the existing release workflow notarizes and
-  publishes in one job. It must not be triggered before the physical hotkey
-  gate passes. The local preview remains non-notarized and non-public.
+  publishes in one job. It was not triggered without explicit publication
+  authorization. The local preview remains non-notarized and non-public.
 
 Detailed evidence is recorded in
 `docs/qa/macos/macos-1.0.4-regression-runtime-2026-07-17.md`.
@@ -66,14 +78,18 @@ dictation finalization and recovery`), followed by the 1.0.4 recording-duration
 work. That commit mixes several independent macOS and iOS changes, so a broad
 revert is unsafe.
 
-Two causal chains are already established:
+Three causal chains are already established:
 
 1. The hotkey mapper began requiring a separately sampled
    `CGEventSource.keyState(.combinedSessionState, ...)` value before accepting
    the `flagsChanged` key-down event. In the event-tap callback that snapshot can
    still describe the state before the event, so the real `Right Command`
    key-down is discarded.
-2. The recording-duration monitor emits once per second. Before the countdown
+2. The same post-1.0.3 change added a 150 ms reconciliation timer. On the
+   affected machine both HID and session `CGEventSource.keyState` calls report
+   Right Command as released while it is held, so two timer ticks synthesize an
+   early key up and stop the recording.
+3. The recording-duration monitor emits once per second. Before the countdown
    window it repeatedly assigns `nil` to `recordingCountdown`; that unchanged
    value is still published, the indicator coordinator updates, and the panel
    replaces its entire `NSHostingView`. `FloatingIndicatorView.onAppear` then
@@ -88,8 +104,6 @@ new product behavior.
   - `Right Command` is a single-key hold-to-record shortcut.
   - Key down starts exactly one session and key up stops that session.
   - Repeated modifier events do not toggle the session.
-  - Left Command must not hide a Right Command release.
-  - A lost key-up is reconciled exactly once within 400 milliseconds.
 - `docs/specs/features/floating-indicator.md`
   - The indicator is visible while recording when enabled.
   - Recording motion is subtle and continuous.
@@ -97,15 +111,14 @@ new product behavior.
   - The panel does not activate HoldType, become key, or intercept input.
   - Indicator failure never disables the recording pipeline or menu controls.
 
-No spec change is expected unless implementation discovery proves that one of
-these existing clauses cannot be satisfied.
+The global-hotkey spec was restored to its 1.0.3 contract after physical runtime
+evidence proved the later polling/reconciliation requirement unsafe.
 
 ## Scope And Non-goals
 
 In scope:
 
-- the `Right Command` event mapper and hardware-state provider;
-- lost-release reconciliation already owned by the global hotkey service;
+- the `Right Command` event mapper and CGSession event-tap service;
 - suppression of unchanged countdown/indicator updates;
 - stable SwiftUI hosting inside the non-activating AppKit panel;
 - focused unit tests, macOS build/test, bounded runtime smoke, and release
@@ -123,47 +136,29 @@ Out of scope:
 
 ## Implementation Design
 
-### 1. Make the event edge authoritative for Right Command
+### 1. Restore the proven 1.0.3 Right Command path
 
-Update `RightCommandHotkeyEventMapper` so a separately queried physical-state
-snapshot is no longer a prerequisite for the normal key-down edge.
+Restore `RightCommandHotkeyEventMapper` and `CGEventGlobalHotkeyService` to the
+working 1.0.3 event model while retaining only the later module import required
+by the current source layout.
 
 The intended state machine is:
 
 1. Ignore non-`flagsChanged` events.
 2. For a `Right Command` event while the mapper is logically released:
    - accept key down when the event's own flags contain Command;
-   - do not reject that edge merely because the physical snapshot still says
-     released;
    - capture the Option/translation intent from the same event;
    - mark the key logically pressed before emitting one `.keyDown`.
 3. For a `Right Command` event while logically pressed:
    - release immediately when the event flags no longer contain Command;
-   - when aggregate Command remains set because Left Command is still held,
-     use the physical Right Command state to disambiguate the edge;
-   - treat a still-pressed physical state plus aggregate Command as a duplicate,
-     not as a toggle.
+   - treat another event with Command still present as a duplicate, not a
+     toggle.
 4. For non-Right-Command modifier events during an owned press, continue to
    merge the translation intent without changing press ownership.
-5. Keep the timer-based lost-key-up path. Two consecutive physical-release
-   samples still emit exactly one recovered `.keyUp` within 400 milliseconds.
-6. Keep listener-stop and disabled-event-tap reconciliation exact-once.
-
-Change the default hardware query from `.combinedSessionState` to
-`.hidSystemState`. The queried state is a hardware reconciliation signal; its
-name and source must match that role. It remains secondary to the event edge in
-the normal path.
-
-This design intentionally handles a pre-event or stale snapshot on both common
-edges:
-
-- stale `released` during key down cannot suppress the press;
-- stale `pressed` during an ordinary key up cannot suppress release when the
-  event flags have cleared Command.
-
-The only ambiguous case is releasing Right Command while Left Command remains
-held. That case uses the HID sample and, if the callback-time sample is stale,
-the existing bounded reconciliation timer.
+5. Re-enable a disabled event tap as 1.0.3 did, without querying modifier state
+   or synthesizing a key edge.
+6. Do not create a polling timer, call `CGEventSource.keyState`, or introduce a
+   replacement physical-state algorithm in this regression repair.
 
 ### 2. Publish countdown changes only when the value changes
 
@@ -245,22 +240,17 @@ staging.
 
 Add deterministic coverage for:
 
-1. key down is emitted when event flags contain Command but the callback-time
-   physical snapshot is still released;
-2. ordinary key up is emitted when event flags clear Command but the physical
-   snapshot is still pressed;
-3. repeated Right Command `flagsChanged` while both event and HID state remain
-   pressed is ignored;
-4. releasing Right Command while Left Command remains down uses the physical
-   state and does not depend on aggregate Command;
-5. if that ambiguous release sees one stale pressed snapshot, two later
-   released samples recover one key up within the deadline;
-6. recovered, direct, forced, and listener-stop releases remain exact-once;
-7. Option-before, Option-during, and Option-release translation intent behavior
+1. key down is emitted from the Right Command `flagsChanged` event when its
+   flags contain Command;
+2. key up is emitted from the matching event when its flags clear Command;
+3. repeated Right Command `flagsChanged` while Command remains present is
+   ignored;
+4. repeated key up is ignored;
+5. Option-before, Option-during, and Option-release translation intent behavior
    remains unchanged.
 
-These tests must deliberately disagree about event flags and physical state;
-tests that inject matching values cannot reproduce the 1.0.4 regression.
+The mapper has no separately injected physical state. Its signature and
+behavior intentionally match the working 1.0.3 implementation.
 
 ### Countdown and coordinator tests
 
@@ -307,12 +297,12 @@ fix and which belong to existing recording durability work.
 
 ### Phase B: Hotkey repair
 
-1. Change the mapper state machine and HID provider.
-2. Add stale-snapshot regression tests first or in the same bounded edit.
+1. Restore the 1.0.3 mapper and event-tap service path.
+2. Remove the physical-state provider, timer, and recovery-only tests.
 3. Run only `GlobalHotkeyServiceTests`.
 
-Gate: all direct, ambiguous, repeated, translated, and recovered press/release
-tests pass.
+Gate: direct, repeated, and translated press/release tests pass and the service
+contains no background modifier polling.
 
 ### Phase C: Indicator repair
 
@@ -409,9 +399,7 @@ The implementation goal is complete only when all of the following are true:
 
 - a real Right Command press starts recording in the fixed build;
 - releasing it stops the same session exactly once;
-- repeated or stale state samples cannot suppress the normal key down/up path;
-- lost-release reconciliation still completes within 400 milliseconds and is
-  exact-once;
+- repeated event edges cannot toggle or duplicate the normal key down/up path;
 - the indicator appears when enabled and remains visually continuous for at
   least 10 seconds;
 - pre-countdown one-second ticks do not recreate the host or restart animation;

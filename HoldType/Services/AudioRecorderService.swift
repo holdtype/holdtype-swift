@@ -326,6 +326,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private let recorderFactory: any AudioRecorderEngineFactory
     private let makeRecordingFileURL: () throws -> URL
     private let fileManager: FileManager
+    private let minimumRecordingDuration: TimeInterval
     private let defaultMaximumRecordingDuration: TimeInterval
     private let finalizedMediaDurationProvider: @Sendable (URL) async throws -> TimeInterval
     private let finalizedMediaDurationTimeout: TimeInterval
@@ -378,6 +379,10 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         self.permissionStatusProvider = permissionStatusProvider
         self.recorderFactory = recorderFactory
         self.fileManager = fileManager
+        self.minimumRecordingDuration = minimumRecordingDuration.isFinite
+            && minimumRecordingDuration >= 0
+            ? minimumRecordingDuration
+            : 0.3
         self.defaultMaximumRecordingDuration = maximumRecordingDuration.isFinite
             && maximumRecordingDuration > 0
             ? maximumRecordingDuration
@@ -644,6 +649,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         let finalizedMediaDurationTimeout = finalizedMediaDurationTimeout
         let finalizedMediaDurationTimeoutSleeper = finalizedMediaDurationTimeoutSleeper
         let fileManager = fileManager
+        let minimumRecordingDuration = minimumRecordingDuration
 
         return Task {
             let mediaDuration = await Self.boundedFinalizedMediaDuration(
@@ -657,6 +663,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             return try Self.recordingArtifact(
                 at: outputFileURL,
                 duration: duration,
+                minimumDuration: minimumRecordingDuration,
                 fileManager: fileManager
             )
         }
@@ -844,6 +851,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private static func recordingArtifact(
         at outputFileURL: URL,
         duration: TimeInterval,
+        minimumDuration: TimeInterval,
         fileManager: FileManager
     ) throws -> AudioRecordingArtifact {
         let path = outputFileURL.path
@@ -861,6 +869,13 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         let byteCount = fileSize.int64Value
         guard byteCount > 0 else {
             throw AudioRecorderServiceError.emptyRecording
+        }
+
+        guard duration <= 0 || duration >= minimumDuration else {
+            throw AudioRecorderServiceError.recordingTooShort(
+                duration: duration,
+                minimumDuration: minimumDuration
+            )
         }
 
         // A finalized, nonempty file is the recoverable user artifact. Media

@@ -62,20 +62,17 @@ struct GlobalHotkeyServiceTests {
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [],
-            rightCommandPhysicalState: .released
+            flags: []
         )
         let repeatedKeyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [],
-            rightCommandPhysicalState: .released
+            flags: []
         )
 
         #expect(keyDown == .keyDown())
@@ -84,34 +81,31 @@ struct GlobalHotkeyServiceTests {
         #expect(mapper.isRightCommandPressed == false)
     }
 
-    @Test func rightCommandKeyDownUsesEventFlagsWhenPhysicalSnapshotIsStale() {
+    @Test func rightCommandKeyDownUsesTheFlagsChangedEvent() {
         var mapper = RightCommandHotkeyEventMapper()
 
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .released
+            flags: [.maskCommand]
         )
 
         #expect(keyDown == .keyDown())
         #expect(mapper.isRightCommandPressed)
     }
 
-    @Test func rightCommandKeyUpUsesEventFlagsWhenPhysicalSnapshotIsStale() {
+    @Test func rightCommandKeyUpUsesTheFlagsChangedEvent() {
         var mapper = RightCommandHotkeyEventMapper()
 
         _ = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .released
+            flags: [.maskCommand]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [],
-            rightCommandPhysicalState: .pressed
+            flags: []
         )
 
         #expect(keyUp == .keyUp())
@@ -124,14 +118,12 @@ struct GlobalHotkeyServiceTests {
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand, .maskAlternate],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand, .maskAlternate]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskAlternate],
-            rightCommandPhysicalState: .released
+            flags: [.maskAlternate]
         )
 
         #expect(keyDown == .keyDown(outputIntent: .translate))
@@ -144,20 +136,17 @@ struct GlobalHotkeyServiceTests {
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let optionDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightOption),
-            flags: [.maskCommand, .maskAlternate],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand, .maskAlternate]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskAlternate],
-            rightCommandPhysicalState: .released
+            flags: [.maskAlternate]
         )
 
         #expect(keyDown == .keyDown())
@@ -171,20 +160,17 @@ struct GlobalHotkeyServiceTests {
         let optionDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightOption),
-            flags: [.maskAlternate],
-            rightCommandPhysicalState: .released
+            flags: [.maskAlternate]
         )
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand, .maskAlternate],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand, .maskAlternate]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskAlternate],
-            rightCommandPhysicalState: .released
+            flags: [.maskAlternate]
         )
 
         #expect(optionDown == nil)
@@ -198,26 +184,22 @@ struct GlobalHotkeyServiceTests {
         let keyDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let optionDown = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightOption),
-            flags: [.maskCommand, .maskAlternate],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand, .maskAlternate]
         )
         let optionUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightOption),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let keyUp = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [],
-            rightCommandPhysicalState: .released
+            flags: []
         )
 
         #expect(keyDown == .keyDown())
@@ -232,134 +214,28 @@ struct GlobalHotkeyServiceTests {
         let leftCommand = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_Command),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .released
+            flags: [.maskCommand]
         )
         let firstRightCommand = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let repeatedRightCommand = mapper.event(
             type: .flagsChanged,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
         let unrelatedKeyDown = mapper.event(
             type: .keyDown,
             keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
+            flags: [.maskCommand]
         )
 
         #expect(leftCommand == nil)
         #expect(firstRightCommand == .keyDown())
         #expect(repeatedRightCommand == nil)
         #expect(unrelatedKeyDown == nil)
-    }
-
-    @Test func rightCommandReleaseWithLeftCommandHeldUsesReconciliation() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        let keyDown = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-        let ambiguousRelease = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .released
-        )
-        let confirmedRelease = mapper.reconcilePhysicalState(.released)
-
-        #expect(keyDown == .keyDown())
-        #expect(ambiguousRelease == nil)
-        #expect(confirmedRelease == .keyUp())
-        #expect(mapper.isRightCommandPressed == false)
-    }
-
-    @Test func rightCommandAmbiguousReleaseRecoversAfterStaleSnapshot() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        _ = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-        let ambiguousRelease = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-
-        #expect(ambiguousRelease == nil)
-        #expect(mapper.reconcilePhysicalState(.released) == nil)
-        #expect(mapper.reconcilePhysicalState(.released) == .keyUp())
-        #expect(mapper.reconcilePhysicalState(.released) == nil)
-    }
-
-    @Test func rightCommandPhysicalReconciliationRequiresTwoReleasedObservations() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        _ = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-
-        let firstReleasedObservation = mapper.reconcilePhysicalState(.released)
-        let secondReleasedObservation = mapper.reconcilePhysicalState(.released)
-        let repeatedReleasedObservation = mapper.reconcilePhysicalState(.released)
-
-        #expect(firstReleasedObservation == nil)
-        #expect(secondReleasedObservation == .keyUp())
-        #expect(repeatedReleasedObservation == nil)
-        #expect(mapper.isRightCommandPressed == false)
-    }
-
-    @Test func rightCommandPhysicalPressResetsReleasedObservationCount() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        _ = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-
-        #expect(mapper.reconcilePhysicalState(.released) == nil)
-        #expect(mapper.reconcilePhysicalState(.pressed) == nil)
-        #expect(mapper.reconcilePhysicalState(.released) == nil)
-        #expect(mapper.reconcilePhysicalState(.released) == .keyUp())
-    }
-
-    @Test func rightCommandPhysicalReconciliationFitsRecoveryDeadline() {
-        let maximumRecoveryDuration = CGEventGlobalHotkeyService.physicalStateReconciliationInterval
-            * Double(RightCommandHotkeyEventMapper.requiredReleasedObservationCount)
-
-        #expect(maximumRecoveryDuration <= 0.4)
-    }
-
-    @Test func listenerStopForcedRightCommandReleaseIsEmittedExactlyOnce() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        _ = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand],
-            rightCommandPhysicalState: .pressed
-        )
-
-        #expect(mapper.releaseIfPressed() == .keyUp())
-        #expect(mapper.releaseIfPressed() == nil)
     }
 
     @Test func holdToRecordStartsOnKeyDownAndStopsOnMatchingKeyUp() {
