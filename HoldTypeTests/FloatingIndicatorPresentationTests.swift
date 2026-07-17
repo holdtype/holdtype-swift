@@ -5,6 +5,7 @@
 //  Created by Codex on 6/21/26.
 //
 
+import AppKit
 import Foundation
 import HoldTypeDomain
 import Testing
@@ -135,6 +136,31 @@ struct FloatingIndicatorPresentationTests {
     }
 
     @MainActor
+    @Test func coordinatorDeliversRealRuntimeStatusChangeExactlyOnce() async {
+        let presenter = FakeFloatingIndicatorPresenter()
+        let controller = DictationSessionController(initialStatus: .recording)
+        let runtime = makeRuntime(controller: controller)
+        let coordinator = FloatingIndicatorCoordinator(
+            dictationRuntime: runtime,
+            appSettingsStore: AppSettingsStore(userDefaults: makeUserDefaults()),
+            presenter: presenter
+        )
+
+        coordinator.start()
+        await yieldSeveralTimes()
+        #expect(presenter.presentations.count == 1)
+        #expect(presenter.lastPresentation?.phase == .recording)
+
+        controller.cancelRecording()
+        await yieldUntil { presenter.presentations.count == 2 }
+
+        #expect(presenter.presentations.count == 2)
+        #expect(presenter.lastPresentation == nil)
+
+        coordinator.stop()
+    }
+
+    @MainActor
     @Test func hostingModelKeepsAnimationIdentityForCountdownUpdates() {
         let model = FloatingIndicatorHostingModel(
             presentation: FloatingIndicatorPresentation(
@@ -207,8 +233,57 @@ struct FloatingIndicatorPresentationTests {
     }
 
     @MainActor
+    @Test func panelControllerRemainsNonActivatingAndInputTransparentAcrossHideShow() throws {
+        let controller = FloatingIndicatorPanelController()
+        defer { controller.hide() }
+        let recording = FloatingIndicatorPresentation(
+            phase: .recording,
+            title: "Recording"
+        )
+
+        controller.update(with: recording)
+
+        let panel = try #require(controller.debugPanel)
+        let panelIdentity = ObjectIdentifier(panel)
+        let hostingViewIdentity = try #require(controller.hostingViewIdentity)
+        let animationIdentity = try #require(controller.debugHostingState?.animationIdentity)
+
+        #expect(panel.styleMask.contains(.borderless))
+        #expect(panel.styleMask.contains(.nonactivatingPanel))
+        #expect(panel.canBecomeKey == false)
+        #expect(panel.canBecomeMain == false)
+        #expect(panel.isKeyWindow == false)
+        #expect(panel.isMainWindow == false)
+        #expect(panel.ignoresMouseEvents)
+        #expect(panel.level == .floating)
+        #expect(panel.isOpaque == false)
+        #expect(panel.backgroundColor == .clear)
+        #expect(panel.collectionBehavior.contains(.canJoinAllSpaces))
+        #expect(panel.collectionBehavior.contains(.fullScreenAuxiliary))
+        #expect(panel.collectionBehavior.contains(.transient))
+        #expect(panel.frame.size == CGSize(width: 72, height: 72))
+
+        controller.hide()
+        controller.update(with: recording)
+
+        #expect(controller.debugPanel.map(ObjectIdentifier.init) == panelIdentity)
+        #expect(controller.hostingViewIdentity == hostingViewIdentity)
+        #expect(controller.debugHostingState?.animationIdentity == animationIdentity + 1)
+        #expect(panel.canBecomeKey == false)
+        #expect(panel.canBecomeMain == false)
+        #expect(panel.isKeyWindow == false)
+        #expect(panel.isMainWindow == false)
+        #expect(panel.ignoresMouseEvents)
+    }
+
+    @MainActor
     private func makeRuntime(initialStatus: DictationStatus) -> DictationRuntime {
         let controller = DictationSessionController(initialStatus: initialStatus)
+        return makeRuntime(controller: controller)
+    }
+
+    @MainActor
+    private func makeRuntime(controller: DictationSessionController) -> DictationRuntime {
         return DictationRuntime(
             controller: controller,
             appSettingsStore: AppSettingsStore(userDefaults: makeUserDefaults()),

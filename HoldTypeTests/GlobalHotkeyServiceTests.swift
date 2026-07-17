@@ -71,9 +71,16 @@ struct GlobalHotkeyServiceTests {
             flags: [],
             rightCommandPhysicalState: .released
         )
+        let repeatedKeyUp = mapper.event(
+            type: .flagsChanged,
+            keyCode: Int64(kVK_RightCommand),
+            flags: [],
+            rightCommandPhysicalState: .released
+        )
 
         #expect(keyDown == .keyDown())
         #expect(keyUp == .keyUp())
+        #expect(repeatedKeyUp == nil)
         #expect(mapper.isRightCommandPressed == false)
     }
 
@@ -341,7 +348,7 @@ struct GlobalHotkeyServiceTests {
         #expect(maximumRecoveryDuration <= 0.4)
     }
 
-    @Test func forcedRightCommandReleaseIsEmittedExactlyOnce() {
+    @Test func listenerStopForcedRightCommandReleaseIsEmittedExactlyOnce() {
         var mapper = RightCommandHotkeyEventMapper()
 
         _ = mapper.event(

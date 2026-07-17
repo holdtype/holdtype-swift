@@ -29,6 +29,9 @@ Completed on 2026-07-17:
 - the indicator panel keeps one hosting view and changes animation identity
   only when it becomes visible again or changes phase;
 - focused hotkey, countdown, coordinator, and panel-host tests pass;
+- a strict acceptance audit additionally proves direct and recovered release
+  exact-once behavior, one real runtime status delivery, stable panel/host
+  identity across hide/show, non-key/non-main behavior, and input transparency;
 - the full macOS test suite, macOS build, and `git diff --check` pass;
 - debug and packaged menu recording both completed live transcription, and the
   recording indicator remained visible with continuous orbit motion for more
@@ -42,8 +45,10 @@ Open gates:
   the CGSession event tap. One physical packaged-app hold/release is still
   required before the real-hotkey runtime gate can pass.
 - This Mac has an Apple Development identity but no Developer ID Application
-  identity or notarization profile. The local preview is intentionally marked
-  non-notarized and non-public, so it cannot replace the public 1.0.4 artifact.
+  identity or notarization profile. GitHub Actions has the required production
+  secret names configured, but the existing release workflow notarizes and
+  publishes in one job. It must not be triggered before the physical hotkey
+  gate passes. The local preview remains non-notarized and non-public.
 
 Detailed evidence is recorded in
 `docs/qa/macos/macos-1.0.4-regression-runtime-2026-07-17.md`.

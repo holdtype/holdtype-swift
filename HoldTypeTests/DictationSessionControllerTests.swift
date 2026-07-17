@@ -3465,6 +3465,7 @@ struct DictationSessionControllerTests {
         ])
 
         controller.cancelRecording()
+        controller.cancelRecording()
 
         #expect(publishedCountdowns == [
             VoiceSessionCountdown(

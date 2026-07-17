@@ -78,8 +78,9 @@ BLOCKED
 ### Blocker
 
 Computer Use cannot generate the required hardware-level Right Command edge.
-The shortest resume action is one physical Right Command hold for 12-15 seconds
-in the currently running packaged app, followed by release.
+The shortest resume action is to remount and launch the existing local preview,
+then perform one physical Right Command hold for 12-15 seconds followed by
+release.
 
 ## Scenario 3: Local Artifact Qualification
 
@@ -93,6 +94,9 @@ in the currently running packaged app, followed by release.
 3. Validated the DMG notarization ticket with `xcrun stapler validate`.
 4. Mounted the DMG read-only and launched its packaged app through
    LaunchServices.
+5. Inspected the GitHub Actions release workflow, configured secret/variable
+   names, and recent run status without reading secret values or triggering a
+   workflow.
 
 ### Expected
 
@@ -115,6 +119,12 @@ in the currently running packaged app, followed by release.
   `public_release: false`; `stapler` confirms that the DMG has no ticket.
 - No Developer ID Application identity or configured notarization profile is
   available on this Mac.
+- GitHub Actions has all production signing, notarization, Sparkle, and update
+  secret names required by `.github/workflows/release.yml` configured. Recent
+  release workflow runs include successful notarized publication runs.
+- The workflow builds, notarizes, and publishes in one job. No run was started
+  for the repaired source because publication is forbidden while the physical
+  packaged-hotkey gate remains open.
 
 ### Result
 
@@ -122,15 +132,27 @@ PASS for local runtime qualification; BLOCKED for public release eligibility.
 
 ### Blocker
 
-Build the final artifact with a Developer ID Application identity and a
-notarization profile, staple the ticket, then repeat the physical hotkey and
-indicator smoke from that packaged artifact.
+After the physical hotkey gate passes, use the configured CI release lane to
+build the final Developer ID artifact, notarize and staple it, then repeat the
+hotkey and indicator smoke from that packaged artifact before treating it as a
+replacement candidate.
 
 ## Evidence
 
 - Runtime log:
   `~/Library/Caches/HoldType/Diagnostics/RuntimeLogs/runtime-20260717.log`.
 - Focused hotkey and indicator/controller test runs passed.
+- `GlobalHotkeyServiceTests/rightCommandMapperEmitsHoldEvents` proves a repeated
+  direct key up is ignored, and
+  `listenerStopForcedRightCommandReleaseIsEmittedExactlyOnce` proves the forced
+  listener-stop release path remains exact-once.
+- `DictationSessionControllerTests/recordingCountdownPublishesOnlyChangedValues`
+  proves unchanged pre-countdown ticks and repeated cleanup do not publish.
+- `FloatingIndicatorPresentationTests/coordinatorDeliversRealRuntimeStatusChangeExactlyOnce`
+  proves a real runtime status transition reaches the presenter once.
+- `FloatingIndicatorPresentationTests/panelControllerRemainsNonActivatingAndInputTransparentAcrossHideShow`
+  proves the same panel and host survive hide/show while remaining borderless,
+  nonactivating, non-key, non-main, and mouse-transparent.
 - Full `xcodebuild -project HoldType.xcodeproj -scheme HoldType -destination
   'platform=macOS' test` passed.
 - Full `xcodebuild -project HoldType.xcodeproj -scheme HoldType -destination
@@ -138,6 +160,24 @@ indicator smoke from that packaged artifact.
 - `git diff --check` passed.
 - No dictated text, raw audio, provider payload, or credential was retained as
   QA evidence.
+
+## Acceptance Audit
+
+| Requirement | Status | Authoritative evidence |
+| --- | --- | --- |
+| Real Right Command starts recording | BLOCKED | No physical packaged-app edge captured |
+| Release stops the same session once | BLOCKED | Deterministic exact-once tests pass; packaged physical release still missing |
+| Stale samples cannot suppress normal edges | PASS | Stale key-down and key-up mapper tests |
+| Lost release recovers within 400 ms once | PASS | Two-sample recovery and deadline tests |
+| Indicator stays visually continuous for 10+ seconds | PASS | Two 31-frame live observations over 12+ seconds |
+| Pre-countdown ticks do not recreate the host | PASS | Countdown dedup plus stable hosting-view identity tests |
+| Final-minute countdown changes remain visible | PASS | 60-to-59 publication and presentation mapping tests |
+| Recording-to-transcribing preserves the host | PASS | Phase identity and panel hosting-view identity tests |
+| Panel remains nonactivating and input-transparent | PASS | Direct AppKit panel lifecycle/configuration test |
+| Manual menu recording remains operational | PASS | Debug and packaged 51+ second live recordings |
+| Focused/full tests, build, and diff hygiene pass | PASS | Final clean `xcodebuild` test/build and `git diff --check` |
+| Packaged artifact is Developer ID signed and notarized | BLOCKED | Local preview is Apple Development signed and non-notarized |
+| No unrelated or iOS changes are included | PASS | Scoped macOS source/test/docs checkpoint paths only |
 
 ## Follow-Up
 

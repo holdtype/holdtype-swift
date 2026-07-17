@@ -29,6 +29,16 @@ final class FloatingIndicatorPanelController: FloatingIndicatorPresenting {
         hostingView.map(ObjectIdentifier.init)
     }
 
+    #if DEBUG
+    var debugPanel: NSPanel? {
+        panel
+    }
+
+    var debugHostingState: FloatingIndicatorHostingModel.State? {
+        hostingModel?.state
+    }
+    #endif
+
     func update(with presentation: FloatingIndicatorPresentation?) {
         guard let presentation else {
             hide()
