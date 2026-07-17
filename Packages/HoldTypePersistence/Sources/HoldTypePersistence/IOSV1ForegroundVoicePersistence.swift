@@ -1221,13 +1221,41 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         -> IOSV1ForegroundVoiceCaptureRecoveryObservation? {
         await acquireOperation()
         defer { releaseOperation() }
+        return await repairInterruptedCaptureUnlocked(
+            reportsAlreadyCompletedCapture: false
+        )
+    }
+
+    /// Repairs a capture after the live owner has proved that its recorder is
+    /// closed and will no longer write. Unlike launch-only recovery, callers
+    /// may use this immediately after an involuntary or internal stop so the
+    /// positive-byte source becomes a provider-free Saved Recording in the
+    /// current process. This method never starts provider work and never
+    /// deletes source bytes.
+    public func repairInterruptedCaptureAfterRecorderStops() async
+        -> IOSV1ForegroundVoiceCaptureRecoveryObservation? {
+        await acquireOperation()
+        defer { releaseOperation() }
+        return await repairInterruptedCaptureUnlocked(
+            reportsAlreadyCompletedCapture: true
+        )
+    }
+
+    private func repairInterruptedCaptureUnlocked(
+        reportsAlreadyCompletedCapture: Bool
+    ) async -> IOSV1ForegroundVoiceCaptureRecoveryObservation? {
         do {
             let snapshot = try await repository.load()
             guard let capture = snapshot.capture else { return nil }
             switch capture.phase {
             case .recording, .finalizing:
                 break
-            case .completed, .discarding:
+            case .completed:
+                guard reportsAlreadyCompletedCapture else { return nil }
+                return availability(for: capture) == .available
+                    ? .recoverable(attemptID: capture.attemptID)
+                    : .blocked
+            case .discarding:
                 return nil
             }
             let handle: IOSV1ForegroundVoiceAudioHandle
@@ -1237,7 +1265,11 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                     relativeIdentifier: capture.audioRelativeIdentifier,
                     expectedByteCount: nil
                 ) else {
-                    return .discardOnly(attemptID: capture.attemptID)
+                    // A missing path does not prove that the canonical source
+                    // is an exact zero-byte recording. Keep the durable claim
+                    // blocked so a handoff preflight cannot turn uncertainty
+                    // into destructive authority.
+                    return .blocked
                 }
                 handle = opened
             } catch IOSV1ForegroundVoicePersistenceError.audioInvalid {
@@ -1300,8 +1332,10 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         }
     }
 
-    /// Classifies only local capture ownership after process loss. It never
-    /// starts provider work or treats an unfinished recorder file as valid.
+    /// Reconciles local capture ownership after process loss. Positive bytes
+    /// from Recording or Finalizing are descriptor-validated and promoted to
+    /// a provider-free Completed capture. Only an opened exact zero-byte
+    /// source is classified Discard-only; uncertainty remains blocked.
     public func reconcileCaptureSourcesAtLaunch() async
         -> IOSV1ForegroundVoiceCaptureRecoveryObservation {
         await acquireOperation()
@@ -1320,7 +1354,9 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 audioFileSystem.close(handle)
                 return .recoverable(attemptID: capture.attemptID)
             case .recording, .finalizing:
-                return .discardOnly(attemptID: capture.attemptID)
+                return await repairInterruptedCaptureUnlocked(
+                    reportsAlreadyCompletedCapture: false
+                ) ?? .empty
             case .discarding:
                 try await discardCaptureUnlocked(capture)
                 return .empty

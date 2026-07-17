@@ -599,11 +599,13 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             pendingAttempt.state = .failed
             pendingAttempt.reason = reason
             pendingAttempt.updatedAt = now()
-            failedAttempts = Array(
-                ([pendingAttempt] + failedAttempts)
-                    .sorted { $0.updatedAt > $1.updatedAt }
-                    .prefix(retentionLimit)
-            )
+            // This path exists because durable recovery ownership could not be
+            // confirmed. Hiding an older unresolved row here would turn a
+            // persistence failure into silent data loss, so keep every
+            // in-memory fallback visible until a later durable mutation can
+            // apply retention only to terminal saved rows.
+            failedAttempts = ([pendingAttempt] + failedAttempts)
+                .sorted { $0.updatedAt > $1.updatedAt }
             return pendingAttempt
         }
 
@@ -623,11 +625,8 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             reason: .recoveryOwnershipPersistenceFailed
         )
         emergencyFallbackAttemptIDs.insert(attempt.id)
-        failedAttempts = Array(
-            ([attempt] + failedAttempts)
-                .sorted { $0.updatedAt > $1.updatedAt }
-                .prefix(retentionLimit)
-        )
+        failedAttempts = ([attempt] + failedAttempts)
+            .sorted { $0.updatedAt > $1.updatedAt }
         return attempt
     }
 
@@ -706,8 +705,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         // Persist first so observers never see a saved row that cannot survive
         // relaunch. The recovery audio remains untouched if this write fails.
         do {
-            try persist(updatedAttempts)
-            failedAttempts = updatedAttempts
+            try replaceAttemptsWithRetained(updatedAttempts)
             emergencyFallbackAttemptIDs.remove(id)
             if repairMarkerWasWritten {
                 try? deleteSavedStateRepairMarker(id: id)
@@ -1034,15 +1032,14 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
     private func replaceAttemptsWithRetained(
         _ attempts: [FailedTranscriptionAttempt]
     ) throws {
-        let newestFirstAttempts = attempts.sorted { lhs, rhs in
-            lhs.updatedAt > rhs.updatedAt
-        }
+        let selection = Self.retentionSelection(
+            attempts,
+            retentionLimit: retentionLimit
+        )
+        try persist(selection.retained)
+        failedAttempts = selection.retained
 
-        let retainedAttempts = Array(newestFirstAttempts.prefix(retentionLimit))
-        try persist(retainedAttempts)
-        failedAttempts = retainedAttempts
-
-        for attempt in newestFirstAttempts.dropFirst(retentionLimit) {
+        for attempt in selection.evicted {
             do {
                 try deleteRecoveryAudio(attempt.audioFileURL)
                 try? deleteSavedStateRepairMarker(id: attempt.id)
@@ -1056,6 +1053,46 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 // while its owned provider audio remains on disk.
             }
         }
+    }
+
+    /// Count-based retention may reclaim only terminal saved recordings.
+    /// Processing, failed, repair-pending, and outcome-uncertain attempts all
+    /// remain unresolved and therefore stay visible until explicit deletion or
+    /// a successful terminal transition. When unresolved rows consume the
+    /// configured budget, terminal saved rows yield first and the total may
+    /// temporarily exceed the budget rather than losing recoverable audio.
+    private static func retentionSelection(
+        _ attempts: [FailedTranscriptionAttempt],
+        retentionLimit: Int
+    ) -> (
+        retained: [FailedTranscriptionAttempt],
+        evicted: [FailedTranscriptionAttempt]
+    ) {
+        let newestFirst = attempts.sorted { lhs, rhs in
+            lhs.updatedAt > rhs.updatedAt
+        }
+        let unresolved = newestFirst.filter { $0.state != .saved }
+        let savedBudget = max(0, retentionLimit - unresolved.count)
+        let retainedSaved = Array(
+            newestFirst.lazy.filter { $0.state == .saved }.prefix(savedBudget)
+        )
+        let retainedPaths = Set(
+            (unresolved + retainedSaved).map {
+                $0.audioFileURL.standardizedFileURL.path
+            }
+        )
+        return (
+            retained: newestFirst.filter {
+                retainedPaths.contains(
+                    $0.audioFileURL.standardizedFileURL.path
+                )
+            },
+            evicted: newestFirst.filter {
+                !retainedPaths.contains(
+                    $0.audioFileURL.standardizedFileURL.path
+                )
+            }
+        )
     }
 
     private func persist(_ attempts: [FailedTranscriptionAttempt]) throws {
@@ -1437,7 +1474,11 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         let newestUniqueAttempts = (restoredRecords + reconstructedAttempts)
             .sorted { lhs, rhs in lhs.updatedAt > rhs.updatedAt }
             .filter { retainedIDs.insert($0.id).inserted }
-        let retainedAttempts = Array(newestUniqueAttempts.prefix(retentionLimit))
+        let retention = retentionSelection(
+            newestUniqueAttempts,
+            retentionLimit: retentionLimit
+        )
+        let retainedAttempts = retention.retained
         if retainedAttempts.count != newestUniqueAttempts.count || records.count != restoredRecords.count {
             requiresPersistence = true
         }

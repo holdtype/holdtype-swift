@@ -131,6 +131,7 @@ enum IOSPendingRecordingHistoryOperation: Equatable, Sendable {
 }
 
 enum IOSPendingRecordingHistoryNotice: Equatable, Sendable {
+    case recordingInterruptedAndSaved
     case playbackFailed
     case retryFailed
     case discardFailed
@@ -138,6 +139,8 @@ enum IOSPendingRecordingHistoryNotice: Equatable, Sendable {
 
     var message: String {
         switch self {
+        case .recordingInterruptedAndSaved:
+            "Recording interrupted — saved to History."
         case .playbackFailed:
             "HoldType couldn't play this saved recording."
         case .retryFailed:
@@ -322,6 +325,8 @@ final class IOSPendingRecordingHistoryStateOwner {
 
     @ObservationIgnored
     private let actions: IOSPendingRecordingHistoryActions
+    @ObservationIgnored
+    private var interruptionRefreshIsPending = false
 
     init(actions: IOSPendingRecordingHistoryActions) {
         self.actions = actions
@@ -340,6 +345,28 @@ final class IOSPendingRecordingHistoryStateOwner {
         let result = await reload(clearNoticeOnSuccess: true)
         complete()
         return result
+    }
+
+    /// Reloads the exact durable recording after an involuntary stop. The
+    /// success notice is published only after the canonical owner confirms a
+    /// locally playable source, so UI never claims that uncertain audio was
+    /// saved. A concurrent History action coalesces the request and performs
+    /// one refresh when that action completes.
+    @discardableResult
+    func refreshAfterInterruption() async -> Bool {
+        guard begin(.refreshing) else {
+            interruptionRefreshIsPending = true
+            return false
+        }
+        let loaded = await reload(clearNoticeOnSuccess: false)
+        let confirmedPlayable = loaded && state.card?.isPlayable == true
+        if confirmedPlayable {
+            notice = .recordingInterruptedAndSaved
+        } else if notice == .recordingInterruptedAndSaved {
+            notice = nil
+        }
+        complete()
+        return confirmedPlayable
     }
 
     func dismissNotice() {
@@ -462,6 +489,11 @@ final class IOSPendingRecordingHistoryStateOwner {
 
     private func complete() {
         operation = .idle
+        guard interruptionRefreshIsPending else { return }
+        interruptionRefreshIsPending = false
+        Task { @MainActor [weak self] in
+            await self?.refreshAfterInterruption()
+        }
     }
 
     static func resolve(

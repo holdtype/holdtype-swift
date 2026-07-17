@@ -1012,7 +1012,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(try await fixture.repository.load().pending == nil)
     }
 
-    @Test func captureRelaunchOffersRecoverOrDiscardWithoutProvider()
+    @Test func captureRelaunchOffersRecoverOrExactZeroDiscardWithoutProvider()
         async throws {
         let recoverable = FacadeFixture()
         let lease = try await recoverable.owner.createCapture(
@@ -1035,21 +1035,42 @@ struct IOSV1ForegroundVoicePersistenceTests {
         )
         #expect(pending.phase == .failed)
 
-        let discardOnly = FacadeFixture()
-        let unfinished = try await discardOnly.owner.createCapture(
+        for beginsFinalizing in [false, true] {
+            let unfinished = FacadeFixture()
+            let unfinishedLease = try await unfinished.owner.createCapture(
+                attemptID: FacadeIDs.attempt,
+                outputIntent: .standard
+            )
+            if beginsFinalizing {
+                try await unfinishedLease.beginFinalizing()
+            }
+            unfinishedLease.release()
+
+            #expect(
+                await unfinished.owner.reconcileCaptureSourcesAtLaunch()
+                    == .recoverable(attemptID: FacadeIDs.attempt)
+            )
+            let snapshot = try await unfinished.repository.load()
+            #expect(snapshot.capture?.phase == .completed)
+            #expect(snapshot.capture?.byteCount == 4)
+            #expect(unfinished.audio.contains(FacadeIDs.attempt))
+        }
+
+        let exactZero = FacadeFixture(audioBytes: [])
+        let zeroLease = try await exactZero.owner.createCapture(
             attemptID: FacadeIDs.attempt,
             outputIntent: .standard
         )
+        zeroLease.release()
         #expect(
-            await discardOnly.owner.reconcileCaptureSourcesAtLaunch()
+            await exactZero.owner.reconcileCaptureSourcesAtLaunch()
                 == .discardOnly(attemptID: FacadeIDs.attempt)
         )
-        try await discardOnly.owner.discardCapture(
+        try await exactZero.owner.discardCapture(
             attemptID: FacadeIDs.attempt
         )
-        #expect(try await discardOnly.repository.load().capture == nil)
-        #expect(!discardOnly.audio.contains(FacadeIDs.attempt))
-        unfinished.release()
+        #expect(try await exactZero.repository.load().capture == nil)
+        #expect(!exactZero.audio.contains(FacadeIDs.attempt))
     }
 
     @Test func processLaunchRepairsValidRecordingAndFinalizingOrphans()
@@ -1073,6 +1094,47 @@ struct IOSV1ForegroundVoicePersistenceTests {
             #expect(snapshot.capture?.byteCount == 4)
             #expect(snapshot.pending == nil)
             #expect(fixture.audio.contains(FacadeIDs.attempt))
+        }
+    }
+
+    @Test func sameProcessRepairPublishesPositiveBytesWithoutProviderWork()
+        async throws {
+        for beginsFinalizing in [false, true] {
+            let fixture = FacadeFixture()
+            let lease = try await fixture.owner.createCapture(
+                attemptID: FacadeIDs.attempt,
+                outputIntent: .standard
+            )
+            if beginsFinalizing { try await lease.beginFinalizing() }
+            // The production caller has the same obligation: release live
+            // recorder ownership before asking persistence to salvage bytes.
+            lease.release()
+
+            #expect(
+                await fixture.owner
+                    .repairInterruptedCaptureAfterRecorderStops()
+                    == .recoverable(attemptID: FacadeIDs.attempt)
+            )
+            let snapshot = try await fixture.repository.load()
+            #expect(snapshot.capture?.phase == .completed)
+            #expect(snapshot.capture?.byteCount == 4)
+            #expect(snapshot.pending == nil)
+            guard case .completedCapture(let saved)? = try await fixture.owner
+                .loadSavedRecording() else {
+                Issue.record("Expected same-process Saved Recording")
+                continue
+            }
+            #expect(saved.attemptID == FacadeIDs.attempt)
+            #expect(saved.availability == .available)
+
+            // Reconciliation is idempotent and still provider-free when live
+            // finalization had already committed the completed phase.
+            #expect(
+                await fixture.owner
+                    .repairInterruptedCaptureAfterRecorderStops()
+                    == .recoverable(attemptID: FacadeIDs.attempt)
+            )
+            #expect(try await fixture.repository.load().pending == nil)
         }
     }
 
@@ -1270,6 +1332,20 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(try await uncertain.repository.load().capture?.phase
             == .recording)
         #expect(uncertain.audio.contains(FacadeIDs.attempt))
+
+        let missing = FacadeFixture()
+        let missingLease = try await missing.owner.createCapture(
+            attemptID: FacadeIDs.attempt,
+            outputIntent: .standard
+        )
+        missingLease.release()
+        missing.audio.store.remove(FacadeIDs.attempt)
+        #expect(
+            await missing.owner.repairOrphanedCaptureAtProcessLaunch()
+                == .blocked
+        )
+        #expect(try await missing.repository.load().capture?.phase
+            == .recording)
     }
 
     @Test func processLaunchRetriesAtomicWriteFailure()

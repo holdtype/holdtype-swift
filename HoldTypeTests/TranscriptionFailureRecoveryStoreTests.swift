@@ -297,7 +297,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(FileManager.default.fileExists(atPath: directoryURL.path))
     }
 
-    @Test func orphanReconstructionAppliesRetentionAfterMetadataIsDurable() throws {
+    @Test func orphanReconstructionNeverEvictsUnresolvedAudioByCount() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
 
@@ -324,10 +324,86 @@ struct TranscriptionFailureRecoveryStoreTests {
             retentionLimit: 2
         )
 
-        #expect(Set(store.failedAttempts.map(\.id)) == Set(ids.suffix(2)))
-        #expect(!FileManager.default.fileExists(atPath: fileURLs[0].path))
+        #expect(Set(store.failedAttempts.map(\.id)) == Set(ids))
+        #expect(FileManager.default.fileExists(atPath: fileURLs[0].path))
         #expect(FileManager.default.fileExists(atPath: fileURLs[1].path))
         #expect(FileManager.default.fileExists(atPath: fileURLs[2].path))
+    }
+
+    @Test func newCheckpointNeverEvictsAnOlderUnresolvedAttempt() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+
+        let firstSourceURL = try makeAudioFile(
+            in: fixture.rootURL,
+            named: "first-unresolved.m4a"
+        )
+        let secondSourceURL = try makeAudioFile(
+            in: fixture.rootURL,
+            named: "second-unresolved.m4a"
+        )
+        var identifiers = [
+            UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!,
+            UUID(uuidString: "42502885-F88B-42C6-84AC-E0C5550843EF")!,
+        ]
+        let store = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL,
+            retentionLimit: 1,
+            uuidProvider: { identifiers.removeFirst() }
+        )
+
+        let first = try store.recordProcessingCheckpoint(
+            audioFileURL: firstSourceURL,
+            settings: .defaults,
+            audioDuration: 10
+        )
+        try store.updateFailedAttempt(id: first.id, reason: .networkFailure)
+        let second = try store.recordProcessingCheckpoint(
+            audioFileURL: secondSourceURL,
+            settings: .defaults,
+            audioDuration: 20
+        )
+
+        #expect(Set(store.failedAttempts.map(\.id)) == [first.id, second.id])
+        #expect(FileManager.default.fileExists(atPath: first.audioFileURL.path))
+        #expect(FileManager.default.fileExists(atPath: second.audioFileURL.path))
+
+        let relaunched = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL,
+            retentionLimit: 1
+        )
+        #expect(Set(relaunched.failedAttempts.map(\.id)) == [first.id, second.id])
+    }
+
+    @Test func emergencyFallbackNeverHidesAnotherUnresolvedAttempt() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
+
+        let sources = try ["first.m4a", "second.m4a"].map {
+            try makeAudioFile(in: fixture.rootURL, named: $0)
+        }
+        var identifiers = [
+            UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!,
+            UUID(uuidString: "42502885-F88B-42C6-84AC-E0C5550843EF")!,
+        ]
+        let store = TranscriptionFailureRecoveryStore(
+            directoryURL: fixture.recoveryURL,
+            retentionLimit: 1,
+            uuidProvider: { identifiers.removeFirst() }
+        )
+
+        let attempts = sources.compactMap {
+            store.retainEmergencyFallback(
+                audioFileURL: $0,
+                settings: .defaults,
+                audioDuration: 10,
+                reason: .other
+            )
+        }
+
+        #expect(attempts.count == 2)
+        #expect(Set(store.failedAttempts.map(\.id)) == Set(attempts.map(\.id)))
+        #expect(sources.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
     }
 
     @Test func removingOneCheckpointDeletesOnlyItsRecoveryCopy() throws {

@@ -290,6 +290,53 @@ struct IOSPendingRecordingHistoryStateOwnerTests {
         #expect(owner.state == .absent)
     }
 
+    @Test func interruptionNoticeRequiresCanonicalPlayableRecovery()
+        async throws {
+        var current: IOSV1SavedRecordingObservation? = .completedCapture(
+            try IOSV1CompletedCaptureRecoveryObservation
+                .qualificationFixture(
+                    byteCount: 4_096,
+                    availability: .available
+                )
+        )
+        let owner = IOSPendingRecordingHistoryStateOwner(
+            actions: IOSPendingRecordingHistoryActions(
+                load: { current }
+            )
+        )
+
+        #expect(await owner.refreshAfterInterruption())
+        #expect(owner.card?.isPlayable == true)
+        #expect(owner.notice == .recordingInterruptedAndSaved)
+        #expect(
+            owner.notice?.message
+                == "Recording interrupted — saved to History."
+        )
+
+        current = .completedCapture(
+            try IOSV1CompletedCaptureRecoveryObservation
+                .qualificationFixture(
+                    byteCount: 4_096,
+                    availability: .temporarilyUnavailable
+                )
+        )
+        #expect(!(await owner.refreshAfterInterruption()))
+        #expect(owner.card?.status == .blocked)
+        #expect(owner.notice == nil)
+    }
+
+    @Test func interruptionLoadFailureNeverClaimsThatAudioWasSaved() async {
+        let owner = IOSPendingRecordingHistoryStateOwner(
+            actions: IOSPendingRecordingHistoryActions(
+                load: { throw PendingRecordingLoadFailure() }
+            )
+        )
+
+        #expect(!(await owner.refreshAfterInterruption()))
+        #expect(owner.state == .loadFailed(lastConfirmed: nil))
+        #expect(owner.notice == nil)
+    }
+
     @Test
     func firstLoadFailureStaysVisibleAndRefreshClosesOnlyAfterConfirmedAbsence()
         async {
