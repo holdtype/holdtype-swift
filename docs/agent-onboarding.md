@@ -28,18 +28,27 @@ For direct-chat work:
 
 1. Read `AGENTS.md`.
 2. Read this file.
-3. Read `SWIFT.md` only before Swift, SwiftUI, AppKit, Xcode project, or test
-   changes.
-4. For behavior changes, read `docs/specs/README.md`, `docs/specs/index.md`,
-   and only the relevant feature spec.
-5. Use `docs/specs/brownfield-discovery.md` only as a current repo map when
+3. For a product feature, behavioral bug, behavioral investigation,
+   product-behavior plan, or potentially behavioral refactor, read
+   `docs/specs/README.md`, `docs/specs/index.md`, and the active relevant specs
+   before opening implementation source.
+4. State the Spec Basis: authoritative paths, expected behavior, invariants,
+   gaps or conflicts, and spec impact. If the contract is missing or
+   conflicting, settle it in the specs before implementation.
+5. Read `SWIFT.md` after the Spec Basis and before Swift, SwiftUI, AppKit,
+   Xcode project, or test changes.
+6. Use `docs/specs/brownfield-discovery.md` only as a current repo map when
    ownership is unclear.
-6. Read `docs/agent-tooling.md` only when choosing Xcode, MCP, runtime QA, or
+7. Read `docs/agent-tooling.md` only when choosing Xcode, MCP, runtime QA, or
    Computer Use tooling. Its `iOS Simulator, Mirroring, And Physical Device QA`
    section is mandatory before any iOS interactive or device qualification.
-7. Implement the requested scope directly without creating backlog files.
-8. Run task-appropriate verification.
-9. Stage and commit only files changed for the current task.
+8. Inspect source, tests, history, and runtime evidence only after the Spec
+   Basis. Use them to establish actual behavior and ownership, not product
+   intent.
+9. Implement the requested scope directly without creating backlog files, but
+   do not cross a planning-only or investigation-only boundary.
+10. Run task-appropriate verification.
+11. Stage and commit only files changed for the current task.
 
 ## Backlog Work
 
@@ -62,7 +71,8 @@ For backlog work:
    stage only those reset task files, create a scoped repair commit, and rerun
    the compact selector before claiming work.
 5. Claim exactly the selected task before reading its body.
-6. Read only the selected task body and task-relevant specs/source files.
+6. Read only the selected task body and task-relevant specs, state the Spec
+   Basis, and only then open task-relevant source files.
 
 ## Current Project Shape
 

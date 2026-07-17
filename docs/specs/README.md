@@ -2,14 +2,44 @@
 
 This directory is the product behavior layer for HoldType Swift.
 
-It captures expected user-visible behavior for complex features before or
-alongside implementation.
+It captures expected user-visible behavior for complex features before
+implementation begins.
 
 Specs are lightweight and product-oriented. They define what the system must do,
 not how it is implemented.
 
 Verification artifacts are separate. They provide evidence but do not replace
 the product contract.
+
+## Authority And Evidence
+
+Active specs selected through `docs/specs/index.md` define intended product
+behavior. Source code, tests, runtime output, screenshots, and Git history are
+evidence of the current implementation. They may reveal a bug, missing
+contract, or obsolete spec, but they do not silently override product intent.
+
+Rows marked historical, legacy, or deferred in the index are evidence only.
+They become authoritative again only through an explicit current spec or index
+change. When active specs overlap, follow explicit `canonical`, `governs`,
+`wins`, or `supersedes` language. If no precedence is settled, update the specs
+or ask for the missing product decision instead of choosing from code.
+
+## Mandatory Spec Basis
+
+Before opening implementation source for a product feature, behavioral bug,
+behavioral investigation, product-behavior plan, or potentially behavioral
+refactor, state a compact Spec Basis containing:
+
+- authoritative spec paths;
+- expected user-visible behavior;
+- invariants and relevant edge cases;
+- gaps, conflicts, or unknowns;
+- whether the spec must change;
+- whether implementation is authorized by the user's request.
+
+For a behavior change, edit the spec before the first implementation edit. The
+spec and code may be committed together, but they must not be designed in the
+opposite order.
 
 ## Project Context
 
@@ -63,15 +93,20 @@ targeted source search to verify current ownership before edits.
 ## How To Use This Directory
 
 1. Read `docs/specs/index.md` to pick the smallest relevant feature spec.
-2. Check whether the feature already has a spec.
-3. If yes, update it before or alongside the code change.
-4. If not, create a new spec using the template.
-5. Keep the spec short and product-level.
-6. Use existing behavior, tests, and documentation as evidence, but write the
-   contract in clear product language.
+2. Read every active spec selected by that index row.
+3. State the Spec Basis before opening implementation source.
+4. If the contract exists but must change, update it before editing code.
+5. If it is missing, create a new spec using the template before implementation.
+6. Keep the spec short and product-level.
+7. Use existing behavior, tests, and documentation as evidence after the Spec
+   Basis, but write the contract in clear product language.
 
 Do not read every feature spec by default. Read only the index and the spec
 that governs the current behavior.
+
+Explicit brownfield discovery is the exception: if no reliable contract exists,
+record that gap first, then inspect source and tests only to draft first-pass
+specs. Do not change implementation during that discovery pass.
 
 ## Scope Rule
 
@@ -112,7 +147,7 @@ docs/specs/
 
 - Specs are contracts, not implementation notes.
 - Specs should be short but precise.
-- Specs should be updated together with behavior changes.
+- Specs should be updated before implementation changes to behavior.
 - Specs should reflect what users experience, not internal structure.
 
 ## Relationship With Other Layers

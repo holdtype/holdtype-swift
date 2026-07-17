@@ -1,7 +1,21 @@
 # Spec Index
 
 Use this file to choose the smallest product spec slice for a task. Read the
-matching feature spec, then verify exact source ownership with `rg --files`.
+matching active feature spec, state the Spec Basis, then verify exact source
+ownership with `rg --files`.
+
+## Authority Rules
+
+- This index is the registry for choosing active product contracts.
+- Rows explicitly marked historical, legacy, or deferred are evidence only and
+  must not define current behavior by themselves.
+- Explicit `canonical`, `governs`, `wins`, or `supersedes` language settles
+  precedence between overlapping active specs.
+- If overlapping active specs conflict without a stated precedence, do not use
+  implementation code to choose a winner. Resolve the contract in the specs or
+  request the missing product decision first.
+- Source hints below are for ownership discovery after the Spec Basis; they are
+  not an alternate product contract.
 
 | Area | Spec | Read When |
 | --- | --- | --- |

@@ -291,11 +291,12 @@ For code work:
 
 1. Read `AGENTS.md`.
 2. Read `docs/agent-onboarding.md`.
-3. Open `HoldType.xcodeproj` from the repository root.
-4. Read `SWIFT.md` before Swift, SwiftUI, AppKit, Xcode project, or test
-   changes.
-5. Read `docs/specs/README.md` and `docs/specs/index.md` before behavior
-   changes.
+3. For product or behavioral work, read `docs/specs/README.md`,
+   `docs/specs/index.md`, and the active relevant specs, then state the Spec
+   Basis before opening implementation source.
+4. Read `SWIFT.md` after the Spec Basis and before Swift, SwiftUI, AppKit,
+   Xcode project, or test changes.
+5. Open `HoldType.xcodeproj` from the repository root.
 
 The current published product focus is the native macOS menu bar app. The
 iPhone app and HoldType Keyboard are source-buildable work in progress and are

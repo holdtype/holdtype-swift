@@ -5,6 +5,42 @@ This file defines workflow rules for agents working in this repository.
 It is not the source of truth for detailed feature behavior. Detailed feature
 behavior must live in `docs/specs/`.
 
+## Mandatory Spec Gate
+
+This gate applies to every product feature, behavioral bug, behavioral
+investigation, product-behavior plan, and refactor that may affect observable
+behavior. It applies before source code is used to decide what the product
+should do.
+
+1. Read `docs/specs/README.md`, `docs/specs/index.md`, and every active spec
+   selected by the index for the task.
+2. Before opening implementation source, state a compact **Spec Basis** in the
+   progress update or plan: authoritative spec paths, expected behavior,
+   invariants, gaps or conflicts, and whether the task requires a spec change.
+3. If the contract is missing or conflicting, create or update the spec first.
+   Ask the user only when settling it requires a material product choice that
+   the request does not answer.
+4. For a behavior change, make the spec edit before the first implementation
+   edit. The spec and implementation may share one checkpoint commit, but their
+   working order is not interchangeable.
+5. Only after the Spec Basis is explicit may the agent inspect implementation
+   source, tests, runtime evidence, or history. Those sources establish current
+   behavior and ownership; they do not override product intent in the specs.
+6. For behavioral diagnosis, derive expected behavior from the specs first,
+   actual behavior from evidence second, and name the discrepancy before
+   proposing or implementing a fix.
+7. Planning-only or investigation-only wording is a hard stop on
+   implementation until the user explicitly authorizes code changes.
+
+Explicit brownfield discovery is the narrow exception to source-after-spec
+ordering. When no reliable spec exists, the agent may inspect code and tests as
+evidence only after recording that gap, and must produce or update first-pass
+specs before implementation begins.
+
+The gate does not require a product spec for formatting, comments, copy-only
+marketing work, documentation-only maintenance, or proven behavior-neutral
+internal cleanup. If behavioral impact is uncertain, the gate applies.
+
 ## Repository Context
 
 `holdtype-swift` is a native macOS menu bar dictation utility. The app records
@@ -43,12 +79,13 @@ Baseline routing:
 1. Always read this `AGENTS.md` before file changes.
 2. Read `docs/agent-onboarding.md` for ordinary direct-chat implementation or
    investigation work.
-3. Read `BACKLOG_DEVELOPMENT.md` only for explicit backlog work, scheduled
+3. For every task covered by the Mandatory Spec Gate, read
+   `docs/specs/README.md`, `docs/specs/index.md`, and the active task specs,
+   then state the Spec Basis before opening implementation source.
+4. Read `BACKLOG_DEVELOPMENT.md` only for explicit backlog work, scheduled
    backlog automation, backlog scripts/runbooks, or backlog file maintenance.
-4. Read `SWIFT.md` only before Swift, SwiftUI, AppKit, Xcode project, or test
-   changes.
-5. Read `docs/specs/README.md` and `docs/specs/index.md` before product
-   behavior changes, then read only the relevant feature spec.
+5. Read `SWIFT.md` after the Spec Basis and before Swift, SwiftUI, AppKit,
+   Xcode project, or test changes.
 6. Read `docs/specs/brownfield-discovery.md` when the current source ownership
    is unclear or the task needs a repo map.
 7. Read `docs/openwhispr_swiftui_codex_tz.md` only when a behavior is still
@@ -203,15 +240,6 @@ updating any relevant plan/task status, running the appropriate verification,
 staging only their own changes, and creating a scoped checkpoint commit before
 reporting completion or handing work to the next run.
 
-## Spec-First Rule
-
-Before implementing any non-trivial feature:
-
-1. Clarify the product goal.
-2. Create or update a spec under `docs/specs/`.
-3. Confirm user-visible behavior, invariants, and edge cases.
-4. Only then begin implementation.
-
 ## When A Spec Is Required
 
 Create or update a spec when a task:
@@ -244,8 +272,9 @@ Do not merge these layers into one file.
 
 ## Swift Implementation Rule
 
-Implement against the spec, not against ad hoc chat memory. If behavior changes,
-update the spec in the same task.
+Implement against the Spec Basis, not against ad hoc chat memory or behavior
+inferred from source. If behavior changes, update the spec before the first
+implementation edit.
 
 For Swift or Apple-platform code, specs must settle user-visible behavior before
 implementation details such as SwiftUI/AppKit/UIKit structure, speech framework
