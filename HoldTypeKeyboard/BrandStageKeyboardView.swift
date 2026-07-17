@@ -3,6 +3,7 @@ import UIKit
 struct BrandStageKeyboardPresentation: Equatable {
     let status: KeyboardVoiceStatus
     let voiceStage: KeyboardVoiceStagePresentation
+    let listeningCountdownSeconds: Int?
     let automaticVoiceAction: KeyboardVoiceAction
     let latestIsEnabled: Bool
     let returnKey: KeyboardReturnKeyPresentation
@@ -54,6 +55,7 @@ final class BrandStageKeyboardView: UIView {
     private let microphoneView = UIButton(type: .system)
     private let voiceWaveformView = KeyboardVoiceWaveformView()
     private let voiceActivityIndicator = KeyboardVoiceActivityIndicatorView()
+    private let listeningCountdownLabel = UILabel()
     private var microphoneWidthConstraint: NSLayoutConstraint?
     private var microphoneHeightConstraint: NSLayoutConstraint?
     private var stageMinimumHeightConstraint: NSLayoutConstraint?
@@ -120,7 +122,10 @@ final class BrandStageKeyboardView: UIView {
         renderedVoiceStage = presentation.voiceStage
         renderedAutomaticVoiceAction = presentation.automaticVoiceAction
         latestButton.isEnabled = presentation.latestIsEnabled
-        renderVoiceStage(presentation.voiceStage)
+        renderVoiceStage(
+            presentation.voiceStage,
+            listeningCountdownSeconds: presentation.listeningCountdownSeconds
+        )
         updateInputModeSwitchKeyVisibility(
             presentation.showsInputModeSwitchKey
         )
@@ -142,7 +147,8 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func renderVoiceStage(
-        _ presentation: KeyboardVoiceStagePresentation
+        _ presentation: KeyboardVoiceStagePresentation,
+        listeningCountdownSeconds: Int?
     ) {
         microphoneView.isEnabled = false
         microphoneView.accessibilityValue = nil
@@ -163,7 +169,12 @@ final class BrandStageKeyboardView: UIView {
             voiceWaveformView.render(.listening)
             voiceActivityIndicator.render(.listening)
             microphoneView.accessibilityLabel = "Finish keyboard dictation"
-            microphoneView.accessibilityValue = "Listening"
+            if let listeningCountdownSeconds {
+                microphoneView.accessibilityValue =
+                    "Listening, \(listeningCountdownSeconds) seconds remaining"
+            } else {
+                microphoneView.accessibilityValue = "Listening"
+            }
         case .starting:
             voiceWaveformView.render(.starting)
             voiceActivityIndicator.render(.ready)
@@ -175,6 +186,28 @@ final class BrandStageKeyboardView: UIView {
             microphoneView.accessibilityLabel = "Processing keyboard dictation"
             microphoneView.accessibilityValue = "Recognizing"
         }
+        renderListeningCountdown(
+            presentation == .listening ? listeningCountdownSeconds : nil
+        )
+    }
+
+    private func renderListeningCountdown(_ remainingSeconds: Int?) {
+        guard let remainingSeconds, (1...60).contains(remainingSeconds) else {
+            listeningCountdownLabel.isHidden = true
+            listeningCountdownLabel.text = nil
+            listeningCountdownLabel.accessibilityValue = nil
+            return
+        }
+
+        listeningCountdownLabel.isHidden = false
+        listeningCountdownLabel.text = "\(remainingSeconds)"
+        listeningCountdownLabel.accessibilityValue =
+            "\(remainingSeconds) seconds remaining"
+        let accent: UIColor = remainingSeconds <= 10 ? .systemRed : .systemOrange
+        listeningCountdownLabel.textColor = accent
+        listeningCountdownLabel.backgroundColor = accent.withAlphaComponent(
+            traitCollection.userInterfaceStyle == .dark ? 0.24 : 0.13
+        )
     }
 
     private func updateWorkspaceVisibility() {
@@ -595,6 +628,7 @@ final class BrandStageKeyboardView: UIView {
         voiceStage.addSubview(voiceWaveformView)
         voiceStage.addSubview(microphoneView)
         microphoneView.addSubview(voiceActivityIndicator)
+        microphoneView.addSubview(listeningCountdownLabel)
 
         microphoneView.layer.masksToBounds = false
         microphoneView.isUserInteractionEnabled = true
@@ -605,6 +639,21 @@ final class BrandStageKeyboardView: UIView {
             "keyboard.brand-stage.voice-waveform"
         voiceActivityIndicator.accessibilityIdentifier =
             "keyboard.brand-stage.voice-indicator"
+        listeningCountdownLabel.translatesAutoresizingMaskIntoConstraints =
+            false
+        listeningCountdownLabel.isHidden = true
+        listeningCountdownLabel.isUserInteractionEnabled = false
+        listeningCountdownLabel.isAccessibilityElement = false
+        listeningCountdownLabel.accessibilityIdentifier =
+            "keyboard.brand-stage.listening-countdown"
+        listeningCountdownLabel.font = UIFont.monospacedDigitSystemFont(
+            ofSize: 17,
+            weight: .semibold
+        )
+        listeningCountdownLabel.textAlignment = .center
+        listeningCountdownLabel.layer.cornerRadius = 12
+        listeningCountdownLabel.layer.cornerCurve = .continuous
+        listeningCountdownLabel.layer.masksToBounds = true
         let microphoneWidth = microphoneView.widthAnchor.constraint(
             equalToConstant: 128
         )
@@ -645,6 +694,19 @@ final class BrandStageKeyboardView: UIView {
             ),
             voiceActivityIndicator.bottomAnchor.constraint(
                 equalTo: microphoneView.bottomAnchor
+            ),
+            listeningCountdownLabel.centerXAnchor.constraint(
+                equalTo: microphoneView.centerXAnchor
+            ),
+            listeningCountdownLabel.bottomAnchor.constraint(
+                equalTo: microphoneView.bottomAnchor,
+                constant: -6
+            ),
+            listeningCountdownLabel.widthAnchor.constraint(
+                greaterThanOrEqualToConstant: 42
+            ),
+            listeningCountdownLabel.heightAnchor.constraint(
+                equalToConstant: 24
             ),
         ])
 
@@ -1065,6 +1127,10 @@ final class BrandStageKeyboardView: UIView {
         updateKeyAppearance(in: self)
         updateQuickInsertButtonPresentation()
         updateAutoButtonPresentation()
+        if let remainingSeconds = listeningCountdownLabel.text.flatMap(Int.init),
+           !listeningCountdownLabel.isHidden {
+            renderListeningCountdown(remainingSeconds)
+        }
         setNeedsDisplay()
     }
 

@@ -330,7 +330,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             clearTranscriptHistoryOverride()
         } else {
             TranscriptRecoveryHistoryStore.shared.clear()
-            TranscriptionFailureRecoveryStore.shared.clear()
         }
 
         if let stopRuntimeComponentsOverride {

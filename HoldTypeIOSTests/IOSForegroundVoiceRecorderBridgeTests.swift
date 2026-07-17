@@ -65,7 +65,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             IOSVoiceRecorderCompletedCapture(
                 durationMilliseconds: 1_000,
                 byteCount: 2_000,
-                preparePending: { _, _ in
+                preparePending: { _, _, _ in
                     prepareCount += 1
                     return pending
                 },
@@ -131,7 +131,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
             makeDriver: { _, _, _, _ in driver },
-            preparePending: { handoff, configuration in
+            preparePending: { handoff, configuration, retention in
                 try await handoff.preparePending(
                     using: IOSV1ForegroundVoicePersistenceOwner(
                         applicationSupportDirectoryURL: URL(
@@ -139,7 +139,8 @@ struct IOSForegroundVoiceRecorderBridgeTests {
                             isDirectory: true
                         )
                     ),
-                    transcriptionConfiguration: configuration
+                    transcriptionConfiguration: configuration,
+                    acceptedAudioRetention: retention
                 )
             }
         )
@@ -171,7 +172,9 @@ struct IOSForegroundVoiceRecorderBridgeTests {
             IOSVoiceRecorderCompletedCapture(
                 durationMilliseconds: 1_000,
                 byteCount: 2_000,
-                preparePending: { _, _ in throw RecorderBridgeError.failed },
+                preparePending: { _, _, _ in
+                    throw RecorderBridgeError.failed
+                },
                 release: { releaseCount += 1 }
             )
         )
@@ -302,7 +305,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
         )
         let bridge = IOSForegroundVoiceRecorderBridge(
             makeDriver: { _, _, _, _ in driver },
-            preparePending: { _, _ in throw RecorderBridgeError.failed },
+            preparePending: { _, _, _ in throw RecorderBridgeError.failed },
             feedback: feedback
         )
         let recording = try await bridge.makeRecording(
@@ -430,7 +433,7 @@ private final class RecorderBridgeFixture {
                 createdOutputIntent = outputIntent
                 return driver
             },
-            preparePending: { handoff, configuration in
+            preparePending: { handoff, configuration, retention in
                 try await handoff.preparePending(
                     using: IOSV1ForegroundVoicePersistenceOwner(
                         applicationSupportDirectoryURL: URL(
@@ -438,7 +441,8 @@ private final class RecorderBridgeFixture {
                             isDirectory: true
                         )
                     ),
-                    transcriptionConfiguration: configuration
+                    transcriptionConfiguration: configuration,
+                    acceptedAudioRetention: retention
                 )
             },
             feedback: feedback

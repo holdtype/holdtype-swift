@@ -128,7 +128,7 @@ nonisolated enum IOSAudioSessionAdapterError: Error, Equatable, Sendable {
 
 nonisolated enum IOSAudioSessionDiagnostic: String, Equatable, Sendable {
     case categoryConfigured = "audio category configured"
-    case hapticsDisabled = "recording haptics disabled"
+    case recordingHapticsEnabled = "recording haptics enabled"
     case sessionActivated = "audio session activated"
     case sessionDeactivated = "audio session deactivated"
     case observationInstalled = "audio observation installed"
@@ -238,8 +238,8 @@ final class IOSAudioSessionAdapter {
         }
 
         do {
-            try system.setAllowsHapticsAndSystemSoundsDuringRecording(false)
-            diagnose(.hapticsDisabled)
+            try system.setAllowsHapticsAndSystemSoundsDuringRecording(true)
+            diagnose(.recordingHapticsEnabled)
         } catch {
             diagnose(.operationFailed)
             throw IOSAudioSessionAdapterError.hapticsConfigurationFailed

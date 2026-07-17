@@ -75,6 +75,8 @@ nonisolated enum IOSVoiceRecorderDiagnostic: String, Equatable, Sendable {
     case sourcePreserved = "voice capture source preserved"
     case sourceDiscarded = "voice capture source discarded"
     case sourceCompleted = "voice capture source completed"
+    case recorderReportedUnsuccessfulFinish =
+        "voice recorder reported unsuccessful finish"
     case staleCallbackIgnored = "stale recorder callback ignored"
     case operationFailed = "voice recorder operation failed"
 }
@@ -83,7 +85,8 @@ nonisolated enum IOSVoiceRecorderDiagnostic: String, Equatable, Sendable {
 final class IOSVoiceRecorderCompletedCaptureHandoff {
     typealias PreparePending = @MainActor @Sendable (
         IOSV1ForegroundVoicePersistenceOwner,
-        TranscriptionConfiguration
+        TranscriptionConfiguration,
+        IOSAcceptedAudioRetention
     ) async throws -> IOSV1PendingRecording
 
     private enum State {
@@ -108,7 +111,9 @@ final class IOSVoiceRecorderCompletedCaptureHandoff {
 
     func preparePending(
         using owner: IOSV1ForegroundVoicePersistenceOwner,
-        transcriptionConfiguration: TranscriptionConfiguration
+        transcriptionConfiguration: TranscriptionConfiguration,
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy
     ) async throws -> IOSV1PendingRecording {
         guard case .available = state else {
             throw IOSVoiceRecorderCompletedCaptureHandoffError.unavailable
@@ -117,7 +122,8 @@ final class IOSVoiceRecorderCompletedCaptureHandoff {
         do {
             let recording = try await preparePendingAction(
                 owner,
-                transcriptionConfiguration
+                transcriptionConfiguration,
+                acceptedAudioRetention
             )
             state = .transferred
             releaseOnce()
@@ -165,7 +171,7 @@ final class IOSVoiceRecorderCompletedCapture {
         byteCount: Int64,
         preparePending: @escaping
             IOSVoiceRecorderCompletedCaptureHandoff.PreparePending = {
-                _, _ in
+                _, _, _ in
                 throw IOSVoiceRecorderCompletedCaptureHandoffError
                     .unavailable
             },
@@ -183,10 +189,11 @@ final class IOSVoiceRecorderCompletedCapture {
         self.init(
             durationMilliseconds: capture.durationMilliseconds,
             byteCount: capture.byteCount,
-            preparePending: { owner, configuration in
+            preparePending: { owner, configuration, retention in
                 try await owner.prepareCompletedCapture(
                     capture,
-                    transcriptionConfiguration: configuration
+                    transcriptionConfiguration: configuration,
+                    acceptedAudioRetention: retention
                 )
             },
             release: { capture.release() }
@@ -353,16 +360,22 @@ nonisolated struct IOSVoiceRecorderClient: Sendable {
         @escaping EventHandler
     ) throws -> any IOSVoiceAudioRecorder
     typealias Sleep = @MainActor @Sendable (Duration) async throws -> Void
+    typealias MonotonicNow = @MainActor @Sendable () -> TimeInterval
 
     let makeRecorder: MakeRecorder
     let sleep: Sleep
+    let monotonicNow: MonotonicNow
 
     init(
         makeRecorder: @escaping MakeRecorder,
-        sleep: @escaping Sleep
+        sleep: @escaping Sleep,
+        monotonicNow: @escaping MonotonicNow = {
+            ProcessInfo.processInfo.systemUptime
+        }
     ) {
         self.makeRecorder = makeRecorder
         self.sleep = sleep
+        self.monotonicNow = monotonicNow
     }
 
     nonisolated static let live = Self(
@@ -375,6 +388,9 @@ nonisolated struct IOSVoiceRecorderClient: Sendable {
         },
         sleep: { duration in
             try await ContinuousClock().sleep(for: duration)
+        },
+        monotonicNow: {
+            ProcessInfo.processInfo.systemUptime
         }
     )
 }
@@ -386,7 +402,9 @@ protocol IOSVoiceRecorderCaptureSourceSystem: AnyObject {
     ) throws
     func revalidateRecorderCheckpoint() async throws
     func beginFinalizing() async throws
-    func completeAfterRecorderClose() async throws
+    func completeAfterRecorderClose(
+        fallbackDurationMilliseconds: Int64?
+    ) async throws
         -> IOSVoiceRecorderCaptureFinalization
     func beginDiscardingBeforeRecorderStop() async throws
     func finishDiscardAfterRecorderStop() async throws
@@ -440,6 +458,8 @@ final class IOSVoiceRecorderAdapter {
             CheckedContinuation<IOSVoiceRecorderStopResult, Never>
         ] = []
         var maximumDurationTask: Task<Void, Never>?
+        var recordingStartedAt: TimeInterval?
+        var finalizedElapsedMilliseconds: Int64?
         private var recorderWasStopped = false
         private var sourceWasReleased = false
 
@@ -745,6 +765,7 @@ final class IOSVoiceRecorderAdapter {
             )
         }
 
+        attempt.recordingStartedAt = client.monotonicNow()
         let didRecord = recorder.record(
             forDuration: Self.recorderSafetyDuration
         )
@@ -1006,6 +1027,9 @@ final class IOSVoiceRecorderAdapter {
         phase = .stopping
         attempt.maximumDurationTask?.cancel()
         attempt.maximumDurationTask = nil
+        attempt.finalizedElapsedMilliseconds = elapsedMilliseconds(
+            for: attempt
+        )
         attempt.terminalCause = terminalCause(for: reason)
         let task = Task { @MainActor [self, attempt] in
             let result = await executeStop(attempt, reason: reason)
@@ -1021,17 +1045,21 @@ final class IOSVoiceRecorderAdapter {
         reason: InternalStopReason
     ) async -> IOSVoiceRecorderStopResult {
         switch reason {
-        case .done, .interrupted:
+        case .done, .interrupted, .maximumDuration:
             return await finalizeCompletedAttempt(attempt)
         case .preserveFailure(let failure):
             stopRecorder(attempt)
             preserveSource(attempt)
             return .preserved(failure)
         case .recorderEnded:
-            stopRecorder(attempt)
-            preserveSource(attempt)
-            return .preserved(.recorderEndedUnexpectedly)
-        case .cancelled, .maximumDuration, .discardFailure:
+            // A recorder/encoder callback can arrive after useful audio was
+            // already written. Close and validate that exact source while the
+            // live lease still owns it so a valid partial becomes completed
+            // local recovery. The terminal cause remains unexpected, which
+            // prevents the workflow from treating this as Done or dispatching
+            // provider work automatically.
+            return await finalizeCompletedAttempt(attempt)
+        case .cancelled, .discardFailure:
             return await discardAttempt(attempt, reason: reason)
         }
     }
@@ -1051,7 +1079,10 @@ final class IOSVoiceRecorderAdapter {
         stopRecorder(attempt)
         do {
             let finalization = try await captureSource
-                .completeAfterRecorderClose()
+                .completeAfterRecorderClose(
+                    fallbackDurationMilliseconds:
+                        attempt.finalizedElapsedMilliseconds
+                )
             switch finalization {
             case let .completed(completed):
                 diagnose(.sourceCompleted)
@@ -1191,12 +1222,46 @@ final class IOSVoiceRecorderAdapter {
                 attempt.pendingStopReason = .recorderEnded
             }
         case .recording:
-            _ = claimStopAuthority(attempt, reason: .recorderEnded)
+            _ = claimStopAuthority(
+                attempt,
+                reason: stopReason(for: event, attempt: attempt)
+            )
         case .stopping:
             break
         case .idle:
             diagnose(.staleCallbackIgnored)
         }
+    }
+
+    private func stopReason(
+        for event: IOSVoiceRecorderEvent,
+        attempt: Attempt
+    ) -> InternalStopReason {
+        if case .finished(successfully: false) = event {
+            diagnose(.recorderReportedUnsuccessfulFinish)
+        }
+        guard let startedAt = attempt.recordingStartedAt,
+              startedAt.isFinite else {
+            return .recorderEnded
+        }
+        let now = client.monotonicNow()
+        guard now.isFinite,
+              now >= startedAt,
+              now - startedAt >= Self.maximumDuration else {
+            return .recorderEnded
+        }
+        return .maximumDuration
+    }
+
+    private func elapsedMilliseconds(for attempt: Attempt) -> Int64? {
+        guard let startedAt = attempt.recordingStartedAt,
+              startedAt.isFinite else { return nil }
+        let stoppedAt = client.monotonicNow()
+        guard stoppedAt.isFinite, stoppedAt >= startedAt else { return nil }
+        let milliseconds = (stoppedAt - startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds >= 0,
+              milliseconds <= Double(Int64.max) else { return nil }
+        return Int64(milliseconds.rounded(.toNearestOrAwayFromZero))
     }
 
     private func scheduleMaximumDuration(for attempt: Attempt) {
@@ -1252,9 +1317,13 @@ private final class IOSVoiceRecorderCaptureSourceLeaseSystem:
         try await lease.beginFinalizing()
     }
 
-    func completeAfterRecorderClose() async throws
+    func completeAfterRecorderClose(
+        fallbackDurationMilliseconds: Int64?
+    ) async throws
         -> IOSVoiceRecorderCaptureFinalization {
-        switch try await lease.completeAfterRecorderClose() {
+        switch try await lease.completeAfterRecorderClose(
+            fallbackDurationMilliseconds: fallbackDurationMilliseconds
+        ) {
         case let .completed(capture):
             return .completed(IOSVoiceRecorderCompletedCapture(capture: capture))
         case let .discarded(reason):

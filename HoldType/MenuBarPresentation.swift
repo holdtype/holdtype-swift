@@ -50,13 +50,15 @@ struct MenuBarPresentation: Equatable {
     init(
         dictationStatus: DictationStatus,
         failurePresentation: DictationFailurePresentation? = nil,
+        recordingCountdown: VoiceSessionCountdown? = nil,
         settings: AppSettings = .defaults,
         isLastResultPasteAvailable: Bool = false
     ) {
         appTitle = HoldTypeMenuBarIdentity.title
         statusText = Self.statusText(
             for: dictationStatus,
-            failurePresentation: failurePresentation
+            failurePresentation: failurePresentation,
+            recordingCountdown: recordingCountdown
         )
         recordingActionTitle = dictationStatus.recordingActionTitle
         recordingActionShortcutHint = dictationStatus.recordingActionShortcutHint
@@ -75,8 +77,14 @@ struct MenuBarPresentation: Equatable {
 
     private static func statusText(
         for dictationStatus: DictationStatus,
-        failurePresentation: DictationFailurePresentation?
+        failurePresentation: DictationFailurePresentation?,
+        recordingCountdown: VoiceSessionCountdown?
     ) -> String {
+        if dictationStatus.voiceWorkPhase == .listening,
+           let recordingCountdown {
+            return "Recording — \(recordingCountdown.remainingWholeSeconds)s remaining"
+        }
+
         guard case .failure = dictationStatus,
               let failurePresentation else {
             return dictationStatus.menuStatusText

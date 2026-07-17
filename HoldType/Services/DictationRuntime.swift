@@ -18,6 +18,7 @@ final class DictationRuntime: ObservableObject {
     @Published private(set) var lastTranscriptText: String?
     @Published private(set) var outputStatusText: String?
     @Published private(set) var failurePresentation: DictationFailurePresentation?
+    @Published private(set) var recordingCountdown: VoiceSessionCountdown?
     @Published private(set) var hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
     @Published private(set) var appSettings: AppSettings
     @Published private(set) var isLastResultPasteAvailable: Bool
@@ -66,6 +67,7 @@ final class DictationRuntime: ObservableObject {
         self.lastTranscriptText = resolvedController.lastTranscriptText
         self.outputStatusText = resolvedController.outputStatusText
         self.failurePresentation = resolvedController.failurePresentation
+        self.recordingCountdown = resolvedController.recordingCountdown
         self.appSettings = resolvedAppSettingsStore.load()
         self.isLastResultPasteAvailable = false
 
@@ -83,6 +85,9 @@ final class DictationRuntime: ObservableObject {
         }
         resolvedController.failurePresentationDidChange = { [weak self] failurePresentation in
             self?.failurePresentation = failurePresentation
+        }
+        resolvedController.recordingCountdownDidChange = { [weak self] countdown in
+            self?.recordingCountdown = countdown
         }
 
         settingsObserver = NotificationCenter.default.addObserver(
@@ -207,6 +212,15 @@ final class DictationRuntime: ObservableObject {
         id: FailedTranscriptionAttempt.ID,
         outputMode: FailedTranscriptionRetryOutputMode = .saveOnly
     ) async {
+        // A live microphone capture owns the recorder. Provider work may
+        // already be in flight, but the controller serializes and queues a
+        // saved-recording retry behind that work.
+        guard status.voiceWorkPhase != .listening else {
+            outputStatusText =
+                DictationSessionController.savedRecordingActionsUnavailableMessage
+            return
+        }
+
         do {
             let credential = try credentialResolver.resolveOpenAICredential()
             await controller.retryFailedTranscription(
@@ -266,6 +280,7 @@ final class DictationRuntime: ObservableObject {
         lastTranscriptText = controller.lastTranscriptText
         outputStatusText = controller.outputStatusText
         failurePresentation = controller.failurePresentation
+        recordingCountdown = controller.recordingCountdown
     }
 
     private static func userFacingMessage(for error: Error) -> String {

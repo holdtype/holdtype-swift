@@ -4,6 +4,7 @@ enum IOSKeyboardHandoffSheetPhase: Equatable, Sendable {
     case starting
     case listening
     case processing
+    case savedRecording
     case blocked
 }
 
@@ -29,6 +30,8 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "HoldType is listening"
         case .processing:
             "Processing dictation…"
+        case .savedRecording:
+            "Recording Saved"
         case .blocked:
             issue?.title ?? "Keyboard dictation is unavailable"
         }
@@ -42,6 +45,8 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "Return to the app where you were typing."
         case .processing:
             "HoldType is preparing the result for the keyboard."
+        case .savedRecording:
+            "Your audio is safe on this device."
         case .blocked:
             issue?.detail ?? "Close this sheet and try again."
         }
@@ -57,7 +62,7 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             "This gesture is ready as soon as HoldType starts listening."
         case .listening:
             "Recording will continue after you return."
-        case .processing, .blocked:
+        case .processing, .savedRecording, .blocked:
             ""
         }
     }
@@ -70,7 +75,7 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
             .listening
         case .processing:
             .recognizing
-        case .blocked:
+        case .savedRecording, .blocked:
             nil
         }
     }
@@ -91,6 +96,60 @@ struct IOSKeyboardHandoffSheetPresentation: Equatable, Sendable {
     }
 }
 
+struct IOSKeyboardHandoffSavedRecordingContent: Equatable, Sendable {
+    let title: String
+    let detail: String
+    let durationText: String?
+    let showsPlay: Bool
+    let primaryActionTitle: String?
+    let allowsDelete: Bool
+
+    init(card: IOSPendingRecordingHistoryCard) {
+        durationText = card.durationText
+        showsPlay = card.isPlayable
+        primaryActionTitle = switch card.primaryAction {
+        case .transcribe:
+            "Transcribe"
+        case .retry:
+            "Retry"
+        case nil:
+            nil
+        }
+        allowsDelete = !card.status.isProcessing
+
+        switch card.status {
+        case .ready:
+            title = "Ready to Transcribe"
+            detail = "Your audio is safe on this device and ready to transcribe."
+        case .processing(.transcribing):
+            title = "Transcribing Saved Recording"
+            detail = "Your audio stays saved until transcription finishes."
+        case .processing(.postProcessing):
+            title = "Finishing Saved Recording"
+            detail = "Your audio stays saved while HoldType prepares the text."
+        case .processing(.savingResult):
+            title = "Saving Dictation Result"
+            detail = "Your audio stays saved until the result is secure."
+        case .failed:
+            title = "Recording Saved"
+            detail = "Transcription didn’t finish. Your audio is still saved."
+        case .blocked:
+            title = "Recording Saved"
+            detail = switch card.blockedReason {
+            case .providerResultUnrecoverable:
+                "HoldType couldn't safely recover the processing result. "
+                    + "You can play or delete the saved audio."
+            case .durationLimitExceeded:
+                "This recording exceeds the five-minute transcription limit. "
+                    + "You can play or delete the saved audio."
+            case .audioUnavailable, nil:
+                "Your audio is preserved, but it isn't currently available "
+                    + "for transcription."
+            }
+        }
+    }
+}
+
 enum IOSKeyboardHandoffMotionPolicy {
     static func animatesReturnCue(
         isActive: Bool,
@@ -102,7 +161,24 @@ enum IOSKeyboardHandoffMotionPolicy {
 
 struct IOSKeyboardHandoffSheet: View {
     let presentation: IOSKeyboardHandoffSheetPresentation
+    let pendingRecordingOwner: IOSPendingRecordingHistoryStateOwner?
     let cancel: () -> Void
+    let savedRecordingResolved: () -> Void
+
+    @State private var pendingDiscardToken:
+        IOSPendingRecordingHistorySnapshotToken?
+
+    init(
+        presentation: IOSKeyboardHandoffSheetPresentation,
+        pendingRecordingOwner: IOSPendingRecordingHistoryStateOwner? = nil,
+        cancel: @escaping () -> Void,
+        savedRecordingResolved: @escaping () -> Void = {}
+    ) {
+        self.presentation = presentation
+        self.pendingRecordingOwner = pendingRecordingOwner
+        self.cancel = cancel
+        self.savedRecordingResolved = savedRecordingResolved
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -114,17 +190,21 @@ struct IOSKeyboardHandoffSheet: View {
                         activityVisual
 
                         VStack(spacing: 8) {
-                            Text(presentation.title)
+                            Text(displayTitle)
                                 .font(.title2.weight(.semibold))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
 
-                            Text(presentation.detail)
+                            Text(displayDetail)
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         .accessibilityElement(children: .combine)
+
+                        if presentation.phase == .savedRecording {
+                            savedRecordingControls
+                        }
                     }
                     .frame(maxWidth: 520)
                     .padding(.horizontal, 24)
@@ -151,11 +231,244 @@ struct IOSKeyboardHandoffSheet: View {
         .interactiveDismissDisabled()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ios.keyboard-handoff.sheet")
+        .task(id: presentation.phase) {
+            guard presentation.phase == .savedRecording,
+                  let pendingRecordingOwner else {
+                return
+            }
+            let confirmed = await pendingRecordingOwner.refresh()
+            if confirmed {
+                finishSavedRecordingPresentationIfResolved()
+            }
+        }
+        .task(id: savedRecordingPollingToken) {
+            guard presentation.phase == .savedRecording,
+                  let pendingRecordingOwner,
+                  pendingRecordingOwner.card?.status.isProcessing == true else {
+                return
+            }
+            while !Task.isCancelled,
+                  pendingRecordingOwner.card?.status.isProcessing == true {
+                do {
+                    try await Task.sleep(for: .milliseconds(500))
+                } catch {
+                    return
+                }
+                _ = await pendingRecordingOwner.refresh()
+            }
+            finishSavedRecordingPresentationIfResolved()
+        }
+        .onDisappear {
+            guard presentation.phase == .savedRecording,
+                  let pendingRecordingOwner else {
+                return
+            }
+            Task { await pendingRecordingOwner.stopPlayback() }
+        }
+        .confirmationDialog(
+            "Delete Saved Recording?",
+            isPresented: Binding(
+                get: { pendingDiscardToken != nil },
+                set: { if !$0 { pendingDiscardToken = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Recording", role: .destructive) {
+                guard let token = pendingDiscardToken,
+                      let pendingRecordingOwner else {
+                    return
+                }
+                pendingDiscardToken = nil
+                Task {
+                    await pendingRecordingOwner.discard(ifCurrent: token)
+                    finishSavedRecordingPresentationIfResolved()
+                }
+            }
+            Button("Keep Recording", role: .cancel) {}
+        } message: {
+            Text("This permanently removes this saved audio from this device.")
+        }
+    }
+
+    private var savedRecordingCard: IOSPendingRecordingHistoryCard? {
+        guard presentation.phase == .savedRecording else { return nil }
+        return pendingRecordingOwner?.card
+    }
+
+    private var savedRecordingContent:
+        IOSKeyboardHandoffSavedRecordingContent? {
+        guard let savedRecordingCard else { return nil }
+        return IOSKeyboardHandoffSavedRecordingContent(
+            card: savedRecordingCard
+        )
+    }
+
+    private var displayTitle: String {
+        if savedRecordingLoadNeedsRefresh {
+            return "Saved Recording Needs Attention"
+        }
+        return savedRecordingContent?.title ?? presentation.title
+    }
+
+    private var displayDetail: String {
+        if savedRecordingLoadNeedsRefresh {
+            return "HoldType couldn't confirm the saved audio. Nothing was "
+                + "removed. Retry Refresh before starting another dictation."
+        }
+        return savedRecordingContent?.detail ?? presentation.detail
+    }
+
+    private var savedRecordingLoadNeedsRefresh: Bool {
+        presentation.phase == .savedRecording
+            && pendingRecordingOwner?.state.isStale == true
+            && pendingRecordingOwner?.card == nil
+    }
+
+    @ViewBuilder
+    private var savedRecordingControls: some View {
+        if let pendingRecordingOwner,
+           let card = savedRecordingCard,
+           let content = savedRecordingContent {
+            VStack(spacing: 14) {
+                if let durationText = content.durationText {
+                    Label(durationText, systemImage: "clock")
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Recording duration \(durationText)")
+                }
+
+                HStack(spacing: 12) {
+                    if content.showsPlay {
+                        Button("Play", systemImage: "play.fill") {
+                            Task {
+                                await pendingRecordingOwner.play(
+                                    ifCurrent: card.token
+                                )
+                            }
+                        }
+                        .accessibilityIdentifier(
+                            "ios.keyboard-handoff.saved-recording.play"
+                        )
+                    }
+
+                    if let primaryActionTitle = content.primaryActionTitle {
+                        Button(primaryActionTitle) {
+                            Task {
+                                await pendingRecordingOwner.retry(
+                                    ifCurrent: card.token
+                                )
+                                finishSavedRecordingPresentationIfResolved()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier(
+                            "ios.keyboard-handoff.saved-recording.primary"
+                        )
+                    }
+
+                    if content.allowsDelete {
+                        Button("Delete", role: .destructive) {
+                            pendingDiscardToken = card.token
+                        }
+                        .accessibilityIdentifier(
+                            "ios.keyboard-handoff.saved-recording.delete"
+                        )
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(pendingRecordingOwner.isBusy)
+
+                if pendingRecordingOwner.isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Working with saved recording")
+                }
+
+                if let notice = pendingRecordingOwner.notice {
+                    VStack(spacing: 8) {
+                        Label(
+                            notice.message,
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+
+                        Button("Dismiss") {
+                            pendingRecordingOwner.dismissNotice()
+                        }
+                        .font(.footnote.weight(.semibold))
+                    }
+                }
+            }
+            .accessibilityIdentifier(
+                "ios.keyboard-handoff.saved-recording"
+            )
+        } else if let pendingRecordingOwner,
+                  savedRecordingLoadNeedsRefresh {
+            VStack(spacing: 14) {
+                Label(
+                    "Saved recording status couldn't be refreshed.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.center)
+
+                Button("Retry Refresh", systemImage: "arrow.clockwise") {
+                    Task {
+                        _ = await pendingRecordingOwner.refresh()
+                        finishSavedRecordingPresentationIfResolved()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(pendingRecordingOwner.isBusy)
+                .accessibilityIdentifier(
+                    "ios.keyboard-handoff.saved-recording.refresh"
+                )
+            }
+            .accessibilityIdentifier(
+                "ios.keyboard-handoff.saved-recording.blocked"
+            )
+        } else {
+            ProgressView("Loading saved recording…")
+                .accessibilityIdentifier(
+                    "ios.keyboard-handoff.saved-recording.loading"
+                )
+        }
+    }
+
+    private var savedRecordingPollingToken: String {
+        guard presentation.phase == .savedRecording else { return "inactive" }
+        guard let card = pendingRecordingOwner?.card else { return "absent" }
+        return "\(card.id.uuidString)|\(String(describing: card.status))"
+    }
+
+    private func finishSavedRecordingPresentationIfResolved() {
+        guard presentation.phase == .savedRecording,
+              pendingRecordingOwner?.isConfirmedAbsent == true else {
+            return
+        }
+        savedRecordingResolved()
     }
 
     @ViewBuilder
     private var activityVisual: some View {
-        if let activityPhase = presentation.activityPhase {
+        if savedRecordingLoadNeedsRefresh {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 132, height: 132)
+                .background(.orange.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
+        } else if presentation.phase == .savedRecording {
+            Image(systemName: "waveform.badge.checkmark")
+                .font(.system(size: 54, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 132, height: 132)
+                .background(.blue.opacity(0.12), in: Circle())
+                .accessibilityHidden(true)
+        } else if let activityPhase = presentation.activityPhase {
             IOSVoiceActivityIndicator(phase: activityPhase)
                 .id(activityPhase)
                 .frame(width: 184, height: 184)
@@ -185,15 +498,25 @@ struct IOSKeyboardHandoffSheet: View {
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Cancel keyboard dictation")
-            .accessibilityHint(
-                "Stops this keyboard request and closes this sheet."
-            )
+            .accessibilityLabel(closeAccessibilityLabel)
+            .accessibilityHint(closeAccessibilityHint)
             .accessibilityIdentifier("ios.keyboard-handoff.cancel")
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
         .padding(.bottom, 4)
+    }
+
+    private var closeAccessibilityLabel: String {
+        presentation.phase == .savedRecording
+            ? "Close saved recording"
+            : "Cancel keyboard dictation"
+    }
+
+    private var closeAccessibilityHint: String {
+        presentation.phase == .savedRecording
+            ? "Closes this sheet and keeps the recording saved."
+            : "Stops this keyboard request and closes this sheet."
     }
 }
 

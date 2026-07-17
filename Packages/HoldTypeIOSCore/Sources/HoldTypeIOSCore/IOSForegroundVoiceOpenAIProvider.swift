@@ -234,11 +234,19 @@ struct IOSForegroundVoiceTranscriptionExecutor:
             }
         let provider = provider
         let credential = credential
+        // Persistence admits duration 0 only for an explicit user Retry of a
+        // descriptor-validated non-empty recovery source. The provider request
+        // still needs a positive structural value; usage remains unknown on
+        // the durable recording and is therefore not fabricated afterward.
+        let requestDurationMilliseconds = max(
+            Int64(1),
+            audio.durationMilliseconds
+        )
         let request: OpenAIReaderTranscriptionRequest
         do {
             request = try OpenAIReaderTranscriptionRequest(
                 format: format,
-                durationMilliseconds: audio.durationMilliseconds,
+                durationMilliseconds: requestDurationMilliseconds,
                 byteCount: audio.byteCount,
                 model: recording.transcriptionModel,
                 languageCode: recording.transcriptionLanguageCode,

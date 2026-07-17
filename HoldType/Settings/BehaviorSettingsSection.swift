@@ -71,11 +71,11 @@ struct BehaviorSettingsSection: View {
                 isOn: $settings.saveTranscriptHistory
             )
 
-            Text("Keeps recent accepted transcripts and retryable failed attempts until you clear history or quit HoldType.")
+            Text("Keeps recent accepted transcripts until you clear history or quit HoldType. Saved recordings remain until transcription succeeds or you delete them in History.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            Button("Clear Transcript History", role: .destructive, action: onClearTranscriptHistory)
+            Button("Clear Accepted Transcript History", role: .destructive, action: onClearTranscriptHistory)
                 .disabled(transcriptHistoryCount == 0)
         }
     }

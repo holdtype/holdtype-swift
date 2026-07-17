@@ -48,10 +48,29 @@ This spec covers:
   the completed recording file is finalized. The default tail setting is Off.
 - The recording tail is a fixed delay only. It must not wait for detected
   silence, analyze speech, or extend indefinitely.
-- A single recording attempt must have a bounded MVP maximum duration of five
-  minutes. When the limit is reached, capture stops at the recorder boundary
-  and the session fails with a recoverable maximum-length message instead of
-  sending the timed-out artifact to transcription.
+- A single recording attempt has a five-minute maximum. Reaching the limit is
+  a normal automatic Finish: HoldType closes the recorder, protects the
+  completed non-empty artifact, and continues the same transcription workflow
+  exactly once.
+- Monotonic elapsed time or finalized media duration at the configured limit
+  is authoritative for the five-minute Finish even when the recorder callback
+  reports `successfully = false`. HoldType still diagnoses and logs that false
+  callback as an anomaly, but it must not downgrade or delete a limit-length
+  recording. An early completion with no limit evidence is unexpected, keeps
+  any non-empty artifact, uses normal stop feedback, visibly reports that the
+  recording ended unexpectedly and was saved to History, and continues the
+  same recovery/transcription workflow exactly once without claiming that five
+  minutes elapsed.
+- The last minute is visible as a countdown. HoldType warns at 4:00 and 4:30,
+  at 4:50, 4:52, and 4:54, and once per second from 4:55 through 4:59. At 5:00
+  it closes the recorder before presenting a distinct stopped-at-limit cue.
+- A controller-owned monotonic five-minute watchdog must request finalization
+  even if the recorder's completion delegate is lost. The watchdog, delegate,
+  and key-up paths race through the same exact-once finalization boundary.
+- During active capture an audible warning may play only on a private output
+  route that will not feed the microphone, such as connected headphones.
+  Speaker routes use the visual countdown and platform haptic feedback; they
+  must not inject warning sounds into the retained recording.
 - Stopping an active recording returns a completed local recording artifact
   with the file URL, captured duration, and byte size before transcription may
   begin.
@@ -65,6 +84,18 @@ This spec covers:
   transcription or output handoff.
 - After capture stops, the app may enter a processing state while
   transcription completes.
+- Before any provider request, a non-empty completed artifact becomes a local
+  recovery checkpoint visible from History with Play. While processing it is
+  labelled accordingly; if transcription fails it remains available with
+  Transcribe/Retry and Delete.
+- If HoldType cannot first create an app-owned recovery copy, the original
+  completed artifact remains playable and deletable but cannot be uploaded.
+  History offers a local Retry Save/Repair action; provider Retry becomes
+  available only after that ownership repair succeeds.
+- When the checkpoint belongs to the five-minute automatic Finish and
+  transcription succeeds, it becomes a durable `Saved and transcribed` row
+  containing the accepted text. Its protected audio remains playable and
+  explicitly deletable, but is never retryable.
 - Start, stop, and cancel actions must be serialized through one active
   session. Repeated or overlapping actions may be ignored or shown as blocked,
   but must not enqueue duplicate recorder, transcription, or output work.
@@ -79,7 +110,9 @@ This spec covers:
   as microphone unavailable, permission denied, no speech detected, or
   transcription timed out.
 - The completed recording file remains a temporary app-owned audio artifact. By
-  default, HoldType deletes it after the current attempt finishes.
+  default, HoldType deletes it after the current attempt finishes. For a
+  successful five-minute Finish, this normal cache cleanup deletes the original
+  capture artifact while the separate bounded History recovery copy remains.
 - If the user explicitly enables recording cache retention in Settings, HoldType
   may keep completed `.m4a` recordings after transcription so the user can open
   or save them from Finder.
@@ -97,6 +130,14 @@ This spec covers:
 - Repeated stop or completion actions must not produce duplicate transcription
   uploads, duplicate output handoffs, or multiple accepted transcripts for one
   recording.
+- Key up, the five-minute deadline, and recorder completion may race, but only
+  one of them may finalize the active attempt and start provider work.
+- If key up wins that race, finalized media at or above 299.5 seconds retains
+  the five-minute completion identity. Callback scheduling must not downgrade
+  the result to ordinary ephemeral cleanup.
+- A recorder callback reporting failure cannot override monotonic or finalized
+  media evidence at the five-minute boundary. The anomaly remains observable
+  in diagnostics while History retention follows the five-minute identity.
 - Stopping or cancelling capture must not silently accept unfinished text.
 - Cancelling capture must clean up only the current recording artifact and must
   leave unrelated temporary files untouched.
@@ -105,6 +146,10 @@ This spec covers:
   understandable to the user.
 - External transcription or media operations must have explicit maximum wait
   times.
+- Finalized-media duration inspection has a two-second maximum wait. If the
+  media API fails or ignores cancellation beyond that boundary, finalization
+  continues with the recorder's captured duration metadata and leaves every
+  positive-byte artifact untouched.
 - Recording cache growth must be bounded by default. The app must not keep
   accumulating audio files indefinitely unless the user explicitly chooses
   unlimited retention.
@@ -116,21 +161,25 @@ This spec covers:
   permissions.
 - If no microphone is available, the app should fail before entering a false
   recording state.
-- If the user stops recording immediately, the app should either produce an
-  empty/no-speech result or a clear no-input message.
+- If the user stops recording immediately, an empty artifact produces a clear
+  no-input message. A non-empty artifact is preserved and may continue to the
+  provider, which may still return an empty/no-speech result.
 - If transcription produces low-confidence or empty output, the app should not
   pretend the result is final useful text.
 - If a late transcription result arrives after cancellation or failure, it must
   be discarded rather than accepted as a new last transcript.
 - If the app is interrupted by platform lifecycle events, the session should
   stop or fail visibly rather than continue recording invisibly.
-- If the recording is too short, the app should show a clear error instead of
-  sending misleading empty input through the normal success path.
-- If the recording reaches the maximum duration, the app should stop or fail
-  the capture and show a clear maximum-length error without uploading the
-  timed-out artifact.
-- Missing, empty, too-short, or maximum-duration completed recording artifacts
-  must be treated as failed recording results and must not be sent to OpenAI.
+- If the recording reaches the maximum duration, HoldType stops capture,
+  reports that the five-minute limit was reached and the recording was saved,
+  and continues normal processing.
+- A stopped recorder's volatile elapsed clock is not authoritative. HoldType
+  validates duration from the finalized media artifact and never deletes a
+  positive-byte recording solely because the stopped clock reports zero or
+  disagrees with the file.
+- Missing or empty completed recording artifacts are failed recording results
+  and must not be sent to OpenAI. Any positive-byte completed artifact is
+  preserved for recovery; duration metadata alone must not delete or hide it.
 - Turning off recording cache retention affects future attempts immediately:
   completed recordings from those attempts are deleted after the attempt
   finishes, whether transcription succeeds or fails.
@@ -147,7 +196,11 @@ The product-level session states are:
 - error
 
 Audio and raw transcription artifacts are treated as ephemeral session data
-unless recording cache retention is explicitly enabled in Settings.
+unless recording cache retention is explicitly enabled in Settings. An
+unfinished attempt is an exception: its recovery checkpoint survives ordinary
+history/cache policy until transcription succeeds or the user explicitly
+deletes it. A successful five-minute Finish remains as a second bounded
+exception until explicit Delete or recovery-retention pruning.
 The recording service should create unique app-owned temporary `.m4a` audio
 artifacts for capture attempts and keep those paths local to HoldType until
 stop, cancel, cache retention, cleanup, or failure handling decides their next
@@ -159,9 +212,11 @@ default logs.
 ## Verification mapping
 
 - Add tests or manual QA for permission denied, microphone unavailable,
-  start/stop, cancel, timeout, empty speech, recording-too-short, temp-file
-  cleanup, recording cache retention, and successful transcription states when
-  implementation code exists.
+  start/stop, cancel, timeout, empty speech, empty-file rejection, temp-file
+  cleanup, recording cache retention, five-minute auto-Finish, warning cadence,
+  finalized-media duration, false recorder callbacks at the maximum boundary,
+  exact-once finalization, recovery playback, and successful transcription
+  states when implementation code exists.
 - Use fakes or bounded local fixtures for transcription tests instead of
   waiting on uncontrolled external services.
 

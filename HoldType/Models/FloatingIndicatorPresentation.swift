@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 
 struct FloatingIndicatorPresentation: Equatable {
     enum Phase: Equatable {
@@ -15,14 +16,29 @@ struct FloatingIndicatorPresentation: Equatable {
 
     let phase: Phase
     let title: String
+    let countdown: VoiceSessionCountdown?
+
+    init(
+        phase: Phase,
+        title: String,
+        countdown: VoiceSessionCountdown? = nil
+    ) {
+        self.phase = phase
+        self.title = title
+        self.countdown = countdown
+    }
 
     var accessibilityLabel: String {
-        "HoldType \(title)"
+        guard let countdown else {
+            return "HoldType \(title)"
+        }
+        return "HoldType \(title), \(countdown.remainingWholeSeconds) seconds remaining"
     }
 
     static func presentation(
         for status: DictationStatus,
-        settings: AppSettings
+        settings: AppSettings,
+        recordingCountdown: VoiceSessionCountdown? = nil
     ) -> FloatingIndicatorPresentation? {
         guard settings.showFloatingIndicator else {
             return nil
@@ -34,7 +50,8 @@ struct FloatingIndicatorPresentation: Equatable {
         case .recording:
             return FloatingIndicatorPresentation(
                 phase: .recording,
-                title: "Recording"
+                title: "Recording",
+                countdown: recordingCountdown
             )
         case .transcribing:
             return FloatingIndicatorPresentation(

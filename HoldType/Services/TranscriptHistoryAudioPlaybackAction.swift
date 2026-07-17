@@ -13,12 +13,21 @@ protocol TranscriptHistoryAudioPlaying: AnyObject {
     func playCachedAudio(at fileURL: URL) throws
 }
 
+protocol TranscriptHistoryAudioPlaybackStopping: AnyObject {
+    func stopPlayback()
+}
+
 enum TranscriptHistoryAudioPlaybackError: Error, Equatable {
     case unavailable
     case playbackFailed
 }
 
-final class TranscriptHistoryAudioPlayer: NSObject, TranscriptHistoryAudioPlaying {
+final class TranscriptHistoryAudioPlayer: NSObject,
+    TranscriptHistoryAudioPlaying,
+    TranscriptHistoryAudioPlaybackStopping
+{
+    static let shared = TranscriptHistoryAudioPlayer()
+
     private var currentPlayer: AVAudioPlayer?
 
     func playCachedAudio(at fileURL: URL) throws {
@@ -35,6 +44,11 @@ final class TranscriptHistoryAudioPlayer: NSObject, TranscriptHistoryAudioPlayin
             throw TranscriptHistoryAudioPlaybackError.playbackFailed
         }
     }
+
+    func stopPlayback() {
+        currentPlayer?.stop()
+        currentPlayer = nil
+    }
 }
 
 struct TranscriptHistoryAudioPlaybackAction {
@@ -42,7 +56,7 @@ struct TranscriptHistoryAudioPlaybackAction {
     private let fileManager: FileManager
 
     init(
-        audioPlayer: any TranscriptHistoryAudioPlaying = TranscriptHistoryAudioPlayer(),
+        audioPlayer: any TranscriptHistoryAudioPlaying = TranscriptHistoryAudioPlayer.shared,
         fileManager: FileManager = .default
     ) {
         self.audioPlayer = audioPlayer
@@ -72,6 +86,35 @@ struct TranscriptHistoryAudioPlaybackAction {
         } catch {
             return .failed
         }
+    }
+
+    func canPlay(_ attempt: FailedTranscriptionAttempt) -> Bool {
+        isNonemptyFile(at: attempt.audioFileURL)
+    }
+
+    func play(_ attempt: FailedTranscriptionAttempt) -> TranscriptHistoryAudioPlaybackResult {
+        guard canPlay(attempt) else {
+            return .unavailable
+        }
+
+        do {
+            try audioPlayer.playCachedAudio(at: attempt.audioFileURL)
+            return .playing
+        } catch {
+            return .failed
+        }
+    }
+
+    private func isNonemptyFile(at fileURL: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: fileURL.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              let attributes = try? fileManager.attributesOfItem(atPath: fileURL.path),
+              let byteCount = attributes[.size] as? NSNumber else {
+            return false
+        }
+
+        return byteCount.int64Value > 0
     }
 }
 

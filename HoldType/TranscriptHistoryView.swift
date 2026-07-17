@@ -6,11 +6,13 @@
 //
 
 import AppKit
+import HoldTypeDomain
 import SwiftUI
 
 struct TranscriptHistoryView: View {
     @ObservedObject private var historyStore: TranscriptRecoveryHistoryStore
     @ObservedObject private var failureRecoveryStore: TranscriptionFailureRecoveryStore
+    @ObservedObject private var dictationRuntime: DictationRuntime
     @State private var appSettings: AppSettings
     @State private var actionStatusText: String?
     @State private var recordingCacheRevision = 0
@@ -26,9 +28,10 @@ struct TranscriptHistoryView: View {
     init(
         historyStore: TranscriptRecoveryHistoryStore? = nil,
         failureRecoveryStore: TranscriptionFailureRecoveryStore? = nil,
+        dictationRuntime: DictationRuntime? = nil,
         appSettingsStore: AppSettingsStore = AppSettingsStore(),
         systemClipboardWriter: any SystemClipboardWriting = SystemClipboardWriter(),
-        audioPlayer: any TranscriptHistoryAudioPlaying = TranscriptHistoryAudioPlayer(),
+        audioPlayer: any TranscriptHistoryAudioPlaying = TranscriptHistoryAudioPlayer.shared,
         retryFailedTranscription: @escaping @MainActor (FailedTranscriptionAttempt.ID) async -> Void = { id in
             await DictationRuntime.shared.retryFailedTranscription(id: id)
         },
@@ -39,6 +42,7 @@ struct TranscriptHistoryView: View {
     ) {
         self.historyStore = historyStore ?? TranscriptRecoveryHistoryStore.shared
         self.failureRecoveryStore = failureRecoveryStore ?? TranscriptionFailureRecoveryStore.shared
+        self.dictationRuntime = dictationRuntime ?? .shared
         self.appSettingsStore = appSettingsStore
         copyHistoryEntryAction = TranscriptHistoryClipboardCopyAction(
             systemClipboardWriter: systemClipboardWriter
@@ -93,27 +97,23 @@ struct TranscriptHistoryView: View {
 
             Spacer()
 
-            Button("Clear History", role: .destructive) {
+            Button("Clear Accepted History", role: .destructive) {
                 clearHistory()
             }
-            .disabled(historyRows.isEmpty)
+            .disabled(historyStore.entries.isEmpty)
         }
         .padding(20)
     }
 
     @ViewBuilder
     private var content: some View {
-        if !appSettings.saveTranscriptHistory {
+        if historyRows.isEmpty {
             TranscriptHistoryEmptyStateView(
-                systemImage: "clock.badge.xmark",
-                title: "Transcript history is off",
-                message: "Enable recovery history in Settings to keep accepted transcripts and failed attempts until you quit."
-            )
-        } else if historyRows.isEmpty {
-            TranscriptHistoryEmptyStateView(
-                systemImage: "text.bubble",
-                title: "No transcripts yet",
-                message: "Accepted dictations and recoverable failed attempts will appear here until you clear history or quit HoldType."
+                systemImage: appSettings.saveTranscriptHistory ? "text.bubble" : "clock.badge.xmark",
+                title: appSettings.saveTranscriptHistory ? "No transcripts yet" : "Transcript history is off",
+                message: appSettings.saveTranscriptHistory
+                    ? "Accepted dictations and saved recordings will appear here."
+                    : "Accepted transcripts are not retained. Recordings saved for processing or retry will still appear here."
             )
         } else {
             ScrollView {
@@ -146,8 +146,17 @@ struct TranscriptHistoryView: View {
                                     case .failed(let attempt):
                                         FailedTranscriptionHistoryRowView(
                                             attempt: attempt,
+                                            canPlayAudio: canPlayAudio(for: attempt),
+                                            savedRecordingActionsEnabled:
+                                                savedRecordingActionsEnabled,
+                                            onPlayAudio: {
+                                                playCachedAudio(for: attempt)
+                                            },
                                             onRetry: {
                                                 retryAttempt(attempt)
+                                            },
+                                            onRetrySave: {
+                                                retrySavingAttempt(attempt)
                                             },
                                             onOpenSettings: { item in
                                                 openSettings(item)
@@ -168,12 +177,16 @@ struct TranscriptHistoryView: View {
     }
 
     private var headerSubtitle: String {
-        if appSettings.saveTranscriptHistory {
-            let count = historyRows.count
-            return "\(count) session \(count == 1 ? "entry" : "entries")"
+        let count = historyRows.count
+        if !appSettings.saveTranscriptHistory {
+            let savedCount = failureRecoveryStore.failedAttempts.count
+            guard savedCount > 0 else {
+                return "Accepted transcript history is disabled"
+            }
+            return "Accepted history off · \(savedCount) saved \(savedCount == 1 ? "recording" : "recordings")"
         }
 
-        return "Session recovery is disabled"
+        return "\(count) session \(count == 1 ? "entry" : "entries")"
     }
 
     private var historyRows: [TranscriptHistoryRow] {
@@ -206,14 +219,12 @@ struct TranscriptHistoryView: View {
 
         if !appSettings.saveTranscriptHistory {
             historyStore.clear()
-            failureRecoveryStore.clear()
         }
     }
 
     private func clearHistory() {
         historyStore.clear()
-        failureRecoveryStore.clear()
-        actionStatusText = "Transcript history cleared."
+        actionStatusText = "Accepted transcript history cleared. Saved recordings were kept."
     }
 
     private func copyToSystemClipboard(_ entry: TranscriptHistoryEntry) {
@@ -229,6 +240,20 @@ struct TranscriptHistoryView: View {
         actionStatusText = playHistoryAudioAction.play(entry, settings: appSettings).statusText
     }
 
+    private func canPlayAudio(for attempt: FailedTranscriptionAttempt) -> Bool {
+        _ = recordingCacheRevision
+        return playHistoryAudioAction.canPlay(attempt)
+    }
+
+    private func playCachedAudio(for attempt: FailedTranscriptionAttempt) {
+        guard savedRecordingActionsEnabled else {
+            actionStatusText =
+                DictationSessionController.savedRecordingActionsUnavailableMessage
+            return
+        }
+        actionStatusText = playHistoryAudioAction.play(attempt).statusText
+    }
+
     private func deleteEntry(_ entry: TranscriptHistoryEntry) {
         let didDelete = historyStore.deleteEntry(id: entry.id)
         actionStatusText = didDelete
@@ -237,7 +262,21 @@ struct TranscriptHistoryView: View {
     }
 
     private func retryAttempt(_ attempt: FailedTranscriptionAttempt) {
-        guard attempt.reason.canRetry else {
+        guard savedRecordingActionsEnabled else {
+            actionStatusText =
+                DictationSessionController.savedRecordingActionsUnavailableMessage
+            return
+        }
+
+        guard attempt.canRetry else {
+            if attempt.state == .processing {
+                actionStatusText = "Transcription is already in progress."
+                return
+            }
+            if attempt.state == .saved {
+                actionStatusText = "This saved recording is already transcribed."
+                return
+            }
             actionStatusText = attempt.reason.message
             return
         }
@@ -252,8 +291,63 @@ struct TranscriptHistoryView: View {
     }
 
     private func deleteFailedAttempt(_ attempt: FailedTranscriptionAttempt) {
-        failureRecoveryStore.removeFailedAttempt(id: attempt.id)
-        actionStatusText = "Deleted failed transcription row."
+        guard savedRecordingActionsEnabled, attempt.canDelete else {
+            actionStatusText = attempt.state == .processing
+                ? "This saved recording is still being processed."
+                : DictationSessionController.savedRecordingActionsUnavailableMessage
+            return
+        }
+        do {
+            let didDelete = try failureRecoveryStore.removeFailedAttempt(id: attempt.id)
+            actionStatusText = didDelete
+                ? "Deleted saved recording."
+                : "Saved recording was already gone."
+        } catch {
+            actionStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
+        }
+    }
+
+    private func retrySavingAttempt(_ attempt: FailedTranscriptionAttempt) {
+        guard savedRecordingActionsEnabled else {
+            actionStatusText = DictationSessionController.savedRecordingActionsUnavailableMessage
+            return
+        }
+        do {
+            switch attempt.reason {
+            case .savedStatePersistenceFailed:
+                guard let acceptedTranscriptText = attempt.acceptedTranscriptText else {
+                    throw TranscriptionFailureRecoveryError.attemptUnavailable
+                }
+                try failureRecoveryStore.markSaved(
+                    id: attempt.id,
+                    acceptedTranscriptText: acceptedTranscriptText
+                )
+                actionStatusText = "Saved recording updated."
+            case .recoveryOwnershipPersistenceFailed:
+                try failureRecoveryStore.repairLocalRecovery(id: attempt.id)
+                actionStatusText = "Recording saved locally. Transcription can now be retried."
+            case .providerDispatchPersistenceFailed:
+                try failureRecoveryStore.repairLocalRecovery(id: attempt.id)
+                actionStatusText = "Retry preparation updated. Transcription can now be retried."
+            case .postProcessingFailedAfterProviderAcceptance:
+                guard let acceptedTranscriptText = attempt.acceptedTranscriptText else {
+                    throw TranscriptionFailureRecoveryError.attemptUnavailable
+                }
+                try failureRecoveryStore.markSaved(
+                    id: attempt.id,
+                    acceptedTranscriptText: acceptedTranscriptText
+                )
+                actionStatusText = "Raw transcription saved."
+            default:
+                throw TranscriptionFailureRecoveryError.attemptUnavailable
+            }
+        } catch {
+            actionStatusText = "The saved recording still could not be updated."
+        }
+    }
+
+    private var savedRecordingActionsEnabled: Bool {
+        dictationRuntime.status.voiceWorkPhase == .inactive
     }
 
     private func title(for day: Date) -> String {
@@ -354,9 +448,17 @@ private struct TranscriptHistoryRowView: View {
 
 private struct FailedTranscriptionHistoryRowView: View {
     let attempt: FailedTranscriptionAttempt
+    let canPlayAudio: Bool
+    let savedRecordingActionsEnabled: Bool
+    let onPlayAudio: () -> Void
     let onRetry: () -> Void
+    let onRetrySave: () -> Void
     let onOpenSettings: (SettingsNavigationItem) -> Void
     let onDelete: () -> Void
+
+    private var presentation: TranscriptionRecoveryHistoryRowPresentation {
+        TranscriptionRecoveryHistoryRowPresentation(attempt: attempt)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -368,17 +470,24 @@ private struct FailedTranscriptionHistoryRowView: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
+                    if presentation.showsProgress {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: presentation.systemImage)
+                            .foregroundStyle(
+                                attempt.state == .saved ? Color.green : Color.orange
+                            )
+                    }
 
-                    Text("Not transcribed")
+                    Text(presentation.title)
                         .font(.body)
                         .fontWeight(.semibold)
                 }
 
-                Text(attempt.reason.message)
+                Text(presentation.message)
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(attempt.state == .saved ? .primary : .secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -389,7 +498,20 @@ private struct FailedTranscriptionHistoryRowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 6) {
-                if let settingsTarget = attempt.reason.settingsTarget {
+                if canPlayAudio {
+                    Button(action: onPlayAudio) {
+                        Label("Play", systemImage: "play.circle")
+                    }
+                    .help("Play Saved Recording")
+                    .accessibilityLabel("Play Saved Recording")
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(!savedRecordingActionsEnabled)
+                }
+
+                if presentation.showsSettings,
+                   let settingsTarget = attempt.reason.settingsTarget {
                     Button {
                         onOpenSettings(settingsTarget)
                     } label: {
@@ -399,30 +521,67 @@ private struct FailedTranscriptionHistoryRowView: View {
                     .controlSize(.small)
                 }
 
-                if attempt.reason.canRetry {
+                if presentation.showsRetry {
                     Button(action: onRetry) {
                         Label("Retry", systemImage: "arrow.clockwise")
                     }
                     .help("Retry Transcription")
                     .controlSize(.small)
+                    .disabled(!savedRecordingActionsEnabled)
+                }
+
+                if presentation.showsSaveRetry {
+                    Button(action: onRetrySave) {
+                        Label(
+                            presentation.saveRetryTitle,
+                            systemImage: "externaldrive.badge.checkmark"
+                        )
+                    }
+                    .help(presentation.saveRetryTitle)
+                    .controlSize(.small)
+                    .disabled(!savedRecordingActionsEnabled)
                 }
 
                 Button(role: .destructive, action: onDelete) {
                     Label("Delete", systemImage: "trash")
                 }
-                .help("Delete Failed Attempt")
-                .accessibilityLabel("Delete Failed Attempt")
+                .help("Delete Saved Recording")
+                .accessibilityLabel("Delete Saved Recording")
                 .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
                 .controlSize(.small)
+                .disabled(
+                    !savedRecordingActionsEnabled
+                        || !attempt.canDelete
+                )
             }
         }
         .padding(12)
-        .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        .background(
+            backgroundColor,
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+    }
+
+    private var backgroundColor: Color {
+        switch attempt.state {
+        case .processing:
+            return Color.accentColor.opacity(0.08)
+        case .failed:
+            return Color.orange.opacity(0.10)
+        case .saved:
+            return Color.green.opacity(0.08)
+        }
     }
 
     private var metadataText: String {
-        var parts = [attempt.reason.title]
+        var parts: [String] = []
+
+        if attempt.state == .failed {
+            parts.append(attempt.reason.title)
+        } else if attempt.state == .saved {
+            parts.append("Saved")
+        }
 
         if !attempt.transcriptionModel.isEmpty {
             parts.append(attempt.transcriptionModel)
@@ -447,6 +606,74 @@ private struct FailedTranscriptionHistoryRowView: View {
         formatter.unitsStyle = .abbreviated
         return formatter
     }()
+}
+
+struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
+    let title: String
+    let message: String
+    let systemImage: String
+    let showsProgress: Bool
+    let showsSettings: Bool
+    let showsRetry: Bool
+    let showsSaveRetry: Bool
+    let saveRetryTitle: String
+
+    init(attempt: FailedTranscriptionAttempt) {
+        switch attempt.state {
+        case .processing:
+            title = "Processing"
+            message = "Recording saved. Transcription is in progress."
+            systemImage = "waveform"
+            showsProgress = true
+            showsSettings = false
+            showsRetry = false
+            showsSaveRetry = false
+            saveRetryTitle = "Retry Save"
+        case .failed:
+            if attempt.reason == .savedStatePersistenceFailed {
+                title = "Transcribed — save incomplete"
+                message = attempt.acceptedTranscriptText ?? attempt.reason.message
+            } else if attempt.reason == .postProcessingFailedAfterProviderAcceptance {
+                title = "Raw transcription recovered — post-processing failed"
+                message = attempt.acceptedTranscriptText ?? attempt.reason.message
+            } else if attempt.reason == .recoveryOwnershipPersistenceFailed
+                        || attempt.reason == .providerDispatchPersistenceFailed {
+                title = "Recording — save incomplete"
+                message = attempt.reason.message
+            } else {
+                title = "Not transcribed"
+                message = attempt.reason.message
+            }
+            systemImage = "exclamationmark.triangle"
+            showsProgress = false
+            showsSettings = attempt.reason.settingsTarget != nil
+            showsRetry = attempt.canRetry
+            showsSaveRetry = (
+                attempt.reason == .savedStatePersistenceFailed
+                    && attempt.acceptedTranscriptText != nil
+            ) || attempt.reason == .recoveryOwnershipPersistenceFailed
+                || attempt.reason == .providerDispatchPersistenceFailed
+                || (
+                    attempt.reason == .postProcessingFailedAfterProviderAcceptance
+                        && attempt.acceptedTranscriptText != nil
+                )
+            saveRetryTitle = attempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+                ? "Save Raw Transcription"
+                : "Retry Save"
+        case .saved:
+            title = attempt.reason == .postProcessingFailedAfterProviderAcceptance
+                ? "Raw transcription saved — post-processing failed"
+                : "Saved and transcribed"
+            message = attempt.acceptedTranscriptText ?? "Transcription completed."
+            systemImage = "checkmark.circle.fill"
+            showsProgress = false
+            showsSettings = false
+            showsRetry = false
+            showsSaveRetry = false
+            saveRetryTitle = "Retry Save"
+        }
+    }
 }
 
 private struct TranscriptHistoryEmptyStateView: View {

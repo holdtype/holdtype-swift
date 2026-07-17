@@ -214,6 +214,37 @@ struct IOSForegroundVoiceProviderBridgeTests {
     }
 
     @Test
+    func providerFreeRequestBypassesCredentialClientAndMapsNilAuthority()
+        async throws {
+        let credentials = BridgeCredentialSource(state: .unavailable)
+        let processor = BridgeProcessorCapture(processResult: .busy)
+        let bridge = IOSForegroundVoiceProviderBridge(
+            credentialClient: makeCredentialClient(credentials),
+            processorClient: makeProcessorClient(processor)
+        )
+        let fixture = try makeWorkflowRequest(
+            credential: IOSForegroundVoiceWorkflowCredentialProof(),
+            mode: .retry
+        )
+        let request = IOSForegroundVoiceWorkflowProcessingRequest(
+            sessionID: fixture.request.sessionID,
+            pendingRecording: fixture.pending,
+            mode: .retry,
+            configuration: fixture.request.configuration,
+            credential: nil,
+            consentObservation: nil
+        )
+
+        let result = await bridge.process(request, progress: { _ in })
+
+        #expect(result == .busy)
+        let mapped = try #require(await processor.lastProcessRequest())
+        #expect(mapped.credential == nil)
+        #expect(mapped.consentObservation == nil)
+        #expect(await credentials.resolveCallCount() == 0)
+    }
+
+    @Test
     func proofAndBridgeSurfacesAreRedacted() async throws {
         let canary = "bridge-reflection-secret"
         let credential = try makeCredential(key: canary, generation: UUID())

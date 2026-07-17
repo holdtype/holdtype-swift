@@ -1,5 +1,6 @@
 import Foundation
 import HoldTypeDomain
+import HoldTypePersistence
 import Testing
 @testable import HoldTypeIOS
 
@@ -65,5 +66,45 @@ struct IOSHistoryHomeViewTests {
 
         #expect(reconciledPolicies == [.keepLast(1), .deleteImmediately])
         #expect(stopCount == 1)
+    }
+
+    @Test func savedRecordingActionsStayBoundToTheExactRowSnapshot() async {
+        let recording = IOSSavedAcceptedRecording(
+            resultID: UUID(),
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        var played: [IOSSavedAcceptedRecording] = []
+        var discarded: [IOSSavedAcceptedRecording] = []
+        let actions = IOSHistoryPlaybackActions(
+            resolvePlayableResultIDs: { _ in [] },
+            playRecording: { _ in .unavailable },
+            loadSavedRecordings: { .loaded([recording]) },
+            playSavedRecording: { expected in
+                played.append(expected)
+                return .played
+            },
+            discardSavedRecording: { expected in
+                discarded.append(expected)
+                return .discarded
+            }
+        )
+
+        #expect(await actions.savedRecordings() == .loaded([recording]))
+        #expect(await actions.playSaved(recording) == .played)
+        #expect(await actions.discardSaved(recording) == .discarded)
+        #expect(played == [recording])
+        #expect(discarded == [recording])
+        #expect(
+            IOSSavedRecordingHistoryPresentationState.ready([recording])
+                .shouldPresent
+        )
+
+        let returnedActive = IOSSavedRecordingHistoryPresentationState
+            .resolving(
+                previous: .ready([]),
+                result: await actions.savedRecordings()
+            )
+        #expect(returnedActive == .ready([recording]))
+        #expect(returnedActive.shouldPresent)
     }
 }

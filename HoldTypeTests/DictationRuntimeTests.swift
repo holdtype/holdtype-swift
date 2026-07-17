@@ -270,6 +270,32 @@ struct DictationRuntimeTests {
         #expect(runtime.failurePresentation?.canRetry == true)
     }
 
+    @Test func retryDuringRecordingDoesNotResolveCredentialsOrReplaceListeningStatus() async {
+        let controller = DictationSessionController(
+            recorder: FakeAudioRecorderService(currentStatus: .recording),
+            credentialResolverForUngatedActions: FakeRuntimeCredentialResolver(
+                result: .failure(.missingAPIKey)
+            ),
+            initialStatus: .recording
+        )
+        let runtime = DictationRuntime(
+            controller: controller,
+            credentialResolver: FakeRuntimeCredentialResolver(
+                result: .failure(.missingAPIKey)
+            ),
+            hotkeyService: FakeGlobalHotkeyService()
+        )
+
+        await runtime.retryFailedTranscription(id: UUID())
+
+        #expect(runtime.status == .recording)
+        #expect(
+            runtime.outputStatusText
+                == DictationSessionController.savedRecordingActionsUnavailableMessage
+        )
+        #expect(runtime.failurePresentation == nil)
+    }
+
     private func makeTestUserDefaults() -> UserDefaults {
         let userDefaults = UserDefaults(
             suiteName: "holdtype.DictationRuntimeTests.\(UUID().uuidString)"

@@ -70,6 +70,15 @@ final class IOSKeyboardDictationSessionCoordinator {
                 return message
             }
         }
+
+        var allowsSessionExpiry: Bool {
+            switch self {
+            case .ready, .resultReady:
+                true
+            case .stopped, .preparing, .listening, .processing, .failed:
+                false
+            }
+        }
     }
 
     private(set) var presentation: Presentation = .stopped
@@ -269,8 +278,21 @@ final class IOSKeyboardDictationSessionCoordinator {
             return false
         }
 
+        // Active capture and provider/finalization work already own the user's
+        // recording. A new keyboard tap must not cancel that work or retire
+        // its audio.
+        switch presentation {
+        case .listening, .processing:
+            return false
+        case .stopped, .preparing, .ready, .resultReady, .failed:
+            break
+        }
+
+        // Only pre-start or otherwise empty work may reach supersession here.
+        // A terminal failed state can own the user's preserved Pending
+        // recording and is never retired merely because the microphone was
+        // tapped again.
         let supersededAttemptID = activeAttempt?.attemptID
-            ?? (try? dependencies.loadState(.distantPast))?.attemptID
         let previousTask = workflowTask
         cancelCurrentWorkflow()
         await previousTask?.value
@@ -342,10 +364,27 @@ final class IOSKeyboardDictationSessionCoordinator {
         presentation = .ready(deadline)
         startRecording(
             attempt: activeAttempt,
-            deadline: deadline,
             action: intent.action
         )
         return true
+    }
+
+    /// Rebinds presentation to the exact active capture without replacing its
+    /// session or attempt. This also lets a recreated scene keep showing the
+    /// live handoff instead of treating a fresh launch intent as supersession.
+    func observeActiveListeningHandoff(
+        _ observe: @escaping @MainActor @Sendable (
+            UUID,
+            IOSKeyboardHandoffCaptureEvent
+        ) -> Void
+    ) -> UUID? {
+        guard case .listening = presentation,
+              let activeAttempt else {
+            return nil
+        }
+        handoffRequestID = activeAttempt.requestID
+        handoffEventObserver = observe
+        return activeAttempt.requestID
     }
 
     /// Cancels only the matching handoff and waits for the shared workflow to
@@ -403,7 +442,6 @@ final class IOSKeyboardDictationSessionCoordinator {
             deliveryClaimID = nil
             guard startRecording(
                 attempt: attempt,
-                deadline: deadline,
                 action: command.action
             ) else {
                 activeAttempt = nil
@@ -414,16 +452,14 @@ final class IOSKeyboardDictationSessionCoordinator {
             guard let activeAttempt,
                   activeAttempt.matches(command) else { return }
             guard finishRecording(
-                attempt: activeAttempt,
-                deadline: deadline
+                attempt: activeAttempt
             ) else { return }
             lastHandledCommand = command
         case .cancel:
             guard let activeAttempt,
                   activeAttempt.matches(command) else { return }
             guard cancelRecording(
-                attempt: activeAttempt,
-                deadline: deadline
+                attempt: activeAttempt
             ) else { return }
             lastHandledCommand = command
         case .claimDelivery:
@@ -455,14 +491,13 @@ final class IOSKeyboardDictationSessionCoordinator {
                 return
             }
             lastHandledCommand = command
-            completeAttemptForWarmReuse(deadline: deadline)
+            completeAttemptForWarmReuse()
         }
     }
 
     @discardableResult
     private func startRecording(
         attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date,
         action: KeyboardVoiceAction
     ) -> Bool {
         guard workflowTask == nil,
@@ -473,13 +508,14 @@ final class IOSKeyboardDictationSessionCoordinator {
         workflowGeneration &+= 1
         let generation = workflowGeneration
         let workflow = dependencies.workflow
+        suspendIdleExpiry()
+        deadline = stateDeadline(for: .listening)
         workflowTask = Task { @MainActor [weak self] in
             let resolution = await workflow.run(attempt.attemptID, action) {
                 [weak self] progress in
                 self?.receive(
                     progress,
                     attempt: attempt,
-                    deadline: deadline,
                     generation: generation
                 )
             }
@@ -487,7 +523,6 @@ final class IOSKeyboardDictationSessionCoordinator {
             self.receive(
                 resolution,
                 attempt: attempt,
-                deadline: deadline,
                 generation: generation
             )
             if self.workflowGeneration == generation {
@@ -498,13 +533,15 @@ final class IOSKeyboardDictationSessionCoordinator {
     }
 
     private func finishRecording(
-        attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date
+        attempt: KeyboardDictationAttemptIdentity
     ) -> Bool {
         guard case .listening = presentation,
               dependencies.workflow.finish(attempt.attemptID) else {
             return false
         }
+        let deadline = stateDeadline(for: .processing)
+        self.deadline = deadline
+        beginBackgroundTaskIfNeeded()
         guard publish(
             phase: .processing,
             expiresAt: deadline
@@ -517,12 +554,12 @@ final class IOSKeyboardDictationSessionCoordinator {
     }
 
     private func cancelRecording(
-        attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date
+        attempt: KeyboardDictationAttemptIdentity
     ) -> Bool {
         guard dependencies.workflow.cancel(attempt.attemptID) else {
             return false
         }
+        let deadline = dependencies.now().addingTimeInterval(1)
         _ = publish(
             phase: .unavailable,
             expiresAt: deadline
@@ -538,12 +575,10 @@ final class IOSKeyboardDictationSessionCoordinator {
     private func receive(
         _ progress: IOSKeyboardDictationWorkflowProgress,
         attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date,
         generation: UInt64
     ) {
         guard ownsCurrentWorkflow(
             attempt: attempt,
-            deadline: deadline,
             generation: generation
         ) else {
             return
@@ -551,11 +586,23 @@ final class IOSKeyboardDictationSessionCoordinator {
         let phase: KeyboardDictationStatePhase
         switch progress {
         case .listening:
+            let deadline = stateDeadline(for: .listening)
+            self.deadline = deadline
+            // Background audio now owns continuation; retire the finite warm
+            // assertion so finalization can acquire a fresh bounded one.
+            endBackgroundTask()
             phase = .listening
             presentation = .listening(deadline)
         case .processing:
+            let deadline = stateDeadline(for: .processing)
+            self.deadline = deadline
+            beginBackgroundTaskIfNeeded()
             phase = .processing
             presentation = .processing
+        }
+        guard let deadline else {
+            failAndStop("Session unavailable")
+            return
         }
         guard publish(
             phase: phase,
@@ -578,18 +625,18 @@ final class IOSKeyboardDictationSessionCoordinator {
     private func receive(
         _ resolution: IOSKeyboardDictationWorkflowResolution,
         attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date,
         generation: UInt64
     ) {
         guard ownsCurrentWorkflow(
             attempt: attempt,
-            deadline: deadline,
             generation: generation
         ) else {
             return
         }
         switch resolution {
         case .accepted(let text):
+            let deadline = stateDeadline(for: .resultReady)
+            self.deadline = deadline
             acceptedResult = text
             deliveryClaimID = nil
             guard publish(
@@ -601,12 +648,18 @@ final class IOSKeyboardDictationSessionCoordinator {
                 return
             }
             presentation = .resultReady
+            // Provider work is complete. Result delivery gets its own fresh
+            // warm-session assertion and expiry window.
+            endBackgroundTask()
+            beginBackgroundTaskIfNeeded()
+            scheduleExpiry(at: deadline)
             emitHandoff(
                 .terminal(.completed),
                 requestID: attempt.requestID,
                 endsObservation: true
             )
         case .cancelled:
+            let deadline = dependencies.now().addingTimeInterval(1)
             _ = publish(
                 phase: .unavailable,
                 expiresAt: deadline
@@ -623,13 +676,10 @@ final class IOSKeyboardDictationSessionCoordinator {
 
     private func ownsCurrentWorkflow(
         attempt: KeyboardDictationAttemptIdentity,
-        deadline: Date,
         generation: UInt64
     ) -> Bool {
         activeAttempt == attempt
-            && self.deadline == deadline
             && workflowGeneration == generation
-            && deadline > dependencies.now()
     }
 
     private func cancelCurrentWorkflow() {
@@ -640,12 +690,11 @@ final class IOSKeyboardDictationSessionCoordinator {
     }
 
     private func failAndStop(_ message: String) {
-        if sessionID != nil,
-           let deadline,
-           deadline > dependencies.now() {
+        if sessionID != nil {
+            let failureDeadline = stateDeadline(for: .failed)
             _ = publish(
                 phase: .failed,
-                expiresAt: deadline
+                expiresAt: failureDeadline
             )
         }
         cancelCurrentWorkflow()
@@ -654,19 +703,18 @@ final class IOSKeyboardDictationSessionCoordinator {
     }
 
     private func publishUnavailableIfCurrent() {
-        guard sessionID != nil,
-              let deadline,
-              deadline > dependencies.now() else {
-            return
-        }
+        guard sessionID != nil else { return }
         _ = publish(
             phase: .unavailable,
-            expiresAt: deadline
+            expiresAt: dependencies.now().addingTimeInterval(1)
         )
     }
 
     private func expireSession() {
-        guard sessionID != nil else { return }
+        guard sessionID != nil,
+              presentation.allowsSessionExpiry else {
+            return
+        }
         cancelCurrentWorkflow()
         let now = dependencies.now()
         _ = publish(
@@ -712,8 +760,23 @@ final class IOSKeyboardDictationSessionCoordinator {
 
     private func beginBackgroundTask() {
         backgroundTask = dependencies.beginBackgroundTask { [weak self] in
-            Task { @MainActor [weak self] in self?.expireSession() }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.presentation.allowsSessionExpiry {
+                    self.expireSession()
+                } else {
+                    // Active audio is protected by the app's background-audio
+                    // mode. Expiry of this finite assertion must never cancel
+                    // Listening or Processing.
+                    self.endBackgroundTask()
+                }
+            }
         }
+    }
+
+    private func beginBackgroundTaskIfNeeded() {
+        guard backgroundTask == .invalid else { return }
+        beginBackgroundTask()
     }
 
     private func scheduleExpiry(at date: Date) {
@@ -723,16 +786,34 @@ final class IOSKeyboardDictationSessionCoordinator {
         }
     }
 
+    private func suspendIdleExpiry() {
+        expiryTimer?.invalidate()
+        expiryTimer = nil
+    }
+
+    private func stateDeadline(
+        for phase: KeyboardDictationStatePhase
+    ) -> Date {
+        dependencies.now().addingTimeInterval(
+            KeyboardDictationBridgeConfiguration.maximumStateLifetime(
+                for: phase
+            )
+        )
+    }
+
     private func endBackgroundTask() {
         guard backgroundTask != .invalid else { return }
         dependencies.endBackgroundTask(backgroundTask)
         backgroundTask = .invalid
     }
 
-    private func completeAttemptForWarmReuse(deadline: Date) {
+    private func completeAttemptForWarmReuse() {
         activeAttempt = nil
         acceptedResult = nil
         deliveryClaimID = nil
+        let deadline = stateDeadline(for: .ready)
+        self.deadline = deadline
+        beginBackgroundTaskIfNeeded()
         guard publish(
             phase: .ready,
             expiresAt: deadline
@@ -742,6 +823,7 @@ final class IOSKeyboardDictationSessionCoordinator {
             return
         }
         presentation = .ready(deadline)
+        scheduleExpiry(at: deadline)
     }
 
     private func finishSessionLifetime(
@@ -806,6 +888,9 @@ final class IOSKeyboardHandoffPresentationOwner {
     @ObservationIgnored
     private let preflight: IOSKeyboardHandoffPreflightClient
     @ObservationIgnored
+    private let pendingRecordingOwner:
+        IOSPendingRecordingHistoryStateOwner?
+    @ObservationIgnored
     private let waitBeforeStartRetry: @MainActor @Sendable () async -> Void
     private var activeRequestID: UUID?
     private var armingRequestID: UUID?
@@ -815,16 +900,37 @@ final class IOSKeyboardHandoffPresentationOwner {
     init(
         session: IOSKeyboardDictationSessionCoordinator,
         preflight: IOSKeyboardHandoffPreflightClient = .passThrough(),
+        pendingRecordingOwner:
+            IOSPendingRecordingHistoryStateOwner? = nil,
         waitBeforeStartRetry: @escaping @MainActor @Sendable () async -> Void = {
             try? await Task.sleep(for: .milliseconds(150))
         }
     ) {
         self.session = session
         self.preflight = preflight
+        self.pendingRecordingOwner = pendingRecordingOwner
         self.waitBeforeStartRetry = waitBeforeStartRetry
     }
 
+    var savedRecordingOwner: IOSPendingRecordingHistoryStateOwner? {
+        pendingRecordingOwner
+    }
+
     func start(_ intent: KeyboardHandoffIntentRecord) async {
+        // Listening owns a live, potentially non-empty recording. A fresh
+        // launch only re-presents that exact attempt; it must not run preflight
+        // or reach recorder supersession.
+        if cancellationTask == nil,
+           retainActiveListeningHandoffIfAvailable() {
+            return
+        }
+
+        // Processing already owns a durable Pending transition. A fresh tap
+        // may reveal that exact saved owner, but it never supersedes it.
+        if session.presentation == .processing {
+            await revealCurrentSavedRecordingIfAvailable()
+            return
+        }
         let previousRequestID = activeRequestID
         generation &+= 1
         let currentGeneration = generation
@@ -832,6 +938,17 @@ final class IOSKeyboardHandoffPresentationOwner {
         presentation = IOSKeyboardHandoffSheetPresentation(
             phase: .starting
         )
+
+        if await revealSavedRecordingIfAvailable(
+            requestID: intent.requestID,
+            generation: currentGeneration
+        ) {
+            return
+        }
+        guard generation == currentGeneration,
+              activeRequestID == intent.requestID else {
+            return
+        }
 
         // A close from the previous sheet may still be waiting for recorder
         // cancellation. A fresh request supersedes its presentation
@@ -879,6 +996,15 @@ final class IOSKeyboardHandoffPresentationOwner {
                 armingRequestID = nil
                 return
             }
+            if retainActiveListeningHandoffIfAvailable() {
+                return
+            }
+            if await revealSavedRecordingIfAvailable(
+                requestID: intent.requestID,
+                generation: currentGeneration
+            ) {
+                return
+            }
         }
 
         armingRequestID = nil
@@ -887,6 +1013,10 @@ final class IOSKeyboardHandoffPresentationOwner {
     }
 
     func cancelFromSheet() {
+        if presentation?.phase == .savedRecording {
+            closeSavedRecordingPresentation()
+            return
+        }
         guard cancellationTask == nil,
               let requestID = activeRequestID else {
             return
@@ -899,8 +1029,20 @@ final class IOSKeyboardHandoffPresentationOwner {
     }
 
     func cancelActiveHandoff() async {
+        if presentation?.phase == .savedRecording {
+            closeSavedRecordingPresentation()
+            return
+        }
         guard let requestID = activeRequestID else { return }
         await cancel(requestID: requestID)
+    }
+
+    func savedRecordingDidResolve() {
+        guard presentation?.phase == .savedRecording,
+              pendingRecordingOwner?.isConfirmedAbsent == true else {
+            return
+        }
+        closeSavedRecordingPresentation()
     }
 
     private func cancel(requestID: UUID) async {
@@ -931,8 +1073,78 @@ final class IOSKeyboardHandoffPresentationOwner {
             presentation = nil
         case .terminal(.failed), .terminal(.expired):
             guard armingRequestID != requestID else { return }
-            activeRequestID = nil
-            presentation = nil
+            let currentGeneration = generation
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let revealed = await self.revealSavedRecordingIfAvailable(
+                    requestID: requestID,
+                    generation: currentGeneration
+                )
+                guard self.generation == currentGeneration,
+                      self.activeRequestID == requestID,
+                      !revealed else {
+                    return
+                }
+                self.activeRequestID = nil
+                self.presentation = nil
+            }
         }
+    }
+
+    private func retainActiveListeningHandoffIfAvailable() -> Bool {
+        guard let requestID = session.observeActiveListeningHandoff({
+            [weak self] requestID, event in
+            self?.receive(event, requestID: requestID)
+        }) else {
+            return false
+        }
+        armingRequestID = nil
+        activeRequestID = requestID
+        presentation = IOSKeyboardHandoffSheetPresentation(
+            phase: .listening
+        )
+        return true
+    }
+
+    private func revealCurrentSavedRecordingIfAvailable() async {
+        guard let pendingRecordingOwner else { return }
+        let confirmed = await pendingRecordingOwner.refresh()
+        guard pendingRecordingOwner.shouldPresentSavedRecording
+                || (!confirmed
+                    && !pendingRecordingOwner.isConfirmedAbsent) else {
+            return
+        }
+        presentation = IOSKeyboardHandoffSheetPresentation(
+            phase: .savedRecording
+        )
+    }
+
+    private func revealSavedRecordingIfAvailable(
+        requestID: UUID,
+        generation expectedGeneration: UInt64
+    ) async -> Bool {
+        guard let pendingRecordingOwner else { return false }
+        let confirmed = await pendingRecordingOwner.refresh()
+        guard generation == expectedGeneration,
+              activeRequestID == requestID,
+              pendingRecordingOwner.shouldPresentSavedRecording
+                || (!confirmed
+                    && !pendingRecordingOwner.isConfirmedAbsent) else {
+            return false
+        }
+        armingRequestID = nil
+        presentation = IOSKeyboardHandoffSheetPresentation(
+            phase: .savedRecording
+        )
+        return true
+    }
+
+    private func closeSavedRecordingPresentation() {
+        generation &+= 1
+        armingRequestID = nil
+        activeRequestID = nil
+        presentation = nil
+        guard let pendingRecordingOwner else { return }
+        Task { await pendingRecordingOwner.stopPlayback() }
     }
 }

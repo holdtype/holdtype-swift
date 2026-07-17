@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 import Testing
 @testable import HoldTypeIOS
 
@@ -33,7 +34,6 @@ struct IOSForegroundVoiceFeedbackBridgeTests {
         for reason in [
             IOSForegroundVoiceWorkflowCaptureStopReason.cancelled,
             .interrupted,
-            .maximumDuration,
         ] {
             let fixture = FeedbackBridgeFixture()
             let bridge = fixture.makeBridge()
@@ -48,6 +48,48 @@ struct IOSForegroundVoiceFeedbackBridgeTests {
             #expect(fixture.closeCalls.first?.disposition != .success)
             #expect(!bridge.hasActiveAttempt)
         }
+    }
+
+    @Test
+    func maximumDurationProducesTerminalFeedbackOnlyAfterRecorderClose() async {
+        let fixture = FeedbackBridgeFixture()
+        let bridge = fixture.makeBridge()
+
+        #expect(await bridge.playStartBoundary(audioCuesEnabled: true))
+        guard let handle = requireFeedbackHandle(bridge) else { return }
+        #expect(bridge.retainedCaptureDidBegin(for: handle))
+        #expect(fixture.closeCalls.isEmpty)
+
+        await bridge.recorderDidClose(.maximumDuration, for: handle)
+
+        #expect(fixture.closeCalls.count == 1)
+        #expect(fixture.closeCalls.first?.disposition == .success)
+        #expect(!bridge.hasActiveAttempt)
+    }
+
+    @Test
+    func limitWarningUsesFrozenCuePreferenceOnlyForCurrentCapture() async {
+        let fixture = FeedbackBridgeFixture()
+        var received: [(VoiceSessionWarning, Bool)] = []
+        let bridge = fixture.makeBridge { warning, audioCuesEnabled in
+            received.append((warning, audioCuesEnabled))
+        }
+        let warning = VoiceSessionWarningSchedule.warnings[0]
+
+        #expect(await bridge.playStartBoundary(audioCuesEnabled: false))
+        guard let handle = requireFeedbackHandle(bridge) else { return }
+        bridge.playLimitWarning(warning, for: handle)
+        #expect(received.isEmpty)
+
+        #expect(bridge.retainedCaptureDidBegin(for: handle))
+        bridge.playLimitWarning(warning, for: handle)
+        #expect(received.count == 1)
+        #expect(received.first?.0 == warning)
+        #expect(received.first?.1 == false)
+
+        await bridge.recorderDidClose(.cancelled, for: handle)
+        bridge.playLimitWarning(warning, for: handle)
+        #expect(received.count == 1)
     }
 
     @Test
@@ -263,7 +305,10 @@ private final class FeedbackBridgeFixture {
         }
     )
 
-    func makeBridge() -> IOSForegroundVoiceFeedbackBridge {
+    func makeBridge(
+        playLimitWarningFeedback: @escaping
+            IOSForegroundVoiceFeedbackBridge.PlayLimitWarning = { _, _ in }
+    ) -> IOSForegroundVoiceFeedbackBridge {
         IOSForegroundVoiceFeedbackBridge(
             driver: driver,
             makeToken: { [weak self] in
@@ -271,7 +316,8 @@ private final class FeedbackBridgeFixture {
                     return IOSVoiceBoundaryFeedbackToken()
                 }
                 return tokens.removeFirst()
-            }
+            },
+            playLimitWarningFeedback: playLimitWarningFeedback
         )
     }
 }

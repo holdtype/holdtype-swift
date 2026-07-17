@@ -17,6 +17,22 @@ protocol IOSForegroundVoicePersisting: Sendable {
         transcriptionConfiguration: TranscriptionConfiguration
     ) async throws -> IOSV1ForegroundVoiceTranscriptionDispatch
 
+    func checkpointTranscription(
+        expected: IOSV1PendingRecordingExpectation,
+        acceptedTranscript: String
+    ) async throws -> IOSV1PendingRecording
+
+    func checkpointPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        stage: IOSV1PendingTextCheckpointStage,
+        text: String
+    ) async throws -> IOSV1PendingRecording
+
+    func retryPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        operationID: UUID
+    ) async throws -> IOSV1PendingRecording
+
     func markPostProcessing(
         expected: IOSV1PendingRecordingExpectation
     ) async throws -> IOSV1PendingRecording
@@ -203,10 +219,13 @@ public actor IOSForegroundVoiceProcessor {
         guard let context = makeContext(from: request) else {
             return .notStarted(.invalidConfiguration)
         }
-        guard consentCoordinator.makeAuthorization(
-            from: context.consentObservation
-        ) != nil else {
-            return .notStarted(.providerConsentUnavailable)
+        if context.requiresProviderAuthority {
+            guard let consentObservation = context.consentObservation,
+                  consentCoordinator.makeAuthorization(
+                      from: consentObservation
+                  ) != nil else {
+                return .notStarted(.providerConsentUnavailable)
+            }
         }
 
         let operationID = UUID()
@@ -401,161 +420,189 @@ public actor IOSForegroundVoiceProcessor {
             return .notStarted(.cancelled)
         }
 
-        let dispatchSource: IOSV1PendingRecording
-        switch context.mode {
-        case .initial:
-            dispatchSource = context.pendingRecording
-        case .retry where context.pendingRecording.phase == .readyForTranscription:
+        var postProcessing: IOSV1PendingRecording
+        if context.mode == .retry,
+           context.pendingRecording.acceptedTranscriptionID != nil,
+           context.pendingRecording.textCheckpointStage != nil,
+           context.pendingRecording.textCheckpointText != nil {
+            guard context.pendingRecording.textCheckpointStage
+                    != .translationInFlight else {
+                return .notStarted(.localPersistence)
+            }
             do {
-                let failed = try await persistenceOwner.markFailed(
-                    expected: IOSV1PendingRecordingExpectation(
-                        recording: context.pendingRecording
-                    )
-                )
-                dispatchSource = try await canonicalRecording(
-                    continuing: failed,
-                    phase: .failed
+                postProcessing = try await resumePostProcessing(
+                    context.pendingRecording,
+                    operationID: context.transcriptionID
                 )
             } catch {
-                guard let observed = try? await persistenceOwner.load()?.recording,
-                      Self.continuesAttempt(
-                          observed,
-                          from: context.pendingRecording
-                      ),
-                      observed.phase == .failed else {
-                    return .notStarted(.localPersistence)
-                }
-                dispatchSource = observed
+                return await persistFailure(
+                    from: context.pendingRecording,
+                    failure: .localPersistence,
+                    stage: .postProcessing
+                )
             }
-        case .retry:
-            dispatchSource = context.pendingRecording
-        }
-
-        let dispatch: IOSV1ForegroundVoiceTranscriptionDispatch
-        do {
+        } else {
+            let dispatchSource: IOSV1PendingRecording
             switch context.mode {
             case .initial:
-                dispatch = try await persistenceOwner.beginTranscription(
-                    expected: IOSV1PendingRecordingExpectation(
-                        recording: dispatchSource
-                    ),
-                    transcriptionID: context.transcriptionID
-                )
+                dispatchSource = context.pendingRecording
+            case .retry where context.pendingRecording.phase
+                == .readyForTranscription:
+                do {
+                    let failed = try await persistenceOwner.markFailed(
+                        expected: IOSV1PendingRecordingExpectation(
+                            recording: context.pendingRecording
+                        )
+                    )
+                    dispatchSource = try await canonicalRecording(
+                        continuing: failed,
+                        phase: .failed
+                    )
+                } catch {
+                    guard let observed = try? await persistenceOwner.load()?
+                        .recording,
+                        Self.continuesAttempt(
+                            observed,
+                            from: context.pendingRecording
+                        ),
+                        observed.phase == .failed else {
+                        return .notStarted(.localPersistence)
+                    }
+                    dispatchSource = observed
+                }
             case .retry:
-                dispatch = try await persistenceOwner.retryTranscription(
-                    expected: IOSV1PendingRecordingExpectation(
-                        recording: dispatchSource
-                    ),
-                    transcriptionID: context.transcriptionID,
-                    transcriptionConfiguration:
-                        context.transcriptionConfiguration
+                dispatchSource = context.pendingRecording
+            }
+
+            let dispatch: IOSV1ForegroundVoiceTranscriptionDispatch
+            do {
+                switch context.mode {
+                case .initial:
+                    dispatch = try await persistenceOwner.beginTranscription(
+                        expected: IOSV1PendingRecordingExpectation(
+                            recording: dispatchSource
+                        ),
+                        transcriptionID: context.transcriptionID
+                    )
+                case .retry:
+                    dispatch = try await persistenceOwner.retryTranscription(
+                        expected: IOSV1PendingRecordingExpectation(
+                            recording: dispatchSource
+                        ),
+                        transcriptionID: context.transcriptionID,
+                        transcriptionConfiguration:
+                            context.transcriptionConfiguration
+                    )
+                }
+            } catch {
+                return await reconcileBeginFailure(
+                    context,
+                    dispatchSource: dispatchSource
                 )
             }
-        } catch {
-            return await reconcileBeginFailure(
-                context,
-                dispatchSource: dispatchSource
-            )
-        }
 
-        let transcribing: IOSV1PendingRecording
-        do {
-            transcribing = try await canonicalRecording(
-                continuing: dispatch.recording,
-                phase: .transcribing
-            )
-        } catch {
-            return await persistFailure(
-                from: dispatch.recording,
-                failure: .localPersistence,
-                stage: .transcription
-            )
-        }
-        guard activeOperationID == operationID, !Task.isCancelled else {
-            return await persistFailure(
-                from: transcribing,
-                failure: .cancelled,
-                stage: .transcription
-            )
-        }
-        await progress(.transcription)
-        guard activeOperationID == operationID, !Task.isCancelled else {
-            return await persistFailure(
-                from: transcribing,
-                failure: .cancelled,
-                stage: .transcription
-            )
-        }
-        guard let authorization = consentCoordinator.makeAuthorization(
-            from: context.consentObservation
-        ) else {
-            return await persistFailure(
-                from: transcribing,
-                failure: .providerConsentUnavailable,
-                stage: .transcription
-            )
-        }
-
-        let executor = IOSForegroundVoiceTranscriptionExecutor(
-            authorization: authorization,
-            stageExecutor: stageExecutor,
-            provider: provider,
-            credential: context.credential.credential,
-            promptComposition: context.promptComposition
-        )
-        let transcript: AcceptedTranscript
-        do {
-            transcript = try AcceptedTranscript(
-                rawText: try await dispatch.execute(using: executor)
-            )
-        } catch let error as IOSForegroundVoiceTranscriptionStageError {
-            let failure: IOSForegroundVoiceProcessingFailure
-            switch error {
-            case .failure(let providerFailure):
-                await recordCredentialRejectionIfNeeded(
-                    providerFailure,
-                    context: context
+            let transcribing: IOSV1PendingRecording
+            do {
+                transcribing = try await canonicalRecording(
+                    continuing: dispatch.recording,
+                    phase: .transcribing
                 )
-                failure = providerFailure.publicFailure
-            case .cancelled:
-                failure = .cancelled
-            case .authorizationUnavailable:
-                failure = .providerConsentUnavailable
+            } catch {
+                return await persistFailure(
+                    from: dispatch.recording,
+                    failure: .localPersistence,
+                    stage: .transcription
+                )
             }
-            return await persistFailure(
-                from: transcribing,
-                failure: Task.isCancelled ? .cancelled : failure,
-                stage: .transcription
-            )
-        } catch {
-            return await persistFailure(
-                from: transcribing,
-                failure: Task.isCancelled ? .cancelled : .invalidRecording,
-                stage: .transcription
-            )
-        }
+            guard activeOperationID == operationID, !Task.isCancelled else {
+                return await persistFailure(
+                    from: transcribing,
+                    failure: .cancelled,
+                    stage: .transcription
+                )
+            }
+            await progress(.transcription)
+            guard activeOperationID == operationID, !Task.isCancelled else {
+                return await persistFailure(
+                    from: transcribing,
+                    failure: .cancelled,
+                    stage: .transcription
+                )
+            }
+            guard let consentObservation = context.consentObservation,
+                  let credential = context.credential?.credential,
+                  let authorization = consentCoordinator.makeAuthorization(
+                      from: consentObservation
+                  ) else {
+                return await persistFailure(
+                    from: transcribing,
+                    failure: context.consentObservation == nil
+                        ? .providerConsentUnavailable : .credentialRejected,
+                    stage: .transcription
+                )
+            }
 
-        await recordSuccessfulTranscriptionUsage(
-            context: context,
-            recording: transcribing
-        )
-        guard !Task.isCancelled else {
-            return await persistFailure(
-                from: transcribing,
-                failure: .cancelled,
-                stage: .transcription
+            let executor = IOSForegroundVoiceTranscriptionExecutor(
+                authorization: authorization,
+                stageExecutor: stageExecutor,
+                provider: provider,
+                credential: credential,
+                promptComposition: context.promptComposition
             )
-        }
+            let accepted: AcceptedTranscript
+            do {
+                accepted = try AcceptedTranscript(
+                    rawText: try await dispatch.execute(using: executor)
+                )
+            } catch let error as IOSForegroundVoiceTranscriptionStageError {
+                let failure: IOSForegroundVoiceProcessingFailure
+                switch error {
+                case .failure(let providerFailure):
+                    await recordCredentialRejectionIfNeeded(
+                        providerFailure,
+                        context: context
+                    )
+                    failure = providerFailure.publicFailure
+                case .cancelled:
+                    failure = .cancelled
+                case .authorizationUnavailable:
+                    failure = .providerConsentUnavailable
+                }
+                return await persistFailure(
+                    from: transcribing,
+                    failure: Task.isCancelled ? .cancelled : failure,
+                    stage: .transcription
+                )
+            } catch {
+                return await persistFailure(
+                    from: transcribing,
+                    failure: Task.isCancelled ? .cancelled : .invalidRecording,
+                    stage: .transcription
+                )
+            }
 
-        let postProcessing: IOSV1PendingRecording
-        do {
-            postProcessing = try await advanceToPostProcessing(transcribing)
-        } catch {
-            return await persistFailure(
-                from: transcribing,
-                failure: .localPersistence,
-                stage: .transcription
+            await recordSuccessfulTranscriptionUsage(
+                context: context,
+                recording: transcribing
             )
+            do {
+                postProcessing = try await checkpointAcceptedTranscript(
+                    accepted,
+                    from: transcribing
+                )
+            } catch {
+                // The durable transcribing owner is replay evidence after its
+                // one-shot dispatch has returned. Do not turn an uncertain
+                // checkpoint write into an audio-authorized failed retry.
+                return .notStarted(.localPersistence)
+            }
+            guard !Task.isCancelled else {
+                return await persistFailure(
+                    from: postProcessing,
+                    failure: .cancelled,
+                    stage: .postProcessing
+                )
+            }
         }
         await progress(.postProcessing)
         guard !Task.isCancelled else {
@@ -567,16 +614,16 @@ public actor IOSForegroundVoiceProcessor {
         }
 
         let finalText: AcceptedTranscript
-        switch await makeFinalText(
-            transcript,
-            context: context,
-            recording: postProcessing
+        switch await resolvePostProcessing(
+            from: postProcessing,
+            context: context
         ) {
-        case .success(let value):
-            finalText = value
-        case .failure(let failure):
+        case .output(let text, let checkpointed):
+            finalText = text
+            postProcessing = checkpointed
+        case .failure(let failure, let checkpointed):
             return await persistFailure(
-                from: postProcessing,
+                from: checkpointed,
                 failure: failure,
                 stage: .postProcessing
             )
@@ -649,30 +696,156 @@ public actor IOSForegroundVoiceProcessor {
         }
     }
 
-    private func makeFinalText(
-        _ transcript: AcceptedTranscript,
-        context: IOSForegroundVoicePipelineContext,
-        recording: IOSV1PendingRecording
-    ) async -> IOSForegroundVoiceTextResolution {
-        guard !Task.isCancelled else { return .failure(.cancelled) }
+    private func resolvePostProcessing(
+        from recording: IOSV1PendingRecording,
+        context: IOSForegroundVoicePipelineContext
+    ) async -> IOSForegroundVoicePostProcessingResolution {
+        guard !Task.isCancelled else {
+            return .failure(.cancelled, recording)
+        }
+        guard let stage = recording.textCheckpointStage,
+              let rawText = recording.textCheckpointText,
+              let retained = try? AcceptedTranscript(rawText: rawText) else {
+            return .failure(.localPersistence, recording)
+        }
 
-        let corrected = await correctedTranscript(transcript, context: context)
-        guard !Task.isCancelled else { return .failure(.cancelled) }
+        switch stage {
+        case .outputReady:
+            return .output(retained, recording)
+        case .translationInFlight:
+            // A prior Translation launch has no confirmed result. The retained
+            // evidence is deliberately not provider-authorized for replay.
+            return .failure(.localPersistence, recording)
+        case .translationReady:
+            return await translateRetainedText(
+                retained,
+                recording: recording,
+                context: context
+            )
+        case .correctionInFlight:
+            // Correction is fail-open. Once launch is durable but its result is
+            // unknown, resume locally from the pre-correction text and never
+            // issue a replacement correction request.
+            return await finishLocallyProcessedText(
+                retained,
+                recording: recording,
+                context: context
+            )
+        case .transcriptionAccepted:
+            var checkpointed = recording
+            var source = retained
+            if context.correctionConfiguration.isEnabled {
+                do {
+                    checkpointed = try await checkpointPostProcessingText(
+                        retained,
+                        stage: .correctionInFlight,
+                        from: checkpointed
+                    )
+                } catch {
+                    return .failure(.localPersistence, checkpointed)
+                }
+                source = await correctedTranscript(retained, context: context)
+                guard !Task.isCancelled else {
+                    return .failure(.cancelled, checkpointed)
+                }
+            }
+            return await finishLocallyProcessedText(
+                source,
+                recording: checkpointed,
+                context: context
+            )
+        }
+    }
+
+    private func finishLocallyProcessedText(
+        _ source: AcceptedTranscript,
+        recording: IOSV1PendingRecording,
+        context: IOSForegroundVoicePipelineContext
+    ) async -> IOSForegroundVoicePostProcessingResolution {
+        guard !Task.isCancelled else {
+            return .failure(.cancelled, recording)
+        }
         let processedText = postProcessor.process(
-            corrected.text,
+            source.text,
             configuration: context.postProcessingConfiguration,
-            fallback: corrected.text
+            fallback: source.text
         )
         guard let processed = try? AcceptedTranscript(rawText: processedText)
         else {
-            return .failure(.invalidConfiguration)
+            return .failure(.invalidConfiguration, recording)
         }
 
-        switch recording.outputIntent {
-        case .standard:
-            return .success(processed)
-        case .translate:
-            return await translatedTranscript(processed, context: context)
+        let checkpointed: IOSV1PendingRecording
+        do {
+            switch recording.outputIntent {
+            case .standard:
+                checkpointed = try await checkpointPostProcessingText(
+                    processed,
+                    stage: .outputReady,
+                    from: recording
+                )
+                return .output(processed, checkpointed)
+            case .translate:
+                checkpointed = try await checkpointPostProcessingText(
+                    processed,
+                    stage: .translationReady,
+                    from: recording
+                )
+            }
+        } catch {
+            return .failure(.localPersistence, recording)
+        }
+        return await translateRetainedText(
+            processed,
+            recording: checkpointed,
+            context: context
+        )
+    }
+
+    private func translateRetainedText(
+        _ source: AcceptedTranscript,
+        recording: IOSV1PendingRecording,
+        context: IOSForegroundVoicePipelineContext
+    ) async -> IOSForegroundVoicePostProcessingResolution {
+        let inFlight: IOSV1PendingRecording
+        do {
+            inFlight = try await checkpointPostProcessingText(
+                source,
+                stage: .translationInFlight,
+                from: recording
+            )
+        } catch {
+            return .failure(.localPersistence, recording)
+        }
+
+        switch await translatedTranscript(source, context: context) {
+        case .success(let translated):
+            do {
+                let outputReady = try await checkpointPostProcessingText(
+                    translated,
+                    stage: .outputReady,
+                    from: inFlight
+                )
+                return .output(translated, outputReady)
+            } catch {
+                // Translation may have completed, so the in-flight seal must
+                // remain the retry boundary when its result cannot be proven.
+                return .failure(.localPersistence, inFlight)
+            }
+        case .failure(let failure):
+            guard failure != .cancelled else {
+                return .failure(failure, inFlight)
+            }
+            do {
+                let retryable = try await checkpointPostProcessingText(
+                    source,
+                    stage: .translationReady,
+                    from: inFlight
+                )
+                return .failure(failure, retryable)
+            } catch {
+                return .failure(.localPersistence, inFlight)
+            }
         }
     }
 
@@ -681,13 +854,14 @@ public actor IOSForegroundVoiceProcessor {
         context: IOSForegroundVoicePipelineContext
     ) async -> AcceptedTranscript {
         guard context.correctionConfiguration.isEnabled,
+              let consentObservation = context.consentObservation,
+              let credential = context.credential?.credential,
               let authorization = consentCoordinator.makeAuthorization(
-                  from: context.consentObservation
+                  from: consentObservation
               ) else {
             return transcript
         }
         let provider = provider
-        let credential = context.credential.credential
         let configuration = context.correctionConfiguration
         let outcome: IOSProviderConsentStageOutcome<
             AcceptedTranscript,
@@ -730,13 +904,17 @@ public actor IOSForegroundVoiceProcessor {
         guard let translation = context.translationConfiguration else {
             return .failure(.invalidConfiguration)
         }
-        guard let authorization = consentCoordinator.makeAuthorization(
-            from: context.consentObservation
-        ) else {
-            return .failure(.providerConsentUnavailable)
+        guard let consentObservation = context.consentObservation,
+              let credential = context.credential?.credential,
+              let authorization = consentCoordinator.makeAuthorization(
+                  from: consentObservation
+              ) else {
+            return .failure(
+                context.consentObservation == nil
+                    ? .providerConsentUnavailable : .credentialRejected
+            )
         }
         let provider = provider
-        let credential = context.credential.credential
         let transcriptionConfiguration = context.transcriptionConfiguration
         let outcome: IOSProviderConsentStageOutcome<
             AcceptedTranscript,
@@ -810,22 +988,109 @@ public actor IOSForegroundVoiceProcessor {
         )
     }
 
-    private func advanceToPostProcessing(
-        _ source: IOSV1PendingRecording
+    private func checkpointAcceptedTranscript(
+        _ transcript: AcceptedTranscript,
+        from source: IOSV1PendingRecording
     ) async throws -> IOSV1PendingRecording {
+        guard let transcriptionID = source.transcriptionID else {
+            throw IOSForegroundVoiceCanonicalizationError.unavailable
+        }
         do {
-            let advanced = try await persistenceOwner.markPostProcessing(
-                expected: IOSV1PendingRecordingExpectation(recording: source)
+            let checkpointed = try await persistenceOwner
+                .checkpointTranscription(
+                    expected: IOSV1PendingRecordingExpectation(
+                        recording: source
+                    ),
+                    acceptedTranscript: transcript.text
+                )
+            let canonical = try await canonicalRecording(
+                continuing: checkpointed,
+                phase: .postProcessing
+            )
+            guard canonical.textCheckpointStage == .transcriptionAccepted,
+                  canonical.textCheckpointText == transcript.text else {
+                throw IOSForegroundVoiceCanonicalizationError.unavailable
+            }
+            return canonical
+        } catch {
+            guard let current = try await persistenceOwner.load()?.recording,
+                  Self.continuesAttempt(current, from: source),
+                  current.phase == .postProcessing,
+                  current.transcriptionID == transcriptionID,
+                  current.acceptedTranscriptionID == transcriptionID,
+                  current.acceptedTranscript == transcript.text else {
+                throw error
+            }
+            return current
+        }
+    }
+
+    private func checkpointPostProcessingText(
+        _ text: AcceptedTranscript,
+        stage: IOSV1PendingTextCheckpointStage,
+        from source: IOSV1PendingRecording
+    ) async throws -> IOSV1PendingRecording {
+        guard let operationID = source.transcriptionID,
+              source.phase == .postProcessing else {
+            throw IOSForegroundVoiceCanonicalizationError.unavailable
+        }
+        do {
+            let checkpointed = try await persistenceOwner
+                .checkpointPostProcessing(
+                    expected: IOSV1PendingRecordingExpectation(
+                        recording: source
+                    ),
+                    stage: stage,
+                    text: text.text
+                )
+            let canonical = try await canonicalRecording(
+                continuing: checkpointed,
+                phase: .postProcessing
+            )
+            guard canonical.textCheckpointStage == stage,
+                  canonical.textCheckpointText == text.text else {
+                throw IOSForegroundVoiceCanonicalizationError.unavailable
+            }
+            return canonical
+        } catch {
+            guard let current = try await persistenceOwner.load()?.recording,
+                  Self.continuesAttempt(current, from: source),
+                  current.phase == .postProcessing,
+                  current.transcriptionID == operationID,
+                  current.textCheckpointStage == stage,
+                  current.textCheckpointText == text.text else {
+                throw error
+            }
+            return current
+        }
+    }
+
+    private func resumePostProcessing(
+        _ source: IOSV1PendingRecording,
+        operationID: UUID
+    ) async throws -> IOSV1PendingRecording {
+        guard source.phase == .failed,
+              source.acceptedTranscriptionID != nil,
+              source.acceptedTranscript != nil else {
+            throw IOSForegroundVoiceCanonicalizationError.unavailable
+        }
+        do {
+            let resumed = try await persistenceOwner.retryPostProcessing(
+                expected: IOSV1PendingRecordingExpectation(recording: source),
+                operationID: operationID
             )
             return try await canonicalRecording(
-                continuing: advanced,
+                continuing: resumed,
                 phase: .postProcessing
             )
         } catch {
             guard let current = try await persistenceOwner.load()?.recording,
                   Self.continuesAttempt(current, from: source),
                   current.phase == .postProcessing,
-                  current.transcriptionID == source.transcriptionID else {
+                  current.transcriptionID == operationID,
+                  current.acceptedTranscriptionID
+                    == source.acceptedTranscriptionID,
+                  current.acceptedTranscript == source.acceptedTranscript else {
                 throw error
             }
             return current
@@ -935,7 +1200,27 @@ public actor IOSForegroundVoiceProcessor {
                   pending.transcriptionID == nil else { return nil }
         }
         let transcription = request.settings.transcriptionConfiguration
-        guard !transcription.customLanguageCodeValidation.isInvalid else {
+        let providerFreeRetry: Bool
+        if request.mode == .retry {
+            providerFreeRetry = switch pending.textCheckpointStage {
+            case .outputReady, .translationInFlight:
+                true
+            case .correctionInFlight:
+                pending.outputIntent == .standard
+            case .transcriptionAccepted:
+                pending.outputIntent == .standard
+                    && !request.settings.textCorrectionConfiguration.isEnabled
+                    && !request.forcesTextCorrection
+            case .translationReady:
+                false
+            case nil:
+                pending.transcriptionReplayBlocked
+            }
+        } else {
+            providerFreeRetry = false
+        }
+        guard providerFreeRetry
+            || !transcription.customLanguageCodeValidation.isInvalid else {
             return nil
         }
         if request.mode == .initial {
@@ -951,10 +1236,14 @@ public actor IOSForegroundVoiceProcessor {
         case .standard:
             translation = nil
         case .translate:
-            guard request.settings.translationConfiguration.isConfigurationReady else {
+            if providerFreeRetry {
+                translation = nil
+            } else if request.settings.translationConfiguration
+                .isConfigurationReady {
+                translation = request.settings.translationConfiguration
+            } else {
                 return nil
             }
-            translation = request.settings.translationConfiguration
         }
         var correction = request.settings.textCorrectionConfiguration
         if request.forcesTextCorrection {
@@ -995,7 +1284,8 @@ public actor IOSForegroundVoiceProcessor {
         context: IOSForegroundVoicePipelineContext
     ) async {
         guard failure == .credentialRejected else { return }
-        await recordProviderRejection(context.credential.generation)
+        guard let credential = context.credential else { return }
+        await recordProviderRejection(credential.generation)
     }
 
     private func recordSuccessfulTranscriptionUsage(
@@ -1054,19 +1344,44 @@ private struct IOSForegroundVoicePipelineContext: Sendable {
     let translationConfiguration: TranslationConfiguration?
     let postProcessingConfiguration: TranscriptPostProcessingConfiguration
     let promptComposition: TranscriptionPromptComposition
-    let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSV1ProviderConsentObservation
+    let credential: IOSResolvedOpenAICredential?
+    let consentObservation: IOSV1ProviderConsentObservation?
     let transcriptionID: UUID
     let deliveryID: UUID
 
     var outputIntent: DictationOutputIntent {
         pendingRecording.outputIntent
     }
+
+    var requiresProviderAuthority: Bool {
+        guard mode == .retry else { return true }
+        guard let stage = pendingRecording.textCheckpointStage else {
+            return !pendingRecording.transcriptionReplayBlocked
+        }
+        return switch stage {
+        case .outputReady, .translationInFlight:
+            false
+        case .translationReady:
+            true
+        case .correctionInFlight:
+            outputIntent == .translate
+        case .transcriptionAccepted:
+            correctionConfiguration.isEnabled || outputIntent == .translate
+        }
+    }
 }
 
 private enum IOSForegroundVoiceTextResolution: Sendable {
     case success(AcceptedTranscript)
     case failure(IOSForegroundVoiceProcessingFailure)
+}
+
+private enum IOSForegroundVoicePostProcessingResolution: Sendable {
+    case output(AcceptedTranscript, IOSV1PendingRecording)
+    case failure(
+        IOSForegroundVoiceProcessingFailure,
+        IOSV1PendingRecording
+    )
 }
 
 private enum IOSForegroundVoiceCanonicalizationError: Error {

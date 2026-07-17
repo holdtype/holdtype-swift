@@ -75,27 +75,45 @@ resolved by silently degrading the keyboard into that manual-session design.
   dismissible; it does not navigate, mutate, or add recovery presentation to
   ordinary Voice. A completed repair does not replay the request; the user
   returns to the host and taps the keyboard microphone again.
-- An interrupted, failed, unavailable, or expired capture dismisses the handoff
-  sheet instead of leaving a terminal error over the app. The keyboard returns
-  to its microphone action, and the next tap starts a fresh request. Only a
-  concrete pre-start setup blocker may remain in the sheet until dismissed.
-  None of these outcomes routes to or changes ordinary Voice presentation.
-- Every fresh keyboard microphone tap immediately supersedes the prior
-  keyboard request, including a failed, expired, interrupted, processing, or
-  undelivered attempt. Before admitting the new capture, HoldType cancels any
-  remaining keyboard work and retires only local recovery whose attempt
-  identity matches that prior keyboard request. The old sheet status must not
-  reappear or block the new request. Accepted text already committed to Latest
-  or History is preserved. Recovery owned by ordinary Voice is never discarded
-  by this keyboard rule.
+- A pre-start unavailable or idle-session-expired request may dismiss the
+  handoff sheet and return the keyboard to its microphone action. Once a
+  non-empty recording exists, failure never makes it disappear: the sheet shows
+  that the recording was saved and exposes Play plus Transcribe/Retry or
+  Delete. The same saved recording is visible from containing-app History even
+  when the completed source could not yet commit its Pending promotion.
+- A completed source that has never become Pending is `Ready to Transcribe`,
+  not a failed provider attempt. It becomes `Retry` only after a canonical
+  Pending/provider attempt fails; unavailable source metadata is blocked.
+- Transcribe/Retry from either Saved Recording surface is one explicit user
+  action: HoldType expectation-binds the exact completed source, commits it as
+  failed Pending when needed, then enters the existing exactly-once provider
+  retry path. A failed promotion leaves the same playable source visible. The
+  handoff sheet runs this through the keyboard-owned workflow action and never
+  mutates ordinary Voice presentation.
+- A fresh keyboard microphone tap may supersede a pre-start, cancelled, or
+  empty prior request. It must not delete or replace a prior request whose
+  completed audio is Pending, Processing, or recoverably failed. That saved
+  recording remains the sole recovery owner until provider success or explicit
+  Delete, and the new tap reports the existing recovery instead of starting a
+  second capture. Accepted text already committed to Latest or History is
+  always preserved.
+- Listening is not a supersession boundary. If a fresh handoff arrives while
+  the prior attempt is actively Listening, HoldType keeps that exact session,
+  attempt, and recording, re-presents its Listening sheet, and does not run
+  setup preflight, start another capture, or retire the active audio.
+- History and the handoff sheet share one process-owned Saved Recording state.
+  If its local read cannot confirm either the recording or its absence, both
+  surfaces show a blocked Saved Recording with Retry Refresh. The handoff does
+  not continue admission or dismiss recovery until a successful read confirms
+  absence.
 - While that keyboard-only cleanup is finishing, the new handoff sheet remains
   visible in Starting and retries admission silently. A transient stale-session
   conflict must not dismiss the sheet or expose the unchanged Voice screen.
-- A fresh microphone tap from a different host app or input is the same
-  unconditional supersession boundary. HoldType silently stops and retires the
-  prior keyboard attempt, discards its uncommitted result, and starts the new
-  request for the current document. No status or failure from the prior host
-  may appear in the containing-app sheet for the new request.
+- A fresh microphone tap from a different host app or input follows the same
+  ownership rule. It may silently supersede a pre-start or empty capture, but it
+  must reveal rather than replace completed audio that is Pending, Processing,
+  or recoverably failed. After that saved recording succeeds or is explicitly
+  deleted, a later tap may start a request for the current document.
 - HoldType does not claim it can return to the host automatically. The user may
   need to swipe back or use the normal iOS app-switching gesture.
 - If the user taps keyboard Translate while its saved route is incomplete, the
@@ -113,6 +131,11 @@ resolved by silently degrading the keyboard into that manual-session design.
   input pipeline so iOS does not tear down background capture between distinct
   dictations. Session stop, cancellation, expiry, or replacement releases that
   pipeline and clears the system microphone indicator.
+- The warm-session lifetime is 60 seconds only while the session is idle in
+  `Ready`. Entering `Listening` cancels that idle expiry; capture then has its
+  independent five-minute limit. Entering `Processing` closes microphone input
+  and uses only the provider's own bounded timeout. An old warm-session timer
+  must never stop capture or cancel provider work.
 - The keyboard's existing voice/error area owns launch, permission, Listening,
   Processing, failure, expiry, and recovery messages. Identity or decorative
   areas do not duplicate these messages.
@@ -127,6 +150,10 @@ resolved by silently degrading the keyboard into that manual-session design.
   remains the explicit cancellation path.
 - Finish stops recording and starts the existing app-owned transcription and
   optional correction/translation pipeline.
+- If capture reaches five minutes first, HoldType performs the same Finish
+  automatically, saves Pending audio before provider work, and shows
+  `Processing — 5-minute recording saved`. The user does not need to keep the
+  extension alive for this finalization.
 - A fresh accepted result inserts automatically only when the current document
   still matches the post-return delivery anchor for the exact consumed request
   and delivery has not already been claimed.
@@ -146,6 +173,8 @@ The keyboard may present these product states:
 - `Processing`: recording ended and accepted text is not ready yet;
 - `Result ready`: safe automatic insertion is pending or explicit recovery is
   available;
+- `Saved recording`: completed audio is locally protected and can be played,
+  transcribed/retried, or explicitly deleted;
 - `Failed` or `Expired`: the request cannot continue and a new microphone tap
   starts a fresh request after retiring the previous keyboard attempt.
 
@@ -156,6 +185,8 @@ microphone appear active.
 ## Request And Destination Identity
 
 - A session identifier names one bounded, app-owned warm bridge lifetime.
+- That session's idle Ready lifetime is independent from the active attempt's
+  Listening deadline, provider timeout, and result-delivery lifetime.
 - An attempt identifier names one recorder and provider execution inside that
   session.
 - Each keyboard microphone tap creates a new opaque request identifier.
@@ -194,11 +225,18 @@ microphone appear active.
   an uncertain insertion is never replayed.
 - A matching post-insertion acknowledgement retires only the completed attempt
   and returns an unexpired app-owned session to Ready.
+- An expiry callback owns only the snapshot that scheduled it. Before clearing
+  attempt ownership it reloads the canonical bridge slot; a newer same-attempt
+  Processing, Result, Failed, or Unavailable record is handled exactly once,
+  even when its Darwin notification arrives late. It clears only when the
+  canonical snapshot is still the expired one.
 - The containing app remains the canonical owner of Latest and any History
   entry. Shared state is transient coordination, not a second transcript store.
 - An uncertain insertion is never retried automatically. The user recovers from
   Latest with an explicit Insert or Copy action.
-- Cancelled, failed, expired, or superseded requests never insert text.
+- Cancelled, failed, expired, or superseded requests never insert text. A
+  provider operation already started from protected Pending audio remains
+  authoritative even if the idle warm session later expires.
 
 ## Privacy And Permissions
 
@@ -238,8 +276,9 @@ microphone appear active.
   request without a separate preparatory session.
 - The selected containing-app destination remains unchanged and the temporary
   handoff sheet reflects Starting, Listening, Processing, and concrete
-  pre-start blockers without duplicating or mutating Voice. Runtime failure,
-  interruption, unavailability, and expiry never leave a terminal sheet.
+  pre-start blockers without duplicating or mutating Voice. A completed audio
+  failure remains as an explicit saved-recording recovery instead of silently
+  dismissing.
 - Returning to the host reconnects a recreated extension to the active request.
 - Quick Insert and Auto remain enabled throughout the handoff, and shared-state
   refreshes do not dismiss either already-open local surface.
@@ -249,6 +288,10 @@ microphone appear active.
   still eligible.
 - Repeated microphone taps within the same healthy warm session start distinct
   dictation attempts without another containing-app handoff.
+- Ready expires after 60 idle seconds, while Listening continues to its own
+  five-minute automatic Finish and Processing continues to its own timeout.
+- Five-minute Finish preserves one playable Pending recording and starts
+  provider work once; a later provider failure leaves Play and Retry/Delete.
 - Focus/document changes, stale requests, process loss, and uncertain delivery
   preserve Latest without automatic insertion into the wrong destination.
 - Permission and setup failures discovered while HoldType is foreground are

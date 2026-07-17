@@ -13,6 +13,24 @@ public enum IOSV1PendingRecordingPhase: Equatable, Sendable {
 }
 
 @_spi(HoldTypeIOSCore)
+public enum IOSV1PendingTextCheckpointStage: String, Equatable, Sendable {
+    case transcriptionAccepted
+    case correctionInFlight
+    case translationReady
+    case translationInFlight
+    case outputReady
+
+    init(_ stage: IOSVoiceStateTextCheckpointStage) {
+        self = Self(rawValue: stage.rawValue) ?? .transcriptionAccepted
+    }
+
+    var repositoryValue: IOSVoiceStateTextCheckpointStage {
+        IOSVoiceStateTextCheckpointStage(rawValue: rawValue)
+            ?? .transcriptionAccepted
+    }
+}
+
+@_spi(HoldTypeIOSCore)
 public enum IOSV1PendingRecordingAvailability: Equatable, Sendable {
     case available
     case temporarilyUnavailable
@@ -35,6 +53,14 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
     public let transcriptionLanguageCode: String?
     public let durationMilliseconds: Int64
     public let byteCount: Int64
+    public let acceptedAudioRetention: IOSAcceptedAudioRetention
+    public let transcriptionReplayBlocked: Bool
+    /// Durable normalized transcription accepted before downstream work.
+    /// A failed recording with this checkpoint retries post-processing only.
+    public let acceptedTranscriptionID: UUID?
+    public let acceptedTranscript: String?
+    public let textCheckpointStage: IOSV1PendingTextCheckpointStage?
+    public let textCheckpointText: String?
 
     let state: IOSVoiceStatePending
 
@@ -51,6 +77,14 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
         transcriptionLanguageCode = state.transcriptionLanguageCode
         durationMilliseconds = state.durationMilliseconds
         byteCount = state.byteCount
+        acceptedAudioRetention = state.acceptedAudioRetention
+        transcriptionReplayBlocked = state.transcriptionReplayBlocked
+        acceptedTranscriptionID = state.transcriptionCheckpoint?.operationID
+        acceptedTranscript = state.transcriptionCheckpoint?.acceptedTranscript
+        textCheckpointStage = state.transcriptionCheckpoint.map {
+            IOSV1PendingTextCheckpointStage($0.stage)
+        }
+        textCheckpointText = state.transcriptionCheckpoint?.text
         switch state.status {
         case .ready:
             phase = .readyForTranscription
@@ -80,6 +114,13 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
         phase: IOSV1PendingRecordingPhase = .readyForTranscription,
         transcriptionID: UUID? = nil,
         transcriptionConfiguration: TranscriptionConfiguration = .init(),
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy,
+        transcriptionReplayBlocked: Bool = false,
+        acceptedTranscriptionID: UUID? = nil,
+        acceptedTranscript: String? = nil,
+        textCheckpointStage: IOSV1PendingTextCheckpointStage? = nil,
+        textCheckpointText: String? = nil,
         createdAt: Date = Date(timeIntervalSince1970: 1_800_000_000),
         durationMilliseconds: Int64 = 1_000,
         byteCount: Int64 = 1_024
@@ -110,6 +151,30 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
         case .acceptedCleanup:
             throw IOSV1ForegroundVoicePersistenceError.invalidTransition
         }
+        let transcriptionCheckpoint: IOSVoiceStateTranscriptionCheckpoint?
+        switch (
+            acceptedTranscriptionID,
+            acceptedTranscript,
+            textCheckpointStage,
+            textCheckpointText
+        ) {
+        case (nil, nil, nil, nil):
+            transcriptionCheckpoint = nil
+        case let (
+            .some(operationID),
+            .some(acceptedTranscript),
+            .some(stage),
+            .some(text)
+        ):
+            transcriptionCheckpoint = try IOSVoiceStateTranscriptionCheckpoint(
+                operationID: operationID,
+                acceptedTranscript: acceptedTranscript,
+                stage: stage.repositoryValue,
+                text: text
+            )
+        default:
+            throw IOSV1ForegroundVoicePersistenceError.invalidTransition
+        }
         return Self(
             try IOSVoiceStatePending(
                 attemptID: attemptID,
@@ -128,6 +193,9 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
                     transcriptionConfiguration.resolvedLanguageCode,
                 durationMilliseconds: durationMilliseconds,
                 byteCount: byteCount,
+                acceptedAudioRetention: acceptedAudioRetention,
+                transcriptionReplayBlocked: transcriptionReplayBlocked,
+                transcriptionCheckpoint: transcriptionCheckpoint,
                 status: status
             )
         )
@@ -351,6 +419,92 @@ public enum IOSV1ForegroundVoiceCaptureRecoveryObservation:
     case blocked
 }
 
+/// One descriptor-validated completed capture that still owns local recovery
+/// because its source-to-Pending promotion has not committed. The transient
+/// source path never crosses this boundary.
+@_spi(HoldTypeIOSCore)
+public struct IOSV1CompletedCaptureRecoveryObservation: Equatable, Sendable {
+    public let attemptID: UUID
+    public let durationMilliseconds: Int64
+    public let byteCount: Int64
+    public let availability: IOSV1PendingRecordingAvailability
+
+    fileprivate let capture: IOSVoiceStateCapture
+
+    fileprivate init(
+        capture: IOSVoiceStateCapture,
+        availability: IOSV1PendingRecordingAvailability
+    ) {
+        attemptID = capture.attemptID
+        durationMilliseconds = capture.durationMilliseconds ?? 0
+        byteCount = capture.byteCount ?? 0
+        self.availability = availability
+        self.capture = capture
+    }
+
+#if DEBUG
+    public static func qualificationFixture(
+        attemptID: UUID = UUID(),
+        durationMilliseconds: Int64 = 1_000,
+        byteCount: Int64 = 1_024,
+        availability: IOSV1PendingRecordingAvailability = .available
+    ) throws -> Self {
+        Self(
+            capture: try IOSVoiceStateCapture(
+                attemptID: attemptID,
+                audioRelativeIdentifier:
+                    IOSVoiceStateStorageLocation.relativeAudioIdentifier(
+                        for: attemptID
+                    ),
+                createdAt: Date(timeIntervalSince1970: 1_800_000_000),
+                outputIntent: .standard,
+                phase: .completed,
+                durationMilliseconds: durationMilliseconds,
+                byteCount: byteCount
+            ),
+            availability: availability
+        )
+    }
+#endif
+}
+
+@_spi(HoldTypeIOSCore)
+public struct IOSV1CompletedCaptureRecoveryExpectation: Equatable, Sendable {
+    public let attemptID: UUID
+    public let durationMilliseconds: Int64
+    public let byteCount: Int64
+
+    fileprivate let capture: IOSVoiceStateCapture
+
+    public init(recording: IOSV1CompletedCaptureRecoveryObservation) {
+        attemptID = recording.attemptID
+        durationMilliseconds = recording.durationMilliseconds
+        byteCount = recording.byteCount
+        capture = recording.capture
+    }
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSV1SavedRecordingObservation: Equatable, Sendable {
+    case pending(IOSV1PendingRecordingObservation)
+    case completedCapture(IOSV1CompletedCaptureRecoveryObservation)
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSV1SavedRecordingExpectation: Equatable, Sendable {
+    case pending(IOSV1PendingRecordingExpectation)
+    case completedCapture(IOSV1CompletedCaptureRecoveryExpectation)
+
+    public var attemptID: UUID {
+        switch self {
+        case .pending(let expectation):
+            expectation.attemptID
+        case .completedCapture(let expectation):
+            expectation.attemptID
+        }
+    }
+}
+
 @_spi(HoldTypeIOSCore)
 public final class IOSV1ForegroundVoiceCaptureLease: @unchecked Sendable {
     private let ownerID: UUID
@@ -375,9 +529,13 @@ public final class IOSV1ForegroundVoiceCaptureLease: @unchecked Sendable {
         try await lease.beginFinalizing()
     }
 
-    public func completeAfterRecorderClose() async throws
+    public func completeAfterRecorderClose(
+        fallbackDurationMilliseconds: Int64? = nil
+    ) async throws
         -> IOSV1ForegroundVoiceCaptureFinalizationResult {
-        switch try await lease.completeAfterRecorderClose() {
+        switch try await lease.completeAfterRecorderClose(
+            fallbackDurationMilliseconds: fallbackDurationMilliseconds
+        ) {
         case .completed(let completed):
             return .completed(
                 IOSV1ForegroundVoiceCompletedCapture(
@@ -727,6 +885,47 @@ public final class IOSV1PendingTranscriptionAudio: @unchecked Sendable {
     }
 }
 
+/// One exact, descriptor-validated Pending recording prepared for local
+/// playback. The protected source URL never crosses the persistence boundary.
+@_spi(HoldTypeIOSCore)
+public final class IOSV1PendingRecordingPlaybackAudio: @unchecked Sendable {
+    public let format: IOSV1PendingRecordingAudioFormat
+    public let durationMilliseconds: Int64
+    public let byteCount: Int64
+
+    private let data: Data
+
+    fileprivate convenience init(
+        recording: IOSV1PendingRecording,
+        data: Data
+    ) {
+        self.init(
+            audioRelativeIdentifier: recording.audioRelativeIdentifier,
+            durationMilliseconds: recording.durationMilliseconds,
+            byteCount: recording.byteCount,
+            data: data
+        )
+    }
+
+    fileprivate init(
+        audioRelativeIdentifier: String,
+        durationMilliseconds: Int64,
+        byteCount: Int64,
+        data: Data
+    ) {
+        format = audioRelativeIdentifier.hasSuffix(".wav") ? .wav : .m4a
+        self.durationMilliseconds = durationMilliseconds
+        self.byteCount = byteCount
+        self.data = data
+    }
+
+    public func withAudioData<Result>(
+        _ body: (Data) throws -> Result
+    ) rethrows -> Result {
+        try body(data)
+    }
+}
+
 @_spi(HoldTypeIOSCore)
 public protocol IOSV1PendingTranscriptionExecutor: Sendable {
     func transcribe(
@@ -792,6 +991,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
     private let historyRepository: IOSAcceptedTextHistoryRepository
     private let acceptedAudioCache: IOSAcceptedAudioCache
     private let audioFileSystem: any IOSV1ForegroundVoiceAudioFileSystem
+    private let captureMediaValidator: any IOSV1VoiceCaptureMediaValidating
     private let recordingCachePolicy:
         @Sendable () async -> RecordingCachePolicy
     private let now: @Sendable () -> Date
@@ -823,6 +1023,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 in: applicationSupportDirectoryURL
             )
         )
+        captureMediaValidator = IOSV1VoiceCaptureMediaValidator()
         recordingCachePolicy = { .deleteImmediately }
         now = { Date() }
     }
@@ -852,6 +1053,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 in: applicationSupportDirectoryURL
             )
         )
+        captureMediaValidator = IOSV1VoiceCaptureMediaValidator()
         recordingCachePolicy = { .deleteImmediately }
         now = { Date() }
     }
@@ -882,6 +1084,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 in: applicationSupportDirectoryURL
             )
         )
+        captureMediaValidator = IOSV1VoiceCaptureMediaValidator()
         self.recordingCachePolicy = recordingCachePolicy
         now = { Date() }
     }
@@ -892,6 +1095,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         historyRepository: IOSAcceptedTextHistoryRepository,
         acceptedAudioCache: IOSAcceptedAudioCache,
         audioFileSystem: any IOSV1ForegroundVoiceAudioFileSystem,
+        captureMediaValidator: any IOSV1VoiceCaptureMediaValidating,
         recordingCachePolicy: @escaping @Sendable () async
             -> RecordingCachePolicy = { .deleteImmediately },
         now: @escaping @Sendable () -> Date
@@ -901,6 +1105,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         self.historyRepository = historyRepository
         self.acceptedAudioCache = acceptedAudioCache
         self.audioFileSystem = audioFileSystem
+        self.captureMediaValidator = captureMediaValidator
         self.recordingCachePolicy = recordingCachePolicy
         self.now = now
     }
@@ -928,19 +1133,52 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
 
     public func prepareCompletedCapture(
         _ capture: IOSV1ForegroundVoiceCompletedCapture,
-        transcriptionConfiguration: TranscriptionConfiguration
+        transcriptionConfiguration: TranscriptionConfiguration,
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy
     ) async throws -> IOSV1PendingRecording {
         await acquireOperation()
         defer { releaseOperation() }
         guard capture.ownerID == ownerID else {
             throw IOSV1ForegroundVoicePersistenceError.invalidTransition
         }
-        let promoted = IOSV1PendingRecording(
-            try await capture.completed.promote(
-                transcriptionConfiguration: transcriptionConfiguration
-            )
+        let resolvedRetention = IOSAcceptedAudioRetention.resolved(
+            requested: acceptedAudioRetention,
+            finalizedDurationMilliseconds: capture.durationMilliseconds
         )
-        guard let canonical = try await loadUnlocked()?.recording,
+        let promoted: IOSV1PendingRecording
+        do {
+            promoted = IOSV1PendingRecording(
+                try await capture.completed.promote(
+                    transcriptionConfiguration: transcriptionConfiguration,
+                    acceptedAudioRetention: resolvedRetention
+                )
+            )
+        } catch {
+            throw mapRepositoryError(error)
+        }
+        // The atomic promotion has already committed when `promote` returns.
+        // APFS can transiently fail the store's deliberately strict snapshot
+        // re-read immediately after rename, so verify the canonical row with a
+        // small bounded retry instead of reporting a false local failure.
+        var canonical: IOSV1PendingRecording?
+        var lastLoadError: Error?
+        for attempt in 0..<3 {
+            do {
+                canonical = try await loadUnlocked()?.recording
+                lastLoadError = nil
+                break
+            } catch {
+                lastLoadError = error
+                if attempt < 2 {
+                    await Task.yield()
+                }
+            }
+        }
+        if let lastLoadError {
+            throw lastLoadError
+        }
+        guard let canonical,
               canonical.attemptID == promoted.attemptID,
               canonical.audioRelativeIdentifier
                 == promoted.audioRelativeIdentifier,
@@ -955,10 +1193,99 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 == promoted.transcriptionLanguageCode,
               canonical.durationMilliseconds
                 == promoted.durationMilliseconds,
-              canonical.byteCount == promoted.byteCount else {
+              canonical.byteCount == promoted.byteCount,
+              canonical.acceptedAudioRetention
+                == promoted.acceptedAudioRetention else {
             throw IOSV1ForegroundVoicePersistenceError.localPersistence
         }
         return canonical
+    }
+
+    /// Repairs only a raw capture left behind by process loss. The caller must
+    /// invoke this at process launch, before ordinary passive reconciliation.
+    /// Validation is descriptor-bound and bounded; this method never starts a
+    /// provider request and never deletes an invalid or uncertain source.
+    public func repairOrphanedCaptureAtProcessLaunch() async
+        -> IOSV1ForegroundVoiceCaptureRecoveryObservation? {
+        await acquireOperation()
+        defer { releaseOperation() }
+        do {
+            let snapshot = try await repository.load()
+            guard let capture = snapshot.capture else { return nil }
+            switch capture.phase {
+            case .recording, .finalizing:
+                break
+            case .completed, .discarding:
+                return nil
+            }
+            let handle: IOSV1ForegroundVoiceAudioHandle
+            do {
+                guard let opened = try audioFileSystem.openPendingAudio(
+                    attemptID: capture.attemptID,
+                    relativeIdentifier: capture.audioRelativeIdentifier,
+                    expectedByteCount: nil
+                ) else {
+                    return .discardOnly(attemptID: capture.attemptID)
+                }
+                handle = opened
+            } catch IOSV1ForegroundVoicePersistenceError.audioInvalid {
+                // A path/identity/shape failure can still hide positive bytes.
+                // Only descriptor-proven absence or a successfully opened
+                // exact zero-byte source is safe to classify as Discard-only.
+                return .blocked
+            } catch {
+                return .blocked
+            }
+            defer { audioFileSystem.close(handle) }
+            guard handle.byteCount > 0 else {
+                return .discardOnly(attemptID: capture.attemptID)
+            }
+            guard handle.byteCount
+                    < IOSV1VoiceCaptureOwner.maximumAudioByteCount else {
+                return .blocked
+            }
+            let duration: Int64
+            do {
+                let measured = try captureMediaValidator.durationMilliseconds(
+                    fileDescriptor: handle.fileDescriptor,
+                    byteCount: handle.byteCount,
+                    timeoutNanoseconds:
+                        IOSV1VoiceCaptureOwner
+                            .mediaValidationTimeoutNanoseconds
+                )
+                duration = measured >= 300
+                    && measured <= VoiceSessionPreferences
+                        .maximumFinalizedMediaDurationMilliseconds
+                    ? measured : 0
+            } catch IOSV1VoiceCaptureError.mediaValidationFailed {
+                duration = 0
+            } catch IOSV1VoiceCaptureError.mediaValidationTimedOut {
+                duration = 0
+            } catch {
+                return .blocked
+            }
+            guard try audioFileSystem.read(
+                handle,
+                atOffset: 0,
+                maximumByteCount: 1
+            ).count == 1 else {
+                return .blocked
+            }
+            if capture.phase == .recording {
+                _ = try await repository.transitionCapture(
+                    attemptID: capture.attemptID,
+                    to: .finalizing
+                )
+            }
+            _ = try await repository.completeCapture(
+                attemptID: capture.attemptID,
+                durationMilliseconds: duration,
+                byteCount: handle.byteCount
+            )
+            return .recoverable(attemptID: capture.attemptID)
+        } catch {
+            return .blocked
+        }
     }
 
     /// Classifies only local capture ownership after process loss. It never
@@ -1019,6 +1346,34 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 try await repository.promoteCapture(
                     attemptID: attemptID,
                     transcriptionConfiguration: transcriptionConfiguration,
+                    acceptedAudioRetention: Self.recoveredAudioRetention(
+                        durationMilliseconds:
+                            capture.durationMilliseconds ?? 0
+                    ),
+                    initialStatus: .failed
+                )
+            )
+        } catch { throw mapRepositoryError(error) }
+    }
+
+    /// Promotes only the exact completed source represented by the current
+    /// saved-recording card. A stale UI token cannot recover a replacement.
+    public func recoverCapture(
+        expected: IOSV1CompletedCaptureRecoveryExpectation,
+        transcriptionConfiguration: TranscriptionConfiguration
+    ) async throws -> IOSV1PendingRecording {
+        await acquireOperation()
+        defer { releaseOperation() }
+        _ = try await requireCompletedCapture(expected)
+        do {
+            return IOSV1PendingRecording(
+                try await repository.promoteCapture(
+                    attemptID: expected.attemptID,
+                    transcriptionConfiguration: transcriptionConfiguration,
+                    acceptedAudioRetention: Self.recoveredAudioRetention(
+                        durationMilliseconds:
+                            expected.durationMilliseconds
+                    ),
                     initialStatus: .failed
                 )
             )
@@ -1038,10 +1393,138 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         try await discardCaptureUnlocked(capture)
     }
 
+    /// Discards only the exact completed source represented by the current
+    /// saved-recording card.
+    public func discardCapture(
+        expected: IOSV1CompletedCaptureRecoveryExpectation
+    ) async throws {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let capture = try await requireCompletedCapture(expected)
+        try await discardCaptureUnlocked(capture)
+    }
+
     public func load() async throws -> IOSV1PendingRecordingObservation? {
         await acquireOperation()
         defer { releaseOperation() }
         return try await loadUnlocked()
+    }
+
+    /// Loads the single canonical local recording owner. Pending wins once its
+    /// atomic promotion commits; otherwise a completed capture remains visible
+    /// and recoverable without inventing a second recorder or file owner.
+    public func loadSavedRecording() async throws
+        -> IOSV1SavedRecordingObservation? {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let snapshot: IOSVoiceStateSnapshot
+        do { snapshot = try await repository.load() }
+        catch { throw mapRepositoryError(error) }
+        if let pending = snapshot.pending {
+            let recording = IOSV1PendingRecording(pending)
+            return .pending(
+                IOSV1PendingRecordingObservation(
+                    recording: recording,
+                    availability: availability(for: recording)
+                )
+            )
+        }
+        guard let capture = snapshot.capture,
+              capture.phase == .completed,
+              capture.durationMilliseconds != nil,
+              capture.byteCount != nil else {
+            return nil
+        }
+        return .completedCapture(
+            IOSV1CompletedCaptureRecoveryObservation(
+                capture: capture,
+                availability: availability(for: capture)
+            )
+        )
+    }
+
+    /// Reads the exact current Pending audio for local playback without
+    /// exposing its protected path. Admission is expectation-bound and does
+    /// not change phase or authorize provider work.
+    public func preparePendingPlaybackAudio(
+        expected: IOSV1PendingRecordingExpectation
+    ) async throws -> IOSV1PendingRecordingPlaybackAudio {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let recording = try await requirePending(expected)
+        guard recording.phase != .acceptedCleanup,
+              recording.byteCount > 0,
+              recording.byteCount < 25_000_000 else {
+            throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+        }
+        guard let handle = try audioFileSystem.openPendingAudio(
+            attemptID: recording.attemptID,
+            relativeIdentifier: recording.audioRelativeIdentifier,
+            expectedByteCount: recording.byteCount
+        ) else {
+            throw IOSV1ForegroundVoicePersistenceError.audioMissing
+        }
+        defer { audioFileSystem.close(handle) }
+
+        var data = Data()
+        data.reserveCapacity(Int(recording.byteCount))
+        var offset: Int64 = 0
+        while offset < recording.byteCount {
+            try Task.checkCancellation()
+            let part = try audioFileSystem.read(
+                handle,
+                atOffset: offset,
+                maximumByteCount:
+                    IOSV1PendingTranscriptionAudio.maximumReadByteCount
+            )
+            guard !part.isEmpty else {
+                throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+            }
+            data.append(part)
+            offset += Int64(part.count)
+        }
+        guard Int64(data.count) == recording.byteCount else {
+            throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+        }
+        return IOSV1PendingRecordingPlaybackAudio(
+            recording: recording,
+            data: data
+        )
+    }
+
+    /// Reads the exact completed capture for local playback before Pending
+    /// promotion succeeds. This is read-only and never authorizes provider
+    /// work.
+    public func prepareCompletedCapturePlaybackAudio(
+        expected: IOSV1CompletedCaptureRecoveryExpectation
+    ) async throws -> IOSV1PendingRecordingPlaybackAudio {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let capture = try await requireCompletedCapture(expected)
+        guard let byteCount = capture.byteCount,
+              let durationMilliseconds = capture.durationMilliseconds,
+              byteCount > 0, byteCount < 25_000_000 else {
+            throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+        }
+        guard let handle = try audioFileSystem.openPendingAudio(
+            attemptID: capture.attemptID,
+            relativeIdentifier: capture.audioRelativeIdentifier,
+            expectedByteCount: byteCount
+        ) else {
+            throw IOSV1ForegroundVoicePersistenceError.audioMissing
+        }
+        defer { audioFileSystem.close(handle) }
+
+        let data = try readPlaybackData(
+            handle: handle,
+            expectedByteCount: byteCount
+        )
+        return IOSV1PendingRecordingPlaybackAudio(
+            audioRelativeIdentifier: capture.audioRelativeIdentifier,
+            durationMilliseconds: durationMilliseconds,
+            byteCount: byteCount,
+            data: data
+        )
     }
 
     public func beginTranscription(
@@ -1059,7 +1542,10 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 allowFailed: false
             )
         } catch { throw mapRepositoryError(error) }
-        return try await makeDispatch(for: state)
+        return try await makeDispatch(
+            for: state,
+            permitsUnknownDuration: false
+        )
     }
 
     public func retryTranscription(
@@ -1078,7 +1564,83 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 transcriptionConfiguration: transcriptionConfiguration
             )
         } catch { throw mapRepositoryError(error) }
-        return try await makeDispatch(for: state)
+        return try await makeDispatch(
+            for: state,
+            permitsUnknownDuration: true
+        )
+    }
+
+    /// Persists the consent-consumed normalized transcript before correction,
+    /// translation, local post-processing, or output delivery may start.
+    public func checkpointTranscription(
+        expected: IOSV1PendingRecordingExpectation,
+        acceptedTranscript: String
+    ) async throws -> IOSV1PendingRecording {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let current = try await requirePending(expected)
+        guard current.phase == .transcribing,
+              let transcriptionID = current.transcriptionID else {
+            throw IOSV1ForegroundVoicePersistenceError.invalidTransition
+        }
+        do {
+            return IOSV1PendingRecording(
+                try await repository.checkpointTranscription(
+                    attemptID: current.attemptID,
+                    operationID: transcriptionID,
+                    text: acceptedTranscript
+                )
+            )
+        } catch { throw mapRepositoryError(error) }
+    }
+
+    public func checkpointPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        stage: IOSV1PendingTextCheckpointStage,
+        text: String
+    ) async throws -> IOSV1PendingRecording {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let current = try await requirePending(expected)
+        guard current.phase == .postProcessing,
+              let operationID = current.transcriptionID,
+              current.textCheckpointStage != nil else {
+            throw IOSV1ForegroundVoicePersistenceError.invalidTransition
+        }
+        do {
+            return IOSV1PendingRecording(
+                try await repository.checkpointPostProcessing(
+                    attemptID: current.attemptID,
+                    operationID: operationID,
+                    stage: stage.repositoryValue,
+                    text: text
+                )
+            )
+        } catch { throw mapRepositoryError(error) }
+    }
+
+    /// Starts only the downstream pipeline from a durable accepted transcript.
+    /// This path cannot create an audio reader or transcription dispatch.
+    public func retryPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        operationID: UUID
+    ) async throws -> IOSV1PendingRecording {
+        await acquireOperation()
+        defer { releaseOperation() }
+        let current = try await requirePending(expected)
+        guard current.phase == .failed,
+              current.acceptedTranscriptionID != nil,
+              current.acceptedTranscript != nil else {
+            throw IOSV1ForegroundVoicePersistenceError.invalidTransition
+        }
+        do {
+            return IOSV1PendingRecording(
+                try await repository.beginPostProcessingRetry(
+                    attemptID: current.attemptID,
+                    operationID: operationID
+                )
+            )
+        } catch { throw mapRepositoryError(error) }
     }
 
     public func markPostProcessing(
@@ -1328,11 +1890,64 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         return current
     }
 
+    private func requireCompletedCapture(
+        _ expected: IOSV1CompletedCaptureRecoveryExpectation
+    ) async throws -> IOSVoiceStateCapture {
+        let snapshot: IOSVoiceStateSnapshot
+        do { snapshot = try await repository.load() }
+        catch { throw mapRepositoryError(error) }
+        guard let capture = snapshot.capture,
+              snapshot.pending == nil,
+              capture.phase == .completed,
+              capture == expected.capture else {
+            throw IOSV1ForegroundVoicePersistenceError.stalePending
+        }
+        return capture
+    }
+
+    private func readPlaybackData(
+        handle: IOSV1ForegroundVoiceAudioHandle,
+        expectedByteCount: Int64
+    ) throws -> Data {
+        var data = Data()
+        data.reserveCapacity(Int(expectedByteCount))
+        var offset: Int64 = 0
+        while offset < expectedByteCount {
+            try Task.checkCancellation()
+            let part = try audioFileSystem.read(
+                handle,
+                atOffset: offset,
+                maximumByteCount:
+                    IOSV1PendingTranscriptionAudio.maximumReadByteCount
+            )
+            guard !part.isEmpty else {
+                throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+            }
+            data.append(part)
+            offset += Int64(part.count)
+        }
+        guard Int64(data.count) == expectedByteCount else {
+            throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+        }
+        return data
+    }
+
     private func makeDispatch(
-        for state: IOSVoiceStatePending
+        for state: IOSVoiceStatePending,
+        permitsUnknownDuration: Bool
     ) async throws -> IOSV1ForegroundVoiceTranscriptionDispatch {
         let recording = IOSV1PendingRecording(state)
         do {
+            let hasAdmissibleDuration = recording.durationMilliseconds > 0
+                && recording.durationMilliseconds
+                    <= VoiceSessionPreferences
+                        .maximumFinalizedMediaDurationMilliseconds
+            let isExplicitUnknownDurationAttempt = permitsUnknownDuration
+                && recording.durationMilliseconds == 0
+            guard hasAdmissibleDuration
+                    || isExplicitUnknownDurationAttempt else {
+                throw IOSV1ForegroundVoicePersistenceError.audioInvalid
+            }
             guard let handle = try audioFileSystem.openPendingAudio(
                 attemptID: recording.attemptID,
                 relativeIdentifier: recording.audioRelativeIdentifier,
@@ -1367,6 +1982,29 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 attemptID: recording.attemptID,
                 relativeIdentifier: recording.audioRelativeIdentifier,
                 expectedByteCount: recording.byteCount
+            ) else { return .missing }
+            audioFileSystem.close(handle)
+            return .available
+        } catch IOSV1ForegroundVoicePersistenceError
+            .audioTemporarilyUnavailable {
+            return .temporarilyUnavailable
+        } catch {
+            return .invalid
+        }
+    }
+
+    private func availability(
+        for capture: IOSVoiceStateCapture
+    ) -> IOSV1PendingRecordingAvailability {
+        guard capture.phase == .completed,
+              let byteCount = capture.byteCount else {
+            return .invalid
+        }
+        do {
+            guard let handle = try audioFileSystem.openPendingAudio(
+                attemptID: capture.attemptID,
+                relativeIdentifier: capture.audioRelativeIdentifier,
+                expectedByteCount: byteCount
             ) else { return .missing }
             audioFileSystem.close(handle)
             return .available
@@ -1430,7 +2068,9 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         record: IOSV1AcceptedOutputDeliveryRecord
     ) async throws {
         let policy = (await recordingCachePolicy()).normalized
-        guard policy.keepsRecordings else {
+        let mustSaveRecording = pending.acceptedAudioRetention
+            == .savedFiveMinute
+        guard mustSaveRecording || policy.keepsRecordings else {
             do {
                 try await acceptedAudioCache.reconcile(policy: policy)
             } catch is IOSAcceptedAudioCacheError {
@@ -1438,11 +2078,43 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
             }
             return
         }
+        let fileExtension = pending.audioRelativeIdentifier.hasSuffix(".wav")
+            ? "wav" : "m4a"
+        if mustSaveRecording {
+            do {
+                if try await acceptedAudioCache.savedAudioFileURLIfAvailable(
+                    resultID: record.resultID,
+                    fileExtension: fileExtension,
+                    byteCount: pending.byteCount
+                ) != nil {
+                    // The exact bounded Saved Recording already owns these
+                    // bytes. A prior pass may have unlinked Pending before its
+                    // final metadata write failed. Reconciliation is still a
+                    // required part of publish: the first write may have
+                    // succeeded before pruning an older entry failed.
+                    try await acceptedAudioCache.reconcile(policy: policy)
+                    guard try await acceptedAudioCache
+                        .savedAudioFileURLIfAvailable(
+                            resultID: record.resultID,
+                            fileExtension: fileExtension,
+                            byteCount: pending.byteCount
+                        ) != nil else {
+                        throw IOSAcceptedAudioCacheError.storageUnavailable
+                    }
+                    return
+                }
+            } catch is IOSAcceptedAudioCacheError {
+                throw IOSV1ForegroundVoicePersistenceError.localPersistence
+            }
+        }
         guard let handle = try audioFileSystem.openPendingAudio(
             attemptID: pending.attemptID,
             relativeIdentifier: pending.audioRelativeIdentifier,
             expectedByteCount: pending.byteCount
         ) else {
+            if mustSaveRecording {
+                throw IOSV1ForegroundVoicePersistenceError.audioMissing
+            }
             do {
                 try await acceptedAudioCache.reconcile(policy: policy)
             } catch is IOSAcceptedAudioCacheError {
@@ -1471,19 +2143,34 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         guard Int64(data.count) == handle.byteCount else {
             throw IOSV1ForegroundVoicePersistenceError.audioInvalid
         }
-        let fileExtension = pending.audioRelativeIdentifier.hasSuffix(".wav")
-            ? "wav" : "m4a"
         do {
             _ = try await acceptedAudioCache.retainAcceptedAudio(
                 data,
                 resultID: record.resultID,
                 fileExtension: fileExtension,
                 createdAt: record.createdAt,
-                policy: policy
+                policy: policy,
+                retention: pending.acceptedAudioRetention
             )
         } catch is IOSAcceptedAudioCacheError {
-            // Text acceptance succeeds even when optional playback cannot cache.
+            if mustSaveRecording {
+                throw IOSV1ForegroundVoicePersistenceError.localPersistence
+            }
+            // Optional policy-managed playback cannot invalidate acceptance.
         }
+    }
+
+    private static func recoveredAudioRetention(
+        durationMilliseconds: Int64
+    ) -> IOSAcceptedAudioRetention {
+        // Unknown recovery may be the exact five-minute recording whose media
+        // metadata probe failed. Preserve it conservatively after acceptance;
+        // bounded Saved Recordings, not an optional cache policy, owns it.
+        if durationMilliseconds == 0 { return .savedFiveMinute }
+        return IOSAcceptedAudioRetention.resolved(
+            requested: .recordingCachePolicy,
+            finalizedDurationMilliseconds: durationMilliseconds
+        )
     }
 
     private func discardCaptureUnlocked(

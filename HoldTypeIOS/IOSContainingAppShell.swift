@@ -38,6 +38,8 @@ struct IOSContainingAppShell: View {
     let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let historyPlaybackActions: IOSHistoryPlaybackActions?
+    let pendingRecordingHistoryStateOwner:
+        IOSPendingRecordingHistoryStateOwner?
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
     let layout: IOSContainingAppShellLayout
@@ -50,6 +52,8 @@ struct IOSContainingAppShell: View {
         secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
+        pendingRecordingHistoryStateOwner:
+            IOSPendingRecordingHistoryStateOwner? = nil,
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
         layout: IOSContainingAppShellLayout = .current,
@@ -62,6 +66,8 @@ struct IOSContainingAppShell: View {
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.historyPlaybackActions = historyPlaybackActions
+        self.pendingRecordingHistoryStateOwner =
+            pendingRecordingHistoryStateOwner
         self.recordingCacheLifecycleActions =
             recordingCacheLifecycleActions
         self.layout = layout
@@ -130,8 +136,15 @@ struct IOSContainingAppShell: View {
                    keyboardHandoffPresentationOwner.presentation {
                 IOSKeyboardHandoffSheet(
                     presentation: presentation,
+                    pendingRecordingOwner:
+                        keyboardHandoffPresentationOwner
+                            .savedRecordingOwner,
                     cancel: {
                         keyboardHandoffPresentationOwner.cancelFromSheet()
+                    },
+                    savedRecordingResolved: {
+                        keyboardHandoffPresentationOwner
+                            .savedRecordingDidResolve()
                     }
                 )
             }
@@ -310,7 +323,9 @@ struct IOSContainingAppShell: View {
             )
         case .history:
             IOSHistoryHomeView(
-                playbackActions: historyPlaybackActions
+                playbackActions: historyPlaybackActions,
+                pendingRecordingOwner:
+                    pendingRecordingHistoryStateOwner
             )
         case .usage:
             IOSUsageEstimateView()

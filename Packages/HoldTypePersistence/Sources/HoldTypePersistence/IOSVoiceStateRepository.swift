@@ -28,6 +28,70 @@ struct IOSVoiceStateAcceptedResult: Equatable, Sendable {
     let createdAt: Date
 }
 
+enum IOSVoiceStateTextCheckpointStage: String, Equatable, Sendable {
+    case transcriptionAccepted
+    case correctionInFlight
+    case translationReady
+    case translationInFlight
+    case outputReady
+}
+
+/// The consent-consumed transcription response and the latest exact downstream
+/// boundary. The original response and operation ID remain stable while `text`
+/// advances, so usage identity never changes and a retry can skip every already
+/// completed or outcome-unknown provider stage.
+struct IOSVoiceStateTranscriptionCheckpoint: Equatable, Sendable {
+    let operationID: UUID
+    let acceptedTranscript: String
+    let stage: IOSVoiceStateTextCheckpointStage
+    let text: String
+
+    init(
+        operationID: UUID,
+        acceptedTranscript: String,
+        stage: IOSVoiceStateTextCheckpointStage = .transcriptionAccepted,
+        text: String? = nil
+    ) throws {
+        let checkpointText = text ?? acceptedTranscript
+        guard IOSVoiceStateValidation.isStoredText(acceptedTranscript),
+              IOSVoiceStateValidation.isStoredText(checkpointText) else {
+            throw IOSVoiceStateRepositoryError.invalidAcceptedText
+        }
+        self.operationID = operationID
+        self.acceptedTranscript = acceptedTranscript
+        self.stage = stage
+        self.text = checkpointText
+    }
+
+    func advancing(
+        to stage: IOSVoiceStateTextCheckpointStage,
+        text: String
+    ) throws -> Self {
+        let allowed = switch (self.stage, stage) {
+        case (.transcriptionAccepted, .correctionInFlight),
+             (.transcriptionAccepted, .translationReady),
+             (.transcriptionAccepted, .outputReady),
+             (.correctionInFlight, .translationReady),
+             (.correctionInFlight, .outputReady),
+             (.translationReady, .translationInFlight),
+             (.translationInFlight, .translationReady),
+             (.translationInFlight, .outputReady):
+            true
+        default:
+            self.stage == stage && self.text == text
+        }
+        guard allowed else {
+            throw IOSVoiceStateRepositoryError.invalidTransition
+        }
+        return try Self(
+            operationID: operationID,
+            acceptedTranscript: acceptedTranscript,
+            stage: stage,
+            text: text
+        )
+    }
+}
+
 enum IOSVoiceStatePendingStatus: Equatable, Sendable {
     case ready
     case processing(IOSVoiceStateProcessingStage, operationID: UUID)
@@ -72,8 +136,7 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
               IOSVoiceStateValidation.isValidDate(createdAt),
               (phase == .completed) == hasCompletion,
               (durationMilliseconds == nil && byteCount == nil)
-                || ((durationMilliseconds ?? 0) > 0
-                    && (durationMilliseconds ?? 0) < 300_000
+                || ((durationMilliseconds ?? -1) >= 0
                     && (byteCount ?? 0) > 0
                     && (byteCount ?? 0) < 25_000_000) else {
             throw IOSVoiceStateRepositoryError.invalidRecord
@@ -120,6 +183,9 @@ struct IOSVoiceStatePending: Equatable, Sendable {
     let transcriptionLanguageCode: String?
     let durationMilliseconds: Int64
     let byteCount: Int64
+    let acceptedAudioRetention: IOSAcceptedAudioRetention
+    let transcriptionReplayBlocked: Bool
+    let transcriptionCheckpoint: IOSVoiceStateTranscriptionCheckpoint?
     let status: IOSVoiceStatePendingStatus
 
     init(
@@ -134,6 +200,10 @@ struct IOSVoiceStatePending: Equatable, Sendable {
         transcriptionLanguageCode: String?,
         durationMilliseconds: Int64,
         byteCount: Int64,
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy,
+        transcriptionReplayBlocked: Bool = false,
+        transcriptionCheckpoint: IOSVoiceStateTranscriptionCheckpoint? = nil,
         status: IOSVoiceStatePendingStatus
     ) throws {
         guard IOSVoiceStateValidation.isCanonicalRelativeAudioIdentifier(
@@ -147,11 +217,30 @@ struct IOSVoiceStatePending: Equatable, Sendable {
               IOSVoiceStateValidation.isValidLanguageCode(
                   transcriptionLanguageCode
               ),
-              durationMilliseconds > 0,
-              durationMilliseconds < 300_000,
+              durationMilliseconds >= 0,
               byteCount > 0,
-              byteCount < 25_000_000 else {
+              byteCount < 25_000_000,
+              !(transcriptionReplayBlocked
+                && transcriptionCheckpoint != nil) else {
             throw IOSVoiceStateRepositoryError.invalidRecord
+        }
+        if transcriptionReplayBlocked, status != .failed {
+            throw IOSVoiceStateRepositoryError.invalidRecord
+        }
+        if let transcriptionCheckpoint {
+            switch status {
+            case .ready, .processing(.transcription, _):
+                throw IOSVoiceStateRepositoryError.invalidRecord
+            case .processing(.outputDelivery, _)
+                where transcriptionCheckpoint.stage != .outputReady:
+                throw IOSVoiceStateRepositoryError.invalidRecord
+            case .acceptedCleanup
+                where transcriptionCheckpoint.stage != .outputReady:
+                throw IOSVoiceStateRepositoryError.invalidRecord
+            case .processing(.postProcessing, _), .failed,
+                 .processing(.outputDelivery, _), .acceptedCleanup:
+                break
+            }
         }
         if case .acceptedCleanup(let accepted) = status {
             guard accepted.sourceAttemptID == attemptID else {
@@ -170,6 +259,9 @@ struct IOSVoiceStatePending: Equatable, Sendable {
         self.transcriptionLanguageCode = transcriptionLanguageCode
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
+        self.acceptedAudioRetention = acceptedAudioRetention
+        self.transcriptionReplayBlocked = transcriptionReplayBlocked
+        self.transcriptionCheckpoint = transcriptionCheckpoint
         self.status = status
     }
 
@@ -189,6 +281,33 @@ struct IOSVoiceStatePending: Equatable, Sendable {
             transcriptionLanguageCode: transcriptionLanguageCode,
             durationMilliseconds: durationMilliseconds,
             byteCount: byteCount,
+            acceptedAudioRetention: acceptedAudioRetention,
+            transcriptionReplayBlocked: transcriptionReplayBlocked,
+            transcriptionCheckpoint: transcriptionCheckpoint,
+            status: status
+        )
+    }
+
+    func replacing(
+        status: IOSVoiceStatePendingStatus,
+        transcriptionCheckpoint: IOSVoiceStateTranscriptionCheckpoint,
+        updatedAt: Date
+    ) throws -> Self {
+        try Self(
+            attemptID: attemptID,
+            audioRelativeIdentifier: audioRelativeIdentifier,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
+            transcriptionModel: transcriptionModel,
+            transcriptionLanguageCode: transcriptionLanguageCode,
+            durationMilliseconds: durationMilliseconds,
+            byteCount: byteCount,
+            acceptedAudioRetention: acceptedAudioRetention,
+            transcriptionReplayBlocked: transcriptionReplayBlocked,
+            transcriptionCheckpoint: transcriptionCheckpoint,
             status: status
         )
     }
@@ -215,6 +334,33 @@ struct IOSVoiceStatePending: Equatable, Sendable {
                 transcriptionConfiguration.resolvedLanguageCode,
             durationMilliseconds: durationMilliseconds,
             byteCount: byteCount,
+            acceptedAudioRetention: acceptedAudioRetention,
+            transcriptionReplayBlocked: transcriptionReplayBlocked,
+            transcriptionCheckpoint: transcriptionCheckpoint,
+            status: status
+        )
+    }
+
+    func replacing(
+        status: IOSVoiceStatePendingStatus,
+        transcriptionReplayBlocked: Bool,
+        updatedAt: Date
+    ) throws -> Self {
+        try Self(
+            attemptID: attemptID,
+            audioRelativeIdentifier: audioRelativeIdentifier,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            outputIntent: outputIntent,
+            draftInsertionMode: draftInsertionMode,
+            forcesTextCorrection: forcesTextCorrection,
+            transcriptionModel: transcriptionModel,
+            transcriptionLanguageCode: transcriptionLanguageCode,
+            durationMilliseconds: durationMilliseconds,
+            byteCount: byteCount,
+            acceptedAudioRetention: acceptedAudioRetention,
+            transcriptionReplayBlocked: transcriptionReplayBlocked,
+            transcriptionCheckpoint: transcriptionCheckpoint,
             status: status
         )
     }
@@ -392,6 +538,8 @@ actor IOSVoiceStateRepository {
     func promoteCapture(
         attemptID: UUID,
         transcriptionConfiguration: TranscriptionConfiguration,
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy,
         initialStatus: IOSVoiceStatePendingStatus = .ready
     ) throws -> IOSVoiceStatePending {
         var snapshot = try load()
@@ -424,6 +572,7 @@ actor IOSVoiceStateRepository {
                 transcriptionConfiguration.resolvedLanguageCode,
             durationMilliseconds: durationMilliseconds,
             byteCount: byteCount,
+            acceptedAudioRetention: acceptedAudioRetention,
             status: initialStatus
         )
         snapshot.capture = nil
@@ -462,7 +611,9 @@ actor IOSVoiceStateRepository {
         let pending = try requirePending(attemptID, in: snapshot)
         switch pending.status {
         case .ready where !allowFailed,
-             .failed where allowFailed:
+             .failed where allowFailed
+                && pending.transcriptionCheckpoint == nil
+                && !pending.transcriptionReplayBlocked:
             break
         case .ready, .failed, .processing, .acceptedCleanup:
             throw IOSVoiceStateRepositoryError.invalidTransition
@@ -484,7 +635,9 @@ actor IOSVoiceStateRepository {
     ) throws -> IOSVoiceStatePending {
         var snapshot = try load()
         let pending = try requirePending(attemptID, in: snapshot)
-        guard pending.status == .failed else {
+        guard pending.status == .failed,
+              pending.transcriptionCheckpoint == nil,
+              !pending.transcriptionReplayBlocked else {
             throw IOSVoiceStateRepositoryError.invalidTransition
         }
         let updated = try pending.replacing(
@@ -493,6 +646,102 @@ actor IOSVoiceStateRepository {
                 .transcription,
                 operationID: operationID
             ),
+            updatedAt: mutationDate(after: pending.updatedAt)
+        )
+        snapshot.pending = updated
+        try replace(snapshot)
+        return updated
+    }
+
+    /// Starts a fresh downstream attempt from the already accepted durable
+    /// transcript. It never changes transcription settings or creates audio
+    /// provider authority.
+    @discardableResult
+    func beginPostProcessingRetry(
+        attemptID: UUID,
+        operationID: UUID
+    ) throws -> IOSVoiceStatePending {
+        var snapshot = try load()
+        let pending = try requirePending(attemptID, in: snapshot)
+        guard pending.status == .failed,
+              let checkpoint = pending.transcriptionCheckpoint,
+              checkpoint.stage != .translationInFlight else {
+            throw IOSVoiceStateRepositoryError.invalidTransition
+        }
+        let updated = try pending.replacing(
+            status: .processing(
+                .postProcessing,
+                operationID: operationID
+            ),
+            updatedAt: mutationDate(after: pending.updatedAt)
+        )
+        snapshot.pending = updated
+        try replace(snapshot)
+        return updated
+    }
+
+    /// Atomically persists the normalized transcription before any downstream
+    /// stage. Repeating the exact confirmed transition is idempotent.
+    @discardableResult
+    func checkpointTranscription(
+        attemptID: UUID,
+        operationID: UUID,
+        text: String
+    ) throws -> IOSVoiceStatePending {
+        var snapshot = try load()
+        let pending = try requirePending(attemptID, in: snapshot)
+        let checkpoint = try IOSVoiceStateTranscriptionCheckpoint(
+            operationID: operationID,
+            acceptedTranscript: text
+        )
+        if case .processing(.postProcessing, let currentOperationID) =
+            pending.status,
+           currentOperationID == operationID,
+           pending.transcriptionCheckpoint == checkpoint {
+            return pending
+        }
+        guard case .processing(.transcription, let currentOperationID) =
+                pending.status,
+              currentOperationID == operationID,
+              pending.transcriptionCheckpoint == nil else {
+            throw IOSVoiceStateRepositoryError.invalidTransition
+        }
+        let updated = try pending.replacing(
+            status: .processing(
+                .postProcessing,
+                operationID: operationID
+            ),
+            transcriptionCheckpoint: checkpoint,
+            updatedAt: mutationDate(after: pending.updatedAt)
+        )
+        snapshot.pending = updated
+        try replace(snapshot)
+        return updated
+    }
+
+    /// Advances the exact durable text boundary without changing the original
+    /// transcription/usage identity. Every accepted text is validated before
+    /// the atomic replacement, and exact repeats are idempotent.
+    @discardableResult
+    func checkpointPostProcessing(
+        attemptID: UUID,
+        operationID: UUID,
+        stage: IOSVoiceStateTextCheckpointStage,
+        text: String
+    ) throws -> IOSVoiceStatePending {
+        var snapshot = try load()
+        let pending = try requirePending(attemptID, in: snapshot)
+        guard case .processing(.postProcessing, let currentOperationID) =
+                pending.status,
+              currentOperationID == operationID,
+              let current = pending.transcriptionCheckpoint else {
+            throw IOSVoiceStateRepositoryError.invalidTransition
+        }
+        let checkpoint = try current.advancing(to: stage, text: text)
+        if checkpoint == current { return pending }
+        let updated = try pending.replacing(
+            status: pending.status,
+            transcriptionCheckpoint: checkpoint,
             updatedAt: mutationDate(after: pending.updatedAt)
         )
         snapshot.pending = updated
@@ -516,6 +765,11 @@ actor IOSVoiceStateRepository {
               (currentStage, stage) == (.transcription, .postProcessing)
                 || (currentStage, stage) == (.postProcessing, .outputDelivery)
                 || currentStage == stage else {
+            throw IOSVoiceStateRepositoryError.invalidTransition
+        }
+        if stage == .outputDelivery,
+           let checkpoint = pending.transcriptionCheckpoint,
+           checkpoint.stage != .outputReady {
             throw IOSVoiceStateRepositoryError.invalidTransition
         }
         let updated = try pending.replacing(
@@ -651,8 +905,10 @@ actor IOSVoiceStateRepository {
               case .processing = pending.status else {
             return snapshot
         }
+        let blocksReplay = pending.transcriptionCheckpoint == nil
         snapshot.pending = try pending.replacing(
             status: .failed,
+            transcriptionReplayBlocked: blocksReplay,
             updatedAt: mutationDate(after: pending.updatedAt)
         )
         try replace(snapshot)
@@ -802,7 +1058,7 @@ private enum IOSVoiceStateValidation {
 }
 
 private enum IOSVoiceStateWireCodec {
-    private static let schemaVersion = 2
+    private static let schemaVersion = 4
     private static let rootKeys: Set<String> = [
         "schemaVersion", "capture", "pending", "latest",
     ]
@@ -819,8 +1075,15 @@ private enum IOSVoiceStateWireCodec {
         "transcriptionLanguageCode", "durationMilliseconds", "byteCount",
         "status",
     ]
-    private static let pendingKeys = pendingV1Keys.union([
+    private static let pendingV2Keys = pendingV1Keys.union([
         "draftInsertionMode", "forcesTextCorrection",
+    ])
+    private static let pendingV3Keys = pendingV2Keys.union([
+        "acceptedAudioRetention",
+    ])
+    private static let pendingKeys = pendingV3Keys.union([
+        "acceptedTranscriptionID", "acceptedTranscript", "checkpointStage",
+        "checkpointText", "transcriptionReplayBlocked",
     ])
     private static let statusKeys: Set<String> = [
         "kind", "stage", "operationID", "accepted",
@@ -880,16 +1143,22 @@ private enum IOSVoiceStateWireCodec {
             throw IOSVoiceStateRepositoryError.invalidRecord
         }
         let version = try integer(object["schemaVersion"])
-        guard version == 1 || version == schemaVersion else {
+        guard (1...schemaVersion).contains(version) else {
             throw IOSVoiceStateRepositoryError.unsupportedSchemaVersion
         }
         try validateOptionalObject(
             object["capture"],
             keys: version == 1 ? captureV1Keys : captureKeys
         )
+        let pendingValidationKeys: Set<String> = switch version {
+        case 1: pendingV1Keys
+        case 2: pendingV2Keys
+        case 3: pendingV3Keys
+        default: pendingKeys
+        }
         try validateOptionalObject(
             object["pending"],
-            keys: version == 1 ? pendingV1Keys : pendingKeys,
+            keys: pendingValidationKeys,
             nested: { pending in
                 try validateOptionalObject(
                     pending["status"],
@@ -912,8 +1181,7 @@ private enum IOSVoiceStateWireCodec {
         } catch {
             throw IOSVoiceStateRepositoryError.invalidRecord
         }
-        guard wire.schemaVersion == 1
-                || wire.schemaVersion == schemaVersion else {
+        guard (1...schemaVersion).contains(wire.schemaVersion) else {
             throw IOSVoiceStateRepositoryError.unsupportedSchemaVersion
         }
         do {
@@ -1118,6 +1386,12 @@ private enum IOSVoiceStateWireCodec {
         let transcriptionLanguageCode: String?
         let durationMilliseconds: Int64
         let byteCount: Int64
+        let acceptedAudioRetention: String?
+        let acceptedTranscriptionID: String?
+        let acceptedTranscript: String?
+        let checkpointStage: String?
+        let checkpointText: String?
+        let transcriptionReplayBlocked: Bool?
         let status: StatusWire
 
         private enum CodingKeys: String, CodingKey {
@@ -1132,6 +1406,12 @@ private enum IOSVoiceStateWireCodec {
             case transcriptionLanguageCode
             case durationMilliseconds
             case byteCount
+            case acceptedAudioRetention
+            case acceptedTranscriptionID
+            case acceptedTranscript
+            case checkpointStage
+            case checkpointText
+            case transcriptionReplayBlocked
             case status
         }
 
@@ -1151,6 +1431,14 @@ private enum IOSVoiceStateWireCodec {
             transcriptionLanguageCode = pending.transcriptionLanguageCode
             durationMilliseconds = pending.durationMilliseconds
             byteCount = pending.byteCount
+            acceptedAudioRetention = pending.acceptedAudioRetention.rawValue
+            acceptedTranscriptionID = pending.transcriptionCheckpoint?
+                .operationID.uuidString
+            acceptedTranscript = pending.transcriptionCheckpoint?
+                .acceptedTranscript
+            checkpointStage = pending.transcriptionCheckpoint?.stage.rawValue
+            checkpointText = pending.transcriptionCheckpoint?.text
+            transcriptionReplayBlocked = pending.transcriptionReplayBlocked
             status = try StatusWire(pending.status)
         }
 
@@ -1195,6 +1483,43 @@ private enum IOSVoiceStateWireCodec {
                 forKey: .durationMilliseconds
             )
             try container.encode(byteCount, forKey: .byteCount)
+            try container.encode(
+                acceptedAudioRetention,
+                forKey: .acceptedAudioRetention
+            )
+            if let acceptedTranscriptionID {
+                try container.encode(
+                    acceptedTranscriptionID,
+                    forKey: .acceptedTranscriptionID
+                )
+            } else {
+                try container.encodeNil(forKey: .acceptedTranscriptionID)
+            }
+            if let acceptedTranscript {
+                try container.encode(
+                    acceptedTranscript,
+                    forKey: .acceptedTranscript
+                )
+            } else {
+                try container.encodeNil(forKey: .acceptedTranscript)
+            }
+            if let checkpointStage {
+                try container.encode(
+                    checkpointStage,
+                    forKey: .checkpointStage
+                )
+            } else {
+                try container.encodeNil(forKey: .checkpointStage)
+            }
+            if let checkpointText {
+                try container.encode(checkpointText, forKey: .checkpointText)
+            } else {
+                try container.encodeNil(forKey: .checkpointText)
+            }
+            try container.encode(
+                transcriptionReplayBlocked,
+                forKey: .transcriptionReplayBlocked
+            )
             try container.encode(status, forKey: .status)
         }
 
@@ -1208,6 +1533,7 @@ private enum IOSVoiceStateWireCodec {
             }
             let insertionMode: IOSVoiceDraftInsertionMode
             let correction: Bool
+            let retention: IOSAcceptedAudioRetention
             if schemaVersion == 1 {
                 insertionMode = .append
                 correction = false
@@ -1221,6 +1547,58 @@ private enum IOSVoiceStateWireCodec {
                 }
                 insertionMode = mode
                 correction = forcesTextCorrection
+            }
+            if schemaVersion < 3 {
+                retention = .recordingCachePolicy
+            } else {
+                guard let rawRetention = acceptedAudioRetention,
+                      let decodedRetention = IOSAcceptedAudioRetention(
+                          rawValue: rawRetention
+                      ) else {
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
+                retention = decodedRetention
+            }
+            let checkpoint: IOSVoiceStateTranscriptionCheckpoint?
+            let replayBlocked: Bool
+            if schemaVersion < 4 {
+                checkpoint = nil
+                replayBlocked = false
+            } else {
+                guard let transcriptionReplayBlocked else {
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
+                replayBlocked = transcriptionReplayBlocked
+                switch (
+                    acceptedTranscriptionID,
+                    acceptedTranscript,
+                    checkpointStage,
+                    checkpointText
+                ) {
+                case (nil, nil, nil, nil):
+                    checkpoint = nil
+                case (
+                    .some(let rawIdentifier),
+                    .some(let acceptedTranscript),
+                    .some(let rawStage),
+                    .some(let text)
+                ):
+                    guard let identifier = UUID(uuidString: rawIdentifier),
+                          identifier.uuidString == rawIdentifier,
+                          let stage = IOSVoiceStateTextCheckpointStage(
+                              rawValue: rawStage
+                          ) else {
+                        throw IOSVoiceStateRepositoryError.invalidRecord
+                    }
+                    checkpoint = try IOSVoiceStateTranscriptionCheckpoint(
+                        operationID: identifier,
+                        acceptedTranscript: acceptedTranscript,
+                        stage: stage,
+                        text: text
+                    )
+                default:
+                    throw IOSVoiceStateRepositoryError.invalidRecord
+                }
             }
             return try IOSVoiceStatePending(
                 attemptID: attemptID,
@@ -1238,6 +1616,9 @@ private enum IOSVoiceStateWireCodec {
                 transcriptionLanguageCode: transcriptionLanguageCode,
                 durationMilliseconds: durationMilliseconds,
                 byteCount: byteCount,
+                acceptedAudioRetention: retention,
+                transcriptionReplayBlocked: replayBlocked,
+                transcriptionCheckpoint: checkpoint,
                 status: try status.value(attemptID: attemptID)
             )
         }

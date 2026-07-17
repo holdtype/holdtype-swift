@@ -8,6 +8,18 @@ enum IOSHistoryPlaybackAttempt: Equatable {
     case failed
 }
 
+enum IOSSavedRecordingHistoryLoadResult: Equatable {
+    case loaded([IOSSavedAcceptedRecording])
+    case failed
+}
+
+enum IOSSavedRecordingHistoryDiscardAttempt: Equatable {
+    case discarded
+    case alreadyAbsent
+    case stale
+    case failed
+}
+
 /// Applies the saved recording-cache policy independently from History UI.
 /// Disabling retention stops local playback before managed files are removed.
 @MainActor
@@ -58,6 +70,13 @@ struct IOSRecordingCacheLifecycleActions {
 struct IOSHistoryPlaybackActions {
     private let resolvePlayableResultIDs: ([UUID]) async -> Set<UUID>
     private let playRecording: (UUID) async -> IOSHistoryPlaybackAttempt
+    private let loadSavedRecordings:
+        () async -> IOSSavedRecordingHistoryLoadResult
+    private let playSavedRecording:
+        (IOSSavedAcceptedRecording) async -> IOSHistoryPlaybackAttempt
+    private let discardSavedRecording:
+        (IOSSavedAcceptedRecording) async
+            -> IOSSavedRecordingHistoryDiscardAttempt
     private let stopPlayback: () async -> Void
 
     init(
@@ -66,30 +85,66 @@ struct IOSHistoryPlaybackActions {
         player: IOSHistoryAudioPlaybackOwner
     ) {
         resolvePlayableResultIDs = { resultIDs in
-            guard (await loadPolicy()).normalized.keepsRecordings else {
-                return []
-            }
-
             var playable = Set<UUID>()
             playable.reserveCapacity(resultIDs.count)
+            let policy = (await loadPolicy()).normalized
             for resultID in resultIDs {
-                if await cache.cachedAudioFileURLIfAvailable(
-                    resultID: resultID
-                ) != nil {
+                if (try? await cache.playableAudioFileURL(
+                    resultID: resultID,
+                    policy: policy
+                )) != nil {
                     playable.insert(resultID)
                 }
             }
             return playable
         }
         playRecording = { resultID in
-            guard (await loadPolicy()).normalized.keepsRecordings,
-                  let fileURL = await cache
-                    .cachedAudioFileURLIfAvailable(resultID: resultID) else {
+            guard let fileURL = try? await cache.playableAudioFileURL(
+                resultID: resultID,
+                policy: await loadPolicy()
+            ) else {
                 return .unavailable
             }
             return player.playCachedAudio(at: fileURL)
                 ? .played
                 : .failed
+        }
+        loadSavedRecordings = {
+            do {
+                return .loaded(try await cache.savedRecordings())
+            } catch {
+                return .failed
+            }
+        }
+        playSavedRecording = { expected in
+            do {
+                guard let fileURL = try await cache.savedAudioFileURL(
+                    ifCurrent: expected
+                ) else {
+                    return .unavailable
+                }
+                return player.playCachedAudio(at: fileURL)
+                    ? .played
+                    : .failed
+            } catch {
+                return .unavailable
+            }
+        }
+        discardSavedRecording = { expected in
+            do {
+                switch try await cache.discardSavedRecording(
+                    ifCurrent: expected
+                ) {
+                case .discarded:
+                    return .discarded
+                case .alreadyAbsent:
+                    return .alreadyAbsent
+                }
+            } catch IOSAcceptedAudioCacheError.staleSavedRecording {
+                return .stale
+            } catch {
+                return .failed
+            }
         }
         stopPlayback = {
             _ = await player.stopAndDeactivate()
@@ -100,10 +155,19 @@ struct IOSHistoryPlaybackActions {
         resolvePlayableResultIDs: @escaping ([UUID]) async -> Set<UUID>,
         playRecording: @escaping (UUID) async
             -> IOSHistoryPlaybackAttempt,
+        loadSavedRecordings: @escaping () async
+            -> IOSSavedRecordingHistoryLoadResult = { .loaded([]) },
+        playSavedRecording: @escaping (IOSSavedAcceptedRecording) async
+            -> IOSHistoryPlaybackAttempt = { _ in .unavailable },
+        discardSavedRecording: @escaping (IOSSavedAcceptedRecording) async
+            -> IOSSavedRecordingHistoryDiscardAttempt = { _ in .alreadyAbsent },
         stopPlayback: @escaping () async -> Void = {}
     ) {
         self.resolvePlayableResultIDs = resolvePlayableResultIDs
         self.playRecording = playRecording
+        self.loadSavedRecordings = loadSavedRecordings
+        self.playSavedRecording = playSavedRecording
+        self.discardSavedRecording = discardSavedRecording
         self.stopPlayback = stopPlayback
     }
 
@@ -113,6 +177,22 @@ struct IOSHistoryPlaybackActions {
 
     func play(resultID: UUID) async -> IOSHistoryPlaybackAttempt {
         await playRecording(resultID)
+    }
+
+    func savedRecordings() async -> IOSSavedRecordingHistoryLoadResult {
+        await loadSavedRecordings()
+    }
+
+    func playSaved(
+        _ expected: IOSSavedAcceptedRecording
+    ) async -> IOSHistoryPlaybackAttempt {
+        await playSavedRecording(expected)
+    }
+
+    func discardSaved(
+        _ expected: IOSSavedAcceptedRecording
+    ) async -> IOSSavedRecordingHistoryDiscardAttempt {
+        await discardSavedRecording(expected)
     }
 
     func stop() async {

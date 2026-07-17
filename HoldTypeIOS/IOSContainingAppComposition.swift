@@ -170,6 +170,8 @@ final class IOSContainingAppComposition {
     let foregroundVoiceProcessor: IOSForegroundVoiceProcessor?
     let foregroundVoiceRuntime: IOSForegroundVoiceRuntime?
     let historyPlaybackActions: IOSHistoryPlaybackActions?
+    let pendingRecordingHistoryStateOwner:
+        IOSPendingRecordingHistoryStateOwner?
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
     let lifecycleScheduler: IOSContainingAppLifecycleScheduler
@@ -206,6 +208,7 @@ final class IOSContainingAppComposition {
             foregroundVoiceProcessor = nil
             foregroundVoiceRuntime = nil
             historyPlaybackActions = nil
+            pendingRecordingHistoryStateOwner = nil
             recordingCacheLifecycleActions = nil
             availability = .storageUnavailable
             lifecycleScheduler = IOSContainingAppLifecycleScheduler { _ in
@@ -354,6 +357,15 @@ final class IOSContainingAppComposition {
                     player: $0
                 )
             }
+        pendingRecordingHistoryStateOwner =
+            IOSPendingRecordingHistoryStateOwner(
+                actions: IOSPendingRecordingHistoryActions(
+                    persistenceOwner: foregroundVoicePersistenceOwner,
+                    savedRecordingClient:
+                        foregroundVoiceRuntime.workflow.savedRecordingClient,
+                    player: historyAudioPlaybackOwner
+                )
+            )
         let recordingCacheLifecycleActions =
             IOSRecordingCacheLifecycleActions(
                 cache: acceptedAudioCache,
@@ -414,6 +426,7 @@ final class IOSContainingAppComposition {
         foregroundVoiceProcessor = nil
         foregroundVoiceRuntime = nil
         historyPlaybackActions = nil
+        pendingRecordingHistoryStateOwner = nil
         recordingCacheLifecycleActions = nil
         availability = .injected
         lifecycleScheduler = IOSContainingAppLifecycleScheduler(

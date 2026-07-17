@@ -135,6 +135,58 @@ struct KeyboardDictationBridgeTests {
         )
     }
 
+    @Test func activeStatesUseTheirOwnLifetimesInsteadOfIdleSessionLifetime() {
+        let now = Date(timeIntervalSince1970: 1_750_000_000)
+        let sessionID = UUID()
+        let attemptID = UUID()
+        let requestID = UUID()
+        let listeningDeadline = now.addingTimeInterval(
+            KeyboardDictationBridgeConfiguration.listeningStateLifetime
+        )
+        let processingDeadline = now.addingTimeInterval(
+            KeyboardDictationBridgeConfiguration.processingStateLifetime
+        )
+
+        #expect(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                phase: .listening,
+                publishedAt: now,
+                expiresAt: listeningDeadline
+            ) != nil
+        )
+        #expect(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                phase: .processing,
+                publishedAt: now,
+                expiresAt: processingDeadline
+            ) != nil
+        )
+        #expect(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                phase: .processing,
+                publishedAt: now,
+                expiresAt: processingDeadline.addingTimeInterval(0.001)
+            ) == nil
+        )
+        #expect(
+            KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: listeningDeadline
+            ) == nil
+        )
+    }
+
     @Test func attemptIdentityIsCompleteAndDocumentMatchingIsExact() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let sessionID = UUID()

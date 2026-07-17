@@ -656,10 +656,17 @@ before asking the recorder to close. Cancel first writes and synchronizes
 `discarding-v1`, then stops and identity-pinned removes only that exact source.
 The action never exposes cancelled bytes through Recover Recording; a crash or
 uncertain unlink leaves discarding state for bounded cleanup. After close,
-Persistence validates the descriptor-bound media,
-canonical duration, byte count, stable modification time, and the P4 range
-`300..<300000` milliseconds. It writes and synchronizes the completion value,
-then writes and synchronizes `completed-v1`. A crash at any point retains
+Persistence validates the descriptor-bound media, positive byte count, stable
+modification time, and duration evidence. A media duration in
+`300...302000` milliseconds is canonical. Otherwise a frozen live monotonic
+duration of at least 300 milliseconds is canonical after clamping to `302000`;
+without that evidence duration `0` records an internal unknown/suspect value.
+Only exact empty media enters automatic non-provider cleanup. Descriptor-proven
+absence is Discard-only without automatic deletion. Bounded non-empty media
+writes and synchronizes the completion value, then writes and
+synchronizes `completed-v1`; an oversized source or identity/protection
+uncertainty remains blocked for explicit recovery or Discard. A crash at any
+point retains
 either finalizing state or a finalizing-plus-completion residue; it never
 becomes completed automatically.
 
@@ -668,16 +675,20 @@ phase plus immutable identity, and revalidates descriptor/path media and stable
 content metadata. Without a completion value it writes and synchronizes the one
 canonical value; with an exact value it confirms those same bytes and metadata.
 It then writes and synchronizes `completed-v1` before entering the completed-to-
-preparing handoff. A mismatch remains blocked; a typed invalid result enters
-discarding cleanup and never becomes provider work.
+preparing handoff. Identity, protection, or byte-count mismatch remains blocked.
+A bounded non-empty source with short, over-bound, invalid, or timed-out media
+duration becomes completed with duration `0`, remains playable, and may enter
+provider work only through explicit Transcribe/Retry.
 
 Interruption or media-service loss may close the recorder before finalizing can
 be written. An unlocked positive-byte `active-v1` source is therefore never
-age-deleted. Explicit Recover Recording revalidates identity and media: a valid
-partial in `300..<300000` advances through finalizing and completed, while an
-exact empty, too-short, maximum-duration, or invalid/corrupt partial follows its
-typed non-provider cleanup. Any validation or removal uncertainty preserves
-blocked local recovery.
+age-deleted. Explicit Recover Recording revalidates identity and media. Every
+bounded non-empty regular partial advances through finalizing and completed;
+short or invalid metadata records unknown/suspect duration and remains
+playable, explicitly transcribable, and discardable. Exact empty follows typed
+non-provider cleanup. A positive-byte partial beyond the bounded size limit
+remains blocked recovery rather than destructive cleanup. Any validation or
+removal uncertainty preserves blocked local recovery.
 
 Only an exact unlocked zero-byte `active-v1` source may use the abandoned
 rule. Both its identity creation time and descriptor modification time must be
@@ -756,8 +767,10 @@ Provider launch requires the durable Pending commit and either confirmed source
 removal or durable `transferred-v1`. Cancellation after Pending commit finishes
 this local checkpoint and never repeats prepare or provider work. Separate
 identity-pinned cleanup first writes and synchronizes `discarding-v1` for an
-exact active or finalizing source after Cancel or a typed
-empty/too-short/maximum/invalid result. Confirmed Discard of an exact completed
+exact active or finalizing source after Cancel or an exact empty result.
+Too-short, over-bound, invalid-duration, and timed-out-metadata positive-byte
+sources remain recoverable and are never automatic cleanup authority. Confirmed
+Discard of an exact completed
 or preparing source may write discarding only after proving that no matching or
 ambiguous Pending destination owns it. Discarding state is never recoverable;
 uncertain validation or removal preserves it for bounded cleanup.
@@ -823,7 +836,10 @@ Preparing a pending attempt follows this order:
 The source must be an owned, no-follow, single-link regular `.m4a` or `.wav`
 whose positive byte count exactly matches the runtime artifact and is strictly
 less than 25,000,000 bytes. Duration is canonicalized to the nearest whole
-millisecond using `toNearestOrAwayFromZero` and must fall in `1..<300000`.
+millisecond using `toNearestOrAwayFromZero` and must fall in `0...302000`.
+Zero is reserved for a positive-byte recovery source whose duration could not
+be trusted; it is never inferred for empty media and never authorizes automatic
+provider dispatch.
 Copying is streaming and bounded to
 64-KiB chunks; recording audio is never loaded into one `Data` value. The copy
 has one ten-second monotonic deadline, checks it before every syscall and EINTR
@@ -854,19 +870,22 @@ or removes the source artifact; any later source cleanup must revalidate the
 originally captured identity and remains outside this checkpoint.
 
 Journal duration and byte count are consistency fields, not proof that a media
-container is playable. Before audio publication, the protected copy must pass
-bounded media/container validation with a two-second deadline. Every provider
-handoff repeats that bounded validation while the protected file is pinned and
-then repeats descriptor/path identity checks. Media validation parses the same
-open descriptor through read-only AudioToolbox callbacks and bounded `pread`;
-it never reopens the absolute path. A timed-out worker retains and closes only
-its duplicate descriptor, and one physical-root process context shares the
-worker gate across all of its Store replicas so another validation does not
-accumulate behind a still-running timed-out worker. A malformed, unreadable,
-wrong-format, or duration-inconsistent `.m4a`/`.wav` remains a typed local
-failure and never authorizes provider work. The validated media duration must
-itself fall in `1..<300000` milliseconds and differ from the journal value by no
-more than 250 milliseconds.
+container is playable. Automatic provider admission requires bounded
+media/container validation with a two-second deadline while the protected file
+is pinned, followed by repeated descriptor/path identity checks. Media
+validation parses the same open descriptor through read-only AudioToolbox
+callbacks and bounded `pread`; it never reopens the absolute path. A timed-out
+worker retains and closes only its duplicate descriptor, and one physical-root
+process context shares the worker gate across all of its Store replicas so
+another validation does not accumulate behind a still-running timed-out worker.
+A malformed, unreadable, wrong-format, duration-inconsistent, or timed-out
+`.m4a`/`.wav` never auto-dispatches. Bounded positive-byte audio whose duration
+probe is unresolved is instead retained with journal duration `0`; an explicit
+Transcribe/Retry may send those exact bytes, with structural request duration
+`1`, and surfaces any provider rejection without deleting local audio. For a
+positive journal duration, the validated media duration must itself fall in
+`1...302000` milliseconds and differ from the journal value by no more than 250
+milliseconds.
 
 If protected-audio publication fails, only the owned temporary file may be
 cleaned up. If journal commit fails after audio publication, the protected
@@ -992,9 +1011,11 @@ without trusting process memory.
   outcome until acknowledged, then removes the journal and audio when cache is
   off. When cache is on, a valid completed recording may transfer to cache
   before journal removal; an invalid audio artifact is never cached.
-- Maximum-duration, empty, too-short, corrupt, and cancelled-capture artifacts
-  fail before provider dispatch. They do not create accepted/failed History;
-  any incomplete artifact and journal created during finalization are removed.
+- Exact empty and cancelled-capture artifacts may be removed before provider
+  dispatch. Bounded non-empty artifacts are never removed merely because
+  duration/media metadata is short, invalid, or unknown: they remain Saved
+  Recording recovery with Play, explicit Transcribe/Retry, and Discard. Unknown
+  duration never auto-dispatches.
 
 ## Invariants
 

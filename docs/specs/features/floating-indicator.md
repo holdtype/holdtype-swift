@@ -32,6 +32,9 @@ This spec covers:
   visible while the completed audio is being transcribed.
 - While recording, the indicator is a compact cyan visual mark with subtle pulse
   animation.
+- Beginning at 4:00, the recording indicator also shows the remaining minute
+  without exposing transcript content. It becomes amber at 4:00 and red for the
+  final ten seconds, updating once per second.
 - While transcribing, the indicator switches to a compact purple waiting visual
   with motion distinct from the recording state.
 - The indicator uses one shared visual treatment across light and dark system
@@ -94,6 +97,7 @@ Product states map to the indicator as follows:
 | --- | --- | --- |
 | `idle` | hidden | none |
 | `recording` | visible when enabled | compact cyan recording indicator |
+| `recording, final minute` | visible when enabled | amber/red countdown |
 | `transcribing` | visible when enabled | compact purple waiting indicator |
 | `done` | hidden | none |
 | `error` | hidden | none |

@@ -209,6 +209,10 @@ final class IOSForegroundVoiceRuntime {
 
         let dependencies = IOSForegroundVoiceWorkflowDependencies(
             sceneRegistry: sceneRegistry,
+            repairOrphanedCaptureAtProcessLaunch: {
+                await persistenceOwner
+                    .repairOrphanedCaptureAtProcessLaunch()
+            },
             reconcileCaptureSources: {
                 await persistenceOwner.reconcileCaptureSourcesAtLaunch()
             },
@@ -315,6 +319,12 @@ final class IOSForegroundVoiceRuntime {
             recoverCapture: { attemptID, configuration in
                 try await persistenceOwner.recoverCapture(
                     attemptID: attemptID,
+                    transcriptionConfiguration: configuration
+                )
+            },
+            recoverCompletedCapture: { expected, configuration in
+                try await persistenceOwner.recoverCapture(
+                    expected: expected,
                     transcriptionConfiguration: configuration
                 )
             },

@@ -6,6 +6,10 @@ typealias KeyboardLatestExpiryScheduler = (
     @escaping @MainActor () -> Void
 ) -> Timer?
 
+typealias KeyboardListeningCountdownScheduler = (
+    @escaping @MainActor () -> Void
+) -> Timer?
+
 typealias KeyboardDocumentIdentifierRetryScheduler = (
     @escaping @MainActor () -> Void
 ) -> Timer?
@@ -181,6 +185,7 @@ struct KeyboardViewControllerDependencies {
     let inputModeSwitchKeyOverride: Bool?
     let fullAccessOverride: Bool?
     let scheduleLatestExpiry: KeyboardLatestExpiryScheduler
+    let scheduleListeningCountdown: KeyboardListeningCountdownScheduler
     let scheduleDocumentIdentifierRetry:
         KeyboardDocumentIdentifierRetryScheduler
     let scheduleDeliveryObservation: KeyboardDeliveryObservationScheduler
@@ -238,6 +243,18 @@ struct KeyboardViewControllerDependencies {
             RunLoop.main.add(timer, forMode: .common)
             return timer
         },
+        scheduleListeningCountdown: { action in
+            let timer = Timer(
+                timeInterval: 1,
+                repeats: true
+            ) { _ in
+                Task { @MainActor in
+                    action()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            return timer
+        },
         scheduleDocumentIdentifierRetry: { action in
             let timer = Timer(
                 timeInterval: 0.1,
@@ -271,6 +288,9 @@ struct KeyboardViewControllerDependencies {
 
 final class KeyboardViewController: UIInputViewController {
     private static let maximumDocumentIdentifierRetryCount = 20
+    /// Listening state includes two seconds for recorder finalization after
+    /// the user-visible five-minute capture boundary.
+    private static let listeningFinalizationGrace: TimeInterval = 2
     private static let deliveryLogger = Logger(
         subsystem: Bundle.main.bundleIdentifier
             ?? "app.holdtype.HoldType.ios.keyboard",
@@ -286,6 +306,7 @@ final class KeyboardViewController: UIInputViewController {
     private var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
     private var dictationExpiryTimer: Timer?
+    private var listeningCountdownTimer: Timer?
     private var documentIdentifierRetryTimer: Timer?
     private var documentIdentifierRetryRequestID: UUID?
     private var documentIdentifierRetryCount = 0
@@ -299,6 +320,11 @@ final class KeyboardViewController: UIInputViewController {
     private var dictationState: KeyboardDictationStateRecord?
     private var activeDictationOwnership:
         KeyboardDictationAttemptIdentity?
+    private var expiredAttemptReconnect:
+        ExpiredAttemptReconnect?
+    private var retiredDictationAttempt:
+        KeyboardDictationAttemptIdentity?
+    private var authoritativeIdleReadyPublishedAt: Date?
     private var deliveryDocumentIdentifier: UUID?
     private var mayAnchorReturnedDocument = false
     private var insertedDictationRequestID: UUID?
@@ -311,6 +337,13 @@ final class KeyboardViewController: UIInputViewController {
     private var showsInputModeSwitchKey = true
     private var allowsStateReconnection = true
     private var automaticVoiceAction: KeyboardVoiceAction = .standard
+
+    private struct ExpiredAttemptReconnect {
+        let identity: KeyboardDictationAttemptIdentity
+        let publishedAt: Date
+        let deliveryDocumentIdentifier: UUID?
+        let mayAnchorReturnedDocument: Bool
+    }
 
     override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -371,6 +404,7 @@ final class KeyboardViewController: UIInputViewController {
         deleteRepeater.stop()
         dictationExpiryTimer?.invalidate()
         dictationExpiryTimer = nil
+        cancelListeningCountdown()
         cancelDocumentIdentifierRetry()
         cancelDeliveryObservation()
         endExtensionLifetime()
@@ -488,6 +522,9 @@ final class KeyboardViewController: UIInputViewController {
             BrandStageKeyboardPresentation(
                 status: dictationPresentation.status,
                 voiceStage: dictationPresentation.voiceStage,
+                listeningCountdownSeconds: listeningCountdownSeconds(
+                    for: dictationPresentation.voiceStage
+                ),
                 automaticVoiceAction: automaticVoiceAction,
                 latestIsEnabled: latestItem != nil,
                 returnKey: KeyboardReturnKeyPresentation(
@@ -499,6 +536,24 @@ final class KeyboardViewController: UIInputViewController {
                 showsInputModeSwitchKey: showsInputModeSwitchKey
             )
         )
+    }
+
+    private func listeningCountdownSeconds(
+        for voiceStage: KeyboardVoiceStagePresentation
+    ) -> Int? {
+        guard voiceStage == .listening,
+              let dictationState,
+              dictationState.phase == .listening,
+              owns(dictationState) else {
+            return nil
+        }
+
+        let captureRemaining = dictationState.expiresAt.timeIntervalSince(
+            dependencies.now()
+        ) - Self.listeningFinalizationGrace
+        let wholeSeconds = Int(ceil(captureRemaining))
+        guard (1...60).contains(wholeSeconds) else { return nil }
+        return wholeSeconds
     }
 
     private var currentDictationPresentation: (
@@ -570,6 +625,7 @@ final class KeyboardViewController: UIInputViewController {
     private func reloadDictationState() {
         dictationExpiryTimer?.invalidate()
         dictationExpiryTimer = nil
+        cancelListeningCountdown()
         guard hasSharedContainerAccess else {
             dictationState = nil
             activeDictationOwnership = nil
@@ -583,6 +639,7 @@ final class KeyboardViewController: UIInputViewController {
             guard let state = try dependencies.loadDictationState(),
                   state.isValid(at: dependencies.now()) else {
                 recordKeyboardState(.expired)
+                preserveExpiredAttemptReconnect()
                 cancelDocumentIdentifierRetry()
                 dictationState = nil
                 activeDictationOwnership = nil
@@ -595,6 +652,9 @@ final class KeyboardViewController: UIInputViewController {
             if state.sessionID != lastSeenDictationSessionID {
                 cancelDocumentIdentifierRetry()
                 forcesSessionNotRunning = false
+                expiredAttemptReconnect = nil
+                retiredDictationAttempt = nil
+                authoritativeIdleReadyPublishedAt = nil
                 lastSeenDictationSessionID = state.sessionID
                 insertedDictationRequestID = nil
                 pendingDeliveryClaimID = nil
@@ -603,14 +663,17 @@ final class KeyboardViewController: UIInputViewController {
                 mayAnchorReturnedDocument = false
                 allowsStateReconnection = true
             }
+            retireExpiredAttemptReconnectIfReplaced(by: state)
+            restoreExpiredAttemptReconnectIfEligible(for: state)
             dictationState = state
             if let identity = KeyboardDictationAttemptIdentity(state) {
                 let hasDurableHandoff = hasDurableHandoffOwnership(identity)
-                let mayReconnect = pendingHandoffRequestID
-                    == identity.requestID
-                    || (allowsStateReconnection
-                        && (hasDurableHandoff
-                            || identity.belongsToDocument(
+                let wasRetired = retiredDictationAttempt == identity
+                let mayReconnect = !wasRetired
+                    && (pendingHandoffRequestID == identity.requestID
+                        || hasDurableHandoff
+                        || (allowsStateReconnection
+                            && identity.belongsToDocument(
                                 activeDocumentIdentifier
                             )))
                 if activeDictationOwnership == nil, mayReconnect {
@@ -627,11 +690,25 @@ final class KeyboardViewController: UIInputViewController {
                 }
             } else if state.phase == .ready {
                 cancelDocumentIdentifierRetry()
+                if let activeDictationOwnership {
+                    retiredDictationAttempt = activeDictationOwnership
+                }
+                if authoritativeIdleReadyPublishedAt.map({
+                    state.publishedAt > $0
+                }) ?? true {
+                    authoritativeIdleReadyPublishedAt = state.publishedAt
+                }
+                expiredAttemptReconnect = nil
                 activeDictationOwnership = nil
                 deliveryDocumentIdentifier = nil
                 mayAnchorReturnedDocument = false
-                allowsStateReconnection = true
+                // An authoritative idle Ready closes every previous attempt
+                // in this session. A later attempt started by this controller
+                // receives explicit ownership in beginDictation; an
+                // unsolicited stale state must not reconnect by document.
+                allowsStateReconnection = false
                 pendingDeliveryClaimID = nil
+                forcesSessionNotRunning = false
             }
             if state.phase == .listening
                 || state.phase == .processing
@@ -653,6 +730,7 @@ final class KeyboardViewController: UIInputViewController {
                 pendingDeliveryClaimID = nil
                 forcesSessionNotRunning = state.phase == .unavailable
             }
+            scheduleListeningCountdownIfNeeded(for: state)
             dictationExpiryTimer = dependencies.scheduleLatestExpiry(
                 state.expiresAt
             ) { [weak self] in
@@ -660,16 +738,11 @@ final class KeyboardViewController: UIInputViewController {
                       self.dictationState == state else {
                     return
                 }
-                self.dictationState = nil
-                self.cancelDocumentIdentifierRetry()
-                self.activeDictationOwnership = nil
-                self.deliveryDocumentIdentifier = nil
-                self.mayAnchorReturnedDocument = false
-                self.pendingDictationCommand = nil
-                self.pendingDeliveryClaimID = nil
-                self.forcesSessionNotRunning = true
-                self.recordKeyboardState(.expired)
-                self.render()
+                // The timer belongs to an observed snapshot, not to the
+                // canonical bridge slot. Re-read before clearing ownership:
+                // a delayed Darwin notification may have left a newer
+                // Processing/Result/Failed record in the store already.
+                self.reloadDictationState()
             }
         } catch {
             recordKeyboardState(.failed)
@@ -681,6 +754,92 @@ final class KeyboardViewController: UIInputViewController {
             forcesSessionNotRunning = true
         }
         render()
+    }
+
+    private func scheduleListeningCountdownIfNeeded(
+        for state: KeyboardDictationStateRecord
+    ) {
+        guard state.phase == .listening, owns(state) else { return }
+        listeningCountdownTimer = dependencies.scheduleListeningCountdown {
+            [weak self] in
+            guard let self,
+                  let currentState = self.dictationState,
+                  currentState == state,
+                  currentState.phase == .listening,
+                  self.owns(currentState),
+                  currentState.isValid(at: self.dependencies.now()) else {
+                self?.cancelListeningCountdown()
+                self?.render()
+                return
+            }
+            self.render()
+        }
+    }
+
+    private func cancelListeningCountdown() {
+        listeningCountdownTimer?.invalidate()
+        listeningCountdownTimer = nil
+    }
+
+    private func preserveExpiredAttemptReconnect() {
+        guard let state = dictationState,
+              state.phase == .listening || state.phase == .processing,
+              let identity = activeDictationOwnership,
+              identity.matches(state) else {
+            return
+        }
+        // Listening/Processing TTLs remove a stale presentation snapshot;
+        // they are not authority to reject a strictly newer terminal state
+        // from the same attempt. Preserve only opaque identity/document gates.
+        expiredAttemptReconnect = ExpiredAttemptReconnect(
+            identity: identity,
+            publishedAt: state.publishedAt,
+            deliveryDocumentIdentifier: deliveryDocumentIdentifier,
+            mayAnchorReturnedDocument: mayAnchorReturnedDocument
+        )
+    }
+
+    private func retireExpiredAttemptReconnectIfReplaced(
+        by state: KeyboardDictationStateRecord
+    ) {
+        guard let reconnect = expiredAttemptReconnect,
+              state.sessionID == reconnect.identity.sessionID else {
+            return
+        }
+        let hasAuthoritativeIdleReady = state.phase == .ready
+            && !state.hasActiveAttempt
+        let hasDifferentAttempt = KeyboardDictationAttemptIdentity(state)
+            .map { $0 != reconnect.identity }
+            ?? false
+        guard hasAuthoritativeIdleReady || hasDifferentAttempt else { return }
+
+        // A canonical idle state or replacement attempt is monotonic proof
+        // that the expired attempt no longer owns this extension lifetime.
+        retiredDictationAttempt = reconnect.identity
+        expiredAttemptReconnect = nil
+        forcesSessionNotRunning = false
+    }
+
+    private func restoreExpiredAttemptReconnectIfEligible(
+        for state: KeyboardDictationStateRecord
+    ) {
+        guard forcesSessionNotRunning,
+              let reconnect = expiredAttemptReconnect,
+              let identity = KeyboardDictationAttemptIdentity(state),
+              identity == reconnect.identity,
+              state.publishedAt > reconnect.publishedAt,
+              state.phase == .processing
+                || state.phase == .resultReady
+                || state.phase == .failed
+                || state.phase == .unavailable else {
+            return
+        }
+        activeDictationOwnership = identity
+        deliveryDocumentIdentifier = reconnect.deliveryDocumentIdentifier
+        mayAnchorReturnedDocument = reconnect.mayAnchorReturnedDocument
+        allowsStateReconnection = false
+        forcesSessionNotRunning = false
+        expiredAttemptReconnect = nil
     }
 
     private func handleResultReady(_ state: KeyboardDictationStateRecord) {
@@ -1099,6 +1258,9 @@ final class KeyboardViewController: UIInputViewController {
 
     private func beginExtensionLifetime() {
         activeDictationOwnership = nil
+        expiredAttemptReconnect = nil
+        retiredDictationAttempt = nil
+        authoritativeIdleReadyPublishedAt = nil
         deliveryDocumentIdentifier = nil
         mayAnchorReturnedDocument = false
         allowsStateReconnection = true
@@ -1106,17 +1268,22 @@ final class KeyboardViewController: UIInputViewController {
         pendingDeliveryClaimID = nil
         pendingHandoffRequestID = nil
         handoffLaunchFailed = false
+        forcesSessionNotRunning = false
         automaticVoiceAction = .standard
     }
 
     private func endExtensionLifetime() {
         activeDictationOwnership = nil
+        expiredAttemptReconnect = nil
+        retiredDictationAttempt = nil
+        authoritativeIdleReadyPublishedAt = nil
         deliveryDocumentIdentifier = nil
         mayAnchorReturnedDocument = false
         allowsStateReconnection = true
         pendingDictationCommand = nil
         pendingDeliveryClaimID = nil
         pendingHandoffRequestID = nil
+        forcesSessionNotRunning = false
     }
 
     private func refreshStateReconnectionEligibility() {
@@ -1158,7 +1325,10 @@ final class KeyboardViewController: UIInputViewController {
         guard let intent = try? dependencies.loadConsumedHandoffIntent() else {
             return false
         }
-        return intent.requestID == identity.requestID
+        guard intent.requestID == identity.requestID else { return false }
+        guard let authoritativeIdleReadyPublishedAt else { return true }
+        guard let consumedAt = intent.consumedAt else { return false }
+        return consumedAt > authoritativeIdleReadyPublishedAt
     }
 
     private func owns(_ state: KeyboardDictationStateRecord) -> Bool {

@@ -73,8 +73,9 @@ alphabetic layouts.
 
 ## Non-goals
 
-- failed-attempt History or more than one recoverable failed recording;
-- retry-audio queues or failed-attempt audio playback;
+- multi-record failed-attempt History or more than one unfinished recoverable
+  Pending recording;
+- retry-audio queues beyond the one canonical Pending attempt;
 - History policy generations, outboxes, tombstones, receipts, or multi-record
   transaction protocols;
 - automatic provider retry after relaunch;
@@ -190,6 +191,12 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Done stops microphone capture before provider processing continues.
 - A valid completed recording becomes locally recoverable before the first
   provider request.
+- Reaching five minutes performs the same Finish automatically: capture closes,
+  the completed audio becomes Pending, and provider processing continues once.
+  It is not a maximum-duration failure.
+- Voice shows a countdown during the last minute. It warns at 4:00 and 4:30,
+  at 4:50, 4:52, and 4:54, and each second from 4:55 through 4:59. At 5:00 it
+  confirms that recording stopped and was saved.
 - Only one recording or provider chain may be active or pending.
 - Provider stages have explicit timeouts and real cancellation.
 - Standard dictation is always the primary action. Auto Clear, Auto Translate,
@@ -249,6 +256,19 @@ destination. History remains a separate tab and is not previewed on Voice.
   exact audio cleanup is unfinished.
 - Relaunch performs local reconciliation only.
 - A recoverable pending attempt offers Retry and Discard.
+- The History destination also presents the one Pending attempt as a separate
+  `Saved Recording` card with Play and the phase-appropriate
+  `Transcribe`/`Retry` and Delete actions. This card is not a compact accepted
+  History entry and does not create a failed-attempt queue.
+- Finalization never silently deletes a bounded non-empty recording because a
+  duration probe reports less than 300 milliseconds, exceeds the finalized-
+  media bound, reports invalid metadata, or times out. Live capture first uses
+  its frozen monotonic elapsed fallback clamped to the finalized-media bound;
+  without one, the completed source uses unknown duration, remains visible
+  after relaunch, and
+  allows Play, explicit Transcribe/Retry, and Discard. Unknown duration never
+  starts provider work automatically; after a successful explicit attempt its
+  audio is retained in bounded Saved Recordings regardless of Recording Cache.
 - Retry is explicit and uses current setup. It creates one fresh provider
   attempt only after local ownership is confirmed.
 - Discard removes the exact pending audio and metadata and never affects Latest
@@ -275,8 +295,10 @@ destination. History remains a separate tab and is not previewed on Voice.
 
 ## Compact History
 
-- History is local, app-private, text-only, and limited to the 20 newest
-  accepted results.
+- Accepted History is local, app-private, text-only, and limited to the 20
+  newest accepted results. The screen may additionally surface the one
+  canonical Pending attempt as a Saved Recording card without copying its
+  audio or metadata into the accepted-History repository.
 - Each entry uses the accepted `resultID` as its opaque idempotency key and
   contains accepted text and an internal creation date used only for ordering.
 - Entries are presented newest first as one flat list. Each row shows the full
@@ -298,8 +320,17 @@ destination. History remains a separate tab and is not previewed on Voice.
   cleanup completed, reconciliation may append that same result idempotently
   when `Save History` is still on. It never repeats provider work and never
   keeps Pending solely because History is unavailable.
-- History never owns audio and never contains failed provider attempts. A Play
-  button resolves a separately retained Recording Cache file by `resultID`.
+- Accepted History never owns audio and never contains failed provider attempts.
+  Its Play button resolves a separately retained Recording Cache file by
+  `resultID`. The Saved Recording card instead uses the canonical Pending
+  playback capability and disappears only after success or explicit deletion.
+- A successful recording finalized at the five-minute boundary is an explicit
+  exception: History shows its audio in an independent `Saved Recordings`
+  section, newest first, with Play and exact Discard. This section is not an
+  accepted-text History row and is bounded to the newest five recordings.
+- Saved Recordings survive relaunch, `Save History` being off, Clear Accepted
+  History, and the default `Delete immediately` Recording Cache policy. Those
+  controls never own or remove protected five-minute audio.
 - A new install enables `Save History` but leaves Recording Cache off. History
   and Recording settings own the matching controls and explanatory copy.
 - Turning `Save History` off requires confirmation, stops future appends, and
@@ -331,6 +362,14 @@ destination. History remains a separate tab and is not previewed on Voice.
 - Recording Cache is optional: cache read, retention, or write failure never
   changes an accepted dictation into a failed result or blocks accepted Pending
   cleanup. The next reconciliation opportunity may retry cache maintenance.
+- The successful five-minute exception is stored under the separate managed
+  `saved-v1-*` namespace before the only Pending source is unlinked. Its publish
+  failure leaves Pending in `acceptedCleanup` with the source intact and shows
+  no false Saved Recording; relaunch retries only that local publish and cleanup
+  and never repeats provider work.
+- Done racing the five-minute watchdog cannot downgrade this ownership. A
+  canonical finalized duration at or above 299.5 seconds receives the same
+  protected retention as an explicit maximum-duration stop.
 - A History row shows Play only while Recording Cache is enabled and the exact
   cache file for that row still exists. Saving cache-off reconciles managed
   cache files immediately; clearing or retention pruning a file also removes

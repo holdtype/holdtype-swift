@@ -31,8 +31,8 @@ This spec covers:
 - adding provider abstractions beyond the OpenAI MVP
 - using the translations endpoint, realtime transcription, diarization, speaker
   labels, timestamps, subtitles, or streaming transcript deltas
-- retaining audio for analytics, telemetry, or transcript history outside the
-  explicit local recording cache setting
+- retaining audio for analytics or telemetry, or for transcript history outside
+  the explicit local recording cache and bounded five-minute recovery exceptions
 - auto-learning dictionary entries from edits in other apps
 - snippets, text expansion, or cloud-synced dictionary behavior
 
@@ -265,10 +265,12 @@ runtime request value still does not own its scratch-file lifecycle.
   model, optional language, frozen prompt composition, and bounded offset reads.
   It exposes no URL, path, `FileHandle`, raw descriptor, attempt identity, or
   durable storage identifier.
-- The neutral request accepts only `m4a` or `wav`, a positive duration shorter
-  than five minutes, and a positive byte count below the existing 25,000,000-
-  byte exclusive limit. Invalid metadata fails before scratch creation or a
-  source read.
+- The neutral request accepts only `m4a` or `wav`, a positive media duration no
+  greater than 302 seconds, and a positive byte count below the existing
+  25,000,000-byte exclusive limit. The duration tolerance covers recorder
+  closure after HoldType's five-minute automatic Finish; it is not an OpenAI
+  duration limit. Invalid metadata fails before scratch creation or a source
+  read.
 - Every reader call has a nonnegative offset and a positive requested size no
   larger than 64 KiB. A reader that returns more bytes than requested, returns
   early EOF before the declared byte count, or returns data after the declared
@@ -286,6 +288,9 @@ runtime request value still does not own its scratch-file lifecycle.
   invalidates the one-shot reader, cancels the transport task, rejects late
   completion, and returns without waiting indefinitely for a blocked read or
   cleanup operation.
+- This 60-second provider deadline begins only after capture is closed and
+  Pending is durable. It is independent from keyboard Ready expiry and the
+  five-minute Listening deadline.
 - Explicit P4 Retry receives a fresh one-shot reader authorization with a fresh
   transcription ID, current safe Settings and Library values, current consent
   and credential, fresh prompt composition, fresh multipart boundary, and fresh
@@ -445,8 +450,12 @@ runtime request value still does not own its scratch-file lifecycle.
   longer active. The user's first Try Again click must start the retry; it must
   not be consumed by stale UI cleanup such as hiding a still-visible
   transcribing indicator.
-- The completed recording file should be deleted after the current attempt
-  finishes when recording cache retention is off.
+- A completed recording may be deleted after successful provider acceptance
+  when recording cache retention is off. A successful five-minute automatic
+  Finish keeps its separate bounded recovery copy and accepted text until
+  explicit Delete or retention pruning. Provider failure, timeout, request
+  validation failure, or a stopped recorder clock mismatch must leave its
+  protected recovery artifact available until explicit Delete/Discard.
 - When recording cache retention is on, the completed recording file may remain
   in the app-owned recording cache after successful or failed transcription so
   the user can reveal or save it from Finder.
@@ -454,11 +463,33 @@ runtime request value still does not own its scratch-file lifecycle.
   link to the app-owned cached recording for local Play from Transcript History.
   The link is available only while Recording Cache is still enabled and the
   cached file still exists.
-- Recoverable failed attempts may keep one app-owned temporary audio artifact
-  even when normal recording cache retention is off. This exception is
-  session-only, visible in Transcript History, bounded by retention, and cleared
-  when the attempt succeeds, is deleted, history is cleared, history is turned
-  off, or the app quits.
+- Recoverable failed attempts keep an app-owned protected audio artifact even
+  when normal recording cache retention or accepted History is off. This
+  exception is visible in History, bounded by recovery ownership, survives
+  relaunch, and is cleared only when the attempt succeeds or the user explicitly
+  deletes/discards it.
+- A successful five-minute recovery row is terminal: it has Play and Delete,
+  never Retry, and does not produce a duplicate session-only accepted History
+  row.
+- If the first request for a five-minute recording fails, its durable completion
+  kind survives relaunch. A later explicit Retry success promotes that same row
+  to the terminal saved state and retains its protected audio.
+- Once a provider response for a five-minute recording has been accepted,
+  provider Retry is permanently disabled even if the main saved-state metadata
+  write fails. A durable pre-dispatch seal prevents a second upload. Bounded
+  local repair metadata normally preserves the accepted text and fail-closed
+  classification across relaunch; the only retry at that point is a local
+  metadata save with no upload. If all post-success metadata writes fail, the
+  current process may retain the text only in memory and relaunch shows an
+  outcome-uncertain, non-retryable playable recording instead of inventing or
+  repeating provider work.
+- The accepted raw transcription is checkpointed before correction,
+  translation, or other downstream text work. If a later local or translation
+  stage fails, the five-minute row is explicitly labelled as a raw
+  transcription whose post-processing failed. It keeps the raw accepted text,
+  Play, Delete, and `Save Raw Transcription` only. It must not clear the
+  dispatch seal, imply translation succeeded, or expose a provider Retry that
+  uploads the audio again.
 - Recording cache retention must be bounded by default to the 10 most recent
   recordings. Unlimited retention is allowed only after the user explicitly
   selects it in Settings.
@@ -480,6 +511,8 @@ runtime request value still does not own its scratch-file lifecycle.
 
 - The MVP transcription request has a default 60 second maximum wait covering
   multipart preparation, upload, and response.
+- The provider timeout does not limit microphone capture, idle keyboard-session
+  availability, or result-delivery lifetime.
 - Cancelling an in-flight transcription must synchronously cancel the actual
   transport task. Repeated cancellation and cancellation with no active request
   are safe no-ops, and the cancelled call completes with the existing
@@ -554,10 +587,11 @@ runtime request value still does not own its scratch-file lifecycle.
   include request payloads, API keys, prompts, audio, or transcript text.
 - Transcript text is accepted only after response parsing, trimming, and empty
   result validation.
-- Failed transcription recovery stores only compact failure metadata plus a
-  temporary local audio file reference needed for retry. It must not store API
-  keys, authorization headers, provider responses, prompt text, nearby
-  active-text context, custom dictionary entries, or transcript text.
+- Transcription recovery stores compact state metadata plus a protected local
+  audio file reference. A successful five-minute row additionally stores only
+  its accepted transcript text. It must not store API keys, authorization
+  headers, provider responses, prompt text, nearby active-text context, custom
+  dictionary entries, or rejected transcript candidates.
 - The text-correction workflow receives only accepted transcript text, not raw
   provider responses.
 - The text-output workflow receives final corrected text when correction is

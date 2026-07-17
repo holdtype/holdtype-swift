@@ -499,6 +499,68 @@ struct BrandStageKeyboardViewTests {
         #expect(try orbitLayerIdentifiers(in: activity) != listeningLayers)
     }
 
+    @Test func listeningCountdownIsVisibleAndChangesUrgencyAtTenSeconds()
+        throws {
+        let view = makeView(width: 393)
+
+        view.render(
+            presentation(
+                status: .listening,
+                voiceStage: .listening,
+                listeningCountdownSeconds: 60
+            )
+        )
+        layout(view)
+
+        let countdown = try #require(
+            view.descendant(
+                UILabel.self,
+                identifier: "keyboard.brand-stage.listening-countdown"
+            )
+        )
+        let microphone = try button("keyboard.brand-stage.voice", in: view)
+        #expect(!isEffectivelyHidden(countdown))
+        #expect(countdown.text == "60")
+        #expect(countdown.textColor.isEqual(UIColor.systemOrange))
+        #expect(countdown.bounds.width >= 41.9)
+        #expect(countdown.bounds.height >= 23.9)
+        #expect(
+            microphone.accessibilityValue
+                == "Listening, 60 seconds remaining"
+        )
+
+        view.render(
+            presentation(
+                status: .listening,
+                voiceStage: .listening,
+                listeningCountdownSeconds: 11
+            )
+        )
+        #expect(countdown.text == "11")
+        #expect(countdown.textColor.isEqual(UIColor.systemOrange))
+
+        view.render(
+            presentation(
+                status: .listening,
+                voiceStage: .listening,
+                listeningCountdownSeconds: 10
+            )
+        )
+        #expect(countdown.text == "10")
+        #expect(countdown.textColor.isEqual(UIColor.systemRed))
+
+        view.render(
+            presentation(
+                status: .processing,
+                voiceStage: .processing,
+                listeningCountdownSeconds: 10
+            )
+        )
+        #expect(countdown.isHidden)
+        #expect(countdown.text == nil)
+        #expect(microphone.accessibilityValue == "Recognizing")
+    }
+
     @Test func narrowPhoneKeepsEveryEditingControlAtLeast44PointsWide()
         throws {
         for width: CGFloat in [320, 375, 390, 393, 430] {
@@ -1322,6 +1384,7 @@ struct BrandStageKeyboardViewTests {
     private func presentation(
         status: KeyboardVoiceStatus = .ready,
         voiceStage: KeyboardVoiceStagePresentation = .ready,
+        listeningCountdownSeconds: Int? = nil,
         automaticVoiceAction: KeyboardVoiceAction = .standard,
         latestIsEnabled: Bool = false,
         returnKey: KeyboardReturnKeyPresentation = .returnSymbol,
@@ -1330,6 +1393,7 @@ struct BrandStageKeyboardViewTests {
         BrandStageKeyboardPresentation(
             status: status,
             voiceStage: voiceStage,
+            listeningCountdownSeconds: listeningCountdownSeconds,
             automaticVoiceAction: automaticVoiceAction,
             latestIsEnabled: latestIsEnabled,
             returnKey: returnKey,

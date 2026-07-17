@@ -49,9 +49,9 @@ microphone activity or losing completed recordings.
 - Cancel during capture or tail stops the recorder, removes the current
   incomplete artifact, deactivates the audio session, and makes no provider
   request.
-- A single retained utterance has a five-minute maximum. Reaching it fails the
-  utterance visibly and does not upload the maximum-duration artifact as a
-  successful recording.
+- A single retained utterance has a five-minute maximum. Reaching it performs a
+  normal automatic Finish: HoldType closes capture, protects the completed
+  artifact as Pending, and continues normal provider processing exactly once.
 - A valid completed runtime artifact carries an opaque descriptor-bound capture
   capability plus duration and byte count. Only the AVFoundation adapter sees
   its transient app-local URL. Before any provider request, Persistence maps
@@ -66,25 +66,41 @@ microphone activity or losing completed recordings.
 
 ### P4D Capture Validity And Durable Finalization
 
-- A P4 foreground artifact is valid only when its canonical validated duration
-  is at least 300 milliseconds and strictly less than 300,000 milliseconds,
-  with a positive byte count below the Pending limit. The Persistence wire
-  format keeps its broader structural range for old and test data; P4D enforces
-  the product minimum before a source may become `completed-v1`.
-- Done below 300 milliseconds is `Too Short`: HoldType removes only the exact
-  active capture source, makes no Pending record or provider request, and keeps
-  the prior Latest Result unchanged. An interrupted partial follows recovery
-  only at or above 300 milliseconds; a shorter partial is removed.
-- Reaching 300,000 milliseconds is the existing maximum-duration failure, not a
-  successful partial. It is never uploaded or accepted through ordinary Retry.
+- Automatic provider admission requires a trusted finalized duration from 300
+  through 302,000 milliseconds and a positive byte count below the Pending
+  limit. If the media probe reports invalid metadata or less than 300
+  milliseconds, the recorder's frozen monotonic elapsed time is the fallback;
+  that fallback is clamped to the 302,000-millisecond finalized-media bound and
+  committed durably before provider work. A media value beyond that bound is
+  suspect and uses the same bounded fallback or unknown `0`.
+- Exact empty Done is removed. Every non-empty bounded finalized source is
+  durably completed instead of being deleted: without a trusted media or
+  monotonic duration it stores the internal unknown/suspect value `0`, remains
+  playable and discardable, and is excluded from automatic provider dispatch.
+  Explicit Transcribe/Retry may make one user-authorized provider attempt from
+  that descriptor-validated source.
+- Reaching the 300-second capture deadline is a successful automatic Finish,
+  not a maximum-duration failure. For a bounded positive-byte artifact, a
+  duration beyond the post-close tolerance uses the clamped monotonic fallback
+  or unknown duration `0`; it remains recoverable and is never deleted solely
+  because of duration. Oversize or identity/protection uncertainty remains
+  blocked local recovery.
+- Frozen monotonic elapsed time at or beyond 300 seconds outranks the recorder
+  delegate's `successfully` flag when choosing the terminal cause. A false flag
+  remains diagnostic evidence, but the attempt still follows the one
+  maximum-duration completed path, protected retention, and exactly-once
+  provider continuation.
 - The recorder writes only through the descriptor-bound capture-source owner in
   `ios-history-and-storage.md`. A finalized source is durably marked completed
   before it is copied to Pending. If process loss occurs in that gap, relaunch
   offers Recover Recording or confirmed Discard and never auto-uploads it.
 - Normal same-process Done prepares `readyForTranscription` with the frozen
   Settings snapshot. Explicit recovery prepares `awaitingRecovery` with current
-  compact transcription settings, then still requires a separate explicit
-  Retry. In both cases the provider sees only the protected Pending reader.
+  compact transcription settings. Passive Voice recovery still requires a
+  separate explicit Retry. The Saved Recording Transcribe/Retry action may
+  perform those two exact durable steps as one user action; if promotion fails,
+  the completed source remains playable and recoverable. In every case the
+  provider sees only the protected Pending reader.
 
 ### P4 Foreground Preflight And Ownership
 
@@ -130,6 +146,12 @@ microphone activity or losing completed recordings.
   deactivation for recording, cues, and local playback.
 - Recording start/stop cues are short and non-verbal. Haptics/text state remain
   available when audio cues are muted by system behavior.
+- The final-minute warning schedule is 4:00, 4:30, 4:50, 4:52, 4:54, and every
+  second from 4:55 through 4:59. The 5:00 boundary closes the recorder before
+  its distinct stopped-at-limit feedback.
+- In-capture warning tones play only when the current route is private, such as
+  headphones or AirPods. The built-in speaker uses countdown text and haptics
+  so warning audio is not captured in the utterance.
 - Calls, Siri, alarms, route loss, Bluetooth/AirPods changes, built-in mic mute,
   lock, scene changes, and media-services lost/reset produce explicit
   interruption or recoverable failure state.
@@ -168,14 +190,19 @@ microphone activity or losing completed recordings.
   Interruption end never auto-resumes, even when iOS suggests resume. Media
   services lost during arming cancels the attempt and retires its token. During
   retained capture it immediately retires audio objects and the token, then
-  descriptor-validates the bytes already written: a valid partial of at least
-  300 milliseconds enters recovery, a short or invalid partial is removed, and
-  uncertain validation or removal preserves the exact source as blocked local
-  recovery. During finalization it preserves the current source or Pending
+  descriptor-validates the bytes already written: every bounded non-empty
+  regular partial enters recovery, using duration `0` when short, over-bound,
+  invalid, or timed-out metadata cannot be trusted. Exact empty enters
+  Discard-only state without provider work; identity, protection, size, or read
+  uncertainty preserves the exact source as blocked local recovery. During
+  finalization it preserves the current source or Pending
   checkpoint and starts no provider. Media reset clears stale audio objects and
   reconstructs them only for a later explicit Start.
-- Haptics and system sounds during recording remain disabled. Enabled boundary
-  haptics occur before retained capture or after recorder stop. The start cue
+- The audio session permits haptics during recording so the final-minute
+  speaker-route warnings remain tactile. HoldType itself never plays those
+  warning pips through the built-in speaker; audible in-capture warnings remain
+  private-route only. Boundary haptics occur before retained capture or after
+  recorder stop. The start cue
   must finish or hit a two-second watchdog before recording begins; failure or
   timeout stops its player and may continue only after scene, route, permission,
   and attempt-token revalidation. The success stop cue plays only after the
@@ -266,18 +293,25 @@ microphone activity or losing completed recordings.
   the one idempotent stop owner, rejects late callbacks, and follows the frozen
   partial-capture matrix. Interruption end, media reset, scene reactivation,
   and permission completion never auto-resume or create another attempt.
-- Process-launch recovery is provider-free and ordered: first reconcile the
-  capture-source namespace, then run the existing containing-app lifecycle
-  recovery, then derive one combined source-and-Pending observation before
-  Start can be offered. If that first capture observation is blocked unknown
-  and containing-app lifecycle recovery completes, the same process-launch
-  opportunity reconciles the capture-source namespace exactly once more before
-  deriving the combined observation. The second capture observation is final
-  for that opportunity: another blocked-unknown result remains blocked and
-  starts no loop, timer, or follow-up signal. A later foreground opportunity
-  repeats only the bounded reconciliation allowed by those owners. Recovery
-  never reads Keychain, requests permission, activates audio, constructs a
-  provider request, or automatically retries retained work.
+- Process-launch recovery is provider-free and ordered: first run one bounded
+  orphan repair for canonical `recording` or `finalizing` capture metadata,
+  then reconcile the capture-source namespace, run the existing containing-app
+  lifecycle recovery, and derive one combined source-and-Pending observation
+  before Start can be offered. The repair validates the exact descriptor-open
+  media with the existing two-second validator. Every bounded non-empty regular
+  source becomes durable completed recovery; short, over-bound, invalid, or
+  timed-out metadata uses unknown/suspect duration `0`, stays visible with
+  Play/Transcribe/Discard, and never auto-dispatches. Exact empty media remains
+  Discard-only without deletion, while protected-data uncertainty or write
+  failure remains blocked and retriable at a later process launch. Foreground
+  opportunities never run this orphan repair. If the first ordinary capture
+  observation is blocked unknown and containing-app lifecycle recovery
+  completes, the same process-launch opportunity reconciles the capture-source
+  namespace exactly once more unless the orphan repair itself was blocked.
+  The resulting capture observation is final for that opportunity: another
+  blocked-unknown result remains blocked and starts no loop, timer, or follow-up
+  signal. Recovery never reads Keychain, requests permission, activates audio,
+  constructs a provider request, or automatically retries retained work.
 - The workflow depends on one process-owned History-playback arbitration
   protocol. Until History playback UI exists, production supplies an explicit
   no-active-playback implementation. The preflight still performs the same
@@ -342,11 +376,13 @@ microphone activity or losing completed recordings.
     any recorder or audio I/O already being prepared, deactivates
     `AVAudioSession`, retires the attempt token, rejects late callbacks, and
     returns inactive without retained capture or provider work;
-  - listening or a still-cancellable tail stops immediately. A valid partial is
-    protected without automatic upload: source-only active/finalizing/completed
-    truth presents Recover Recording or Discard, while a successfully journaled
-    `awaitingRecovery` owner presents Retry or Discard. An invalid partial enters
-    cleanup-only discarding state;
+  - listening or a still-cancellable tail stops immediately. A bounded non-empty
+    partial is protected without automatic upload: source-only
+    active/finalizing/completed truth presents Recover Recording or Discard,
+    while a successfully journaled `awaitingRecovery` owner presents Retry or
+    Discard. Untrusted duration metadata enters unknown-duration recovery; only
+    exact empty enters non-provider Discard-only state, while validation
+    uncertainty remains blocked;
   - already-stopped finalization may use only bounded system-granted execution
     to finish protecting local audio, but it never starts a new provider dispatch
     after the app is no longer foreground-active;
@@ -410,10 +446,12 @@ HoldType uses four distinct actions and never labels them all `Stop`:
   journaled, this action is unavailable.
 - `Stop Voice Session` exists only for Quick Session. In `ready` it disarms
   immediately. During `listening` it stops capture and ends the session; a
-  valid partial reaches only provider-free durable recovery: a source presents
-  Recover Recording or Discard, while an `awaitingRecovery` Pending presents
-  Retry or Discard. It is not uploaded automatically, and an invalid partial
-  enters discarding cleanup. If an utterance
+  bounded non-empty partial reaches only provider-free durable recovery: a
+  source presents Recover Recording or Discard, while an `awaitingRecovery`
+  Pending presents
+  Retry or Discard. It is not uploaded automatically. Short, over-bound,
+  invalid, or timed-out duration metadata records unknown duration rather than
+  deleting the bytes; exact empty remains non-provider Discard-only. If an utterance
   was already finalizing because of `Finish Utterance`, Stop disarms the
   session but lets that finalization/provider handoff continue. During
   `processing`, Stop ends the armed microphone/audio state but does not cancel
@@ -723,10 +761,9 @@ internally for Clear or later trustworthy maintenance.
 
 Quick Session expiry while merely `ready` creates no attempt outcome. Expiry
 while `processing` does not overwrite the still-valid attempt; its eventual
-terminal result remains authoritative. Reaching the per-utterance maximum keeps
-its distinct visible recording failure and projects `recoverableFailure` only
-if a later adapter has actually retained an eligible recovery artifact;
-otherwise it produces no `VoiceAttemptOutcome`.
+terminal result remains authoritative. Reaching the per-utterance maximum
+automatically finishes capture and follows the ordinary Pending/provider path;
+its eventual provider result determines the terminal outcome.
 
 The outcome carries no text, error, reason, identifier, timestamp, retry flag,
 setup destination, output-delivery state, user-facing copy, or stable
@@ -784,7 +821,9 @@ session as inactive, and must not label setup-dependent behavior as ready.
 
 - Missing permission, key, consent, configuration, or storage fails before
   capture and routes to the owning setup surface.
-- Too-short, empty, missing, corrupt, or unsupported audio is not uploaded.
+- Empty, missing, oversized, or unsupported audio is not uploaded. Unknown or
+  suspect non-empty audio is never auto-uploaded, but an explicit Transcribe or
+  Retry may authorize one descriptor-bound provider attempt.
 - If journaling fails, HoldType preserves the protected artifact where possible,
   reports local recovery failure, and does not start provider work.
 - If the app is suspended after recording, the furthest durable source or
@@ -797,7 +836,9 @@ session as inactive, and must not label setup-dependent behavior as ready.
   valid minimum-duration partial first becomes a recoverable source and, only
   if bounded local handoff completes, an `awaitingRecovery` Pending. The former
   presents Recover Recording or Discard; the latter presents Retry or Discard.
-  An invalid/too-short partial enters cleanup-only discarding state. The
+  An exact empty partial enters cleanup-only discarding state; any bounded
+  non-empty partial remains completed recovery even when duration metadata is
+  suspect or unknown. The
   terminal outcome is `interrupted` for the actual lifecycle interruption and
   `expired` for the Quick Session
   deadline; recovery actions remain separate from that reason.
@@ -851,13 +892,17 @@ session as inactive, and must not label setup-dependent behavior as ready.
 - Verify every preflight short circuit and both post-permission revalidation
   points, including History-playback stop before audio activation and no new
   provider dispatch after aggregate foreground loss.
-- Verify passive launch ordering as capture-source reconciliation, existing
-  containing-app lifecycle recovery, the one conditional second Capture read,
-  and combined source/Pending observation. Prove History pending performs no
-  recheck, a second blocked result remains blocked without a loop, cancellation
-  at either Capture boundary stops later loads, and the whole opportunity
-  performs no Keychain, permission, audio, provider, App Group, or keyboard
-  work.
+- Verify passive launch ordering as bounded orphan repair, capture-source
+  reconciliation, existing containing-app lifecycle recovery, the one
+  conditional second Capture read, and combined source/Pending observation.
+  Prove bounded non-empty valid, short, and invalid-metadata raw media becomes
+  completed (using unknown duration for short, over-bound, invalid, or timed-out
+  metadata), exact empty is retained as Discard-only, protected-data or write
+  failure remains blocked, foreground skips the repair, History pending performs
+  no recheck, a second blocked result remains
+  blocked without a loop, cancellation at every Capture boundary stops later
+  loads, and the whole opportunity performs no Keychain, permission, audio,
+  provider, App Group, or keyboard work.
 - Test every action in every phase, including Stop Voice Session during ready,
   listening, Finish-triggered finalizing, and processing, with valid/invalid
   partial artifacts and no accidental provider cancellation.

@@ -50,6 +50,38 @@ struct IOSAcceptedTextHistoryStateOwnerTests {
         )
     }
 
+    @Test func savedRecordingStaysFirstAcrossAcceptedHistoryFallbacks() {
+        let disabled = IOSAcceptedTextHistoryRecord(
+            isEnabled: false,
+            entries: []
+        )
+        let acceptedHistoryPresentations = [
+            IOSAcceptedTextHistoryHomePresentation.loading,
+            .unavailable,
+            .history(
+                record: disabled,
+                content: .disabled,
+                isStale: false
+            ),
+        ]
+
+        for acceptedHistory in acceptedHistoryPresentations {
+            #expect(
+                IOSHistoryHomeLayout.resolve(
+                    acceptedHistory: acceptedHistory,
+                    hasSavedRecording: true
+                ) == .savedRecordingFirst(acceptedHistory)
+            )
+        }
+
+        #expect(
+            IOSHistoryHomeLayout.resolve(
+                acceptedHistory: .loading,
+                hasSavedRecording: false
+            ) == .acceptedHistoryOnly(.loading)
+        )
+    }
+
     @Test func constructionIsPassiveAndRefreshPublishesConfirmedRecord()
         async throws {
         let fixture = HistoryOwnerFixture(record: try historyRecord(1, 2))

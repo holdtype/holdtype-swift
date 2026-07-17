@@ -6,7 +6,17 @@ nonisolated enum KeyboardDictationBridgeConfiguration {
     static let stateFilename = "keyboard-dictation-state-v3.json"
     static let maximumRecordBytes = 4 * 1_024
     static let commandLifetime: TimeInterval = 5
+    /// Idle warm-session and terminal delivery lifetime. Active capture has
+    /// its own recorder-owned five-minute boundary.
     static let sessionLifetime: TimeInterval = 60
+    /// Allows the canonical recorder to close and validate media slightly
+    /// beyond the user-visible five-minute boundary without expiring the
+    /// cross-process Listening snapshot.
+    static let listeningStateLifetime: TimeInterval = 302
+    /// The longest configured provider chain is transcription plus optional
+    /// correction and translation (60 + 20 + 20 seconds). This validity
+    /// window belongs to Processing, not to the idle warm session.
+    static let processingStateLifetime: TimeInterval = 120
     static let resultMaximumUTF8Bytes = 3 * 1_024
     static let commandNotification =
         "app.holdtype.keyboard-dictation.command.v3"
@@ -150,6 +160,21 @@ nonisolated enum KeyboardDictationStatePhase: String, Codable, Sendable {
     case failed
 }
 
+nonisolated extension KeyboardDictationBridgeConfiguration {
+    static func maximumStateLifetime(
+        for phase: KeyboardDictationStatePhase
+    ) -> TimeInterval {
+        switch phase {
+        case .listening:
+            listeningStateLifetime
+        case .processing:
+            processingStateLifetime
+        case .ready, .resultReady, .unavailable, .failed:
+            sessionLifetime
+        }
+    }
+}
+
 nonisolated struct KeyboardDictationStateRecord:
     Codable,
     Equatable,
@@ -200,7 +225,9 @@ nonisolated struct KeyboardDictationStateRecord:
               expiresAt.timeIntervalSinceReferenceDate.isFinite,
               expiresAt > publishedAt,
               expiresAt.timeIntervalSince(publishedAt)
-                <= KeyboardDictationBridgeConfiguration.sessionLifetime,
+                <= KeyboardDictationBridgeConfiguration.maximumStateLifetime(
+                    for: phase
+                ),
               identityIsValid,
               (phase == .resultReady || deliveryClaimID == nil),
               (phase == .resultReady) == hasValidResult else {
@@ -226,7 +253,9 @@ nonisolated struct KeyboardDictationStateRecord:
               expiresAt > date,
               expiresAt > publishedAt,
               expiresAt.timeIntervalSince(publishedAt)
-                <= KeyboardDictationBridgeConfiguration.sessionLifetime else {
+                <= KeyboardDictationBridgeConfiguration.maximumStateLifetime(
+                    for: phase
+                ) else {
             return false
         }
         let hasCompleteAttemptIdentity = attemptID != nil && requestID != nil

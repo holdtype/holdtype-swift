@@ -97,14 +97,15 @@ struct DictationSessionControllerTests {
         )
         #expect(controller.lastTranscriptText == "previous transcript")
         #expect(controller.failurePresentation?.settingsTarget == .openAI)
-        #expect(controller.failurePresentation?.failedAttemptID == nil)
-        #expect(controller.failurePresentation?.canRetry == false)
+        #expect(controller.failurePresentation?.failedAttemptID != nil)
+        #expect(controller.failurePresentation?.canRetry == true)
         #expect(recorder.stopCount == 1)
         #expect(transcriptionService.calls.isEmpty)
-        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.reason == .apiKeyUnavailable)
         #expect(
             attemptStageFailureEvents(in: eventLogger.events) == [
-                .recordingStopFailed(category: "api_key_unavailable")
+                .transcriptionFailed(category: "api_key_unavailable")
             ]
         )
     }
@@ -127,6 +128,8 @@ struct DictationSessionControllerTests {
         )
         let cuePlayer = FakeDictationCuePlayer()
         let eventLogger = FakeDictationEventLogger()
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
         let settings = makeSettings(saveTranscriptsToAppClipboard: false)
         let controller = makeController(
             recorder: recorder,
@@ -134,6 +137,8 @@ struct DictationSessionControllerTests {
             settings: settings,
             transcriptOutput: transcriptOutput,
             cuePlayer: cuePlayer,
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
             eventLogger: eventLogger,
             initialStatus: .recording
         )
@@ -165,6 +170,9 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(cuePlayer.playedCues == [.stopRecording])
+        #expect(transcriptHistory.calls.count == 1)
+        #expect(transcriptHistory.entries.map(\.transcriptText) == ["Shared controller transcript"])
+        #expect(failureRecovery.failedAttempts.isEmpty)
         #expect(
             eventLogger.events == [
                 .recordingStopRequested,
@@ -174,6 +182,1556 @@ struct DictationSessionControllerTests {
                 .recordingCacheHandled(policy: .deleteImmediately),
             ]
         )
+    }
+
+    @Test func automaticFiveMinuteStopTranscribesExactlyOnceWhenKeyUpRaces() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-controller-max-saved-\(UUID().uuidString)", isDirectory: true)
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let originalURL = cacheURL.appendingPathComponent("HoldType-max.m4a")
+        try Data("maximum recording".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300.4,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Automatic limit transcript")
+        )
+        let cuePlayer = FakeDictationCuePlayer()
+        let eventLogger = FakeDictationEventLogger()
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let failureRecovery = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
+        let recordingCache = RecordingCacheService(
+            directoryURL: cacheURL,
+            legacyDirectoryURL: nil
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
+            recordingCache: recordingCache,
+            eventLogger: eventLogger,
+            initialStatus: .recording
+        )
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await controller.performRecordingAction()
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(controller.status == .success(transcript: "Automatic limit transcript"))
+        #expect(recorder.stopCount == 0)
+        #expect(transcriptionService.calls.count == 1)
+        let savedAttempt = failureRecovery.failedAttempts.first
+        #expect(savedAttempt?.state == .saved)
+        #expect(savedAttempt?.completionKind == .maximumDuration)
+        #expect(savedAttempt?.acceptedTranscriptText == "Automatic limit transcript")
+        #expect(savedAttempt?.canRetry == false)
+        #expect(savedAttempt?.audioFileURL != artifact.fileURL)
+        #expect(transcriptionService.calls.first?.audioFileURL == savedAttempt?.audioFileURL)
+        #expect(transcriptHistory.calls.isEmpty)
+        #expect(FileManager.default.fileExists(atPath: artifact.fileURL.path) == false)
+        if let savedAudioURL = savedAttempt?.audioFileURL {
+            #expect(FileManager.default.fileExists(atPath: savedAudioURL.path))
+        }
+        #expect(cuePlayer.playedCues == [.recordingLimitReached])
+        #expect(eventLogger.events.filter { $0 == .recordingLimitReached }.count == 1)
+        #expect(
+            eventLogger.events.filter {
+                if case .recordingStopped = $0 { return true }
+                return false
+            }.count == 1
+        )
+    }
+
+    @Test func manualKeyUpWinningAtMaximumBoundaryStillRetainsPlayableAudio() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-controller-manual-max-race-\(UUID().uuidString)", isDirectory: true)
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let originalURL = cacheURL.appendingPathComponent("HoldType-manual-max-race.m4a")
+        try Data("near-boundary recording".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 299.9,
+            byteCount: 2_300_000
+        )
+        let stopGate = ControllerAsyncGate()
+        let recorder = FakeAudioRecorderService(
+            stopResult: .success(artifact),
+            beforeStop: { await stopGate.wait() }
+        )
+        let monitor = FakeRecordingDurationMonitor()
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Boundary transcript")
+        )
+        let failureRecovery = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let eventLogger = FakeDictationEventLogger()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            recordingDurationMonitor: monitor,
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            eventLogger: eventLogger
+        )
+
+        await controller.performRecordingAction()
+        let manualStopTask = Task { @MainActor in
+            await controller.performRecordingAction()
+        }
+        await yieldUntil { recorder.stopCount == 1 }
+
+        // Both automatic boundaries arrive while key-up owns finalization and
+        // therefore lose the exact-once race.
+        monitor.emit(elapsedWholeSecond: 300)
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await stopGate.open()
+        await manualStopTask.value
+
+        #expect(controller.status == .success(transcript: "Boundary transcript"))
+        #expect(recorder.stopCount == 1)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(eventLogger.events.filter { $0 == .recordingLimitReached }.count == 1)
+        #expect(transcriptHistory.calls.isEmpty)
+        let savedAttempt = try #require(failureRecovery.failedAttempts.first)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.acceptedTranscriptText == "Boundary transcript")
+        #expect(savedAttempt.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
+        #expect(
+            TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt)
+        )
+        #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
+    }
+
+    @Test func manualWinnerConsumesMaximumCallbackWhenFinalizedDurationFallsBackToZero() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-controller-zero-duration-max-race-\(UUID().uuidString)", isDirectory: true)
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let originalURL = cacheURL.appendingPathComponent("HoldType-zero-duration-race.m4a")
+        try Data("positive audio with unavailable duration".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 0,
+            byteCount: 2_300_000
+        )
+        let stopGate = ControllerAsyncGate()
+        let recorder = FakeAudioRecorderService(
+            stopResult: .success(artifact),
+            beforeStop: { await stopGate.wait() },
+            stopFinalizationReachedMaximumDuration: true
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Callback preserved transcript")
+        )
+        let failureRecovery = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
+        let eventLogger = FakeDictationEventLogger()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: failureRecovery,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            eventLogger: eventLogger
+        )
+
+        await controller.performRecordingAction()
+        let manualStopTask = Task { @MainActor in
+            await controller.performRecordingAction()
+        }
+        await yieldUntil { recorder.stopCount == 1 }
+        await stopGate.open()
+        await manualStopTask.value
+
+        // The service-level joined result was consumed before the delegate
+        // notification arrived. This late callback must be a no-op.
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+
+        #expect(controller.status == .success(transcript: "Callback preserved transcript"))
+        #expect(recorder.stopCount == 1)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(eventLogger.events.filter { $0 == .recordingLimitReached }.count == 1)
+        let savedAttempt = try #require(failureRecovery.failedAttempts.first)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.completionKind == .maximumDuration)
+        #expect(savedAttempt.acceptedTranscriptText == "Callback preserved transcript")
+        #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
+    }
+
+    @Test func maximumDurationSaveStateFailureKeepsRecoverableAudioWithoutRepeatingProvider() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-controller-max-save-failure-\(UUID().uuidString)", isDirectory: true)
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let originalURL = cacheURL.appendingPathComponent("HoldType-max-save-failure.m4a")
+        try Data("maximum recording".utf8).write(to: originalURL)
+        let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Accepted despite save failure"),
+            beforeResult: {
+                try? FileManager.default.removeItem(at: metadataURL)
+                try? FileManager.default.createDirectory(
+                    at: metadataURL,
+                    withIntermediateDirectories: false
+                )
+            }
+        )
+        let failureRecovery = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let transcriptOutput = FakeTranscriptOutput()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: transcriptOutput,
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: failureRecovery,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(controller.status == .success(transcript: "Accepted despite save failure"))
+        #expect(
+            controller.outputStatusText
+                == "Text was accepted, but the five-minute recording could not be marked as saved."
+        )
+        #expect(transcriptionService.calls.count == 1)
+        #expect(transcriptOutput.calls.count == 1)
+        #expect(transcriptHistory.calls.isEmpty)
+        let retainedAttempt = try #require(failureRecovery.failedAttempts.first)
+        #expect(retainedAttempt.state == .failed)
+        #expect(retainedAttempt.reason == .savedStatePersistenceFailed)
+        #expect(retainedAttempt.canRetry == false)
+        #expect(retainedAttempt.acceptedTranscriptText == "Accepted despite save failure")
+        #expect(FileManager.default.fileExists(atPath: retainedAttempt.audioFileURL.path))
+        #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
+
+        await controller.retryFailedTranscription(id: retainedAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.state == .failed)
+        #expect(
+            controller.outputStatusText
+                == "This saved recording is not available for retry."
+        )
+
+        let restoredRecoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let restoredAttempt = try #require(restoredRecoveryStore.failedAttempts.first)
+        #expect(restoredAttempt.id == retainedAttempt.id)
+        #expect(restoredAttempt.state == .failed)
+        #expect(restoredAttempt.reason == .savedStatePersistenceFailed)
+        #expect(restoredAttempt.completionKind == .maximumDuration)
+        #expect(restoredAttempt.canRetry == false)
+        #expect(restoredAttempt.acceptedTranscriptText == "Accepted despite save failure")
+        #expect(FileManager.default.fileExists(atPath: restoredAttempt.audioFileURL.path))
+        let restoredPresentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: restoredAttempt
+        )
+        #expect(restoredPresentation.showsRetry == false)
+        #expect(restoredPresentation.showsSaveRetry)
+
+        let relaunchedProvider = FakeControllerTranscriptionService(
+            result: .success("Must never be requested")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: relaunchedProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: restoredRecoveryStore
+        )
+        await relaunchedController.retryFailedTranscription(id: restoredAttempt.id)
+        #expect(relaunchedProvider.calls.isEmpty)
+        #expect(
+            relaunchedController.outputStatusText
+                == "This saved recording is not available for retry."
+        )
+
+        try FileManager.default.removeItem(at: metadataURL)
+        try restoredRecoveryStore.markSaved(
+            id: restoredAttempt.id,
+            acceptedTranscriptText: try #require(restoredAttempt.acceptedTranscriptText)
+        )
+        let locallyRepairedAttempt = try #require(
+            restoredRecoveryStore.failedAttempts.first
+        )
+        #expect(locallyRepairedAttempt.state == .saved)
+        #expect(
+            locallyRepairedAttempt.acceptedTranscriptText
+                == "Accepted despite save failure"
+        )
+        #expect(FileManager.default.fileExists(atPath: locallyRepairedAttempt.audioFileURL.path))
+        #expect(relaunchedProvider.calls.isEmpty)
+    }
+
+    @Test func maximumCheckpointFailureThenRetrySuccessFailsClosedWithoutSecondProviderCall() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-max-checkpoint-emergency-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: cacheURL,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: recoveryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
+        try FileManager.default.createDirectory(
+            at: metadataURL,
+            withIntermediateDirectories: false
+        )
+        let originalURL = cacheURL.appendingPathComponent("checkpoint-emergency.m4a")
+        try Data("checkpoint emergency recording".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Accepted on emergency retry")
+        )
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(transcriptionService.calls.isEmpty)
+        let emergencyAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(emergencyAttempt.state == .failed)
+        #expect(emergencyAttempt.completionKind == .maximumDuration)
+        #expect(emergencyAttempt.canRetry)
+        #expect(emergencyAttempt.audioFileURL != originalURL)
+        #expect(FileManager.default.fileExists(atPath: emergencyAttempt.audioFileURL.path))
+        #expect(FileManager.default.fileExists(atPath: originalURL.path))
+
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+        let failClosedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(failClosedAttempt.id == emergencyAttempt.id)
+        #expect(failClosedAttempt.state == .failed)
+        #expect(failClosedAttempt.reason == .savedStatePersistenceFailed)
+        #expect(failClosedAttempt.canRetry == false)
+        #expect(failClosedAttempt.acceptedTranscriptText == "Accepted on emergency retry")
+        #expect(FileManager.default.fileExists(atPath: failClosedAttempt.audioFileURL.path))
+        let presentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: failClosedAttempt
+        )
+        #expect(presentation.showsRetry == false)
+        #expect(presentation.showsSaveRetry)
+
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(recoveryStore.failedAttempts.first?.canRetry == false)
+    }
+
+    @Test func unownedEmergencyRequiresLocalSaveBeforeProviderAndThenSurvivesRelaunch() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-unowned-emergency-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let originalURL = rootURL.appendingPathComponent("unowned-emergency.m4a")
+        try Data("unowned emergency recording".utf8).write(to: originalURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let emergencyAttempt = try #require(
+            recoveryStore.retainEmergencyFallback(
+                audioFileURL: originalURL,
+                settings: .defaults,
+                audioDuration: 300,
+                reason: .other,
+                completionKind: .maximumDuration
+            )
+        )
+        #expect(emergencyAttempt.reason == .recoveryOwnershipPersistenceFailed)
+        #expect(emergencyAttempt.canRetry == false)
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(emergencyAttempt))
+        let emergencyPresentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: emergencyAttempt
+        )
+        #expect(emergencyPresentation.showsRetry == false)
+        #expect(emergencyPresentation.showsSaveRetry)
+
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Accepted only after local save")
+        )
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore
+        )
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.isEmpty)
+
+        try recoveryStore.repairLocalRecovery(id: emergencyAttempt.id)
+        let locallySavedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(locallySavedAttempt.id == emergencyAttempt.id)
+        #expect(locallySavedAttempt.reason == .processingInterrupted)
+        #expect(locallySavedAttempt.completionKind == .maximumDuration)
+        #expect(locallySavedAttempt.canRetry)
+        #expect(locallySavedAttempt.audioFileURL != originalURL)
+        #expect(FileManager.default.fileExists(atPath: locallySavedAttempt.audioFileURL.path))
+
+        await controller.retryFailedTranscription(id: locallySavedAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+        let savedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.acceptedTranscriptText == "Accepted only after local save")
+        #expect(savedAttempt.canRetry == false)
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.state == .saved)
+        #expect(relaunchedAttempt.acceptedTranscriptText == "Accepted only after local save")
+        let duplicateProvider = FakeControllerTranscriptionService(
+            result: .success("Must not run")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: duplicateProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: relaunchedAttempt.id)
+        #expect(duplicateProvider.calls.isEmpty)
+    }
+
+    @Test func unownedEmergencyWithContinuedCopyFailureNeverCallsProvider() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-unowned-copy-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let originalURL = rootURL.appendingPathComponent("still-unowned.m4a")
+        try Data("still unowned recording".utf8).write(to: originalURL)
+        let unusableRecoveryURL = rootURL.appendingPathComponent("Recovery")
+        try Data("not a directory".utf8).write(to: unusableRecoveryURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: unusableRecoveryURL
+        )
+        let emergencyAttempt = try #require(
+            recoveryStore.retainEmergencyFallback(
+                audioFileURL: originalURL,
+                settings: .defaults,
+                audioDuration: 300,
+                reason: .other,
+                completionKind: .maximumDuration
+            )
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Must not run")
+        )
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore
+        )
+
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(throws: TranscriptionFailureRecoveryError.directoryUnavailable) {
+            try recoveryStore.repairLocalRecovery(id: emergencyAttempt.id)
+        }
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(recoveryStore.failedAttempts.first?.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: originalURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(emergencyAttempt))
+    }
+
+    @Test func unownedEmergencyWithDualOwnershipWriteFailureStaysFailClosed() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-unowned-dual-write-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: recoveryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let attemptID = UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!
+        let originalURL = rootURL.appendingPathComponent("dual-write-emergency.m4a")
+        try Data("dual write emergency recording".utf8).write(to: originalURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL,
+            uuidProvider: { attemptID }
+        )
+        let emergencyAttempt = try #require(
+            recoveryStore.retainEmergencyFallback(
+                audioFileURL: originalURL,
+                settings: .defaults,
+                audioDuration: 300,
+                reason: .other,
+                completionKind: .maximumDuration
+            )
+        )
+        let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
+        let markerURL = recoveryURL.appendingPathComponent(
+            "ProcessingCheckpoint-\(attemptID.uuidString.lowercased()).json"
+        )
+        try FileManager.default.createDirectory(
+            at: metadataURL,
+            withIntermediateDirectories: false
+        )
+        try FileManager.default.createDirectory(
+            at: markerURL,
+            withIntermediateDirectories: false
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Must not run")
+        )
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore
+        )
+
+        #expect(throws: TranscriptionFailureRecoveryError.saveFailed) {
+            try recoveryStore.repairLocalRecovery(id: emergencyAttempt.id)
+        }
+        let blockedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(blockedAttempt.id == emergencyAttempt.id)
+        #expect(blockedAttempt.audioFileURL == originalURL)
+        #expect(blockedAttempt.reason == .recoveryOwnershipPersistenceFailed)
+        #expect(blockedAttempt.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: originalURL.path))
+        let retainedCopies = try FileManager.default.contentsOfDirectory(
+            at: recoveryURL,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "m4a" }
+        #expect(retainedCopies.count == 1)
+        #expect(FileManager.default.fileExists(atPath: retainedCopies[0].path))
+
+        await controller.retryFailedTranscription(id: emergencyAttempt.id)
+        #expect(transcriptionService.calls.isEmpty)
+
+        try FileManager.default.removeItem(at: metadataURL)
+        try FileManager.default.removeItem(at: markerURL)
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.id == attemptID)
+        #expect(relaunchedAttempt.completionKind == .maximumDuration)
+        #expect(FileManager.default.fileExists(atPath: relaunchedAttempt.audioFileURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(relaunchedAttempt))
+        #expect(FileManager.default.fileExists(atPath: metadataURL.path))
+        #expect(transcriptionService.calls.isEmpty)
+    }
+
+    @Test func providerDispatchSealFailureBlocksUploadUntilLocalRepair() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-dispatch-seal-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let sourceURL = rootURL.appendingPathComponent("dispatch-seal.m4a")
+        try Data("dispatch seal recording".utf8).write(to: sourceURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let checkpoint = try recoveryStore.recordProcessingCheckpoint(
+            audioFileURL: sourceURL,
+            settings: .defaults,
+            audioDuration: 300,
+            completionKind: .maximumDuration
+        )
+        try recoveryStore.updateFailedAttempt(
+            id: checkpoint.id,
+            reason: .networkUnavailable
+        )
+        let dispatchMarkerURL = recoveryURL.appendingPathComponent(
+            "ProviderDispatch-\(checkpoint.id.uuidString.lowercased()).json"
+        )
+        try FileManager.default.createDirectory(
+            at: dispatchMarkerURL,
+            withIntermediateDirectories: false
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Accepted after dispatch repair")
+        )
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore
+        )
+
+        await controller.retryFailedTranscription(id: checkpoint.id)
+        #expect(transcriptionService.calls.isEmpty)
+        let blockedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(blockedAttempt.reason == .providerDispatchPersistenceFailed)
+        #expect(blockedAttempt.canRetry == false)
+        let blockedPresentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: blockedAttempt
+        )
+        #expect(blockedPresentation.showsRetry == false)
+        #expect(blockedPresentation.showsSaveRetry)
+
+        try FileManager.default.removeItem(at: dispatchMarkerURL)
+        try recoveryStore.repairLocalRecovery(id: checkpoint.id)
+        #expect(recoveryStore.failedAttempts.first?.canRetry == true)
+        await controller.retryFailedTranscription(id: checkpoint.id)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(recoveryStore.failedAttempts.first?.state == .saved)
+        #expect(
+            recoveryStore.failedAttempts.first?.acceptedTranscriptText
+                == "Accepted after dispatch repair"
+        )
+    }
+
+    @Test func providerSuccessWithDualMetadataFailureRelaunchesAsOutcomeUncertain() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-provider-dual-write-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: cacheURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let attemptID = UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!
+        let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
+        let repairMarkerURL = recoveryURL.appendingPathComponent(
+            "SavedStateRepair-\(attemptID.uuidString.lowercased()).json"
+        )
+        let originalURL = cacheURL.appendingPathComponent("dual-write.m4a")
+        try Data("dual write recording".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Accepted but metadata unavailable"),
+            beforeResult: {
+                try? FileManager.default.removeItem(at: metadataURL)
+                try? FileManager.default.createDirectory(
+                    at: metadataURL,
+                    withIntermediateDirectories: false
+                )
+                try? FileManager.default.createDirectory(
+                    at: repairMarkerURL,
+                    withIntermediateDirectories: false
+                )
+            }
+        )
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL,
+            uuidProvider: { attemptID }
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(transcriptionService.calls.count == 1)
+        let inMemoryAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(inMemoryAttempt.reason == .savedStatePersistenceFailed)
+        #expect(inMemoryAttempt.acceptedTranscriptText == "Accepted but metadata unavailable")
+        #expect(inMemoryAttempt.canRetry == false)
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let uncertainAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(uncertainAttempt.id == attemptID)
+        #expect(uncertainAttempt.reason == .providerOutcomeUncertain)
+        #expect(uncertainAttempt.completionKind == .maximumDuration)
+        #expect(uncertainAttempt.acceptedTranscriptText == nil)
+        #expect(uncertainAttempt.canRetry == false)
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(uncertainAttempt))
+        let uncertainPresentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: uncertainAttempt
+        )
+        #expect(uncertainPresentation.showsRetry == false)
+        #expect(uncertainPresentation.showsSaveRetry == false)
+        let duplicateProvider = FakeControllerTranscriptionService(
+            result: .success("Must not repeat")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: duplicateProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: uncertainAttempt.id)
+        #expect(duplicateProvider.calls.isEmpty)
+    }
+
+    @Test func maximumTranslationFailurePreservesRawAcceptedTextWithoutProviderRetry() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-max-translation-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: cacheURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let originalURL = cacheURL.appendingPathComponent("translation-failure.m4a")
+        try Data("maximum translation failure".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(
+            currentStatus: .recording,
+            stopResult: .success(artifact),
+            stopFinalizationReachedMaximumDuration: true
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("  русский текст \n")
+        )
+        let translationService = FakeTranslationService(
+            result: .failure(.timedOut)
+        )
+        var settings = AppSettings.defaults
+        settings.language = .russian
+        settings.translationShortcutEnabled = true
+        settings.translationTargetLanguage = .english
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            translationService: translationService,
+            settings: settings,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        await controller.performRecordingAction(intent: .translate)
+
+        #expect(controller.status == .failure(message: "Translation timed out."))
+        #expect(transcriptionService.calls.count == 1)
+        #expect(translationService.calls.count == 1)
+        let failClosedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(failClosedAttempt.state == .failed)
+        #expect(
+            failClosedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(failClosedAttempt.acceptedTranscriptText == "русский текст")
+        #expect(failClosedAttempt.canRetry == false)
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(failClosedAttempt))
+        let presentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: failClosedAttempt
+        )
+        #expect(
+            presentation.title
+                == "Raw transcription recovered — post-processing failed"
+        )
+        #expect(presentation.showsRetry == false)
+        #expect(presentation.showsSaveRetry)
+        #expect(presentation.saveRetryTitle == "Save Raw Transcription")
+
+        await controller.retryFailedTranscription(id: failClosedAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(
+            relaunchedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(relaunchedAttempt.acceptedTranscriptText == "русский текст")
+        #expect(relaunchedAttempt.canRetry == false)
+        try relaunchedStore.markSaved(
+            id: relaunchedAttempt.id,
+            acceptedTranscriptText: "русский текст"
+        )
+        let rawSavedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(rawSavedAttempt.state == .saved)
+        #expect(
+            rawSavedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        let rawSavedPresentation = TranscriptionRecoveryHistoryRowPresentation(
+            attempt: rawSavedAttempt
+        )
+        #expect(
+            rawSavedPresentation.title
+                == "Raw transcription saved — post-processing failed"
+        )
+        let duplicateProvider = FakeControllerTranscriptionService(
+            result: .success("Must not repeat")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: duplicateProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: rawSavedAttempt.id)
+        #expect(duplicateProvider.calls.isEmpty)
+    }
+
+    @Test func standardTranslationFailurePreservesRawAcceptedTextWithoutProviderRetry() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-standard-translation-failure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: cacheURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let originalURL = cacheURL.appendingPathComponent("translation-failure.m4a")
+        try Data("standard translation failure".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 19,
+            byteCount: 152_000
+        )
+        let recorder = FakeAudioRecorderService(
+            currentStatus: .recording,
+            stopResult: .success(artifact)
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("  обычный сырой текст \n")
+        )
+        let translationService = FakeTranslationService(
+            result: .failure(.timedOut)
+        )
+        var settings = AppSettings.defaults
+        settings.language = .russian
+        settings.translationShortcutEnabled = true
+        settings.translationTargetLanguage = .english
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            translationService: translationService,
+            settings: settings,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        await controller.performRecordingAction(intent: .translate)
+
+        #expect(controller.status == .failure(message: "Translation timed out."))
+        #expect(transcriptionService.calls.count == 1)
+        #expect(translationService.calls.count == 1)
+        let failClosedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(failClosedAttempt.completionKind == .standard)
+        #expect(
+            failClosedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(failClosedAttempt.acceptedTranscriptText == "обычный сырой текст")
+        #expect(failClosedAttempt.canRetry == false)
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(failClosedAttempt))
+
+        await controller.retryFailedTranscription(id: failClosedAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.completionKind == .standard)
+        #expect(
+            relaunchedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(relaunchedAttempt.acceptedTranscriptText == "обычный сырой текст")
+        #expect(relaunchedAttempt.canRetry == false)
+        try relaunchedStore.markSaved(
+            id: relaunchedAttempt.id,
+            acceptedTranscriptText: "обычный сырой текст"
+        )
+        let rawSavedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(rawSavedAttempt.state == .saved)
+        #expect(
+            rawSavedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        let duplicateProvider = FakeControllerTranscriptionService(
+            result: .success("Must not repeat")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: duplicateProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: rawSavedAttempt.id)
+        #expect(duplicateProvider.calls.isEmpty)
+    }
+
+    @Test func standardRetryPostProcessingFailureDoesNotReuploadProviderAudio() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-standard-retry-postprocess-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let sourceURL = rootURL.appendingPathComponent("retry-source.m4a")
+        try Data("standard retry recording".utf8).write(to: sourceURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let failedAttempt = try #require(
+            try recoveryStore.recordFailedAttempt(
+                audioFileURL: sourceURL,
+                settings: .defaults,
+                audioDuration: 24,
+                reason: .networkUnavailable
+            )
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Raw retry transcript")
+        )
+        let textCorrectionService = FakeTextCorrectionService(
+            result: .success(" \n ")
+        )
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            textCorrectionService: textCorrectionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore
+        )
+
+        await controller.retryFailedTranscription(id: failedAttempt.id)
+
+        #expect(transcriptionService.calls.count == 1)
+        let failClosedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(failClosedAttempt.completionKind == .standard)
+        #expect(
+            failClosedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(failClosedAttempt.acceptedTranscriptText == "Raw retry transcript")
+        #expect(failClosedAttempt.canRetry == false)
+
+        await controller.retryFailedTranscription(id: failClosedAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.completionKind == .standard)
+        #expect(
+            relaunchedAttempt.reason
+                == .postProcessingFailedAfterProviderAcceptance
+        )
+        #expect(relaunchedAttempt.acceptedTranscriptText == "Raw retry transcript")
+        #expect(relaunchedAttempt.canRetry == false)
+        let duplicateProvider = FakeControllerTranscriptionService(
+            result: .success("Must not repeat")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: duplicateProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: relaunchedAttempt.id)
+        #expect(duplicateProvider.calls.isEmpty)
+    }
+
+    @Test func standardSuccessfulTranscriptionRemovesRecoveryAudioAndMarkers() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-standard-success-cleanup-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let sourceURL = rootURL.appendingPathComponent("standard-success.m4a")
+        try Data("standard successful recording".utf8).write(to: sourceURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: sourceURL,
+            duration: 21,
+            byteCount: 168_000
+        )
+        let recorder = FakeAudioRecorderService(
+            currentStatus: .recording,
+            stopResult: .success(artifact)
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Completed standard transcript")
+        )
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            initialStatus: .recording
+        )
+
+        await controller.performRecordingAction()
+
+        #expect(
+            controller.status
+                == .success(transcript: "Completed standard transcript")
+        )
+        #expect(transcriptionService.calls.count == 1)
+        #expect(recoveryStore.failedAttempts.isEmpty)
+        let remainingNames = try FileManager.default.contentsOfDirectory(
+            atPath: recoveryURL.path
+        )
+        #expect(remainingNames.allSatisfy { $0 == "Recovery.json" })
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        #expect(relaunchedStore.failedAttempts.isEmpty)
+    }
+
+    @Test func localRequestValidationFailureRemainsRetryableAcrossRelaunch() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-local-validation-relaunch-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let sourceURL = rootURL.appendingPathComponent("invalid-request.m4a")
+        try Data("locally invalid request recording".utf8).write(to: sourceURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: sourceURL,
+            duration: 17,
+            byteCount: 136_000
+        )
+        let recorder = FakeAudioRecorderService(
+            currentStatus: .recording,
+            stopResult: .success(artifact)
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Must not be called")
+        )
+        var settings = AppSettings.defaults
+        settings.language = .custom
+        settings.customLanguageCode = "en-US"
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            settings: settings,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: recoveryStore,
+            initialStatus: .recording
+        )
+
+        await controller.performRecordingAction()
+
+        #expect(transcriptionService.calls.isEmpty)
+        let localFailure = try #require(recoveryStore.failedAttempts.first)
+        #expect(localFailure.completionKind == .standard)
+        #expect(localFailure.reason == .invalidRequest)
+        #expect(localFailure.canRetry)
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.id == localFailure.id)
+        #expect(relaunchedAttempt.reason == .invalidRequest)
+        #expect(relaunchedAttempt.canRetry)
+    }
+
+    @Test func maximumFilenameSurvivesCheckpointAndMarkerFailureThenRetryRetainsAudio() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-max-checkpoint-relaunch-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: recoveryURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
+        try FileManager.default.createDirectory(
+            at: metadataURL,
+            withIntermediateDirectories: false
+        )
+        let sourceURL = rootURL.appendingPathComponent("checkpoint-relaunch-source.m4a")
+        try Data("checkpoint relaunch recording".utf8).write(to: sourceURL)
+        let attemptID = UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!
+        try FileManager.default.createDirectory(
+            at: recoveryURL.appendingPathComponent(
+                "ProcessingCheckpoint-\(attemptID.uuidString.lowercased()).json"
+            ),
+            withIntermediateDirectories: false
+        )
+        let firstStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL,
+            uuidProvider: { attemptID }
+        )
+        #expect(throws: TranscriptionFailureRecoveryError.saveFailed) {
+            try firstStore.recordProcessingCheckpoint(
+                audioFileURL: sourceURL,
+                settings: .defaults,
+                audioDuration: 300,
+                completionKind: .maximumDuration
+            )
+        }
+
+        let restoredStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let restoredAttempt = try #require(restoredStore.failedAttempts.first)
+        #expect(restoredAttempt.id == attemptID)
+        #expect(restoredAttempt.state == .failed)
+        #expect(restoredAttempt.reason == .processingInterrupted)
+        #expect(restoredAttempt.completionKind == .maximumDuration)
+        #expect(restoredAttempt.canRetry)
+        #expect(FileManager.default.fileExists(atPath: restoredAttempt.audioFileURL.path))
+
+        try FileManager.default.removeItem(at: metadataURL)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Recovered max checkpoint")
+        )
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let retryController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: restoredStore
+        )
+
+        await retryController.retryFailedTranscription(id: restoredAttempt.id)
+
+        #expect(transcriptionService.calls.count == 1)
+        #expect(transcriptHistory.calls.isEmpty)
+        let savedAttempt = try #require(restoredStore.failedAttempts.first)
+        #expect(savedAttempt.id == restoredAttempt.id)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.completionKind == .maximumDuration)
+        #expect(savedAttempt.acceptedTranscriptText == "Recovered max checkpoint")
+        #expect(savedAttempt.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+
+        await retryController.retryFailedTranscription(id: restoredAttempt.id)
+        #expect(transcriptionService.calls.count == 1)
+    }
+
+    @Test func failedMaximumAttemptSurvivesRelaunchAndRetrySuccessRemainsSaved() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-controller-max-retry-\(UUID().uuidString)", isDirectory: true)
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let originalURL = cacheURL.appendingPathComponent("HoldType-max-retry.m4a")
+        try Data("maximum retry recording".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let firstTranscriptionService = FakeControllerTranscriptionService(
+            result: .failure(.networkUnavailable)
+        )
+        let firstRecoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let firstController = makeController(
+            recorder: recorder,
+            transcriptionService: firstTranscriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: firstRecoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            initialStatus: .recording
+        )
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+            )
+        )
+        await yieldUntil { firstController.status.voiceWorkPhase == .inactive }
+
+        #expect(firstTranscriptionService.calls.count == 1)
+        let failedAttempt = try #require(firstRecoveryStore.failedAttempts.first)
+        #expect(failedAttempt.state == .failed)
+        #expect(failedAttempt.reason == .networkUnavailable)
+        #expect(failedAttempt.completionKind == .maximumDuration)
+        #expect(FileManager.default.fileExists(atPath: failedAttempt.audioFileURL.path))
+        #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
+
+        let restoredRecoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let restoredAttempt = try #require(restoredRecoveryStore.failedAttempts.first)
+        #expect(restoredAttempt.id == failedAttempt.id)
+        #expect(restoredAttempt.completionKind == .maximumDuration)
+        #expect(restoredAttempt.state == .failed)
+        let retryTranscriptionService = FakeControllerTranscriptionService(
+            result: .success("Recovered after relaunch")
+        )
+        let retryHistory = FakeTranscriptRecoveryHistory()
+        let retryController = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: retryTranscriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptHistory: retryHistory,
+            transcriptionFailureRecovery: restoredRecoveryStore
+        )
+
+        await retryController.retryFailedTranscription(id: restoredAttempt.id)
+
+        #expect(retryController.status == .success(transcript: "Recovered after relaunch"))
+        #expect(retryTranscriptionService.calls.count == 1)
+        #expect(retryHistory.calls.isEmpty)
+        let savedAttempt = try #require(restoredRecoveryStore.failedAttempts.first)
+        #expect(savedAttempt.id == restoredAttempt.id)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.completionKind == .maximumDuration)
+        #expect(savedAttempt.acceptedTranscriptText == "Recovered after relaunch")
+        #expect(savedAttempt.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+    }
+
+    @Test func unexpectedRecorderCompletionRetainsAndTranscribesWithNormalStopFeedback() async {
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-controller-unexpected-stop.m4a"),
+            duration: 28,
+            byteCount: 220_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Unexpected completion transcript")
+        )
+        let cuePlayer = FakeDictationCuePlayer()
+        let eventLogger = FakeDictationEventLogger()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger,
+            initialStatus: .recording
+        )
+        var outputStatusChanges: [String?] = []
+        controller.outputStatusTextDidChange = { outputStatusChanges.append($0) }
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .unexpected(recorderReportedSuccess: false)
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(
+            controller.status == .success(
+                transcript: "Unexpected completion transcript"
+            )
+        )
+        #expect(recorder.stopCount == 0)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(transcriptionService.calls.first?.audioFileURL == artifact.fileURL)
+        #expect(cuePlayer.playedCues == [.stopRecording])
+        #expect(
+            eventLogger.events.filter {
+                $0 == .recordingEndedUnexpectedly(recorderReportedSuccess: false)
+            }.count == 1
+        )
+        #expect(eventLogger.events.contains(.recordingLimitReached) == false)
+        #expect(failureRecovery.failedAttempts.isEmpty)
+        let savingStatusIndex = outputStatusChanges.firstIndex(
+            of: "Recording ended unexpectedly. Saving recording..."
+        )
+        let transcribingStatusIndex = outputStatusChanges.firstIndex(
+            of: "Recording ended unexpectedly. Recording saved to History; transcribing..."
+        )
+        #expect(savingStatusIndex != nil)
+        #expect(transcribingStatusIndex != nil)
+        if let savingStatusIndex, let transcribingStatusIndex {
+            #expect(savingStatusIndex < transcribingStatusIndex)
+        }
+    }
+
+    @Test func unsuccessfulRecorderCallbackAtLimitStillRetainsSavedPlayableRecording() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-false-callback-at-limit-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: cacheURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let originalURL = cacheURL.appendingPathComponent("false-at-limit.m4a")
+        try Data("five minute callback anomaly".utf8).write(to: originalURL)
+        let artifact = AudioRecordingArtifact(
+            fileURL: originalURL,
+            duration: 300,
+            byteCount: 2_400_000
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Maximum transcript despite false callback")
+        )
+        let cuePlayer = FakeDictationCuePlayer()
+        let eventLogger = FakeDictationEventLogger()
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let transcriptHistory = FakeTranscriptRecoveryHistory()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            transcriptHistory: transcriptHistory,
+            transcriptionFailureRecovery: recoveryStore,
+            recordingCache: RecordingCacheService(
+                directoryURL: cacheURL,
+                legacyDirectoryURL: nil
+            ),
+            eventLogger: eventLogger,
+            initialStatus: .recording
+        )
+
+        recorder.simulateAutomaticStop(
+            .success(
+                AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .unexpected(recorderReportedSuccess: false)
+                )
+            )
+        )
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(
+            controller.status == .success(
+                transcript: "Maximum transcript despite false callback"
+            )
+        )
+        #expect(transcriptionService.calls.count == 1)
+        #expect(cuePlayer.playedCues == [.recordingLimitReached])
+        #expect(
+            eventLogger.events.contains(
+                .recordingEndedUnexpectedly(recorderReportedSuccess: false)
+            )
+        )
+        #expect(eventLogger.events.contains(.recordingLimitReached))
+        #expect(transcriptHistory.calls.isEmpty)
+        let savedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(savedAttempt.state == .saved)
+        #expect(savedAttempt.completionKind == .maximumDuration)
+        #expect(
+            savedAttempt.acceptedTranscriptText
+                == "Maximum transcript despite false callback"
+        )
+        #expect(savedAttempt.canRetry == false)
+        #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
+        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
     }
 
     @Test func configuredRecordingStopTailRunsBeforeRecorderStop() async {
@@ -337,9 +1895,10 @@ struct DictationSessionControllerTests {
         )
         #expect(controller.lastTranscriptText == "previous transcript")
         #expect(controller.failurePresentation?.settingsTarget == .transcription)
-        #expect(controller.failurePresentation?.canRetry == false)
+        #expect(controller.failurePresentation?.canRetry == true)
         #expect(transcriptionService.calls.isEmpty)
-        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.reason == .invalidRequest)
         #expect(
             attemptStageFailureEvents(in: eventLogger.events) == [
                 .transcriptionFailed(category: "invalid_language_code")
@@ -531,12 +2090,14 @@ struct DictationSessionControllerTests {
 
         #expect(
             controller.status == .failure(
-                message: "The network is unavailable. Try again when you are connected."
+                message: "The failed recording could not be saved for retry."
             )
         )
         #expect(controller.outputStatusText == "The failed recording could not be saved for retry.")
-        #expect(controller.failurePresentation?.failedAttemptID == nil)
-        #expect(controller.voiceAttemptOutcome == nil)
+        #expect(controller.failurePresentation?.failedAttemptID != nil)
+        #expect(controller.voiceAttemptOutcome == .recoverableFailure)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.audioFileURL == artifact.fileURL)
         #expect(recordingCache.completedRecordingCalls.isEmpty)
     }
 
@@ -874,7 +2435,8 @@ struct DictationSessionControllerTests {
         #expect(translationService.calls.isEmpty)
         #expect(transcriptOutput.calls.isEmpty)
         #expect(usageRecorder.calls.isEmpty)
-        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.reason == .other)
         #expect(
             attemptStageFailureEvents(in: eventLogger.events) == [
                 .postProcessingFailed(category: "missing_translation_target_language")
@@ -974,7 +2536,8 @@ struct DictationSessionControllerTests {
                 )
             ]
         )
-        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(failureRecovery.failedAttempts.first?.reason == .other)
         #expect(
             attemptStageFailureEvents(in: eventLogger.events) == [
                 .postProcessingFailed(category: "timeout")
@@ -1156,7 +2719,11 @@ struct DictationSessionControllerTests {
         #expect(controller.outputStatusText == nil)
         #expect(transcriptOutput.calls.isEmpty)
         #expect(usageRecorder.calls.isEmpty)
-        #expect(failureRecovery.failedAttempts.isEmpty)
+        #expect(failureRecovery.failedAttempts.count == 1)
+        #expect(
+            failureRecovery.failedAttempts.first?.reason
+                == .processingInterrupted
+        )
         #expect(attemptStageFailureEvents(in: eventLogger.events).isEmpty)
     }
 
@@ -1302,6 +2869,107 @@ struct DictationSessionControllerTests {
         #expect(cuePlayer.playedCues.isEmpty)
     }
 
+    @Test func finalMinuteCountdownWarnsOnlyOnPrivateAudioOutput() async {
+        let monitor = FakeRecordingDurationMonitor()
+        let cuePlayer = FakeDictationCuePlayer()
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: FakeControllerTranscriptionService(),
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            recordingDurationMonitor: monitor,
+            privateAudioOutputRouteProvider: FakePrivateAudioOutputRouteProvider(
+                isPrivate: true
+            )
+        )
+
+        await controller.performRecordingAction()
+        monitor.emit(elapsedWholeSecond: 240)
+
+        #expect(controller.recordingCountdown == VoiceSessionCountdown(
+            remainingWholeSeconds: 60,
+            urgency: .amber
+        ))
+        #expect(cuePlayer.playedCues == [
+            .startRecording,
+            .recordingLimitWarning(.amber),
+        ])
+
+        monitor.emit(elapsedWholeSecond: 290)
+        #expect(controller.recordingCountdown == VoiceSessionCountdown(
+            remainingWholeSeconds: 10,
+            urgency: .red
+        ))
+        #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.red))
+
+        controller.cancelRecording()
+        #expect(controller.recordingCountdown == nil)
+        #expect(monitor.stopCount == 1)
+    }
+
+    @Test func speakerRouteShowsCountdownWithoutInjectingWarningCue() async {
+        let monitor = FakeRecordingDurationMonitor()
+        let cuePlayer = FakeDictationCuePlayer()
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: FakeControllerTranscriptionService(),
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            recordingDurationMonitor: monitor
+        )
+
+        await controller.performRecordingAction()
+        monitor.emit(elapsedWholeSecond: 299)
+
+        #expect(controller.recordingCountdown?.remainingWholeSeconds == 1)
+        #expect(cuePlayer.playedCues == [.startRecording])
+    }
+
+    @Test func maximumDurationWatchdogFinishesWhenRecorderDelegateIsMissing() async {
+        let artifact = AudioRecordingArtifact(
+            fileURL: URL(fileURLWithPath: "/tmp/holdtype-watchdog-limit.m4a"),
+            duration: 300,
+            byteCount: 2_100_000
+        )
+        let recorder = FakeAudioRecorderService(stopResult: .success(artifact))
+        let monitor = FakeRecordingDurationMonitor()
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Watchdog transcript")
+        )
+        let cuePlayer = FakeDictationCuePlayer()
+        let eventLogger = FakeDictationEventLogger()
+        let failureRecovery = FakeTranscriptionFailureRecovery()
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            cuePlayer: cuePlayer,
+            recordingDurationMonitor: monitor,
+            transcriptionFailureRecovery: failureRecovery,
+            eventLogger: eventLogger
+        )
+
+        await controller.performRecordingAction()
+        monitor.emit(elapsedWholeSecond: 300)
+        await yieldUntil { controller.status.voiceWorkPhase == .inactive }
+
+        #expect(controller.status == .success(transcript: "Watchdog transcript"))
+        #expect(recorder.stopCount == 1)
+        #expect(transcriptionService.calls.count == 1)
+        #expect(transcriptionService.calls.first?.audioFileURL == artifact.fileURL)
+        #expect(failureRecovery.failedAttempts.first?.state == .saved)
+        #expect(failureRecovery.failedAttempts.first?.acceptedTranscriptText == "Watchdog transcript")
+        #expect(cuePlayer.playedCues == [.startRecording, .recordingLimitReached])
+        #expect(eventLogger.events.filter { $0 == .recordingLimitReached }.count == 1)
+        #expect(
+            eventLogger.events.filter {
+                if case .recordingStopped = $0 { return true }
+                return false
+            }.count == 1
+        )
+        #expect(monitor.stopCount == 1)
+    }
+
     @Test func recordingTimeoutBecomesUserVisibleFailureWithoutTranscription() async {
         let recorder = FakeAudioRecorderService(
             currentStatus: .recording,
@@ -1405,7 +3073,7 @@ struct DictationSessionControllerTests {
         )
 
         let retainedAttemptID = try #require(controller.failurePresentation?.failedAttemptID)
-        failureRecovery.removeFailedAttempt(id: retainedAttemptID)
+        try failureRecovery.removeFailedAttempt(id: retainedAttemptID)
 
         #expect(controller.failurePresentation?.failedAttemptID == retainedAttemptID)
         #expect(controller.voiceAttemptOutcome == nil)
@@ -1503,6 +3171,80 @@ struct DictationSessionControllerTests {
                 .transcriptionFailed(category: "api_key_unavailable")
             ]
         )
+    }
+
+    @Test func savedMaximumDurationRecordingCannotBeRetried() async {
+        let savedAttempt = FailedTranscriptionAttempt(
+            audioFileURL: URL(fileURLWithPath: "/tmp/holdtype-saved-max-recording.m4a"),
+            audioDuration: 300,
+            transcriptionModel: "gpt-4o-transcribe",
+            languageCode: nil,
+            completionKind: .maximumDuration,
+            state: .saved,
+            reason: .other,
+            acceptedTranscriptText: "Already transcribed"
+        )
+        let failureRecovery = FakeTranscriptionFailureRecovery(
+            initialAttempts: [savedAttempt]
+        )
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Duplicate transcript")
+        )
+        let transcriptOutput = FakeTranscriptOutput()
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(),
+            transcriptionService: transcriptionService,
+            transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: failureRecovery
+        )
+
+        await controller.retryFailedTranscription(id: savedAttempt.id)
+
+        #expect(controller.outputStatusText == "This saved recording is already transcribed.")
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts == [savedAttempt])
+    }
+
+    @Test func retryWhileRecordingLeavesTheLiveCaptureAndSavedAttemptUntouched() async {
+        let attemptID = UUID()
+        let attempt = FailedTranscriptionAttempt(
+            id: attemptID,
+            audioFileURL: URL(
+                fileURLWithPath: "/tmp/holdtype-retry-blocked-during-recording.m4a"
+            ),
+            audioDuration: 12,
+            transcriptionModel: "gpt-4o-transcribe",
+            languageCode: "en",
+            reason: .networkUnavailable
+        )
+        let recorder = FakeAudioRecorderService(currentStatus: .recording)
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("must not run")
+        )
+        let failureRecovery = FakeTranscriptionFailureRecovery(
+            initialAttempts: [attempt]
+        )
+        let controller = makeController(
+            recorder: recorder,
+            transcriptionService: transcriptionService,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: failureRecovery,
+            initialStatus: .recording
+        )
+
+        await controller.retryFailedTranscription(id: attemptID)
+
+        #expect(controller.status == .recording)
+        #expect(
+            controller.outputStatusText
+                == DictationSessionController.savedRecordingActionsUnavailableMessage
+        )
+        #expect(recorder.currentStatus == .recording)
+        #expect(recorder.stopCount == 0)
+        #expect(recorder.cancelCount == 0)
+        #expect(transcriptionService.calls.isEmpty)
+        #expect(failureRecovery.failedAttempts.map(\.id) == [attemptID])
     }
 
     @Test func retryFailedTranscriptionDefaultsToSavingRecoveredTranscriptWithoutAutomaticInsertion() async throws {
@@ -1769,6 +3511,106 @@ struct DictationSessionControllerTests {
         #expect(failureRecovery.failedAttempts.map(\.id) == [attemptID])
     }
 
+    @Test func cancelDuringFailedAttemptRetryRemainsRetryableAcrossRelaunch() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "holdtype-controller-cancelled-retry-relaunch-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let sourceURL = rootURL.appendingPathComponent("cancelled-retry.m4a")
+        try Data("cancelled retry recording".utf8).write(to: sourceURL)
+        let recoveryStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let attempt = try #require(
+            try recoveryStore.recordFailedAttempt(
+                audioFileURL: sourceURL,
+                settings: .defaults,
+                audioDuration: 12,
+                reason: .networkUnavailable
+            )
+        )
+        let gate = ControllerAsyncGate()
+        let transcriptionService = FakeControllerTranscriptionService(
+            result: .success("Must be discarded after cancellation"),
+            beforeResult: {
+                await gate.wait()
+            }
+        )
+        let usageRecorder = FakeTranscriptionUsageRecorder()
+        let transcriptOutput = FakeTranscriptOutput()
+        let controller = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .idle),
+            transcriptionService: transcriptionService,
+            transcriptOutput: transcriptOutput,
+            transcriptionFailureRecovery: recoveryStore,
+            transcriptionUsageRecorder: usageRecorder
+        )
+
+        let retryTask = Task { @MainActor in
+            await controller.retryFailedTranscription(id: attempt.id)
+        }
+        await yieldUntil {
+            controller.status == .transcribing
+                && transcriptionService.calls.count == 1
+        }
+
+        controller.cancelRecording()
+
+        #expect(controller.status == .idle)
+        let interruptedAttempt = try #require(recoveryStore.failedAttempts.first)
+        #expect(interruptedAttempt.id == attempt.id)
+        #expect(interruptedAttempt.reason == .processingInterrupted)
+        #expect(interruptedAttempt.acceptedTranscriptText == nil)
+        #expect(interruptedAttempt.canRetry)
+        #expect(usageRecorder.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
+        let dispatchMarkerURL = recoveryURL.appendingPathComponent(
+            "ProviderDispatch-\(attempt.id.uuidString.lowercased()).json"
+        )
+        #expect(!FileManager.default.fileExists(atPath: dispatchMarkerURL.path))
+
+        await gate.open()
+        await retryTask.value
+
+        #expect(usageRecorder.calls.isEmpty)
+        #expect(transcriptOutput.calls.isEmpty)
+
+        let relaunchedStore = TranscriptionFailureRecoveryStore(
+            directoryURL: recoveryURL
+        )
+        let relaunchedAttempt = try #require(relaunchedStore.failedAttempts.first)
+        #expect(relaunchedAttempt.id == attempt.id)
+        #expect(relaunchedAttempt.reason == .processingInterrupted)
+        #expect(relaunchedAttempt.acceptedTranscriptText == nil)
+        #expect(relaunchedAttempt.canRetry)
+
+        let relaunchedProvider = FakeControllerTranscriptionService(
+            result: .success("Recovered after cancellation")
+        )
+        let relaunchedController = makeController(
+            recorder: FakeAudioRecorderService(currentStatus: .idle),
+            transcriptionService: relaunchedProvider,
+            transcriptOutput: FakeTranscriptOutput(),
+            transcriptionFailureRecovery: relaunchedStore
+        )
+        await relaunchedController.retryFailedTranscription(id: relaunchedAttempt.id)
+
+        #expect(relaunchedProvider.calls.count == 1)
+        #expect(
+            relaunchedController.status
+                == .success(transcript: "Recovered after cancellation")
+        )
+        #expect(relaunchedStore.failedAttempts.isEmpty)
+    }
+
     @Test func retryRequestedDuringCurrentActionRunsAfterActionCompletes() async throws {
         let attemptID = try #require(UUID(uuidString: "41DB7FBA-4D70-4CFD-9E27-727F2A3309E6"))
         let retryAttempt = FailedTranscriptionAttempt(
@@ -1976,12 +3818,15 @@ struct DictationSessionControllerTests {
         settings: AppSettings = .defaults,
         transcriptOutput: FakeTranscriptOutput,
         cuePlayer: FakeDictationCuePlayer? = nil,
+        recordingDurationMonitor: FakeRecordingDurationMonitor? = nil,
+        privateAudioOutputRouteProvider: FakePrivateAudioOutputRouteProvider =
+            FakePrivateAudioOutputRouteProvider(isPrivate: false),
         transcriptHistory: FakeTranscriptRecoveryHistory? = nil,
-        transcriptionFailureRecovery: FakeTranscriptionFailureRecovery? = nil,
+        transcriptionFailureRecovery: (any TranscriptionFailureRecoveryRecording)? = nil,
         activeTextContextReader: FakeActiveTextContextReader? = nil,
         transcriptionUsageRecorder: FakeTranscriptionUsageRecorder? = nil,
         transcriptionIDGenerator: @escaping () -> UUID = UUID.init,
-        recordingCache: FakeRecordingCache? = nil,
+        recordingCache: (any RecordingCacheLifecycleHandling)? = nil,
         recordingStopTailSleeper: FakeRecordingStopTailSleeper? = nil,
         eventLogger: FakeDictationEventLogger? = nil,
         credentialResolverForUngatedActions: (any OpenAICredentialResolving)? = FakeControllerCredentialResolver(),
@@ -2000,6 +3845,8 @@ struct DictationSessionControllerTests {
             settingsProvider: { settings },
             transcriptOutput: transcriptOutput,
             cuePlayer: cuePlayer,
+            recordingDurationMonitor: recordingDurationMonitor,
+            privateAudioOutputRouteProvider: privateAudioOutputRouteProvider,
             transcriptHistory: transcriptHistory,
             transcriptionFailureRecovery: transcriptionFailureRecovery ?? FakeTranscriptionFailureRecovery(),
             activeTextContextReader: activeTextContextReader ?? FakeActiveTextContextReader(),
@@ -2167,6 +4014,35 @@ private final class FakeDictationEventLogger: DictationEventLogging {
 
     func record(_ event: DictationLogEvent) {
         events.append(event)
+    }
+}
+
+@MainActor
+private final class FakeRecordingDurationMonitor: RecordingDurationMonitoring {
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+    private var onElapsedWholeSecond: (@MainActor (Int) -> Void)?
+
+    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void) {
+        startCount += 1
+        self.onElapsedWholeSecond = onElapsedWholeSecond
+    }
+
+    func stop() {
+        stopCount += 1
+        onElapsedWholeSecond = nil
+    }
+
+    func emit(elapsedWholeSecond: Int) {
+        onElapsedWholeSecond?(elapsedWholeSecond)
+    }
+}
+
+private struct FakePrivateAudioOutputRouteProvider: PrivateAudioOutputRouteProviding {
+    let isPrivate: Bool
+
+    func isPrivateAudioOutputRoute() -> Bool {
+        isPrivate
     }
 }
 
@@ -2385,7 +4261,7 @@ private final class FakeTranscriptRecoveryHistory: TranscriptRecoveryHistoryReco
 }
 
 @MainActor
-private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecoveryRecording {
+final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecoveryRecording {
     private(set) var failedAttempts: [FailedTranscriptionAttempt]
     private let recordFailedAttemptError: (any Error)?
     private let onRecordFailedAttempt: () -> Void
@@ -2400,16 +4276,12 @@ private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecove
         self.onRecordFailedAttempt = onRecordFailedAttempt
     }
 
-    func recordFailedAttempt(
+    func recordProcessingCheckpoint(
         audioFileURL: URL,
         settings: AppSettings,
         audioDuration: TimeInterval?,
-        reason: FailedTranscriptionReason
-    ) throws -> FailedTranscriptionAttempt? {
-        guard settings.saveTranscriptHistory, reason.shouldRecordFailedAttempt else {
-            return nil
-        }
-
+        completionKind: TranscriptionRecoveryCompletionKind
+    ) throws -> FailedTranscriptionAttempt {
         onRecordFailedAttempt()
         if let recordFailedAttemptError {
             throw recordFailedAttemptError
@@ -2420,10 +4292,67 @@ private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecove
             audioDuration: audioDuration,
             transcriptionModel: settings.resolvedTranscriptionModel,
             languageCode: settings.resolvedLanguageCode,
+            completionKind: completionKind,
+            state: .processing,
+            reason: .other
+        )
+        failedAttempts = [attempt] + failedAttempts
+        return attempt
+    }
+
+    func recordFailedAttempt(
+        audioFileURL: URL,
+        settings: AppSettings,
+        audioDuration: TimeInterval?,
+        reason: FailedTranscriptionReason
+    ) throws -> FailedTranscriptionAttempt? {
+        guard settings.saveTranscriptHistory, reason.shouldRecordFailedAttempt else {
+            return nil
+        }
+
+        let checkpoint = try recordProcessingCheckpoint(
+            audioFileURL: audioFileURL,
+            settings: settings,
+            audioDuration: audioDuration
+        )
+        try updateFailedAttempt(id: checkpoint.id, reason: reason)
+        return failedAttempts.first { $0.id == checkpoint.id }
+    }
+
+    func retainEmergencyFallback(
+        audioFileURL: URL,
+        settings: AppSettings,
+        audioDuration: TimeInterval?,
+        reason: FailedTranscriptionReason,
+        completionKind: TranscriptionRecoveryCompletionKind
+    ) -> FailedTranscriptionAttempt? {
+        let attempt = FailedTranscriptionAttempt(
+            audioFileURL: audioFileURL,
+            audioDuration: audioDuration,
+            transcriptionModel: settings.resolvedTranscriptionModel,
+            languageCode: settings.resolvedLanguageCode,
+            completionKind: completionKind,
+            state: .failed,
             reason: reason
         )
         failedAttempts = [attempt] + failedAttempts
         return attempt
+    }
+
+    func markSaved(
+        id: FailedTranscriptionAttempt.ID,
+        acceptedTranscriptText: String
+    ) throws {
+        guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
+              failedAttempts[index].completionKind == .maximumDuration,
+              failedAttempts[index].state == .processing
+                || failedAttempts[index].state == .failed else {
+            throw TranscriptionFailureRecoveryError.attemptUnavailable
+        }
+
+        failedAttempts[index].state = .saved
+        failedAttempts[index].acceptedTranscriptText = acceptedTranscriptText
+        failedAttempts[index].updatedAt = Date()
     }
 
     func updateFailedAttempt(id: FailedTranscriptionAttempt.ID, reason: FailedTranscriptionReason) throws {
@@ -2431,13 +4360,20 @@ private final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecove
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
 
+        let wasFailed = failedAttempts[index].state == .failed
+        failedAttempts[index].state = .failed
         failedAttempts[index].reason = reason
-        failedAttempts[index].retryCount += 1
+        if wasFailed {
+            failedAttempts[index].retryCount += 1
+        }
         failedAttempts[index].updatedAt = Date()
     }
 
-    func removeFailedAttempt(id: FailedTranscriptionAttempt.ID) {
+    @discardableResult
+    func removeFailedAttempt(id: FailedTranscriptionAttempt.ID) throws -> Bool {
+        let previousCount = failedAttempts.count
         failedAttempts.removeAll { $0.id == id }
+        return failedAttempts.count != previousCount
     }
 
     func clear() {

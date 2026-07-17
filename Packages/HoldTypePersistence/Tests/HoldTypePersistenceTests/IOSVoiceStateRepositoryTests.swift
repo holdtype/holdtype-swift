@@ -56,6 +56,55 @@ struct IOSVoiceStateRepositoryTests {
         #expect(snapshot.pending?.status == .acceptedCleanup(accepted))
     }
 
+    @Test func finalizedDurationIsStoredWithoutFiveMinuteClamping()
+        async throws {
+        for duration in [Int64(300_000), 302_000, 302_001] {
+            let fileSystem = VoiceStateFileSystem()
+            let repository = makeRepository(fileSystem: fileSystem)
+            let pending = try makePending(durationMilliseconds: duration)
+
+            _ = try await repository.installPending(pending)
+
+            #expect(try await repository.load().pending?.durationMilliseconds
+                == duration)
+        }
+    }
+
+    @Test func unknownFinalizedDurationRoundTripsAndPromotesWithoutDataLoss()
+        async throws {
+        let fileSystem = VoiceStateFileSystem()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let capture = try makeCapture()
+        _ = try await repository.installCapture(capture)
+        _ = try await repository.transitionCapture(
+            attemptID: capture.attemptID,
+            to: .finalizing
+        )
+
+        let completed = try await repository.completeCapture(
+            attemptID: capture.attemptID,
+            durationMilliseconds: 0,
+            byteCount: 4_096
+        )
+        #expect(completed.durationMilliseconds == 0)
+        #expect(
+            try await makeRepository(fileSystem: fileSystem).load().capture?
+                .durationMilliseconds == 0
+        )
+
+        let pending = try await repository.promoteCapture(
+            attemptID: capture.attemptID,
+            transcriptionConfiguration: .defaults,
+            initialStatus: .failed
+        )
+        #expect(pending.durationMilliseconds == 0)
+        #expect(pending.status == .failed)
+        #expect(
+            try await makeRepository(fileSystem: fileSystem).load().pending?
+                .durationMilliseconds == 0
+        )
+    }
+
     @Test func sessionModesRoundTripFromCaptureThroughPending() async throws {
         let fileSystem = VoiceStateFileSystem()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -88,6 +137,34 @@ struct IOSVoiceStateRepositoryTests {
         #expect(relaunched.pending?.forcesTextCorrection == true)
     }
 
+    @Test func savedFiveMinuteRetentionRoundTripsWithPending() async throws {
+        let fileSystem = VoiceStateFileSystem()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let capture = try makeCapture()
+        _ = try await repository.installCapture(capture)
+        _ = try await repository.transitionCapture(
+            attemptID: capture.attemptID,
+            to: .finalizing
+        )
+        _ = try await repository.completeCapture(
+            attemptID: capture.attemptID,
+            durationMilliseconds: 300_000,
+            byteCount: 4_096
+        )
+
+        let pending = try await repository.promoteCapture(
+            attemptID: capture.attemptID,
+            transcriptionConfiguration: .defaults,
+            acceptedAudioRetention: .savedFiveMinute
+        )
+
+        #expect(pending.acceptedAudioRetention == .savedFiveMinute)
+        #expect(
+            try await makeRepository(fileSystem: fileSystem).load().pending?
+                .acceptedAudioRetention == .savedFiveMinute
+        )
+    }
+
     @Test func versionOnePendingMigratesWithLegacyAppendSemantics() async throws {
         let bytes = Data(
             """
@@ -100,6 +177,29 @@ struct IOSVoiceStateRepositoryTests {
 
         #expect(snapshot.pending?.draftInsertionMode == .append)
         #expect(snapshot.pending?.forcesTextCorrection == false)
+        #expect(
+            snapshot.pending?.acceptedAudioRetention
+                == .recordingCachePolicy
+        )
+    }
+
+    @Test func versionTwoPendingMigratesToPolicyManagedAcceptedAudio()
+        async throws {
+        let bytes = Data(
+            """
+            {"capture":null,"latest":null,"pending":{"attemptID":"AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA","audioRelativeIdentifier":"VoiceState/pending-v1-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.m4a","createdAtMilliseconds":1700000000000,"updatedAtMilliseconds":1700000000000,"outputIntent":"standard","draftInsertionMode":"replace","forcesTextCorrection":true,"transcriptionModel":"gpt-4o-transcribe","transcriptionLanguageCode":"en","durationMilliseconds":1250,"byteCount":4096,"status":{"kind":"ready","stage":null,"operationID":null,"accepted":null}},"schemaVersion":2}
+            """.utf8
+        )
+        let snapshot = try await makeRepository(
+            fileSystem: VoiceStateFileSystem(bytes: bytes)
+        ).load()
+
+        #expect(snapshot.pending?.draftInsertionMode == .replace)
+        #expect(snapshot.pending?.forcesTextCorrection == true)
+        #expect(
+            snapshot.pending?.acceptedAudioRetention
+                == .recordingCachePolicy
+        )
     }
 
     @Test func onlyOnePendingSlotMayBeInstalled() async throws {
@@ -293,6 +393,76 @@ struct IOSVoiceStateRepositoryTests {
         )
     }
 
+    @Test func acceptedTranscriptCheckpointSurvivesRelaunchAndBlocksAudioRetry()
+        async throws {
+        let fileSystem = VoiceStateFileSystem()
+        let repository = makeRepository(fileSystem: fileSystem)
+        let pending = try makePending(
+            durationMilliseconds: 300_000,
+            acceptedAudioRetention: .savedFiveMinute
+        )
+        _ = try await repository.installPending(pending)
+        _ = try await repository.beginProcessing(
+            attemptID: pending.attemptID,
+            operationID: IDs.operation,
+            allowFailed: false
+        )
+
+        let checkpointed = try await repository.checkpointTranscription(
+            attemptID: pending.attemptID,
+            operationID: IDs.operation,
+            text: "Accepted provider transcript"
+        )
+
+        #expect(
+            checkpointed.status == .processing(
+                .postProcessing,
+                operationID: IDs.operation
+            )
+        )
+        #expect(
+            checkpointed.transcriptionCheckpoint
+                == (try IOSVoiceStateTranscriptionCheckpoint(
+                    operationID: IDs.operation,
+                    acceptedTranscript: "Accepted provider transcript"
+                ))
+        )
+        #expect(checkpointed.durationMilliseconds == 300_000)
+        #expect(checkpointed.acceptedAudioRetention == .savedFiveMinute)
+
+        let relaunched = makeRepository(fileSystem: fileSystem)
+        guard let failed = try await relaunched.reconcileAfterLaunch().pending
+        else {
+            Issue.record("Expected durable failed Pending after relaunch.")
+            return
+        }
+        #expect(failed.status == .failed)
+        #expect(failed.transcriptionCheckpoint
+            == checkpointed.transcriptionCheckpoint)
+        await #expect(throws: IOSVoiceStateRepositoryError.invalidTransition) {
+            _ = try await relaunched.beginRetry(
+                attemptID: pending.attemptID,
+                operationID: IDs.otherOperation,
+                transcriptionConfiguration: .defaults
+            )
+        }
+
+        let resumed = try await relaunched.beginPostProcessingRetry(
+            attemptID: pending.attemptID,
+            operationID: IDs.otherOperation
+        )
+        #expect(
+            resumed.status == .processing(
+                .postProcessing,
+                operationID: IDs.otherOperation
+            )
+        )
+        #expect(resumed.transcriptionCheckpoint
+            == checkpointed.transcriptionCheckpoint)
+        #expect(resumed.durationMilliseconds == 300_000)
+        #expect(resumed.acceptedAudioRetention == .savedFiveMinute)
+    }
+
     @Test func acceptedCommitAtomicallyPublishesLatestAndCleanupOwner() async throws {
         let fileSystem = VoiceStateFileSystem()
         let repository = makeRepository(fileSystem: fileSystem)
@@ -409,7 +579,7 @@ struct IOSVoiceStateRepositoryTests {
         )
     }
 
-    @Test func relaunchConvertsProcessingToFailedWithoutAnyExternalWork() async throws {
+    @Test func relaunchBlocksReplayForLostTranscribingDispatch() async throws {
         let fileSystem = VoiceStateFileSystem()
         let repository = makeRepository(fileSystem: fileSystem)
         _ = try await repository.installPending(try makePending())
@@ -424,9 +594,18 @@ struct IOSVoiceStateRepositoryTests {
         let reconciled = try await relaunched.reconcileAfterLaunch()
 
         #expect(reconciled.pending?.status == .failed)
+        #expect(reconciled.pending?.transcriptionReplayBlocked == true)
+        #expect(reconciled.pending?.transcriptionCheckpoint == nil)
         #expect(reconciled.latest == nil)
         #expect(fileSystem.writeCount == writesBeforeRelaunch + 1)
         #expect(try await relaunched.reconcileAfterLaunch() == reconciled)
+        await #expect(throws: IOSVoiceStateRepositoryError.invalidTransition) {
+            _ = try await relaunched.beginRetry(
+                attemptID: IDs.attempt,
+                operationID: IDs.otherOperation,
+                transcriptionConfiguration: .defaults
+            )
+        }
     }
 
     @Test func acceptedCleanupSurvivesRelaunchWithoutBeingDowngraded() async throws {
@@ -453,7 +632,7 @@ struct IOSVoiceStateRepositoryTests {
             (Data("not-json".utf8), IOSVoiceStateRepositoryError.malformedData),
             (
                 Data(
-                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":3}"
+                    "{\"capture\":null,\"latest\":null,\"pending\":null,\"schemaVersion\":5}"
                         .utf8
                 ),
                 IOSVoiceStateRepositoryError.unsupportedSchemaVersion
@@ -571,7 +750,9 @@ private func makeCapture(
 }
 
 private func makePending(
-    attemptID: UUID = IDs.attempt
+    attemptID: UUID = IDs.attempt,
+    durationMilliseconds: Int64 = 1_250,
+    acceptedAudioRetention: IOSAcceptedAudioRetention = .recordingCachePolicy
 ) throws -> IOSVoiceStatePending {
     try IOSVoiceStatePending(
         attemptID: attemptID,
@@ -584,8 +765,9 @@ private func makePending(
         outputIntent: .standard,
         transcriptionModel: "gpt-4o-transcribe",
         transcriptionLanguageCode: "en",
-        durationMilliseconds: 1_250,
+        durationMilliseconds: durationMilliseconds,
         byteCount: 4_096,
+        acceptedAudioRetention: acceptedAudioRetention,
         status: .ready
     )
 }

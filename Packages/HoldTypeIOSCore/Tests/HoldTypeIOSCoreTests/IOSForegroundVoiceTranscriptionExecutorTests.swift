@@ -102,6 +102,56 @@ struct IOSForegroundVoiceTranscriptionExecutorTests {
         #expect(providerCalls.value == 1)
     }
 
+    @Test func explicitUnknownDurationRetryReachesProviderExactlyOnce()
+        async throws {
+        let fixture = try await TranscriptionExecutorFixture(
+            unknownDuration: true
+        )
+        defer { fixture.removeFiles() }
+
+        await #expect(
+            throws: IOSV1ForegroundVoicePersistenceError.audioInvalid
+        ) {
+            _ = try await fixture.beginTranscription()
+        }
+        let failed = try #require(
+            try await fixture.persistenceOwner.load()?.recording
+        )
+        #expect(failed.phase == .failed)
+        #expect(failed.durationMilliseconds == 0)
+
+        let capture = ReaderRequestCapture()
+        let providerCalls = LockedInteger()
+        let executor = try fixture.makeExecutor(
+            promptComposition: makePromptComposition(nil),
+            transcribe: { request, _ in
+                providerCalls.increment()
+                capture.record(try await inspectReaderRequest(request))
+                return "Manual retry"
+            }
+        )
+        let dispatch = try await fixture.persistenceOwner.retryTranscription(
+            expected: IOSV1PendingRecordingExpectation(recording: failed),
+            transcriptionID: UUID(),
+            transcriptionConfiguration: fixture.configuration
+        )
+
+        #expect(
+            try await dispatch.execute(using: executor) == "Manual retry"
+        )
+        let observation = try #require(capture.observation)
+        #expect(observation.durationMilliseconds == 1)
+        #expect(observation.byteCount == Int64(fixture.audio.count))
+        #expect(observation.audio == fixture.audio)
+        await #expect(
+            throws: IOSV1ForegroundVoicePersistenceError
+                .dispatchAlreadyExecuted
+        ) {
+            _ = try await dispatch.execute(using: executor)
+        }
+        #expect(providerCalls.value == 1)
+    }
+
     @Test func executorDiagnosticsRedactCredentialPromptAndProviderState()
         async throws {
         let fixture = try await TranscriptionExecutorFixture()
@@ -141,7 +191,7 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
     let pending: IOSV1PendingRecording
     let credential: OpenAICredential
 
-    init() async throws {
+    init(unknownDuration: Bool = false) async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "ios-v1-transcription-executor-\(UUID().uuidString)",
             isDirectory: true
@@ -150,8 +200,14 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
             at: root,
             withIntermediateDirectories: true
         )
-        durationMilliseconds = 6_000
-        let audioData = try makeForegroundVoiceTestM4A(durationSeconds: 6)
+        let audioData: Data
+        if unknownDuration {
+            durationMilliseconds = 0
+            audioData = Data([1, 2, 3, 4])
+        } else {
+            durationMilliseconds = 6_000
+            audioData = try makeForegroundVoiceTestM4A(durationSeconds: 6)
+        }
         audio = audioData
         configuration = TranscriptionConfiguration(
             model: "reader-bound-model",
@@ -174,7 +230,10 @@ private final class TranscriptionExecutorFixture: @unchecked Sendable {
         try lease.revalidateRecorderCheckpoint()
         try await lease.beginFinalizing()
         guard case .completed(let completed) =
-            try await lease.completeAfterRecorderClose() else {
+            try await lease.completeAfterRecorderClose(
+                fallbackDurationMilliseconds: unknownDuration
+                    ? nil : durationMilliseconds
+            ) else {
             throw TranscriptionExecutorFixtureError.setupFailed
         }
         _ = try await persistenceOwner.prepareCompletedCapture(

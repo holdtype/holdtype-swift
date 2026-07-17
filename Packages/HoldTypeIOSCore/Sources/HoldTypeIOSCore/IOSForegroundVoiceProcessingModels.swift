@@ -18,8 +18,8 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
     let mode: IOSForegroundVoiceProcessingMode
     let settings: IOSAppSettings
     let library: IOSLibraryContent
-    let credential: IOSResolvedOpenAICredential
-    let consentObservation: IOSV1ProviderConsentObservation
+    let credential: IOSResolvedOpenAICredential?
+    let consentObservation: IOSV1ProviderConsentObservation?
     let forcesTextCorrection: Bool
 
     public init(
@@ -28,8 +28,8 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         mode: IOSForegroundVoiceProcessingMode,
         settings: IOSAppSettings,
         library: IOSLibraryContent,
-        credential: IOSResolvedOpenAICredential,
-        consentObservation: IOSV1ProviderConsentObservation,
+        credential: IOSResolvedOpenAICredential?,
+        consentObservation: IOSV1ProviderConsentObservation?,
         forcesTextCorrection: Bool = false
     ) {
         self.sessionID = sessionID

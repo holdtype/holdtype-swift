@@ -56,6 +56,27 @@ struct DictationSessionControllerRecordingActionTests {
         }
     }
 
+    @Test func startStopsSavedRecordingPlaybackBeforeRecorderActivation() async {
+        let order = RecordingActionOrder()
+        let recorder = RecordingActionRecorder(
+            onStart: {
+                order.events.append("recorder-start")
+            }
+        )
+        let playbackStopper = RecordingActionPlaybackStopper {
+            order.events.append("playback-stop")
+        }
+        let controller = makeController(
+            recorder: recorder,
+            historyAudioPlaybackStopper: playbackStopper
+        )
+
+        await controller.startRecordingAction()
+
+        #expect(order.events == ["playback-stop", "recorder-start"])
+        #expect(controller.status == .recording)
+    }
+
     @Test func explicitStopOnlyStopsActiveRecording() async {
         let idleRecorder = RecordingActionRecorder()
         let idleController = makeController(recorder: idleRecorder)
@@ -163,6 +184,8 @@ struct DictationSessionControllerRecordingActionTests {
         recorder: RecordingActionRecorder,
         transcriptionService: RecordingActionTranscriptionService = RecordingActionTranscriptionService(),
         transcriptOutput: RecordingActionTranscriptOutput = RecordingActionTranscriptOutput(),
+        historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping =
+            RecordingActionPlaybackStopper(),
         initialStatus: DictationStatus = .idle
     ) -> DictationSessionController {
         DictationSessionController(
@@ -170,6 +193,8 @@ struct DictationSessionControllerRecordingActionTests {
             transcriptionService: transcriptionService,
             settingsProvider: { .defaults },
             transcriptOutput: transcriptOutput,
+            historyAudioPlaybackStopper: historyAudioPlaybackStopper,
+            transcriptionFailureRecovery: FakeTranscriptionFailureRecovery(),
             recordingStopTailSleeper: RecordingActionStopTailSleeper(),
             credentialResolverForUngatedActions: RecordingActionCredentialResolver(),
             initialStatus: initialStatus
@@ -184,6 +209,22 @@ struct DictationSessionControllerRecordingActionTests {
 
             await Task.yield()
         }
+    }
+}
+
+private final class RecordingActionOrder {
+    var events: [String] = []
+}
+
+private final class RecordingActionPlaybackStopper: TranscriptHistoryAudioPlaybackStopping {
+    private let onStop: () -> Void
+
+    init(onStop: @escaping () -> Void = {}) {
+        self.onStop = onStop
+    }
+
+    func stopPlayback() {
+        onStop()
     }
 }
 

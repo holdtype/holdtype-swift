@@ -7,10 +7,13 @@
 
 import AVFoundation
 import Foundation
+import HoldTypeDomain
 
 enum DictationCue: Equatable {
     case startRecording
     case stopRecording
+    case recordingLimitWarning(VoiceSessionWarningUrgency)
+    case recordingLimitReached
 
     var frequencies: [Double] {
         switch self {
@@ -18,6 +21,12 @@ enum DictationCue: Equatable {
             return [523.25, 659.25]
         case .stopRecording:
             return [587.33, 440.00]
+        case .recordingLimitWarning(.amber):
+            return [698.46]
+        case .recordingLimitWarning(.red):
+            return [880.00]
+        case .recordingLimitReached:
+            return [783.99, 587.33, 440.00]
         }
     }
 }

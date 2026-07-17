@@ -181,9 +181,10 @@ struct IOSForegroundVoiceProcessorTests {
         #expect(!fixture.settings.textCorrectionConfiguration.isEnabled)
     }
 
-    @Test func translationFailurePersistsFailedForExplicitRetry()
+    @Test func translationRetryUsesRetainedIntermediateWithoutCorrectionReplay()
         async throws {
         var settings = IOSAppSettings.defaults
+        settings.textCorrectionConfiguration.isEnabled = true
         settings.translationConfiguration = TranslationConfiguration(
             actionPreferenceEnabled: true,
             targetLanguage: .french
@@ -193,13 +194,30 @@ struct IOSForegroundVoiceProcessorTests {
             settings: settings
         )
         defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let usage = ProcessorUsageCapture()
+        let translations = ProcessorTranslationSequence(
+            outcomes: [
+                .failure(.timedOut),
+                .success("Texte traduit"),
+            ]
+        )
         let processor = fixture.makeProcessor(
             provider: provider(
-                transcribe: { _, _ in "Translate me" },
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Translate me"
+                },
+                correct: { _, _, _ in
+                    calls.record("correction")
+                    return "Corrected intermediate"
+                },
                 translate: { _, _ in
-                    throw OpenAITextTranslationServiceError.timedOut
+                    calls.record("translation")
+                    return try translations.next()
                 }
-            )
+            ),
+            usageCapture: usage
         )
 
         guard case .retryAvailable(
@@ -211,10 +229,320 @@ struct IOSForegroundVoiceProcessorTests {
             return
         }
         #expect(failed.phase == .failed)
+        #expect(failed.textCheckpointStage == .translationReady)
+        #expect(failed.textCheckpointText == "Corrected intermediate")
         #expect(try await fixture.persistenceOwner.load()?.recording == failed)
         #expect(
             try await fixture.persistenceOwner.loadLatestResult() == .absent
         )
+
+        let recreated = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "unexpected transcription"
+                },
+                correct: { _, _, _ in
+                    calls.record("correction")
+                    return "unexpected correction"
+                },
+                translate: { _, _ in
+                    calls.record("translation")
+                    return try translations.next()
+                }
+            ),
+            usageCapture: usage
+        )
+        let accepted = try await recreated.process(
+            fixture.request(
+                pendingRecording: failed,
+                mode: .retry,
+                settings: settings
+            )
+        ).requireReady()
+
+        #expect(accepted.acceptedText == "Texte traduit")
+        #expect(
+            calls.events
+                == [
+                    "transcription", "correction", "translation",
+                    "translation",
+                ]
+        )
+        #expect(translations.callCount == 2)
+        #expect(usage.values.count == 1)
+    }
+
+    @Test func fiveMinuteOutputCheckpointRetriesLocallyWithoutProviderAuthority()
+        async throws {
+        var settings = IOSAppSettings.defaults
+        settings.textCorrectionConfiguration.isEnabled = true
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: true,
+            targetLanguage: .french
+        )
+        let fixture = try await ProcessorFixture(
+            outputIntent: .translate,
+            settings: settings,
+            audioDurationSeconds: 300
+        )
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let usage = ProcessorUsageCapture()
+        let persistence = CommitThenThrowPersistence(
+            base: fixture.persistenceOwner,
+            failureMode: .outputTransitionBeforeCommit
+        )
+        let initial = fixture.makeProcessor(
+            persistence: persistence,
+            provider: provider(
+                transcribe: { request, _ in
+                    calls.record("transcription")
+                    #expect(request.durationMilliseconds >= 299_500)
+                    #expect(request.durationMilliseconds <= 302_000)
+                    return "Five minute source"
+                },
+                correct: { _, _, _ in
+                    calls.record("correction")
+                    return "Corrected five minute source"
+                },
+                translate: { _, _ in
+                    calls.record("translation")
+                    return "Résultat final conservé"
+                }
+            ),
+            usageCapture: usage
+        )
+
+        guard case .retryAvailable(
+            let failed,
+            failure: .localPersistence,
+            stage: .postProcessing
+        ) = await initial.process(fixture.request()) else {
+            Issue.record("Expected retained final-output checkpoint.")
+            return
+        }
+        #expect(failed.phase == .failed)
+        #expect(failed.textCheckpointStage == .outputReady)
+        #expect(failed.textCheckpointText == "Résultat final conservé")
+        #expect(failed.acceptedAudioRetention == .savedFiveMinute)
+        #expect(failed.durationMilliseconds >= 299_500)
+        #expect(failed.durationMilliseconds <= 302_000)
+        #expect(
+            calls.events == ["transcription", "correction", "translation"]
+        )
+        #expect(usage.values.count == 1)
+        #expect(
+            usage.values.first?.audioDuration
+                == TimeInterval(failed.durationMilliseconds) / 1_000
+        )
+
+        let withdrawn = try await fixture.consentCoordinator.withdraw(
+            using: fixture.acceptedConsent,
+            decisionAt: Date(timeIntervalSince1970: 1_800_000_001)
+        )
+        var invalidProviderSettings = settings
+        invalidProviderSettings.transcriptionConfiguration =
+            TranscriptionConfiguration(
+                language: .custom,
+                customLanguageCode: "invalid-code"
+            )
+        let progress = ProcessorProgressCapture()
+        let recreated = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("unexpected-transcription")
+                    return "unexpected"
+                },
+                correct: { _, _, _ in
+                    calls.record("unexpected-correction")
+                    return "unexpected"
+                },
+                translate: { _, _ in
+                    calls.record("unexpected-translation")
+                    return "unexpected"
+                }
+            ),
+            usageCapture: usage
+        )
+        let accepted = try await recreated.process(
+            fixture.request(
+                pendingRecording: failed,
+                mode: .retry,
+                settings: invalidProviderSettings,
+                consentObservation: withdrawn
+            ),
+            progress: { progress.record($0) }
+        ).requireReady()
+
+        #expect(accepted.acceptedText == "Résultat final conservé")
+        #expect(
+            calls.events == ["transcription", "correction", "translation"]
+        )
+        #expect(usage.values.count == 1)
+        #expect(progress.stages == [.postProcessing, .outputDelivery])
+        let saved = try await IOSAcceptedAudioCache(
+            applicationSupportDirectoryURL: fixture.root
+        ).savedRecordings()
+        #expect(saved.count == 1)
+    }
+
+    @Test func lostTranslationResultIsSealedAndNeverReplayed() async throws {
+        var settings = IOSAppSettings.defaults
+        settings.translationConfiguration = TranslationConfiguration(
+            actionPreferenceEnabled: true,
+            targetLanguage: .french
+        )
+        let fixture = try await ProcessorFixture(
+            outputIntent: .translate,
+            settings: settings
+        )
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let usage = ProcessorUsageCapture()
+        let persistence = CommitThenThrowPersistence(
+            base: fixture.persistenceOwner,
+            failureMode: .outputCheckpointBeforeCommit
+        )
+        let initial = fixture.makeProcessor(
+            persistence: persistence,
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Translate once"
+                },
+                translate: { _, _ in
+                    calls.record("translation")
+                    return "Traduction perdue"
+                }
+            ),
+            usageCapture: usage
+        )
+
+        guard case .retryAvailable(
+            let failed,
+            failure: .localPersistence,
+            stage: .postProcessing
+        ) = await initial.process(fixture.request()) else {
+            Issue.record("Expected sealed unknown Translation result.")
+            return
+        }
+        #expect(failed.textCheckpointStage == .translationInFlight)
+        #expect(failed.textCheckpointText == "Translate once")
+        #expect(calls.events == ["transcription", "translation"])
+        #expect(usage.values.count == 1)
+
+        let recreated = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("unexpected-transcription")
+                    return "unexpected"
+                },
+                translate: { _, _ in
+                    calls.record("unexpected-translation")
+                    return "unexpected"
+                }
+            ),
+            usageCapture: usage
+        )
+        #expect(
+            await recreated.process(
+                fixture.request(
+                    pendingRecording: failed,
+                    mode: .retry,
+                    settings: settings
+                )
+            ) == .notStarted(.localPersistence)
+        )
+        #expect(calls.events == ["transcription", "translation"])
+        #expect(usage.values.count == 1)
+    }
+
+    @Test func acceptedTranscriptCheckpointFailureNeverReopensAudioDispatch()
+        async throws {
+        let fixture = try await ProcessorFixture()
+        defer { fixture.removeFiles() }
+        let calls = ProcessorCallLog()
+        let usage = ProcessorUsageCapture()
+        let persistence = CommitThenThrowPersistence(
+            base: fixture.persistenceOwner,
+            failureMode: .acceptedCheckpointBeforeCommit
+        )
+        let initial = fixture.makeProcessor(
+            persistence: persistence,
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("transcription")
+                    return "Accepted but checkpoint unavailable"
+                }
+            ),
+            usageCapture: usage
+        )
+
+        #expect(
+            await initial.process(fixture.request())
+                == .notStarted(.localPersistence)
+        )
+        let liveLost = try #require(
+            try await fixture.persistenceOwner.load()?.recording
+        )
+        #expect(liveLost.phase == .transcribing)
+        #expect(liveLost.acceptedTranscript == nil)
+        #expect(calls.events == ["transcription"])
+        #expect(usage.values.count == 1)
+
+        let sameProcess = fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("unexpected-transcription")
+                    return "unexpected"
+                }
+            ),
+            usageCapture: usage
+        )
+        #expect(
+            await sameProcess.process(
+                fixture.request(
+                    pendingRecording: liveLost,
+                    mode: .retry
+                )
+            ) == .notStarted(.invalidConfiguration)
+        )
+
+        #expect(
+            await fixture.persistenceOwner.recoverContainingAppLifecycle(
+                .processLaunch
+            ) == .complete
+        )
+        let replayBlocked = try #require(
+            try await fixture.persistenceOwner.load()?.recording
+        )
+        #expect(replayBlocked.phase == .failed)
+        #expect(replayBlocked.transcriptionReplayBlocked)
+        guard case .retryAvailable(
+            let observed,
+            failure: .localPersistence,
+            stage: .transcription
+        ) = await fixture.makeProcessor(
+            provider: provider(
+                transcribe: { _, _ in
+                    calls.record("unexpected-transcription")
+                    return "unexpected"
+                }
+            ),
+            usageCapture: usage
+        ).process(
+            fixture.request(
+                pendingRecording: replayBlocked,
+                mode: .retry
+            )
+        ) else {
+            Issue.record("Expected replay-blocked durable recovery.")
+            return
+        }
+        #expect(observed == replayBlocked)
+        #expect(calls.events == ["transcription"])
+        #expect(usage.values.count == 1)
     }
 
     @Test func acceptanceCommitUncertaintyReconcilesWithoutProviderReplay()
@@ -405,7 +733,8 @@ private final class ProcessorFixture: @unchecked Sendable {
     init(
         outputIntent: DictationOutputIntent = .standard,
         settings: IOSAppSettings = .defaults,
-        library: IOSLibraryContent = .defaults
+        library: IOSLibraryContent = .defaults,
+        audioDurationSeconds: Int = 3
     ) async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "ios-v1-foreground-processor-\(UUID().uuidString)",
@@ -422,7 +751,9 @@ private final class ProcessorFixture: @unchecked Sendable {
         )
 
         let attemptID = UUID()
-        let audio = try makeForegroundVoiceTestM4A(durationSeconds: 3)
+        let audio = try makeForegroundVoiceTestM4A(
+            durationSeconds: audioDurationSeconds
+        )
         let lease = try await persistenceOwner.createCapture(
             attemptID: attemptID,
             outputIntent: outputIntent
@@ -436,7 +767,10 @@ private final class ProcessorFixture: @unchecked Sendable {
         try lease.revalidateRecorderCheckpoint()
         try await lease.beginFinalizing()
         guard case .completed(let completed) =
-            try await lease.completeAfterRecorderClose() else {
+            try await lease.completeAfterRecorderClose(
+                fallbackDurationMilliseconds:
+                    Int64(audioDurationSeconds) * 1_000
+            ) else {
             throw ProcessorFixtureError.invalidCapture
         }
         _ = try await persistenceOwner.prepareCompletedCapture(
@@ -465,7 +799,8 @@ private final class ProcessorFixture: @unchecked Sendable {
         pendingRecording: IOSV1PendingRecording? = nil,
         mode: IOSForegroundVoiceProcessingMode = .initial,
         settings: IOSAppSettings? = nil,
-        forcesTextCorrection: Bool = false
+        forcesTextCorrection: Bool = false,
+        consentObservation: IOSV1ProviderConsentObservation? = nil
     ) -> IOSForegroundVoiceProcessingRequest {
         IOSForegroundVoiceProcessingRequest(
             sessionID: UUID(),
@@ -474,7 +809,7 @@ private final class ProcessorFixture: @unchecked Sendable {
             settings: settings ?? self.settings,
             library: library,
             credential: credential,
-            consentObservation: acceptedConsent,
+            consentObservation: consentObservation ?? acceptedConsent,
             forcesTextCorrection: forcesTextCorrection
         )
     }
@@ -520,13 +855,26 @@ private final class ProcessorFixture: @unchecked Sendable {
 private final class CommitThenThrowPersistence:
     IOSForegroundVoicePersisting,
     @unchecked Sendable {
+    enum FailureMode: Equatable {
+        case acceptAfterCommit
+        case acceptedCheckpointBeforeCommit
+        case outputTransitionBeforeCommit
+        case outputCheckpointBeforeCommit
+    }
+
     private let base: IOSV1ForegroundVoicePersistenceOwner
+    private let failureMode: FailureMode
     private let lock = NSLock()
     private var storedAcceptCallCount = 0
     private var storedReconcileCallCount = 0
+    private var injectedFailure = false
 
-    init(base: IOSV1ForegroundVoicePersistenceOwner) {
+    init(
+        base: IOSV1ForegroundVoicePersistenceOwner,
+        failureMode: FailureMode = .acceptAfterCommit
+    ) {
         self.base = base
+        self.failureMode = failureMode
     }
 
     var acceptCallCount: Int { lock.withLock { storedAcceptCallCount } }
@@ -558,6 +906,45 @@ private final class CommitThenThrowPersistence:
         )
     }
 
+    func checkpointTranscription(
+        expected: IOSV1PendingRecordingExpectation,
+        acceptedTranscript: String
+    ) async throws -> IOSV1PendingRecording {
+        if takeFailure(.acceptedCheckpointBeforeCommit) {
+            throw ProcessorFixtureError.injectedFailure
+        }
+        return try await base.checkpointTranscription(
+            expected: expected,
+            acceptedTranscript: acceptedTranscript
+        )
+    }
+
+    func checkpointPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        stage: IOSV1PendingTextCheckpointStage,
+        text: String
+    ) async throws -> IOSV1PendingRecording {
+        if stage == .outputReady,
+           takeFailure(.outputCheckpointBeforeCommit) {
+            throw ProcessorFixtureError.injectedFailure
+        }
+        return try await base.checkpointPostProcessing(
+            expected: expected,
+            stage: stage,
+            text: text
+        )
+    }
+
+    func retryPostProcessing(
+        expected: IOSV1PendingRecordingExpectation,
+        operationID: UUID
+    ) async throws -> IOSV1PendingRecording {
+        try await base.retryPostProcessing(
+            expected: expected,
+            operationID: operationID
+        )
+    }
+
     func markPostProcessing(
         expected: IOSV1PendingRecordingExpectation
     ) async throws -> IOSV1PendingRecording {
@@ -567,7 +954,10 @@ private final class CommitThenThrowPersistence:
     func markOutputDelivery(
         expected: IOSV1PendingRecordingExpectation
     ) async throws -> IOSV1PendingRecording {
-        try await base.markOutputDelivery(expected: expected)
+        if takeFailure(.outputTransitionBeforeCommit) {
+            throw ProcessorFixtureError.injectedFailure
+        }
+        return try await base.markOutputDelivery(expected: expected)
     }
 
     func markFailed(
@@ -581,11 +971,14 @@ private final class CommitThenThrowPersistence:
         expectedPending: IOSV1PendingRecordingExpectation
     ) async throws -> IOSV1ForegroundVoiceAcceptanceResult {
         lock.withLock { storedAcceptCallCount += 1 }
-        _ = try await base.accept(
+        let result = try await base.accept(
             preparation,
             expectedPending: expectedPending
         )
-        throw ProcessorFixtureError.injectedFailure
+        if failureMode == .acceptAfterCommit {
+            throw ProcessorFixtureError.injectedFailure
+        }
+        return result
     }
 
     func reconcileAcceptance(
@@ -593,6 +986,14 @@ private final class CommitThenThrowPersistence:
     ) async throws -> IOSV1ForegroundVoiceAcceptanceResult? {
         lock.withLock { storedReconcileCallCount += 1 }
         return try await base.reconcileAcceptance(matching: preparation)
+    }
+
+    private func takeFailure(_ mode: FailureMode) -> Bool {
+        lock.withLock {
+            guard failureMode == mode, !injectedFailure else { return false }
+            injectedFailure = true
+            return true
+        }
     }
 }
 
@@ -672,6 +1073,32 @@ private final class ProcessorTranscriptionSequence: @unchecked Sendable {
     func next(model: String) throws -> String {
         let outcome = lock.withLock { () -> Outcome in
             storedModels.append(model)
+            return outcomes.removeFirst()
+        }
+        switch outcome {
+        case .success(let text): return text
+        case .failure(let error): throw error
+        }
+    }
+}
+
+private final class ProcessorTranslationSequence: @unchecked Sendable {
+    enum Outcome {
+        case success(String)
+        case failure(OpenAITextTranslationServiceError)
+    }
+
+    private let lock = NSLock()
+    private var outcomes: [Outcome]
+    private var storedCallCount = 0
+
+    init(outcomes: [Outcome]) { self.outcomes = outcomes }
+
+    var callCount: Int { lock.withLock { storedCallCount } }
+
+    func next() throws -> String {
+        let outcome = lock.withLock { () -> Outcome in
+            storedCallCount += 1
             return outcomes.removeFirst()
         }
         switch outcome {

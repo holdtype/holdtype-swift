@@ -79,6 +79,8 @@ struct HoldTypeIOSRootView: View {
     let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let historyPlaybackActions: IOSHistoryPlaybackActions?
+    let pendingRecordingHistoryStateOwner:
+        IOSPendingRecordingHistoryStateOwner?
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
     let layout: IOSContainingAppShellLayout
@@ -96,6 +98,8 @@ struct HoldTypeIOSRootView: View {
         secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
+        pendingRecordingHistoryStateOwner:
+            IOSPendingRecordingHistoryStateOwner? = nil,
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
         layout: IOSContainingAppShellLayout = .current,
@@ -112,6 +116,8 @@ struct HoldTypeIOSRootView: View {
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.historyPlaybackActions = historyPlaybackActions
+        self.pendingRecordingHistoryStateOwner =
+            pendingRecordingHistoryStateOwner
         self.recordingCacheLifecycleActions =
             recordingCacheLifecycleActions
         self.layout = layout
@@ -146,6 +152,8 @@ struct HoldTypeIOSRootView: View {
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable,
                     historyPlaybackActions: historyPlaybackActions,
+                    pendingRecordingHistoryStateOwner:
+                        pendingRecordingHistoryStateOwner,
                     recordingCacheLifecycleActions:
                         recordingCacheLifecycleActions,
                     layout: layout,

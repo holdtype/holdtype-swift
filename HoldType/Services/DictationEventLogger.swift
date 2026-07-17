@@ -19,6 +19,8 @@ enum DictationLogEvent: Equatable {
     case recordingStopRequested
     case recordingStopTailStarted(duration: TimeInterval)
     case recordingStopTailFinished(duration: TimeInterval)
+    case recordingLimitReached
+    case recordingEndedUnexpectedly(recorderReportedSuccess: Bool)
     case recordingStopped(duration: TimeInterval, byteCount: Int64)
     case recordingStopFailed(category: String)
     case transcriptionStarted
@@ -71,6 +73,12 @@ struct OSLogDictationEventLogger: DictationEventLogging {
             logger.info("Recording stop tail started: duration \(duration, privacy: .public)")
         case .recordingStopTailFinished(let duration):
             logger.info("Recording stop tail finished: duration \(duration, privacy: .public)")
+        case .recordingLimitReached:
+            logger.info("Recording limit reached; automatic finish started")
+        case .recordingEndedUnexpectedly(let recorderReportedSuccess):
+            logger.error(
+                "Recorder ended unexpectedly: success \(recorderReportedSuccess, privacy: .public)"
+            )
         case .recordingStopped(let duration, let byteCount):
             logger.info(
                 "Recording stopped: duration \(duration, privacy: .public), bytes \(byteCount, privacy: .public)"
@@ -137,6 +145,15 @@ private extension DictationLogEvent {
                 category: "dictation",
                 name: "recording_stop_tail_finished",
                 fields: ["duration_seconds": Self.durationLogValue(duration)]
+            )
+        case .recordingLimitReached:
+            return RuntimeDiagnosticEvent(category: "dictation", name: "recording_limit_reached")
+        case .recordingEndedUnexpectedly(let recorderReportedSuccess):
+            return RuntimeDiagnosticEvent(
+                category: "dictation",
+                name: "recording_ended_unexpectedly",
+                severity: .error,
+                fields: ["recorder_reported_success": String(recorderReportedSuccess)]
             )
         case .recordingStopped(let duration, let byteCount):
             return RuntimeDiagnosticEvent(

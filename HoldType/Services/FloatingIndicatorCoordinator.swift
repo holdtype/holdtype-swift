@@ -55,6 +55,14 @@ final class FloatingIndicatorCoordinator {
             }
             .store(in: &cancellables)
 
+        dictationRuntime.$recordingCountdown
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.update()
+                }
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: .appSettingsDidChange)
             .sink { [weak self] _ in
                 Task { @MainActor in
@@ -85,7 +93,8 @@ final class FloatingIndicatorCoordinator {
         presenter.update(
             with: FloatingIndicatorPresentation.presentation(
                 for: dictationRuntime.status,
-                settings: appSettings
+                settings: appSettings,
+                recordingCountdown: dictationRuntime.recordingCountdown
             )
         )
     }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 import Testing
 @testable import HoldType
 
@@ -50,6 +51,18 @@ struct MenuBarPresentationTests {
         #expect(presentation.recordingActionShortcutHint == nil)
         #expect(presentation.isRecordingActionEnabled)
         #expect(presentation.isTranslationActionEnabled == false)
+    }
+
+    @Test func recordingCountdownRemainsVisibleInMenuStatus() {
+        let presentation = MenuBarPresentation(
+            dictationStatus: .recording,
+            recordingCountdown: VoiceSessionCountdown(
+                remainingWholeSeconds: 10,
+                urgency: .red
+            )
+        )
+
+        #expect(presentation.statusText == "Recording — 10s remaining")
     }
 
     @Test func transcribingStateDisablesRecordingAction() {

@@ -137,13 +137,17 @@ actor IOSForegroundVoiceProviderBridge {
         progress: @escaping IOSForegroundVoiceProcessingProgressHandler
     ) async -> IOSForegroundVoiceProcessingResolution {
         guard let processorClient else {
-            retire(request.credential)
+            if let credential = request.credential { retire(credential) }
             return .notStarted(.providerUnavailable)
         }
-        guard let credential = await consumeCredential(
-            for: request.credential
-        ) else {
-            return .notStarted(.credentialRejected)
+        let credential: IOSResolvedOpenAICredential?
+        if let proof = request.credential {
+            guard let resolved = await consumeCredential(for: proof) else {
+                return .notStarted(.credentialRejected)
+            }
+            credential = resolved
+        } else {
+            credential = nil
         }
 
         return await processorClient.process(

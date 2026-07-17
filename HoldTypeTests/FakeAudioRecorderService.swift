@@ -14,10 +14,14 @@ final class FakeAudioRecorderService: AudioRecorderService {
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
     private(set) var currentStatus: AudioRecorderStatus
+    private(set) var lastFinalizationReachedMaximumDuration = false
+    private var automaticStopHandler: AudioRecorderAutomaticStopHandler?
 
     var startResult: Result<Void, AudioRecorderServiceError>
     var stopResult: Result<AudioRecordingArtifact, AudioRecorderServiceError>
     var cancelStatus: AudioRecorderStatus
+    private let beforeStop: (() async -> Void)?
+    private let stopFinalizationReachedMaximumDuration: Bool
 
     init(
         currentStatus: AudioRecorderStatus = .idle,
@@ -29,16 +33,22 @@ final class FakeAudioRecorderService: AudioRecorderService {
                 byteCount: 1024
             )
         ),
-        cancelStatus: AudioRecorderStatus = .cancelled
+        cancelStatus: AudioRecorderStatus = .cancelled,
+        beforeStop: (() async -> Void)? = nil,
+        stopFinalizationReachedMaximumDuration: Bool = false
     ) {
         self.currentStatus = currentStatus
         self.startResult = startResult
         self.stopResult = stopResult
         self.cancelStatus = cancelStatus
+        self.beforeStop = beforeStop
+        self.stopFinalizationReachedMaximumDuration =
+            stopFinalizationReachedMaximumDuration
     }
 
     func startRecording() async throws {
         startCount += 1
+        lastFinalizationReachedMaximumDuration = false
 
         do {
             try startResult.get()
@@ -51,6 +61,9 @@ final class FakeAudioRecorderService: AudioRecorderService {
 
     func stopRecording() async throws -> AudioRecordingArtifact {
         stopCount += 1
+        await beforeStop?()
+        lastFinalizationReachedMaximumDuration =
+            stopFinalizationReachedMaximumDuration
 
         do {
             let artifact = try stopResult.get()
@@ -64,6 +77,28 @@ final class FakeAudioRecorderService: AudioRecorderService {
 
     func cancelRecording() {
         cancelCount += 1
+        lastFinalizationReachedMaximumDuration = false
         currentStatus = cancelStatus
+    }
+
+    func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?) {
+        automaticStopHandler = handler
+    }
+
+    @MainActor
+    func simulateAutomaticStop(
+        _ result: Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
+    ) {
+        switch result {
+        case .success(let completion):
+            currentStatus = .finished(artifact: completion.artifact)
+            lastFinalizationReachedMaximumDuration =
+                completion.reason == .maximumDuration
+        case .failure(let error):
+            currentStatus = .failed(message: error.errorDescription ?? error.localizedDescription)
+            lastFinalizationReachedMaximumDuration = false
+        }
+
+        automaticStopHandler?(result)
     }
 }

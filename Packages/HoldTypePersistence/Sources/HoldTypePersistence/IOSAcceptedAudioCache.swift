@@ -4,12 +4,59 @@ import HoldTypeDomain
 public enum IOSAcceptedAudioCacheError: Error, Equatable, Sendable {
     case invalidAudio
     case identifierCollision
+    case staleSavedRecording
     case storageUnavailable
+}
+
+/// Selects whether accepted audio follows the user's optional Recording Cache
+/// policy or remains a bounded Saved Recording after the five-minute boundary.
+public enum IOSAcceptedAudioRetention: String, Equatable, Sendable {
+    case recordingCachePolicy
+    case savedFiveMinute
+
+    /// Canonical media can land just below the watchdog boundary when Done
+    /// wins stop authority. Resolve from finalized media truth too, so that
+    /// race cannot downgrade a five-minute recording to optional cache audio.
+    public static let savedFiveMinuteMinimumDurationMilliseconds = Int64(
+        VoiceSessionWarningSchedule.maximumDurationWholeSeconds * 1_000
+    ) - 500
+
+    public static func resolved(
+        requested: Self,
+        finalizedDurationMilliseconds: Int64
+    ) -> Self {
+        if requested == .savedFiveMinute
+            || finalizedDurationMilliseconds
+                >= savedFiveMinuteMinimumDurationMilliseconds {
+            return .savedFiveMinute
+        }
+        return .recordingCachePolicy
+    }
+}
+
+/// Content-free identity for one completed five-minute Saved Recording.
+public struct IOSSavedAcceptedRecording: Equatable, Identifiable, Sendable {
+    public let resultID: UUID
+    public let createdAt: Date
+
+    public var id: UUID { resultID }
+
+    public init(resultID: UUID, createdAt: Date) {
+        self.resultID = resultID
+        self.createdAt = createdAt
+    }
+}
+
+public enum IOSSavedAcceptedRecordingDiscardResult: Equatable, Sendable {
+    case discarded
+    case alreadyAbsent
 }
 
 /// App-private accepted recording files, independent from text History.
 public actor IOSAcceptedAudioCache {
     public static let maximumAudioByteCount = 25_000_000
+    public static let maximumSavedRecordingCount =
+        RetentionConfiguration.failedHistoryEntryLimit
 
     private static let filePolicy = ProtectedAtomicMetadataFilePolicy(
         maximumByteCount: maximumAudioByteCount,
@@ -45,6 +92,100 @@ public actor IOSAcceptedAudioCache {
         return matches[0].url
     }
 
+    /// Resolves only the independently retained copy that can prove a prior
+    /// five-minute publish completed before Pending cleanup was interrupted.
+    /// Result identity alone is insufficient: the managed namespace, media
+    /// extension, and exact byte count must all still match Pending metadata.
+    func savedAudioFileURLIfAvailable(
+        resultID: UUID,
+        fileExtension: String,
+        byteCount: Int64
+    ) throws -> URL? {
+        guard Self.isAllowedFileExtension(fileExtension),
+              byteCount > 0,
+              byteCount <= Self.maximumAudioByteCount else {
+            throw IOSAcceptedAudioCacheError.invalidAudio
+        }
+        let matches = try managedFiles().filter {
+            $0.retention == .savedFiveMinute
+                && $0.resultID == resultID
+        }
+        guard matches.count <= 1 else {
+            throw IOSAcceptedAudioCacheError.identifierCollision
+        }
+        guard let match = matches.first else { return nil }
+        guard match.fileExtension == fileExtension,
+              match.byteCount == byteCount else {
+            throw IOSAcceptedAudioCacheError.identifierCollision
+        }
+        return match.url
+    }
+
+    /// Returns the independently retained five-minute recordings newest first.
+    /// Text History and Recording Cache settings do not own this list.
+    public func savedRecordings() throws -> [IOSSavedAcceptedRecording] {
+        try managedFiles()
+            .filter { $0.retention == .savedFiveMinute }
+            .sorted(by: Self.isNewer)
+            .map {
+                IOSSavedAcceptedRecording(
+                    resultID: $0.resultID,
+                    createdAt: $0.modificationDate
+                )
+            }
+    }
+
+    /// Resolves only the exact Saved Recording represented by the caller's
+    /// current snapshot. A stale row cannot play a replacement file.
+    public func savedAudioFileURL(
+        ifCurrent expected: IOSSavedAcceptedRecording
+    ) throws -> URL? {
+        let matches = try managedFiles().filter {
+            $0.retention == .savedFiveMinute
+                && $0.resultID == expected.resultID
+        }
+        guard !matches.isEmpty else { return nil }
+        guard matches.count == 1,
+              matches[0].modificationDate == expected.createdAt else {
+            throw IOSAcceptedAudioCacheError.staleSavedRecording
+        }
+        return matches[0].url
+    }
+
+    /// Removes only the exact Saved Recording represented by the caller's
+    /// current snapshot. Ordinary Recording Cache audio is never touched.
+    public func discardSavedRecording(
+        ifCurrent expected: IOSSavedAcceptedRecording
+    ) throws -> IOSSavedAcceptedRecordingDiscardResult {
+        guard let fileURL = try savedAudioFileURL(ifCurrent: expected) else {
+            return .alreadyAbsent
+        }
+        do {
+            try fileSystem.removeFileIfPresent(at: fileURL)
+            return .discarded
+        } catch {
+            throw IOSAcceptedAudioCacheError.storageUnavailable
+        }
+    }
+
+    /// Applies policy only to ordinary accepted cache entries. Saved
+    /// five-minute recordings remain independently playable.
+    public func playableAudioFileURL(
+        resultID: UUID,
+        policy: RecordingCachePolicy
+    ) throws -> URL? {
+        let matches = try managedFiles().filter { $0.resultID == resultID }
+        guard matches.count <= 1 else {
+            throw IOSAcceptedAudioCacheError.identifierCollision
+        }
+        guard let match = matches.first else { return nil }
+        if match.retention == .recordingCachePolicy,
+           !policy.normalized.keepsRecordings {
+            return nil
+        }
+        return match.url
+    }
+
     /// Applies the current cache policy without inspecting or changing History.
     public func reconcile(policy: RecordingCachePolicy) throws {
         try reconcileUnlocked(policy: policy.normalized)
@@ -56,13 +197,16 @@ public actor IOSAcceptedAudioCache {
         resultID: UUID,
         fileExtension: String,
         createdAt: Date,
-        policy: RecordingCachePolicy
+        policy: RecordingCachePolicy,
+        retention: IOSAcceptedAudioRetention = .recordingCachePolicy
     ) throws -> URL? {
         let policy = policy.normalized
-        guard policy.keepsRecordings else { return nil }
+        guard retention == .savedFiveMinute || policy.keepsRecordings else {
+            return nil
+        }
         guard !data.isEmpty,
               data.count <= Self.maximumAudioByteCount,
-              Self.allowedExtensions.contains(fileExtension),
+              Self.isAllowedFileExtension(fileExtension),
               createdAt.timeIntervalSince1970.isFinite,
               createdAt.timeIntervalSince1970 >= 0 else {
             throw IOSAcceptedAudioCacheError.invalidAudio
@@ -73,7 +217,8 @@ public actor IOSAcceptedAudioCache {
         }
         let destination = fileURL(
             resultID: resultID,
-            fileExtension: fileExtension
+            fileExtension: fileExtension,
+            retention: retention
         )
         if let existingFile = existing.first {
             let existingData = try? fileSystem.readFileIfPresent(
@@ -83,6 +228,7 @@ public actor IOSAcceptedAudioCache {
             guard existing.count == 1,
                   existingFile.url.lastPathComponent
                     == destination.lastPathComponent,
+                  existingFile.retention == retention,
                   existingData == data else {
                 throw IOSAcceptedAudioCacheError.identifierCollision
             }
@@ -115,17 +261,26 @@ public actor IOSAcceptedAudioCache {
         policy: RecordingCachePolicy
     ) throws {
         let files = try managedFiles().sorted(by: Self.isNewer)
-        let retainedCount: Int
+        let policyManagedFiles = files.filter {
+            $0.retention == .recordingCachePolicy
+        }
+        let savedFiles = files.filter { $0.retention == .savedFiveMinute }
+        let retainedPolicyManagedCount: Int
         switch policy {
         case .deleteImmediately:
-            retainedCount = 0
+            retainedPolicyManagedCount = 0
         case .keepLast(let count):
-            retainedCount = count
+            retainedPolicyManagedCount = count
         case .unlimited:
-            return
+            retainedPolicyManagedCount = policyManagedFiles.count
         }
 
-        for file in files.dropFirst(retainedCount) {
+        let filesToRemove = Array(
+            policyManagedFiles.dropFirst(retainedPolicyManagedCount)
+        ) + Array(
+            savedFiles.dropFirst(Self.maximumSavedRecordingCount)
+        )
+        for file in filesToRemove {
             do {
                 try fileSystem.removeFileIfPresent(at: file.url)
             } catch {
@@ -185,7 +340,10 @@ public actor IOSAcceptedAudioCache {
             (values.fileSize ?? 0) > 0 else { return nil }
             return ManagedFile(
                 resultID: identity.resultID,
+                retention: identity.retention,
                 url: url,
+                fileExtension: identity.fileExtension,
+                byteCount: Int64(values.fileSize ?? 0),
                 modificationDate: values.contentModificationDate
                     ?? .distantPast
             )
@@ -194,10 +352,15 @@ public actor IOSAcceptedAudioCache {
 
     private func fileURL(
         resultID: UUID,
-        fileExtension: String
+        fileExtension: String,
+        retention: IOSAcceptedAudioRetention
     ) -> URL {
-        directoryURL.appendingPathComponent(
-            Self.filePrefix + resultID.uuidString.lowercased()
+        let prefix = switch retention {
+        case .recordingCachePolicy: Self.filePrefix
+        case .savedFiveMinute: Self.savedFilePrefix
+        }
+        return directoryURL.appendingPathComponent(
+            prefix + resultID.uuidString.lowercased()
                 + "." + fileExtension,
             isDirectory: false
         )
@@ -216,19 +379,33 @@ public actor IOSAcceptedAudioCache {
 
     private static func managedIdentity(
         fileName: String
-    ) -> (resultID: UUID, fileExtension: String)? {
-        guard fileName.hasPrefix(filePrefix),
-              let dot = fileName.lastIndex(of: ".") else { return nil }
+    ) -> (
+        resultID: UUID,
+        fileExtension: String,
+        retention: IOSAcceptedAudioRetention
+    )? {
+        let retention: IOSAcceptedAudioRetention
+        let prefix: String
+        if fileName.hasPrefix(filePrefix) {
+            retention = .recordingCachePolicy
+            prefix = filePrefix
+        } else if fileName.hasPrefix(savedFilePrefix) {
+            retention = .savedFiveMinute
+            prefix = savedFilePrefix
+        } else {
+            return nil
+        }
+        guard let dot = fileName.lastIndex(of: ".") else { return nil }
         let idStart = fileName.index(
             fileName.startIndex,
-            offsetBy: filePrefix.count
+            offsetBy: prefix.count
         )
         let rawID = String(fileName[idStart..<dot])
         let fileExtension = String(fileName[fileName.index(after: dot)...])
-        guard allowedExtensions.contains(fileExtension),
+        guard isAllowedFileExtension(fileExtension),
               let resultID = UUID(uuidString: rawID),
               rawID == resultID.uuidString.lowercased() else { return nil }
-        return (resultID, fileExtension)
+        return (resultID, fileExtension, retention)
     }
 
     private static func isNewer(_ lhs: ManagedFile, _ rhs: ManagedFile)
@@ -240,11 +417,17 @@ public actor IOSAcceptedAudioCache {
     }
 
     private static let filePrefix = "accepted-v1-"
-    private static let allowedExtensions: Set<String> = ["m4a", "wav"]
+    private static let savedFilePrefix = "saved-v1-"
+    private static func isAllowedFileExtension(_ value: String) -> Bool {
+        value == "m4a" || value == "wav"
+    }
 
     private struct ManagedFile {
         let resultID: UUID
+        let retention: IOSAcceptedAudioRetention
         let url: URL
+        let fileExtension: String
+        let byteCount: Int64
         let modificationDate: Date
     }
 }

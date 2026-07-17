@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HoldTypeDomain
 import Testing
 @testable import HoldType
 
@@ -28,6 +29,22 @@ struct FloatingIndicatorPresentationTests {
 
         #expect(recording?.phase == .recording)
         #expect(recording?.title == "Recording")
+        #expect(recording?.countdown == nil)
+    }
+
+    @Test func recordingCountdownIsVisibleAndAccessible() {
+        let countdown = VoiceSessionCountdown(
+            remainingWholeSeconds: 10,
+            urgency: .red
+        )
+        let recording = FloatingIndicatorPresentation.presentation(
+            for: .recording,
+            settings: .defaults,
+            recordingCountdown: countdown
+        )
+
+        #expect(recording?.countdown == countdown)
+        #expect(recording?.accessibilityLabel == "HoldType Recording, 10 seconds remaining")
     }
 
     @Test func mapsTranscribingStateToVisibleIndicator() {

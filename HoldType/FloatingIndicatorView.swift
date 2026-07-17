@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import HoldTypeDomain
 
 struct FloatingIndicatorView: View {
     let presentation: FloatingIndicatorPresentation
@@ -16,7 +17,17 @@ struct FloatingIndicatorView: View {
     @State private var isRotating = false
 
     var body: some View {
-        indicator
+        ZStack {
+            indicator
+
+            if let countdown = presentation.countdown {
+                Text("\(countdown.remainingWholeSeconds)")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(accent)
+                    .contentTransition(.numericText())
+            }
+        }
             .frame(width: 72, height: 72)
             .onAppear {
                 guard !reduceMotion else {
@@ -122,7 +133,16 @@ struct FloatingIndicatorView: View {
     }
 
     private var accent: Color {
-        presentation.phase.accent
+        if let countdown = presentation.countdown {
+            switch countdown.urgency {
+            case .amber:
+                return .orange
+            case .red:
+                return .red
+            }
+        }
+
+        return presentation.phase.accent
     }
 }
 

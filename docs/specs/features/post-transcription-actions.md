@@ -127,7 +127,10 @@ remains strict rather than adopting correction's fail-open behavior.
 - Translation must never overwrite a previous successful transcript after a
   failed transcription.
 - Translation failure must not silently insert or save the untranslated
-  transcript as if the special translation action succeeded.
+  transcript as if the special translation action succeeded. A protected
+  recovery recording may retain the accepted raw transcription only in its
+  clearly labelled recovery row; that row must say post-processing failed and
+  must never imply that translation succeeded.
 - The translation request must have an explicit timeout and must never wait
   indefinitely.
 - Cancelling an active dictation session during translation must cancel the
@@ -155,7 +158,12 @@ remains strict rather than adopting correction's fail-open behavior.
   cancelled translation must not fall back to accepting or delivering the
   untranslated transcript.
 - If translation fails, the previous Last Transcript remains intact and no
-  output delivery or recovery-history write occurs for the failed session.
+  output delivery or normal accepted recovery-history entry occurs for the
+  failed session. For a protected recovery recording, the existing audio
+  recovery row keeps the raw provider transcription under `Raw transcription
+  recovered — post-processing failed`, with Play, Delete, and `Save Raw
+  Transcription`; it does not become a translated result and never offers
+  provider Retry.
 - If text correction fails before translation, correction follows its existing
   fail-open policy and translation receives the accepted transcription text.
 - If final typography cleanup would produce empty translated output, the app

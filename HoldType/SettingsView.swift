@@ -25,7 +25,6 @@ struct SettingsView: View {
     @State private var diagnosticBundleResult: DiagnosticBundleResult?
     @State private var diagnosticBundleErrorMessage: String?
     @ObservedObject private var transcriptHistoryStore: TranscriptRecoveryHistoryStore
-    @ObservedObject private var failureRecoveryStore: TranscriptionFailureRecoveryStore
     @ObservedObject private var openAIUsageStore: OpenAIUsageStore
     @ObservedObject private var softwareUpdates: SoftwareUpdateService
 
@@ -53,7 +52,6 @@ struct SettingsView: View {
         },
         permissionPollingIntervalNanoseconds: UInt64 = 1_000_000_000,
         transcriptHistoryStore: TranscriptRecoveryHistoryStore? = nil,
-        failureRecoveryStore: TranscriptionFailureRecoveryStore? = nil,
         openAIUsageStore: OpenAIUsageStore? = nil,
         softwareUpdates: SoftwareUpdateService = .shared,
         recordingCache: any RecordingCacheManaging = RecordingCacheService.shared,
@@ -68,7 +66,6 @@ struct SettingsView: View {
         self.recordingCache = recordingCache
         self.diagnostics = diagnostics
         self.transcriptHistoryStore = transcriptHistoryStore ?? TranscriptRecoveryHistoryStore.shared
-        self.failureRecoveryStore = failureRecoveryStore ?? TranscriptionFailureRecoveryStore.shared
         self.openAIUsageStore = openAIUsageStore ?? OpenAIUsageStore.shared
         self.softwareUpdates = softwareUpdates
         let initialRecordingCacheState = Self.loadRecordingCacheState(recordingCache: recordingCache)
@@ -116,8 +113,7 @@ struct SettingsView: View {
                 inputMonitoringPermissionStatus: permissionsModel.inputMonitoringPermissionStatus,
                 showsInputMonitoringManualFallbackWarning: permissionsModel.showsInputMonitoringManualFallbackWarning,
                 launchAtLoginStatus: launchAtLoginStatus,
-                transcriptHistoryCount: transcriptHistoryStore.entries.count
-                    + failureRecoveryStore.failedAttempts.count,
+                transcriptHistoryCount: transcriptHistoryStore.entries.count,
                 openAIUsageSummary: OpenAIUsageSummary.make(events: openAIUsageStore.entries),
                 openAIUsageStorageError: openAIUsageStore.storageErrorMessage,
                 recordingCacheSummary: recordingCacheSummary,
@@ -238,7 +234,6 @@ struct SettingsView: View {
 
                 if shouldClearTranscriptHistory {
                     transcriptHistoryStore.clear()
-                    failureRecoveryStore.clear()
                 }
 
                 applyRecordingCacheRetentionIfNeeded(oldSettings: oldSettings, newSettings: newValue)
@@ -328,7 +323,6 @@ struct SettingsView: View {
 
     private func clearTranscriptHistory() {
         transcriptHistoryStore.clear()
-        failureRecoveryStore.clear()
     }
 
     private func refreshOpenAIUsage() {

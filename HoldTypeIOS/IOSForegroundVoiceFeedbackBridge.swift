@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 
 nonisolated struct IOSForegroundVoiceFeedbackAttemptHandle:
     Equatable,
@@ -102,6 +103,11 @@ nonisolated struct IOSForegroundVoiceFeedbackBridgeDriver: Sendable {
 /// the optional Done-only success boundary.
 @MainActor
 final class IOSForegroundVoiceFeedbackBridge {
+    typealias PlayLimitWarning = @MainActor @Sendable (
+        VoiceSessionWarning,
+        Bool
+    ) -> Void
+
     private struct Attempt {
         let handle: IOSForegroundVoiceFeedbackAttemptHandle
         let token: IOSVoiceBoundaryFeedbackToken
@@ -119,6 +125,7 @@ final class IOSForegroundVoiceFeedbackBridge {
     private let driver: IOSForegroundVoiceFeedbackBridgeDriver
     private let makeToken: @MainActor @Sendable () ->
         IOSVoiceBoundaryFeedbackToken
+    private let playLimitWarningFeedback: PlayLimitWarning
     private var state: State?
 
     convenience init(
@@ -141,10 +148,19 @@ final class IOSForegroundVoiceFeedbackBridge {
         makeToken: @escaping @MainActor @Sendable () ->
             IOSVoiceBoundaryFeedbackToken = {
                 IOSVoiceBoundaryFeedbackToken()
-            }
+            },
+        playLimitWarningFeedback: @escaping PlayLimitWarning = {
+            warning,
+            audioCuesEnabled in
+            IOSRecordingLimitWarningFeedback.shared.play(
+                warning,
+                audioCuesEnabled: audioCuesEnabled
+            )
+        }
     ) {
         self.driver = driver
         self.makeToken = makeToken
+        self.playLimitWarningFeedback = playLimitWarningFeedback
     }
 
     /// Workflow start-boundary seam. Cue failure and the two-second watchdog
@@ -228,6 +244,20 @@ final class IOSForegroundVoiceFeedbackBridge {
         case .starting, .ready, .capturing, .closedForDone, .closing, nil:
             break
         }
+    }
+
+    func playLimitWarning(
+        _ warning: VoiceSessionWarning,
+        for handle: IOSForegroundVoiceFeedbackAttemptHandle
+    ) {
+        guard case .capturing(let attempt) = state,
+              attempt.handle == handle else {
+            return
+        }
+        playLimitWarningFeedback(
+            warning,
+            attempt.preferences.audioCuesEnabled
+        )
     }
 
     /// Called only after the recorder adapter has closed or preserved its
@@ -332,11 +362,11 @@ final class IOSForegroundVoiceFeedbackBridge {
         for reason: IOSForegroundVoiceWorkflowCaptureStopReason
     ) -> IOSVoiceBoundaryRecorderCloseDisposition {
         switch reason {
-        case .done:
+        case .done, .maximumDuration:
             .success
         case .cancelled:
             .cancelled
-        case .interrupted, .maximumDuration:
+        case .interrupted:
             .interrupted
         }
     }

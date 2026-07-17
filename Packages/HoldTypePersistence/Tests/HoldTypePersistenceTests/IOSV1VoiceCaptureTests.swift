@@ -45,6 +45,57 @@ struct IOSV1VoiceCaptureTests {
         #expect(fixture.fileSystem.removeCount == 0)
     }
 
+    @Test func fiveMinuteFinalizationToleranceKeepsCanonicalDuration()
+        async throws {
+        for duration in [Int64(300_000), 302_000] {
+            let fixture = CaptureFixture(durationMilliseconds: duration)
+            let lease = try await fixture.owner.createCapture(
+                attemptID: CaptureIDs.attempt,
+                outputIntent: .standard,
+                createdAt: CaptureDates.created
+            )
+            try await lease.beginFinalizing()
+            guard case .completed(let completed) =
+                try await lease.completeAfterRecorderClose() else {
+                Issue.record("Expected tolerated five-minute capture")
+                continue
+            }
+
+            #expect(completed.durationMilliseconds == duration)
+            let pending = try await completed.promote(
+                transcriptionConfiguration: .defaults
+            )
+            #expect(pending.durationMilliseconds == duration)
+            #expect(fixture.fileSystem.removeCount == 0)
+        }
+    }
+
+    @Test func abnormalPositiveDurationBecomesUnknownInsteadOfBlocked()
+        async throws {
+        let duration: Int64 = 302_001
+        let fixture = CaptureFixture(durationMilliseconds: duration)
+        let lease = try await fixture.owner.createCapture(
+            attemptID: CaptureIDs.attempt,
+            outputIntent: .standard,
+            createdAt: CaptureDates.created
+        )
+        try await lease.beginFinalizing()
+        guard case .completed(let completed) =
+            try await lease.completeAfterRecorderClose() else {
+            Issue.record("Expected overrun capture to remain recoverable")
+            return
+        }
+
+        #expect(completed.durationMilliseconds == 0)
+        let pending = try await completed.promote(
+            transcriptionConfiguration: .defaults,
+            initialStatus: .failed
+        )
+        #expect(pending.durationMilliseconds == 0)
+        #expect(try await fixture.repository.load().pending?.status == .failed)
+        #expect(fixture.fileSystem.removeCount == 0)
+    }
+
     @Test func explicitDiscardIsDurableBeforeExactUnlink() async throws {
         let fixture = CaptureFixture(durationMilliseconds: 1_250)
         let lease = try await fixture.owner.createCapture(
@@ -64,7 +115,8 @@ struct IOSV1VoiceCaptureTests {
         #expect(fixture.fileSystem.closeCount == 1)
     }
 
-    @Test func shortMediaIsRemovedAndNeverBecomesPending() async throws {
+    @Test func shortNonEmptyMediaBecomesRecoverableWithSuspectDuration()
+        async throws {
         let fixture = CaptureFixture(durationMilliseconds: 299)
         let lease = try await fixture.owner.createCapture(
             attemptID: CaptureIDs.attempt,
@@ -73,18 +125,102 @@ struct IOSV1VoiceCaptureTests {
         )
         try await lease.beginFinalizing()
 
-        guard case .discarded(.tooShort) =
+        guard case .completed(let completed) =
             try await lease.completeAfterRecorderClose() else {
-            Issue.record("Expected typed short-media discard")
+            Issue.record("Expected non-empty short probe to remain recoverable")
             return
         }
         let snapshot = try await fixture.repository.load()
-        #expect(snapshot.capture == nil)
+        #expect(completed.durationMilliseconds == 0)
+        #expect(snapshot.capture?.phase == .completed)
+        #expect(snapshot.capture?.durationMilliseconds == 0)
         #expect(snapshot.pending == nil)
+        #expect(fixture.fileSystem.removeCount == 0)
+        completed.release()
+    }
+
+    @Test func invalidMetadataOnNonEmptyMediaBecomesRecoverableUnknown()
+        async throws {
+        let fixture = CaptureFixture(mediaMode: .invalidMedia)
+        let lease = try await fixture.owner.createCapture(
+            attemptID: CaptureIDs.attempt,
+            outputIntent: .standard,
+            createdAt: CaptureDates.created
+        )
+        try await lease.beginFinalizing()
+
+        guard case .completed(let completed) =
+            try await lease.completeAfterRecorderClose() else {
+            Issue.record("Expected invalid metadata to preserve non-empty audio")
+            return
+        }
+        #expect(completed.durationMilliseconds == 0)
+        #expect(try await fixture.repository.load().capture?.phase == .completed)
+        #expect(fixture.fileSystem.removeCount == 0)
+        completed.release()
+    }
+
+    @Test func longMonotonicElapsedRecoversShortOrInvalidMediaProbe()
+        async throws {
+        let cases: [(CaptureMediaValidator.Mode, Int64, Int64)] = [
+            (.duration(299), 30_000, 30_000),
+            (.invalidMedia, 30_000, 30_000),
+            (.invalidMedia, 329_000, 302_000),
+            (.duration(302_001), 329_000, 302_000),
+        ]
+        for (mediaMode, fallback, expectedDuration) in cases {
+            let fixture = CaptureFixture(mediaMode: mediaMode)
+            let lease = try await fixture.owner.createCapture(
+                attemptID: CaptureIDs.attempt,
+                outputIntent: .standard,
+                createdAt: CaptureDates.created
+            )
+            try await lease.beginFinalizing()
+
+            guard case .completed(let completed) = try await lease
+                .completeAfterRecorderClose(
+                    fallbackDurationMilliseconds: fallback
+                ) else {
+                Issue.record("Expected monotonic duration fallback")
+                continue
+            }
+            #expect(completed.durationMilliseconds == expectedDuration)
+            let pending = try await completed.promote(
+                transcriptionConfiguration: .defaults
+            )
+            #expect(pending.durationMilliseconds == expectedDuration)
+            #expect(fixture.fileSystem.removeCount == 0)
+        }
+    }
+
+    @Test func exactEmptyMediaIsTheOnlyAutomaticFinalizationDiscard()
+        async throws {
+        let fixture = CaptureFixture(durationMilliseconds: 1_250)
+        fixture.fileSystem.facts = IOSV1VoiceCaptureFileFacts(
+            identity: fixture.fileSystem.facts.identity,
+            byteCount: 0,
+            modificationSeconds: fixture.fileSystem.facts.modificationSeconds,
+            modificationNanoseconds:
+                fixture.fileSystem.facts.modificationNanoseconds
+        )
+        let lease = try await fixture.owner.createCapture(
+            attemptID: CaptureIDs.attempt,
+            outputIntent: .standard,
+            createdAt: CaptureDates.created
+        )
+        try await lease.beginFinalizing()
+
+        guard case .discarded(.empty) =
+            try await lease.completeAfterRecorderClose() else {
+            Issue.record("Expected exact empty capture discard")
+            return
+        }
+        #expect(try await fixture.repository.load().capture == nil)
         #expect(fixture.fileSystem.removeCount == 1)
     }
 
-    @Test func validationTimeoutPreservesFinalizingSource() async throws {
+    @Test func validationTimeoutPreservesNonEmptyAudioAsUnknownCompleted()
+        async throws {
         let fixture = CaptureFixture(mediaMode: .timedOut)
         let lease = try await fixture.owner.createCapture(
             attemptID: CaptureIDs.attempt,
@@ -93,12 +229,15 @@ struct IOSV1VoiceCaptureTests {
         )
         try await lease.beginFinalizing()
 
-        await #expect(throws: IOSV1VoiceCaptureError.mediaValidationTimedOut) {
-            _ = try await lease.completeAfterRecorderClose()
+        guard case .completed(let completed) = try await lease
+            .completeAfterRecorderClose() else {
+            Issue.record("Expected timeout to preserve completed audio")
+            return
         }
-        #expect(try await fixture.repository.load().capture?.phase == .finalizing)
+        #expect(completed.durationMilliseconds == 0)
+        #expect(try await fixture.repository.load().capture?.phase == .completed)
         #expect(fixture.fileSystem.removeCount == 0)
-        lease.release()
+        completed.release()
     }
 
     @Test func sourceReplacementBlocksURLAndPreservesDurableOwner()
@@ -276,6 +415,7 @@ private final class CaptureFileSystem:
 private struct CaptureMediaValidator: IOSV1VoiceCaptureMediaValidating {
     enum Mode: Sendable {
         case duration(Int64)
+        case invalidMedia
         case timedOut
     }
 
@@ -289,6 +429,8 @@ private struct CaptureMediaValidator: IOSV1VoiceCaptureMediaValidating {
         #expect(timeoutNanoseconds <= 2_000_000_000)
         switch mode {
         case .duration(let value): return value
+        case .invalidMedia:
+            throw IOSV1VoiceCaptureError.mediaValidationFailed
         case .timedOut: throw IOSV1VoiceCaptureError.mediaValidationTimedOut
         }
     }

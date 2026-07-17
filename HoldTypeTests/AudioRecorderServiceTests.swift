@@ -11,6 +11,7 @@ import HoldTypeDomain
 import Testing
 @testable import HoldType
 
+@MainActor
 struct AudioRecorderServiceTests {
 
     @Test func defaultMaximumDurationUsesThePortableUtteranceContract() {
@@ -348,7 +349,7 @@ struct AudioRecorderServiceTests {
         )
     }
 
-    @Test func avFoundationRecorderRejectsTooShortCompletedFile() async throws {
+    @Test func avFoundationRecorderPreservesPositiveFileWhenDurationLooksTooShort() async throws {
         let outputFileURL = makeTemporaryRecordingFileURL()
         let engine = FakeAudioRecorderEngine(currentTime: 0.1)
         let factory = CapturingAudioRecorderEngineFactory(engine: engine)
@@ -363,28 +364,18 @@ struct AudioRecorderServiceTests {
         try await recorder.startRecording()
         try Data([0x01]).write(to: outputFileURL)
 
-        do {
-            _ = try await recorder.stopRecording()
-            Issue.record("Expected stopRecording to throw")
-        } catch let error as AudioRecorderServiceError {
-            #expect(error == .recordingTooShort(duration: 0.1, minimumDuration: 0.5))
-        } catch {
-            Issue.record("Expected AudioRecorderServiceError, got \(error)")
-        }
+        let artifact = try await recorder.stopRecording()
 
         #expect(engine.stopCallCount == 1)
-        #expect(engine.deleteCallCount == 1)
-        #expect(
-            recorder.currentStatus == .failed(
-                message: AudioRecorderServiceError.recordingTooShort(
-                    duration: 0.1,
-                    minimumDuration: 0.5
-                ).errorDescription ?? ""
-            )
-        )
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+        #expect(artifact.fileURL == outputFileURL)
+        #expect(artifact.duration == 0.1)
+        #expect(artifact.byteCount == 1)
+        #expect(recorder.currentStatus == .finished(artifact: artifact))
     }
 
-    @Test func avFoundationRecorderRejectsTimedOutCompletedFile() async throws {
+    @Test func avFoundationRecorderAcceptsCompletedFileAtHardCaptureLimit() async throws {
         let outputFileURL = makeTemporaryRecordingFileURL()
         let engine = FakeAudioRecorderEngine(currentTime: 2.0)
         let factory = CapturingAudioRecorderEngineFactory(engine: engine)
@@ -399,25 +390,348 @@ struct AudioRecorderServiceTests {
         try await recorder.startRecording()
         try Data([0x01]).write(to: outputFileURL)
 
-        do {
-            _ = try await recorder.stopRecording()
-            Issue.record("Expected stopRecording to throw")
-        } catch let error as AudioRecorderServiceError {
-            #expect(error == .recordingTimedOut(duration: 2.0, maximumDuration: 2.0))
-        } catch {
-            Issue.record("Expected AudioRecorderServiceError, got \(error)")
+        let artifact = try await recorder.stopRecording()
+
+        #expect(artifact.duration == 2.0)
+        #expect(engine.stopCallCount == 1)
+        #expect(engine.deleteCallCount == 0)
+        #expect(recorder.currentStatus == .finished(artifact: artifact))
+    }
+
+    @Test func avFoundationRecorderUsesFinalizedMediaDurationAfterEngineAutoStops() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let fileContents = Data([0x01, 0x02, 0x03])
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        let factory = CapturingAudioRecorderEngineFactory(engine: engine)
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: factory,
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 300.416 },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try fileContents.write(to: outputFileURL)
+        engine.simulateAutomaticFinish(successfully: true)
+
+        let result = await withCheckedContinuation { continuation in
+            recorder.setAutomaticStopHandler { result in
+                continuation.resume(returning: result)
+            }
+            engine.replayLastAutomaticFinish()
+        }
+        let completion = try result.get()
+        let artifact = completion.artifact
+
+        #expect(artifact.fileURL == outputFileURL)
+        #expect(artifact.duration == 300.416)
+        #expect(artifact.byteCount == Int64(fileContents.count))
+        #expect(completion.reason == .maximumDuration)
+        #expect(engine.stopCallCount == 0)
+        #expect(engine.deleteCallCount == 0)
+        #expect(recorder.currentStatus == .finished(artifact: artifact))
+    }
+
+    @Test func manualStopAfterEngineAutoStopsUsesFinalizedMediaDuration() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        let factory = CapturingAudioRecorderEngineFactory(engine: engine)
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: factory,
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 300.25 },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: outputFileURL)
+        engine.simulateAutomaticFinish(successfully: true)
+
+        let artifact = try await recorder.stopRecording()
+
+        #expect(artifact.duration == 300.25)
+        #expect(engine.stopCallCount == 1)
+        #expect(engine.deleteCallCount == 0)
+        #expect(recorder.currentStatus == .finished(artifact: artifact))
+    }
+
+    @Test func manualStopPublishesMaximumIdentityBeforeAnyDelegateHandler() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        var monotonicTime: TimeInterval = 100
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 0 },
+            monotonicClock: { monotonicTime },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01, 0x02]).write(to: outputFileURL)
+        monotonicTime = 399.6
+
+        let artifact = try await recorder.stopRecording()
+
+        #expect(artifact.duration == 0)
+        #expect(recorder.lastFinalizationReachedMaximumDuration)
+        #expect(engine.stopCallCount == 1)
+    }
+
+    @Test func manualStopJoinsArtifactAfterAutomaticCallbackAlreadyCompleted() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 300.4 },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01, 0x02]).write(to: outputFileURL)
+
+        let automaticCompletion: AudioRecorderAutomaticCompletion = try await withCheckedThrowingContinuation {
+            continuation in
+            recorder.setAutomaticStopHandler { result in
+                continuation.resume(with: result)
+            }
+            engine.simulateAutomaticFinish(successfully: true)
+            engine.replayLastAutomaticFinish()
+        }
+        let manualArtifact = try await recorder.stopRecording()
+
+        #expect(manualArtifact == automaticCompletion.artifact)
+        #expect(engine.stopCallCount == 0)
+        #expect(engine.deleteCallCount == 0)
+    }
+
+    @Test func unsuccessfulAutomaticFinishAtLimitStillUsesMaximumDurationAuthority() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        var monotonicTime: TimeInterval = 10
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 300.2 },
+            monotonicClock: { monotonicTime },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01, 0x02]).write(to: outputFileURL)
+        monotonicTime = 310
+
+        let completion = try await automaticCompletion(
+            from: recorder,
+            engine: engine,
+            successfully: false
+        )
+
+        #expect(completion.reason == .maximumDuration)
+        #expect(completion.recorderReportedSuccess == false)
+        #expect(recorder.lastFinalizationReachedMaximumDuration)
+        #expect(completion.artifact.fileURL == outputFileURL)
+        #expect(completion.artifact.byteCount == 2)
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+    }
+
+    @Test func unsuccessfulEarlyAutomaticFinishRemainsUnexpected() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        var monotonicTime: TimeInterval = 100
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 20 },
+            monotonicClock: { monotonicTime },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: outputFileURL)
+        monotonicTime = 120
+
+        let completion = try await automaticCompletion(
+            from: recorder,
+            engine: engine,
+            successfully: false
+        )
+
+        #expect(
+            completion.reason == .unexpected(recorderReportedSuccess: false)
+        )
+        #expect(completion.recorderReportedSuccess == false)
+        #expect(recorder.lastFinalizationReachedMaximumDuration == false)
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+    }
+
+    @Test func successfulEarlyAutomaticFinishIsUnexpected() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        var monotonicTime: TimeInterval = 100
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 20 },
+            monotonicClock: { monotonicTime },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: outputFileURL)
+        monotonicTime = 120
+
+        let completion = try await automaticCompletion(
+            from: recorder,
+            engine: engine,
+            successfully: true
+        )
+
+        #expect(
+            completion.reason == .unexpected(recorderReportedSuccess: true)
+        )
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+    }
+
+    @Test func successfulAutomaticFinishAtMonotonicDeadlineIsMaximumDuration() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        var monotonicTime: TimeInterval = 50
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            maximumRecordingDuration: 300,
+            finalizedMediaDurationProvider: { _ in 20 },
+            monotonicClock: { monotonicTime },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: outputFileURL)
+        monotonicTime = 350
+
+        let completion = try await automaticCompletion(
+            from: recorder,
+            engine: engine,
+            successfully: true
+        )
+
+        #expect(completion.reason == .maximumDuration)
+        #expect(engine.deleteCallCount == 0)
+    }
+
+    @Test func finalizedMediaDurationTimeoutFallsBackWithoutWaitingForProviderCancellation() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 12.5)
+        let durationProvider = ControlledFinalizedMediaDurationProvider()
+        let timeoutProbe = FinalizedMediaDurationTimeoutProbe()
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: CapturingAudioRecorderEngineFactory(engine: engine),
+            finalizedMediaDurationProvider: { _ in
+                await durationProvider.loadIgnoringCancellation()
+            },
+            finalizedMediaDurationTimeout: 2,
+            finalizedMediaDurationTimeoutSleeper: { seconds in
+                await durationProvider.waitUntilLoadStarted()
+                timeoutProbe.record(seconds)
+            },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer {
+            durationProvider.resolve(with: 99)
+            try? FileManager.default.removeItem(at: outputFileURL)
         }
 
-        #expect(engine.stopCallCount == 1)
-        #expect(engine.deleteCallCount == 1)
-        #expect(
-            recorder.currentStatus == .failed(
-                message: AudioRecorderServiceError.recordingTimedOut(
-                    duration: 2.0,
-                    maximumDuration: 2.0
-                ).errorDescription ?? ""
-            )
+        try await recorder.startRecording()
+        try Data([0x01, 0x02, 0x03]).write(to: outputFileURL)
+
+        let artifact = try await recorder.stopRecording()
+
+        #expect(timeoutProbe.recordedDurations == [2])
+        #expect(artifact.duration == 12.5)
+        #expect(artifact.byteCount == 3)
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+    }
+
+    @Test func staleAutomaticFinishCannotFinalizeANewerAttempt() async throws {
+        let firstFileURL = makeTemporaryRecordingFileURL()
+        let secondFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 1)
+        let factory = CapturingAudioRecorderEngineFactory(engine: engine)
+        var nextFileURL = firstFileURL
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: factory,
+            finalizedMediaDurationProvider: { _ in 1 },
+            makeRecordingFileURL: {
+                defer { nextFileURL = secondFileURL }
+                return nextFileURL
+            }
         )
+        defer { try? FileManager.default.removeItem(at: firstFileURL) }
+        defer { try? FileManager.default.removeItem(at: secondFileURL) }
+
+        try await recorder.startRecording()
+        let staleFinishHandler = try #require(engine.recordingFinishedHandlers.first)
+        recorder.cancelRecording()
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: secondFileURL)
+        staleFinishHandler(true)
+        await Task.yield()
+
+        #expect(recorder.currentStatus == .recording)
+        #expect(engine.deleteCallCount == 1)
+
+        recorder.cancelRecording()
+    }
+
+    @Test func avFoundationRecorderReturnsPositiveFileDespiteDurationOverrun() async throws {
+        let outputFileURL = makeTemporaryRecordingFileURL()
+        let engine = FakeAudioRecorderEngine(currentTime: 0)
+        let factory = CapturingAudioRecorderEngineFactory(engine: engine)
+        let recorder = AVFoundationAudioRecorderService(
+            permissionStatusProvider: { .allowed },
+            recorderFactory: factory,
+            maximumRecordingDuration: 2,
+            finalizedMediaDurationProvider: { _ in 4.001 },
+            makeRecordingFileURL: { outputFileURL }
+        )
+        defer { try? FileManager.default.removeItem(at: outputFileURL) }
+
+        try await recorder.startRecording()
+        try Data([0x01]).write(to: outputFileURL)
+
+        let artifact = try await recorder.stopRecording()
+
+        #expect(engine.stopCallCount == 1)
+        #expect(engine.deleteCallCount == 0)
+        #expect(FileManager.default.fileExists(atPath: outputFileURL.path))
+        #expect(artifact.fileURL == outputFileURL)
+        #expect(artifact.duration == 4.001)
+        #expect(artifact.byteCount == 1)
+        #expect(recorder.currentStatus == .finished(artifact: artifact))
     }
 }
 
@@ -461,6 +775,9 @@ private final class FakeAudioRecorderEngine: AudioRecorderEngine {
     private(set) var requestedRecordDuration: TimeInterval?
     private(set) var stopCallCount = 0
     private(set) var deleteCallCount = 0
+    private var recordingFinishedHandler: ((Bool) -> Void)?
+    private var lastAutomaticFinishWasSuccessful = true
+    private(set) var recordingFinishedHandlers: [(Bool) -> Void] = []
 
     init(recordResult: Bool = true, currentTime: TimeInterval = 1.0) {
         self.recordResult = recordResult
@@ -487,10 +804,120 @@ private final class FakeAudioRecorderEngine: AudioRecorderEngine {
         deleteCallCount += 1
         return true
     }
+
+    func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?) {
+        recordingFinishedHandler = handler
+        if let handler {
+            recordingFinishedHandlers.append(handler)
+        }
+    }
+
+    func simulateAutomaticFinish(successfully: Bool) {
+        isRecording = false
+        lastAutomaticFinishWasSuccessful = successfully
+    }
+
+    func replayLastAutomaticFinish() {
+        recordingFinishedHandler?(lastAutomaticFinishWasSuccessful)
+    }
 }
 
 private func makeTemporaryRecordingFileURL() -> URL {
     FileManager.default.temporaryDirectory
         .appendingPathComponent("holdtype-test-recording-\(UUID().uuidString)")
         .appendingPathExtension("m4a")
+}
+
+@MainActor
+private func automaticCompletion(
+    from recorder: AVFoundationAudioRecorderService,
+    engine: FakeAudioRecorderEngine,
+    successfully: Bool
+) async throws -> AudioRecorderAutomaticCompletion {
+    try await withCheckedThrowingContinuation { continuation in
+        recorder.setAutomaticStopHandler { result in
+            continuation.resume(with: result)
+        }
+        engine.simulateAutomaticFinish(successfully: successfully)
+        engine.replayLastAutomaticFinish()
+    }
+}
+
+nonisolated private final class ControlledFinalizedMediaDurationProvider: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<TimeInterval, Never>?
+    private var loadStartedContinuations: [CheckedContinuation<Void, Never>] = []
+    private var didStartLoading = false
+    private var resolvedDuration: TimeInterval?
+
+    func loadIgnoringCancellation() async -> TimeInterval {
+        signalLoadStarted()
+        return await withCheckedContinuation { continuation in
+            let immediateDuration = lock.withLock { () -> TimeInterval? in
+                if let resolvedDuration {
+                    return resolvedDuration
+                }
+
+                precondition(self.continuation == nil)
+                self.continuation = continuation
+                return nil
+            }
+            if let immediateDuration {
+                continuation.resume(returning: immediateDuration)
+            }
+        }
+    }
+
+    func waitUntilLoadStarted() async {
+        await withCheckedContinuation { continuation in
+            let didStartLoading = lock.withLock { () -> Bool in
+                if self.didStartLoading {
+                    return true
+                }
+
+                loadStartedContinuations.append(continuation)
+                return false
+            }
+            if didStartLoading {
+                continuation.resume()
+            }
+        }
+    }
+
+    func resolve(with duration: TimeInterval) {
+        let continuation = lock.withLock { () -> CheckedContinuation<TimeInterval, Never>? in
+            guard resolvedDuration == nil else {
+                return nil
+            }
+
+            resolvedDuration = duration
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume(returning: duration)
+    }
+
+    private func signalLoadStarted() {
+        let continuations = lock.withLock {
+            didStartLoading = true
+            defer { loadStartedContinuations.removeAll() }
+            return loadStartedContinuations
+        }
+        continuations.forEach { $0.resume() }
+    }
+}
+
+nonisolated private final class FinalizedMediaDurationTimeoutProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var durations: [TimeInterval] = []
+
+    var recordedDurations: [TimeInterval] {
+        lock.withLock { durations }
+    }
+
+    func record(_ duration: TimeInterval) {
+        lock.withLock {
+            durations.append(duration)
+        }
+    }
 }

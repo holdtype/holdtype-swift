@@ -25,7 +25,7 @@ struct IOSAudioSessionAdapterTests {
                         ]
                     )
                 ),
-                .setHapticsAllowed(false),
+                .setHapticsAllowed(true),
                 .setActive(.activate),
             ]
         )

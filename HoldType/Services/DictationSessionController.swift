@@ -39,6 +39,10 @@ struct TaskRecordingStopTailSleeper: RecordingStopTailSleeping {
 
 @MainActor
 final class DictationSessionController {
+    static let savedRecordingActionsUnavailableMessage =
+        "Finish the current dictation before using a saved recording."
+    private static let maximumDurationClassificationTolerance: TimeInterval = 0.5
+
     private let recorder: any AudioRecorderService
     private let transcriptionService: any OpenAITranscriptionServing
     private let textCorrectionService: any TextCorrectionServing
@@ -46,6 +50,9 @@ final class DictationSessionController {
     private let settingsProvider: () -> AppSettings
     private let transcriptOutput: any TranscriptOutputDelivering
     private let cuePlayer: any DictationCuePlaying
+    private let historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping
+    private let recordingDurationMonitor: any RecordingDurationMonitoring
+    private let privateAudioOutputRouteProvider: any PrivateAudioOutputRouteProviding
     private let transcriptHistory: any TranscriptRecoveryHistoryRecording
     private let transcriptionFailureRecovery: any TranscriptionFailureRecoveryRecording
     private let activeTextContextReader: any ActiveTextContextReading
@@ -63,11 +70,20 @@ final class DictationSessionController {
     private var activeCredential: OpenAICredential?
     private var activeRecordingStopTailTask: Task<Void, Error>?
     private var pendingFailedTranscriptionRetry: PendingFailedTranscriptionRetry?
+    private var pendingMaximumDurationCompletion = false
+    private var activeRecoveryCheckpointID: FailedTranscriptionAttempt.ID?
+
+    private(set) var recordingCountdown: VoiceSessionCountdown? {
+        didSet {
+            recordingCountdownDidChange?(recordingCountdown)
+        }
+    }
 
     var statusDidChange: (@MainActor (DictationStatus) -> Void)?
     var lastTranscriptTextDidChange: (@MainActor (String?) -> Void)?
     var outputStatusTextDidChange: (@MainActor (String?) -> Void)?
     var failurePresentationDidChange: (@MainActor (DictationFailurePresentation?) -> Void)?
+    var recordingCountdownDidChange: (@MainActor (VoiceSessionCountdown?) -> Void)?
 
     private(set) var status: DictationStatus {
         didSet {
@@ -117,6 +133,11 @@ final class DictationSessionController {
         settingsProvider: @escaping () -> AppSettings = { AppSettingsStore().load() },
         transcriptOutput: any TranscriptOutputDelivering = TextInsertionService(),
         cuePlayer: any DictationCuePlaying = NativeDictationCuePlayer.shared,
+        historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping =
+            TranscriptHistoryAudioPlayer.shared,
+        recordingDurationMonitor: (any RecordingDurationMonitoring)? = nil,
+        privateAudioOutputRouteProvider: any PrivateAudioOutputRouteProviding =
+            CoreAudioPrivateOutputRouteProvider(),
         transcriptHistory: (any TranscriptRecoveryHistoryRecording)? = nil,
         transcriptionFailureRecovery: (any TranscriptionFailureRecoveryRecording)? = nil,
         activeTextContextReader: (any ActiveTextContextReading)? = nil,
@@ -137,6 +158,10 @@ final class DictationSessionController {
         self.settingsProvider = settingsProvider
         self.transcriptOutput = transcriptOutput
         self.cuePlayer = cuePlayer
+        self.historyAudioPlaybackStopper = historyAudioPlaybackStopper
+        self.recordingDurationMonitor = recordingDurationMonitor
+            ?? ContinuousRecordingDurationMonitor()
+        self.privateAudioOutputRouteProvider = privateAudioOutputRouteProvider
         self.transcriptHistory = transcriptHistory ?? TranscriptRecoveryHistoryStore.shared
         self.transcriptionFailureRecovery = transcriptionFailureRecovery
             ?? TranscriptionFailureRecoveryStore.shared
@@ -154,6 +179,11 @@ final class DictationSessionController {
             ?? initialStatus.lastTranscriptText
         self.outputStatusText = outputStatusText
         self.failurePresentation = nil
+        self.recordingCountdown = nil
+
+        recorder.setAutomaticStopHandler { [weak self] result in
+            self?.handleAutomaticRecorderStop(result)
+        }
     }
 
     func performRecordingAction(
@@ -186,6 +216,8 @@ final class DictationSessionController {
             activeRecordingStopTailTask?.cancel()
             activeRecordingStopTailTask = nil
             recorder.cancelRecording()
+            stopRecordingDurationMonitoring()
+            pendingMaximumDurationCompletion = false
             cancelActiveSession()
             activeCredential = nil
             outputStatusText = nil
@@ -198,6 +230,7 @@ final class DictationSessionController {
                 status = .idle
             }
         case .processing:
+            markActiveRecoveryCheckpointInterrupted()
             transcriptionService.cancelActiveTranscription()
             textCorrectionService.cancelActiveCorrection()
             translationService.cancelActiveTranslation()
@@ -222,6 +255,11 @@ final class DictationSessionController {
         credential: OpenAICredential? = nil,
         outputMode: FailedTranscriptionRetryOutputMode = .saveOnly
     ) async {
+        guard status.voiceWorkPhase != .listening else {
+            outputStatusText = Self.savedRecordingActionsUnavailableMessage
+            return
+        }
+
         let retry = PendingFailedTranscriptionRetry(
             id: id,
             credential: credential,
@@ -243,6 +281,12 @@ final class DictationSessionController {
             outputStatusText = TranscriptionFailureRecoveryError.attemptUnavailable.localizedDescription
             return
         }
+        guard attempt.canRetry else {
+            outputStatusText = attempt.state == .saved
+                ? "This saved recording is already transcribed."
+                : "This saved recording is not available for retry."
+            return
+        }
 
         outputStatusText = nil
         failurePresentation = nil
@@ -254,13 +298,15 @@ final class DictationSessionController {
             activeCredential = credential
             status = .transcribing
             let settings = settingsProvider()
-            eventLogger.record(.transcriptionStarted)
             let transcriptionID = transcriptionIDGenerator()
             let transcriptionRequest = try makeAudioTranscriptionRequest(
                 audioFileURL: attempt.audioFileURL,
                 settings: settings,
                 context: nil
             )
+            activeRecoveryCheckpointID = attempt.id
+            try transcriptionFailureRecovery.sealProviderDispatch(id: attempt.id)
+            eventLogger.record(.transcriptionStarted)
             let rawTranscript = try await transcriptionService.transcribe(
                 transcriptionRequest,
                 credential: credential
@@ -271,6 +317,10 @@ final class DictationSessionController {
             }
 
             let transcribedTranscript = try Self.acceptedTranscript(from: rawTranscript)
+            transcriptionFailureRecovery.recordProviderAccepted(
+                id: attempt.id,
+                acceptedTranscriptText: transcribedTranscript.text
+            )
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
                 model: transcriptionRequest.model,
@@ -286,17 +336,40 @@ final class DictationSessionController {
             }
 
             let acceptedTranscript = try Self.acceptedTranscript(from: correctedTranscriptText)
+            let retainsMaximumDurationRecording =
+                attempt.completionKind == .maximumDuration
+            var savedRecordingUpdateFailed = false
+            if retainsMaximumDurationRecording {
+                do {
+                    try transcriptionFailureRecovery.markSaved(
+                        id: retry.id,
+                        acceptedTranscriptText: acceptedTranscript.text
+                    )
+                } catch {
+                    savedRecordingUpdateFailed = true
+                }
+            }
+
             lastTranscriptText = acceptedTranscript.text
             status = .success(transcript: acceptedTranscript.text)
             failurePresentation = nil
 
-            recordRecoveryHistory(
-                acceptedTranscript,
-                settings: settings,
-                audioDuration: attempt.audioDuration,
-                cachedAudioFileURL: nil
-            )
-            transcriptionFailureRecovery.removeFailedAttempt(id: retry.id)
+            if !retainsMaximumDurationRecording {
+                recordRecoveryHistory(
+                    acceptedTranscript,
+                    settings: settings,
+                    audioDuration: attempt.audioDuration,
+                    cachedAudioFileURL: nil
+                )
+                do {
+                    _ = try transcriptionFailureRecovery.removeFailedAttempt(id: retry.id)
+                } catch {
+                    outputStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
+                }
+            }
+            if activeRecoveryCheckpointID == attempt.id {
+                activeRecoveryCheckpointID = nil
+            }
 
             let deliveryRequest = OutputDeliveryRequest(
                 acceptedTranscript: acceptedTranscript,
@@ -306,7 +379,10 @@ final class DictationSessionController {
                 )
             )
             do {
-                outputStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
+                let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
+                outputStatusText = savedRecordingUpdateFailed
+                    ? "Text was accepted, but the five-minute recording could not be marked as saved."
+                    : deliveryStatusText
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return
@@ -324,6 +400,9 @@ final class DictationSessionController {
 
             let reason = FailedTranscriptionReason(error: error)
             try? transcriptionFailureRecovery.updateFailedAttempt(id: retry.id, reason: reason)
+            if activeRecoveryCheckpointID == attempt.id {
+                activeRecoveryCheckpointID = nil
+            }
             if let sessionID {
                 finishSession(sessionID)
             }
@@ -360,6 +439,11 @@ final class DictationSessionController {
         }
 
         pendingFailedTranscriptionRetry = nil
+        guard status.voiceWorkPhase != .listening else {
+            outputStatusText = Self.savedRecordingActionsUnavailableMessage
+            return
+        }
+
         Task { @MainActor in
             await retryFailedTranscription(
                 id: retry.id,
@@ -416,12 +500,14 @@ final class DictationSessionController {
         activeSessionID = nil
         activeOutputIntent = nil
         activeCredential = nil
+        pendingMaximumDurationCompletion = false
     }
 
     private func cancelActiveSession() {
         activeSessionID = nil
         activeOutputIntent = nil
         activeCredential = nil
+        pendingMaximumDurationCompletion = false
     }
 
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
@@ -450,9 +536,11 @@ final class DictationSessionController {
         }
 
         let sessionID = beginSession(intent: intent)
+        pendingMaximumDurationCompletion = false
         eventLogger.record(.recordingStartRequested)
 
         do {
+            historyAudioPlaybackStopper.stopPlayback()
             try await recorder.startRecording()
             guard isCurrentSession(sessionID) else {
                 return
@@ -461,14 +549,21 @@ final class DictationSessionController {
             status = .recording
             eventLogger.record(.recordingStarted)
             playCue(.startRecording, settings: settings)
+            startRecordingDurationMonitoring(sessionID: sessionID, settings: settings)
         } catch {
+            stopRecordingDurationMonitoring()
             finishSession(sessionID)
             eventLogger.record(.recordingStartFailed(category: Self.operatorLogCategory(for: error)))
             status = .failure(message: Self.userFacingMessage(for: error))
         }
     }
 
-    private func stopRecordingAndTranscribe(intent: DictationOutputIntent, credential: OpenAICredential?) async {
+    private func stopRecordingAndTranscribe(
+        intent: DictationOutputIntent,
+        credential: OpenAICredential?,
+        automaticCompletion: AudioRecorderAutomaticCompletion? = nil,
+        automaticReasonAwaitingArtifact: AudioRecorderAutomaticCompletionReason? = nil
+    ) async {
         outputStatusText = nil
         failurePresentation = nil
         let sessionID = currentOrNewSessionID(intent: intent)
@@ -476,7 +571,10 @@ final class DictationSessionController {
         var stage: VoiceAttemptStage = .recordingFinalization
         var completedArtifact: AudioRecordingArtifact?
         var completedRecordingSettings: AppSettings?
+        var recoveryCheckpoint: FailedTranscriptionAttempt?
+        var checkpointAttempted = false
         var allowsRecordingCacheHandling = true
+        var resolvedAutomaticCompletion = automaticCompletion
         defer {
             if allowsRecordingCacheHandling {
                 updateCompletedRecordingCacheIfNeeded(
@@ -487,11 +585,89 @@ final class DictationSessionController {
         }
 
         do {
-            eventLogger.record(.recordingStopRequested)
             let settings = settingsProvider()
-            try await waitForRecordingStopTail(settings: settings)
-            let artifact = try await recorder.stopRecording()
+            let artifact: AudioRecordingArtifact
+            if let automaticCompletion = resolvedAutomaticCompletion {
+                artifact = automaticCompletion.artifact
+                switch automaticCompletion.reason {
+                case .maximumDuration:
+                    outputStatusText = "Five-minute limit reached. Saving recording..."
+                case .unexpected:
+                    outputStatusText = "Recording ended unexpectedly. Saving recording..."
+                }
+            } else if let automaticReasonAwaitingArtifact {
+                switch automaticReasonAwaitingArtifact {
+                case .maximumDuration:
+                    outputStatusText = "Five-minute limit reached. Saving recording..."
+                case .unexpected:
+                    outputStatusText = "Recording ended unexpectedly. Saving recording..."
+                }
+                artifact = try await recorder.stopRecording()
+                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: automaticReasonAwaitingArtifact
+                )
+            } else {
+                eventLogger.record(.recordingStopRequested)
+                try await waitForRecordingStopTail(settings: settings)
+                artifact = try await recorder.stopRecording()
+            }
+            if let automaticCompletion = resolvedAutomaticCompletion,
+               automaticCompletion.reason != .maximumDuration,
+               recorder.lastFinalizationReachedMaximumDuration
+                || Self.finalizedArtifactReachedMaximumDuration(artifact) {
+                let recorderReportedSuccess: Bool?
+                switch automaticCompletion.reason {
+                case .maximumDuration:
+                    recorderReportedSuccess = automaticCompletion.recorderReportedSuccess
+                case .unexpected(let reportedSuccess):
+                    recorderReportedSuccess = reportedSuccess
+                }
+                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration,
+                    recorderReportedSuccess: recorderReportedSuccess
+                )
+                pendingMaximumDurationCompletion = false
+                outputStatusText = "Five-minute limit reached. Saving recording..."
+                eventLogger.record(.recordingLimitReached)
+            }
+            if resolvedAutomaticCompletion == nil,
+               recorder.lastFinalizationReachedMaximumDuration {
+                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+                pendingMaximumDurationCompletion = false
+                outputStatusText = "Five-minute limit reached. Saving recording..."
+                eventLogger.record(.recordingLimitReached)
+            }
+            if resolvedAutomaticCompletion == nil,
+               pendingMaximumDurationCompletion {
+                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+                pendingMaximumDurationCompletion = false
+                outputStatusText = "Five-minute limit reached. Saving recording..."
+                eventLogger.record(.recordingLimitReached)
+            }
+            if resolvedAutomaticCompletion == nil,
+               automaticReasonAwaitingArtifact == nil,
+               Self.finalizedArtifactReachedMaximumDuration(artifact) {
+                // Key-up may win the exact-once boundary just before the
+                // recorder delegate or controller watchdog. Preserve the
+                // product-level maximum reason from the finalized artifact so
+                // that scheduling order cannot change retention semantics.
+                resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
+                    artifact: artifact,
+                    reason: .maximumDuration
+                )
+                outputStatusText = "Five-minute limit reached. Saving recording..."
+                eventLogger.record(.recordingLimitReached)
+            }
             completedArtifact = artifact
+            stopRecordingDurationMonitoring()
             eventLogger.record(
                 .recordingStopped(duration: artifact.duration, byteCount: artifact.byteCount)
             )
@@ -502,28 +678,69 @@ final class DictationSessionController {
                 return
             }
 
+            // An automatic recorder boundary owns its feedback immediately,
+            // before persistence, configuration, credentials, or provider
+            // work can fail.
+            if resolvedAutomaticCompletion?.reason == .maximumDuration {
+                playCue(.recordingLimitReached, settings: settings)
+            } else if resolvedAutomaticCompletion != nil {
+                playCue(.stopRecording, settings: settings)
+            }
+
+            let transcriptionSettings = transcriptionSettings(
+                for: outputIntent,
+                settings: settings
+            )
+            completedRecordingSettings = transcriptionSettings
+            // From this boundary onward a finalized, non-empty artifact owns
+            // a recoverable transcription attempt, even if the durable copy
+            // itself fails and we must expose the emergency original.
+            stage = .transcription
+            allowsRecordingCacheHandling = false
+            checkpointAttempted = true
+            recoveryCheckpoint = try transcriptionFailureRecovery.recordProcessingCheckpoint(
+                audioFileURL: artifact.fileURL,
+                settings: transcriptionSettings,
+                audioDuration: artifact.duration,
+                completionKind: resolvedAutomaticCompletion?.reason == .maximumDuration
+                    ? .maximumDuration
+                    : .standard
+            )
+            activeRecoveryCheckpointID = recoveryCheckpoint?.id
+            allowsRecordingCacheHandling = true
+            if resolvedAutomaticCompletion?.reason == .maximumDuration {
+                outputStatusText = "Five-minute limit reached. Recording saved to History; transcribing..."
+            } else if let reason = resolvedAutomaticCompletion?.reason,
+                      case .unexpected = reason {
+                outputStatusText = "Recording ended unexpectedly. Recording saved to History; transcribing..."
+            }
+
             if outputIntent == .translate,
                let translationIssue = settings.translationConfigurationIssue {
                 stage = .postProcessing
                 throw translationIssue
             }
 
-            playCue(.stopRecording, settings: settings)
+            if resolvedAutomaticCompletion == nil {
+                playCue(.stopRecording, settings: settings)
+            }
             status = .transcribing
 
             let credential = try resolvedCredential(providedCredential: credential)
             activeCredential = credential
-            stage = .transcription
-            let transcriptionSettings = transcriptionSettings(for: outputIntent, settings: settings)
-            completedRecordingSettings = transcriptionSettings
             let context = activeTextContextReader.currentContext(settings: transcriptionSettings)
-            eventLogger.record(.transcriptionStarted)
             let transcriptionID = transcriptionIDGenerator()
             let transcriptionRequest = try makeAudioTranscriptionRequest(
-                audioFileURL: artifact.fileURL,
+                audioFileURL: recoveryCheckpoint?.audioFileURL ?? artifact.fileURL,
                 settings: transcriptionSettings,
                 context: context
             )
+            if let recoveryCheckpoint {
+                try transcriptionFailureRecovery.sealProviderDispatch(
+                    id: recoveryCheckpoint.id
+                )
+            }
+            eventLogger.record(.transcriptionStarted)
             let rawTranscript = try await transcriptionService.transcribe(
                 transcriptionRequest,
                 credential: credential
@@ -534,6 +751,12 @@ final class DictationSessionController {
             }
 
             let transcribedTranscript = try Self.acceptedTranscript(from: rawTranscript)
+            if let recoveryCheckpoint {
+                transcriptionFailureRecovery.recordProviderAccepted(
+                    id: recoveryCheckpoint.id,
+                    acceptedTranscriptText: transcribedTranscript.text
+                )
+            }
             recordSuccessfulTranscriptionUsage(
                 transcriptionID: transcriptionID,
                 model: transcriptionRequest.model,
@@ -560,15 +783,43 @@ final class DictationSessionController {
             }
 
             let acceptedTranscript = try Self.acceptedTranscript(from: outputText)
+            let retainsMaximumDurationRecording =
+                resolvedAutomaticCompletion?.reason == .maximumDuration
+            var savedRecordingUpdateFailed = false
+            if retainsMaximumDurationRecording, let recoveryCheckpoint {
+                do {
+                    try transcriptionFailureRecovery.markSaved(
+                        id: recoveryCheckpoint.id,
+                        acceptedTranscriptText: acceptedTranscript.text
+                    )
+                } catch {
+                    savedRecordingUpdateFailed = true
+                }
+            }
+
             lastTranscriptText = acceptedTranscript.text
             status = .success(transcript: acceptedTranscript.text)
             failurePresentation = nil
-            recordRecoveryHistory(
-                acceptedTranscript,
-                settings: settings,
-                audioDuration: artifact.duration,
-                cachedAudioFileURL: artifact.fileURL
-            )
+            if !retainsMaximumDurationRecording {
+                recordRecoveryHistory(
+                    acceptedTranscript,
+                    settings: settings,
+                    audioDuration: artifact.duration,
+                    cachedAudioFileURL: artifact.fileURL
+                )
+            }
+            if let recoveryCheckpoint {
+                if !retainsMaximumDurationRecording {
+                    do {
+                        _ = try transcriptionFailureRecovery.removeFailedAttempt(id: recoveryCheckpoint.id)
+                    } catch {
+                        outputStatusText = TranscriptionFailureRecoveryError.deleteFailed.localizedDescription
+                    }
+                }
+                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
+                    activeRecoveryCheckpointID = nil
+                }
+            }
 
             stage = .outputDelivery
             let deliveryRequest = OutputDeliveryRequest(
@@ -576,7 +827,10 @@ final class DictationSessionController {
                 preferences: settings.outputDeliveryPreferences
             )
             do {
-                outputStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
+                let deliveryStatusText = try await transcriptOutput.deliver(deliveryRequest).statusText
+                outputStatusText = savedRecordingUpdateFailed
+                    ? "Text was accepted, but the five-minute recording could not be marked as saved."
+                    : deliveryStatusText
             } catch {
                 guard isCurrentSession(sessionID) else {
                     return
@@ -588,11 +842,21 @@ final class DictationSessionController {
 
             finishSession(sessionID)
         } catch is CancellationError {
+            if let recoveryCheckpoint {
+                try? transcriptionFailureRecovery.updateFailedAttempt(
+                    id: recoveryCheckpoint.id,
+                    reason: .processingInterrupted
+                )
+                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
+                    activeRecoveryCheckpointID = nil
+                }
+            }
             guard isCurrentSession(sessionID) else {
                 return
             }
 
             recorder.cancelRecording()
+            stopRecordingDurationMonitoring()
             finishSession(sessionID)
             activeCredential = nil
             outputStatusText = nil
@@ -603,22 +867,182 @@ final class DictationSessionController {
                 return
             }
 
-            let recoveryResult = recordFailedTranscriptionAttempt(
-                error,
-                at: stage,
-                artifact: completedArtifact,
-                settings: completedRecordingSettings
+            let recoveryResult: (
+                attempt: FailedTranscriptionAttempt?,
+                allowsRecordingCacheHandling: Bool
             )
+            if let recoveryCheckpoint {
+                let reason = FailedTranscriptionReason(error: error)
+                try? transcriptionFailureRecovery.updateFailedAttempt(
+                    id: recoveryCheckpoint.id,
+                    reason: reason
+                )
+                if activeRecoveryCheckpointID == recoveryCheckpoint.id {
+                    activeRecoveryCheckpointID = nil
+                }
+                recoveryResult = (
+                    transcriptionFailureRecovery.failedAttempts.first {
+                        $0.id == recoveryCheckpoint.id
+                    },
+                    true
+                )
+            } else if checkpointAttempted,
+                      let completedArtifact,
+                      let completedRecordingSettings {
+                recoveryResult = (
+                    transcriptionFailureRecovery.retainEmergencyFallback(
+                        audioFileURL: completedArtifact.fileURL,
+                        settings: completedRecordingSettings,
+                        audioDuration: completedArtifact.duration,
+                        reason: .other,
+                        completionKind: resolvedAutomaticCompletion?.reason == .maximumDuration
+                            ? .maximumDuration
+                            : .standard
+                    ),
+                    false
+                )
+            } else {
+                recoveryResult = recordFailedTranscriptionAttempt(
+                    error,
+                    at: stage,
+                    artifact: completedArtifact,
+                    settings: completedRecordingSettings
+                )
+            }
             allowsRecordingCacheHandling = recoveryResult.allowsRecordingCacheHandling
+            stopRecordingDurationMonitoring()
             finishSession(sessionID)
             recordFailure(error, at: stage)
             let message = Self.userFacingMessage(for: error)
+            if checkpointAttempted, recoveryCheckpoint == nil {
+                outputStatusText = message
+            }
             status = .failure(message: message)
             failurePresentation = failurePresentation(
                 message: message,
                 error: error,
                 failedAttempt: recoveryResult.attempt,
                 showsRecoveryPrompt: stage == .transcription
+            )
+        }
+    }
+
+    private func markActiveRecoveryCheckpointInterrupted() {
+        guard let activeRecoveryCheckpointID else {
+            return
+        }
+
+        try? transcriptionFailureRecovery.updateFailedAttempt(
+            id: activeRecoveryCheckpointID,
+            reason: .processingInterrupted
+        )
+        self.activeRecoveryCheckpointID = nil
+    }
+
+    private func handleAutomaticRecorderStop(
+        _ result: Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
+    ) {
+        guard status.voiceWorkPhase == .listening else {
+            return
+        }
+        if case .success(let completion) = result {
+            let recorderReportedSuccess: Bool?
+            switch completion.reason {
+            case .maximumDuration:
+                recorderReportedSuccess = completion.recorderReportedSuccess
+            case .unexpected(let reportedSuccess):
+                recorderReportedSuccess = reportedSuccess
+            }
+            if recorderReportedSuccess == false {
+                eventLogger.record(
+                    .recordingEndedUnexpectedly(
+                        recorderReportedSuccess: false
+                    )
+                )
+            }
+        }
+        guard beginExclusiveAction() else {
+            if case .success(let completion) = result,
+               completion.reason == .maximumDuration {
+                pendingMaximumDurationCompletion = true
+            }
+            return
+        }
+
+        pendingMaximumDurationCompletion = false
+        stopRecordingDurationMonitoring()
+        let intent = activeOutputIntent ?? .standard
+        let credential = activeCredential
+
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+
+            defer { self.completeExclusiveAction() }
+
+            switch result {
+            case .success(let completion):
+                switch completion.reason {
+                case .maximumDuration:
+                    self.eventLogger.record(.recordingLimitReached)
+                case .unexpected(let recorderReportedSuccess):
+                    if recorderReportedSuccess {
+                        self.eventLogger.record(
+                            .recordingEndedUnexpectedly(
+                                recorderReportedSuccess: true
+                            )
+                        )
+                    }
+                }
+                await self.stopRecordingAndTranscribe(
+                    intent: intent,
+                    credential: credential,
+                    automaticCompletion: completion
+                )
+            case .failure(let error):
+                guard let sessionID = self.activeSessionID else {
+                    return
+                }
+
+                self.finishSession(sessionID)
+                self.recordFailure(error, at: .recordingFinalization)
+                let message = Self.userFacingMessage(for: error)
+                self.status = .failure(message: message)
+                self.failurePresentation = self.failurePresentation(
+                    message: message,
+                    error: error,
+                    failedAttempt: nil
+                )
+            }
+        }
+    }
+
+    private func handleRecordingMaximumDurationWatchdog() {
+        guard status.voiceWorkPhase == .listening else {
+            return
+        }
+        guard beginExclusiveAction() else {
+            pendingMaximumDurationCompletion = true
+            return
+        }
+
+        pendingMaximumDurationCompletion = false
+        recordingCountdown = nil
+        let intent = activeOutputIntent ?? .standard
+        let credential = activeCredential
+        eventLogger.record(.recordingLimitReached)
+
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+
+            defer { self.completeExclusiveAction() }
+            await self.stopRecordingAndTranscribe(
+                intent: intent,
+                credential: credential,
+                automaticReasonAwaitingArtifact: .maximumDuration
             )
         }
     }
@@ -648,6 +1072,53 @@ final class DictationSessionController {
         }
 
         cuePlayer.play(cue)
+    }
+
+    private func startRecordingDurationMonitoring(
+        sessionID: Int,
+        settings: AppSettings
+    ) {
+        recordingCountdown = nil
+        recordingDurationMonitor.start { [weak self] elapsedWholeSecond in
+            guard let self,
+                  self.isCurrentSession(sessionID),
+                  self.status.voiceWorkPhase == .listening else {
+                return
+            }
+
+            if elapsedWholeSecond
+                >= VoiceSessionWarningSchedule.maximumDurationWholeSeconds {
+                self.handleRecordingMaximumDurationWatchdog()
+                return
+            }
+
+            self.recordingCountdown = VoiceSessionWarningSchedule.countdown(
+                atElapsedWholeSecond: elapsedWholeSecond
+            )
+            guard let warning = VoiceSessionWarningSchedule.warning(
+                atElapsedWholeSecond: elapsedWholeSecond
+            ),
+                settings.soundEnabled,
+                self.privateAudioOutputRouteProvider.isPrivateAudioOutputRoute()
+            else {
+                return
+            }
+
+            self.cuePlayer.play(.recordingLimitWarning(warning.urgency))
+        }
+    }
+
+    private func stopRecordingDurationMonitoring() {
+        recordingDurationMonitor.stop()
+        recordingCountdown = nil
+    }
+
+    private static func finalizedArtifactReachedMaximumDuration(
+        _ artifact: AudioRecordingArtifact
+    ) -> Bool {
+        let threshold = VoiceSessionPreferences.maximumUtteranceDuration
+            - maximumDurationClassificationTolerance
+        return artifact.duration.isFinite && artifact.duration >= threshold
     }
 
     private func recordRecoveryHistory(

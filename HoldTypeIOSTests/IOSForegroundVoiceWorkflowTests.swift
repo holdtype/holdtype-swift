@@ -160,6 +160,7 @@ struct IOSForegroundVoiceWorkflowTests {
             in: fixture.events.values
         )
         #expect(fixture.events.count("capture-reconcile") == 1)
+        #expect(fixture.events.count("capture-orphan-repair") == 0)
         #expect(fixture.events.count("lifecycle-recover-foreground") == 1)
         #expect(fixture.events.count("pending-load") == 1)
         #expect(fixture.events.count("latest-load") == 1)
@@ -182,6 +183,7 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(result.observation.latestAvailability == .absent)
         assertOrdered(
             [
+                "capture-orphan-repair",
                 "capture-reconcile",
                 "lifecycle-recover-process-launch",
                 "pending-load",
@@ -192,6 +194,7 @@ struct IOSForegroundVoiceWorkflowTests {
             in: fixture.events.values
         )
         #expect(fixture.events.count("capture-reconcile") == 1)
+        #expect(fixture.events.count("capture-orphan-repair") == 1)
         for forbidden in [
             "consent-observe",
             "credential-resolve",
@@ -203,6 +206,62 @@ struct IOSForegroundVoiceWorkflowTests {
         ] {
             #expect(fixture.events.count(forbidden) == 0)
         }
+    }
+
+    @Test
+    func blockedProcessLaunchOrphanRepairCannotDowngradeToDiscardOnly()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            orphanRepairObservations: [.blocked],
+            captureRecoveryObservations: [
+                .discardOnly(attemptID: UUID())
+            ]
+        )
+
+        let result = await fixture.workflow.recoverLifecycle(.processLaunch)
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(result.observation.recovery == .blocked)
+        assertOrdered(
+            [
+                "capture-orphan-repair",
+                "capture-reconcile",
+                "lifecycle-recover-process-launch",
+            ],
+            in: fixture.events.values
+        )
+        #expect(fixture.events.count("capture-orphan-repair") == 1)
+        #expect(fixture.events.count("capture-reconcile") == 1)
+    }
+
+    @Test
+    func cancellationDuringProcessLaunchOrphanRepairStopsBeforeObservation()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            suspensionTrigger: WorkflowEventTrigger("capture-orphan-repair")
+        )
+        let task = Task {
+            await fixture.workflow.recoverLifecycle(.processLaunch)
+        }
+        try await waitUntil {
+            fixture.events.contains("capture-orphan-repair")
+        }
+
+        task.cancel()
+        let result = await task.value
+
+        #expect(result.disposition == .pendingLocalRecovery)
+        #expect(
+            fixture.events.contains("capture-orphan-repair-cancelled")
+        )
+        #expect(fixture.events.count("capture-reconcile") == 0)
+        #expect(
+            !fixture.events.values.contains {
+                $0.hasPrefix("lifecycle-recover-")
+            }
+        )
     }
 
 
@@ -822,6 +881,81 @@ struct IOSForegroundVoiceWorkflowTests {
     }
 
     @Test
+    func maximumDurationFinalizesPendingAndContinuesProviderOnce()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            processorAcceptedText: "Accepted at five minutes",
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+
+        fixture.emitTerminal(.maximumDuration)
+        let resolution = await task.value
+
+        #expect(fixture.stopReasons == [.maximumDuration])
+        #expect(resolution.outcome == .resultReady)
+        #expect(resolution.failure == nil)
+        #expect(fixture.events.count("pending-prepare") == 1)
+        #expect(fixture.preparedPendingRetention == .savedFiveMinute)
+        #expect(fixture.events.count("provider-process") == 1)
+        assertOrdered(
+            [
+                "recording-stop-maximum",
+                "stop-boundary",
+                "pending-prepare",
+                "provider-process",
+            ],
+            in: fixture.events.values
+        )
+    }
+
+    @Test
+    func doneAtCanonicalFiveMinuteBoundaryStillUsesProtectedRetention()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            completedCapture: true,
+            finalizedCaptureDurationMilliseconds: 299_900,
+            processorAcceptedText: "Accepted at the boundary",
+            preacceptConsent: true
+        )
+        let token = IOSForegroundVoiceWorkflowAttemptToken()
+        let task = Task { @MainActor in
+            await fixture.workflow.start(
+                IOSForegroundVoiceWorkflowStartRequest(
+                    outputIntent: .standard,
+                    sceneLease: fixture.lease
+                ),
+                token: token,
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { fixture.events.contains("recording-start") }
+
+        #expect(fixture.workflow.finishUtterance(token) == .accepted)
+        let resolution = await task.value
+
+        #expect(fixture.stopReasons == [.done])
+        #expect(resolution.outcome == .resultReady)
+        #expect(fixture.events.count("pending-prepare") == 1)
+        #expect(fixture.preparedPendingRetention == .savedFiveMinute)
+        #expect(fixture.events.count("provider-process") == 1)
+    }
+
+    @Test
     func controllerCancelPreemptsConfiguredTail() async throws {
         var settings = IOSAppSettings.defaults
         settings.voiceSessionPreferences.recordingStopTailDuration = .seconds2
@@ -1402,7 +1536,7 @@ struct IOSForegroundVoiceWorkflowTests {
         var prepareCount = 0
         var releaseCount = 0
         let successful = IOSForegroundVoiceWorkflowCaptureHandoff(
-            prepare: { configuration in
+            prepare: { configuration, _ in
                 prepareCount += 1
                 return try makePendingRecording(
                     outputIntent: .standard,
@@ -1428,7 +1562,7 @@ struct IOSForegroundVoiceWorkflowTests {
         var failingPrepareCount = 0
         var failingReleaseCount = 0
         let failing = IOSForegroundVoiceWorkflowCaptureHandoff(
-            prepare: { _ in
+            prepare: { _, _ in
                 failingPrepareCount += 1
                 throw WorkflowFixtureError.configuredFailure
             },
@@ -1692,7 +1826,7 @@ struct IOSForegroundVoiceWorkflowTests {
 
         var handoff: IOSForegroundVoiceWorkflowCaptureHandoff? =
             IOSForegroundVoiceWorkflowCaptureHandoff(
-                prepare: { configuration in
+                prepare: { configuration, _ in
                     try makePendingRecording(
                         outputIntent: .standard,
                         phase: .readyForTranscription,
@@ -2613,6 +2747,125 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(fixture.events.count("recording-make") == 1)
     }
 
+    @Test
+    func savedRecordingRetryUsesWorkflowWithoutMutatingVoicePresentation()
+        async throws {
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            processorAcceptedText: "Recovered text",
+            preacceptConsent: true
+        )
+        let pending = try await fixture.seedPending()
+        let controller = IOSForegroundVoiceController(
+            client: fixture.workflow.client,
+            sceneRegistry: fixture.registry
+        )
+        await controller.activate()
+        let voicePresentation = controller.presentation
+
+        let retried = await fixture.workflow.savedRecordingClient.retry(
+            expected: .pending(
+                IOSV1PendingRecordingExpectation(recording: pending)
+            )
+        )
+
+        #expect(retried)
+        #expect(fixture.events.count("provider-process") == 1)
+        #expect(controller.presentation == voicePresentation)
+    }
+
+    @Test
+    func outputReadyRetryIgnoresInvalidProviderSetupAndUsesNoAuthority()
+        async throws {
+        var invalidSettings = IOSAppSettings.defaults
+        invalidSettings.transcriptionConfiguration = TranscriptionConfiguration(
+            language: .custom,
+            customLanguageCode: "invalid!"
+        )
+        let fixture = try await WorkflowFixture(
+            settings: invalidSettings,
+            permission: .granted,
+            credentialAvailable: false,
+            processorAcceptedText: "Saved locally"
+        )
+        let pending = try await fixture.seedPending(
+            textCheckpointStage: .outputReady
+        )
+
+        let retried = await fixture.workflow.savedRecordingClient.retry(
+            expected: .pending(
+                IOSV1PendingRecordingExpectation(recording: pending)
+            )
+        )
+
+        #expect(retried)
+        #expect(fixture.events.count("provider-process") == 1)
+        #expect(fixture.events.contains("processor-credential-none"))
+        #expect(fixture.events.contains("processor-consent-none"))
+        #expect(!fixture.events.contains("consent-observe"))
+        #expect(!fixture.events.contains("consent-revalidate"))
+        #expect(!fixture.events.contains("credential-resolve"))
+        #expect(!fixture.events.contains("credential-revalidate"))
+    }
+
+    @Test
+    func providerOutcomeUnknownRetryStopsBeforeConfigurationOrAuthority()
+        async throws {
+        var invalidSettings = IOSAppSettings.defaults
+        invalidSettings.transcriptionConfiguration = TranscriptionConfiguration(
+            language: .custom,
+            customLanguageCode: "invalid!"
+        )
+        let fixture = try await WorkflowFixture(
+            settings: invalidSettings,
+            permission: .granted,
+            credentialAvailable: false
+        )
+        let pending = try await fixture.seedPending(
+            textCheckpointStage: .translationInFlight
+        )
+
+        let retried = await fixture.workflow.savedRecordingClient.retry(
+            expected: .pending(
+                IOSV1PendingRecordingExpectation(recording: pending)
+            )
+        )
+
+        #expect(!retried)
+        #expect(!fixture.events.contains("settings-load"))
+        #expect(!fixture.events.contains("library-load"))
+        #expect(!fixture.events.contains("consent-observe"))
+        #expect(!fixture.events.contains("credential-resolve"))
+        #expect(!fixture.events.contains("provider-process"))
+    }
+
+    @Test
+    func completedSavedRecordingPromotesThenDispatchesExactlyOnce()
+        async throws {
+        let capture = try IOSV1CompletedCaptureRecoveryObservation
+            .qualificationFixture(
+                durationMilliseconds: 30_000,
+                byteCount: 4_096
+            )
+        let expectation = IOSV1CompletedCaptureRecoveryExpectation(
+            recording: capture
+        )
+        let fixture = try await WorkflowFixture(
+            permission: .granted,
+            processorAcceptedText: "Recovered source text",
+            preacceptConsent: true,
+            simulatedCompletedCaptureRecovery: expectation
+        )
+
+        let retried = await fixture.workflow.savedRecordingClient.retry(
+            expected: .completedCapture(expectation)
+        )
+
+        #expect(retried)
+        #expect(fixture.events.count("capture-recover") == 1)
+        #expect(fixture.events.count("provider-process") == 1)
+    }
+
 }
 
 private enum WorkflowCredentialResolution: Sendable {
@@ -2693,6 +2946,7 @@ private final class WorkflowFixture {
         terminalDuringRecordingStart:
             IOSForegroundVoiceWorkflowCaptureStopReason? = nil,
         completedCapture: Bool = false,
+        finalizedCaptureDurationMilliseconds: Int64 = 1_250,
         preserveCaptureOnCancelledStop: Bool = false,
         preserveCaptureOnInterruptedStop: Bool = false,
         pendingPrepareSuspendsUntilCancelled: Bool = false,
@@ -2717,8 +2971,12 @@ private final class WorkflowFixture {
         lifecycleRecoveryDisposition:
             IOSV1ContainingAppRecoveryDisposition = .complete,
         lifecycleRecoveryDelay: Duration? = nil,
+        orphanRepairObservations:
+            [IOSV1ForegroundVoiceCaptureRecoveryObservation?]? = nil,
         captureRecoveryObservations:
-            [IOSV1ForegroundVoiceCaptureRecoveryObservation]? = nil
+            [IOSV1ForegroundVoiceCaptureRecoveryObservation]? = nil,
+        simulatedCompletedCaptureRecovery:
+            IOSV1CompletedCaptureRecoveryExpectation? = nil
     ) async throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -2785,6 +3043,9 @@ private final class WorkflowFixture {
         let recordingActiveSequence = WorkflowValueSequence(
             recordingActiveValues ?? [recordingIsActive]
         )
+        let orphanRepairSequence = orphanRepairObservations.map(
+            WorkflowValueSequence.init
+        )
         let captureRecoverySequence = captureRecoveryObservations.map(
             WorkflowValueSequence.init
         )
@@ -2835,6 +3096,16 @@ private final class WorkflowFixture {
         workflow = IOSForegroundVoiceWorkflow(
             dependencies: IOSForegroundVoiceWorkflowDependencies(
                 sceneRegistry: registry,
+                repairOrphanedCaptureAtProcessLaunch: {
+                    let event = "capture-orphan-repair"
+                    events.record(event)
+                    await applyHook(event)
+                    if let orphanRepairSequence {
+                        return orphanRepairSequence.next()
+                    }
+                    return await owner
+                        .repairOrphanedCaptureAtProcessLaunch()
+                },
                 reconcileCaptureSources: {
                     events.record("capture-reconcile")
                     await applyHook("capture-reconcile")
@@ -3072,7 +3343,9 @@ private final class WorkflowFixture {
                             }
                             return .completed(
                                 IOSForegroundVoiceWorkflowCaptureHandoff(
-                                    prepare: { configuration in
+                                    durationMilliseconds:
+                                        finalizedCaptureDurationMilliseconds,
+                                    prepare: { configuration, retention in
                                         events.record("pending-prepare")
                                         if pendingPrepareSuspendsUntilCancelled {
                                             do {
@@ -3093,7 +3366,8 @@ private final class WorkflowFixture {
                                             forcesTextCorrection:
                                                 forcesTextCorrection,
                                             phase: .readyForTranscription,
-                                            configuration: configuration
+                                            configuration: configuration,
+                                            acceptedAudioRetention: retention
                                         )
                                         pendingBox.store(pending)
                                         return pending
@@ -3129,6 +3403,16 @@ private final class WorkflowFixture {
                 },
                 process: { request, progress in
                     events.record("provider-process")
+                    events.record(
+                        request.credential == nil
+                            ? "processor-credential-none"
+                            : "processor-credential-present"
+                    )
+                    events.record(
+                        request.consentObservation == nil
+                            ? "processor-consent-none"
+                            : "processor-consent-present"
+                    )
                     events.record(
                         "provider-force-correction-"
                             + String(request.forcesTextCorrection)
@@ -3182,6 +3466,23 @@ private final class WorkflowFixture {
                         transcriptionConfiguration: configuration
                     )
                 },
+                recoverCompletedCapture: { expected, configuration in
+                    events.record("capture-recover")
+                    if expected == simulatedCompletedCaptureRecovery {
+                        let pending = try makePendingRecording(
+                            attemptID: expected.attemptID,
+                            outputIntent: .standard,
+                            phase: .failed,
+                            configuration: configuration
+                        )
+                        pendingBox.store(pending)
+                        return pending
+                    }
+                    return try await owner.recoverCapture(
+                        expected: expected,
+                        transcriptionConfiguration: configuration
+                    )
+                },
                 discardCapture: { attemptID in
                     events.record("capture-discard")
                     try await owner.discardCapture(attemptID: attemptID)
@@ -3216,6 +3517,10 @@ private final class WorkflowFixture {
         terminalHandler?(reason)
     }
 
+    var preparedPendingRetention: IOSAcceptedAudioRetention? {
+        pendingBox.load()?.acceptedAudioRetention
+    }
+
     func emitAudio(_ event: IOSForegroundVoiceWorkflowAudioEvent) {
         audioEventHandler?(event)
     }
@@ -3233,12 +3538,16 @@ private final class WorkflowFixture {
     }
 
     func seedPending(
-        outputIntent: DictationOutputIntent = .standard
+        outputIntent: DictationOutputIntent = .standard,
+        transcriptionReplayBlocked: Bool = false,
+        textCheckpointStage: IOSV1PendingTextCheckpointStage? = nil
     ) async throws -> IOSV1PendingRecording {
         let pending = try makePendingRecording(
             outputIntent: outputIntent,
             phase: .failed,
-            configuration: .defaults
+            configuration: .defaults,
+            transcriptionReplayBlocked: transcriptionReplayBlocked,
+            textCheckpointStage: textCheckpointStage
         )
         pendingBox.store(pending)
         return pending
@@ -3461,7 +3770,11 @@ private func makePendingRecording(
     draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
     forcesTextCorrection: Bool = false,
     phase: IOSV1PendingRecordingPhase,
-    configuration: TranscriptionConfiguration
+    configuration: TranscriptionConfiguration,
+    acceptedAudioRetention: IOSAcceptedAudioRetention =
+        .recordingCachePolicy,
+    transcriptionReplayBlocked: Bool = false,
+    textCheckpointStage: IOSV1PendingTextCheckpointStage? = nil
 ) throws -> IOSV1PendingRecording {
     let transcriptionID: UUID? = switch phase {
     case .transcribing, .postProcessing, .outputDelivery:
@@ -3476,7 +3789,13 @@ private func makePendingRecording(
         forcesTextCorrection: forcesTextCorrection,
         phase: phase,
         transcriptionID: transcriptionID,
-        transcriptionConfiguration: configuration
+        transcriptionConfiguration: configuration,
+        acceptedAudioRetention: acceptedAudioRetention,
+        transcriptionReplayBlocked: transcriptionReplayBlocked,
+        acceptedTranscriptionID: textCheckpointStage.map { _ in UUID() },
+        acceptedTranscript: textCheckpointStage.map { _ in "Accepted text" },
+        textCheckpointStage: textCheckpointStage,
+        textCheckpointText: textCheckpointStage.map { _ in "Checkpoint text" }
     )
 }
 

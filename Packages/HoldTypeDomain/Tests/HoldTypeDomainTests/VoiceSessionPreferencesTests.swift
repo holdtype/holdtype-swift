@@ -5,6 +5,10 @@ import Testing
 struct VoiceSessionPreferencesTests {
     @Test func publicValuesAreSendable() {
         requireSendable(RecordingStopTailDuration.self)
+        requireSendable(VoiceSessionWarningUrgency.self)
+        requireSendable(VoiceSessionWarning.self)
+        requireSendable(VoiceSessionCountdown.self)
+        requireSendable(VoiceSessionMilestone.self)
         requireSendable(VoiceSessionPreferences.self)
     }
 
@@ -16,6 +20,129 @@ struct VoiceSessionPreferencesTests {
         #expect(preferences.recordingStopTailDuration == .off)
         #expect(VoiceSessionPreferences.maximumUtteranceDuration == 300)
         #expect(VoiceSessionPreferences.quickSessionDuration == 300)
+    }
+
+    @Test func warningScheduleMatchesTheFiveMinuteContract() {
+        let expectedElapsedSeconds = [
+            240,
+            270,
+            290,
+            292,
+            294,
+            295,
+            296,
+            297,
+            298,
+            299,
+        ]
+
+        #expect(VoiceSessionWarningSchedule.maximumDurationWholeSeconds == 300)
+        #expect(VoiceSessionWarningSchedule.countdownStartElapsedWholeSecond == 240)
+        #expect(
+            VoiceSessionWarningSchedule.warnings.map(\.elapsedWholeSeconds)
+                == expectedElapsedSeconds
+        )
+        #expect(
+            VoiceSessionWarningSchedule.warnings.map(\.remainingWholeSeconds)
+                == expectedElapsedSeconds.map { 300 - $0 }
+        )
+        #expect(
+            VoiceSessionWarningSchedule.warnings.map(\.urgency)
+                == [.amber, .amber] + Array(repeating: .red, count: 8)
+        )
+    }
+
+    @Test func terminalMilestoneIsDistinctFromWarnings() {
+        let milestones = VoiceSessionWarningSchedule.milestones
+
+        #expect(milestones.count == 11)
+        #expect(milestones.dropLast().allSatisfy {
+            if case .warning = $0 {
+                return true
+            }
+            return false
+        })
+        #expect(milestones.last == .maximumDurationReached)
+        #expect(milestones.map(\.elapsedWholeSeconds) == [
+            240,
+            270,
+            290,
+            292,
+            294,
+            295,
+            296,
+            297,
+            298,
+            299,
+            300,
+        ])
+        #expect(
+            VoiceSessionWarningSchedule.warning(atElapsedWholeSecond: 300) == nil
+        )
+        #expect(
+            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 300)
+                == .maximumDurationReached
+        )
+    }
+
+    @Test func wholeSecondLookupDoesNotDependOnFloatingPointEquality() {
+        #expect(
+            VoiceSessionWarningSchedule.warning(atElapsedWholeSecond: 240)
+                == VoiceSessionWarningSchedule.warnings[0]
+        )
+        #expect(
+            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 239) == nil
+        )
+        #expect(
+            VoiceSessionWarningSchedule.milestone(atElapsedWholeSecond: 241) == nil
+        )
+
+        let crossed = VoiceSessionWarningSchedule.milestones(
+            afterElapsedWholeSecond: 289,
+            throughElapsedWholeSecond: 295
+        )
+        #expect(crossed.map(\.elapsedWholeSeconds) == [290, 292, 294, 295])
+        #expect(VoiceSessionWarningSchedule.milestones(
+            afterElapsedWholeSecond: 295,
+            throughElapsedWholeSecond: 295
+        ).isEmpty)
+        #expect(VoiceSessionWarningSchedule.milestones(
+            afterElapsedWholeSecond: 300,
+            throughElapsedWholeSecond: 299
+        ).isEmpty)
+    }
+
+    @Test func countdownUsesWholeSecondsAndChangesUrgencyAtTwoNinety() {
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 239
+        ) == nil)
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 240
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 60,
+            urgency: .amber
+        ))
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 289
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 11,
+            urgency: .amber
+        ))
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 290
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 10,
+            urgency: .red
+        ))
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 299
+        ) == VoiceSessionCountdown(
+            remainingWholeSeconds: 1,
+            urgency: .red
+        ))
+        #expect(VoiceSessionWarningSchedule.countdown(
+            atElapsedWholeSecond: 300
+        ) == nil)
     }
 
     @Test func stopTailCasesPreserveLegacyRawValuesAndDurations() {

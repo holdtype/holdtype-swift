@@ -78,7 +78,8 @@ final class IOSForegroundVoiceRecorderBridge {
     ) async throws -> IOSForegroundVoiceRecorderBridgeDriver
     typealias PreparePending = @MainActor @Sendable (
         IOSVoiceRecorderCompletedCaptureHandoff,
-        TranscriptionConfiguration
+        TranscriptionConfiguration,
+        IOSAcceptedAudioRetention
     ) async throws -> IOSV1PendingRecording
 
     private let makeDriver: MakeDriver
@@ -111,10 +112,11 @@ final class IOSForegroundVoiceRecorderBridge {
             )
             return IOSForegroundVoiceRecorderBridgeDriver(adapter: adapter)
         }
-        preparePending = { handoff, configuration in
+        preparePending = { handoff, configuration, retention in
             try await handoff.preparePending(
                 using: persistenceOwner,
-                transcriptionConfiguration: configuration
+                transcriptionConfiguration: configuration,
+                acceptedAudioRetention: retention
             )
         }
         self.feedback = feedback
@@ -171,6 +173,7 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
     private var terminalResultWasHandled = false
     private var stopTask:
         Task<IOSForegroundVoiceWorkflowCaptureStopResult, Never>?
+    private var limitWarningTask: Task<Void, Never>?
     private var retainedCaptureBegan = false
     private var feedbackCloseWasForwarded = false
 
@@ -225,6 +228,7 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
                 }
             }
             retainedCaptureBegan = true
+            scheduleLimitWarnings()
             return .started
         case .cancelled:
             if let feedbackHandle {
@@ -321,7 +325,40 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
             return
         }
         feedbackCloseWasForwarded = true
+        limitWarningTask?.cancel()
+        limitWarningTask = nil
         await feedback?.recorderDidClose(reason, for: feedbackHandle)
+    }
+
+    private func scheduleLimitWarnings() {
+        guard let feedback, let feedbackHandle else {
+            return
+        }
+        let clock = ContinuousClock()
+        let startedAt = clock.now
+        limitWarningTask = Task { @MainActor [weak self] in
+            for warning in VoiceSessionWarningSchedule.warnings {
+                do {
+                    try await clock.sleep(
+                        until: startedAt.advanced(
+                            by: .seconds(warning.elapsedWholeSeconds)
+                        )
+                    )
+                } catch {
+                    return
+                }
+                guard let self,
+                      !Task.isCancelled,
+                      self.retainedCaptureBegan,
+                      !self.feedbackCloseWasForwarded else {
+                    return
+                }
+                feedback.playLimitWarning(
+                    warning,
+                    for: feedbackHandle
+                )
+            }
+        }
     }
 
     private func map(
@@ -335,8 +372,13 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
             }
             return .completed(
                 IOSForegroundVoiceWorkflowCaptureHandoff(
-                    prepare: { [preparePending] configuration in
-                        try await preparePending(handoff, configuration)
+                    durationMilliseconds: capture.durationMilliseconds,
+                    prepare: { [preparePending] configuration, retention in
+                        try await preparePending(
+                            handoff,
+                            configuration,
+                            retention
+                        )
                     },
                     release: { handoff.release() }
                 )

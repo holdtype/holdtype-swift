@@ -55,7 +55,10 @@ public struct OpenAIReaderTranscriptionRequest: Sendable {
         case invalidLanguageCode
     }
 
-    public static let maximumDurationMillisecondsExclusive: Int64 = 300_000
+    /// Accepts recorder close post-roll after the 300-second capture deadline.
+    /// This is a local media-validation tolerance, not a provider duration limit.
+    public static let maximumDurationMillisecondsInclusive =
+        VoiceSessionPreferences.maximumFinalizedMediaDurationMilliseconds
     public static let maximumAudioByteCountExclusive: Int64 = 25_000_000
 
     public let format: AudioFormat
@@ -77,7 +80,7 @@ public struct OpenAIReaderTranscriptionRequest: Sendable {
         reader: OpenAITranscriptionAudioReader
     ) throws {
         guard durationMilliseconds > 0,
-              durationMilliseconds < Self.maximumDurationMillisecondsExclusive else {
+              durationMilliseconds <= Self.maximumDurationMillisecondsInclusive else {
             throw ValidationError.invalidDurationMilliseconds
         }
         guard byteCount > 0,

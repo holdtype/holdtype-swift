@@ -40,7 +40,7 @@ struct OpenAIReaderTranscriptionRequestTests {
         #expect(!requestDump.contains("private prompt"))
         #expect(!requestDump.contains("gpt-4o-transcribe"))
 
-        for duration in [Int64.min, -1, 0, 300_000, Int64.max] {
+        for duration in [Int64.min, -1, 0, 302_001, Int64.max] {
             #expect(
                 throws: OpenAIReaderTranscriptionRequest.ValidationError
                     .invalidDurationMilliseconds
@@ -86,7 +86,7 @@ struct OpenAIReaderTranscriptionRequestTests {
 
         _ = try makeRequest(
             format: .wav,
-            durationMilliseconds: 299_999,
+            durationMilliseconds: 302_000,
             byteCount: 1,
             languageCode: nil,
             reader: OpenAITranscriptionAudioReader { _, _ in Data() }

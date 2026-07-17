@@ -1647,7 +1647,7 @@ struct IOSVoiceHomeView: View {
                 )
 
             Text(
-                "This brief app-owned session lets HoldType Keyboard control one recording for up to 60 seconds. Start it immediately before returning to the field where you want to dictate. The existing Voice pipeline owns recording, processing, Latest, and History."
+                "Start this brief app-owned session immediately before returning to the field where you want to dictate. Its 60-second limit applies only while waiting in Ready; active recording has a five-minute limit, and Processing follows the provider timeout. The existing Voice pipeline owns recording, processing, Latest, and History."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -1928,38 +1928,55 @@ private struct IOSVoiceStatusRow: View {
                     from: listeningStartedAt,
                     at: context.date
                 )
-                statusContent(elapsedText: elapsedText(totalSeconds))
+                let countdown = VoiceSessionWarningSchedule.countdown(
+                    atElapsedWholeSecond: totalSeconds
+                )
+                statusContent(
+                    timeText: countdown.map(countdownText)
+                        ?? elapsedText(totalSeconds),
+                    countdownUrgency: countdown?.urgency
+                )
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(status.title)
                     .accessibilityValue(
                         IOSAccessibilityAnnouncement.message(
                             title: status.detail,
-                            detail: "Elapsed time "
-                                + IOSAccessibilityAnnouncement
-                                .spokenElapsedTime(
-                                    totalSeconds: totalSeconds
-                                )
+                            detail: countdown.map(accessibilityCountdownText)
+                                ?? "Elapsed time "
+                                    + IOSAccessibilityAnnouncement
+                                    .spokenElapsedTime(
+                                        totalSeconds: totalSeconds
+                                    )
                         )
                     )
             }
         } else {
-            statusContent(elapsedText: nil)
+            statusContent(timeText: nil, countdownUrgency: nil)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(status.title)
                 .accessibilityValue(status.detail)
         }
     }
 
-    private func statusContent(elapsedText: String?) -> some View {
+    private func statusContent(
+        timeText: String?,
+        countdownUrgency: VoiceSessionWarningUrgency?
+    ) -> some View {
         Label {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(status.title)
                     Spacer(minLength: 8)
-                    if let elapsedText {
-                        Text(elapsedText)
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                    if let timeText {
+                        Text(timeText)
+                            .font(
+                                countdownUrgency == nil
+                                    ? .subheadline.monospacedDigit()
+                                    : .subheadline.monospacedDigit().bold()
+                            )
+                            .foregroundStyle(
+                                countdownColor(countdownUrgency)
+                            )
                     }
                 }
                 Text(status.detail)
@@ -1987,6 +2004,29 @@ private struct IOSVoiceStatusRow: View {
             totalSeconds / 60,
             totalSeconds % 60
         )
+    }
+
+    private func countdownText(_ countdown: VoiceSessionCountdown) -> String {
+        "\(countdown.remainingWholeSeconds)s"
+    }
+
+    private func accessibilityCountdownText(
+        _ countdown: VoiceSessionCountdown
+    ) -> String {
+        "Recording limit in \(countdown.remainingWholeSeconds) seconds"
+    }
+
+    private func countdownColor(
+        _ urgency: VoiceSessionWarningUrgency?
+    ) -> Color {
+        switch urgency {
+        case .amber:
+            return .orange
+        case .red:
+            return .red
+        case nil:
+            return .secondary
+        }
     }
 }
 

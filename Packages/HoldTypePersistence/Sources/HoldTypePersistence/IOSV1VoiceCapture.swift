@@ -414,7 +414,9 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
         }
     }
 
-    func completeAfterRecorderClose() async throws
+    func completeAfterRecorderClose(
+        fallbackDurationMilliseconds: Int64? = nil
+    ) async throws
         -> IOSV1VoiceCaptureFinalizationResult {
         try begin(allowed: [.finalizing])
         do {
@@ -423,19 +425,34 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
             guard before.byteCount > 0 else {
                 return try await discardInvalid(.empty)
             }
-            guard before.byteCount < IOSV1VoiceCaptureOwner.maximumAudioByteCount else {
-                return try await discardInvalid(.invalidMedia)
+            guard before.byteCount
+                    < IOSV1VoiceCaptureOwner.maximumAudioByteCount else {
+                // A bounded reader cannot safely admit this source, but byte
+                // count alone is never authority to destroy the only capture.
+                // Leave finalizing ownership intact for explicit Discard.
+                finish()
+                throw IOSV1VoiceCaptureError.mediaValidationFailed
             }
+            let maximumDuration = VoiceSessionPreferences
+                .maximumFinalizedMediaDurationMilliseconds
+            let monotonicFallback = fallbackDurationMilliseconds
+                .flatMap { $0 >= 300 ? min($0, maximumDuration) : nil } ?? 0
             let duration: Int64
             do {
-                duration = try mediaValidator.durationMilliseconds(
+                let measured = try mediaValidator.durationMilliseconds(
                     fileDescriptor: handle.fileDescriptor,
                     byteCount: before.byteCount,
                     timeoutNanoseconds:
                         IOSV1VoiceCaptureOwner.mediaValidationTimeoutNanoseconds
                 )
+                // Zero is the durable unknown/suspect marker. A bogus short
+                // probe must not destroy a non-empty finalized recording.
+                duration = measured >= 300 && measured <= maximumDuration
+                    ? measured : monotonicFallback
             } catch IOSV1VoiceCaptureError.mediaValidationFailed {
-                return try await discardInvalid(.invalidMedia)
+                duration = monotonicFallback
+            } catch IOSV1VoiceCaptureError.mediaValidationTimedOut {
+                duration = monotonicFallback
             } catch {
                 finish()
                 throw error
@@ -445,10 +462,11 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
                 finish()
                 throw IOSV1VoiceCaptureError.sourceChanged
             }
-            if duration < 300 { return try await discardInvalid(.tooShort) }
-            if duration >= 300_000 {
-                return try await discardInvalid(.maximumDurationReached)
-            }
+            // The recorder requests its stop at five minutes, but a delayed
+            // callback can make the monotonic fallback larger. Clamp that
+            // fallback to the finalized-media tolerance. An abnormal media
+            // probe without a trustworthy fallback becomes duration 0, so the
+            // source remains recoverable instead of being deleted here.
             _ = try await repository.completeCapture(
                 attemptID: handle.attemptID,
                 durationMilliseconds: duration,
@@ -570,11 +588,14 @@ final class IOSV1VoiceCompletedCapture: @unchecked Sendable {
 
     func promote(
         transcriptionConfiguration: TranscriptionConfiguration,
+        acceptedAudioRetention: IOSAcceptedAudioRetention =
+            .recordingCachePolicy,
         initialStatus: IOSVoiceStatePendingStatus = .ready
     ) async throws -> IOSVoiceStatePending {
         let pending = try await repository.promoteCapture(
             attemptID: attemptID,
             transcriptionConfiguration: transcriptionConfiguration,
+            acceptedAudioRetention: acceptedAudioRetention,
             initialStatus: initialStatus
         )
         lease.release()
