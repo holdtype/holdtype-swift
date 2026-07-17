@@ -465,13 +465,14 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   Provider work has explicit timeout and cancellation and never starts
   automatically after relaunch.
 - One accepted result may invoke automatic insertion at most once only while
-  the originating live controller is currently active and visible, owns the
-  request, and the current non-empty document identifier exactly matches its
-  immutable non-empty source identifier. An inactive controller may observe
-  state but cannot claim or consume delivery; eligibility is rechecked when it
-  becomes visible again. Missing or changed identity, controller recreation,
-  stale ownership, or prior disqualification permanently disables automatic
-  insertion for that request.
+  a live controller is currently active and visible, owns the exact request
+  through its originating lifetime or exact consumed handoff, and the current
+  non-empty document identifier exactly matches its immutable non-empty source
+  identifier. An inactive controller may observe state but cannot claim or
+  consume delivery; eligibility is rechecked when it becomes visible again.
+  Missing or changed identity, stale ownership, or prior disqualification
+  permanently disables automatic insertion for that request. Controller
+  recreation alone never authorizes a replacement destination.
 - The transient result is published only for the request whose accepted Latest
   record came from that same keyboard capture. Provider failure, cancellation,
   a duplicate command, or a result from another request never fabricates a

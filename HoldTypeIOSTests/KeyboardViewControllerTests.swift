@@ -1014,7 +1014,8 @@ struct KeyboardViewControllerTests {
     }
 
     @Test
-    func consumedHandoffAnchorsReturnedDocumentAndReusesWarmSession() throws {
+    func consumedHandoffToDifferentDocumentRequiresExplicitRecoveryAndReusesWarmSession()
+        throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()
         let sourceDocumentID = UUID()
@@ -1045,24 +1046,14 @@ struct KeyboardViewControllerTests {
         let recreatedController = harness.makeController()
         recreatedController.loadViewIfNeeded()
 
-        let claim = try #require(harness.savedCommands.last)
-        #expect(claim.kind == .claimDelivery)
+        #expect(harness.savedCommands.isEmpty)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        let pendingState = try #require(harness.dictationState)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: pendingState.sessionID,
-                attemptID: pendingState.attemptID,
-                requestID: pendingState.requestID,
-                sourceDocumentID: pendingState.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                result: pendingState.result,
-                publishedAt: pendingState.publishedAt,
-                expiresAt: pendingState.expiresAt
-            )
+
+        try insertRecoverableResult(
+            "Delivered after return",
+            controller: recreatedController,
+            harness: harness
         )
-        recreatedController.textDidChange(nil)
 
         #expect(harness.proxy.insertedTexts == ["Delivered after return"])
         #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
