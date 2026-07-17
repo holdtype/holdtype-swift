@@ -574,8 +574,11 @@ struct KeyboardViewControllerTests {
             in: controller.view
         )
         #expect(latestButton.isEnabled)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["Latest fallback text"])
+        try insertRecoverableResult(
+            "Latest fallback text",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func resultFromAnotherRequestNeverInserts() throws {
@@ -732,8 +735,11 @@ struct KeyboardViewControllerTests {
 
         #expect(harness.savedCommands.isEmpty)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["Lifecycle A to B to A"])
+        try insertRecoverableResult(
+            "Lifecycle A to B to A",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func hiddenControllerNeverClaimsOrConsumesDeliveryGrant() throws {
@@ -806,8 +812,11 @@ struct KeyboardViewControllerTests {
         controller.endAppearanceTransition()
         #expect(harness.savedCommands.map(\.kind) == [.claimDelivery])
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["Deferred while hidden"])
+        try insertRecoverableResult(
+            "Deferred while hidden",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func recreatedExtensionNeverReplaysAnotherProcessDeliveryClaim()
@@ -1044,10 +1053,27 @@ struct KeyboardViewControllerTests {
             in: recreatedController.view
         )
         #expect(latestButton.isEnabled)
-        recreatedController.keyboardView.onLatestRequested?()
+        try insertRecoverableResult(
+            "Preserved in Latest",
+            controller: recreatedController,
+            harness: harness
+        )
 
-        #expect(harness.proxy.insertedTexts == ["Preserved in Latest"])
-        #expect(harness.savedCommands.isEmpty)
+        let completedState = try #require(harness.dictationState)
+        harness.savedCommands.removeAll()
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: completedState.sessionID,
+                phase: .ready,
+                publishedAt: now.addingTimeInterval(2),
+                expiresAt: now.addingTimeInterval(60)
+            )
+        )
+        recreatedController.textDidChange(nil)
+        recreatedController.keyboardView.onMicrophoneRequested?()
+
+        #expect(harness.savedCommands.map(\.kind) == [.start])
+        #expect(harness.savedHandoffIntents.isEmpty)
     }
 
     @Test func transientRecoveryTakesPriorityOverOlderHistoryLatest() throws {
@@ -1091,10 +1117,11 @@ struct KeyboardViewControllerTests {
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        controller.keyboardView.onLatestRequested?()
-
-        #expect(harness.proxy.insertedTexts == ["Current transient result"])
-        #expect(harness.savedCommands.isEmpty)
+        try insertRecoverableResult(
+            "Current transient result",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func recreatedControllerDocumentChangePreventsAutomaticInsertion()
@@ -1272,9 +1299,11 @@ struct KeyboardViewControllerTests {
         )
         #expect(latestButton.isEnabled)
 
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["Explicit recovery"])
-        #expect(harness.savedCommands.isEmpty)
+        try insertRecoverableResult(
+            "Explicit recovery",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func documentChangeAfterClaimPreventsInsertionAndAcknowledgement()
@@ -1459,11 +1488,14 @@ struct KeyboardViewControllerTests {
 
         #expect(harness.savedCommands.isEmpty)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["A to B to A"])
+        try insertRecoverableResult(
+            "A to B to A",
+            controller: controller,
+            harness: harness
+        )
     }
 
-    @Test func recreatedControllerWithSameDocumentCannotAutoInsert() throws {
+    @Test func recreatedControllerWithSameDocumentCanAutoInsert() throws {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let requestID = UUID()
         let documentID = UUID()
@@ -1493,10 +1525,27 @@ struct KeyboardViewControllerTests {
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
 
-        #expect(harness.savedCommands.isEmpty)
+        let claim = try #require(harness.savedCommands.last)
+        #expect(claim.kind == .claimDelivery)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
+        let state = try #require(harness.dictationState)
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: state.sessionID,
+                attemptID: state.attemptID,
+                requestID: state.requestID,
+                sourceDocumentID: state.sourceDocumentID,
+                deliveryClaimID: claim.deliveryClaimID,
+                phase: .resultReady,
+                result: state.result,
+                publishedAt: state.publishedAt,
+                expiresAt: state.expiresAt
+            )
+        )
+        controller.textDidChange(nil)
+
         #expect(harness.proxy.insertedTexts == ["Recreated controller result"])
+        #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
     }
 
     @Test func changedOrMissingDocumentCannotReconnectOrAutoInsert() throws {
@@ -1634,9 +1683,11 @@ struct KeyboardViewControllerTests {
 
         #expect(harness.savedCommands.isEmpty)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(harness.proxy.insertedTexts == ["Delayed five-minute result"])
-        #expect(harness.savedCommands.isEmpty)
+        try insertRecoverableResult(
+            "Delayed five-minute result",
+            controller: controller,
+            harness: harness
+        )
     }
 
     @Test func processingExpiryReloadsNewerResultForExplicitRecovery()
@@ -1694,12 +1745,11 @@ struct KeyboardViewControllerTests {
         staleProcessingExpiry()
         controller.textDidChange(nil)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(
-            harness.proxy.insertedTexts
-                == ["Result published before processing expiry"]
+        try insertRecoverableResult(
+            "Result published before processing expiry",
+            controller: controller,
+            harness: harness
         )
-        #expect(harness.savedCommands.isEmpty)
     }
 
     @Test func resultAfterProcessingExpiryReconnectsForExplicitRecovery()
@@ -1764,12 +1814,11 @@ struct KeyboardViewControllerTests {
         processingExpiry()
         controller.textDidChange(nil)
         #expect(harness.proxy.insertedTexts.isEmpty)
-        controller.keyboardView.onLatestRequested?()
-        #expect(
-            harness.proxy.insertedTexts
-                == ["Result published after Processing TTL"]
+        try insertRecoverableResult(
+            "Result published after Processing TTL",
+            controller: controller,
+            harness: harness
         )
-        #expect(harness.savedCommands.isEmpty)
     }
 
     @Test func canonicalReadyRetiresExpiredProcessingReconnect() throws {
@@ -2121,6 +2170,46 @@ struct KeyboardViewControllerTests {
 
         #expect(harness.savedHandoffIntents.map(\.action) == [.translate])
         #expect(harness.openedURLs.count == 1)
+    }
+
+    private func insertRecoverableResult(
+        _ expectedText: String,
+        controller: KeyboardViewController,
+        harness: KeyboardControllerHarness
+    ) throws {
+        let textsBeforeInsertion = harness.proxy.insertedTexts
+        controller.keyboardView.onLatestRequested?()
+
+        if harness.proxy.insertedTexts == textsBeforeInsertion + [expectedText] {
+            #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
+            return
+        }
+
+        let claim = try #require(harness.savedCommands.last)
+        #expect(claim.kind == .claimDelivery)
+        #expect(harness.proxy.insertedTexts == textsBeforeInsertion)
+        let state = try #require(harness.dictationState)
+        harness.dictationState = try #require(
+            KeyboardDictationStateRecord(
+                sessionID: state.sessionID,
+                attemptID: state.attemptID,
+                requestID: state.requestID,
+                sourceDocumentID: state.sourceDocumentID,
+                deliveryClaimID: claim.deliveryClaimID,
+                phase: .resultReady,
+                translationAvailable: state.translationAvailable,
+                result: state.result,
+                publishedAt: state.publishedAt,
+                expiresAt: state.expiresAt
+            )
+        )
+        controller.textDidChange(nil)
+
+        #expect(
+            harness.proxy.insertedTexts
+                == textsBeforeInsertion + [expectedText]
+        )
+        #expect(harness.savedCommands.last?.kind == .acknowledgeDelivery)
     }
 }
 

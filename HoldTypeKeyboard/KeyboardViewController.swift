@@ -334,6 +334,7 @@ final class KeyboardViewController: UIInputViewController {
     private var recoverableDictationResult: (requestID: UUID, text: String)?
     private var insertedDictationRequestID: UUID?
     private var pendingDeliveryClaimID: UUID?
+    private var pendingExplicitDeliveryRequestID: UUID?
     private var lastSeenDictationSessionID: UUID?
     private var pendingDictationCommand: KeyboardDictationCommandKind?
     private var pendingHandoffRequestID: UUID?
@@ -670,6 +671,7 @@ final class KeyboardViewController: UIInputViewController {
                 lastSeenDictationSessionID = state.sessionID
                 insertedDictationRequestID = nil
                 pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
                 activeDictationOwnership = nil
                 automaticDeliveryDisqualifiedRequestID = nil
                 recoverableDictationResult = nil
@@ -719,6 +721,7 @@ final class KeyboardViewController: UIInputViewController {
                 // unsolicited stale state must not reconnect by document.
                 allowsStateReconnection = false
                 pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
                 forcesSessionNotRunning = false
             }
             if state.phase == .listening
@@ -743,6 +746,7 @@ final class KeyboardViewController: UIInputViewController {
                 recoverableDictationResult = nil
                 pendingDictationCommand = nil
                 pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
                 forcesSessionNotRunning = state.phase == .unavailable
             }
             scheduleListeningCountdownIfNeeded(for: state)
@@ -896,6 +900,37 @@ final class KeyboardViewController: UIInputViewController {
             cancelDocumentIdentifierRetry()
             return
         }
+        if pendingExplicitDeliveryRequestID == requestID {
+            guard let grantedClaimID = state.deliveryClaimID else {
+                return
+            }
+            guard pendingDeliveryClaimID == grantedClaimID else {
+                Self.deliveryLogger.error(
+                    "explicit delivery grant has no local claim"
+                )
+                recordDelivery(
+                    .grantRejected,
+                    requestID: requestID,
+                    claimID: grantedClaimID,
+                    sourceDocumentID: ownership.sourceDocumentID,
+                    currentDocumentID: currentDocumentID
+                )
+                pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
+                exposeRecoverableResult(requestID: requestID, result: result)
+                return
+            }
+            consumeGrantedDelivery(
+                result: result,
+                requestID: requestID,
+                claimID: grantedClaimID,
+                documentProxy: documentProxy,
+                sourceDocumentID: ownership.sourceDocumentID,
+                currentDocumentID: currentDocumentID,
+                isExplicitRecovery: true
+            )
+            return
+        }
         guard automaticDeliveryRequestID == requestID else {
             Self.deliveryLogger.info("originating controller is unavailable")
             recordDelivery(
@@ -992,53 +1027,15 @@ final class KeyboardViewController: UIInputViewController {
                 )
                 return
             }
-            Self.deliveryLogger.info("delivery grant accepted")
-            recordDelivery(
-                .grantAccepted,
+            consumeGrantedDelivery(
+                result: result,
                 requestID: requestID,
                 claimID: grantedClaimID,
+                documentProxy: documentProxy,
                 sourceDocumentID: immutableSourceDocumentID,
-                currentDocumentID: currentDocumentID
+                currentDocumentID: currentDocumentID,
+                isExplicitRecovery: false
             )
-            insertedDictationRequestID = requestID
-            recoverableDictationResult = nil
-            beginDeliveryObservation(
-                requestID: requestID,
-                claimID: grantedClaimID
-            )
-            recordDelivery(
-                .insertInvoked,
-                requestID: requestID,
-                claimID: grantedClaimID,
-                sourceDocumentID: immutableSourceDocumentID,
-                currentDocumentID: currentDocumentID
-            )
-            dependencies.recordDiagnostic(.keyboardInsertInvoked(.dictation))
-            insertText(result, into: documentProxy)
-            recordDelivery(
-                .insertReturned,
-                requestID: requestID,
-                claimID: grantedClaimID,
-                sourceDocumentID: immutableSourceDocumentID,
-                currentDocumentID: currentDocumentID
-            )
-            scheduleDeliveryObservationTimeout(
-                requestID: requestID,
-                claimID: grantedClaimID
-            )
-            Self.deliveryLogger.info("document proxy insertion requested")
-            recordDelivery(
-                .acknowledgementRequested,
-                requestID: requestID,
-                claimID: grantedClaimID,
-                sourceDocumentID: immutableSourceDocumentID,
-                currentDocumentID: currentDocumentID
-            )
-            _ = sendDictationCommand(
-                .acknowledgeDelivery,
-                deliveryClaimID: grantedClaimID
-            )
-            pendingDeliveryClaimID = nil
         } else if pendingDeliveryClaimID == nil {
             let claimID = dependencies.makeDeliveryClaimID()
             pendingDeliveryClaimID = claimID
@@ -1060,12 +1057,73 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    private func consumeGrantedDelivery(
+        result: String,
+        requestID: UUID,
+        claimID: UUID,
+        documentProxy: any UITextDocumentProxy,
+        sourceDocumentID: UUID?,
+        currentDocumentID: UUID?,
+        isExplicitRecovery: Bool
+    ) {
+        Self.deliveryLogger.info("delivery grant accepted")
+        recordDelivery(
+            .grantAccepted,
+            requestID: requestID,
+            claimID: claimID,
+            sourceDocumentID: sourceDocumentID,
+            currentDocumentID: currentDocumentID
+        )
+        insertedDictationRequestID = requestID
+        recoverableDictationResult = nil
+        beginDeliveryObservation(requestID: requestID, claimID: claimID)
+        recordDelivery(
+            .insertInvoked,
+            requestID: requestID,
+            claimID: claimID,
+            sourceDocumentID: sourceDocumentID,
+            currentDocumentID: currentDocumentID
+        )
+        dependencies.recordDiagnostic(
+            .keyboardInsertInvoked(
+                isExplicitRecovery ? .latest : .dictation
+            )
+        )
+        insertText(result, into: documentProxy)
+        recordDelivery(
+            .insertReturned,
+            requestID: requestID,
+            claimID: claimID,
+            sourceDocumentID: sourceDocumentID,
+            currentDocumentID: currentDocumentID
+        )
+        scheduleDeliveryObservationTimeout(
+            requestID: requestID,
+            claimID: claimID
+        )
+        Self.deliveryLogger.info("document proxy insertion requested")
+        recordDelivery(
+            .acknowledgementRequested,
+            requestID: requestID,
+            claimID: claimID,
+            sourceDocumentID: sourceDocumentID,
+            currentDocumentID: currentDocumentID
+        )
+        _ = sendDictationCommand(
+            .acknowledgeDelivery,
+            deliveryClaimID: claimID
+        )
+        pendingDeliveryClaimID = nil
+        pendingExplicitDeliveryRequestID = nil
+    }
+
     private func disqualifyAutomaticDelivery(
         requestID: UUID,
         result: String
     ) {
         automaticDeliveryDisqualifiedRequestID = requestID
         pendingDeliveryClaimID = nil
+        pendingExplicitDeliveryRequestID = nil
         cancelDocumentIdentifierRetry()
         exposeRecoverableResult(requestID: requestID, result: result)
     }
@@ -1373,6 +1431,7 @@ final class KeyboardViewController: UIInputViewController {
                 recoverableDictationResult = nil
                 pendingDictationCommand = nil
                 pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
                 forcesSessionNotRunning = true
             }
         } catch {
@@ -1385,6 +1444,7 @@ final class KeyboardViewController: UIInputViewController {
             )
             pendingDictationCommand = nil
             pendingDeliveryClaimID = nil
+            pendingExplicitDeliveryRequestID = nil
             activeDictationOwnership = nil
             automaticDeliveryRequestID = nil
             automaticDeliveryDisqualifiedRequestID = nil
@@ -1409,13 +1469,32 @@ final class KeyboardViewController: UIInputViewController {
 
     private func insertLatestOrRecoverableResult() {
         if let recoverableDictationResult {
-            automaticDeliveryDisqualifiedRequestID =
-                recoverableDictationResult.requestID
-            insertedDictationRequestID = recoverableDictationResult.requestID
-            pendingDeliveryClaimID = nil
+            guard acceptsAutomaticDelivery,
+                  pendingExplicitDeliveryRequestID == nil,
+                  pendingDeliveryClaimID == nil,
+                  let state = dictationState,
+                  state.phase == .resultReady,
+                  state.requestID == recoverableDictationResult.requestID,
+                  owns(state) else {
+                return
+            }
             cancelDocumentIdentifierRetry()
-            insertText(recoverableDictationResult.text)
-            dependencies.recordDiagnostic(.keyboardInsertInvoked(.latest))
+            pendingExplicitDeliveryRequestID =
+                recoverableDictationResult.requestID
+            if let grantedClaimID = state.deliveryClaimID {
+                pendingDeliveryClaimID = grantedClaimID
+                handleResultReady(state)
+                return
+            }
+            let claimID = dependencies.makeDeliveryClaimID()
+            pendingDeliveryClaimID = claimID
+            if !sendDictationCommand(
+                .claimDelivery,
+                deliveryClaimID: claimID
+            ) {
+                pendingDeliveryClaimID = nil
+                pendingExplicitDeliveryRequestID = nil
+            }
             return
         }
         guard let latestItem else { return }
@@ -1431,6 +1510,7 @@ final class KeyboardViewController: UIInputViewController {
         allowsStateReconnection = true
         pendingDictationCommand = nil
         pendingDeliveryClaimID = nil
+        pendingExplicitDeliveryRequestID = nil
         pendingHandoffRequestID = nil
         handoffLaunchFailed = false
         forcesSessionNotRunning = false
@@ -1446,6 +1526,7 @@ final class KeyboardViewController: UIInputViewController {
         allowsStateReconnection = true
         pendingDictationCommand = nil
         pendingDeliveryClaimID = nil
+        pendingExplicitDeliveryRequestID = nil
         pendingHandoffRequestID = nil
         forcesSessionNotRunning = false
     }
@@ -1453,7 +1534,6 @@ final class KeyboardViewController: UIInputViewController {
     private func refreshAutomaticDeliveryEligibility(
         for preferredIdentity: KeyboardDictationAttemptIdentity? = nil
     ) {
-        guard let automaticDeliveryRequestID else { return }
         let stateIdentity = dictationState.flatMap(
             KeyboardDictationAttemptIdentity.init
         )
@@ -1461,12 +1541,17 @@ final class KeyboardViewController: UIInputViewController {
             preferredIdentity,
             activeDictationOwnership,
             stateIdentity,
-        ].compactMap({ $0 }).first(where: {
-            $0.requestID == automaticDeliveryRequestID
-        }),
-        automaticDeliveryDisqualifiedRequestID != identity.requestID else {
+        ].compactMap({ $0 }).first else {
             return
         }
+        if automaticDeliveryRequestID == nil,
+           identity.sourceDocumentID != nil,
+           hasDurableHandoffOwnership(identity) {
+            automaticDeliveryRequestID = identity.requestID
+        }
+        guard automaticDeliveryRequestID == identity.requestID,
+              automaticDeliveryDisqualifiedRequestID != identity.requestID
+        else { return }
         let currentDocumentIdentifier = activeDocumentIdentifier
         if identity.sourceDocumentID == nil
             || (currentDocumentIdentifier != nil
@@ -1483,7 +1568,9 @@ final class KeyboardViewController: UIInputViewController {
             )
             automaticDeliveryDisqualifiedRequestID =
                 identity.requestID
-            pendingDeliveryClaimID = nil
+            if pendingExplicitDeliveryRequestID != identity.requestID {
+                pendingDeliveryClaimID = nil
+            }
             cancelDocumentIdentifierRetry()
         }
     }

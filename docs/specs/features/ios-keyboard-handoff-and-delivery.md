@@ -26,14 +26,14 @@ flow comparable to Wispr Flow:
 4. the keyboard reconnects to the same request even if the extension was
    recreated;
 5. the user finishes or cancels from the keyboard;
-6. accepted text may cause one automatic insertion invocation only while the
-   originating keyboard controller is active and visible and can still prove
-   the same destination.
+6. accepted text may cause one automatic insertion invocation only while an
+   active and visible keyboard controller proves both the exact app-consumed
+   request and the same non-empty destination identifier.
 
-A recreated extension may reconnect request control, but it never inherits
-automatic-delivery eligibility from the controller that originated the
-request. Request ownership and destination eligibility are independent
-capabilities.
+A recreated extension may recover automatic-delivery eligibility from the
+durable app-consumed handoff, but controller recreation alone never proves the
+destination. Request ownership and destination eligibility remain independent:
+the current proxy must still match the request's immutable source identifier.
 
 The product does not ship a keyboard whose normal voice workflow requires the
 user to open HoldType first and manually prepare a session. If this complete
@@ -172,16 +172,19 @@ resolved by silently degrading the keyboard into that manual-session design.
   automatically, saves Pending audio before provider work, and shows
   `Processing — recording limit reached; audio saved`. The user does not need to keep the
   extension alive for this finalization.
-- A fresh accepted result may invoke automatic insertion only while the same
-  live keyboard controller that created the request is currently active and
-  visible, still owns it, the request has a non-empty immutable source document
-  identifier, the current proxy has the same non-empty identifier, eligibility
-  has never been invalidated, and the exact delivery claim is granted.
+- A fresh accepted result may invoke automatic insertion only while the active
+  and visible keyboard controller owns the exact app-consumed request, the
+  request has a non-empty immutable source document identifier, the current
+  proxy has the same non-empty identifier, eligibility has never been
+  invalidated by a destination change, and the exact delivery claim is granted.
 - If safe automatic delivery is no longer possible, the result remains in
   canonical Latest. While the bounded transient result is still available, the
   keyboard's existing Latest action gives that result priority and inserts it
-  only after an explicit tap into the then-current input. That is an exception
-  path, not the normal workflow, and it produces no host-change warning.
+  only after an explicit tap into the then-current input. The explicit action
+  uses the same delivery claim and acknowledgement protocol, so consuming that
+  result retires the completed attempt and returns a healthy warm session to
+  Ready. That is an exception path, not the normal workflow, and it produces no
+  host-change warning.
 
 ## State Contract
 
@@ -222,18 +225,22 @@ microphone appear active.
 - A recreated keyboard extension reconnects control only when the session,
   attempt, and request match both shared state and the last app-consumed
   keyboard handoff. That evidence restores Listening, Processing, Finish, and
-  Cancel ownership only; it never proves an insertion destination.
-- Automatic delivery remains eligible only in the originating live controller
-  while that controller is currently active and visible, and only while the
+  Cancel ownership and identifies which request may seek delivery; it does not
+  by itself prove an insertion destination.
+- Automatic delivery remains eligible only while the controller is active and
+  visible, the durable consumed handoff identifies the exact request, and the
   current non-empty identifier exactly equals the immutable non-empty source
   identifier. A hidden controller may observe shared state but cannot claim or
   consume delivery.
 - UIKit may issue a different identifier after returning to the same visible
   field. The extension cannot distinguish that case from a different field or
   host app, so a returned identifier never becomes a replacement anchor.
-- A missing source identifier, a non-empty mismatch, controller recreation, or
-  any previously observed destination change permanently invalidates automatic
-  delivery for that request. Returning from `A -> B -> A` does not restore it.
+- A missing source identifier, a non-empty mismatch, or any previously observed
+  destination change permanently invalidates automatic delivery for that
+  controller lifetime and request. Controller recreation alone does not
+  invalidate delivery when the consumed request and exact non-empty destination
+  still match. Returning from `A -> B -> A` in one controller lifetime does not
+  restore eligibility.
 - A temporarily missing current identifier never hides Listening or prevents
   Finish. The originating controller may repeat that local read for a short
   bounded interval while the result remains fresh, but any identifier that
@@ -246,22 +253,28 @@ microphone appear active.
 ## Delivery Guarantees
 
 - One accepted result may cause at most one automatic `insertText` invocation.
-- Delivery eligibility requires the originating controller to be currently
-  active and visible, its exact active request, an unexpired result, an exact
-  non-empty source/current document match, no prior disqualification, and no
-  prior insertion invocation.
+- Automatic delivery eligibility requires a currently active and visible
+  controller, the exact consumed active request, an unexpired result, an exact
+  non-empty source/current document match, no prior disqualification in that
+  controller lifetime, and no prior insertion invocation.
 - The keyboard writes a fresh opaque delivery-claim identifier and waits for
   the containing app to grant that exact claim before calling `insertText`.
 - The controller rechecks eligibility after the grant and invokes `insertText`
   on the same proxy instance whose document identifier passed that final gate.
-- A recreated extension does not inherit another process's granted claim, so
-  an uncertain insertion is never replayed.
+- A recreated extension never inherits another controller's granted claim. It
+  must create a fresh claim after independently restoring request ownership and
+  proving the exact destination, so an uncertain insertion is never replayed.
 - A matching acknowledgement means only that one granted claim was consumed by
   one `insertText` invocation. It does not prove that the host accepted or
   visibly rendered the text. `insertText` return and text-change callbacks are
   diagnostic observations, not delivery receipts.
 - That claim-consumption acknowledgement retires only the completed attempt and
   returns an unexpired app-owned session to Ready.
+- Explicit transient Latest insertion also requires a matching delivery grant;
+  the tap may explicitly consume an already-published unacknowledged grant or
+  request a fresh claim. Its acknowledgement retires the same completed
+  attempt, so the next microphone tap can start immediately in a healthy warm
+  session.
 - An expiry callback owns only the snapshot that scheduled it. Before clearing
   attempt ownership it reloads the canonical bridge slot; a newer same-attempt
   Processing, Result, Failed, or Unavailable record is handled exactly once,
@@ -321,11 +334,12 @@ microphone appear active.
   refreshes do not dismiss either already-open local surface.
 - Finish from the keyboard and Cancel from the handoff sheet control the same
   app-owned recording.
-- Accepted text causes at most one automatic insertion invocation, only from
-  the currently active and visible originating controller with an exact
-  non-empty source/current document match.
-- A recreated extension may reconnect and finish the exact capture, but it
-  cannot automatically insert that capture's result.
+- Accepted text causes at most one automatic insertion invocation, only from a
+  currently active and visible controller that proves the exact consumed
+  request and exact non-empty source/current document match.
+- A recreated extension may reconnect, finish, and automatically deliver the
+  exact capture only when that durable request proof and destination match both
+  succeed; a different or missing destination remains manual Latest recovery.
 - Repeated microphone taps within the same healthy warm session start distinct
   dictation attempts without another containing-app handoff.
 - Ready expires after 60 idle seconds, while Listening continues to its own
