@@ -60,7 +60,9 @@ installed version without requiring accounts, telemetry, or a custom backend.
   through the updater UI where the updater supports cancellation.
 - After an update is ready, HoldType may relaunch to install it. A
   user-confirmed updater relaunch must not be blocked by the normal quit
-  confirmation dialog.
+  confirmation dialog. If capture is active, HoldType first requests bounded
+  local finalization; a journaled positive-byte source remains recoverable even
+  if the updater deadline ends the process before finalization completes.
 - Development or unsigned local builds may show that updates are unavailable or
   not fully configured, but they must not pretend to install production
   updates.
@@ -96,7 +98,8 @@ installed version without requiring accounts, telemetry, or a custom backend.
   version and allow the user to check again later.
 - If an update-triggered relaunch begins, HoldType should stop hotkey listening
   and transient session recovery exactly as it does for a normal confirmed
-  termination, but it should skip the accidental-quit confirmation.
+  termination, but it should skip the accidental-quit confirmation. Stopping
+  listeners is never a substitute for finalizing or journaling active capture.
 - If automatic checking is disabled, no background update check should be
   started by HoldType outside the updater's explicit manual check flow.
 

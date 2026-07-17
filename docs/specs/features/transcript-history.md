@@ -61,7 +61,8 @@ This spec covers:
 - cloud sync, accounts, sharing, or telemetry
 - full search, semantic notes, tags, folders, or review workflows
 - SQLite or another database requirement for the MVP
-- storing cancelled, discarded, partial, or pre-capture setup failures
+- storing explicitly discarded or pre-capture setup failures; involuntarily
+  stopped non-empty partials are durable Saved Recordings
 
 ## User-visible behavior
 
@@ -90,6 +91,12 @@ This spec covers:
   accepted History being disabled or cleared, normal recording-cache cleanup
   including `Delete immediately`, and normal app quit. Only explicit Delete or
   bounded recovery retention removes them.
+- Unresolved Processing, failed, interrupted, internal-failure, or owner-
+  teardown Saved Recordings are never removed by count-based retention. Only
+  their explicit Delete/Discard action may remove positive-byte audio.
+- A lifecycle- or internally-interrupted non-empty partial appears immediately
+  as a provider-free Saved Recording with Play, Transcribe, and Delete. It does
+  not require relaunch and does not automatically call the provider.
 - A completed recording that fails during
   transcription for a recoverable OpenAI, network, timeout, rate-limit,
   unreadable-response, or empty-result reason changes that row to a failed

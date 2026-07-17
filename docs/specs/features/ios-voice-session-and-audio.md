@@ -450,6 +450,9 @@ HoldType uses four distinct actions and never labels them all `Stop`:
   cleanup-only discarding state. In one-shot mode it returns to idle; in Quick
   Session it returns to `ready` while time remains. Once a completed artifact is
   journaled, this action is unavailable.
+- Only this explicitly invoked Cancel/Discard action owns destructive cleanup.
+  Task cancellation, controller teardown, scene replacement, bridge-state
+  publication failure, and supersession preserve any possibly non-empty source.
 - `Stop Voice Session` exists only for Quick Session. In `ready` it disarms
   immediately. During `listening` it stops capture and ends the session; a
   bounded non-empty partial reaches only provider-free durable recovery: a
@@ -832,6 +835,9 @@ session as inactive, and must not label setup-dependent behavior as ready.
   Retry may authorize one descriptor-bound provider attempt.
 - If journaling fails, HoldType preserves the protected artifact where possible,
   reports local recovery failure, and does not start provider work.
+- A preserved source becomes visible to Saved Recording presentation in the
+  same process. Process-launch repair remains a crash-recovery fallback, not a
+  requirement for ordinary local failure visibility.
 - If the app is suspended after recording, the furthest durable source or
   Pending checkpoint remains authoritative. Source-only positive-byte active,
   finalizing, completed, or empty-inventory preparing state offers Recover

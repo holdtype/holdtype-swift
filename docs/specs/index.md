@@ -11,6 +11,7 @@ matching feature spec, then verify exact source ownership with `rg --files`.
 | iOS keyboard handoff and delivery | `features/ios-keyboard-handoff-and-delivery.md` | Canonical microphone tap, app opening, app-owned capture, return to host, request reconnection, exactly-once insertion, and app-only release fallback; this narrow contract wins conflicts with no-launch or manual-session clauses elsewhere |
 | Menu bar shell | `features/menu-bar-app-shell.md` | Menu bar lifecycle, primary controls, app shell state, status text |
 | Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |
+| Recording durability | `features/recording-durability-and-interruption.md` | Cross-platform terminal causes, non-destructive interruption, start-time capture ownership, History recovery, quit/relaunch, and the explicit-Discard boundary |
 | OpenAI transcription | `features/openai-transcription.md` | Transcription request/response behavior, model settings, timeout/error policy |
 | Text handoff | `features/text-output-workflow.md` | Clipboard, paste, insertion, accepted transcript behavior |
 | Permissions/privacy | `features/privacy-and-permissions.md` | Consent, permission gates, setup blocking, privacy boundaries |

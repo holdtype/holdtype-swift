@@ -81,14 +81,17 @@ This spec covers:
 - Stopping an active recording returns a completed local recording artifact
   with the file URL, captured duration, and byte size before transcription may
   begin.
-- The user must be able to cancel a session before accepting or handing off the
-  generated text.
-- Cancelling active capture stops the recorder, removes the current app-created
-  temporary audio artifact, returns the session to idle, and must not start
-  transcription or output handoff.
-- Cancelling during the recording tail must cancel the pending stop delay,
-  stop and remove the current recording artifact, and must not start
-  transcription or output handoff.
+- The user must be able to explicitly discard a session before accepting or
+  handing off the generated text. The destructive action must be labelled as
+  Discard/Cancel Recording and must not be inferred from task cancellation,
+  lifecycle teardown, an internal error, or closing an unrelated surface.
+- Explicitly discarding active capture stops the recorder, removes only the
+  current app-created temporary audio artifact, returns the session to idle,
+  and must not start transcription or output handoff.
+- Explicitly discarding during the recording tail must cancel the pending stop
+  delay, stop and remove only the current recording artifact, and must not
+  start transcription or output handoff. Any non-user interruption during the
+  same interval preserves positive bytes under the durability spec.
 - After capture stops, the app may enter a processing state while
   transcription completes.
 - Before any provider request, a non-empty completed artifact becomes a local
@@ -162,6 +165,11 @@ This spec covers:
 - Recording cache growth must be bounded by default. The app must not keep
   accumulating audio files indefinitely unless the user explicitly chooses
   unlimited retention.
+- Active, finalizing, and unresolved recovery audio is not ordinary recording
+  cache. Cache Clear, individual Delete, and retention pruning must exclude it.
+- Every attempt must follow
+  `recording-durability-and-interruption.md`; internal cancellation is never
+  destructive user authority.
 
 ## Edge cases and failure policy
 
@@ -177,8 +185,9 @@ This spec covers:
   pretend the result is final useful text.
 - If a late transcription result arrives after cancellation or failure, it must
   be discarded rather than accepted as a new last transcript.
-- If the app is interrupted by platform lifecycle events, the session should
-  stop or fail visibly rather than continue recording invisibly.
+- If a platform lifecycle or audio event makes capture impossible, the session
+  stops visibly and preserves a positive-byte partial as a provider-free Saved
+  Recording. Lifecycle notification alone is not destructive authority.
 - If the recording reaches the maximum duration, HoldType stops capture,
   reports that the selected recording limit was reached and the recording was saved,
   and continues normal processing.

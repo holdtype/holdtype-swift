@@ -66,11 +66,13 @@ resolved by silently degrading the keyboard into that manual-session design.
   No supporting copy appears below the track or lifts it away from the bottom
   gesture region.
   It contains no second Start button.
-- The sheet's explicit close action cancels the keyboard request, stops active
-  capture, dismisses the sheet, and leaves the underlying app destination
-  unchanged. Interactive
-  sheet dismissal is unavailable while capture is active so it cannot be
-  confused with the system return gesture.
+- Before capture starts, the sheet's close action cancels the keyboard request,
+  dismisses the sheet, and leaves the underlying app destination unchanged.
+  After capture starts, closing the surface preserves and stops a non-empty
+  partial; destructive removal requires a separately labelled, confirmed
+  Discard Recording action. Interactive sheet dismissal remains unavailable
+  while capture is active so it cannot be confused with the system return
+  gesture.
 - Closing, failing, expiring, interrupting, or superseding a keyboard handoff
   must not leave keyboard-originated text or local-recovery presentation on the
   ordinary Voice screen. Any keyboard-owned cleanup stays inside the handoff
@@ -106,6 +108,12 @@ resolved by silently degrading the keyboard into that manual-session design.
   the prior attempt is actively Listening, HoldType keeps that exact session,
   attempt, and recording, re-presents its Listening sheet, and does not run
   setup preflight, start another capture, or retire the active audio.
+- The same rule begins at the recorder's retained-capture boundary, even before
+  Listening presentation has been published. Supersession checks real
+  live/durable capture ownership rather than the last UI phase.
+- Failure to publish transient App Group Listening/Processing state never
+  cancels or discards the app-owned recorder. HoldType keeps capture ownership,
+  finalizes when required, and presents the Saved Recording from durable state.
 - History and the handoff sheet share one process-owned Saved Recording state.
   If its local read cannot confirm either the recording or its absence, both
   surfaces show a blocked Saved Recording with Retry Refresh. The handoff does
@@ -136,6 +144,8 @@ resolved by silently degrading the keyboard into that manual-session design.
   input pipeline so iOS does not tear down background capture between distinct
   dictations. Session stop, cancellation, expiry, or replacement releases that
   pipeline and clears the system microphone indicator.
+- If the auxiliary warm-input pipeline fails while a distinct recorder is
+  already active, warm reuse is disabled but the current recording continues.
 - The warm-session lifetime is 60 seconds only while the session is idle in
   `Ready`. Entering `Listening` cancels that idle expiry; capture then has its
   independent user-selected recording limit. That limit is frozen at Start;
