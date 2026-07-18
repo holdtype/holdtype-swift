@@ -1675,11 +1675,10 @@ final class IOSForegroundVoiceWorkflow {
             )
         }
         if providerRequirement == .required,
-           let destination = configurationLoader
-               .invalidProviderConfigurationDestination(
-                   pending.recording.outputIntent,
-                   configuration: configuration
-               ) {
+           let destination = configurationLoader.invalidProviderConfigurationDestination(
+               pending.recording.outputIntent,
+               configuration: configuration
+           ) {
             return await pendingRetryPreflightResolution(
                 setup: .needsSetup(destination),
                 failure: .unavailable,
@@ -1782,11 +1781,10 @@ final class IOSForegroundVoiceWorkflow {
             )
         }
         if providerRequirement == .required,
-           let destination = configurationLoader
-               .invalidProviderConfigurationDestination(
-                   pending.recording.outputIntent,
-                   configuration: currentConfiguration
-               ) {
+           let destination = configurationLoader.invalidProviderConfigurationDestination(
+               pending.recording.outputIntent,
+               configuration: currentConfiguration
+           ) {
             return await pendingRetryPreflightResolution(
                 setup: .needsSetup(destination),
                 failure: .unavailable,
