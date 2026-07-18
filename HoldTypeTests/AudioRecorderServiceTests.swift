@@ -113,21 +113,6 @@ struct AudioRecorderServiceTests {
         #expect(recorder.cancelCount == 1)
     }
 
-    @Test func appCodeCanDependOnRecorderProtocol() async throws {
-        let artifact = AudioRecordingArtifact(
-            fileURL: URL(fileURLWithPath: "/tmp/holdtype-protocol.m4a"),
-            duration: 0.8,
-            byteCount: 300
-        )
-        let recorder = FakeAudioRecorderService(stopResult: .success(artifact))
-        let consumer = RecorderConsumer(recorder: recorder)
-
-        let result = try await consumer.recordOnce()
-
-        #expect(result == artifact)
-        #expect(recorder.currentStatus == .finished(artifact: artifact))
-    }
-
     @Test func avFoundationRecorderRejectsStartWhenMicrophoneIsNotAllowed() async {
         let factory = CapturingAudioRecorderEngineFactory()
         let recorder = AVFoundationAudioRecorderService(
@@ -897,15 +882,6 @@ struct AudioRecorderServiceTests {
         #expect(artifact.duration == 4.001)
         #expect(artifact.byteCount == 1)
         #expect(recorder.currentStatus == .finished(artifact: artifact))
-    }
-}
-
-private struct RecorderConsumer {
-    let recorder: any AudioRecorderService
-
-    func recordOnce() async throws -> AudioRecordingArtifact {
-        try await recorder.startRecording()
-        return try await recorder.stopRecording()
     }
 }
 

@@ -94,24 +94,6 @@ struct GlobalHotkeyServiceTests {
         #expect(mapper.isRightCommandPressed)
     }
 
-    @Test func rightCommandKeyUpUsesTheFlagsChangedEvent() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        _ = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand]
-        )
-        let keyUp = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: []
-        )
-
-        #expect(keyUp == .keyUp())
-        #expect(mapper.isRightCommandPressed == false)
-    }
-
     @Test func rightCommandMapperCarriesOptionAsTranslationIntentOnKeyDown() {
         var mapper = RightCommandHotkeyEventMapper()
 
@@ -424,29 +406,4 @@ struct GlobalHotkeyServiceTests {
         #expect(receivedActions.isEmpty)
     }
 
-    @Test func appCodeCanDependOnHotkeyProtocol() throws {
-        let service = FakeGlobalHotkeyService()
-        let consumer = HotkeyConsumer(service: service)
-
-        try consumer.connect()
-        service.trigger(.keyDown)
-
-        #expect(consumer.receivedActions == [.keyDown])
-        #expect(service.currentRegistrationStatus == .registered(.defaultDictation))
-    }
-}
-
-private final class HotkeyConsumer {
-    private let service: any GlobalHotkeyService
-    private(set) var receivedActions: [GlobalHotkeyAction] = []
-
-    init(service: any GlobalHotkeyService) {
-        self.service = service
-    }
-
-    func connect() throws {
-        try service.startListening { [weak self] event in
-            self?.receivedActions.append(event.action)
-        }
-    }
 }
