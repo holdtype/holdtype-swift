@@ -47,7 +47,6 @@ struct IOSVoiceHomeView: View {
     @FocusState private var practiceFieldIsFocused: Bool
     @FocusState private var draftEditorIsFocused: Bool
 
-    let secureProviderAvailability: IOSSecureProviderAvailability
     let openSettings: (IOSSettingsRoute) -> Void
 
     var body: some View {
@@ -1367,36 +1366,6 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private var voiceHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Voice")
-                .font(.largeTitle.bold())
-                .accessibilityAddTraits(.isHeader)
-            Text(
-                "Record one dictation in HoldType, then copy, share, or "
-                    + "practice with the result."
-            )
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.vertical, 8)
-        .listRowInsets(
-            EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4)
-        )
-        .listRowBackground(Color.clear)
-    }
-
-    private var showsGettingStarted: Bool {
-        sceneOwner.presentation.setup != .ready
-    }
-
-    private var dictationHasPriority: Bool {
-        draftTextActionOwner.isProcessing
-            || sceneOwner.presentation.phase != .inactive
-            || sceneOwner.presentation.recovery != .none
-    }
-
     private var pendingVoiceCommandIsCurrent: Bool {
         guard let pendingVoiceCommand else { return false }
         return sceneOwner.actionCommands.contains(pendingVoiceCommand)
@@ -1405,86 +1374,6 @@ struct IOSVoiceHomeView: View {
     private var pendingLatestClearCommandIsCurrent: Bool {
         guard let pendingLatestClearCommand else { return false }
         return latestResultOwner.clearCommand == pendingLatestClearCommand
-    }
-
-    private var gettingStartedSection: some View {
-        Section("Getting Started") {
-            IOSVoiceSetupRow(
-                number: 1,
-                systemImage: "keyboard",
-                title: "Add and switch keyboards",
-                detail: "In Settings › General › Keyboard › Keyboards, add HoldType and enable Allow Full Access for keyboard voice. Local editing and Latest still work without Full Access. Use Globe in the practice field below."
-            ) {
-                practiceFieldIsFocused = true
-            }
-            .accessibilityIdentifier("ios.voice.setup.keyboard")
-
-            IOSVoiceSetupRow(
-                number: 2,
-                systemImage: "key.fill",
-                title: openAISetupTitle,
-                detail: openAISetupDetail
-            ) {
-                openSettings(.openAI)
-            }
-            .accessibilityIdentifier("ios.voice.setup.openai")
-
-            IOSVoiceSetupRow(
-                number: 3,
-                systemImage: "mic.fill",
-                title: "Microphone access",
-                detail: "We’ll ask only when you start."
-            ) {
-                openSettings(.privacyAndPermissions)
-            }
-            .accessibilityIdentifier("ios.voice.setup.microphone")
-
-            Label {
-                Text(
-                    "Save History is on by default, while Recording Cache is "
-                        + "off. HoldType keeps up to 20 successful texts; "
-                        + "completed recordings are retained only after you "
-                        + "enable the cache, starting with the 20 newest. "
-                        + "Failed attempts are not added."
-                )
-                .fixedSize(horizontal: false, vertical: true)
-            } icon: {
-                Image(systemName: "clock")
-                    .foregroundStyle(.tint)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("ios.voice.setup.history")
-        }
-    }
-
-    private var dictationSection: some View {
-        let status = IOSVoiceHomePresentation.resolve(
-            sceneOwner.presentation
-        )
-        let commands = sceneOwner.actionCommands
-
-        return Section("Dictation") {
-            IOSVoiceStatusRow(
-                status: status,
-                listeningStartedAt: listeningStartedAt,
-                recordingDurationLimit:
-                    sceneOwner.presentation.recordingDurationLimit
-            )
-            .accessibilityIdentifier("ios.voice.status")
-
-            if !commands.isEmpty {
-                IOSVoiceActionLayout(
-                    commands: commands,
-                    perform: performVoiceCommand
-                )
-            } else if let destination = status.setupDestination,
-                      let setupAction = setupAction(for: destination) {
-                Button(setupAction.title) {
-                    setupAction.perform()
-                }
-                .accessibilityIdentifier("ios.voice.setup-action")
-            }
-        }
     }
 
     private var latestSectionIsVisible: Bool {
@@ -1704,24 +1593,6 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private var openAISetupTitle: String {
-        switch secureProviderAvailability {
-        case .available:
-            "OpenAI setup"
-        case .unavailable:
-            "OpenAI setup unavailable"
-        }
-    }
-
-    private var openAISetupDetail: String {
-        switch secureProviderAvailability {
-        case .available:
-            "Connect your OpenAI API key."
-        case .unavailable:
-            "Secure provider settings are unavailable in this build."
-        }
-    }
-
     private func performVoiceCommand(
         _ command: IOSForegroundVoiceActionCommand
     ) {
@@ -1878,41 +1749,6 @@ struct IOSVoiceRuntimeUnavailableView: View {
         }
         .navigationTitle("Voice")
         .accessibilityIdentifier("ios.voice.runtime-unavailable")
-    }
-}
-
-private struct IOSVoiceSetupRow: View {
-    let number: Int
-    let systemImage: String
-    let title: String
-    let detail: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("\(number). \(title)")
-                            .foregroundStyle(.primary)
-                        Text(detail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            } icon: {
-                Image(systemName: systemImage)
-                    .foregroundStyle(.tint)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
     }
 }
 

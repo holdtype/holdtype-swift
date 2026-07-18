@@ -244,23 +244,4 @@ struct IOSContainingAppShellTests {
         )
     }
 
-    @Test func secureProviderAvailabilityNeverInventsCredentialStatus() {
-        #expect(
-            IOSSecureProviderAvailability.resolve(
-                compositionAvailability: .ready
-            ) == .available
-        )
-
-        for compositionAvailability in [
-            IOSContainingAppCompositionAvailability.credentialUnavailable,
-            .storageUnavailable,
-            .injected,
-        ] {
-            #expect(
-                IOSSecureProviderAvailability.resolve(
-                    compositionAvailability: compositionAvailability
-                ) == .unavailable
-            )
-        }
-    }
 }

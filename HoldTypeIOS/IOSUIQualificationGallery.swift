@@ -677,7 +677,6 @@ private struct IOSUIQualificationVoiceHost: View {
             NavigationStack {
                 IOSVoiceHomeView(
                     practiceText: $practiceText,
-                    secureProviderAvailability: .available,
                     openSettings: { _ in }
                 )
                 .environment(fixture.sceneOwner)

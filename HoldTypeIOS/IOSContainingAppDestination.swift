@@ -258,17 +258,6 @@ enum IOSLibraryRoute: Hashable {
     case replacementRule(UUID)
 }
 
-enum IOSSecureProviderAvailability: Equatable, Sendable {
-    case available
-    case unavailable
-
-    static func resolve(
-        compositionAvailability: IOSContainingAppCompositionAvailability
-    ) -> Self {
-        compositionAvailability == .ready ? .available : .unavailable
-    }
-}
-
 enum IOSContainingAppRootPresentation: Equatable, Sendable {
     case shell
     case storageUnavailable

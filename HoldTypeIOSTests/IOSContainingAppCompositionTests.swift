@@ -734,9 +734,6 @@ private func rootView(
         usageEstimateStateOwner:
             composition.usageEstimateStateOwner,
         acceptedTextHistoryStateOwner:
-            composition.acceptedTextHistoryStateOwner,
-        secureProviderAvailability: .resolve(
-            compositionAvailability: composition.availability
-        )
+            composition.acceptedTextHistoryStateOwner
     )
 }

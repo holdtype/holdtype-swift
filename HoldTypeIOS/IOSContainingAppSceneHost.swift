@@ -107,9 +107,6 @@ private extension HoldTypeIOSRootView {
                 composition.usageEstimateStateOwner,
             acceptedTextHistoryStateOwner:
                 composition.acceptedTextHistoryStateOwner,
-            secureProviderAvailability: .resolve(
-                compositionAvailability: composition.availability
-            ),
             foregroundVoiceRuntimeAvailable:
                 composition.foregroundVoiceRuntime != nil,
             historyPlaybackActions:

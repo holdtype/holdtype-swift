@@ -76,7 +76,6 @@ struct HoldTypeIOSRootView: View {
     let usageEstimateStateOwner: IOSUsageEstimateStateOwner?
     let acceptedTextHistoryStateOwner:
         IOSAcceptedTextHistoryStateOwner?
-    let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let historyPlaybackActions: IOSHistoryPlaybackActions?
     let pendingRecordingHistoryStateOwner:
@@ -95,7 +94,6 @@ struct HoldTypeIOSRootView: View {
         usageEstimateStateOwner: IOSUsageEstimateStateOwner?,
         acceptedTextHistoryStateOwner:
             IOSAcceptedTextHistoryStateOwner?,
-        secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
         pendingRecordingHistoryStateOwner:
@@ -112,7 +110,6 @@ struct HoldTypeIOSRootView: View {
         self.usageEstimateStateOwner = usageEstimateStateOwner
         self.acceptedTextHistoryStateOwner =
             acceptedTextHistoryStateOwner
-        self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.historyPlaybackActions = historyPlaybackActions
@@ -148,7 +145,6 @@ struct HoldTypeIOSRootView: View {
                let usageEstimateStateOwner,
                let acceptedTextHistoryStateOwner {
                 IOSContainingAppShell(
-                    secureProviderAvailability: secureProviderAvailability,
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable,
                     historyPlaybackActions: historyPlaybackActions,

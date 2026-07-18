@@ -35,7 +35,6 @@ struct IOSContainingAppShell: View {
     @State private var showsEditorDiscardConfirmation = false
     @State private var showsEditorOperationAlert = false
 
-    let secureProviderAvailability: IOSSecureProviderAvailability
     let foregroundVoiceRuntimeAvailable: Bool
     let historyPlaybackActions: IOSHistoryPlaybackActions?
     let pendingRecordingHistoryStateOwner:
@@ -49,7 +48,6 @@ struct IOSContainingAppShell: View {
     let keyboardHandoffNow: @Sendable () -> Date
 
     init(
-        secureProviderAvailability: IOSSecureProviderAvailability,
         foregroundVoiceRuntimeAvailable: Bool = false,
         historyPlaybackActions: IOSHistoryPlaybackActions? = nil,
         pendingRecordingHistoryStateOwner:
@@ -62,7 +60,6 @@ struct IOSContainingAppShell: View {
             IOSKeyboardHandoffPresentationOwner? = nil,
         keyboardHandoffNow: @escaping @Sendable () -> Date = { Date() }
     ) {
-        self.secureProviderAvailability = secureProviderAvailability
         self.foregroundVoiceRuntimeAvailable =
             foregroundVoiceRuntimeAvailable
         self.historyPlaybackActions = historyPlaybackActions
@@ -309,8 +306,6 @@ struct IOSContainingAppShell: View {
             if foregroundVoiceRuntimeAvailable {
                 IOSVoiceHomeView(
                     practiceText: $sceneDraft.practiceText,
-                    secureProviderAvailability:
-                        secureProviderAvailability,
                     openSettings: openSettings
                 )
             } else {
