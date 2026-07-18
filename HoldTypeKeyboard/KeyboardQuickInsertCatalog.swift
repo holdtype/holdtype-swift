@@ -138,3 +138,4 @@ enum KeyboardQuickInsertCatalog {
 
     static let emoji = emojiPrimary + emojiSecondary
 }
+
