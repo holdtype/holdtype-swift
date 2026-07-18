@@ -5,11 +5,10 @@ nonisolated final class OpenAITranscriptionMultipartCleanupRegistration: @unchec
     private var cleanup: (@Sendable () -> Void)?
     private var cleanupRequested = false
     private var cleanupScheduled = false
-    private var cleanupCompleted = false
 
     func install(_ cleanup: @escaping @Sendable () -> Void) {
         let action = lock.withLock { () -> (@Sendable () -> Void)? in
-            guard !cleanupCompleted, !cleanupScheduled else {
+            guard !cleanupScheduled else {
                 return nil
             }
             self.cleanup = cleanup
@@ -30,10 +29,6 @@ nonisolated final class OpenAITranscriptionMultipartCleanupRegistration: @unchec
         }
     }
 
-    var isCleanupCompleted: Bool {
-        lock.withLock { cleanupCompleted }
-    }
-
     private func takeCleanupIfReady() -> (@Sendable () -> Void)? {
         guard cleanupRequested,
               !cleanupScheduled,
@@ -46,11 +41,8 @@ nonisolated final class OpenAITranscriptionMultipartCleanupRegistration: @unchec
     }
 
     private func schedule(_ cleanup: @escaping @Sendable () -> Void) {
-        DispatchQueue.global(qos: .utility).async { [self] in
+        DispatchQueue.global(qos: .utility).async {
             cleanup()
-            lock.withLock {
-                cleanupCompleted = true
-            }
         }
     }
 }
@@ -336,4 +328,3 @@ nonisolated extension OpenAITranscriptionMultipartPreparation:
         )
     }
 }
-

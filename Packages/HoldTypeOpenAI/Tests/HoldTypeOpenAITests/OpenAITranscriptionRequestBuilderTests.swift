@@ -963,11 +963,10 @@ struct OpenAITranscriptionRequestBuilderTests {
         registration.requestCleanup()
         registration.requestCleanup()
         try await waitUntil { started.value }
-        #expect(registration.isCleanupCompleted == false)
         #expect(completionCount.value == 0)
 
         release.signal()
-        try await waitUntil { registration.isCleanupCompleted }
+        try await waitUntil { completionCount.value == 1 }
         #expect(completionCount.value == 1)
         registration.requestCleanup()
         #expect(completionCount.value == 1)
