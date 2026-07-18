@@ -46,7 +46,6 @@ struct IOSNativeVoicePresentationTests {
             (.reviewRequired, false, .acceptCurrentDisclosure),
             (.withdrawn, false, .acceptCurrentDisclosure),
             (.localDataUnavailable, false, nil),
-            (.mutationNotSaved, false, nil),
         ]
 
         for item in cases {
@@ -75,7 +74,6 @@ struct IOSNativeVoicePresentationTests {
             .reviewRequired,
             .withdrawn,
             .localDataUnavailable,
-            .mutationNotSaved,
         ] {
             #expect(
                 IOSPrivacySettingsAttentionResolver.activeTarget(

@@ -111,11 +111,12 @@ consent.
   canonical physical repository root. Every scene and provider stage uses that
   same identity; views and services never create fallback stores or retain a
   Boolean authorization.
-- A public observation is one content-free state: not reviewed, review required,
-  accepted current disclosure, withdrawn, local data unavailable, or mutation
-  not saved. It may show the decision date intentionally on Privacy &
-  Permissions but exposes no repository path, raw bytes, UUID, revision, or
-  system error.
+- A public observation is one content-free durable state: not reviewed, review
+  required, accepted current disclosure, withdrawn, or local data unavailable.
+  A mutation that cannot be durably saved is reported separately as an
+  operation failure and does not become an observation state. An observation
+  may show the decision date intentionally on Privacy & Permissions but exposes
+  no repository path, raw bytes, UUID, revision, or system error.
 - Loading or observing the record is passive. It performs no Keychain,
   microphone, audio-session, provider, clipboard, App Group, or keyboard work.
 - Runtime values, errors, expectations, authorizations, and coordinator state

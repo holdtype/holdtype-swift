@@ -2236,7 +2236,7 @@ final class IOSForegroundVoiceWorkflow {
             return .accepted(observed)
         }
         switch observed.status {
-        case .localDataUnavailable, .mutationNotSaved:
+        case .localDataUnavailable:
             return .unavailable
         case .notReviewed, .reviewRequired, .withdrawn,
              .acceptedCurrentDisclosure:
@@ -2267,7 +2267,6 @@ final class IOSForegroundVoiceWorkflow {
         let observed = await dependencies.observeConsent()
         guard observed.status == .acceptedCurrentDisclosure else {
             return observed.status == .localDataUnavailable
-                || observed.status == .mutationNotSaved
                 ? .unavailable
                 : .needsSetup
         }

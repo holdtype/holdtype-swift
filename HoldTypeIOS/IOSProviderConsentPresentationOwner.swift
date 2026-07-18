@@ -846,7 +846,7 @@ final class IOSProviderConsentPresentationOwner {
             true
         case .acceptedCurrentDisclosure:
             !isAuthorizationReady
-        case .localDataUnavailable, .mutationNotSaved:
+        case .localDataUnavailable:
             false
         }
     }

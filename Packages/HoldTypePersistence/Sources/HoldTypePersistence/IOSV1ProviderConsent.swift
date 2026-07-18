@@ -6,7 +6,6 @@ public enum IOSV1ProviderConsentStatus: Equatable, Sendable {
     case acceptedCurrentDisclosure
     case withdrawn
     case localDataUnavailable
-    case mutationNotSaved
 }
 public enum IOSV1ProviderConsentProviderStage: CaseIterable, Equatable, Sendable {
     case transcription

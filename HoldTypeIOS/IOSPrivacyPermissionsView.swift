@@ -525,14 +525,6 @@ struct IOSConsentPrivacyPresentation {
                 color: .red,
                 action: nil
             )
-        case .mutationNotSaved:
-            Self(
-                title: "Decision Not Saved",
-                detail: "Couldn’t save this change. Try again.",
-                systemImage: "externaldrive.badge.exclamationmark",
-                color: .orange,
-                action: nil
-            )
         }
     }
 }
