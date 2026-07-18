@@ -863,8 +863,6 @@ public final class IOSV1PendingTranscriptionAudio: @unchecked Sendable {
 @_spi(HoldTypeIOSCore)
 public final class IOSV1PendingRecordingPlaybackAudio: @unchecked Sendable {
     public let format: IOSV1PendingRecordingAudioFormat
-    public let durationMilliseconds: Int64
-    public let byteCount: Int64
 
     private let data: Data
 
@@ -874,21 +872,15 @@ public final class IOSV1PendingRecordingPlaybackAudio: @unchecked Sendable {
     ) {
         self.init(
             audioRelativeIdentifier: recording.audioRelativeIdentifier,
-            durationMilliseconds: recording.durationMilliseconds,
-            byteCount: recording.byteCount,
             data: data
         )
     }
 
     fileprivate init(
         audioRelativeIdentifier: String,
-        durationMilliseconds: Int64,
-        byteCount: Int64,
         data: Data
     ) {
         format = audioRelativeIdentifier.hasSuffix(".wav") ? .wav : .m4a
-        self.durationMilliseconds = durationMilliseconds
-        self.byteCount = byteCount
         self.data = data
     }
 
@@ -1514,7 +1506,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         defer { releaseOperation() }
         let capture = try await requireCompletedCapture(expected)
         guard let byteCount = capture.byteCount,
-              let durationMilliseconds = capture.durationMilliseconds,
+              capture.durationMilliseconds != nil,
               byteCount > 0, byteCount < 25_000_000 else {
             throw IOSV1ForegroundVoicePersistenceError.audioInvalid
         }
@@ -1533,8 +1525,6 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         )
         return IOSV1PendingRecordingPlaybackAudio(
             audioRelativeIdentifier: capture.audioRelativeIdentifier,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount,
             data: data
         )
     }

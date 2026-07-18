@@ -1452,8 +1452,6 @@ struct IOSV1ForegroundVoicePersistenceTests {
             .preparePendingPlaybackAudio(expected: ready.expectation)
 
         #expect(playback.format == .m4a)
-        #expect(playback.durationMilliseconds == 1_250)
-        #expect(playback.byteCount == 100)
         #expect(
             playback.withAudioData { $0 }
                 == Data(Array(0..<100))
