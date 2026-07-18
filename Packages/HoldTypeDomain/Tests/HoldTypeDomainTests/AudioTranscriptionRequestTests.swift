@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct AudioTranscriptionRequestTests {
     @Test func preservesURLResolvedProviderFieldsAndPromptComposition() throws {

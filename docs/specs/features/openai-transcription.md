@@ -508,7 +508,8 @@ runtime request value still does not own its scratch-file lifecycle.
 - Prompt-composition tests must cover each individual source, the exact
   four-source order and separators, disabled/empty emoji and dictionary inputs,
   gated versus omitted Nearby Text, echo-guard values, `Sendable`, and the
-  absence of a Codable transport contract through normal iOS import.
+  absence of a Codable transport contract through a normal consumer-module
+  import.
 
 ## Timeout and retry policy
 

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct TextReplacementRuleTests {
     private static let firstID = UUID(uuidString: "01234567-89AB-CDEF-0123-456789ABCDEF")!

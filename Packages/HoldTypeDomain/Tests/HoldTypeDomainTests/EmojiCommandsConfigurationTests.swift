@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct EmojiCommandsConfigurationTests {
     @Test func defaultsEnableOnlyTheEnglishBuiltInSet() {

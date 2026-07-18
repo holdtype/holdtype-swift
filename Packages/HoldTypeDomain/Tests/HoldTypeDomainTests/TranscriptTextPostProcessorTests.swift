@@ -1,5 +1,5 @@
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct TranscriptTextPostProcessorTests {
     private let processor = TranscriptTextPostProcessor()

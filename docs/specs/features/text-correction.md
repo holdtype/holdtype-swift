@@ -258,7 +258,7 @@ usage-estimate spec before the Billing section may claim correction costs.
   independent next requests, provider error mapping, and no live API calls.
 - Runtime request tests should cover exact value preservation, all enabled and
   disabled configuration paths, `Sendable`, and the absence of a Codable
-  transport contract through normal iOS import.
+  transport contract through a normal consumer-module import.
 - Controller tests should cover correction disabled, local cleanup enabled,
   OpenAI correction success, and OpenAI correction failure preserving the raw
   transcript.

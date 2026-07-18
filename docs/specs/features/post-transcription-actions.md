@@ -222,7 +222,7 @@ usage-estimate spec before the Billing section may claim translation costs.
 - Runtime request tests should cover exact accepted text/configuration/source
   preservation; Same as Transcription Auto, fixed/custom, and Override routes;
   `Sendable`; and the absence of a Codable transport contract through normal
-  iOS import.
+  consumer-module import.
 - Translation boundary tests should prove that no full `AppSettings`,
   transcription model/prompt, local replacement configuration, or output
   preference reaches the provider adapter.

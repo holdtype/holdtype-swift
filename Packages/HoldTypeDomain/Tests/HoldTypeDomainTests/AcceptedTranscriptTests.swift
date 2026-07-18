@@ -1,5 +1,5 @@
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct AcceptedTranscriptTests {
     @Test func trimsSurroundingWhitespaceAndNewlines() throws {

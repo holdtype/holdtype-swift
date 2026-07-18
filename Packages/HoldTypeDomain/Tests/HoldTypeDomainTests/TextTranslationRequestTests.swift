@@ -1,5 +1,5 @@
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct TextTranslationRequestTests {
     @Test func preservesAcceptedTextConfigurationAndSameAsTranscriptionSource() throws {

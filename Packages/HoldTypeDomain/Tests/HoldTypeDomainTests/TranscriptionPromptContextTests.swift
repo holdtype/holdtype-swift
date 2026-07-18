@@ -1,5 +1,5 @@
 import Testing
-@testable import HoldTypeDomain
+import HoldTypeDomain
 
 struct TranscriptionPromptContextTests {
     @Test func trimsEdgesAndPreservesInteriorFormatting() throws {
