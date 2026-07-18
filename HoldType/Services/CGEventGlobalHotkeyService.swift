@@ -11,7 +11,7 @@ import Foundation
 import HoldTypeDomain
 
 struct RightCommandHotkeyEventMapper {
-    private(set) var isRightCommandPressed = false
+    private var isRightCommandPressed = false
     private var activeOutputIntent: DictationOutputIntent = .standard
 
     mutating func event(

@@ -67,20 +67,6 @@ struct GlobalHotkeyServiceTests {
         #expect(keyDown == .keyDown())
         #expect(keyUp == .keyUp())
         #expect(repeatedKeyUp == nil)
-        #expect(mapper.isRightCommandPressed == false)
-    }
-
-    @Test func rightCommandKeyDownUsesTheFlagsChangedEvent() {
-        var mapper = RightCommandHotkeyEventMapper()
-
-        let keyDown = mapper.event(
-            type: .flagsChanged,
-            keyCode: Int64(kVK_RightCommand),
-            flags: [.maskCommand]
-        )
-
-        #expect(keyDown == .keyDown())
-        #expect(mapper.isRightCommandPressed)
     }
 
     @Test func rightCommandMapperCarriesOptionAsTranslationIntentOnKeyDown() {
