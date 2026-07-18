@@ -65,7 +65,7 @@
     "HoldTypeTests/TranscriptionFailureRecoveryStoreTests.swift": 1463,
     "KeyboardShared/IOSRuntimeDiagnostics.swift": 578,
     "KeyboardShared/KeyboardDictationBridge.swift": 546,
-    "Packages/HoldTypeIOSCore/Sources/HoldTypeIOSCore/IOSForegroundVoiceProcessor.swift": 1467,
+    "Packages/HoldTypeIOSCore/Sources/HoldTypeIOSCore/IOSForegroundVoiceProcessor.swift": 1353,
     "Packages/HoldTypeIOSCore/Sources/HoldTypeIOSCore/IOSOpenAICredentialCoordinator.swift": 635,
     "Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests/IOSForegroundVoiceProcessorTests.swift": 1293,
     "Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests/IOSOpenAICredentialCoordinatorTests.swift": 1348,

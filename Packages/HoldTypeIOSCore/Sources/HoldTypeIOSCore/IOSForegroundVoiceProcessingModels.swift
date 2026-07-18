@@ -148,3 +148,66 @@ extension IOSForegroundVoiceProcessingResolution:
     public var debugDescription: String { description }
     public var customMirror: Mirror { Mirror(self, children: [:]) }
 }
+
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextAction: Equatable, Sendable {
+    case translate
+    case correct
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextActionFailure: Equatable, Sendable {
+    case busy
+    case invalidText
+    case invalidConfiguration
+    case credentialUnavailable
+    case consentUnavailable
+    case networkUnavailable
+    case timedOut
+    case providerUnavailable
+    case invalidResponse
+    case draftChanged
+    case saveFailed
+    case cancelled
+}
+
+@_spi(HoldTypeIOSCore)
+public enum IOSVoiceDraftTextActionResolution: Equatable, Sendable {
+    case success(String)
+    case failure(IOSVoiceDraftTextActionFailure)
+}
+
+@_spi(HoldTypeIOSCore)
+public struct IOSVoiceDraftTextActionRequest: Sendable {
+    public let action: IOSVoiceDraftTextAction
+    public let text: String
+    public let settings: IOSAppSettings
+    public let credential: IOSResolvedOpenAICredential
+    public let consentObservation: IOSV1ProviderConsentObservation
+
+    public init(
+        action: IOSVoiceDraftTextAction,
+        text: String,
+        settings: IOSAppSettings,
+        credential: IOSResolvedOpenAICredential,
+        consentObservation: IOSV1ProviderConsentObservation
+    ) {
+        self.action = action
+        self.text = text
+        self.settings = settings
+        self.credential = credential
+        self.consentObservation = consentObservation
+    }
+}
+
+extension IOSVoiceDraftTextActionRequest:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String {
+        "IOSVoiceDraftTextActionRequest(redacted)"
+    }
+
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
+}
