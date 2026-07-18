@@ -12,8 +12,9 @@ struct IOSVoiceDraftTextActionOwnerTests {
             let draftOwner = IOSVoiceDraftOwner(repository: repository)
             #expect(await draftOwner.refresh())
             #expect(
-                await draftOwner.appendAccepted(
-                    try accepted(1, text: "Original")
+                await draftOwner.accept(
+                    try accepted(1, text: "Original"),
+                    mode: .append
                 )
             )
             let harness = IOSVoiceDraftTextActionHarness()
@@ -54,8 +55,9 @@ struct IOSVoiceDraftTextActionOwnerTests {
             let draftOwner = IOSVoiceDraftOwner(repository: repository)
             #expect(await draftOwner.refresh())
             #expect(
-                await draftOwner.appendAccepted(
-                    try accepted(1, text: "Keep this")
+                await draftOwner.accept(
+                    try accepted(1, text: "Keep this"),
+                    mode: .append
                 )
             )
             let owner = IOSVoiceDraftTextActionOwner(

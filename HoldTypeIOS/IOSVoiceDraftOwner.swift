@@ -253,13 +253,6 @@ final class IOSVoiceDraftOwner {
     }
 
     @discardableResult
-    func appendAccepted(
-        _ accepted: IOSV1AcceptedOutputDeliveryRecord
-    ) async -> Bool {
-        await accept(accepted, mode: .append)
-    }
-
-    @discardableResult
     func beginEditing() -> Bool {
         guard editingText == nil,
               operation == .idle,

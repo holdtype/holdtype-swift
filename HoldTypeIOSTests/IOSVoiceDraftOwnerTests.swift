@@ -11,7 +11,7 @@ struct IOSVoiceDraftOwnerTests {
             #expect(await owner.refresh())
             let old = try accepted(1, text: "Old")
             let replacement = try accepted(2, text: "New attempt")
-            #expect(await owner.appendAccepted(old))
+            #expect(await owner.accept(old, mode: .append))
             #expect(!owner.canUndo)
             #expect(owner.contentChange.revision == 2)
             #expect(owner.contentChange.kind == .append)
@@ -43,11 +43,11 @@ struct IOSVoiceDraftOwnerTests {
 
             let first = try accepted(1, text: "First paragraph")
             let second = try accepted(2, text: "Second paragraph")
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
             #expect(!owner.canUndo)
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
             #expect(!owner.canUndo)
-            #expect(await owner.appendAccepted(second))
+            #expect(await owner.accept(second, mode: .append))
             #expect(owner.canUndo)
             #expect(owner.text == "First paragraph\n\nSecond paragraph")
 
@@ -66,8 +66,8 @@ struct IOSVoiceDraftOwnerTests {
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
             let second = try accepted(2, text: "Two")
-            #expect(await owner.appendAccepted(first))
-            #expect(await owner.appendAccepted(second))
+            #expect(await owner.accept(first, mode: .append))
+            #expect(await owner.accept(second, mode: .append))
 
             #expect(await owner.clear())
             #expect(owner.text.isEmpty)
@@ -87,7 +87,7 @@ struct IOSVoiceDraftOwnerTests {
             #expect(owner.text.isEmpty)
 
             let old = try accepted(1, text: "Old")
-            #expect(await owner.appendAccepted(old))
+            #expect(await owner.accept(old, mode: .append))
             #expect(await owner.clearForNewDictation())
             #expect(owner.text.isEmpty)
             #expect(owner.canUndo)
@@ -104,8 +104,8 @@ struct IOSVoiceDraftOwnerTests {
             let first = try accepted(1, text: "One")
             let second = try accepted(2, text: "Two")
             let third = try accepted(3, text: "Three")
-            #expect(await owner.appendAccepted(first))
-            #expect(await owner.appendAccepted(second))
+            #expect(await owner.accept(first, mode: .append))
+            #expect(await owner.accept(second, mode: .append))
 
             #expect(await owner.undo())
             #expect(owner.text == "One")
@@ -114,7 +114,7 @@ struct IOSVoiceDraftOwnerTests {
             #expect(owner.text == "One\n\nTwo")
 
             #expect(await owner.undo())
-            #expect(await owner.appendAccepted(third))
+            #expect(await owner.accept(third, mode: .append))
             #expect(owner.text == "One\n\nThree")
             #expect(!owner.canRedo)
         }
@@ -140,7 +140,7 @@ struct IOSVoiceDraftOwnerTests {
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
             #expect(owner.beginEditing())
             owner.updateEditingText(" \n\t ")
             #expect(await owner.finishEditing())
@@ -159,7 +159,7 @@ struct IOSVoiceDraftOwnerTests {
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
 
             #expect(owner.beginEditing())
             owner.updateEditingText("One, edited ✨")
@@ -179,7 +179,7 @@ struct IOSVoiceDraftOwnerTests {
             let relaunched = IOSVoiceDraftOwner(repository: repository)
             #expect(await relaunched.refresh())
             #expect(relaunched.text == "One, edited ✨\n\nManual note")
-            #expect(await relaunched.appendAccepted(first))
+            #expect(await relaunched.accept(first, mode: .append))
             #expect(relaunched.text == "One, edited ✨\n\nManual note")
         }
     }
@@ -190,7 +190,7 @@ struct IOSVoiceDraftOwnerTests {
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
             #expect(owner.beginEditing())
             owner.updateEditingText("My unsaved edit")
 
@@ -293,7 +293,7 @@ struct IOSVoiceDraftOwnerTests {
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
-            #expect(await owner.appendAccepted(first))
+            #expect(await owner.accept(first, mode: .append))
             _ = try await repository.append(
                 IOSVoiceDraftSegment(resultID: identifier(2), text: "External")
             )
@@ -313,8 +313,8 @@ struct IOSVoiceDraftOwnerTests {
             #expect(await owner.refresh())
             let first = try accepted(1, text: "One")
             let second = try accepted(2, text: "Two")
-            #expect(await owner.appendAccepted(first))
-            #expect(await owner.appendAccepted(second))
+            #expect(await owner.accept(first, mode: .append))
+            #expect(await owner.accept(second, mode: .append))
             #expect(owner.canUndo)
 
             _ = try await repository.append(
@@ -355,7 +355,7 @@ struct IOSVoiceDraftOwnerTests {
             let clear = Task { @MainActor in await owner.clear() }
             while owner.operation != .clearing { await Task.yield() }
             let append = Task { @MainActor in
-                await owner.appendAccepted(accepted)
+                await owner.accept(accepted, mode: .append)
             }
 
             #expect(await clear.value)
@@ -370,7 +370,7 @@ struct IOSVoiceDraftOwnerTests {
         try await withRepository { repository in
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
-            #expect(await owner.appendAccepted(try accepted(1, text: "Original")))
+            #expect(await owner.accept(try accepted(1, text: "Original"), mode: .append))
             let reservation = try #require(owner.beginTransformation())
             #expect(owner.operation == .transforming)
             #expect(owner.beginTransformation() == nil)
@@ -393,7 +393,7 @@ struct IOSVoiceDraftOwnerTests {
         try await withRepository { repository in
             let owner = IOSVoiceDraftOwner(repository: repository)
             #expect(await owner.refresh())
-            #expect(await owner.appendAccepted(try accepted(1, text: "Original")))
+            #expect(await owner.accept(try accepted(1, text: "Original"), mode: .append))
             let reservation = try #require(owner.beginTransformation())
 
             _ = try await repository.append(
