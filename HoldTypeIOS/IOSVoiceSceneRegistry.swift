@@ -62,72 +62,6 @@ nonisolated struct IOSVoiceSceneRegistryEvent: Equatable, Sendable {
     fileprivate let promptRevision: UInt64
 }
 
-/// Thread-safe exact-once storage for a MainActor observer-removal action.
-/// Explicit cancellation runs synchronously on MainActor. If the subscription's
-/// last reference is released on another executor, token deinitialization uses
-/// a supported asynchronous hop without assuming executor identity.
-private nonisolated final class IOSVoiceSceneMainActorCancellationToken:
-    @unchecked Sendable {
-    typealias Action = @MainActor @Sendable () -> Bool
-
-    private let lock = NSLock()
-    private var action: Action?
-
-    init(_ action: @escaping Action) {
-        self.action = action
-    }
-
-    @MainActor
-    func cancel() -> Bool {
-        take()?() ?? false
-    }
-
-    private func take() -> Action? {
-        lock.lock()
-        defer { lock.unlock() }
-        let pendingAction = action
-        action = nil
-        return pendingAction
-    }
-
-    deinit {
-        guard let action = take() else { return }
-        Task { @MainActor in
-            _ = action()
-        }
-    }
-}
-
-@MainActor
-final class IOSVoiceSceneEventSubscription:
-    CustomDebugStringConvertible,
-    CustomReflectable,
-    CustomStringConvertible {
-    private let cancellationToken: IOSVoiceSceneMainActorCancellationToken
-
-    fileprivate init(
-        registry: IOSVoiceSceneRegistry,
-        observerValue: UInt64
-    ) {
-        cancellationToken = IOSVoiceSceneMainActorCancellationToken {
-            [weak registry] in
-            registry?.removeEventObserver(observerValue) ?? false
-        }
-    }
-
-    var description: String { "IOSVoiceSceneEventSubscription" }
-    var debugDescription: String { description }
-
-    var customMirror: Mirror {
-        Mirror(self, children: ["subscription": "opaque"])
-    }
-
-    @discardableResult
-    func cancel() -> Bool {
-        cancellationToken.cancel()
-    }
-}
-
 @MainActor
 final class IOSVoiceSceneFacade:
     CustomDebugStringConvertible,
@@ -182,9 +116,7 @@ final class IOSVoiceSceneFacade:
 
 @MainActor
 final class IOSVoiceSceneRegistry {
-    typealias EventSink = @MainActor @Sendable (
-        IOSVoiceSceneRegistryEvent
-    ) -> Void
+    typealias EventSink = IOSVoiceSceneEventObservationOwner.EventSink
 
     private struct SceneRecord {
         var activity: IOSVoiceSceneActivity
@@ -214,11 +146,10 @@ final class IOSVoiceSceneRegistry {
     private var scenes: [UInt64: SceneRecord] = [:]
     private var promptOwner: PromptOwner?
     private var activationWaiters: [UInt64: ActivationWaiter] = [:]
-    private var eventObservers: [UInt64: EventSink] = [:]
+    private let eventObservationOwner = IOSVoiceSceneEventObservationOwner()
     private var nextSceneValue: UInt64 = 1
     private var nextPromptGeneration: UInt64 = 1
     private var nextWaiterValue: UInt64 = 1
-    private var nextObserverValue: UInt64 = 1
     private var foregroundRevision: UInt64 = 0
     private var promptRevision: UInt64 = 0
 
@@ -234,19 +165,13 @@ final class IOSVoiceSceneRegistry {
     }
 
     var activeEventSubscriptionCount: Int {
-        eventObservers.count
+        eventObservationOwner.activeSubscriptionCount
     }
 
     func observeEvents(
         _ observer: @escaping EventSink
     ) -> IOSVoiceSceneEventSubscription {
-        let observerValue = nextObserverValue
-        nextObserverValue &+= 1
-        eventObservers[observerValue] = observer
-        return IOSVoiceSceneEventSubscription(
-            registry: self,
-            observerValue: observerValue
-        )
+        eventObservationOwner.observe(observer)
     }
 
     func registerScene(
@@ -632,22 +557,7 @@ final class IOSVoiceSceneRegistry {
     }
 
     private func emit(_ events: [IOSVoiceSceneRegistryEvent]) {
-        for event in events {
-            let observerValues = eventObservers.keys.sorted()
-            for observerValue in observerValues {
-                // A prior callback may cancel itself or another observer.
-                // Added observers begin with the next event, not midway
-                // through the event currently being delivered.
-                guard let observer = eventObservers[observerValue] else {
-                    continue
-                }
-                observer(event)
-            }
-        }
-    }
-
-    fileprivate func removeEventObserver(_ observerValue: UInt64) -> Bool {
-        eventObservers.removeValue(forKey: observerValue) != nil
+        eventObservationOwner.emit(events)
     }
 
     private func advancePromptRevision() {
