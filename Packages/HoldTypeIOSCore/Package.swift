@@ -24,13 +24,24 @@ let package = Package(
             name: "HoldTypeIOSCore",
             dependencies: [
                 .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
-                "HoldTypeOpenAI",
-                "HoldTypePersistence",
+                .product(name: "HoldTypeOpenAI", package: "HoldTypeOpenAI"),
+                .product(
+                    name: "HoldTypePersistence",
+                    package: "HoldTypePersistence"
+                ),
             ]
         ),
         .testTarget(
             name: "HoldTypeIOSCoreTests",
-            dependencies: ["HoldTypeIOSCore"]
+            dependencies: [
+                "HoldTypeIOSCore",
+                .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
+                .product(name: "HoldTypeOpenAI", package: "HoldTypeOpenAI"),
+                .product(
+                    name: "HoldTypePersistence",
+                    package: "HoldTypePersistence"
+                ),
+            ]
         ),
     ]
 )
