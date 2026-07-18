@@ -68,9 +68,15 @@ struct SettingsView: View {
         self.transcriptHistoryStore = transcriptHistoryStore ?? TranscriptRecoveryHistoryStore.shared
         self.openAIUsageStore = openAIUsageStore ?? OpenAIUsageStore.shared
         self.softwareUpdates = softwareUpdates
-        let initialRecordingCacheState = Self.loadRecordingCacheState(recordingCache: recordingCache)
-        let initialDiagnosticsState = Self.loadDiagnosticsState(diagnostics: diagnostics)
-        let initialRuntimeLogState = Self.loadRuntimeLogState(diagnostics: diagnostics)
+        let initialRecordingCacheState = SettingsViewStateLoader.loadRecordingCacheState(
+            recordingCache: recordingCache
+        )
+        let initialDiagnosticsState = SettingsViewStateLoader.loadDiagnosticsState(
+            diagnostics: diagnostics
+        )
+        let initialRuntimeLogState = SettingsViewStateLoader.loadRuntimeLogState(
+            diagnostics: diagnostics
+        )
         _appSettings = State(initialValue: appSettingsStore.load())
         _permissionsModel = StateObject(
             wrappedValue: SettingsPermissionsViewModel(
@@ -333,7 +339,9 @@ struct SettingsView: View {
     }
 
     private func refreshRecordingCache() {
-        let cacheState = Self.loadRecordingCacheState(recordingCache: recordingCache)
+        let cacheState = SettingsViewStateLoader.loadRecordingCacheState(
+            recordingCache: recordingCache
+        )
         recordingCacheSummary = cacheState.summary
         recordingCacheErrorMessage = cacheState.errorMessage
     }
@@ -351,7 +359,7 @@ struct SettingsView: View {
             try recordingCache.deleteRecording(at: item.fileURL)
             refreshRecordingCache()
         } catch {
-            recordingCacheErrorMessage = Self.userFacingMessage(for: error)
+            recordingCacheErrorMessage = SettingsViewStateLoader.userFacingMessage(for: error)
         }
     }
 
@@ -360,13 +368,17 @@ struct SettingsView: View {
             try recordingCache.clearCache()
             refreshRecordingCache()
         } catch {
-            recordingCacheErrorMessage = Self.userFacingMessage(for: error)
+            recordingCacheErrorMessage = SettingsViewStateLoader.userFacingMessage(for: error)
         }
     }
 
     private func refreshDiagnostics() {
-        let diagnosticsState = Self.loadDiagnosticsState(diagnostics: diagnostics)
-        let runtimeLogState = Self.loadRuntimeLogState(diagnostics: diagnostics)
+        let diagnosticsState = SettingsViewStateLoader.loadDiagnosticsState(
+            diagnostics: diagnostics
+        )
+        let runtimeLogState = SettingsViewStateLoader.loadRuntimeLogState(
+            diagnostics: diagnostics
+        )
         diagnosticReportSummary = diagnosticsState.summary
         diagnosticRuntimeLogSummary = runtimeLogState.summary
         diagnosticsErrorMessage = diagnosticsState.errorMessage
@@ -412,7 +424,7 @@ struct SettingsView: View {
             diagnostics.revealInFinder(result.bundleURL)
         } catch {
             diagnosticBundleResult = nil
-            diagnosticBundleErrorMessage = Self.userFacingMessage(for: error)
+            diagnosticBundleErrorMessage = SettingsViewStateLoader.userFacingMessage(for: error)
         }
     }
 
@@ -428,65 +440,10 @@ struct SettingsView: View {
             try recordingCache.applyRetentionPolicy(newSettings.recordingCachePolicy)
             refreshRecordingCache()
         } catch {
-            recordingCacheErrorMessage = Self.userFacingMessage(for: error)
+            recordingCacheErrorMessage = SettingsViewStateLoader.userFacingMessage(for: error)
         }
     }
 
-    private static func loadRecordingCacheState(
-        recordingCache: any RecordingCacheManaging
-    ) -> (summary: RecordingCacheSummary, errorMessage: String?) {
-        do {
-            return (try recordingCache.summary(), nil)
-        } catch {
-            return (
-                RecordingCacheSummary(directoryURL: recordingCache.directoryURL, items: []),
-                userFacingMessage(for: error)
-            )
-        }
-    }
-
-    private static func loadDiagnosticsState(
-        diagnostics: any DiagnosticsManaging
-    ) -> (summary: DiagnosticReportSummary, errorMessage: String?) {
-        do {
-            return (try diagnostics.summary(), nil)
-        } catch {
-            return (
-                DiagnosticReportSummary(
-                    directoryURL: diagnostics.diagnosticReportsDirectoryURL,
-                    directoryStatus: .missing,
-                    items: []
-                ),
-                userFacingMessage(for: error)
-            )
-        }
-    }
-
-    private static func loadRuntimeLogState(
-        diagnostics: any DiagnosticsManaging
-    ) -> (summary: DiagnosticRuntimeLogSummary, errorMessage: String?) {
-        do {
-            return (try diagnostics.runtimeLogSummary(limit: 100), nil)
-        } catch {
-            return (
-                DiagnosticRuntimeLogSummary(
-                    directoryURL: diagnostics.runtimeLogsDirectoryURL,
-                    recentLines: []
-                ),
-                userFacingMessage(for: error)
-            )
-        }
-    }
-
-    private static func userFacingMessage(for error: Error) -> String {
-        if let localizedError = error as? LocalizedError,
-           let description = localizedError.errorDescription,
-           !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return description
-        }
-
-        return error.localizedDescription
-    }
 }
 
 #Preview {
