@@ -266,13 +266,6 @@ struct IOSForegroundVoiceProviderBridgeTests {
         #expect(String(reflecting: bridge).contains(canary) == false)
     }
 
-    @Test
-    func noActiveHistoryPlaybackArbitratorCompletesHandoff() async {
-        let arbitrator: any IOSForegroundVoiceHistoryPlaybackArbitrating =
-            IOSNoActiveHistoryPlaybackArbitrator()
-
-        #expect(await arbitrator.stopAndDeactivate())
-    }
 }
 
 private enum BridgeCredentialState: Sendable {

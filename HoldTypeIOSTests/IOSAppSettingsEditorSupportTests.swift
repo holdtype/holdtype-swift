@@ -503,27 +503,6 @@ struct IOSAppSettingsEditorSupportTests {
         )
     }
 
-    @Test func modelSummariesNeverEchoModelIdentifiers() {
-        let sentinel = "PRIVATE-CUSTOM-MODEL-IDENTIFIER"
-        let customSummary = IOSSettingsModelPresentation.summary(
-            rawModel: sentinel,
-            defaultModel: "default"
-        )
-        let defaultSummary = IOSSettingsModelPresentation.summary(
-            rawModel: "default",
-            defaultModel: "default"
-        )
-        let blankSummary = IOSSettingsModelPresentation.summary(
-            rawModel: "  ",
-            defaultModel: "default"
-        )
-
-        #expect(customSummary == "Custom model")
-        #expect(defaultSummary == "Default model")
-        #expect(blankSummary == "Default model")
-        #expect(!customSummary.contains(sentinel))
-    }
-
     @Test func promptResetUsesExactSharedDefaultsWithoutSaving() {
         var correction = TextCorrectionConfiguration(
             isEnabled: false,

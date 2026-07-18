@@ -277,20 +277,6 @@ enum IOSAppSettingsEditorValidation {
     }
 }
 
-enum IOSSettingsModelPresentation {
-    nonisolated static func summary(
-        rawModel: String,
-        defaultModel: String
-    ) -> String {
-        let trimmed = rawModel.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        return trimmed.isEmpty || trimmed == defaultModel
-            ? "Default model"
-            : "Custom model"
-    }
-}
-
 enum IOSAppSettingsEditorMutation {
     nonisolated static func applyTranscription(
         _ configuration: TranscriptionConfiguration,

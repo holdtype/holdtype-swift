@@ -307,10 +307,6 @@ final class IOSAudioSessionAdapter {
         return frozen
     }
 
-    func inspectCurrentState() -> IOSAudioSessionCurrentState {
-        system.currentState()
-    }
-
     func observeEvents(
         for attemptToken: IOSAudioSessionAttemptToken,
         receive: @escaping EventHandler

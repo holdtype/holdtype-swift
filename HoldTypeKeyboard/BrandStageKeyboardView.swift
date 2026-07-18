@@ -1386,16 +1386,4 @@ final class BrandStageKeyboardView: UIView {
             : UIColor(red: 0.24, green: 0.28, blue: 0.38, alpha: 0.7)
     }
 
-    private static let statusForeground = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.84, green: 0.86, blue: 0.91, alpha: 1)
-            : UIColor(red: 0.30, green: 0.33, blue: 0.42, alpha: 1)
-    }
-
-    private static let voiceForeground = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.91, green: 0.92, blue: 0.98, alpha: 1)
-            : UIColor(red: 0.30, green: 0.37, blue: 0.70, alpha: 1)
-    }
-
 }

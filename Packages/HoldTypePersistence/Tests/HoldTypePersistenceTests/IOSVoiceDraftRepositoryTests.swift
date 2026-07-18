@@ -303,11 +303,6 @@ struct IOSVoiceDraftRepositoryTests {
     }
 }
 
-private enum DraftFileSystemFakeError: Error {
-    case read
-    case replace
-}
-
 private final class DraftFileSystemFake:
     ProtectedAtomicMetadataFileSystem,
     @unchecked Sendable

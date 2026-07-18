@@ -4028,28 +4028,6 @@ private final class WorkflowFixture {
         return pending
     }
 }
-
-
-@MainActor
-private func finishCompletedCapture(
-    _ fixture: WorkflowFixture
-) async throws -> IOSForegroundVoiceResolution {
-    let token = IOSForegroundVoiceWorkflowAttemptToken()
-    let task = Task { @MainActor in
-        await fixture.workflow.start(
-            IOSForegroundVoiceWorkflowStartRequest(
-                outputIntent: .standard,
-                sceneLease: fixture.lease
-            ),
-            token: token,
-            progress: { _ in }
-        )
-    }
-    try await waitUntil { fixture.events.contains("recording-start") }
-    #expect(fixture.workflow.finishUtterance(token) == .accepted)
-    return await task.value
-}
-
 private func makeAcceptedDeliveryRecord()
     throws -> IOSV1AcceptedOutputDeliveryRecord {
     let createdAt = Date(timeIntervalSince1970: 1_800_000_000)

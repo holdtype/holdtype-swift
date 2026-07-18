@@ -1341,11 +1341,6 @@ struct IOSVoiceHomeView: View {
         action == .startStandard || action == .finishUtterance
     }
 
-    private var draftBlocksNewDictation: Bool {
-        !draftOwner.isAvailableForMutation
-            || (draftOwner.isFull && !sessionModes.clearsDraftOnStart)
-    }
-
     private func copyDraft() {
         guard !draftOwner.visibleText.isEmpty else { return }
         IOSVoiceClipboard.copy(draftOwner.visibleText)

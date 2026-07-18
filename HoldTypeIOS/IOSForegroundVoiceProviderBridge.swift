@@ -203,11 +203,6 @@ protocol IOSForegroundVoiceHistoryPlaybackArbitrating: Sendable {
     func stopAndDeactivate() async -> Bool
 }
 
-nonisolated struct IOSNoActiveHistoryPlaybackArbitrator:
-    IOSForegroundVoiceHistoryPlaybackArbitrating {
-    func stopAndDeactivate() async -> Bool { true }
-}
-
 extension IOSForegroundVoiceCredentialClient:
     CustomStringConvertible,
     CustomDebugStringConvertible,
