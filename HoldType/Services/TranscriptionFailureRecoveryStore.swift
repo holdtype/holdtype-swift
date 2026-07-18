@@ -8,7 +8,6 @@
 import Combine
 import Foundation
 import HoldTypeDomain
-import HoldTypeOpenAI
 
 @MainActor
 final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFailureRecoveryRecording {
@@ -554,35 +553,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         )
         failedAttempts = retainedAttempts
         return true
-    }
-
-    func clear() {
-        let attemptsToDelete = failedAttempts
-        guard (try? persist([])) != nil else {
-            return
-        }
-
-        failedAttempts = []
-        let emergencyAttemptIDs = emergencyFallbackAttemptIDs
-        emergencyFallbackAttemptIDs.removeAll()
-        for attempt in attemptsToDelete {
-            if emergencyAttemptIDs.contains(attempt.id) {
-                try? deleteExactRegularAudio(attempt.audioFileURL)
-            } else {
-                do {
-                    try deleteRecoveryAudio(attempt.audioFileURL)
-                    try? deleteSavedStateRepairMarker(id: attempt.id)
-                    try? deleteProcessingCheckpointMarker(id: attempt.id)
-                    try? deleteProviderDispatchMarker(
-                        id: attempt.id,
-                        afterRemovingAudioAt: attempt.audioFileURL
-                    )
-                } catch {
-                    // Leave the lifetime dispatch seal beside any audio that
-                    // could not be removed.
-                }
-            }
-        }
     }
 
     private func validateNonemptyAudio(at fileURL: URL) throws {

@@ -461,27 +461,6 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(FileManager.default.fileExists(atPath: sourceURL.path))
     }
 
-    @Test func clearRemovesFailedAttemptAudio() throws {
-        let fixture = try makeFixture()
-        defer { try? FileManager.default.removeItem(at: fixture.rootURL) }
-
-        let sourceURL = try makeAudioFile(in: fixture.rootURL, named: "failed.m4a")
-        let store = TranscriptionFailureRecoveryStore(directoryURL: fixture.recoveryURL)
-        let attempt = try #require(
-            try store.recordFailedAttempt(
-                audioFileURL: sourceURL,
-                settings: .defaults,
-                audioDuration: nil,
-                reason: .timedOut
-            )
-        )
-
-        store.clear()
-
-        #expect(store.failedAttempts.isEmpty)
-        #expect(FileManager.default.fileExists(atPath: attempt.audioFileURL.path) == false)
-    }
-
     @Test func emergencyFallbackKeepsOriginalUntilExplicitDiscard() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.rootURL) }

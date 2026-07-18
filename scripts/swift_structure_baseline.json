@@ -8,7 +8,7 @@
   "oversizedFiles": {
     "HoldType/Services/DictationSessionController.swift": 1927,
     "HoldType/Services/RecordingCaptureJournal.swift": 602,
-    "HoldType/Services/TranscriptionFailureRecoveryStore.swift": 1583,
+    "HoldType/Services/TranscriptionFailureRecoveryStore.swift": 1553,
     "HoldTypeIOS/IOSAudioSessionAdapter.swift": 654,
     "HoldTypeIOS/IOSContainingAppStateOwners.swift": 609,
     "HoldTypeIOS/IOSEmojiCommandEditorSupport.swift": 537,
@@ -52,7 +52,7 @@
     "HoldTypeTests/DictationSessionControllerTests.swift": 5226,
     "HoldTypeTests/PermissionsServiceTests.swift": 683,
     "HoldTypeTests/TextInsertionServiceTests.swift": 535,
-    "HoldTypeTests/TranscriptionFailureRecoveryStoreTests.swift": 1463,
+    "HoldTypeTests/TranscriptionFailureRecoveryStoreTests.swift": 1442,
     "KeyboardShared/IOSRuntimeDiagnostics.swift": 564,
     "KeyboardShared/KeyboardDictationBridge.swift": 541,
     "Packages/HoldTypeIOSCore/Sources/HoldTypeIOSCore/IOSForegroundVoiceProcessor.swift": 1353,
