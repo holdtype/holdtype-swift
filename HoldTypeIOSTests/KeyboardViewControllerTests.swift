@@ -318,13 +318,11 @@ struct KeyboardViewControllerTests {
         let deadline = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                requestID: requestID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
@@ -335,27 +333,23 @@ struct KeyboardViewControllerTests {
         #expect(harness.savedHandoffIntents.isEmpty)
         #expect(harness.openedURLs.isEmpty)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .listening,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .listening,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         #expect(statusText(in: controller.view) == "Listening…")
         controller.keyboardView.onMicrophoneRequested?()
         #expect(harness.savedCommands.map(\.kind) == [.start, .finish])
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .resultReady,
-                result: "Processed keyboard text",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .resultReady,
+            result: "Processed keyboard text",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         #expect(harness.savedCommands.map(\.kind) == [
@@ -365,15 +359,13 @@ struct KeyboardViewControllerTests {
         ])
         #expect(harness.proxy.insertedTexts.isEmpty)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                deliveryClaimID: harness.deliveryClaimID,
-                phase: .resultReady,
-                result: "Processed keyboard text",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            deliveryClaimID: harness.deliveryClaimID,
+            phase: .resultReady,
+            result: "Processed keyboard text",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.textDidChange(nil)
@@ -396,14 +388,12 @@ struct KeyboardViewControllerTests {
         let deadline = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    translationAvailable: true,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                requestID: requestID,
+                phase: .ready,
+                translationAvailable: true,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
@@ -415,14 +405,12 @@ struct KeyboardViewControllerTests {
         #expect(harness.savedCommands.map(\.action) == [.translate])
 
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: UUID(),
-                phase: .ready,
-                translationAvailable: true,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: UUID(),
+            phase: .ready,
+            translationAvailable: true,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.keyboardView.onAutomaticVoiceActionChanged?(.improve)
@@ -430,14 +418,12 @@ struct KeyboardViewControllerTests {
         #expect(harness.savedCommands.map(\.action) == [.improve])
 
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: UUID(),
-                phase: .ready,
-                translationAvailable: true,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: UUID(),
+            phase: .ready,
+            translationAvailable: true,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.keyboardView.onAutomaticVoiceActionChanged?(
@@ -449,14 +435,12 @@ struct KeyboardViewControllerTests {
         )
 
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: UUID(),
-                phase: .ready,
-                translationAvailable: false,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: UUID(),
+            phase: .ready,
+            translationAvailable: false,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.keyboardView.onAutomaticVoiceActionChanged?(.translate)
@@ -475,14 +459,12 @@ struct KeyboardViewControllerTests {
         let sessionID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    translationAvailable: true,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                translationAvailable: true,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
@@ -493,31 +475,27 @@ struct KeyboardViewControllerTests {
         let firstStart = try #require(harness.savedCommands.first)
         #expect(firstStart.action == .translate)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: firstStart.attemptID,
-                requestID: firstStart.requestID,
-                sourceDocumentID: firstStart.sourceDocumentID,
-                phase: .listening,
-                translationAvailable: true,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: firstStart.attemptID,
+            requestID: firstStart.requestID,
+            sourceDocumentID: firstStart.sourceDocumentID,
+            phase: .listening,
+            translationAvailable: true,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.keyboardView.onAutomaticVoiceActionChanged?(.improve)
 
         #expect(harness.savedCommands.map(\.action) == [.translate])
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                phase: .ready,
-                translationAvailable: true,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            phase: .ready,
+            translationAvailable: true,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.keyboardView.onMicrophoneRequested?()
@@ -531,38 +509,32 @@ struct KeyboardViewControllerTests {
         let deadline = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                requestID: requestID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
         controller.keyboardView.onMicrophoneRequested?()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .listening,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .listening,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         harness.currentDocumentIdentifier = UUID()
         controller.textDidChange(nil)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .resultReady,
-                result: "Latest fallback text",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .resultReady,
+            result: "Latest fallback text",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
 
@@ -587,27 +559,23 @@ struct KeyboardViewControllerTests {
         let deadline = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                requestID: requestID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
         controller.keyboardView.onMicrophoneRequested?()
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: UUID(),
-                phase: .resultReady,
-                result: "Stale result",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: UUID(),
+            phase: .resultReady,
+            result: "Stale result",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
 
@@ -621,25 +589,21 @@ struct KeyboardViewControllerTests {
         let deadline = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    requestID: requestID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: deadline
-                )
+            dictationState: KeyboardDictationStateRecord(
+                requestID: requestID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: deadline
             )
         )
         let controller = harness.makeController()
         controller.loadViewIfNeeded()
         controller.keyboardView.onMicrophoneRequested?()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .listening,
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .listening,
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
         controller.beginAppearanceTransition(false, animated: false)
@@ -647,26 +611,22 @@ struct KeyboardViewControllerTests {
         controller.beginAppearanceTransition(true, animated: false)
         controller.endAppearanceTransition()
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .resultReady,
-                result: "Latest fallback text",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .resultReady,
+            result: "Latest fallback text",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                deliveryClaimID: harness.deliveryClaimID,
-                phase: .resultReady,
-                result: "Latest fallback text",
-                publishedAt: now,
-                expiresAt: deadline
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            deliveryClaimID: harness.deliveryClaimID,
+            phase: .resultReady,
+            result: "Latest fallback text",
+            publishedAt: now,
+            expiresAt: deadline
         )
         controller.textDidChange(nil)
 
@@ -683,13 +643,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: sourceDocumentID
         )
@@ -697,16 +655,14 @@ struct KeyboardViewControllerTests {
         controller.keyboardView.onMicrophoneRequested?()
         let start = try #require(harness.savedCommands.last)
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .listening,
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .listening,
+            publishedAt: now,
+            expiresAt: expiresAt
         )
 
         controller.beginAppearanceTransition(false, animated: false)
@@ -718,17 +674,15 @@ struct KeyboardViewControllerTests {
         controller.beginAppearanceTransition(false, animated: false)
         controller.endAppearanceTransition()
         harness.currentDocumentIdentifier = sourceDocumentID
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "Lifecycle A to B to A",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "Lifecycle A to B to A",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.beginAppearanceTransition(true, animated: false)
         controller.endAppearanceTransition()
@@ -748,13 +702,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: documentID
         )
@@ -766,17 +718,15 @@ struct KeyboardViewControllerTests {
 
         controller.beginAppearanceTransition(false, animated: false)
         controller.endAppearanceTransition()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "Deferred while hidden",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "Deferred while hidden",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         observe()
 
@@ -790,18 +740,16 @@ struct KeyboardViewControllerTests {
 
         controller.beginAppearanceTransition(false, animated: false)
         controller.endAppearanceTransition()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                result: "Deferred while hidden",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            deliveryClaimID: claim.deliveryClaimID,
+            phase: .resultReady,
+            result: "Deferred while hidden",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         observe()
 
@@ -826,18 +774,16 @@ struct KeyboardViewControllerTests {
         let grantedToPreviousProcess = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    attemptID: UUID(),
-                    requestID: UUID(),
-                    sourceDocumentID: documentID,
-                    deliveryClaimID: grantedToPreviousProcess,
-                    phase: .resultReady,
-                    result: "Uncertain previous insertion",
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                attemptID: UUID(),
+                requestID: UUID(),
+                sourceDocumentID: documentID,
+                deliveryClaimID: grantedToPreviousProcess,
+                phase: .resultReady,
+                result: "Uncertain previous insertion",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: documentID
         )
@@ -939,26 +885,22 @@ struct KeyboardViewControllerTests {
         refresh()
         #expect(countdown.text == "1")
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .processing,
-                publishedAt: harness.now,
-                expiresAt: harness.now.addingTimeInterval(120)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .processing,
+            publishedAt: harness.now,
+            expiresAt: harness.now.addingTimeInterval(120)
         )
         controller.textDidChange(nil)
         #expect(countdown.isHidden)
         refresh()
         #expect(countdown.isHidden)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                requestID: requestID,
-                phase: .ready,
-                publishedAt: harness.now,
-                expiresAt: harness.now.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            requestID: requestID,
+            phase: .ready,
+            publishedAt: harness.now,
+            expiresAt: harness.now.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
         #expect(countdown.isHidden)
@@ -992,12 +934,10 @@ struct KeyboardViewControllerTests {
             now: now,
             dictationState: state,
             requestID: UUID(),
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    now: now
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                now: now
             )
         )
         let recreatedController = harness.makeController()
@@ -1022,25 +962,21 @@ struct KeyboardViewControllerTests {
         let returnedDocumentID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    attemptID: UUID(),
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    phase: .resultReady,
-                    result: "Delivered after return",
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                attemptID: UUID(),
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                phase: .resultReady,
+                result: "Delivered after return",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: returnedDocumentID,
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    now: now
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                now: now
             )
         )
         let recreatedController = harness.makeController()
@@ -1060,13 +996,11 @@ struct KeyboardViewControllerTests {
 
         let completedState = try #require(harness.dictationState)
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: completedState.sessionID,
-                phase: .ready,
-                publishedAt: now.addingTimeInterval(2),
-                expiresAt: now.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: completedState.sessionID,
+            phase: .ready,
+            publishedAt: now.addingTimeInterval(2),
+            expiresAt: now.addingTimeInterval(60)
         )
         recreatedController.textDidChange(nil)
         recreatedController.keyboardView.onMicrophoneRequested?()
@@ -1092,24 +1026,20 @@ struct KeyboardViewControllerTests {
                 publishedAt: now,
                 latest: olderLatest
             ),
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    attemptID: UUID(),
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    phase: .listening,
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                attemptID: UUID(),
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                phase: .listening,
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: returnedDocumentID,
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    now: now
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                now: now
             )
         )
         let controller = harness.makeController()
@@ -1117,17 +1047,15 @@ struct KeyboardViewControllerTests {
 
         harness.currentDocumentIdentifier = UUID()
         let activeState = try #require(harness.dictationState)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: activeState.sessionID,
-                attemptID: activeState.attemptID,
-                requestID: activeState.requestID,
-                sourceDocumentID: activeState.sourceDocumentID,
-                phase: .resultReady,
-                result: "Current transient result",
-                publishedAt: now.addingTimeInterval(1),
-                expiresAt: now.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: activeState.sessionID,
+            attemptID: activeState.attemptID,
+            requestID: activeState.requestID,
+            sourceDocumentID: activeState.sourceDocumentID,
+            phase: .resultReady,
+            result: "Current transient result",
+            publishedAt: now.addingTimeInterval(1),
+            expiresAt: now.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -1148,41 +1076,35 @@ struct KeyboardViewControllerTests {
         let returnedDocumentID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    attemptID: attemptID,
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    phase: .listening,
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                phase: .listening,
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: returnedDocumentID,
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: sourceDocumentID,
-                    now: now
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: sourceDocumentID,
+                now: now
             )
         )
         let recreatedController = harness.makeController()
         recreatedController.loadViewIfNeeded()
 
         harness.currentDocumentIdentifier = UUID()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: sourceDocumentID,
-                phase: .resultReady,
-                result: "Wrong document result",
-                publishedAt: now,
-                expiresAt: now.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: sourceDocumentID,
+            phase: .resultReady,
+            result: "Wrong document result",
+            publishedAt: now,
+            expiresAt: now.addingTimeInterval(60)
         )
         recreatedController.textDidChange(nil)
 
@@ -1199,13 +1121,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: documentID
         )
@@ -1217,17 +1137,15 @@ struct KeyboardViewControllerTests {
 
         harness.savedCommands.removeAll()
         harness.currentDocumentIdentifier = nil
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "Recovered document result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "Recovered document result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1244,18 +1162,16 @@ struct KeyboardViewControllerTests {
         #expect(claim.deliveryClaimID == harness.deliveryClaimID)
         #expect(harness.proxy.insertedTexts.isEmpty)
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                deliveryClaimID: harness.deliveryClaimID,
-                phase: .resultReady,
-                result: "Recovered document result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            deliveryClaimID: harness.deliveryClaimID,
+            phase: .resultReady,
+            result: "Recovered document result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1271,13 +1187,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: requestID
         )
@@ -1328,13 +1242,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: documentID
         )
@@ -1344,35 +1256,31 @@ struct KeyboardViewControllerTests {
         let start = try #require(harness.savedCommands.last)
         harness.savedCommands.removeAll()
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "Claimed result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "Claimed result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
         let claim = try #require(harness.savedCommands.last)
         #expect(claim.kind == .claimDelivery)
 
         harness.currentDocumentIdentifier = UUID()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                result: "Claimed result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            deliveryClaimID: claim.deliveryClaimID,
+            phase: .resultReady,
+            result: "Claimed result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1388,13 +1296,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: documentID
         )
@@ -1403,17 +1309,15 @@ struct KeyboardViewControllerTests {
         let start = try #require(harness.savedCommands.last)
         harness.savedCommands.removeAll()
 
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "Captured proxy result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "Captured proxy result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
         let claim = try #require(harness.savedCommands.last)
@@ -1425,18 +1329,16 @@ struct KeyboardViewControllerTests {
         harness.replacementDocumentProxy = replacementProxy
         harness.replaceDocumentProxyAfterIdentifierLoadCall =
             harness.documentIdentifierOwnerIDs.count + 2
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                result: "Captured proxy result",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            deliveryClaimID: claim.deliveryClaimID,
+            phase: .resultReady,
+            result: "Captured proxy result",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         let observe = try #require(harness.observedDictationStateChange)
         observe()
@@ -1454,13 +1356,11 @@ struct KeyboardViewControllerTests {
         let expiresAt = now.addingTimeInterval(60)
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: now,
-                    expiresAt: expiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: now,
+                expiresAt: expiresAt
             ),
             requestID: documentID
         )
@@ -1469,16 +1369,14 @@ struct KeyboardViewControllerTests {
         controller.keyboardView.onMicrophoneRequested?()
         let start = try #require(harness.savedCommands.last)
         harness.savedCommands.removeAll()
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .listening,
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .listening,
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1486,17 +1384,15 @@ struct KeyboardViewControllerTests {
         controller.textDidChange(nil)
         harness.currentDocumentIdentifier = documentID
         controller.textDidChange(nil)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: start.sessionID,
-                attemptID: start.attemptID,
-                requestID: start.requestID,
-                sourceDocumentID: start.sourceDocumentID,
-                phase: .resultReady,
-                result: "A to B to A",
-                publishedAt: now,
-                expiresAt: expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: start.sessionID,
+            attemptID: start.attemptID,
+            requestID: start.requestID,
+            sourceDocumentID: start.sourceDocumentID,
+            phase: .resultReady,
+            result: "A to B to A",
+            publishedAt: now,
+            expiresAt: expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1515,25 +1411,21 @@ struct KeyboardViewControllerTests {
         let documentID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    attemptID: UUID(),
-                    requestID: requestID,
-                    sourceDocumentID: documentID,
-                    phase: .resultReady,
-                    result: "Recreated controller result",
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                attemptID: UUID(),
+                requestID: requestID,
+                sourceDocumentID: documentID,
+                phase: .resultReady,
+                result: "Recreated controller result",
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: documentID,
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: documentID,
-                    now: now
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: documentID,
+                now: now
             )
         )
         let controller = harness.makeController()
@@ -1543,18 +1435,16 @@ struct KeyboardViewControllerTests {
         #expect(claim.kind == .claimDelivery)
         #expect(harness.proxy.insertedTexts.isEmpty)
         let state = try #require(harness.dictationState)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: state.sessionID,
-                attemptID: state.attemptID,
-                requestID: state.requestID,
-                sourceDocumentID: state.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                result: state.result,
-                publishedAt: state.publishedAt,
-                expiresAt: state.expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: state.sessionID,
+            attemptID: state.attemptID,
+            requestID: state.requestID,
+            sourceDocumentID: state.sourceDocumentID,
+            deliveryClaimID: claim.deliveryClaimID,
+            phase: .resultReady,
+            result: state.result,
+            publishedAt: state.publishedAt,
+            expiresAt: state.expiresAt
         )
         controller.textDidChange(nil)
 
@@ -1571,16 +1461,14 @@ struct KeyboardViewControllerTests {
         let currentDocumentID = UUID()
         let changedDocumentHarness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    attemptID: attemptID,
-                    requestID: requestID,
-                    sourceDocumentID: originalDocumentID,
-                    phase: .listening,
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                sourceDocumentID: originalDocumentID,
+                phase: .listening,
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: currentDocumentID
         )
@@ -1620,16 +1508,14 @@ struct KeyboardViewControllerTests {
         let documentID = UUID()
         let harness = KeyboardControllerHarness(
             now: now,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: UUID(),
-                    attemptID: UUID(),
-                    requestID: UUID(),
-                    sourceDocumentID: documentID,
-                    phase: .processing,
-                    publishedAt: now,
-                    expiresAt: now.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: UUID(),
+                attemptID: UUID(),
+                requestID: UUID(),
+                sourceDocumentID: documentID,
+                phase: .processing,
+                publishedAt: now,
+                expiresAt: now.addingTimeInterval(60)
             ),
             requestID: documentID
         )
@@ -1681,17 +1567,15 @@ struct KeyboardViewControllerTests {
 
         let resultPublishedAt = startedAt.addingTimeInterval(303)
         harness.now = resultPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Delayed five-minute result",
-                publishedAt: resultPublishedAt,
-                expiresAt: resultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Delayed five-minute result",
+            publishedAt: resultPublishedAt,
+            expiresAt: resultPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -1736,17 +1620,15 @@ struct KeyboardViewControllerTests {
         )
 
         let resultPublishedAt = processingExpiresAt.addingTimeInterval(-1)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Result published before processing expiry",
-                publishedAt: resultPublishedAt,
-                expiresAt: resultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Result published before processing expiry",
+            publishedAt: resultPublishedAt,
+            expiresAt: resultPublishedAt.addingTimeInterval(60)
         )
         harness.now = processingExpiresAt
 
@@ -1809,17 +1691,15 @@ struct KeyboardViewControllerTests {
 
         let resultPublishedAt = processingExpiresAt.addingTimeInterval(1)
         harness.now = resultPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Result published after Processing TTL",
-                publishedAt: resultPublishedAt,
-                expiresAt: resultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Result published after Processing TTL",
+            publishedAt: resultPublishedAt,
+            expiresAt: resultPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -1846,24 +1726,20 @@ struct KeyboardViewControllerTests {
         )
         let harness = KeyboardControllerHarness(
             now: startedAt,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    attemptID: attemptID,
-                    requestID: requestID,
-                    sourceDocumentID: documentID,
-                    phase: .processing,
-                    publishedAt: startedAt,
-                    expiresAt: processingExpiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: attemptID,
+                requestID: requestID,
+                sourceDocumentID: documentID,
+                phase: .processing,
+                publishedAt: startedAt,
+                expiresAt: processingExpiresAt
             ),
             requestID: documentID,
-            consumedHandoffIntent: try #require(
-                consumedHandoffIntent(
-                    requestID: requestID,
-                    sourceDocumentID: documentID,
-                    now: startedAt
-                )
+            consumedHandoffIntent: consumedHandoffIntent(
+                requestID: requestID,
+                sourceDocumentID: documentID,
+                now: startedAt
             )
         )
         let controller = harness.makeController()
@@ -1878,29 +1754,25 @@ struct KeyboardViewControllerTests {
 
         let readyPublishedAt = processingExpiresAt.addingTimeInterval(1)
         harness.now = readyPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                phase: .ready,
-                publishedAt: readyPublishedAt,
-                expiresAt: readyPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            phase: .ready,
+            publishedAt: readyPublishedAt,
+            expiresAt: readyPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
         let staleResultPublishedAt = readyPublishedAt.addingTimeInterval(1)
         harness.now = staleResultPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Retired result",
-                publishedAt: staleResultPublishedAt,
-                expiresAt: staleResultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Retired result",
+            publishedAt: staleResultPublishedAt,
+            expiresAt: staleResultPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -1915,13 +1787,11 @@ struct KeyboardViewControllerTests {
         let documentID = UUID()
         let harness = KeyboardControllerHarness(
             now: startedAt,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: startedAt,
-                    expiresAt: startedAt.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: startedAt,
+                expiresAt: startedAt.addingTimeInterval(60)
             ),
             requestID: documentID
         )
@@ -1930,17 +1800,15 @@ struct KeyboardViewControllerTests {
 
         let resultPublishedAt = startedAt.addingTimeInterval(1)
         harness.now = resultPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: UUID(),
-                requestID: UUID(),
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Unsolicited result",
-                publishedAt: resultPublishedAt,
-                expiresAt: resultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: UUID(),
+            requestID: UUID(),
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Unsolicited result",
+            publishedAt: resultPublishedAt,
+            expiresAt: resultPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -1958,13 +1826,11 @@ struct KeyboardViewControllerTests {
         let returnedDocumentID = UUID()
         let harness = KeyboardControllerHarness(
             now: startedAt,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    phase: .ready,
-                    publishedAt: startedAt,
-                    expiresAt: startedAt.addingTimeInterval(60)
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                phase: .ready,
+                publishedAt: startedAt,
+                expiresAt: startedAt.addingTimeInterval(60)
             ),
             requestID: returnedDocumentID
         )
@@ -1972,25 +1838,21 @@ struct KeyboardViewControllerTests {
         controller.loadViewIfNeeded()
 
         let handoffIssuedAt = startedAt.addingTimeInterval(1)
-        harness.consumedHandoffIntent = try #require(
-            consumedHandoffIntent(
-                requestID: requestID,
-                sourceDocumentID: sourceDocumentID,
-                now: handoffIssuedAt
-            )
+        harness.consumedHandoffIntent = consumedHandoffIntent(
+            requestID: requestID,
+            sourceDocumentID: sourceDocumentID,
+            now: handoffIssuedAt
         )
         let listeningPublishedAt = startedAt.addingTimeInterval(3)
         harness.now = listeningPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: attemptID,
-                requestID: requestID,
-                sourceDocumentID: sourceDocumentID,
-                phase: .listening,
-                publishedAt: listeningPublishedAt,
-                expiresAt: listeningPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: attemptID,
+            requestID: requestID,
+            sourceDocumentID: sourceDocumentID,
+            phase: .listening,
+            publishedAt: listeningPublishedAt,
+            expiresAt: listeningPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -2014,16 +1876,14 @@ struct KeyboardViewControllerTests {
         )
         let harness = KeyboardControllerHarness(
             now: startedAt,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    attemptID: expiredAttemptID,
-                    requestID: expiredRequestID,
-                    sourceDocumentID: documentID,
-                    phase: .processing,
-                    publishedAt: startedAt,
-                    expiresAt: processingExpiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: expiredAttemptID,
+                requestID: expiredRequestID,
+                sourceDocumentID: documentID,
+                phase: .processing,
+                publishedAt: startedAt,
+                expiresAt: processingExpiresAt
             ),
             requestID: documentID
         )
@@ -2038,16 +1898,14 @@ struct KeyboardViewControllerTests {
 
         let replacementPublishedAt = processingExpiresAt.addingTimeInterval(1)
         harness.now = replacementPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: UUID(),
-                requestID: UUID(),
-                sourceDocumentID: documentID,
-                phase: .processing,
-                publishedAt: replacementPublishedAt,
-                expiresAt: replacementPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: UUID(),
+            requestID: UUID(),
+            sourceDocumentID: documentID,
+            phase: .processing,
+            publishedAt: replacementPublishedAt,
+            expiresAt: replacementPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -2055,17 +1913,15 @@ struct KeyboardViewControllerTests {
             1
         )
         harness.now = staleResultPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: expiredAttemptID,
-                requestID: expiredRequestID,
-                sourceDocumentID: documentID,
-                phase: .resultReady,
-                result: "Superseded result",
-                publishedAt: staleResultPublishedAt,
-                expiresAt: staleResultPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: expiredAttemptID,
+            requestID: expiredRequestID,
+            sourceDocumentID: documentID,
+            phase: .resultReady,
+            result: "Superseded result",
+            publishedAt: staleResultPublishedAt,
+            expiresAt: staleResultPublishedAt.addingTimeInterval(60)
         )
         controller.textDidChange(nil)
 
@@ -2083,16 +1939,14 @@ struct KeyboardViewControllerTests {
         )
         let harness = KeyboardControllerHarness(
             now: startedAt,
-            dictationState: try #require(
-                KeyboardDictationStateRecord(
-                    sessionID: sessionID,
-                    attemptID: UUID(),
-                    requestID: UUID(),
-                    sourceDocumentID: documentID,
-                    phase: .processing,
-                    publishedAt: startedAt,
-                    expiresAt: processingExpiresAt
-                )
+            dictationState: KeyboardDictationStateRecord(
+                sessionID: sessionID,
+                attemptID: UUID(),
+                requestID: UUID(),
+                sourceDocumentID: documentID,
+                phase: .processing,
+                publishedAt: startedAt,
+                expiresAt: processingExpiresAt
             ),
             requestID: documentID
         )
@@ -2109,16 +1963,14 @@ struct KeyboardViewControllerTests {
 
         let failedPublishedAt = processingExpiresAt.addingTimeInterval(1)
         harness.now = failedPublishedAt
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: sessionID,
-                attemptID: UUID(),
-                requestID: UUID(),
-                sourceDocumentID: UUID(),
-                phase: .failed,
-                publishedAt: failedPublishedAt,
-                expiresAt: failedPublishedAt.addingTimeInterval(60)
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: sessionID,
+            attemptID: UUID(),
+            requestID: UUID(),
+            sourceDocumentID: UUID(),
+            phase: .failed,
+            publishedAt: failedPublishedAt,
+            expiresAt: failedPublishedAt.addingTimeInterval(60)
         )
         controller.beginAppearanceTransition(true, animated: false)
         controller.endAppearanceTransition()
@@ -2203,19 +2055,17 @@ struct KeyboardViewControllerTests {
         #expect(claim.kind == .claimDelivery)
         #expect(harness.proxy.insertedTexts == textsBeforeInsertion)
         let state = try #require(harness.dictationState)
-        harness.dictationState = try #require(
-            KeyboardDictationStateRecord(
-                sessionID: state.sessionID,
-                attemptID: state.attemptID,
-                requestID: state.requestID,
-                sourceDocumentID: state.sourceDocumentID,
-                deliveryClaimID: claim.deliveryClaimID,
-                phase: .resultReady,
-                translationAvailable: state.translationAvailable,
-                result: state.result,
-                publishedAt: state.publishedAt,
-                expiresAt: state.expiresAt
-            )
+        harness.dictationState = KeyboardDictationStateRecord(
+            sessionID: state.sessionID,
+            attemptID: state.attemptID,
+            requestID: state.requestID,
+            sourceDocumentID: state.sourceDocumentID,
+            deliveryClaimID: claim.deliveryClaimID,
+            phase: .resultReady,
+            translationAvailable: state.translationAvailable,
+            result: state.result,
+            publishedAt: state.publishedAt,
+            expiresAt: state.expiresAt
         )
         controller.textDidChange(nil)
 

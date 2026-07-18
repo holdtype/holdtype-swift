@@ -49,7 +49,7 @@
     "HoldTypeIOSTests/IOSVoiceBoundaryFeedbackAdapterTests.swift": 916,
     "HoldTypeIOSTests/IOSVoiceHomePresentationTests.swift": 623,
     "HoldTypeIOSTests/IOSVoiceRecorderAdapterTests.swift": 1878,
-    "HoldTypeIOSTests/KeyboardViewControllerTests.swift": 2510,
+    "HoldTypeIOSTests/KeyboardViewControllerTests.swift": 2360,
     "HoldTypeKeyboard/BrandStageKeyboardView.swift": 1387,
     "HoldTypeKeyboard/KeyboardViewController.swift": 1660,
     "HoldTypeTests/AppSettingsTests.swift": 1263,
