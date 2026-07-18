@@ -198,12 +198,10 @@ language remains an app-owned voice setting.
 - Provider services receive an already resolved credential and never read
   Keychain themselves.
 - The resolved runtime credential trims only surrounding whitespace and rejects
-  an empty normalized key. It is a transient non-Codable value: neither the key
-  nor its compatibility source marker is persisted, logged, described, or
+  an empty normalized key. It is a transient non-Codable value that is not
+  persisted outside the app-owned Keychain item, logged, described, or
   published to the App Group or keyboard. Its standard Swift string, debug, and
-  reflection representations are redacted. The source marker exists only for
-  compatibility and does not prove readiness, trust, current Keychain
-  availability, or storage location.
+  reflection representations are redacted.
 - A normal voice start resolves the credential in foreground before microphone
   capture. If the device is locked or the item is unavailable, recording stays
   blocked or an already completed journaled attempt waits for foreground and

@@ -6,24 +6,15 @@ public struct OpenAICredential: Equatable, Sendable {
     }
 
     public let apiKey: String
-    public let source: OpenAICredentialSource
 
-    public init(
-        apiKey: String,
-        source: OpenAICredentialSource = .runtimeStorage
-    ) throws {
+    public init(apiKey: String) throws {
         let normalizedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedAPIKey.isEmpty else {
             throw ValidationError.missingAPIKey
         }
 
         self.apiKey = normalizedAPIKey
-        self.source = source
     }
-}
-
-public enum OpenAICredentialSource: Equatable, Sendable {
-    case runtimeStorage
 }
 
 extension OpenAICredential: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
@@ -40,24 +31,6 @@ extension OpenAICredential: CustomStringConvertible, CustomDebugStringConvertibl
             self,
             children: [(label: String?, value: Any)](),
             displayStyle: .struct
-        )
-    }
-}
-
-extension OpenAICredentialSource: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
-    public var description: String {
-        "OpenAICredentialSource(<redacted>)"
-    }
-
-    public var debugDescription: String {
-        description
-    }
-
-    public var customMirror: Mirror {
-        Mirror(
-            self,
-            children: [(label: String?, value: Any)](),
-            displayStyle: .enum
         )
     }
 }

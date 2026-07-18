@@ -19,7 +19,6 @@ struct OpenAICredentialResolverTests {
         let credential = try resolver.resolveOpenAICredential()
 
         #expect(credential.apiKey == "sk-resolved-key")
-        #expect(credential.source == .runtimeStorage)
         #expect(storage.loadCount == 1)
     }
 
