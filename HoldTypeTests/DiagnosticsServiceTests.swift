@@ -112,24 +112,13 @@ struct DiagnosticsServiceTests {
         let exportedRuntimeLogURL = result.bundleURL
             .appendingPathComponent("RuntimeLogs", isDirectory: true)
             .appendingPathComponent("runtime-events.log")
-        let manifestURL = result.bundleURL.appendingPathComponent("manifest.json")
         let readmeURL = result.bundleURL.appendingPathComponent("README.txt")
 
-        #expect(result.includedCrashReports.map(\.fileName) == ["HoldType-2026-07-06-132424.ips"])
-        #expect(result.runtimeLogExport == RuntimeDiagnosticLogExport(
-            relativePath: "RuntimeLogs/runtime-events.log",
-            lineCount: 1
-        ))
         #expect(FileManager.default.fileExists(atPath: copiedReportURL.path))
         #expect(FileManager.default.fileExists(atPath: exportedRuntimeLogURL.path))
         #expect(FileManager.default.fileExists(atPath: readmeURL.path))
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let manifest = try decoder.decode(
-            DiagnosticBundleManifest.self,
-            from: Data(contentsOf: manifestURL)
-        )
+        let manifest = try manifest(in: result.bundleURL)
 
         #expect(manifest.app.bundleIdentifier == "app.holdtype.HoldType")
         #expect(manifest.includedCrashReportFileNames == ["HoldType-2026-07-06-132424.ips"])
@@ -158,8 +147,11 @@ struct DiagnosticsServiceTests {
 
         let result = try service.exportDiagnosticBundle()
 
-        #expect(result.includedCrashReports.isEmpty)
-        #expect(result.runtimeLogExport == nil)
+        let manifest = try manifest(in: result.bundleURL)
+
+        #expect(manifest.includedCrashReportFileNames.isEmpty)
+        #expect(manifest.includedRuntimeLogFileNames.isEmpty)
+        #expect(manifest.runtimeLogLineCount == 0)
         #expect(FileManager.default.fileExists(atPath: result.bundleURL.appendingPathComponent("manifest.json").path))
         #expect(FileManager.default.fileExists(atPath: result.bundleURL.appendingPathComponent("README.txt").path))
     }
@@ -189,6 +181,17 @@ struct DiagnosticsServiceTests {
             .appendingPathComponent("holdtype-diagnostics-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         return directoryURL
+    }
+
+    private func manifest(in bundleURL: URL) throws -> DiagnosticBundleManifest {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(
+            DiagnosticBundleManifest.self,
+            from: Data(
+                contentsOf: bundleURL.appendingPathComponent("manifest.json")
+            )
+        )
     }
 
     private func writeReport(named fileName: String, bytes: Int, in directoryURL: URL) throws -> URL {

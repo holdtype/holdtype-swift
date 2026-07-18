@@ -66,8 +66,6 @@ struct DiagnosticBundleManifest: Codable, Equatable {
 
 struct DiagnosticBundleResult: Equatable {
     let bundleURL: URL
-    let includedCrashReports: [DiagnosticReportItem]
-    let runtimeLogExport: RuntimeDiagnosticLogExport?
 }
 
 enum DiagnosticsLogEvent: Equatable {
@@ -311,11 +309,7 @@ struct DiagnosticsService: DiagnosticsManaging {
             try writeReadme(manifest: manifest, to: bundleURL)
 
             eventLogger.record(.diagnosticBundleExported(reportCount: includedReports.count))
-            return DiagnosticBundleResult(
-                bundleURL: bundleURL,
-                includedCrashReports: includedReports,
-                runtimeLogExport: runtimeLogExport
-            )
+            return DiagnosticBundleResult(bundleURL: bundleURL)
         } catch let error as DiagnosticsServiceError {
             eventLogger.record(.diagnosticBundleExportFailed)
             throw error
