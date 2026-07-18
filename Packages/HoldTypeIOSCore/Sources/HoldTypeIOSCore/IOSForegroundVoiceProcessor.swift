@@ -54,9 +54,9 @@ public actor IOSForegroundVoiceProcessor {
         persistenceOwner: any IOSForegroundVoicePersisting,
         consentCoordinator: IOSV1ProviderConsentCoordinator,
         provider: IOSForegroundVoiceOpenAIProviderOperations,
-        recordUsage: @escaping UsageRecorder = { _ in },
+        recordUsage: @escaping UsageRecorder,
         recordProviderRejection:
-            @escaping ProviderRejectionRecorder = { _ in },
+            @escaping ProviderRejectionRecorder,
         makeUUID: @escaping @Sendable () -> UUID = { UUID() },
         postProcessor: TranscriptTextPostProcessor =
             TranscriptTextPostProcessor()
