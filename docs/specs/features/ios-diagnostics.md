@@ -38,15 +38,15 @@ can browse system-owned iOS crash files.
   recently verified or is not currently verified.
 - It must not claim `Full Access: disabled` from stale containing-app state.
 - Recent Runtime Events shows short lifecycle lines such as app launch, voice
-  session start/stop/expiry, recording start/stop, provider stage outcome,
-  retry, insertion-claim consumption acknowledgement, cache outcome, and export
-  outcome.
+  session start/stop/expiry, recording start and stop resolution, provider
+  stage outcome, retry, insertion-claim consumption acknowledgement, cache
+  outcome, and export outcome.
 - Event lines use stable categories and scalar metadata. They never show the
   transcript, prompt, dictionary term, audio path, API key, authorization
   header, ordinary keystroke, surrounding text, or full provider response.
 - The portable diagnostics API accepts typed event categories with a closed
-  allowlist of scalar fields such as phase, duration bucket, schema version,
-  revision, expiry category, retry count, and success/failure category. It does
+  allowlist of scalar fields such as phase, schema version, revision, expiry
+  category, retry count, and success/failure category. It does
   not accept arbitrary string dictionaries and does not treat punctuation
   replacement as redaction.
 - Keyboard delivery events may correlate one request and claim with source and

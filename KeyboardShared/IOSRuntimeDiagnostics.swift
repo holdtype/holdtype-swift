@@ -145,14 +145,6 @@ nonisolated enum IOSDiagnosticMetricKind: String, Sendable {
     case diskWrite = "disk_write"
 }
 
-nonisolated enum IOSDiagnosticDurationBucket: String, Sendable {
-    case underOneSecond = "under_1s"
-    case oneToTenSeconds = "1s_10s"
-    case tenToSixtySeconds = "10s_60s"
-    case oneToFiveMinutes = "1m_5m"
-    case overFiveMinutes = "over_5m"
-}
-
 /// Closed, content-free event vocabulary shared by the iOS app and keyboard.
 /// Callers cannot attach arbitrary strings, paths, text, prompts, or payloads.
 nonisolated enum IOSRuntimeDiagnosticEvent: Sendable {
@@ -170,7 +162,6 @@ nonisolated enum IOSRuntimeDiagnosticEvent: Sendable {
         providerAuthority: IOSDiagnosticProviderAuthority,
         attempt: IOSDiagnosticCorrelationTag?
     )
-    case voiceRecordingStopped(IOSDiagnosticDurationBucket)
     case voiceCompleted(IOSDiagnosticOutcome)
     case audio(IOSDiagnosticAudioEvent)
     case providerStarted(IOSDiagnosticProviderMode)
@@ -198,8 +189,7 @@ nonisolated enum IOSRuntimeDiagnosticEvent: Sendable {
         case .appLaunched, .scenePhase:
             "lifecycle"
         case .voiceStartRequested, .voiceRecordingStarted,
-             .voiceStopRequested, .voiceStopResolved,
-             .voiceRecordingStopped, .voiceCompleted:
+             .voiceStopRequested, .voiceStopResolved, .voiceCompleted:
             "voice"
         case .audio:
             "audio"
@@ -227,8 +217,6 @@ nonisolated enum IOSRuntimeDiagnosticEvent: Sendable {
             "voice_stop_requested"
         case .voiceStopResolved:
             "voice_stop_resolved"
-        case .voiceRecordingStopped:
-            "voice_recording_stopped"
         case .voiceCompleted:
             "voice_completed"
         case .audio:
@@ -290,8 +278,6 @@ nonisolated enum IOSRuntimeDiagnosticEvent: Sendable {
                 "durability=\(durability.rawValue)",
                 "provider_authority=\(providerAuthority.rawValue)",
             ] + (attempt.map { ["attempt_tag=\($0.formatted)"] } ?? [])
-        case .voiceRecordingStopped(let duration):
-            ["duration_bucket=\(duration.rawValue)"]
         case .voiceCompleted(let outcome),
              .providerCompleted(let outcome),
              .diagnosticsExported(let outcome):
