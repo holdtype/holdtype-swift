@@ -72,7 +72,6 @@
     "Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests/IOSProviderConsentStageExecutorTests.swift": 663,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAIFileUploadTransport.swift": 896,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAIProviderStartupMaintenance.swift": 956,
-    "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAITranscriptionService.swift": 582,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/POSIXOpenAITranscriptionMultipartFileSystem.swift": 691,
     "Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests/OpenAIFileUploadTransportTests.swift": 1147,
     "Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests/OpenAIProviderStartupMaintenanceTests.swift": 1255,
