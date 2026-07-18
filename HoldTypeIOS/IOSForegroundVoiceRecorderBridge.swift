@@ -17,9 +17,6 @@ nonisolated struct IOSForegroundVoiceRecorderBridgeDriver: Sendable {
     let isActivelyRecording: @MainActor @Sendable (
         IOSVoiceRecorderAttemptToken
     ) -> Bool
-    let inputLevel: @MainActor @Sendable (
-        IOSVoiceRecorderAttemptToken
-    ) -> Double?
 
     @MainActor
     init(adapter: IOSVoiceRecorderAdapter) {
@@ -34,9 +31,6 @@ nonisolated struct IOSForegroundVoiceRecorderBridgeDriver: Sendable {
         }
         isActivelyRecording = { [adapter] token in
             adapter.isActivelyRecording(for: token)
-        }
-        inputLevel = { [adapter] token in
-            adapter.presentationInputLevel(for: token)
         }
     }
 
@@ -53,16 +47,12 @@ nonisolated struct IOSForegroundVoiceRecorderBridgeDriver: Sendable {
         ) -> IOSVoiceRecorderTerminalWait,
         isActivelyRecording: @escaping @MainActor @Sendable (
             IOSVoiceRecorderAttemptToken
-        ) -> Bool,
-        inputLevel: @escaping @MainActor @Sendable (
-            IOSVoiceRecorderAttemptToken
-        ) -> Double? = { _ in nil }
+        ) -> Bool
     ) {
         self.start = start
         self.stop = stop
         self.waitForTerminal = waitForTerminal
         self.isActivelyRecording = isActivelyRecording
-        self.inputLevel = inputLevel
     }
 }
 
@@ -213,8 +203,7 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
             },
             observeTerminal: { [self] receive in
                 observeTerminal(receive)
-            },
-            inputLevel: { [self] in driver.inputLevel(token) }
+            }
         )
     }
 

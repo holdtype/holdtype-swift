@@ -8,22 +8,9 @@ import Testing
 
 @MainActor
 struct IOSVoiceRecorderAdapterTests {
-    @Test func audioMeterNormalizesAndClampsDecibels() {
-        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -60) == 0)
-        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -30) == 0.5)
-        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: 0) == 1)
-        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: -100) == 0)
-        #expect(IOSVoiceAudioMeter.normalizedLevel(decibels: 12) == 1)
-        #expect(
-            IOSVoiceAudioMeter.normalizedLevel(decibels: .nan) == nil
-        )
-    }
-
     @Test func startUsesScopedURLExactSettingsTwoCheckpointsAndBoundedRecord()
         async throws {
         let fixture = VoiceRecorderFixture()
-        fixture.recorder.currentTimeValue = 12.5
-        fixture.recorder.normalizedPowerLevelValue = 0.75
         let adapter = fixture.makeAdapter()
         let token = IOSVoiceRecorderAttemptToken()
 
@@ -64,10 +51,8 @@ struct IOSVoiceRecorderAdapterTests {
         #expect(IOSVoiceRecorderAdapter.maximumDuration == 300)
         #expect(IOSVoiceRecorderAdapter.recorderSafetyDuration == 301)
         #expect(adapter.isActivelyRecording(for: token))
-        #expect(adapter.presentationInputLevel(for: token) == 0.75)
 
         _ = await adapter.stop(for: token, reason: .cancelled)
-        #expect(adapter.presentationInputLevel(for: token) == nil)
     }
 
     @Test func replacementAtEitherRecorderCheckpointStopsAndPreservesSource()
@@ -93,12 +78,11 @@ struct IOSVoiceRecorderAdapterTests {
         }
     }
 
-    @Test func selectedLimitDrivesRecorderSafetyWatchdogAndPresentationClamp()
+    @Test func selectedLimitDrivesRecorderSafetyWatchdog()
         async throws {
         for minutes in [1, 15] {
             let fixture = VoiceRecorderFixture()
             let limit = RecordingDurationLimit(minutes: minutes)
-            fixture.recorder.currentTimeValue = limit.duration + 30
             let adapter = fixture.makeAdapter(
                 recordingDurationLimit: limit
             )
@@ -368,7 +352,6 @@ struct IOSVoiceRecorderAdapterTests {
     @Test func doneMarksFinalizingBeforeStopAndUsesCanonicalCaptureFacts()
         async throws {
         let fixture = VoiceRecorderFixture()
-        fixture.recorder.currentTimeValue = 99
         fixture.source.completedDurationMilliseconds = 1_234
         fixture.source.completedByteCount = 5_678
         let adapter = fixture.makeAdapter()
@@ -1532,7 +1515,6 @@ private final class PositiveStartFailureRecorder: IOSVoiceAudioRecorder {
         self.failurePoint = failurePoint
     }
 
-    var currentTime: TimeInterval { 0 }
     var isRecording: Bool { false }
 
     func prepareToRecord() -> Bool {
@@ -1546,7 +1528,6 @@ private final class PositiveStartFailureRecorder: IOSVoiceAudioRecorder {
         return false
     }
 
-    func normalizedPowerLevel() -> Double? { nil }
     func stop() {}
 
     private func writePositiveBytes() {
@@ -1752,16 +1733,12 @@ private final class VoiceAudioRecorderFixture: IOSVoiceAudioRecorder {
     var recordResult = true
     var prepareEvent: IOSVoiceRecorderEvent?
     var recordEvent: IOSVoiceRecorderEvent?
-    var currentTimeValue: TimeInterval = 0
-    var normalizedPowerLevelValue: Double?
     private(set) var stopCount = 0
     private var recording = false
 
     init(log: VoiceRecorderCallLog) {
         self.log = log
     }
-
-    var currentTime: TimeInterval { currentTimeValue }
 
     var isRecording: Bool {
         log.calls.append(.recordingStateRead)
@@ -1780,8 +1757,6 @@ private final class VoiceAudioRecorderFixture: IOSVoiceAudioRecorder {
         if let recordEvent { receive?(recordEvent) }
         return recordResult
     }
-
-    func normalizedPowerLevel() -> Double? { normalizedPowerLevelValue }
 
     func stop() {
         stopCount += 1

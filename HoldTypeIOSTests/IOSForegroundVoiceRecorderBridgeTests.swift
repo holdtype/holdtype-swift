@@ -21,7 +21,6 @@ struct IOSForegroundVoiceRecorderBridgeTests {
 
         #expect(await recording.start() == .started)
         #expect(recording.isActive)
-        #expect(recording.inputLevel == 0.64)
         #expect(isDiscarded(await recording.stop(.cancelled)))
         #expect(fixture.createdAttemptID == attemptID)
         #expect(fixture.createdOutputIntent == .translate)
@@ -444,7 +443,6 @@ private final class RecorderBridgeFixture {
     var stopResult = IOSVoiceRecorderStopResult.discarded
     var terminalEvent: IOSVoiceRecorderTerminalEvent?
     var isActive = true
-    var inputLevel = 0.64
     private(set) var createdAttemptID: UUID?
     private(set) var createdOutputIntent: DictationOutputIntent?
     private(set) var createdRecordingDurationLimit: RecordingDurationLimit?
@@ -463,8 +461,7 @@ private final class RecorderBridgeFixture {
                 wait: { self?.terminalEvent ?? .stale }
             )
         },
-        isActivelyRecording: { [weak self] _ in self?.isActive == true },
-        inputLevel: { [weak self] _ in self?.inputLevel }
+        isActivelyRecording: { [weak self] _ in self?.isActive == true }
     )
 
     func makeBridge(

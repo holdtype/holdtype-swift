@@ -246,9 +246,9 @@ destination. History remains a separate tab and is not previewed on Voice.
   deduplication independently of text. Empty or visually blank Drafts are never
   Undo or Redo targets; Undo may restore text after Clear without making the
   empty state redoable.
-- Real recorder metering drives mirrored native level bars around the primary
-  Voice control only while Listening. Meter values are ephemeral, bounded, and
-  never persisted or logged.
+- Phase-driven activity motion around the primary Voice control communicates
+  Listening without claiming to be live audio metering. The UI does not
+  collect, persist, or log recorder meter values for presentation.
 - No local recovery action repeats provider work automatically.
 
 ## Pending Recovery

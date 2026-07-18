@@ -331,4 +331,5 @@ without opening the custom keyboard.
   while reading earlier text, selection, ready, listening,
   recognition, setup, Draft failure and recovery routing, both appearances,
   Dynamic Type, Reduce Motion, and Reduce Transparency. A signed physical
-  iPhone proves real microphone metering and Full Access behavior.
+  iPhone proves the real microphone capture lifecycle and Full Access behavior;
+  the phase-driven Voice activity does not claim live audio metering.

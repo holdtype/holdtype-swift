@@ -262,11 +262,12 @@ activity or losing completed recordings.
   input-mute, media-lost, scene, token, watchdog, and explicit actions all
   converge on one idempotent owner stop. Interruption end and media reset never
   resume automatically.
-- Recorder time is presentation-only. Canonical duration and byte count come
-  from bounded post-close descriptor media validation because recorder time may
-  reset after stop. Complete-protection unavailability after lock or background
-  is blocked local recovery, never absence, corruption, success, or a reason to
-  weaken protection.
+- UI elapsed time comes from the admitted Listening phase's monotonic clock and
+  is presentation-only. Canonical duration and byte count come from bounded
+  post-close descriptor media validation; presentation does not depend on
+  `AVAudioRecorder.currentTime`. Complete-protection unavailability after lock
+  or background is blocked local recovery, never absence, corruption, success,
+  or a reason to weaken protection.
 - iOS 26 high-quality Bluetooth recording and iOS 26.2 far-field input remain
   outside P4D-2. No availability guard or dormant reference to either API is
   added in this milestone.

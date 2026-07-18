@@ -329,25 +329,11 @@ private nonisolated final class IOSVoiceRecorderMainActorActionToken:
 
 @MainActor
 protocol IOSVoiceAudioRecorder: AnyObject {
-    var currentTime: TimeInterval { get }
     var isRecording: Bool { get }
 
     func prepareToRecord() -> Bool
     func record(forDuration duration: TimeInterval) -> Bool
-    func normalizedPowerLevel() -> Double?
     func stop()
-}
-
-enum IOSVoiceAudioMeter {
-    static let silenceFloorDecibels: Float = -60
-
-    static func normalizedLevel(decibels: Float) -> Double? {
-        guard decibels.isFinite else { return nil }
-        let clamped = min(0, max(silenceFloorDecibels, decibels))
-        return Double(
-            (clamped - silenceFloorDecibels) / -silenceFloorDecibels
-        )
-    }
 }
 
 nonisolated struct IOSVoiceRecorderClient: Sendable {
@@ -848,19 +834,6 @@ final class IOSVoiceRecorderAdapter {
             return false
         }
         return attempt.recorder?.isRecording == true
-    }
-
-    func presentationInputLevel(
-        for token: IOSVoiceRecorderAttemptToken
-    ) -> Double? {
-        guard phase == .recording,
-              let attempt = activeAttempt,
-              attempt.token == token,
-              let recorder = attempt.recorder,
-              recorder.isRecording else {
-            return nil
-        }
-        return recorder.normalizedPowerLevel()
     }
 
     private func claimTerminalWait(
@@ -1422,24 +1395,14 @@ private final class IOSVoiceAVAudioRecorder: IOSVoiceAudioRecorder {
         )
         delegateBridge = IOSVoiceAVAudioRecorderDelegateBridge(receive: receive)
         recorder.delegate = delegateBridge
-        recorder.isMeteringEnabled = true
     }
 
-    var currentTime: TimeInterval { recorder.currentTime }
     var isRecording: Bool { recorder.isRecording }
 
     func prepareToRecord() -> Bool { recorder.prepareToRecord() }
 
     func record(forDuration duration: TimeInterval) -> Bool {
         recorder.record(forDuration: duration)
-    }
-
-    func normalizedPowerLevel() -> Double? {
-        guard recorder.isRecording else { return nil }
-        recorder.updateMeters()
-        return IOSVoiceAudioMeter.normalizedLevel(
-            decibels: recorder.averagePower(forChannel: 0)
-        )
     }
 
     func stop() { recorder.stop() }

@@ -258,7 +258,6 @@ struct IOSForegroundVoiceClient: Sendable {
     typealias ProviderConsentInvalidated = @MainActor @Sendable (
         IOSForegroundVoiceAuthority
     ) -> IOSForegroundVoiceControlDisposition
-    typealias InputLevel = @MainActor @Sendable () -> Double?
 
     let observe: Observe
     let runStart: RunStart
@@ -267,7 +266,6 @@ struct IOSForegroundVoiceClient: Sendable {
     let cancelUtterance: CancelUtterance
     let cancelProcessing: CancelProcessing
     let providerConsentInvalidated: ProviderConsentInvalidated
-    let inputLevel: InputLevel
 
     init(
         observe: @escaping Observe,
@@ -278,8 +276,7 @@ struct IOSForegroundVoiceClient: Sendable {
         cancelProcessing: @escaping CancelProcessing = { _ in .unavailable },
         providerConsentInvalidated: @escaping ProviderConsentInvalidated = {
             _ in .unavailable
-        },
-        inputLevel: @escaping InputLevel = { nil }
+        }
     ) {
         self.observe = observe
         self.runStart = runStart
@@ -288,7 +285,6 @@ struct IOSForegroundVoiceClient: Sendable {
         self.cancelUtterance = cancelUtterance
         self.cancelProcessing = cancelProcessing
         self.providerConsentInvalidated = providerConsentInvalidated
-        self.inputLevel = inputLevel
     }
 }
 
@@ -351,11 +347,6 @@ final class IOSForegroundVoiceController {
                 presentationRevision: presentationRevision
             )
         }
-    }
-
-    var inputLevel: Double? {
-        guard presentation.phase == .listening else { return nil }
-        return client.inputLevel()
     }
 
     func activate() async {

@@ -500,8 +500,7 @@ private final class IOSUIQualificationVoiceFixture {
                     observation: observation
                 )
             },
-            finishUtterance: { _ in .accepted },
-            inputLevel: { 0.72 }
+            finishUtterance: { _ in .accepted }
         )
         let registry = IOSVoiceSceneRegistry()
         let controller = IOSForegroundVoiceController(
