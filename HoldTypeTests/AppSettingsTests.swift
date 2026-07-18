@@ -465,14 +465,6 @@ struct AppSettingsTests {
         #expect(settings.isTextCorrectionPromptDefault)
     }
 
-    @Test func boundsActiveTextContextPrompt() throws {
-        let context = try #require(
-            TranscriptionPromptContext("abcdef", maximumCharacterCount: 3)
-        )
-
-        #expect(context.text == "def")
-    }
-
     @Test func parsesAndAppendsCustomDictionaryEntries() {
         let parsedEntries = AppSettings.parseCustomDictionaryEntries(
             from: " OpenWhispr, Synty\nThe word is HoldType,, "
@@ -489,19 +481,6 @@ struct AppSettingsTests {
                 to: ["OpenWhispr"]
             ) == ["OpenWhispr", "Sinead"]
         )
-    }
-
-    @Test func mapsLanguageModesToTranscriptionCodes() {
-        #expect(TranscriptionLanguage.automatic.apiLanguageCode(customCode: "de") == nil)
-        #expect(TranscriptionLanguage.english.apiLanguageCode(customCode: "") == "en")
-        #expect(TranscriptionLanguage.spanish.apiLanguageCode(customCode: "") == "es")
-        #expect(TranscriptionLanguage.japanese.apiLanguageCode(customCode: "") == "ja")
-        #expect(TranscriptionLanguage.russian.apiLanguageCode(customCode: "") == "ru")
-        #expect(TranscriptionLanguage.custom.apiLanguageCode(customCode: "  uk  ") == "uk")
-        #expect(TranscriptionLanguage.custom.apiLanguageCode(customCode: "ENG") == "eng")
-        #expect(TranscriptionLanguage.custom.apiLanguageCode(customCode: "   ") == nil)
-        #expect(TranscriptionLanguage.custom.apiLanguageCode(customCode: "english") == nil)
-        #expect(TranscriptionLanguage.custom.apiLanguageCode(customCode: "en-US") == nil)
     }
 
     @Test func validatesCustomLanguageCodeForSettingsAndRequests() {

@@ -76,21 +76,6 @@ enum DictationStatus: Equatable {
         }
     }
 
-    var detailText: String? {
-        switch self {
-        case .idle:
-            return nil
-        case .recording:
-            return "Microphone recording is active."
-        case .transcribing:
-            return "Transcribing audio..."
-        case .success:
-            return lastTranscriptText ?? "No transcript available."
-        case .failure(let message):
-            return message
-        }
-    }
-
     var lastTranscriptText: String? {
         switch self {
         case .success(let transcript):

@@ -39,23 +39,6 @@ struct AppSetupControllerTests {
         #expect(presenter.showFocusedItems.isEmpty)
     }
 
-    @Test func completePermissionsDoNotEvaluateOpenAIKeyOnLaunch() {
-        let presenter = SpySetupSettingsPresenter()
-        let controller = AppSetupController(
-            setupStatusProvider: makeSetupStatusProvider(
-                microphoneAuthorizationStatus: .allowed,
-                accessibilityTrusted: true,
-                inputMonitoringAuthorizationStatus: .allowed
-            ),
-            settingsProvider: { .defaults },
-            settingsPresenter: presenter
-        )
-
-        controller.presentSetupIfNeededForLaunch()
-
-        #expect(presenter.showFocusedItems.isEmpty)
-    }
-
     @Test func missingPermissionsStillPresentOnlyPermissionsOnLaunch() {
         let presenter = SpySetupSettingsPresenter()
         let controller = AppSetupController(

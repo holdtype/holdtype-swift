@@ -47,18 +47,10 @@ struct DictationStatusTests {
         #expect(DictationStatus.recording.recordingActionShortcutHint == nil)
     }
 
-    @Test func carriesSuccessAndFailureDetails() {
-        #expect(DictationStatus.success(transcript: "Typed text").lastTranscriptText == "Typed text")
-        #expect(DictationStatus.success(transcript: "Typed text").detailText == "Typed text")
-        #expect(DictationStatus.failure(message: "Missing permission").detailText == "Missing permission")
-        #expect(DictationStatus.recording.detailText == "Microphone recording is active.")
-    }
-
     @Test func exposesOnlyNormalizedSuccessTranscript() {
         let status = DictationStatus.success(transcript: "  Typed text\n")
 
         #expect(status.lastTranscriptText == "Typed text")
-        #expect(status.detailText == "Typed text")
     }
 
     @Test func longTranscriptKeepsFullLastTranscriptState() {
@@ -91,13 +83,6 @@ struct DictationStatusTests {
         #expect(projectedOutcomes == [.resultReady, .resultReady])
         #expect(projectedOutcomes.contains(.interrupted) == false)
         #expect(projectedOutcomes.contains(.expired) == false)
-    }
-
-    @Test func whitespaceOnlySuccessTranscriptShowsEmptyState() {
-        let status = DictationStatus.success(transcript: "  \n\t  ")
-
-        #expect(status.lastTranscriptText == nil)
-        #expect(status.detailText == "No transcript available.")
     }
 
 }
