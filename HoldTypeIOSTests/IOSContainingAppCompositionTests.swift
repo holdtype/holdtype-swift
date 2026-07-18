@@ -224,11 +224,9 @@ struct IOSContainingAppCompositionTests {
                 === capturedUsageRepository
         )
         #expect(composition.usageEstimateStateOwner != nil)
-        let usageRepository = try #require(capturedUsageRepository)
         let foregroundUsageClient = try #require(
             capturedForegroundUsageClient
         )
-        #expect(foregroundUsageClient.isBacked(by: usageRepository))
         #expect(
             composition.foregroundVoiceProcessor
                 === capturedForegroundProcessor

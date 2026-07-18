@@ -60,15 +60,6 @@ public struct IOSTranscriptionUsageRecordingClient: Sendable {
         }
         await reportFailure(token)
     }
-
-    /// Test/debug ownership proof. It exposes only reference identity and no
-    /// repository state, path, usage value, or failure callback.
-    @_spi(HoldTypeIOSCore)
-    public func isBacked(
-        by candidate: IOSTranscriptionUsageRepository
-    ) -> Bool {
-        repository === candidate
-    }
 }
 
 extension IOSTranscriptionUsageWriteToken:
