@@ -62,34 +62,6 @@ struct IOSVoiceStateTranscriptionCheckpoint: Equatable, Sendable {
         self.stage = stage
         self.text = checkpointText
     }
-
-    func advancing(
-        to stage: IOSVoiceStateTextCheckpointStage,
-        text: String
-    ) throws -> Self {
-        let allowed = switch (self.stage, stage) {
-        case (.transcriptionAccepted, .correctionInFlight),
-             (.transcriptionAccepted, .translationReady),
-             (.transcriptionAccepted, .outputReady),
-             (.correctionInFlight, .translationReady),
-             (.correctionInFlight, .outputReady),
-             (.translationReady, .translationInFlight),
-             (.translationInFlight, .translationReady),
-             (.translationInFlight, .outputReady):
-            true
-        default:
-            self.stage == stage && self.text == text
-        }
-        guard allowed else {
-            throw IOSVoiceStateRepositoryError.invalidTransition
-        }
-        return try Self(
-            operationID: operationID,
-            acceptedTranscript: acceptedTranscript,
-            stage: stage,
-            text: text
-        )
-    }
 }
 
 enum IOSVoiceStatePendingStatus: Equatable, Sendable {
@@ -153,25 +125,6 @@ struct IOSVoiceStateCapture: Equatable, Sendable {
         self.phase = phase
         self.durationMilliseconds = durationMilliseconds
         self.byteCount = byteCount
-    }
-
-    func replacing(
-        phase: IOSVoiceStateCapturePhase,
-        durationMilliseconds: Int64? = nil,
-        byteCount: Int64? = nil
-    ) throws -> Self {
-        try Self(
-            attemptID: attemptID,
-            audioRelativeIdentifier: audioRelativeIdentifier,
-            createdAt: createdAt,
-            outputIntent: outputIntent,
-            draftInsertionMode: draftInsertionMode,
-            forcesTextCorrection: forcesTextCorrection,
-            recordingDurationLimit: recordingDurationLimit,
-            phase: phase,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount
-        )
     }
 }
 
@@ -267,106 +220,6 @@ struct IOSVoiceStatePending: Equatable, Sendable {
         self.transcriptionReplayBlocked = transcriptionReplayBlocked
         self.transcriptionCheckpoint = transcriptionCheckpoint
         self.status = status
-    }
-
-    func replacing(
-        status: IOSVoiceStatePendingStatus,
-        updatedAt: Date
-    ) throws -> Self {
-        try Self(
-            attemptID: attemptID,
-            audioRelativeIdentifier: audioRelativeIdentifier,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            outputIntent: outputIntent,
-            draftInsertionMode: draftInsertionMode,
-            forcesTextCorrection: forcesTextCorrection,
-            transcriptionModel: transcriptionModel,
-            transcriptionLanguageCode: transcriptionLanguageCode,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount,
-            acceptedAudioRetention: acceptedAudioRetention,
-            transcriptionReplayBlocked: transcriptionReplayBlocked,
-            transcriptionCheckpoint: transcriptionCheckpoint,
-            status: status
-        )
-    }
-
-    func replacing(
-        status: IOSVoiceStatePendingStatus,
-        transcriptionCheckpoint: IOSVoiceStateTranscriptionCheckpoint,
-        updatedAt: Date
-    ) throws -> Self {
-        try Self(
-            attemptID: attemptID,
-            audioRelativeIdentifier: audioRelativeIdentifier,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            outputIntent: outputIntent,
-            draftInsertionMode: draftInsertionMode,
-            forcesTextCorrection: forcesTextCorrection,
-            transcriptionModel: transcriptionModel,
-            transcriptionLanguageCode: transcriptionLanguageCode,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount,
-            acceptedAudioRetention: acceptedAudioRetention,
-            transcriptionReplayBlocked: transcriptionReplayBlocked,
-            transcriptionCheckpoint: transcriptionCheckpoint,
-            status: status
-        )
-    }
-
-    func replacing(
-        transcriptionConfiguration: TranscriptionConfiguration,
-        status: IOSVoiceStatePendingStatus,
-        updatedAt: Date
-    ) throws -> Self {
-        guard !transcriptionConfiguration.customLanguageCodeValidation
-            .isInvalid else {
-            throw IOSVoiceStateRepositoryError.invalidRecord
-        }
-        return try Self(
-            attemptID: attemptID,
-            audioRelativeIdentifier: audioRelativeIdentifier,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            outputIntent: outputIntent,
-            draftInsertionMode: draftInsertionMode,
-            forcesTextCorrection: forcesTextCorrection,
-            transcriptionModel: transcriptionConfiguration.resolvedModel,
-            transcriptionLanguageCode:
-                transcriptionConfiguration.resolvedLanguageCode,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount,
-            acceptedAudioRetention: acceptedAudioRetention,
-            transcriptionReplayBlocked: transcriptionReplayBlocked,
-            transcriptionCheckpoint: transcriptionCheckpoint,
-            status: status
-        )
-    }
-
-    func replacing(
-        status: IOSVoiceStatePendingStatus,
-        transcriptionReplayBlocked: Bool,
-        updatedAt: Date
-    ) throws -> Self {
-        try Self(
-            attemptID: attemptID,
-            audioRelativeIdentifier: audioRelativeIdentifier,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            outputIntent: outputIntent,
-            draftInsertionMode: draftInsertionMode,
-            forcesTextCorrection: forcesTextCorrection,
-            transcriptionModel: transcriptionModel,
-            transcriptionLanguageCode: transcriptionLanguageCode,
-            durationMilliseconds: durationMilliseconds,
-            byteCount: byteCount,
-            acceptedAudioRetention: acceptedAudioRetention,
-            transcriptionReplayBlocked: transcriptionReplayBlocked,
-            transcriptionCheckpoint: transcriptionCheckpoint,
-            status: status
-        )
     }
 }
 
@@ -940,45 +793,6 @@ actor IOSVoiceStateRepository {
         } catch {
             throw IOSVoiceStateRepositoryError.writeFailed
         }
-    }
-}
-
-enum IOSVoiceStateStorageLocation {
-    static let rootDirectoryName = "HoldType"
-    static let voiceStateDirectoryName = "VoiceState"
-    static let recordFileName = "ios-v1-voice-state.json"
-    static let audioFilePrefix = "pending-v1-"
-
-    static func directoryURL(in applicationSupportDirectoryURL: URL) -> URL {
-        applicationSupportDirectoryURL
-            .appendingPathComponent(rootDirectoryName, isDirectory: true)
-            .appendingPathComponent(voiceStateDirectoryName, isDirectory: true)
-    }
-
-    static func fileURL(in applicationSupportDirectoryURL: URL) -> URL {
-        directoryURL(in: applicationSupportDirectoryURL)
-            .appendingPathComponent(recordFileName, isDirectory: false)
-    }
-
-    static func relativeAudioIdentifier(
-        for attemptID: UUID,
-        extension fileExtension: String = "m4a"
-    ) -> String {
-        voiceStateDirectoryName + "/" + audioFilePrefix
-            + attemptID.uuidString.lowercased() + "." + fileExtension
-    }
-
-    static func audioFileURL(
-        for attemptID: UUID,
-        extension fileExtension: String = "m4a",
-        in applicationSupportDirectoryURL: URL
-    ) -> URL {
-        directoryURL(in: applicationSupportDirectoryURL)
-            .appendingPathComponent(
-                audioFilePrefix + attemptID.uuidString.lowercased()
-                    + "." + fileExtension,
-                isDirectory: false
-            )
     }
 }
 
