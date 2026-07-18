@@ -67,14 +67,8 @@ private struct HotkeySettingsPresentation {
         case .registered(let configuration):
             shortcutText = configuration.displayText
             statusText = "Global hotkey active."
-            detailText = Self.activeDetailText(for: configuration)
+            detailText = "Hold the shortcut to record from any app."
             systemImage = "keyboard"
-            statusTint = .secondary
-        case .fallbackRegistered(let configuration):
-            shortcutText = configuration.displayText
-            statusText = "Fallback hotkey active."
-            detailText = "The default shortcut was unavailable. This shortcut records from any app."
-            systemImage = "keyboard.badge.ellipsis"
             statusTint = .secondary
         case .notRegistered:
             shortcutText = preferredConfiguration.displayText
@@ -88,15 +82,6 @@ private struct HotkeySettingsPresentation {
             detailText = "\(message) Use Transcribe in the menu."
             systemImage = "keyboard.badge.exclamationmark"
             statusTint = .red
-        }
-    }
-
-    private static func activeDetailText(for configuration: GlobalHotkeyConfiguration) -> String {
-        switch configuration.activationMode {
-        case .holdToRecord:
-            return "Hold the shortcut to record from any app."
-        case .toggle:
-            return "Press the shortcut once to start recording and again to stop."
         }
     }
 }

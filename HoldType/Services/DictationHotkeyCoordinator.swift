@@ -85,7 +85,6 @@ final class DictationHotkeyCoordinator {
         if isPerformingRecordingAction {
             rememberStopIfNeeded(
                 action: action,
-                configuration: configuration,
                 wasShortcutPressed: wasShortcutPressed
             )
             return
@@ -136,11 +135,9 @@ final class DictationHotkeyCoordinator {
 
     private func rememberStopIfNeeded(
         action: GlobalHotkeyAction,
-        configuration: GlobalHotkeyConfiguration,
         wasShortcutPressed: Bool
     ) {
         guard action == .keyUp,
-              configuration.stopsRecordingOnKeyUp,
               wasShortcutPressed,
               isHotkeyRecordingActive else {
             return

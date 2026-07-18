@@ -10,7 +10,7 @@ without allowing hidden recording or parallel recording sessions.
 This spec covers:
 
 - default dictation shortcut
-- hold-to-record and toggle-mode fallback behavior
+- hold-to-record behavior
 - repeated key events and race prevention
 - shortcut registration failure and collision behavior
 - menu and Settings display for the active shortcut
@@ -28,17 +28,13 @@ This spec covers:
 
 - The MVP default dictation shortcut is `Right Command` as a single-key
   hold-to-record shortcut.
-- The alternate dictation shortcut option is `Globe/Fn` as a single-key
-  hold-to-record shortcut for keyboards that expose that key.
+- The current MVP has no automatic alternate shortcut or toggle-mode fallback.
 - The app must not use `Command+Space` as the default because that commonly
   belongs to Spotlight.
 - The app must not use `Option+Space` or `Control+Space` as the default
   dictation shortcut.
-- The shortcut should use hold-to-record when the native macOS implementation
-  can observe both key down and key up reliably.
-- The MVP configuration prefers hold-to-record for both the default shortcut
-  and the Globe/Fn alternate; toggle mode is only the fallback when the native
-  event path cannot safely deliver key-up events.
+- The native macOS implementation must observe both key down and key up
+  reliably before it reports the shortcut as registered.
 - The native implementation must distinguish `Right Command` from generic
   Command before presenting it as the active shortcut.
 - In hold-to-record mode:
@@ -50,27 +46,18 @@ This spec covers:
     succeeds;
   - key repeat or a second key down while the key is already held must be
     ignored.
-- If reliable key-up handling is not available for the MVP implementation, the
-  app may fall back to toggle mode.
-- In toggle mode:
-  - the first shortcut press starts recording;
-  - the next shortcut press stops recording and starts transcription;
-  - key-up events do not stop recording;
-  - repeated key-down events from the same physical press must not start and
-    stop recording immediately.
+- If reliable key-up handling is unavailable, registration is unavailable and
+  the manual menu controls remain usable. HoldType does not silently change the
+  interaction to toggle mode.
 - While transcription is running, the shortcut must not start another recording.
   The menu and any indicator should show the transcribing state instead.
 - If the shortcut is unavailable at launch because registration fails or the
   key combination is already owned by the system or another app, HoldType must
   keep menu controls usable and show a clear hotkey-unavailable status.
-- If the implementation supports a safe automatic fallback or alternate
-  shortcut, the first candidate after `Right Command` is `Globe/Fn`; the active
-  shortcut shown to the user must update to the fallback or alternate value.
 - If no shortcut can be registered, Transcribe and Stop Recording from
   the menu remain the supported manual path.
 - The Settings window should show the active shortcut and activation mode as
-  read-only MVP information, such as `Right Command - Hold to record`,
-  `Globe/Fn - Hold to record`, or `Right Command - Toggle`.
+  read-only MVP information: `Right Command - Hold to record`.
 - The menu should expose the active shortcut near the Transcribe action when
   practical.
 - Full shortcut editing is deferred, but future editing must validate and
@@ -110,10 +97,8 @@ This spec covers:
 - Recording can start only from an explicit user action and only when required
   microphone permission is available.
 - Failed shortcut registration must not prevent manual menu recording.
-- A failed shortcut change must leave the previous working shortcut active when
-  one exists.
-- The app must not claim that hold-to-record is active when it is actually
-  using toggle mode.
+- The app must not claim that the hotkey is active when registration is
+  unavailable.
 - Shortcut handling must not log dictated text, raw audio, API keys, or full
   provider responses.
 
@@ -139,29 +124,27 @@ This spec covers:
   listening, depending on the implementation path. Missing Input Monitoring
   must not imply hidden recording, open required Settings recovery by itself, or
   prevent menu-driven recording controls.
-- If registration fails for both default and fallback shortcuts, Settings should
-  show that no global hotkey is active.
+- If registration fails, Settings should show that no global hotkey is active.
 
 ## Route / state / data implications
 
 The app state must distinguish:
 
 - active shortcut value
-- activation mode: hold or toggle
-- shortcut registration status: registered, fallback-registered, unavailable
+- fixed hold-to-record activation mode
+- shortcut registration status: registered or unavailable
 - whether a hotkey press token currently owns the active recording session
 - the output intent attached to the active hotkey-started recording session
 
-Shortcut configuration is local app setting data. Until shortcut editing exists,
-the app may use the spec-defined default and fallback values without persisting
-custom user input.
+The fixed shortcut is local runtime configuration. Until shortcut editing
+exists, the app uses the spec-defined default and persists no custom hotkey
+input.
 
 ## Verification mapping
 
 - Spec-only changes require `git diff --check`.
 - Native implementation should add fake-backed tests for hold-mode key down/up,
-  toggle-mode press handling, repeat suppression, transcribing-state rejection,
-  registration failure, and fallback registration.
+  repeat suppression, transcribing-state rejection, and registration failure.
 - Runtime smoke is required only when a task changes the visible running app
   surface or actual macOS hotkey registration.
 
@@ -170,8 +153,7 @@ custom user input.
 - Product brief: `docs/openwhispr_swiftui_codex_tz.md`
 - Existing specs: `microphone-text-input.md`, `menu-bar-app-shell.md`,
   `settings-and-secret-storage.md`, and `text-output-workflow.md`
-- OpenWhispr reference behavior: hotkey registration, tap/push activation
-  modes, registration rollback, fallback suggestions, and key down/up handling
+- OpenWhispr reference behavior: hotkey registration and key down/up handling
   in `references/openwhispr-main/src/helpers/hotkeyManager.js`,
   `references/openwhispr-main/main.js`, and
   `references/openwhispr-main/src/stores/settingsStore.ts`

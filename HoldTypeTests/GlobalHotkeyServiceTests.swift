@@ -18,18 +18,7 @@ struct GlobalHotkeyServiceTests {
 
         #expect(configuration.shortcut == .defaultDictation)
         #expect(configuration.shortcut.displayText == "Right Command")
-        #expect(configuration.activationMode == .holdToRecord)
-        #expect(configuration.stopsRecordingOnKeyUp)
         #expect(configuration.displayText == "Right Command - Hold to record")
-    }
-
-    @Test func fallbackShortcutUsesGlobeFn() {
-        let configuration = GlobalHotkeyConfiguration.fallbackDictation
-
-        #expect(configuration.shortcut == .fallbackDictation)
-        #expect(configuration.shortcut.displayText == "Globe/Fn")
-        #expect(configuration.stopsRecordingOnKeyUp)
-        #expect(configuration.displayText == "Globe/Fn - Hold to record")
     }
 
     @Test func appClipboardPasteShortcutUsesControlCommandV() {
@@ -253,54 +242,12 @@ struct GlobalHotkeyServiceTests {
         )
     }
 
-    @Test func toggleModeUsesKeyDownOnlyAndIgnoresKeyUp() {
-        let configuration = GlobalHotkeyConfiguration(
-            shortcut: .defaultDictation,
-            activationMode: .toggle
-        )
-
-        #expect(configuration.stopsRecordingOnKeyUp == false)
-        #expect(configuration.displayText == "Right Command - Toggle")
-        #expect(
-            configuration.recordingCommand(
-                for: .keyDown,
-                isRecording: false,
-                isShortcutPressed: false
-            ) == .startRecording
-        )
-        #expect(
-            configuration.recordingCommand(
-                for: .keyUp,
-                isRecording: true,
-                isShortcutPressed: true
-            ) == nil
-        )
-        #expect(
-            configuration.recordingCommand(
-                for: .keyDown,
-                isRecording: true,
-                isShortcutPressed: true
-            ) == nil
-        )
-        #expect(
-            configuration.recordingCommand(
-                for: .keyDown,
-                isRecording: true,
-                isShortcutPressed: false
-            ) == .stopRecording
-        )
-    }
-
     @Test func registrationStatusExposesActiveConfiguration() {
         let configuration = GlobalHotkeyConfiguration.defaultDictation
 
         #expect(
             GlobalHotkeyRegistrationStatus.registered(configuration).activeConfiguration
                 == configuration
-        )
-        #expect(
-            GlobalHotkeyRegistrationStatus.unavailable(message: "Already in use").displayText
-                == "Global hotkey unavailable"
         )
     }
 
