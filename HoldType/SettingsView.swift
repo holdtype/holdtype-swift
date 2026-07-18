@@ -182,7 +182,6 @@ struct SettingsView: View {
         AppSetupStatus(
             microphonePermissionStatus: permissionsModel.microphonePermissionStatus,
             accessibilityPermissionStatus: permissionsModel.accessibilityPermissionStatus,
-            inputMonitoringPermissionStatus: permissionsModel.inputMonitoringPermissionStatus,
             settings: appSettings
         )
     }

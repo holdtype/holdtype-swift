@@ -8,7 +8,6 @@ struct SettingsSetupWarningTests {
             from: AppSetupStatus(
                 microphonePermissionStatus: .notDetermined,
                 accessibilityPermissionStatus: .notTrusted,
-                inputMonitoringPermissionStatus: .denied,
                 settings: .defaults
             )
         )
@@ -22,7 +21,6 @@ struct SettingsSetupWarningTests {
             from: AppSetupStatus(
                 microphonePermissionStatus: .allowed,
                 accessibilityPermissionStatus: .trusted,
-                inputMonitoringPermissionStatus: .denied,
                 settings: .defaults
             )
         )

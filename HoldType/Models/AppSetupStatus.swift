@@ -41,7 +41,6 @@ struct AppSetupAttentionItem: Equatable, Identifiable {
 struct AppSetupStatus: Equatable {
     let microphonePermissionStatus: MicrophonePermissionStatus
     let accessibilityPermissionStatus: AccessibilityPermissionStatus
-    let inputMonitoringPermissionStatus: InputMonitoringPermissionStatus
     let settings: AppSettings
 
     var startupAttentionItems: [AppSetupAttentionItem] {
@@ -132,13 +131,12 @@ struct AppSetupStatusProvider {
 
     func currentStatus(settings: AppSettings) -> AppSetupStatus {
         let microphonePermissionStatus = microphonePermissionService.currentStatus()
-        let inputMonitoringPermissionStatus = inputMonitoringPermissionService.currentStatus()
+        _ = inputMonitoringPermissionService.currentStatus()
         let accessibilityPermissionStatus = accessibilityPermissionService.currentStatus()
 
         return AppSetupStatus(
             microphonePermissionStatus: microphonePermissionStatus,
             accessibilityPermissionStatus: accessibilityPermissionStatus,
-            inputMonitoringPermissionStatus: inputMonitoringPermissionStatus,
             settings: settings
         )
     }

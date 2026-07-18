@@ -8,7 +8,6 @@ struct AppSetupStatusTests {
         let status = AppSetupStatus(
             microphonePermissionStatus: .notDetermined,
             accessibilityPermissionStatus: .notTrusted,
-            inputMonitoringPermissionStatus: .notDetermined,
             settings: .defaults
         )
 
@@ -18,26 +17,10 @@ struct AppSetupStatusTests {
         #expect(status.recordingBlockedMessage.contains("Complete required setup"))
     }
 
-    @Test func inputMonitoringDoesNotRequireStartupAttentionOrBlockManualRecording() {
-        let status = AppSetupStatus(
-            microphonePermissionStatus: .allowed,
-            accessibilityPermissionStatus: .trusted,
-            inputMonitoringPermissionStatus: .denied,
-            settings: .defaults
-        )
-
-        #expect(status.requiresStartupAttention == false)
-        #expect(status.canStartRecording)
-        #expect(status.startupAttentionItems.isEmpty)
-        #expect(status.recordingBlockers.isEmpty)
-        #expect(status.preferredStartupSettingsItem == .permissions)
-    }
-
     @Test func resolvedMicrophoneStillLeavesPermissionsAttentionForAccessibilityOnly() {
         let status = AppSetupStatus(
             microphonePermissionStatus: .allowed,
             accessibilityPermissionStatus: .notTrusted,
-            inputMonitoringPermissionStatus: .denied,
             settings: .defaults
         )
 
@@ -77,7 +60,6 @@ struct AppSetupStatusTests {
         let status = AppSetupStatus(
             microphonePermissionStatus: .allowed,
             accessibilityPermissionStatus: .notTrusted,
-            inputMonitoringPermissionStatus: .allowed,
             settings: settings
         )
 
