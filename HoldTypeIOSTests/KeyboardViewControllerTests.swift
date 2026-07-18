@@ -2113,8 +2113,6 @@ private final class KeyboardControllerHarness {
     var documentIdentifierOwnerIDs: [ObjectIdentifier] = []
     var scheduledDocumentIdentifierRetryActions:
         [@MainActor () -> Void] = []
-    var scheduledDeliveryObservationActions:
-        [@MainActor () -> Void] = []
     var observedDictationStateChange: (@MainActor () -> Void)?
     var activeDocumentProxy: any UITextDocumentProxy
     var replacementDocumentProxy: (any UITextDocumentProxy)?
@@ -2206,10 +2204,7 @@ private final class KeyboardControllerHarness {
                     scheduledDocumentIdentifierRetryActions.append(action)
                     return nil
                 },
-                scheduleDeliveryObservation: { [self] action in
-                    scheduledDeliveryObservationActions.append(action)
-                    return nil
-                },
+                scheduleDeliveryObservation: { _ in nil },
                 openContainingAppOverride: { [self] url, completion in
                     openedURLs.append(url)
                     completion(openContainingAppSucceeds)

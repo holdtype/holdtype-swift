@@ -708,12 +708,10 @@ private final class VoiceBoundaryFeedbackFixture {
     }
 
     var startPlayResult = true
-    var stopPlayResult = true
     var startFactoryEvent: IOSVoiceBoundaryPlayerEvent?
     var stopFactoryEvent: IOSVoiceBoundaryPlayerEvent?
     var startPlayEvent: IOSVoiceBoundaryPlayerEvent?
     var stopPlayEvent: IOSVoiceBoundaryPlayerEvent?
-    var startFactoryError: IOSVoiceBoundaryFeedbackSystemError?
     var stopFactoryError: IOSVoiceBoundaryFeedbackSystemError?
     var hapticAction: (@MainActor () -> Void)?
     private(set) var calls: [Call] = []
@@ -728,15 +726,14 @@ private final class VoiceBoundaryFeedbackFixture {
                         .playerCreationFailed
                 }
                 calls.append(.makePlayer(cue))
-                let error = cue == .start
-                    ? startFactoryError
-                    : stopFactoryError
-                if let error { throw error }
+                if cue != .start, let stopFactoryError {
+                    throw stopFactoryError
+                }
                 let player = VoiceBoundaryPlayerFixture(
                     cue: cue,
                     playResult: cue == .start
                         ? startPlayResult
-                        : stopPlayResult,
+                        : true,
                     playEvent: cue == .start
                         ? startPlayEvent
                         : stopPlayEvent,
