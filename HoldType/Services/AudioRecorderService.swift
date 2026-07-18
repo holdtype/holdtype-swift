@@ -67,12 +67,6 @@ extension AudioRecorderService {
     var lastFinalizationReachedMaximumDuration: Bool { false }
     var acceptsPreparedRecordingFileURL: Bool { false }
 
-    func startRecording() async throws {
-        try await startRecording(
-            maximumDuration: RecordingDurationLimit.default.duration
-        )
-    }
-
     func startRecording(
         maximumDuration: TimeInterval,
         outputFileURL: URL?
@@ -141,10 +135,6 @@ protocol AudioRecorderEngine: AnyObject {
     func stop()
     @discardableResult func deleteRecording() -> Bool
     func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?)
-}
-
-extension AudioRecorderEngine {
-    func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?) {}
 }
 
 private final class AVFoundationAudioRecorderEngine: NSObject, AudioRecorderEngine, AVAudioRecorderDelegate {
