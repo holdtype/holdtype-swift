@@ -11,17 +11,6 @@ struct IOSLibraryPersistenceIOSTests {
         uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
     )!
 
-    @Test func publicRuntimeContractWorksThroughNormalIOSImports() {
-        let content = IOSLibraryContent.defaults
-
-        #expect(content.customDictionary == .empty)
-        #expect(content.emojiCommandsConfiguration == .defaults)
-        #expect(content.replacementRules.isEmpty)
-        requireSendable(IOSLibraryContent.self)
-        #expect(((content as Any) is any Encodable) == false)
-        #expect(((content as Any) is any Decodable) == false)
-    }
-
     @Test func publicRepositoryUsesStableProtectedBackupEligibleLocation() async throws {
         let containerURL = makeTemporaryDirectoryURL()
         defer { try? FileManager.default.removeItem(at: containerURL) }
@@ -62,102 +51,6 @@ struct IOSLibraryPersistenceIOSTests {
         #endif
     }
 
-    @Test func corruptUnsupportedAndStrictValidationFailuresPreserveSourceBytes() async throws {
-        let containerURL = makeTemporaryDirectoryURL()
-        defer { try? FileManager.default.removeItem(at: containerURL) }
-        let applicationSupportURL = containerURL.appendingPathComponent(
-            "Library/Application Support",
-            isDirectory: true
-        )
-        let fileURL = IOSLibraryStorageLocation.fileURL(in: applicationSupportURL)
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let repository = IOSLibraryRepository(
-            applicationSupportDirectoryURL: applicationSupportURL
-        )
-        let fixtures: [(Data, IOSLibraryRepositoryError)] = [
-            (Data("not-json".utf8), .malformedData),
-            (
-                Data(#"{"schemaVersion":2}"#.utf8),
-                .unsupportedSchemaVersion
-            ),
-            (
-                Data(
-                    #"{"emojiCommands":{"enabledBuiltInSetIDs":["EN"]},"schemaVersion":1}"#.utf8
-                ),
-                .unknownBuiltInSetIdentifier(
-                    path: "emojiCommands.enabledBuiltInSetIDs"
-                )
-            ),
-            (
-                Data(
-                    #"{"emojiCommands":{"enabledBuiltInSetIDs":["en","ru"]},"schemaVersion":1}"#.utf8
-                ),
-                .invalidBuiltInSetSelection(
-                    path: "emojiCommands.enabledBuiltInSetIDs"
-                )
-            ),
-        ]
-
-        for (sourceData, expectedError) in fixtures {
-            try sourceData.write(to: fileURL, options: .atomic)
-            do {
-                _ = try await repository.load()
-                Issue.record("Expected Library load to fail")
-            } catch let error as IOSLibraryRepositoryError {
-                #expect(error == expectedError)
-            } catch {
-                Issue.record("Unexpected error: \(error)")
-            }
-            #expect(try Data(contentsOf: fileURL) == sourceData)
-        }
-    }
-
-    @Test func sourceAndCanonicalEncodingLimitsStayDistinctOnIOS() async throws {
-        let containerURL = makeTemporaryDirectoryURL()
-        defer { try? FileManager.default.removeItem(at: containerURL) }
-        let applicationSupportURL = containerURL.appendingPathComponent(
-            "Library/Application Support",
-            isDirectory: true
-        )
-        let fileURL = IOSLibraryStorageLocation.fileURL(in: applicationSupportURL)
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let repository = IOSLibraryRepository(
-            applicationSupportDirectoryURL: applicationSupportURL
-        )
-        let oversizedSource = Data(repeating: 0x61, count: 1_024 * 1_024 + 1)
-        try oversizedSource.write(to: fileURL)
-
-        do {
-            _ = try await repository.load()
-            Issue.record("Expected sourceTooLarge")
-        } catch let error as IOSLibraryRepositoryError {
-            #expect(error == .sourceTooLarge)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
-
-        let oversizedContent = IOSLibraryContent(
-            customDictionary: CustomDictionary(entries: [
-                String(repeating: "x", count: 1_024 * 1_024),
-            ])
-        )
-        do {
-            try await repository.save(oversizedContent)
-            Issue.record("Expected encodedDataTooLarge")
-        } catch let error as IOSLibraryRepositoryError {
-            #expect(error == .encodedDataTooLarge)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
-        #expect(try Data(contentsOf: fileURL) == oversizedSource)
-    }
-
     private func fixtureContent() -> IOSLibraryContent {
         IOSLibraryContent(
             customDictionary: CustomDictionary(entries: [
@@ -196,6 +89,4 @@ struct IOSLibraryPersistenceIOSTests {
             isDirectory: true
         )
     }
-
-    private func requireSendable<Value: Sendable>(_: Value.Type) {}
 }

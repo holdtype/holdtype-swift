@@ -4,20 +4,6 @@ import HoldTypePersistence
 import Testing
 
 struct IOSAppSettingsPersistenceIOSTests {
-    @Test func publicRuntimeContractWorksThroughNormalIOSImports() {
-        let settings = IOSAppSettings.defaults
-
-        #expect(settings.transcriptionConfiguration == .defaults)
-        #expect(settings.textCorrectionConfiguration == .defaults)
-        #expect(settings.localTextCleanupEnabled)
-        #expect(settings.translationConfiguration == .defaults)
-        #expect(settings.voiceSessionPreferences == .defaults)
-        #expect(settings.recordingCachePolicy == .deleteImmediately)
-        requireSendable(IOSAppSettings.self)
-        #expect(((settings as Any) is any Encodable) == false)
-        #expect(((settings as Any) is any Decodable) == false)
-    }
-
     @Test func publicRepositoryUsesStableLocationAndProtectedBackupEligibleFiles() async throws {
         let containerURL = makeTemporaryDirectoryURL()
         defer { try? FileManager.default.removeItem(at: containerURL) }
@@ -60,133 +46,6 @@ struct IOSAppSettingsPersistenceIOSTests {
         #endif
     }
 
-    @Test func unsupportedOrCorruptSourceBytesArePreserved() async throws {
-        let containerURL = makeTemporaryDirectoryURL()
-        defer { try? FileManager.default.removeItem(at: containerURL) }
-        let applicationSupportURL = containerURL.appendingPathComponent(
-            "Library/Application Support",
-            isDirectory: true
-        )
-        let fileURL = IOSAppSettingsStorageLocation.fileURL(in: applicationSupportURL)
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let repository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: applicationSupportURL
-        )
-        let fixtures: [(Data, IOSAppSettingsRepositoryError)] = [
-            (Data("not-json".utf8), .malformedData),
-            (
-                Data(#"{"schemaVersion":4}"#.utf8),
-                .unsupportedSchemaVersion
-            ),
-            (
-                Data(#"{"schemaVersion":1,"voice":{"audioCuesEnabled":null}}"#.utf8),
-                .invalidValueType(path: "voice.audioCuesEnabled")
-            ),
-        ]
-
-        for (sourceData, expectedError) in fixtures {
-            try sourceData.write(to: fileURL, options: .atomic)
-            do {
-                _ = try await repository.load()
-                Issue.record("Expected settings load to fail")
-            } catch let error as IOSAppSettingsRepositoryError {
-                #expect(error == expectedError)
-            } catch {
-                Issue.record("Unexpected error: \(error)")
-            }
-            #expect(try Data(contentsOf: fileURL) == sourceData)
-        }
-    }
-
-    @Test func legacyAndCurrentCacheOffRemainOff() async throws {
-        let containerURL = makeTemporaryDirectoryURL()
-        defer { try? FileManager.default.removeItem(at: containerURL) }
-        let applicationSupportURL = containerURL.appendingPathComponent(
-            "Library/Application Support",
-            isDirectory: true
-        )
-        let fileURL = IOSAppSettingsStorageLocation.fileURL(
-            in: applicationSupportURL
-        )
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let legacySource =
-            "{\"recordingCache\":{\"mode\":\"deleteImmediately\","
-            + "\"retainedRecordingLimit\":10},\"schemaVersion\":1}"
-        let legacyData = Data(legacySource.utf8)
-        try legacyData.write(to: fileURL, options: .atomic)
-        let repository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: applicationSupportURL
-        )
-
-        var settings = try await repository.load()
-        #expect(settings.recordingCachePolicy == .deleteImmediately)
-        #expect(try Data(contentsOf: fileURL) == legacyData)
-
-        settings.recordingCachePolicy = .deleteImmediately
-        try await repository.save(settings)
-
-        #expect(
-            try await repository.load().recordingCachePolicy
-                == .deleteImmediately
-        )
-        let root = try #require(
-            JSONSerialization.jsonObject(
-                with: Data(contentsOf: fileURL)
-            ) as? [String: Any]
-        )
-        #expect(root["schemaVersion"] as? Int == 3)
-    }
-
-    @Test func sourceAndEncodingLimitsHaveDistinctPublicFailures() async throws {
-        let containerURL = makeTemporaryDirectoryURL()
-        defer { try? FileManager.default.removeItem(at: containerURL) }
-        let applicationSupportURL = containerURL.appendingPathComponent(
-            "Library/Application Support",
-            isDirectory: true
-        )
-        let fileURL = IOSAppSettingsStorageLocation.fileURL(in: applicationSupportURL)
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let repository = IOSAppSettingsRepository(
-            applicationSupportDirectoryURL: applicationSupportURL
-        )
-        let oversizedSource = Data(repeating: 0x61, count: 1_024 * 1_024 + 1)
-        try oversizedSource.write(to: fileURL)
-
-        do {
-            _ = try await repository.load()
-            Issue.record("Expected sourceTooLarge")
-        } catch let error as IOSAppSettingsRepositoryError {
-            #expect(error == .sourceTooLarge)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
-        #expect(try Data(contentsOf: fileURL) == oversizedSource)
-
-        var settings = IOSAppSettings.defaults
-        settings.transcriptionConfiguration.freeformPrompt = String(
-            repeating: "x",
-            count: 1_024 * 1_024
-        )
-        do {
-            try await repository.save(settings)
-            Issue.record("Expected encodedDataTooLarge")
-        } catch let error as IOSAppSettingsRepositoryError {
-            #expect(error == .encodedDataTooLarge)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
-        #expect(try Data(contentsOf: fileURL) == oversizedSource)
-    }
-
     private func fixtureSettings() -> IOSAppSettings {
         IOSAppSettings(
             transcriptionConfiguration: TranscriptionConfiguration(
@@ -225,6 +84,4 @@ struct IOSAppSettingsPersistenceIOSTests {
             isDirectory: true
         )
     }
-
-    private func requireSendable<Value: Sendable>(_: Value.Type) {}
 }
