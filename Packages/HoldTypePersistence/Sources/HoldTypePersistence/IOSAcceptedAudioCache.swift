@@ -85,15 +85,6 @@ public actor IOSAcceptedAudioCache {
         self.fileSystem = fileSystem
     }
 
-    /// Returns only a regular, non-empty cache file owned by this cache.
-    public func cachedAudioFileURLIfAvailable(resultID: UUID) -> URL? {
-        let matches = (try? managedFiles())?.filter {
-            $0.resultID == resultID
-        } ?? []
-        guard matches.count == 1 else { return nil }
-        return matches[0].url
-    }
-
     /// Resolves only the independently retained copy that can prove a prior
     /// limit-ended publish completed before Pending cleanup was interrupted.
     /// Result identity alone is insufficient: the managed namespace, media

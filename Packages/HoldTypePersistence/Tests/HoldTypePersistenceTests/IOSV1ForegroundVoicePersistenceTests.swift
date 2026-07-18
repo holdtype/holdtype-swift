@@ -388,7 +388,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(saved.count == IOSAcceptedAudioCache.maximumSavedRecordingCount)
         #expect(saved.first?.resultID == record.resultID)
         #expect(
-            await relaunched.cache.cachedAudioFileURLIfAvailable(
+            try await relaunched.cache.retainedAudioFileURL(
                 resultID: olderResultIDs[0]
             ) == nil
         )
@@ -986,7 +986,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(notice == .localCleanupPending)
         let cachedURL = try #require(
             await fixture.acceptedAudioCache
-                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+                .retainedAudioFileURL(resultID: FacadeIDs.result)
         )
         #expect(try Data(contentsOf: cachedURL) == Data([1, 2, 3, 4]))
         #expect(try await fixture.repository.load().pending != nil)
@@ -998,8 +998,8 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(try await fixture.repository.load().pending == nil)
         #expect(!fixture.audio.contains(FacadeIDs.attempt))
         #expect(
-            await fixture.acceptedAudioCache
-                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+            try await fixture.acceptedAudioCache
+                .retainedAudioFileURL(resultID: FacadeIDs.result)
                 == cachedURL
         )
     }
@@ -1044,14 +1044,14 @@ struct IOSV1ForegroundVoicePersistenceTests {
         )
 
         #expect(
-            await fixture.acceptedAudioCache
-                .cachedAudioFileURLIfAvailable(
+            try await fixture.acceptedAudioCache
+                .retainedAudioFileURL(
                     resultID: FacadeIDs.previousResult
                 ) == nil
         )
         #expect(
-            await fixture.acceptedAudioCache
-                .cachedAudioFileURLIfAvailable(resultID: FacadeIDs.result)
+            try await fixture.acceptedAudioCache
+                .retainedAudioFileURL(resultID: FacadeIDs.result)
                 == nil
         )
         #expect(try await fixture.repository.load().pending == nil)

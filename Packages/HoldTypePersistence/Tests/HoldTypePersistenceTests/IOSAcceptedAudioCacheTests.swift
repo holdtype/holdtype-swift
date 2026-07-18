@@ -40,7 +40,7 @@ struct IOSAcceptedAudioCacheTests {
         #expect(policy == .deleteImmediately)
 
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) == nil
         )
@@ -54,7 +54,7 @@ struct IOSAcceptedAudioCacheTests {
             ) == nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) == nil
         )
@@ -76,7 +76,7 @@ struct IOSAcceptedAudioCacheTests {
 
         #expect(try Data(contentsOf: url) == Data([1, 2, 3]))
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) == url
         )
@@ -121,17 +121,17 @@ struct IOSAcceptedAudioCacheTests {
             policy: .unlimited
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) != nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.second
             ) != nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.third
             ) != nil
         )
@@ -140,17 +140,17 @@ struct IOSAcceptedAudioCacheTests {
         try await fixture.cache.reconcile(policy: .keepLast(2))
 
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) == nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.second
             ) != nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.third
             ) != nil
         )
@@ -158,12 +158,12 @@ struct IOSAcceptedAudioCacheTests {
 
         try await fixture.cache.reconcile(policy: .deleteImmediately)
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.second
             ) == nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.third
             ) == nil
         )
@@ -241,7 +241,7 @@ struct IOSAcceptedAudioCacheTests {
                 == Array(Array(identifiers.dropFirst()).reversed())
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: identifiers[0]
             ) == nil
         )
@@ -283,12 +283,12 @@ struct IOSAcceptedAudioCacheTests {
                 == .discarded
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.first
             ) == nil
         )
         #expect(
-            await fixture.cache.cachedAudioFileURLIfAvailable(
+            try await fixture.cache.retainedAudioFileURL(
                 resultID: CacheIDs.second
             ) != nil
         )
