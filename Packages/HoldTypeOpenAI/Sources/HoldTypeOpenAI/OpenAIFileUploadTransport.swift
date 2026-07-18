@@ -207,26 +207,6 @@ nonisolated private struct TrustedUploadRequest: Sendable {
     }
 }
 
-nonisolated enum OpenAIUploadAuthenticationPolicy {
-    enum Decision: Equatable, Sendable {
-        case ignoreSupersededTask
-        case performDefaultHandling
-        case rejectActiveChallenge
-    }
-
-    static func decision(
-        isActiveTask: Bool,
-        authenticationMethod: String
-    ) -> Decision {
-        guard isActiveTask else {
-            return .ignoreSupersededTask
-        }
-        return authenticationMethod == NSURLAuthenticationMethodServerTrust
-            ? .performDefaultHandling
-            : .rejectActiveChallenge
-    }
-}
-
 nonisolated private final class StreamedUploadTransfer: NSObject, @unchecked Sendable {
     typealias Output = (Data, URLResponse)
     typealias ConfigurationFactory = @Sendable () -> URLSessionConfiguration
