@@ -6,7 +6,6 @@
   },
   "generatedFiles": [],
   "oversizedFiles": {
-    "HoldType/Models/AppSettings.swift": 734,
     "HoldType/Services/AudioRecorderService.swift": 902,
     "HoldType/Services/DictationSessionController.swift": 2222,
     "HoldType/Services/PermissionsService.swift": 586,
