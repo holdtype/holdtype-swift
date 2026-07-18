@@ -203,7 +203,6 @@ struct IOSForegroundVoiceProviderBridgeTests {
 
         #expect(result == .busy)
         let mapped = try #require(await processor.lastProcessRequest())
-        #expect(mapped.sessionID == fixture.request.sessionID)
         #expect(mapped.pendingRecording == fixture.pending)
         #expect(mapped.mode == .retry)
         #expect(mapped.settings == fixture.settings)
@@ -227,7 +226,6 @@ struct IOSForegroundVoiceProviderBridgeTests {
             mode: .retry
         )
         let request = IOSForegroundVoiceWorkflowProcessingRequest(
-            sessionID: fixture.request.sessionID,
             pendingRecording: fixture.pending,
             mode: .retry,
             configuration: fixture.request.configuration,
@@ -410,7 +408,6 @@ private func makeWorkflowRequest(
     let consent = makeConsentObservation()
     return BridgeWorkflowRequestFixture(
         request: IOSForegroundVoiceWorkflowProcessingRequest(
-            sessionID: UUID(),
             pendingRecording: pending,
             mode: mode,
             configuration: IOSForegroundVoiceWorkflowConfiguration(

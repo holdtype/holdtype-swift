@@ -667,7 +667,6 @@ public actor IOSForegroundVoiceProcessor {
         do {
             preparation = try IOSV1ForegroundVoiceAcceptedOutputPreparation(
                 deliveryID: context.deliveryID,
-                sessionID: context.sessionID,
                 attemptID: outputDelivery.attemptID,
                 transcriptID: context.transcriptionID,
                 rawAcceptedText: finalText.text,
@@ -1302,7 +1301,6 @@ public actor IOSForegroundVoiceProcessor {
             correction.isEnabled = true
         }
         return IOSForegroundVoicePipelineContext(
-            sessionID: request.sessionID,
             pendingRecording: pending,
             mode: request.mode,
             transcriptionConfiguration: transcription,
@@ -1401,7 +1399,6 @@ private final class IOSForegroundVoiceProviderDispatchEvidence:
 }
 
 private struct IOSForegroundVoicePipelineContext: Sendable {
-    let sessionID: UUID
     let pendingRecording: IOSV1PendingRecording
     let mode: IOSForegroundVoiceProcessingMode
     let transcriptionConfiguration: TranscriptionConfiguration

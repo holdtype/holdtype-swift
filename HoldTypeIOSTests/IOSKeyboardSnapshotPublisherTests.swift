@@ -102,7 +102,6 @@ struct IOSKeyboardSnapshotPublisherTests {
         _ = try await repository.installPending(pending.state)
         let preparation = try IOSV1ForegroundVoiceAcceptedOutputPreparation(
             deliveryID: UUID(),
-            sessionID: UUID(),
             attemptID: attemptID,
             transcriptID: transcriptID,
             rawAcceptedText: "HoldType canonical History qualification",

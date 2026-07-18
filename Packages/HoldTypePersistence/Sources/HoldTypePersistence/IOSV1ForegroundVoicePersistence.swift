@@ -267,7 +267,6 @@ public struct IOSV1ForegroundVoiceAcceptedOutputPreparation:
     Equatable,
     Sendable {
     public let deliveryID: UUID
-    public let sessionID: UUID
     public let attemptID: UUID
     public let transcriptID: UUID
     public let acceptedText: String
@@ -275,7 +274,6 @@ public struct IOSV1ForegroundVoiceAcceptedOutputPreparation:
 
     public init(
         deliveryID: UUID,
-        sessionID: UUID,
         attemptID: UUID,
         transcriptID: UUID,
         rawAcceptedText: String,
@@ -289,7 +287,6 @@ public struct IOSV1ForegroundVoiceAcceptedOutputPreparation:
             throw IOSV1ForegroundVoicePersistenceError.invalidAcceptedOutput
         }
         self.deliveryID = deliveryID
-        self.sessionID = sessionID
         self.attemptID = attemptID
         self.transcriptID = transcriptID
         acceptedText = rawAcceptedText

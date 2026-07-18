@@ -587,7 +587,6 @@ struct IOSV1ForegroundVoicePersistenceTests {
         )
         let acceptance = try IOSV1ForegroundVoiceAcceptedOutputPreparation(
             deliveryID: FacadeIDs.result,
-            sessionID: FacadeIDs.session,
             attemptID: FacadeIDs.attempt,
             transcriptID: FacadeIDs.otherOperation,
             rawAcceptedText: text,
@@ -1325,7 +1324,6 @@ struct IOSV1ForegroundVoicePersistenceTests {
         )
         let acceptance = try IOSV1ForegroundVoiceAcceptedOutputPreparation(
             deliveryID: FacadeIDs.result,
-            sessionID: FacadeIDs.session,
             attemptID: FacadeIDs.attempt,
             transcriptID: FacadeIDs.operation,
             rawAcceptedText: text,
@@ -1670,7 +1668,6 @@ private final class FacadeFixture: @unchecked Sendable {
         -> IOSV1ForegroundVoiceAcceptedOutputPreparation {
         try IOSV1ForegroundVoiceAcceptedOutputPreparation(
             deliveryID: FacadeIDs.result,
-            sessionID: FacadeIDs.session,
             attemptID: FacadeIDs.attempt,
             transcriptID: FacadeIDs.operation,
             rawAcceptedText: "accepted text",
@@ -2050,9 +2047,6 @@ private enum FacadeIDs {
     )!
     static let previousResult = UUID(
         uuidString: "DDDDDDDD-DDDD-4DDD-8DDD-DDDDDDDDDDDC"
-    )!
-    static let session = UUID(
-        uuidString: "EEEEEEEE-EEEE-4EEE-8EEE-EEEEEEEEEEEE"
     )!
 }
 

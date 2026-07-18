@@ -152,7 +152,6 @@ actor IOSForegroundVoiceProviderBridge {
 
         return await processorClient.process(
             IOSForegroundVoiceProcessingRequest(
-                sessionID: request.sessionID,
                 pendingRecording: request.pendingRecording,
                 mode: request.mode,
                 settings: request.configuration.settings,

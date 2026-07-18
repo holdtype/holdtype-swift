@@ -927,7 +927,6 @@ private final class ProcessorFixture: @unchecked Sendable {
             IOSForegroundVoiceProcessingCancellationAuthority = .init()
     ) -> IOSForegroundVoiceProcessingRequest {
         IOSForegroundVoiceProcessingRequest(
-            sessionID: UUID(),
             pendingRecording: pendingRecording ?? pending,
             mode: mode,
             settings: settings ?? self.settings,

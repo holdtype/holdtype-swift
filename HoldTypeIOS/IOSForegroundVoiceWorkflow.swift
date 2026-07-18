@@ -129,7 +129,6 @@ nonisolated struct IOSForegroundVoiceWorkflowPermissionClient: Sendable {
 }
 
 nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
-    let sessionID: UUID
     let pendingRecording: IOSV1PendingRecording
     let mode: IOSForegroundVoiceProcessingMode
     let configuration: IOSForegroundVoiceWorkflowConfiguration
@@ -141,7 +140,6 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
         IOSForegroundVoiceProcessingCancellationAuthority
 
     init(
-        sessionID: UUID,
         pendingRecording: IOSV1PendingRecording,
         mode: IOSForegroundVoiceProcessingMode,
         configuration: IOSForegroundVoiceWorkflowConfiguration,
@@ -152,7 +150,6 @@ nonisolated struct IOSForegroundVoiceWorkflowProcessingRequest: Sendable {
         cancellationAuthority:
             IOSForegroundVoiceProcessingCancellationAuthority = .init()
     ) {
-        self.sessionID = sessionID
         self.pendingRecording = pendingRecording
         self.mode = mode
         self.configuration = configuration
@@ -2141,7 +2138,6 @@ final class IOSForegroundVoiceWorkflow {
             }
             return await runProcessor(
                 IOSForegroundVoiceWorkflowProcessingRequest(
-                    sessionID: dependencies.makeUUID(),
                     pendingRecording: pending,
                     mode: .initial,
                     configuration: configuration,
@@ -2511,7 +2507,6 @@ final class IOSForegroundVoiceWorkflow {
 
         return await runAggregateProcessor(
             IOSForegroundVoiceWorkflowProcessingRequest(
-                sessionID: dependencies.makeUUID(),
                 pendingRecording: pending.recording,
                 mode: .retry,
                 configuration: configuration,

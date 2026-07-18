@@ -34,7 +34,6 @@ public final class IOSForegroundVoiceProcessingCancellationAuthority:
 /// Library content, Pending owner, and consent observation.
 @_spi(HoldTypeIOSCore)
 public struct IOSForegroundVoiceProcessingRequest: Sendable {
-    let sessionID: UUID
     let pendingRecording: IOSV1PendingRecording
     let mode: IOSForegroundVoiceProcessingMode
     let settings: IOSAppSettings
@@ -46,7 +45,6 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         IOSForegroundVoiceProcessingCancellationAuthority
 
     public init(
-        sessionID: UUID,
         pendingRecording: IOSV1PendingRecording,
         mode: IOSForegroundVoiceProcessingMode,
         settings: IOSAppSettings,
@@ -57,7 +55,6 @@ public struct IOSForegroundVoiceProcessingRequest: Sendable {
         cancellationAuthority:
             IOSForegroundVoiceProcessingCancellationAuthority = .init()
     ) {
-        self.sessionID = sessionID
         self.pendingRecording = pendingRecording
         self.mode = mode
         self.settings = settings
