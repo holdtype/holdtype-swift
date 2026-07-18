@@ -70,7 +70,6 @@ final class BrandStageKeyboardView: UIView {
     private var quickInsertButtons: [UIButton] = []
     private var reduceTransparencyObserver: NSObjectProtocol?
     private var renderedStatus: KeyboardVoiceStatus?
-    private var renderedVoiceStage: KeyboardVoiceStagePresentation = .ready
     private var renderedAutomaticVoiceAction: KeyboardVoiceAction = .standard
     private var quickInsertIsPresented = false
     private var automaticModesArePresented = false
@@ -119,7 +118,6 @@ final class BrandStageKeyboardView: UIView {
     }
 
     func render(_ presentation: BrandStageKeyboardPresentation) {
-        renderedVoiceStage = presentation.voiceStage
         renderedAutomaticVoiceAction = presentation.automaticVoiceAction
         latestButton.isEnabled = presentation.latestIsEnabled
         renderVoiceStage(

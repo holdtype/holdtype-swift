@@ -22,7 +22,6 @@ struct IOSKeyboardDictationSessionDependencies {
     let supersession: IOSKeyboardHandoffSupersessionClient
     let permission: IOSForegroundVoiceWorkflowPermissionClient
     let loadCommand: (Date) throws -> KeyboardDictationCommandRecord?
-    let loadState: (Date) throws -> KeyboardDictationStateRecord?
     let saveState: (KeyboardDictationStateRecord) throws -> Void
     let postStateChanged: () -> Void
     let applicationIsActive: () -> Bool
@@ -119,9 +118,6 @@ final class IOSKeyboardDictationSessionCoordinator {
                 loadCommand: { date in
                     try store?.loadCommand(at: date)
                 },
-                loadState: { date in
-                    try store?.loadState(at: date)
-                },
                 saveState: { record in
                     guard let store else {
                         throw KeyboardDictationBridgeStoreError
@@ -177,7 +173,6 @@ final class IOSKeyboardDictationSessionCoordinator {
                     requestIfUndetermined: { .unavailable }
                 ),
                 loadCommand: { _ in nil },
-                loadState: { _ in nil },
                 saveState: { _ in
                     throw KeyboardDictationBridgeStoreError.writeFailed
                 },

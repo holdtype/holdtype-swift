@@ -1038,7 +1038,6 @@ private final class KeyboardSessionHarness {
     var now = Date(timeIntervalSince1970: 1_800_000_000)
     var command: HoldTypeIOS.KeyboardDictationCommandRecord?
     var states: [HoldTypeIOS.KeyboardDictationStateRecord] = []
-    var persistedState: HoldTypeIOS.KeyboardDictationStateRecord?
     var retiredAttemptIDs: [UUID] = []
     var supersessionResults: [Bool] = []
     var preflightRequestIDs: [UUID] = []
@@ -1084,13 +1083,11 @@ private final class KeyboardSessionHarness {
                     }
                     return command
                 },
-                loadState: { [weak self] _ in self?.persistedState },
                 saveState: { [weak self] state in
                     if self?.failingStatePhases.contains(state.phase) == true {
                         throw KeyboardDictationBridgeStoreError.writeFailed
                     }
                     self?.states.append(state)
-                    self?.persistedState = state
                 },
                 postStateChanged: { [weak self] in self?.postCount += 1 },
                 applicationIsActive: { true },
