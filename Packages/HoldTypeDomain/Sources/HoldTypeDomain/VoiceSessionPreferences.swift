@@ -85,16 +85,13 @@ public enum VoiceSessionWarningUrgency: Equatable, Sendable {
 
 public struct VoiceSessionWarning: Equatable, Sendable {
     public let elapsedWholeSeconds: Int
-    public let remainingWholeSeconds: Int
     public let urgency: VoiceSessionWarningUrgency
 
     public init(
         elapsedWholeSeconds: Int,
-        remainingWholeSeconds: Int,
         urgency: VoiceSessionWarningUrgency
     ) {
         self.elapsedWholeSeconds = elapsedWholeSeconds
-        self.remainingWholeSeconds = remainingWholeSeconds
         self.urgency = urgency
     }
 }
@@ -152,7 +149,6 @@ public struct VoiceSessionWarningSchedule: Equatable, Sendable {
             }
             return VoiceSessionWarning(
                 elapsedWholeSeconds: elapsedWholeSeconds,
-                remainingWholeSeconds: remainingWholeSeconds,
                 urgency: Self.urgency(
                     remainingWholeSeconds: remainingWholeSeconds
                 )

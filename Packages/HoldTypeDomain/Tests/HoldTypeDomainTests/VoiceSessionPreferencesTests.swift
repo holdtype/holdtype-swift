@@ -82,10 +82,6 @@ struct VoiceSessionPreferencesTests {
                 == expectedElapsedSeconds
         )
         #expect(
-            schedule.warnings.map(\.remainingWholeSeconds)
-                == expectedElapsedSeconds.map { 300 - $0 }
-        )
-        #expect(
             schedule.warnings.map(\.urgency)
                 == [.amber, .amber] + Array(repeating: .red, count: 8)
         )
@@ -108,18 +104,6 @@ struct VoiceSessionPreferencesTests {
             58,
             59,
         ])
-        #expect(oneMinute.warnings.map(\.remainingWholeSeconds) == [
-            30,
-            10,
-            8,
-            6,
-            5,
-            4,
-            3,
-            2,
-            1,
-        ])
-
         let fifteenMinutes = VoiceSessionWarningSchedule(
             limit: RecordingDurationLimit(minutes: 15)
         )
@@ -136,8 +120,6 @@ struct VoiceSessionPreferencesTests {
             898,
             899,
         ])
-        #expect(fifteenMinutes.warnings.map(\.remainingWholeSeconds)
-            == VoiceSessionWarningSchedule.warningRemainingWholeSeconds)
     }
 
     @Test func warningLookupDoesNotDependOnFloatingPointEquality() {
