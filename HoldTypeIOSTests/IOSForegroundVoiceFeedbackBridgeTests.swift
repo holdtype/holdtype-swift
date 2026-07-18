@@ -245,9 +245,6 @@ private final class FeedbackBridgeFixture {
     private(set) var retainedTokens: [IOSVoiceBoundaryFeedbackToken] = []
     private(set) var abandonedTokens: [IOSVoiceBoundaryFeedbackToken] = []
     private(set) var closeCalls: [CloseCall] = []
-    private(set) var cancelledSuccessTokens:
-        [IOSVoiceBoundaryFeedbackToken] = []
-
     lazy var driver = IOSForegroundVoiceFeedbackBridgeDriver(
         prepareStartBoundary: { [weak self] token, _ in
             guard let self else { return .interrupted }
@@ -276,9 +273,6 @@ private final class FeedbackBridgeFixture {
             return disposition == .success
                 ? .feedbackCompleted
                 : .feedbackSkipped
-        },
-        cancelSuccessFeedback: { [weak self] token in
-            self?.cancelledSuccessTokens.append(token)
         }
     )
 

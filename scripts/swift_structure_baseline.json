@@ -43,7 +43,7 @@
     "HoldTypeIOSTests/IOSContainingAppCompositionTests.swift": 732,
     "HoldTypeIOSTests/IOSContainingAppStateOwnerTests.swift": 731,
     "HoldTypeIOSTests/IOSForegroundVoiceControllerTests.swift": 1463,
-    "HoldTypeIOSTests/IOSForegroundVoiceRecorderBridgeTests.swift": 557,
+    "HoldTypeIOSTests/IOSForegroundVoiceRecorderBridgeTests.swift": 554,
     "HoldTypeIOSTests/IOSForegroundVoiceWorkflowTests.swift": 4289,
     "HoldTypeIOSTests/IOSKeyboardDictationSessionCoordinatorTests.swift": 1319,
     "HoldTypeIOSTests/IOSLibraryEditorSupportTests.swift": 806,

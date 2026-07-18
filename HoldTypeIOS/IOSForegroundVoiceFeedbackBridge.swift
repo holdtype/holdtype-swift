@@ -33,10 +33,6 @@ nonisolated struct IOSForegroundVoiceFeedbackBridgeDriver: Sendable {
         IOSVoiceBoundaryRecorderCloseDisposition,
         IOSVoiceBoundaryFeedbackPreferences
     ) async -> IOSVoiceBoundaryStopResult
-    let cancelSuccessFeedback: @MainActor @Sendable (
-        IOSVoiceBoundaryFeedbackToken
-    ) -> Void
-
     @MainActor
     init(adapter: IOSVoiceBoundaryFeedbackAdapter) {
         prepareStartBoundary = { [adapter] token, preferences in
@@ -61,9 +57,6 @@ nonisolated struct IOSForegroundVoiceFeedbackBridgeDriver: Sendable {
                 preferences: preferences
             )
         }
-        cancelSuccessFeedback = { [adapter] token in
-            adapter.cancelSuccessFeedback(for: token)
-        }
     }
 
     init(
@@ -85,17 +78,13 @@ nonisolated struct IOSForegroundVoiceFeedbackBridgeDriver: Sendable {
             IOSVoiceBoundaryFeedbackToken,
             IOSVoiceBoundaryRecorderCloseDisposition,
             IOSVoiceBoundaryFeedbackPreferences
-        ) async -> IOSVoiceBoundaryStopResult,
-        cancelSuccessFeedback: @escaping @MainActor @Sendable (
-            IOSVoiceBoundaryFeedbackToken
-        ) -> Void
+        ) async -> IOSVoiceBoundaryStopResult
     ) {
         self.prepareStartBoundary = prepareStartBoundary
         self.cancelStart = cancelStart
         self.retainedCaptureDidBegin = retainedCaptureDidBegin
         self.abandonReadyBoundary = abandonReadyBoundary
         self.recorderDidClose = recorderDidClose
-        self.cancelSuccessFeedback = cancelSuccessFeedback
     }
 }
 

@@ -241,8 +241,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
                 recorderDidClose: { _, disposition, _ in
                     closeDispositions.append(disposition)
                     return .feedbackSkipped
-                },
-                cancelSuccessFeedback: { _ in }
+                }
             )
         )
         #expect(await feedback.playStartBoundary(audioCuesEnabled: false))
@@ -273,8 +272,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
                 cancelStart: { _, _ in },
                 retainedCaptureDidBegin: { _ in false },
                 abandonReadyBoundary: { _ in true },
-                recorderDidClose: { _, _, _ in .feedbackSkipped },
-                cancelSuccessFeedback: { _ in }
+                recorderDidClose: { _, _, _ in .feedbackSkipped }
             )
         )
         #expect(await feedback.playStartBoundary(audioCuesEnabled: false))
@@ -320,8 +318,7 @@ struct IOSForegroundVoiceRecorderBridgeTests {
                 recorderDidClose: { _, disposition, _ in
                     closeDispositions.append(disposition)
                     return .feedbackSkipped
-                },
-                cancelSuccessFeedback: { _ in }
+                }
             )
         )
         #expect(await feedback.playStartBoundary(audioCuesEnabled: true))
