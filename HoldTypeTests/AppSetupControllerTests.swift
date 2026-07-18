@@ -101,20 +101,14 @@ struct AppSetupControllerTests {
 @MainActor
 private final class SpySetupSettingsPresenter: SetupSettingsPresenting {
     private(set) var showFocusedItems: [SettingsNavigationItem?] = []
-    private(set) var menuDismissalFocusedItems: [SettingsNavigationItem?] = []
-    private(set) var systemPromptFocusedItems: [SettingsNavigationItem?] = []
 
     func show(focusing item: SettingsNavigationItem?) {
         showFocusedItems.append(item)
     }
 
-    func showAfterMenuDismissal(focusing item: SettingsNavigationItem?) {
-        menuDismissalFocusedItems.append(item)
-    }
+    func showAfterMenuDismissal(focusing _: SettingsNavigationItem?) {}
 
-    func showAfterSystemPermissionPrompt(focusing item: SettingsNavigationItem?) {
-        systemPromptFocusedItems.append(item)
-    }
+    func showAfterSystemPermissionPrompt(focusing _: SettingsNavigationItem?) {}
 }
 
 private struct FakeStartupMicrophonePermissionClient: MicrophonePermissionClient {

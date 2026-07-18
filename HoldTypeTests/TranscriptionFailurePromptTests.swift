@@ -204,7 +204,6 @@ private final class InspectingTranscriptionFailurePromptPresenter: Transcription
 @MainActor
 private final class PromptFloatingIndicatorPresenter: FloatingIndicatorPresenting {
     private(set) var presentations: [FloatingIndicatorPresentation?] = []
-    private(set) var hideCount = 0
 
     var lastPresentation: FloatingIndicatorPresentation? {
         presentations.last ?? nil
@@ -215,7 +214,6 @@ private final class PromptFloatingIndicatorPresenter: FloatingIndicatorPresentin
     }
 
     func hide() {
-        hideCount += 1
         presentations.append(nil)
     }
 }

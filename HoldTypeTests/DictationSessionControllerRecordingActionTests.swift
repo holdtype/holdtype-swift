@@ -209,7 +209,6 @@ private final class RecordingActionRecorder: AudioRecorderService {
 
     private(set) var startCount = 0
     private(set) var stopCount = 0
-    private(set) var cancelCount = 0
     private(set) var currentStatus: AudioRecorderStatus
 
     init(
@@ -248,7 +247,6 @@ private final class RecordingActionRecorder: AudioRecorderService {
     }
 
     func cancelRecording() {
-        cancelCount += 1
         currentStatus = .cancelled
     }
 }

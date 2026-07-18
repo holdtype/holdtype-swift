@@ -247,7 +247,6 @@ private final class FakeSettingsMicrophonePermissionClient: MicrophonePermission
 
 private final class FakeSettingsAccessibilityPermissionClient: AccessibilityPermissionClient {
     private(set) var openSettingsCount = 0
-    private(set) var promptRequests: [Bool] = []
     var onStatusRead: (() -> Void)?
 
     var isTrusted: Bool
@@ -256,8 +255,7 @@ private final class FakeSettingsAccessibilityPermissionClient: AccessibilityPerm
         self.isTrusted = isTrusted
     }
 
-    func isProcessTrusted(promptIfNeeded: Bool) -> Bool {
-        promptRequests.append(promptIfNeeded)
+    func isProcessTrusted(promptIfNeeded _: Bool) -> Bool {
         onStatusRead?()
         return isTrusted
     }

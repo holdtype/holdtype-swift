@@ -352,13 +352,10 @@ struct DictationRuntimeTests {
 
 @MainActor
 private final class SpyRuntimeSettingsPresenter: SetupSettingsPresenting {
-    private(set) var showFocusedItems: [SettingsNavigationItem?] = []
     private(set) var menuDismissalFocusedItems: [SettingsNavigationItem?] = []
     private(set) var systemPromptFocusedItems: [SettingsNavigationItem?] = []
 
-    func show(focusing item: SettingsNavigationItem?) {
-        showFocusedItems.append(item)
-    }
+    func show(focusing _: SettingsNavigationItem?) {}
 
     func showAfterMenuDismissal(focusing item: SettingsNavigationItem?) {
         menuDismissalFocusedItems.append(item)
