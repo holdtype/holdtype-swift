@@ -48,10 +48,6 @@ struct HoldTypeIOSApp: App {
         )
     }
 
-    init(composition: IOSContainingAppComposition) {
-        self.composition = composition
-    }
-
     var body: some Scene {
         WindowGroup {
             #if DEBUG

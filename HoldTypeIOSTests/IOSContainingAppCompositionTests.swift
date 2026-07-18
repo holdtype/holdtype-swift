@@ -156,9 +156,8 @@ struct IOSContainingAppCompositionTests {
             }
         )
 
-        let app = HoldTypeIOSApp(composition: composition)
-        let firstScene = rootView(for: app.composition)
-        let secondScene = rootView(for: app.composition)
+        let firstScene = rootView(for: composition)
+        let secondScene = rootView(for: composition)
 
         #expect(
             events == [
@@ -618,8 +617,7 @@ struct IOSContainingAppCompositionTests {
                 providerScheduleCount += 1
             }
         )
-        let app = HoldTypeIOSApp(composition: composition)
-        let root = rootView(for: app.composition)
+        let root = rootView(for: composition)
 
         await composition.lifecycleScheduler.waitUntilIdle()
         #expect(root.presentation == .storageUnavailable)
