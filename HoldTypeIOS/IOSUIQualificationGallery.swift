@@ -29,9 +29,6 @@ nonisolated enum IOSUIQualificationRoute:
     case keyboardHandoffStarting = "keyboard-handoff-starting"
     case keyboardHandoffListening = "keyboard-handoff-listening"
     case keyboardSetup = "keyboard-setup"
-    case latestEmpty = "latest-empty"
-    case latestSuccess = "latest-success"
-    case latestFailure = "latest-failure"
     case historyEntries = "history-entries"
     case privacyChecking = "privacy-checking"
     case privacyReady = "privacy-ready"
@@ -92,12 +89,6 @@ nonisolated enum IOSUIQualificationRoute:
             "Keyboard Handoff — Listening"
         case .keyboardSetup:
             "Keyboard & Full Access Setup"
-        case .latestEmpty:
-            "Latest Result — Empty"
-        case .latestSuccess:
-            "Latest Result — Success and Actions"
-        case .latestFailure:
-            "Latest Result — Failure"
         case .historyEntries:
             "History — Text List"
         case .privacyChecking:
@@ -140,8 +131,6 @@ nonisolated enum IOSUIQualificationRoute:
              .keyboardHandoffStarting, .keyboardHandoffListening,
              .keyboardSetup:
             .voice
-        case .latestEmpty, .latestSuccess, .latestFailure:
-            .latestResult
         case .historyEntries:
             .history
         case .privacyChecking, .privacyReady, .privacyAccepted,
@@ -179,12 +168,6 @@ nonisolated enum IOSUIQualificationRoute:
             .captureRecovery
         case .voicePendingRetry:
             .pendingRetry
-        case .latestEmpty:
-            .latestEmpty
-        case .latestSuccess:
-            .latestSuccess
-        case .latestFailure:
-            .latestFailure
         case .gallery, .keyboardSetup, .historyEntries, .privacyChecking,
              .privacyReady,
              .privacyAccepted,
@@ -208,8 +191,7 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceReadinessCheck, .voiceArming, .voiceListening,
              .voiceFinalizing, .voiceProcessing, .voicePostProcessing,
              .voiceOutputDelivery, .voiceCaptureRecovery,
-             .voicePendingRetry, .keyboardSetup, .latestEmpty,
-             .latestSuccess, .latestFailure, .historyEntries,
+             .voicePendingRetry, .keyboardSetup, .historyEntries,
              .privacyChecking, .privacyReady, .privacyAccepted,
              .privacyUnreadable, .privacyFailure, .usageEmpty,
              .usageKnown, .usageMixed, .usageUnknown, .usageLoadFailure,
@@ -235,8 +217,7 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceArming,
              .voiceListening, .voiceFinalizing, .voiceProcessing,
              .voicePostProcessing, .voiceOutputDelivery,
-             .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
-             .latestSuccess, .latestFailure, .usageEmpty, .usageKnown,
+             .voiceCaptureRecovery, .voicePendingRetry, .usageEmpty, .usageKnown,
              .usageMixed, .usageUnknown, .usageLoadFailure,
              .usageWriteWarning, .usageResetFailure,
              .keyboardHandoffStarting, .keyboardHandoffListening,
@@ -266,8 +247,7 @@ nonisolated enum IOSUIQualificationRoute:
              .voiceArming,
              .voiceListening, .voiceFinalizing, .voiceProcessing,
              .voicePostProcessing, .voiceOutputDelivery,
-             .voiceCaptureRecovery, .voicePendingRetry, .latestEmpty,
-             .latestSuccess, .latestFailure, .privacyChecking,
+             .voiceCaptureRecovery, .voicePendingRetry, .privacyChecking,
              .privacyReady, .privacyAccepted, .privacyUnreadable,
              .privacyFailure, .keyboardHandoffStarting,
              .keyboardHandoffListening, .diagnostics:
@@ -281,7 +261,6 @@ fileprivate nonisolated enum IOSUIQualificationSection:
     CaseIterable,
     Hashable {
     case voice = "Voice"
-    case latestResult = "Latest Result"
     case history = "History"
     case privacy = "Privacy & Permissions"
     case usage = "Usage Estimate"
@@ -404,16 +383,13 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
     case outputDelivery
     case captureRecovery
     case pendingRetry
-    case latestEmpty
-    case latestSuccess
-    case latestFailure
 
     var observation: IOSForegroundVoiceObservation {
         IOSForegroundVoiceObservation(
             setup: setup,
             recovery: recovery,
             stage: recoveryStage,
-            latestAvailability: latestAvailability,
+            latestAvailability: .absent,
             translationAvailable: true
         )
     }
@@ -426,7 +402,7 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
             .unavailable
         case .start, .arming, .listening, .finalizing, .processing,
              .postProcessing, .outputDelivery, .captureRecovery,
-             .pendingRetry, .latestEmpty, .latestSuccess, .latestFailure:
+             .pendingRetry:
             .ready
         }
     }
@@ -438,9 +414,7 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
         case .pendingRetry:
             .pendingRetryOrDiscard
         case .start, .setupBlocked, .readinessCheck, .arming, .listening,
-             .finalizing, .processing, .postProcessing, .outputDelivery,
-             .latestEmpty,
-             .latestSuccess, .latestFailure:
+             .finalizing, .processing, .postProcessing, .outputDelivery:
             .none
         }
     }
@@ -452,24 +426,8 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
         case .pendingRetry:
             .transcription
         case .start, .setupBlocked, .readinessCheck, .arming, .listening,
-             .finalizing, .processing, .postProcessing, .outputDelivery,
-             .latestEmpty,
-             .latestSuccess, .latestFailure:
+             .finalizing, .processing, .postProcessing, .outputDelivery:
             nil
-        }
-    }
-
-    var latestAvailability: IOSForegroundVoiceLatestAvailability {
-        switch self {
-        case .latestSuccess:
-            .available
-        case .latestFailure:
-            .unavailable
-        case .start, .setupBlocked, .readinessCheck, .arming, .listening,
-             .finalizing, .processing, .postProcessing, .outputDelivery,
-             .captureRecovery,
-             .pendingRetry, .latestEmpty:
-            .absent
         }
     }
 
@@ -488,8 +446,7 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
         case .outputDelivery:
             [.listening(.defaultValue), .finalizing, .processing(.outputDelivery)]
         case .start, .setupBlocked, .readinessCheck, .captureRecovery,
-             .pendingRetry,
-             .latestEmpty, .latestSuccess, .latestFailure:
+             .pendingRetry:
             []
         }
     }
@@ -500,37 +457,15 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
              .postProcessing, .outputDelivery:
             true
         case .start, .setupBlocked, .readinessCheck, .captureRecovery,
-             .pendingRetry,
-             .latestEmpty, .latestSuccess, .latestFailure:
+             .pendingRetry:
             false
         }
     }
-
-    var latestResult: IOSUIQualificationLatestResult {
-        switch self {
-        case .latestSuccess:
-            .success
-        case .latestFailure:
-            .failure
-        case .start, .setupBlocked, .readinessCheck, .arming, .listening,
-             .finalizing, .processing, .postProcessing, .outputDelivery,
-             .captureRecovery,
-             .pendingRetry, .latestEmpty:
-            .empty
-        }
-    }
-}
-
-private nonisolated enum IOSUIQualificationLatestResult: Sendable {
-    case empty
-    case success
-    case failure
 }
 
 @MainActor
 private final class IOSUIQualificationVoiceFixture {
     let sceneOwner: IOSForegroundVoiceSceneHostOwner
-    let latestResultOwner: IOSForegroundVoiceLatestResultOwner
     let draftOwner: IOSVoiceDraftOwner
     let draftTextActionOwner: IOSVoiceDraftTextActionOwner
     let consentOwner: IOSProviderConsentPresentationOwner
@@ -580,28 +515,6 @@ private final class IOSUIQualificationVoiceFixture {
             sceneRegistry: registry
         )
 
-        let latestResult = scenario.latestResult
-        latestResultOwner = IOSForegroundVoiceLatestResultOwner(
-            load: {
-                switch latestResult {
-                case .empty:
-                    return .absent
-                case .success:
-                    return .resultReady(
-                        try IOSV1AcceptedOutputDeliveryRecord(
-                            resultID: UUID(),
-                            sourceAttemptID: UUID(),
-                            acceptedText: "A protected sample dictation result "
-                                + "for layout and action qualification.",
-                            createdAt: Date()
-                        )
-                    )
-                case .failure:
-                    throw IOSUIQualificationFailure.latestResultUnavailable
-                }
-            },
-            clear: { _ in .alreadyAbsent }
-        )
         let draftStore = IOSUIQualificationDraftStore(
             initial: IOSVoiceDraftRecord(
                 segments: [
@@ -643,12 +556,6 @@ private final class IOSUIQualificationVoiceFixture {
         isPrepared = true
         _ = sceneOwner.register(initialActivity: .active)
         await controller.activate()
-        do {
-            _ = try await latestResultOwner.loadForVoiceWorkflow()
-        } catch {
-            // The failure route intentionally renders the owner's fail-closed
-            // presentation; no external work or retry follows this error.
-        }
         _ = await draftOwner.refresh()
 
         guard scenario.startsOperation,
@@ -680,7 +587,6 @@ private struct IOSUIQualificationVoiceHost: View {
                     openSettings: { _ in }
                 )
                 .environment(fixture.sceneOwner)
-                .environment(fixture.latestResultOwner)
                 .environment(fixture.draftOwner)
                 .environment(fixture.draftTextActionOwner)
                 .environment(fixture.consentOwner)
@@ -1106,7 +1012,6 @@ private enum IOSUIQualificationSuspension {
 }
 
 private nonisolated enum IOSUIQualificationFailure: Error {
-    case latestResultUnavailable
     case mutationBlocked
     case usageLoadUnavailable
     case usageResetUnavailable

@@ -67,7 +67,6 @@ private struct IOSRegisteredContainingAppSceneHost: View {
         )
             .environment(runtime.controller)
             .environment(voiceSceneOwner)
-            .environment(runtime.latestResultOwner)
             .environment(runtime.voiceDraftOwner)
             .environment(runtime.voiceDraftTextActionOwner)
             .environment(runtime.providerConsentPresentationOwner)

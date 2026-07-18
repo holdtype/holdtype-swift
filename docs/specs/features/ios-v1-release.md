@@ -285,10 +285,16 @@ destination. History remains a separate tab and is not previewed on Voice.
 
 - Latest Result stores one accepted text value, its result identifier, and its
   source attempt identifier in app-private storage.
-- It provides Copy, Share, Use in Practice, and Clear.
-- Clear is idempotent and does not mutate an unrelated pending attempt.
+- Latest Result is an internal acceptance and recovery record, not a separate
+  card on the current Voice screen. Accepted text is presented to the user
+  through the composed Draft and compact History instead of a second result
+  surface.
+- The current containing app exposes no direct Latest Copy, Share, Use in
+  Practice, or Clear actions. Draft Copy and Clear mutate only Draft; History
+  Copy and Delete mutate only the selected History entry.
 - Latest Result contains no provider payload, prompt, credential, or raw audio.
-- Relaunch preserves the most recent accepted text until Clear or replacement.
+- Relaunch preserves the most recent accepted text until replacement or a
+  fail-closed persistence reconciliation proves that the record is invalid.
 - V1.1 intentionally removes the old 24-hour app-private Latest expiry.
 - Latest Result is always on for V1.1. The old iOS `keepLatestResult` preference
   is removed from the UI and ignored by a scoped migration; macOS behavior is

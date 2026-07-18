@@ -13,8 +13,6 @@ struct IOSVoiceHomeView: View {
     private var reduceMotion
     @Environment(IOSForegroundVoiceSceneHostOwner.self)
     private var sceneOwner
-    @Environment(IOSForegroundVoiceLatestResultOwner.self)
-    private var latestResultOwner
     @Environment(IOSVoiceDraftOwner.self)
     private var draftOwner
     @Environment(IOSVoiceDraftTextActionOwner.self)
@@ -30,10 +28,6 @@ struct IOSVoiceHomeView: View {
         IOSForegroundVoiceActionCommand?
     @State private var revealedCancellationCommand:
         IOSForegroundVoiceActionCommand?
-    @State private var pendingLatestClearCommand:
-        IOSForegroundVoiceLatestResultClearCommand?
-    @State private var shareItem: IOSVoiceShareItem?
-    @State private var latestActionNotice: String?
     @State private var showsKeyboardTools = false
     @State private var showsVoiceSessionModeMenu = false
     @State private var accessibilityAnnouncementTask: Task<Void, Never>?
@@ -235,35 +229,6 @@ struct IOSVoiceHomeView: View {
                 self.revealedCancellationCommand = nil
             }
         }
-        .onChange(of: latestResultOwner.presentation) { old, new in
-            latestActionNotice = nil
-            let oldStatus = IOSVoiceLatestStatusPresentation.resolve(old)
-            let newStatus = IOSVoiceLatestStatusPresentation.resolve(new)
-            if let message = IOSAccessibilityAnnouncement.transitionMessage(
-                oldTitle: oldStatus.title,
-                oldDetail: oldStatus.detail,
-                newTitle: newStatus.title,
-                newDetail: newStatus.detail
-            ) {
-                scheduleAccessibilityAnnouncement(
-                    message,
-                    priority: old.text != nil || new.text != nil
-                        ? .content
-                        : .passive
-                )
-            } else if old.text != new.text, new.text != nil {
-                scheduleAccessibilityAnnouncement(
-                    "Latest Result updated",
-                    priority: .content
-                )
-            }
-            guard let pendingLatestClearCommand,
-                  latestResultOwner.clearCommand
-                    != pendingLatestClearCommand else {
-                return
-            }
-            self.pendingLatestClearCommand = nil
-        }
         .onChange(of: draftTextActionOwner.outcome) { _, outcome in
             guard let outcome else { return }
             if let route = outcome.settingsRoute {
@@ -310,36 +275,6 @@ struct IOSVoiceHomeView: View {
                 "This removes only the exact recoverable recording shown "
                     + "here. It does not clear History or Latest Result."
             )
-        }
-        .confirmationDialog(
-            "Clear Latest Result?",
-            isPresented: Binding(
-                get: { pendingLatestClearCommandIsCurrent },
-                set: { if !$0 { pendingLatestClearCommand = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Clear Latest Result", role: .destructive) {
-                guard let command = pendingLatestClearCommand,
-                      latestResultOwner.clearCommand == command else {
-                    pendingLatestClearCommand = nil
-                    return
-                }
-                pendingLatestClearCommand = nil
-                _ = latestResultOwner.clear(command)
-            }
-            Button("Keep Result", role: .cancel) {
-                pendingLatestClearCommand = nil
-            }
-        } message: {
-            Text(
-                "This clears only the exact app-private Latest Result. "
-                    + "It does not delete History, recordings, usage, "
-                    + "settings, or your API key."
-            )
-        }
-        .sheet(item: $shareItem) { item in
-            IOSVoiceActivityView(items: [item.text])
         }
         .sheet(isPresented: $showsKeyboardTools) {
             NavigationStack {
@@ -1371,128 +1306,6 @@ struct IOSVoiceHomeView: View {
         return sceneOwner.actionCommands.contains(pendingVoiceCommand)
     }
 
-    private var pendingLatestClearCommandIsCurrent: Bool {
-        guard let pendingLatestClearCommand else { return false }
-        return latestResultOwner.clearCommand == pendingLatestClearCommand
-    }
-
-    private var latestSectionIsVisible: Bool {
-        IOSVoiceLatestStatusPresentation.sectionIsVisible(
-            for: latestResultOwner.presentation
-        )
-    }
-
-    private var latestResultSection: some View {
-        let presentation = latestResultOwner.presentation
-        let status = IOSVoiceLatestStatusPresentation.resolve(presentation)
-
-        return Section("Latest Result") {
-            Label {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(status.title)
-                    Text(status.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } icon: {
-                if status.showsProgress {
-                    ProgressView()
-                } else {
-                    Image(systemName: status.systemImage)
-                        .foregroundStyle(status.color)
-                }
-            }
-            .accessibilityElement(children: .combine)
-
-            if let text = presentation.text {
-                Text(text)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("ios.voice.latest.text")
-            }
-
-            if let command = latestResultOwner.contentCommand {
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        latestContentButtons(command)
-                    }
-                    VStack(alignment: .leading) {
-                        latestContentButtons(command)
-                    }
-                }
-            }
-
-            if let latestActionNotice {
-                Label(latestActionNotice, systemImage: "checkmark.circle")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("ios.voice.latest.action-notice")
-            }
-
-            if let clearCommand = latestResultOwner.clearCommand {
-                Button("Clear Latest Result", role: .destructive) {
-                    pendingLatestClearCommand = clearCommand
-                }
-                .accessibilityIdentifier("ios.voice.latest.clear")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func latestContentButtons(
-        _ command: IOSForegroundVoiceLatestResultContentCommand
-    ) -> some View {
-        Button {
-            guard let text = latestResultOwner.content(for: command) else {
-                return
-            }
-            IOSVoiceClipboard.copy(text)
-            latestActionNotice = "Copied"
-            IOSAccessibilityAnnouncement.post("Latest Result copied")
-        } label: {
-            Label("Copy", systemImage: "doc.on.doc")
-        }
-        .buttonStyle(.borderless)
-        .frame(minHeight: 44)
-        .accessibilityIdentifier("ios.voice.latest.copy")
-
-        Button {
-            guard let text = latestResultOwner.content(for: command) else {
-                return
-            }
-            shareItem = IOSVoiceShareItem(text: text)
-            latestActionNotice = nil
-        } label: {
-            Label("Share", systemImage: "square.and.arrow.up")
-        }
-        .buttonStyle(.borderless)
-        .frame(minHeight: 44)
-        .accessibilityIdentifier("ios.voice.latest.share")
-
-        Button {
-            guard let text = latestResultOwner.content(for: command) else {
-                return
-            }
-            practiceText = text
-            practiceFieldIsFocused = true
-            latestActionNotice = "Moved to Practice"
-            IOSAccessibilityAnnouncement.post(
-                "Latest Result moved to Practice"
-            )
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Image(systemName: "keyboard")
-                Text("Use in Practice")
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .buttonStyle(.borderless)
-        .frame(minHeight: 44)
-        .accessibilityIdentifier("ios.voice.latest.use-in-practice")
-    }
-
     private var keyboardPracticeSection: some View {
         Section("Keyboard Practice") {
             Text(
@@ -1926,133 +1739,6 @@ private struct IOSVoiceActionLayout: View {
             .accessibilityIdentifier(presentation.accessibilityIdentifier)
         }
     }
-}
-
-struct IOSVoiceLatestStatusPresentation {
-    let title: String
-    let detail: String
-    let systemImage: String
-    let tone: IOSVoiceStatusTone
-    let showsProgress: Bool
-
-    var color: Color {
-        tone.color
-    }
-
-    static func sectionIsVisible(
-        for presentation: IOSForegroundVoiceLatestResultPresentation
-    ) -> Bool {
-        switch presentation.status {
-        case .notLoaded:
-            false
-        case .absent:
-            presentation.notice != nil
-                || presentation.keyboardProjectionUpdateFailed
-        case .ready, .clearing, .unavailable:
-            true
-        }
-    }
-
-    static func resolve(
-        _ presentation: IOSForegroundVoiceLatestResultPresentation
-    ) -> Self {
-        let base: Self = switch presentation.status {
-        case .notLoaded:
-            Self(
-                title: "Checking Latest Result…",
-                detail: "Reading the protected app-private result.",
-                systemImage: "clock",
-                tone: .neutral,
-                showsProgress: true
-            )
-        case .absent:
-            Self(
-                title: "No Latest Result",
-                detail: "A completed dictation result will appear here.",
-                systemImage: "text.page",
-                tone: .neutral,
-                showsProgress: false
-            )
-        case .ready:
-            Self(
-                title: "Latest Result",
-                detail: "Stored privately in the containing app.",
-                systemImage: "checkmark.circle.fill",
-                tone: .success,
-                showsProgress: false
-            )
-        case .clearing:
-            Self(
-                title: "Clearing Latest Result…",
-                detail: "The exact selected result is being cleared.",
-                systemImage: "trash",
-                tone: .neutral,
-                showsProgress: true
-            )
-        case .unavailable:
-            Self(
-                title: "Latest Result Unavailable",
-                detail: "HoldType could not verify the protected result safely.",
-                systemImage: "exclamationmark.triangle",
-                tone: .failure,
-                showsProgress: false
-            )
-        }
-
-        if let notice = presentation.notice {
-            let noticeDetail: String = switch notice {
-            case .loadFailed:
-                "The protected Latest Result could not be verified."
-            case .clearFailed:
-                "Clear did not finish; the exact result remains available."
-            case .clearStateUnknown:
-                "Clear could not be reconciled, so text remains hidden."
-            case .resultChanged:
-                "A newer result replaced the one selected for Clear."
-            }
-            return Self(
-                title: base.title,
-                detail: noticeDetail,
-                systemImage: base.systemImage,
-                tone: notice == .resultChanged ? .warning : .failure,
-                showsProgress: base.showsProgress
-            )
-        }
-
-        guard presentation.keyboardProjectionUpdateFailed,
-              presentation.status == .ready
-                || presentation.status == .absent else {
-            return base
-        }
-        return Self(
-            title: base.title,
-            detail: "The keyboard History copy couldn't be refreshed; Latest may remain unavailable or show an older History item until refresh succeeds.",
-            systemImage: base.systemImage,
-            tone: .failure,
-            showsProgress: base.showsProgress
-        )
-    }
-}
-
-private struct IOSVoiceShareItem: Identifiable {
-    let id = UUID()
-    let text: String
-}
-
-private struct IOSVoiceActivityView: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(
-            activityItems: items,
-            applicationActivities: nil
-        )
-    }
-
-    func updateUIViewController(
-        _ uiViewController: UIActivityViewController,
-        context: Context
-    ) {}
 }
 
 private enum IOSVoiceClipboard {
