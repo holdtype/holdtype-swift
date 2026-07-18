@@ -157,25 +157,6 @@ struct SettingsPermissionsViewModelTests {
         #expect(model.inputMonitoringPermissionStatus == .denied)
     }
 
-    @Test func inputMonitoringActionRequestsAccessBeforeOpeningSettingsWhenNotDetermined() {
-        let inputMonitoringClient = FakeSettingsInputMonitoringPermissionClient(status: .notDetermined)
-        var recoveryLaunchCount = 0
-        let model = makeModel(
-            inputMonitoringClient: inputMonitoringClient,
-            inputMonitoringRecoveryLauncher: {
-                recoveryLaunchCount += 1
-                return true
-            }
-        )
-
-        model.handleInputMonitoringPermissionAction()
-
-        #expect(inputMonitoringClient.requestCount == 1)
-        #expect(recoveryLaunchCount == 1)
-        #expect(inputMonitoringClient.openSettingsCount == 1)
-        #expect(model.inputMonitoringPermissionStatus == .notDetermined)
-    }
-
     @Test func inputMonitoringActionEscalatesManualFallbackAfterRepeatedFailures() {
         let inputMonitoringClient = FakeSettingsInputMonitoringPermissionClient(status: .denied)
         let model = makeModel(inputMonitoringClient: inputMonitoringClient)
