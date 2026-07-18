@@ -11,10 +11,6 @@ final class IOSForegroundVoiceWorkflowPermissionOwner {
         self.adapter = adapter
     }
 
-    convenience init() {
-        self.init(adapter: IOSMicrophonePermissionAdapter())
-    }
-
     var client: IOSForegroundVoiceWorkflowPermissionClient {
         IOSForegroundVoiceWorkflowPermissionClient(
             read: { [adapter] in adapter.currentStatus() },
@@ -81,10 +77,6 @@ final class IOSForegroundVoiceWorkflowAudioOwner {
 
     init(adapter: IOSAudioSessionAdapter) {
         self.adapter = adapter
-    }
-
-    convenience init() {
-        self.init(adapter: IOSAudioSessionAdapter())
     }
 
     func activate() throws -> IOSForegroundVoiceWorkflowAudioLease {
