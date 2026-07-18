@@ -468,7 +468,10 @@ struct IOSVoiceHomeView: View {
             )
 
             if let pendingResult {
-                draftPendingResultStatus(pendingResult)
+                IOSVoiceDraftPendingResultStatus(
+                    presentation: pendingResult,
+                    hasConfirmedText: !draftOwner.visibleText.isEmpty
+                )
             } else if draftOwner.visibleText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(
@@ -510,69 +513,6 @@ struct IOSVoiceHomeView: View {
         IOSVoiceDraftPendingResultPresentation.resolve(
             sceneOwner.presentation
         )
-    }
-
-    @ViewBuilder
-    private func draftPendingResultStatus(
-        _ presentation: IOSVoiceDraftPendingResultPresentation
-    ) -> some View {
-        let keepsVisibleText = !presentation.hidesConfirmedText
-            && !draftOwner.visibleText.isEmpty
-
-        if keepsVisibleText {
-            VStack {
-                Spacer(minLength: 12)
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: presentation.systemImage)
-                        .foregroundStyle(Color.accentColor)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(presentation.title)
-                            .font(.subheadline.weight(.semibold))
-                        Text(presentation.detail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(
-                    Color(uiColor: .secondarySystemGroupedBackground)
-                        .opacity(0.96),
-                    in: RoundedRectangle(
-                        cornerRadius: 14,
-                        style: .continuous
-                    )
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.accentColor.opacity(0.18), lineWidth: 1)
-                }
-            }
-            .allowsHitTesting(false)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(presentation.title)
-            .accessibilityValue(presentation.detail)
-            .accessibilityIdentifier("ios.voice.draft.pending-result")
-        } else {
-            VStack(spacing: 8) {
-                Label(
-                    presentation.title,
-                    systemImage: presentation.systemImage
-                )
-                .font(.headline)
-                Text(presentation.detail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, 16)
-            .allowsHitTesting(false)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(presentation.title)
-            .accessibilityValue(presentation.detail)
-            .accessibilityIdentifier("ios.voice.draft.pending-result")
-        }
     }
 
     private var draftEmptyDetail: String {
