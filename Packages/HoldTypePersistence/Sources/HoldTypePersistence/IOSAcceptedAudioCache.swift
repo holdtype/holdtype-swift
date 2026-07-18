@@ -14,16 +14,6 @@ public enum IOSAcceptedAudioRetention: String, Equatable, Sendable {
     case recordingCachePolicy
     case savedFiveMinute
 
-    /// Semantic name for the legacy on-disk `savedFiveMinute` raw value.
-    public static let savedRecordingLimit = Self.savedFiveMinute
-
-    /// Canonical media can land just below the watchdog boundary when Done
-    /// wins stop authority. Resolve from finalized media truth too, so that
-    /// race cannot downgrade a limit-ended recording to optional cache audio.
-    public static let savedFiveMinuteMinimumDurationMilliseconds = Int64(
-        RecordingDurationLimit.default.wholeSeconds * 1_000
-    ) - 500
-
     public static func savedRecordingMinimumDurationMilliseconds(
         for recordingDurationLimit: RecordingDurationLimit
     ) -> Int64 {

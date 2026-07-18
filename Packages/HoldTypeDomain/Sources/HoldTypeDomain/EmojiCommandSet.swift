@@ -172,14 +172,6 @@ public struct EmojiCommandSet: Equatable, Identifiable, Sendable {
         commands.flatMap(\.promptHints)
     }
 
-    public var previewText: String {
-        guard let example = commands.first else {
-            return "No commands"
-        }
-
-        return "\(example.primarySpokenPhrase) -> \(example.emoji)"
-    }
-
     public static let builtIn: [EmojiCommandSet] = [
         EmojiCommandSet(
             id: "en",

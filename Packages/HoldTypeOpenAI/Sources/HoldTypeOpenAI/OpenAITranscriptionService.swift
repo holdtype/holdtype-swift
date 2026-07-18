@@ -20,18 +20,6 @@ public extension OpenAITranscriptionServing {
     func cancelActiveTranscription() {}
 }
 
-public protocol OpenAIReaderTranscriptionServing: Sendable {
-    func transcribe(
-        _ request: OpenAIReaderTranscriptionRequest,
-        credential: OpenAICredential
-    ) async throws -> String
-    func cancelActiveTranscription()
-}
-
-public extension OpenAIReaderTranscriptionServing {
-    func cancelActiveTranscription() {}
-}
-
 protocol URLLoading: Sendable {
     func loadData(for request: URLRequest) async throws -> (Data, URLResponse)
 }
@@ -42,7 +30,6 @@ protocol TranscriptionTimeoutSleeping: Sendable {
 
 public struct OpenAITranscriptionService:
     OpenAITranscriptionServing,
-    OpenAIReaderTranscriptionServing,
     Sendable {
     static let defaultRequestTimeout: TimeInterval = 60
 
