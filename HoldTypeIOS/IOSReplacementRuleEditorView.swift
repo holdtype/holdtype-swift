@@ -1,3 +1,4 @@
+import Foundation
 import HoldTypeDomain
 import HoldTypePersistence
 import SwiftUI
@@ -155,115 +156,23 @@ struct IOSReplacementRuleEditorView: View {
     private func editorForm(
         _ current: IOSReplacementRuleEditorSession
     ) -> AnyView {
-        AnyView(Form {
-            IOSReplacementRuleEditorStatusSection(
-                phase: current.phase,
-                canReloadLatest: current.canReloadLatest,
-                canReplaceLatest: current.canReplaceLatest
-                    && current.validation == .valid,
+        AnyView(
+            IOSReplacementRuleEditorForm(
+                isNew: mode.isNew,
+                session: current,
+                search: draftBinding(\.search),
+                replacement: draftBinding(\.replacement),
+                canDelete: canDelete,
+                isDisabled: editorOperationInFlight,
                 reloadLatest: reloadLatest,
                 requestReplaceLatest: {
                     showsReplaceConfirmation = true
+                },
+                requestDelete: {
+                    showsDeleteConfirmation = true
                 }
             )
-
-            Section("Search") {
-                exactInput(
-                    text: draftBinding(\.search),
-                    placeholder: "Text to find",
-                    accessibilityLabel: "Search text",
-                    identifier: "ios.library.replacement-rule.search"
-                )
-
-                Text(
-                    "Matched literally and case-insensitively. Spaces and "
-                        + "line breaks are part of the match."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
-
-            Section("Replacement") {
-                exactInput(
-                    text: draftBinding(\.replacement),
-                    placeholder: "Replacement text",
-                    accessibilityLabel: "Replacement text",
-                    identifier: "ios.library.replacement-rule.replacement"
-                )
-
-                Text("Leave empty to remove matching text.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            validationSection(current)
-
-            if !mode.isNew {
-                Section {
-                    Button("Delete Replacement Rule", role: .destructive) {
-                        showsDeleteConfirmation = true
-                    }
-                    .disabled(!canDelete)
-                }
-            }
-
-            Section {
-                Text(
-                    "This rule runs locally, in the saved order, after emoji "
-                        + "commands. It is not copied into the keyboard."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .disabled(editorOperationInFlight))
-    }
-
-    private func exactInput(
-        text: Binding<String>,
-        placeholder: String,
-        accessibilityLabel: String,
-        identifier: String
-    ) -> some View {
-        ZStack(alignment: .topLeading) {
-            IOSExactMultilineTextInput(
-                text: text,
-                accessibilityLabel: accessibilityLabel
-            )
-            .accessibilityIdentifier(identifier)
-
-            if text.wrappedValue.isEmpty {
-                Text(placeholder)
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 6)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func validationSection(
-        _ current: IOSReplacementRuleEditorSession
-    ) -> some View {
-        if mode.isNew,
-           current.draft.hasAnyInput,
-           current.validation == .missingSearch {
-            Section {
-                IOSSettingsWarningLabel(
-                    "Enter non-whitespace Search text.",
-                    color: .red
-                )
-            }
-        } else if !mode.isNew,
-                  !current.draft.candidate(isEnabled: true).hasSearchText {
-            Section {
-                IOSSettingsWarningLabel(
-                    "Inactive — add non-whitespace Search text to activate this rule.",
-                    color: .orange
-                )
-            }
-        }
+        )
     }
 
     private var durableRules: [TextReplacementRule] {
@@ -518,139 +427,24 @@ struct IOSReplacementRuleEditorView: View {
     }
 }
 
-private struct IOSMissingReplacementRuleView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label(
-                "Rule Unavailable",
-                systemImage: "exclamationmark.triangle"
-            )
-        } description: {
-            Text("This replacement rule is no longer saved.")
-        }
-    }
-}
-
-private struct IOSReplacementRuleEditorStatusSection: View {
-    let phase: IOSReplacementRuleEditorPhase
-    let canReloadLatest: Bool
-    let canReplaceLatest: Bool
-    let reloadLatest: () -> Void
-    let requestReplaceLatest: () -> Void
-
-    @ViewBuilder
-    var body: some View {
-        switch phase {
-        case .idle:
-            EmptyView()
-        case .saving:
-            Section {
-                Label("Saving", systemImage: "arrow.triangle.2.circlepath")
-            }
-        case .saved:
-            Section {
-                Label("Saved", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            }
-        case .saveFailed:
-            Section {
-                IOSSettingsWarningLabel(
-                    "Not Saved — draft retained and saved rule unchanged.",
-                    color: .red
-                )
-            }
-        case .changedElsewhere:
-            Section {
-                IOSSettingsWarningLabel(
-                    "Changed Elsewhere — your draft is retained.",
-                    color: .orange
-                )
-                if canReloadLatest {
-                    Button("Reload Latest", action: reloadLatest)
-                }
-                if canReplaceLatest {
-                    Button(
-                        "Replace Latest",
-                        role: .destructive,
-                        action: requestReplaceLatest
-                    )
-                }
-            }
-        case .deletedElsewhere:
-            Section {
-                IOSSettingsWarningLabel(
-                    "Deleted Elsewhere — this draft cannot recreate the rule.",
-                    color: .orange
-                )
-            }
-        case .invalid:
-            Section {
-                IOSSettingsWarningLabel(
-                    "The rule could not be saved.",
-                    color: .orange
-                )
-            }
-        }
-    }
-}
-
-private struct IOSReplacementRuleEditorPersistentStatus: View {
-    let phase: IOSReplacementRuleEditorPhase
-
-    @ViewBuilder
-    var body: some View {
-        switch phase {
-        case .saveFailed:
-            Label {
-                Text("Not Saved — saved rule unchanged")
-                    .foregroundStyle(.primary)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-            }
-            .font(.footnote.weight(.semibold))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(.regularMaterial)
-            .overlay(alignment: .top) { Divider() }
-            .accessibilityIdentifier(
-                "ios.library.replacement-rule.persistent-save-failed"
-            )
-        case .changedElsewhere:
-            Label {
-                Text("Changed Elsewhere — draft retained")
-                    .foregroundStyle(.primary)
-            } icon: {
-                Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
-                    .foregroundStyle(.orange)
-            }
-            .font(.footnote.weight(.semibold))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(.regularMaterial)
-            .overlay(alignment: .top) { Divider() }
-        case .deletedElsewhere:
-            Label {
-                Text("Deleted Elsewhere — Save unavailable")
-                    .foregroundStyle(.primary)
-            } icon: {
-                Image(systemName: "trash")
-                    .foregroundStyle(.orange)
-            }
-            .font(.footnote.weight(.semibold))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(.regularMaterial)
-            .overlay(alignment: .top) { Divider() }
-        case .idle, .saving, .saved, .invalid:
-            EmptyView()
-        }
-    }
-}
-
 extension IOSReplacementRuleEditorView: CustomReflectable {
     var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+#Preview("Replacement rule editor") {
+    let previewID = UUID(
+        uuid: (0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1)
+    )
+    let stateOwner = IOSLibraryStateOwner(
+        load: { .defaults },
+        commit: { $0 }
+    )
+
+    NavigationStack {
+        IOSReplacementRuleEditorView(
+            mode: .add(previewID),
+            hasUnsavedSceneEditor: .constant(false)
+        )
+    }
+    .environment(stateOwner)
 }
