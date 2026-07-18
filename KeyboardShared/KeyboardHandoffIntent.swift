@@ -227,14 +227,6 @@ nonisolated struct KeyboardHandoffIntentStore {
         }
     }
 
-    func loadPending(at date: Date = Date()) throws
-        -> KeyboardHandoffIntentRecord? {
-        guard let record = try loadRecord(), record.isPending(at: date) else {
-            return nil
-        }
-        return record
-    }
-
     /// Returns the one admitted handoff retained for extension reconnection.
     ///
     /// The launch deadline applies only while the record is pending. Once the

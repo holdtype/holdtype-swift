@@ -187,7 +187,7 @@ struct KeyboardDictationBridgeTests {
         )
     }
 
-    @Test func attemptIdentityIsCompleteAndDocumentMatchingIsExact() {
+    @Test func stateAttemptIdentityRequiresCompleteIdentifiers() {
         let now = Date(timeIntervalSince1970: 1_750_000_000)
         let sessionID = UUID()
         let attemptID = UUID()
@@ -204,9 +204,6 @@ struct KeyboardDictationBridgeTests {
         )
 
         #expect(state?.hasActiveAttempt == true)
-        #expect(state?.belongsToDocument(documentID) == true)
-        #expect(state?.belongsToDocument(UUID()) == false)
-        #expect(state?.belongsToDocument(nil) == false)
         #expect(
             KeyboardDictationStateRecord(
                 sessionID: sessionID,

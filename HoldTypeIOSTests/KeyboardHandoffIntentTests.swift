@@ -46,7 +46,6 @@ struct KeyboardHandoffIntentTests {
 
         try fixture.store.save(intent)
 
-        #expect(try fixture.store.loadPending(at: now) == intent)
         #expect(
             try fixture.store.consume(
                 requestID: intent.requestID,
@@ -58,10 +57,6 @@ struct KeyboardHandoffIntentTests {
                 requestID: intent.requestID,
                 at: now.addingTimeInterval(2)
             ) == nil
-        )
-        #expect(
-            try fixture.store.loadPending(at: now.addingTimeInterval(2))
-                == nil
         )
         let storedConsumed = try fixture.store.loadConsumed()
         let consumed = try #require(storedConsumed)

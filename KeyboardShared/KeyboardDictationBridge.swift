@@ -282,11 +282,6 @@ nonisolated struct KeyboardDictationStateRecord:
     var hasActiveAttempt: Bool {
         attemptID != nil && requestID != nil
     }
-
-    func belongsToDocument(_ documentID: UUID?) -> Bool {
-        guard let sourceDocumentID, let documentID else { return false }
-        return sourceDocumentID == documentID
-    }
 }
 
 nonisolated struct KeyboardDictationAttemptIdentity:

@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-nonisolated enum IOSDiagnosticProcess: String, CaseIterable, Sendable {
+nonisolated enum IOSDiagnosticProcess: String, Sendable {
     case app
     case keyboard
 }

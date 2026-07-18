@@ -20,7 +20,6 @@ nonisolated enum KeyboardBridgeConfiguration {
 nonisolated struct KeyboardBridgeItem:
     Codable,
     Equatable,
-    Identifiable,
     Sendable {
     enum ValidationError: Error, Equatable {
         case emptyText
@@ -32,10 +31,6 @@ nonisolated struct KeyboardBridgeItem:
     let resultID: UUID
     let text: String
     let createdAt: Date
-
-    var id: UUID {
-        resultID
-    }
 
     private enum CodingKeys: String, CodingKey {
         case resultID
