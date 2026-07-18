@@ -10,15 +10,6 @@ protocol RecordingDurationMonitoring: AnyObject {
     func stop()
 }
 
-extension RecordingDurationMonitoring {
-    func start(onElapsedWholeSecond: @escaping @MainActor (Int) -> Void) {
-        start(
-            maximumDurationWholeSeconds: RecordingDurationLimit.default.wholeSeconds,
-            onElapsedWholeSecond: onElapsedWholeSecond
-        )
-    }
-}
-
 @MainActor
 final class ContinuousRecordingDurationMonitor: RecordingDurationMonitoring {
     private var task: Task<Void, Never>?

@@ -13,8 +13,6 @@ struct AppSettings: Equatable {
     static let defaultTranscriptionModel = TranscriptionConfiguration.defaultModel
     static let defaultTextCorrectionModel = TextCorrectionConfiguration.defaultModel
     static let defaultTranslationModel = TranslationConfiguration.defaultModel
-    static let customDictionaryPromptPrefix =
-        TranscriptionPromptComposition.customDictionaryPromptPrefix
     static let emojiCommandsPromptPrefix =
         TranscriptionPromptComposition.emojiCommandsPromptPrefix
     static let defaultEnabledEmojiCommandSetIDs =
@@ -273,10 +271,6 @@ struct AppSettings: Equatable {
 
     static func isSupportedCustomLanguageCode(_ code: String) -> Bool {
         TranscriptionLanguage.isWellFormedCustomLanguageCode(code)
-    }
-
-    static func resolvedLanguageCode(for language: TranscriptionLanguage, customCode: String) -> String? {
-        language.apiLanguageCode(customCode: customCode)
     }
 
     static func parseCustomDictionaryEntries(from text: String) -> [String] {

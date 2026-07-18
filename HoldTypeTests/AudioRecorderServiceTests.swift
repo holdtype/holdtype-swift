@@ -949,10 +949,6 @@ private final class FakeAudioRecorderEngine: AudioRecorderEngine {
         self.currentTime = currentTime
     }
 
-    func record() -> Bool {
-        record(forDuration: .infinity)
-    }
-
     func record(forDuration duration: TimeInterval) -> Bool {
         recordCallCount += 1
         requestedRecordDuration = duration

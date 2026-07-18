@@ -6,19 +6,6 @@ enum APIKeyAvailability: Equatable {
     case missing
     case unavailable(String)
 
-    var settingsStatusText: String {
-        switch self {
-        case .unknown:
-            return "OpenAI API Key: Not Checked"
-        case .saved:
-            return "OpenAI API Key: Saved"
-        case .missing:
-            return "OpenAI API Key: Missing"
-        case .unavailable:
-            return "OpenAI API Key: Unavailable"
-        }
-    }
-
     var settingsDescription: String {
         switch self {
         case .unknown:
@@ -29,28 +16,6 @@ enum APIKeyAvailability: Equatable {
             return "Transcription needs an OpenAI API key saved in Settings."
         case .unavailable(let message):
             return message
-        }
-    }
-
-    var settingsSystemImage: String {
-        switch self {
-        case .unknown:
-            return "key"
-        case .saved:
-            return "checkmark.circle"
-        case .missing:
-            return "exclamationmark.triangle"
-        case .unavailable:
-            return "xmark.octagon"
-        }
-    }
-
-    var settingsActionTitle: String? {
-        switch self {
-        case .saved:
-            return nil
-        case .unknown, .missing, .unavailable:
-            return "Open OpenAI Settings"
         }
     }
 }

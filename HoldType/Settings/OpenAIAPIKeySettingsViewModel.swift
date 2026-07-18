@@ -75,14 +75,4 @@ final class OpenAIAPIKeySettingsViewModel: ObservableObject {
             state.applyFailure(error.localizedDescription)
         }
     }
-
-    private static func availability(for error: Error) -> APIKeyAvailability {
-        if let error = error as? KeychainServiceError,
-           case .unhandledKeychainStatus(let status) = error,
-           KeychainService.isPermissionDeniedStatus(status) {
-            return .unavailable(KeychainService.inaccessibleAPIKeyMessage)
-        }
-
-        return .unavailable(error.localizedDescription)
-    }
 }

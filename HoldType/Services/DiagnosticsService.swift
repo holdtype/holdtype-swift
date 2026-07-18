@@ -36,10 +36,6 @@ struct DiagnosticReportSummary: Equatable {
     var fileCount: Int {
         items.count
     }
-
-    var isEmpty: Bool {
-        items.isEmpty
-    }
 }
 
 struct DiagnosticAppMetadata: Codable, Equatable {
@@ -181,7 +177,6 @@ enum DiagnosticsServiceError: Error, Equatable, LocalizedError {
 
 protocol DiagnosticsManaging {
     var diagnosticReportsDirectoryURL: URL { get }
-    var diagnosticBundlesDirectoryURL: URL { get }
     var runtimeLogsDirectoryURL: URL { get }
 
     func summary() throws -> DiagnosticReportSummary

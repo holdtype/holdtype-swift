@@ -5006,9 +5006,6 @@ private final class FakeTranscriptRecoveryHistory: TranscriptRecoveryHistoryReco
         ] + entries
     }
 
-    func clear() {
-        entries = []
-    }
 }
 
 @MainActor

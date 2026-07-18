@@ -139,10 +139,8 @@ enum AudioRecorderServiceError: Error, Equatable, LocalizedError {
 }
 
 protocol AudioRecorderEngine: AnyObject {
-    var isRecording: Bool { get }
     var currentTime: TimeInterval { get }
 
-    func record() -> Bool
     func record(forDuration duration: TimeInterval) -> Bool
     func stop()
     @discardableResult func deleteRecording() -> Bool
@@ -163,16 +161,8 @@ private final class AVFoundationAudioRecorderEngine: NSObject, AudioRecorderEngi
         recorder.delegate = self
     }
 
-    var isRecording: Bool {
-        recorder.isRecording
-    }
-
     var currentTime: TimeInterval {
         recorder.currentTime
-    }
-
-    func record() -> Bool {
-        recorder.record()
     }
 
     func record(forDuration duration: TimeInterval) -> Bool {
@@ -538,7 +528,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         recorder.stop()
 
         let task = makeFinalizationTask(
-            recorder: recorder,
             outputFileURL: outputFileURL,
             engineDuration: engineDuration
         )
@@ -613,7 +602,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         recorder.setRecordingFinishedHandler(nil)
 
         let task = makeFinalizationTask(
-            recorder: recorder,
             outputFileURL: outputFileURL,
             engineDuration: engineDuration
         )
@@ -641,7 +629,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     }
 
     private func makeFinalizationTask(
-        recorder: any AudioRecorderEngine,
         outputFileURL: URL,
         engineDuration: TimeInterval
     ) -> Task<AudioRecordingArtifact, Error> {

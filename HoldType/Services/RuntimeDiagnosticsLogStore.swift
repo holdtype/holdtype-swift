@@ -58,7 +58,6 @@ protocol RuntimeDiagnosticLogManaging: RuntimeDiagnosticLogRecording {
 
     func recentLogLines(limit: Int) throws -> [String]
     func exportRecentLogs(to bundleURL: URL, since startDate: Date) throws -> RuntimeDiagnosticLogExport?
-    func prune() throws
 }
 
 struct RuntimeDiagnosticsLogStore: RuntimeDiagnosticLogManaging {

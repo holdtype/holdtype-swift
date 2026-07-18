@@ -18,7 +18,6 @@ protocol TranscriptHistoryAudioPlaybackStopping: AnyObject {
 }
 
 enum TranscriptHistoryAudioPlaybackError: Error, Equatable {
-    case unavailable
     case playbackFailed
 }
 

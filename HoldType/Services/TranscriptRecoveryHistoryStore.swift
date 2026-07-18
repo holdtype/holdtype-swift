@@ -11,10 +11,7 @@ import HoldTypeDomain
 
 @MainActor
 protocol TranscriptRecoveryHistoryRecording: AnyObject {
-    var entries: [TranscriptHistoryEntry] { get }
-
     func recordAcceptedTranscript(_ request: AcceptedTranscriptHistoryRequest) throws
-    func clear()
 }
 
 enum TranscriptRecoveryHistoryError: Error, Equatable, LocalizedError {
