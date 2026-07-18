@@ -75,7 +75,6 @@
     "Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests/IOSProviderConsentStageExecutorTests.swift": 663,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAIFileUploadTransport.swift": 896,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAIProviderStartupMaintenance.swift": 1155,
-    "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAITranscriptionRequestBuilder.swift": 1341,
     "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAITranscriptionService.swift": 582,
     "Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests/OpenAIFileUploadTransportTests.swift": 1147,
     "Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests/OpenAIProviderStartupMaintenanceTests.swift": 1255,
@@ -145,5 +144,14 @@
     "HoldTypeIOS/IOSVoiceHomeView.swift": 2,
     "HoldTypeIOS/IOSVoiceRecordButton.swift": 2
   },
-  "exceptions": []
+  "exceptions": [
+    {
+      "path": "Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/POSIXOpenAITranscriptionMultipartFileSystem.swift",
+      "rule": "line-limit",
+      "reason": "Keep the POSIX factory with its file-private descriptor owners until an ownership-safe split can preserve private access.",
+      "owner": "HoldType maintainers",
+      "reviewBy": "2026-10-18",
+      "limit": 700
+    }
+  ]
 }
