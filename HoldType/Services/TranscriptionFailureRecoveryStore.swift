@@ -1428,8 +1428,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         let dispatchMarkers = providerDispatchMarkers(
             in: directoryURL,
             fileManager: fileManager
-        ).filter { ownedMarker in
-            let marker = ownedMarker.marker
+        ).filter { marker in
             guard let ownedAudio = ownedAudioByName[marker.audioFileName],
                   ownedAudio.id == marker.id,
                   dispatchMarkerIDs.insert(marker.id).inserted else {
@@ -1438,7 +1437,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             return true
         }
         let dispatchMarkerByID = Dictionary(
-            uniqueKeysWithValues: dispatchMarkers.map { ($0.marker.id, $0) }
+            uniqueKeysWithValues: dispatchMarkers.map { ($0.id, $0) }
         )
         var referencedAudioFileNames = Set<String>()
         var requiresPersistence = (metadataExists && decodedRecords == nil)
@@ -1466,7 +1465,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 )
             }
             if let dispatchMarker = dispatchMarkerByID[record.id] {
-                return dispatchMarker.marker.uncertainAttempt(
+                return dispatchMarker.uncertainAttempt(
                     audioFileURL: ownedAudio.url,
                     fallback: restoredAttempt
                 )
@@ -1488,7 +1487,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 )
             }
             if let dispatchMarker = dispatchMarkerByID[ownedAudio.id] {
-                return dispatchMarker.marker.uncertainAttempt(
+                return dispatchMarker.uncertainAttempt(
                     audioFileURL: ownedAudio.url,
                     fallback: nil
                 )
@@ -1651,7 +1650,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
     private static func providerDispatchMarkers(
         in directoryURL: URL,
         fileManager: FileManager
-    ) -> [OwnedProviderDispatchMarker] {
+    ) -> [PersistedProcessingCheckpointMarker] {
         guard let fileURLs = try? fileManager.contentsOfDirectory(
             at: directoryURL,
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
@@ -1677,7 +1676,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                     == URL(fileURLWithPath: marker.audioFileName).lastPathComponent else {
                 return nil
             }
-            return OwnedProviderDispatchMarker(url: markerURL, marker: marker)
+            return marker
         }
     }
 
@@ -1837,11 +1836,6 @@ private struct OwnedSavedStateRepairMarker {
 }
 
 private struct OwnedProcessingCheckpointMarker {
-    let url: URL
-    let marker: PersistedProcessingCheckpointMarker
-}
-
-private struct OwnedProviderDispatchMarker {
     let url: URL
     let marker: PersistedProcessingCheckpointMarker
 }
