@@ -1438,68 +1438,6 @@ struct IOSVoiceHomeView: View {
     }
 }
 
-private struct IOSVoiceActionLayout: View {
-    let commands: [IOSForegroundVoiceActionCommand]
-    let perform: (IOSForegroundVoiceActionCommand) -> Void
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack {
-                actionButtons
-            }
-            VStack {
-                actionButtons
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var actionButtons: some View {
-        ForEach(Array(commands.enumerated()), id: \.offset) { _, command in
-            actionButton(command)
-        }
-    }
-
-    @ViewBuilder
-    private func actionButton(
-        _ command: IOSForegroundVoiceActionCommand
-    ) -> some View {
-        let presentation = IOSVoiceActionPresentation.resolve(command.action)
-        switch presentation.prominence {
-        case .primary:
-            Button {
-                perform(command)
-            } label: {
-                Label(presentation.title, systemImage: presentation.systemImage)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .accessibilityIdentifier(presentation.accessibilityIdentifier)
-        case .secondary:
-            Button {
-                perform(command)
-            } label: {
-                Label(presentation.title, systemImage: presentation.systemImage)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .accessibilityIdentifier(presentation.accessibilityIdentifier)
-        case .destructive:
-            Button(role: .destructive) {
-                perform(command)
-            } label: {
-                Label(presentation.title, systemImage: presentation.systemImage)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .accessibilityIdentifier(presentation.accessibilityIdentifier)
-        }
-    }
-}
-
 private enum IOSVoiceClipboard {
     @MainActor
     static func copy(_ text: String) {

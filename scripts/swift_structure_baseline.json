@@ -24,7 +24,7 @@
     "HoldTypeIOS/IOSReplacementRuleEditorSupport.swift": 572,
     "HoldTypeIOS/IOSUIQualificationGallery.swift": 1017,
     "HoldTypeIOS/IOSVoiceBoundaryFeedbackAdapter.swift": 929,
-    "HoldTypeIOS/IOSVoiceHomeView.swift": 1508,
+    "HoldTypeIOS/IOSVoiceHomeView.swift": 1446,
     "HoldTypeIOS/IOSVoiceRecorderAdapter.swift": 1492,
     "HoldTypeIOS/IOSVoiceSceneRegistry.swift": 589,
     "HoldTypeIOSTests/BrandStageKeyboardViewTests.swift": 1605,
