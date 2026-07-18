@@ -44,7 +44,6 @@ struct IOSSettingsHomeView: View {
                 IOSSettingsSummaryList(
                     settings: settings,
                     showsSaveFailure: false,
-                    openAIEditorDraft: $openAIEditorDraft,
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable
                 )
@@ -52,7 +51,6 @@ struct IOSSettingsHomeView: View {
                 IOSSettingsSummaryList(
                     settings: lastDurableValue,
                     showsSaveFailure: true,
-                    openAIEditorDraft: $openAIEditorDraft,
                     foregroundVoiceRuntimeAvailable:
                         foregroundVoiceRuntimeAvailable
                 )
@@ -247,7 +245,6 @@ private struct IOSSettingsSummaryList: View {
 
     let settings: IOSAppSettings
     let showsSaveFailure: Bool
-    @Binding var openAIEditorDraft: IOSOpenAICredentialEditorDraft
     let foregroundVoiceRuntimeAvailable: Bool
 
     var body: some View {
