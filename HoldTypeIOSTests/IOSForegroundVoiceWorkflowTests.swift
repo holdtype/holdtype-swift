@@ -2785,7 +2785,7 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(client.finish(requestID))
 
         #expect(await task.value == .accepted("Keyboard pipeline result"))
-        #expect(progress.contains(.listening(.defaultValue)))
+        #expect(progress.contains(.listening(.default)))
         #expect(progress.contains(.processing))
         #expect(fixture.events.count("recording-make") == 1)
         #expect(fixture.events.count("provider-process") == 1)

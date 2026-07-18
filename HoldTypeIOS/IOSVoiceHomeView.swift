@@ -1529,7 +1529,7 @@ private struct IOSVoiceStatusRow: View {
                     at: context.date
                 )
                 let countdown = VoiceSessionWarningSchedule(
-                    limit: recordingDurationLimit ?? .defaultValue
+                    limit: recordingDurationLimit ?? .default
                 ).countdown(atElapsedWholeSecond: totalSeconds)
                 statusContent(
                     timeText: countdown.map(countdownText)

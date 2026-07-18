@@ -435,15 +435,15 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
         case .arming:
             []
         case .listening:
-            [.listening(.defaultValue)]
+            [.listening(.default)]
         case .finalizing:
-            [.listening(.defaultValue), .finalizing]
+            [.listening(.default), .finalizing]
         case .processing:
-            [.listening(.defaultValue), .finalizing, .processing(.transcription)]
+            [.listening(.default), .finalizing, .processing(.transcription)]
         case .postProcessing:
-            [.listening(.defaultValue), .finalizing, .processing(.postProcessing)]
+            [.listening(.default), .finalizing, .processing(.postProcessing)]
         case .outputDelivery:
-            [.listening(.defaultValue), .finalizing, .processing(.outputDelivery)]
+            [.listening(.default), .finalizing, .processing(.outputDelivery)]
         case .start, .setupBlocked, .readinessCheck, .captureRecovery,
              .pendingRetry:
             []

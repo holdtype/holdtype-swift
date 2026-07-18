@@ -23,7 +23,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         #expect(harness.workflow.runActions == [.translateAndImprove])
         #expect(harness.states.map(\.phase) == [.ready])
 
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually {
             owner.presentation?.phase == .listening
         }
@@ -57,7 +57,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually {
             owner.presentation?.phase == .listening
         }
@@ -107,7 +107,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             expiredHarness.workflow.runRequestIDs == [expiredHarness.sessionID]
         }
-        expiredHarness.workflow.emit(.listening(.defaultValue))
+        expiredHarness.workflow.emit(.listening(.default))
         try await eventually {
             expiredOwner.presentation?.phase == .listening
         }
@@ -236,7 +236,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually {
             coordinator.presentation == .listening(
                 harness.listeningDeadline
@@ -296,7 +296,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually {
             coordinator.presentation == .listening(harness.listeningDeadline)
         }
@@ -333,7 +333,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually { owner.presentation?.phase == .listening }
 
         let second = harness.intent(
@@ -554,7 +554,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         try await eventually {
             harness.workflow.runRequestIDs == [harness.sessionID]
         }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually { owner.presentation?.phase == .listening }
 
         owner.cancelFromSheet()
@@ -655,7 +655,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
 
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.accepted("Processed keyboard text"))
@@ -684,7 +684,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.cancel, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.cancelled)
@@ -764,7 +764,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.failed)
@@ -788,7 +788,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.failingStatePhases = [.processing]
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
@@ -817,7 +817,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         try await eventually {
             coordinator.presentation == .listening(harness.listeningDeadline)
         }
@@ -849,7 +849,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { coordinator.presentation == .processing }
@@ -873,7 +873,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { coordinator.presentation == .processing }
@@ -901,7 +901,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.accepted("Already durable in Latest"))
@@ -964,7 +964,7 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         harness.command = harness.command(.start, requestID: requestID)
         coordinator.receiveCurrentCommand()
         try await eventually { harness.workflow.runRequestIDs == [requestID] }
-        harness.workflow.emit(.listening(.defaultValue))
+        harness.workflow.emit(.listening(.default))
         harness.command = harness.command(.finish, requestID: requestID)
         coordinator.receiveCurrentCommand()
         harness.workflow.resolve(.accepted("Exactly once"))
@@ -1055,7 +1055,7 @@ private final class KeyboardSessionHarness {
 
     var listeningDeadline: Date {
         now.addingTimeInterval(
-            RecordingDurationLimit.defaultValue.duration + 2
+            RecordingDurationLimit.default.duration + 2
         )
     }
 

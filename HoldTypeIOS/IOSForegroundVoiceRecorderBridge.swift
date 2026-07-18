@@ -131,7 +131,7 @@ final class IOSForegroundVoiceRecorderBridge {
         outputIntent: DictationOutputIntent,
         draftInsertionMode: IOSVoiceDraftInsertionMode = .replace,
         forcesTextCorrection: Bool = false,
-        recordingDurationLimit: RecordingDurationLimit = .defaultValue
+        recordingDurationLimit: RecordingDurationLimit = .default
     ) async throws -> IOSForegroundVoiceWorkflowRecording {
         let driver = try await makeDriver(
             attemptID,
@@ -183,7 +183,7 @@ private final class IOSForegroundVoiceRecorderBridgeAttemptOwner {
         feedback: IOSForegroundVoiceFeedbackBridge?,
         feedbackHandle: IOSForegroundVoiceFeedbackAttemptHandle?,
         warningSchedule: VoiceSessionWarningSchedule = .init(
-            limit: .defaultValue
+            limit: .default
         )
     ) {
         self.driver = driver

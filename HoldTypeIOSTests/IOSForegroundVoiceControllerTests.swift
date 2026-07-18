@@ -250,7 +250,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(fixture.startForcesTextCorrection == [true])
         #expect(controller.presentation.activeDraftInsertionMode == .append)
 
-        fixture.sendProgress(.listening(.defaultValue), at: 0)
+        fixture.sendProgress(.listening(.default), at: 0)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.activeDraftInsertionMode == .append)
 
@@ -480,7 +480,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(submitVoiceCommand(firstStart, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
 
-        fixture.sendProgress(.listening(.defaultValue), at: 0)
+        fixture.sendProgress(.listening(.default), at: 0)
         #expect(controller.presentation.phase == .listening)
         #expect(controller.presentation.stage == nil)
         #expect(
@@ -513,7 +513,7 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.availableActions.isEmpty)
         let outputDelivery = controller.presentation
 
-        fixture.sendProgress(.listening(.defaultValue), at: 0)
+        fixture.sendProgress(.listening(.default), at: 0)
         fixture.sendProgress(.finalizing, at: 0)
         fixture.sendProgress(.processing(.transcription), at: 0)
         fixture.sendProgress(.processing(.postProcessing), at: 0)
@@ -536,7 +536,7 @@ struct IOSForegroundVoiceControllerTests {
         let completed = controller.presentation
         #expect(completed.stage == nil)
 
-        fixture.sendProgress(.listening(.defaultValue), at: 0)
+        fixture.sendProgress(.listening(.default), at: 0)
         #expect(controller.presentation == completed)
 
         let secondStart = try voiceCommand(.startStandard, in: controller)
@@ -652,7 +652,7 @@ struct IOSForegroundVoiceControllerTests {
                 terminalFailure: .operationFailed
             ),
             VoiceCancellationCase(
-                progress: .listening(.defaultValue),
+                progress: .listening(.default),
                 action: .cancelUtterance,
                 phase: .listening,
                 activeStage: nil,

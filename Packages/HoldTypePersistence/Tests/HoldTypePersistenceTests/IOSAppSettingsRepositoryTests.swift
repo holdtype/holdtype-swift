@@ -651,7 +651,7 @@ struct IOSAppSettingsRepositoryTests {
             )
             #expect(
                 try await repository.load().voiceSessionPreferences
-                    .recordingDurationLimit == .defaultValue
+                    .recordingDurationLimit == .default
             )
         }
 

@@ -33,7 +33,6 @@ public struct RecordingDurationLimit: Equatable, Hashable, Sendable {
     public static let defaultMinutes = 5
     public static let supportedMinutes = minimumMinutes...maximumMinutes
     public static let `default` = RecordingDurationLimit(minutes: defaultMinutes)
-    public static let defaultValue = `default`
     public static let maximumSupportedFinalizedMediaDurationMilliseconds =
         Int64(maximumMinutes * 60) * 1_000 + 2_000
     public static let allValues = supportedMinutes.map {

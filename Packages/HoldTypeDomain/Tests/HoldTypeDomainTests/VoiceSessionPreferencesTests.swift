@@ -50,10 +50,6 @@ struct VoiceSessionPreferencesTests {
                 .maximumSupportedFinalizedMediaDurationMilliseconds
                 == 902_000
         )
-        #expect(
-            RecordingDurationLimit.defaultValue
-                == RecordingDurationLimit.default
-        )
     }
 
     @Test func warningScheduleMatchesTheDefaultFiveMinuteContract() {

@@ -1572,7 +1572,7 @@ private final class VoiceRecorderFixture {
     )
 
     func makeAdapter(
-        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
+        recordingDurationLimit: RecordingDurationLimit = .default,
         diagnose: @escaping IOSVoiceRecorderAdapter.DiagnosticHandler = { _ in }
     ) -> IOSVoiceRecorderAdapter {
         IOSVoiceRecorderAdapter(

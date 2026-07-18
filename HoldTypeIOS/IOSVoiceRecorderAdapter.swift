@@ -414,12 +414,12 @@ final class IOSVoiceRecorderAdapter {
     // that do not choose a custom limit. Live attempts use the frozen instance
     // value below.
     nonisolated static let maximumDuration =
-        RecordingDurationLimit.defaultValue.duration
+        RecordingDurationLimit.default.duration
     nonisolated static let maximumDurationWatchdog: Duration = .seconds(
-        RecordingDurationLimit.defaultValue.wholeSeconds
+        RecordingDurationLimit.default.wholeSeconds
     )
     nonisolated static let recorderSafetyDuration =
-        RecordingDurationLimit.defaultValue.duration + 1
+        RecordingDurationLimit.default.duration + 1
 
     private enum Phase {
         case idle
@@ -586,7 +586,7 @@ final class IOSVoiceRecorderAdapter {
 
     convenience init(
         lease: IOSV1ForegroundVoiceCaptureLease,
-        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
+        recordingDurationLimit: RecordingDurationLimit = .default,
         client: IOSVoiceRecorderClient = .live,
         diagnose: @escaping DiagnosticHandler = { _ in }
     ) {
@@ -602,7 +602,7 @@ final class IOSVoiceRecorderAdapter {
 
     init(
         captureSource: any IOSVoiceRecorderCaptureSourceSystem,
-        recordingDurationLimit: RecordingDurationLimit = .defaultValue,
+        recordingDurationLimit: RecordingDurationLimit = .default,
         client: IOSVoiceRecorderClient,
         diagnose: @escaping DiagnosticHandler = { _ in }
     ) {
