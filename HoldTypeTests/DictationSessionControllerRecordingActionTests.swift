@@ -203,7 +203,11 @@ private actor AsyncGate {
 }
 
 private final class RecordingActionRecorder: AudioRecorderService {
-    private let artifact: AudioRecordingArtifact
+    private let artifact = AudioRecordingArtifact(
+        fileURL: URL(fileURLWithPath: "/tmp/holdtype-recording-action.m4a"),
+        duration: 1.2,
+        byteCount: 1024
+    )
     private let onStart: (() async throws -> Void)?
     private let onStop: (() async throws -> AudioRecordingArtifact)?
 
@@ -213,16 +217,10 @@ private final class RecordingActionRecorder: AudioRecorderService {
 
     init(
         currentStatus: AudioRecorderStatus = .idle,
-        artifact: AudioRecordingArtifact = AudioRecordingArtifact(
-            fileURL: URL(fileURLWithPath: "/tmp/holdtype-recording-action.m4a"),
-            duration: 1.2,
-            byteCount: 1024
-        ),
         onStart: (() async throws -> Void)? = nil,
         onStop: (() async throws -> AudioRecordingArtifact)? = nil
     ) {
         self.currentStatus = currentStatus
-        self.artifact = artifact
         self.onStart = onStart
         self.onStop = onStop
     }

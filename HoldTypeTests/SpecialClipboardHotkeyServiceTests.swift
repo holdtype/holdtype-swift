@@ -112,15 +112,14 @@ struct SpecialClipboardHotkeyServiceTests {
     }
 
     private func waitForPostedTexts(
-        from poster: FakeCoordinatorTextEventPoster,
-        timeoutNanoseconds: UInt64 = 1_000_000_000
+        from poster: FakeCoordinatorTextEventPoster
     ) async throws -> [String] {
         try await withThrowingTaskGroup(of: [String].self) { group in
             group.addTask {
                 await poster.waitForPostedTexts()
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                try await Task.sleep(nanoseconds: 1_000_000_000)
                 throw WaitForPostedTextsTimeout()
             }
 

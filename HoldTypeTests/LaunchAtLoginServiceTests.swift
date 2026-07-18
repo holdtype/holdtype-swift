@@ -75,7 +75,6 @@ private final class FakeLaunchAtLoginClient: LaunchAtLoginClient {
     var statusAfterRegister: LaunchAtLoginAuthorizationStatus?
     var statusAfterUnregister: LaunchAtLoginAuthorizationStatus?
     var registerError: Error?
-    var unregisterError: Error?
     private(set) var registerCount = 0
     private(set) var unregisterCount = 0
     private(set) var openSettingsCount = 0
@@ -102,10 +101,6 @@ private final class FakeLaunchAtLoginClient: LaunchAtLoginClient {
 
     func unregister() throws {
         unregisterCount += 1
-
-        if let unregisterError {
-            throw unregisterError
-        }
 
         if let statusAfterUnregister {
             status = statusAfterUnregister

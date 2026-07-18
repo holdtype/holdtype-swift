@@ -19,12 +19,11 @@ final class FakeGlobalHotkeyService: GlobalHotkeyService {
     var startListeningResult: Result<GlobalHotkeyRegistrationStatus, GlobalHotkeyServiceError>
 
     init(
-        currentRegistrationStatus: GlobalHotkeyRegistrationStatus = .notRegistered,
         startListeningResult: Result<GlobalHotkeyRegistrationStatus, GlobalHotkeyServiceError> = .success(
             .registered(.defaultDictation)
         )
     ) {
-        self.currentRegistrationStatus = currentRegistrationStatus
+        currentRegistrationStatus = .notRegistered
         self.startListeningResult = startListeningResult
     }
 
