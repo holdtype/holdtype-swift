@@ -62,18 +62,15 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
             owner.presentation?.phase == .listening
         }
 
-        let cancellation = Task { @MainActor in
-            await owner.cancelActiveHandoff()
-        }
+        owner.cancelFromSheet()
         try await eventually {
             harness.workflow.interruptRequestIDs == [harness.sessionID]
         }
         #expect(owner.presentation?.phase == .listening)
 
         harness.workflow.resolve(.failed)
-        await cancellation.value
+        try await eventually { owner.presentation == nil }
 
-        #expect(owner.presentation == nil)
         #expect(coordinator.presentation == .failed("Try Again"))
         #expect(harness.states.map(\.phase) == [
             .ready,
@@ -601,11 +598,11 @@ struct IOSKeyboardDictationSessionCoordinatorTests {
         }
         #expect(owner.presentation?.phase == .starting)
 
-        await owner.cancelActiveHandoff()
+        owner.cancelFromSheet()
+        try await eventually { owner.presentation == nil }
         harness.workflow.releaseTranslationAvailability()
         await start.value
 
-        #expect(owner.presentation == nil)
         #expect(harness.workflow.runRequestIDs.isEmpty)
         #expect(harness.states.map(\.phase) == [.unavailable])
         #expect(coordinator.presentation == .stopped)

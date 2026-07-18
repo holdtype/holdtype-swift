@@ -1143,15 +1143,6 @@ final class IOSKeyboardHandoffPresentationOwner {
         }
     }
 
-    func cancelActiveHandoff() async {
-        if presentation?.phase == .savedRecording {
-            closeSavedRecordingPresentation()
-            return
-        }
-        guard let requestID = activeRequestID else { return }
-        await cancel(requestID: requestID)
-    }
-
     func savedRecordingDidResolve() {
         guard presentation?.phase == .savedRecording,
               pendingRecordingOwner?.isConfirmedAbsent == true else {
