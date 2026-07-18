@@ -124,103 +124,11 @@ enum AudioRecorderServiceError: Error, Equatable, LocalizedError {
         }
     }
 }
-
-
-nonisolated private final class FinalizedMediaDurationResolution: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<TimeInterval?, Never>?
-    private var providerTask: Task<Void, Never>?
-    private var deadlineTask: Task<Void, Never>?
-    private var isFinished = false
-
-    func resolve(
-        provider: @escaping @Sendable () async throws -> TimeInterval,
-        deadline: @escaping @Sendable () async throws -> Void
-    ) async -> TimeInterval? {
-        await withCheckedContinuation { continuation in
-            start(
-                continuation: continuation,
-                provider: provider,
-                deadline: deadline
-            )
-        }
-    }
-
-    func cancel() {
-        finish(with: nil)
-    }
-
-    private func start(
-        continuation: CheckedContinuation<TimeInterval?, Never>,
-        provider: @escaping @Sendable () async throws -> TimeInterval,
-        deadline: @escaping @Sendable () async throws -> Void
-    ) {
-        lock.lock()
-        guard !isFinished else {
-            lock.unlock()
-            continuation.resume(returning: nil)
-            return
-        }
-
-        self.continuation = continuation
-        let providerTask = Task { [self] in
-            do {
-                finish(with: try await provider())
-            } catch {
-                finish(with: nil)
-            }
-        }
-        let deadlineTask = Task { [self] in
-            do {
-                try await deadline()
-                finish(with: nil)
-            } catch is CancellationError {
-                // The provider won the race.
-            } catch {
-                finish(with: nil)
-            }
-        }
-        self.providerTask = providerTask
-        self.deadlineTask = deadlineTask
-        lock.unlock()
-    }
-
-    private func finish(with duration: TimeInterval?) {
-        let completion: (
-            continuation: CheckedContinuation<TimeInterval?, Never>?,
-            providerTask: Task<Void, Never>?,
-            deadlineTask: Task<Void, Never>?
-        )? = lock.withLock {
-            guard !isFinished else {
-                return nil
-            }
-
-            isFinished = true
-            let completion = (
-                continuation: continuation,
-                providerTask: providerTask,
-                deadlineTask: deadlineTask
-            )
-            continuation = nil
-            providerTask = nil
-            deadlineTask = nil
-            return completion
-        }
-
-        guard let completion else {
-            return
-        }
-
-        completion.providerTask?.cancel()
-        completion.deadlineTask?.cancel()
-        completion.continuation?.resume(returning: duration)
-    }
-}
-
 final class AVFoundationAudioRecorderService: AudioRecorderService {
     static let defaultMaximumRecordingDuration =
         RecordingDurationLimit.default.duration
-    static let defaultFinalizedMediaDurationTimeout: TimeInterval = 2
+    static let defaultFinalizedMediaDurationTimeout =
+        AudioRecordingArtifactFinalizer.defaultDurationTimeout
 
     private static let automaticLimitClassificationTolerance: TimeInterval = 0.5
 
@@ -234,12 +142,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     private let recorderFactory: any AudioRecorderEngineFactory
     private let makeRecordingFileURL: () throws -> URL
     private let fileManager: FileManager
-    private let minimumRecordingDuration: TimeInterval
+    private let artifactFinalizer: AudioRecordingArtifactFinalizer
     private let defaultMaximumRecordingDuration: TimeInterval
-    private let finalizedMediaDurationProvider: @Sendable (URL) async throws -> TimeInterval
-    private let finalizedMediaDurationTimeout: TimeInterval
-    private let finalizedMediaDurationTimeoutSleeper:
-        @Sendable (TimeInterval) async throws -> Void
     private let monotonicClock: () -> TimeInterval
 
     private var activeRecorder: (any AudioRecorderEngine)?
@@ -287,21 +191,18 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         self.permissionStatusProvider = permissionStatusProvider
         self.recorderFactory = recorderFactory
         self.fileManager = fileManager
-        self.minimumRecordingDuration = minimumRecordingDuration.isFinite
-            && minimumRecordingDuration >= 0
-            ? minimumRecordingDuration
-            : 0.3
+        self.artifactFinalizer = AudioRecordingArtifactFinalizer(
+            fileManager: fileManager,
+            minimumRecordingDuration: minimumRecordingDuration,
+            finalizedMediaDurationProvider: finalizedMediaDurationProvider,
+            finalizedMediaDurationTimeout: finalizedMediaDurationTimeout,
+            finalizedMediaDurationTimeoutSleeper:
+                finalizedMediaDurationTimeoutSleeper
+        )
         self.defaultMaximumRecordingDuration = maximumRecordingDuration.isFinite
             && maximumRecordingDuration > 0
             ? maximumRecordingDuration
             : Self.defaultMaximumRecordingDuration
-        self.finalizedMediaDurationProvider = finalizedMediaDurationProvider
-        let hasValidFinalizedMediaDurationTimeout =
-            finalizedMediaDurationTimeout.isFinite && finalizedMediaDurationTimeout > 0
-        self.finalizedMediaDurationTimeout = hasValidFinalizedMediaDurationTimeout
-            ? finalizedMediaDurationTimeout
-            : Self.defaultFinalizedMediaDurationTimeout
-        self.finalizedMediaDurationTimeoutSleeper = finalizedMediaDurationTimeoutSleeper
         self.monotonicClock = monotonicClock
         self.makeRecordingFileURL = makeRecordingFileURL
     }
@@ -445,9 +346,9 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         recorder.setRecordingFinishedHandler(nil)
         recorder.stop()
 
-        let task = makeFinalizationTask(
+        let task = artifactFinalizer.makeFinalizationTask(
             outputFileURL: outputFileURL,
-            engineDuration: engineDuration
+            fallbackDuration: engineDuration
         )
         beginFinalization(task, attemptID: attemptID, recorder: recorder)
         let artifact = try await awaitFinalization(task, attemptID: attemptID)
@@ -519,9 +420,9 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         clearActiveRecording(ifAttemptID: attemptID)
         recorder.setRecordingFinishedHandler(nil)
 
-        let task = makeFinalizationTask(
+        let task = artifactFinalizer.makeFinalizationTask(
             outputFileURL: outputFileURL,
-            engineDuration: engineDuration
+            fallbackDuration: engineDuration
         )
         beginFinalization(task, attemptID: attemptID, recorder: recorder)
 
@@ -544,34 +445,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         }
 
         automaticStopHandler?(result)
-    }
-
-    private func makeFinalizationTask(
-        outputFileURL: URL,
-        engineDuration: TimeInterval
-    ) -> Task<AudioRecordingArtifact, Error> {
-        let finalizedMediaDurationProvider = finalizedMediaDurationProvider
-        let finalizedMediaDurationTimeout = finalizedMediaDurationTimeout
-        let finalizedMediaDurationTimeoutSleeper = finalizedMediaDurationTimeoutSleeper
-        let fileManager = fileManager
-        let minimumRecordingDuration = minimumRecordingDuration
-
-        return Task {
-            let mediaDuration = await Self.boundedFinalizedMediaDuration(
-                at: outputFileURL,
-                provider: finalizedMediaDurationProvider,
-                timeout: finalizedMediaDurationTimeout,
-                timeoutSleeper: finalizedMediaDurationTimeoutSleeper
-            )
-
-            let duration = mediaDuration ?? engineDuration
-            return try Self.recordingArtifact(
-                at: outputFileURL,
-                duration: duration,
-                minimumDuration: minimumRecordingDuration,
-                fileManager: fileManager
-            )
-        }
     }
 
     private func beginFinalization(
@@ -597,7 +470,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             return artifact
         } catch let error as AudioRecorderServiceError {
             if finalizationAttemptID == attemptID {
-                if shouldDeleteRecording(after: error) {
+                if artifactFinalizer.shouldDeleteRecorderOutput(after: error) {
                     finalizingRecorder?.deleteRecording()
                 }
                 clearFinalization()
@@ -633,17 +506,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         automaticFinalizationContext = nil
     }
 
-    private func shouldDeleteRecording(after error: AudioRecorderServiceError) -> Bool {
-        switch error {
-        case .missingRecordingFile, .emptyRecording:
-            return true
-        default:
-            return false
-        }
-    }
-
     private func normalizedDuration(_ duration: TimeInterval) -> TimeInterval {
-        Self.normalizedDuration(duration) ?? 0
+        AudioRecordingArtifactFinalizer.normalizedDuration(duration) ?? 0
     }
 
     private func elapsedRecordingDuration() -> TimeInterval? {
@@ -652,7 +516,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         }
 
         let elapsed = monotonicClock() - activeRecordingStartTime
-        return Self.normalizedDuration(elapsed)
+        return AudioRecordingArtifactFinalizer.normalizedDuration(elapsed)
     }
 
     private func automaticCompletionReason(
@@ -708,36 +572,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         return duration >= maximumDuration - tolerance
     }
 
-    private static func boundedFinalizedMediaDuration(
-        at outputFileURL: URL,
-        provider: @escaping @Sendable (URL) async throws -> TimeInterval,
-        timeout: TimeInterval,
-        timeoutSleeper: @escaping @Sendable (TimeInterval) async throws -> Void
-    ) async -> TimeInterval? {
-        let resolution = FinalizedMediaDurationResolution()
-        let candidate = await withTaskCancellationHandler {
-            await resolution.resolve(
-                provider: {
-                    try await provider(outputFileURL)
-                },
-                deadline: {
-                    try await timeoutSleeper(timeout)
-                }
-            )
-        } onCancel: {
-            resolution.cancel()
-        }
-        return normalizedDuration(candidate ?? 0)
-    }
-
-    private static func normalizedDuration(_ duration: TimeInterval) -> TimeInterval? {
-        guard duration.isFinite, duration > 0 else {
-            return nil
-        }
-
-        return duration
-    }
-
     private func startError(for permissionStatus: MicrophonePermissionStatus) -> AudioRecorderServiceError {
         switch permissionStatus {
         case .allowed:
@@ -751,47 +585,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
 
     private func fail(with error: AudioRecorderServiceError) {
         currentStatus = .failed(message: error.errorDescription ?? error.localizedDescription)
-    }
-
-    private static func recordingArtifact(
-        at outputFileURL: URL,
-        duration: TimeInterval,
-        minimumDuration: TimeInterval,
-        fileManager: FileManager
-    ) throws -> AudioRecordingArtifact {
-        let path = outputFileURL.path
-        var isDirectory: ObjCBool = false
-
-        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else {
-            throw AudioRecorderServiceError.missingRecordingFile
-        }
-
-        let attributes = try fileManager.attributesOfItem(atPath: path)
-        guard let fileSize = attributes[.size] as? NSNumber else {
-            throw AudioRecorderServiceError.stopFailed
-        }
-
-        let byteCount = fileSize.int64Value
-        guard byteCount > 0 else {
-            throw AudioRecorderServiceError.emptyRecording
-        }
-
-        guard duration <= 0 || duration >= minimumDuration else {
-            throw AudioRecorderServiceError.recordingTooShort(
-                duration: duration,
-                minimumDuration: minimumDuration
-            )
-        }
-
-        // A finalized, nonempty file is the recoverable user artifact. Media
-        // duration is diagnostic metadata and must never make that artifact
-        // disappear because a recorder clock reset or encoder post-roll was
-        // reported at finalization.
-        return AudioRecordingArtifact(
-            fileURL: outputFileURL,
-            duration: duration,
-            byteCount: byteCount
-        )
     }
 
     private func removeRecordingFileIfPresent(at outputFileURL: URL?) throws {
