@@ -153,8 +153,6 @@ final class IOSContainingAppComposition {
     let acceptedAudioCache: IOSAcceptedAudioCache?
     let acceptedTextHistoryStateOwner:
         IOSAcceptedTextHistoryStateOwner?
-    let voiceDraftRepository: IOSVoiceDraftRepository?
-    let voiceDraftOwner: IOSVoiceDraftOwner?
     let foregroundVoicePersistenceOwner:
         IOSV1ForegroundVoicePersistenceOwner?
     let keyboardSnapshotPublisher: IOSKeyboardSnapshotPublisher?
@@ -190,8 +188,6 @@ final class IOSContainingAppComposition {
             acceptedTextHistoryRepository = nil
             acceptedAudioCache = nil
             acceptedTextHistoryStateOwner = nil
-            voiceDraftRepository = nil
-            voiceDraftOwner = nil
             foregroundVoicePersistenceOwner = nil
             keyboardSnapshotPublisher = nil
             transcriptionUsageRepository = nil
@@ -278,11 +274,9 @@ final class IOSContainingAppComposition {
         let voiceDraftRepository = factories.makeVoiceDraftRepository(
             applicationSupportDirectoryURL
         )
-        self.voiceDraftRepository = voiceDraftRepository
         let voiceDraftOwner = IOSVoiceDraftOwner(
             repository: voiceDraftRepository
         )
-        self.voiceDraftOwner = voiceDraftOwner
         let transcriptionUsageRepository = factories
             .makeTranscriptionUsageRepository(
                 applicationSupportDirectoryURL
@@ -417,8 +411,6 @@ final class IOSContainingAppComposition {
         acceptedTextHistoryRepository = nil
         acceptedAudioCache = nil
         acceptedTextHistoryStateOwner = nil
-        voiceDraftRepository = nil
-        voiceDraftOwner = nil
         foregroundVoicePersistenceOwner = nil
         keyboardSnapshotPublisher = nil
         transcriptionUsageRepository = nil
