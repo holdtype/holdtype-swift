@@ -167,95 +167,16 @@ struct IOSPrivacyPermissionsView: View {
         }
     }
 
-    @ViewBuilder
     private var providerConsentSection: some View {
-        Section("OpenAI Processing Consent") {
-            switch consentOwner.privacyState {
-            case .notLoaded, .loading:
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Reading consent status…")
-                    Spacer()
-                }
-                .accessibilityElement(children: .combine)
-            case .ready(let snapshot):
-                let presentation = IOSConsentPrivacyPresentation.resolve(
-                    snapshot
-                )
-                Label {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(presentation.title)
-                        Text(presentation.detail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let decisionAt = snapshot.decisionAt {
-                            Text(
-                                decisionAt.formatted(
-                                    date: .abbreviated,
-                                    time: .shortened
-                                )
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                } icon: {
-                    Image(systemName: presentation.systemImage)
-                        .foregroundStyle(presentation.color)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("ios.privacy.consent-status")
-                .iosSettingsField(
-                    .privacyProviderConsent,
-                    attentionTarget: activeAttentionTarget
-                )
-
-                if presentation.action == .acceptCurrentDisclosure {
-                    Button("Review and Accept") {
-                        beginDisclosureReview()
-                    }
-                    .disabled(consentOwner.isBusy)
-                    .accessibilityIdentifier(
-                        "ios.privacy.consent.accept"
-                    )
-                }
-
-                if snapshot.canResetUnreadableData {
-                    Button(
-                        "Reset Unreadable Consent Data",
-                        role: .destructive
-                    ) {
-                        beginResetConfirmation()
-                    }
-                    .disabled(consentOwner.isBusy)
-                    .accessibilityIdentifier(
-                        "ios.privacy.consent.reset-unreadable"
-                    )
-                }
-            }
-
-            if consentOwner.isBusy {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text(consentOwner.operation.progressTitle)
-                    Spacer()
-                }
-                .accessibilityElement(children: .combine)
-            }
-
-            if let failure = consentOwner.failure {
-                Label {
-                    Text(failure.detail)
-                        .fixedSize(horizontal: false, vertical: true)
-                } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("ios.privacy.consent.failure")
-            }
-        }
+        IOSProviderConsentPrivacySection(
+            state: consentOwner.privacyState,
+            isBusy: consentOwner.isBusy,
+            progressTitle: consentOwner.operation.progressTitle,
+            failureDetail: consentOwner.failure?.detail,
+            attentionTarget: activeAttentionTarget,
+            onReview: beginDisclosureReview,
+            onReset: beginResetConfirmation
+        )
     }
 
     private var pendingConfirmationIsCurrent: Bool {
@@ -312,31 +233,6 @@ struct IOSPrivacyPermissionsView: View {
             accessibilityAnnouncementCandidate = nil
             accessibilityAnnouncementTask = nil
             IOSAccessibilityAnnouncement.post(preferred.message)
-        }
-    }
-}
-
-nonisolated enum IOSPrivacySettingsAttentionResolver {
-    static func activeTarget(
-        _ target: IOSSettingsAttentionTarget?,
-        privacyState: IOSProviderConsentPrivacyState,
-        microphoneStatus: IOSMicrophonePermissionStatus
-    ) -> IOSSettingsAttentionTarget? {
-        guard let target else { return nil }
-
-        switch target.attention {
-        case .privacyReview:
-            guard case .ready(let snapshot) = privacyState else {
-                return target
-            }
-            return snapshot.status == .acceptedCurrentDisclosure
-                && !snapshot.requiresExplicitAcceptance
-                ? nil
-                : target
-        case .microphonePermission:
-            return microphoneStatus == .granted ? nil : target
-        default:
-            return target
         }
     }
 }
@@ -420,112 +316,6 @@ private struct IOSProviderConsentPrivacyReviewSheet: View {
             dismiss()
         }
         .accessibilityIdentifier("ios.privacy.consent.review-sheet")
-    }
-}
-
-struct IOSMicrophonePrivacyPresentation {
-    let title: String
-    let detail: String
-    let systemImage: String
-    let color: Color
-
-    static func resolve(_ status: IOSMicrophonePermissionStatus) -> Self {
-        switch status {
-        case .undetermined:
-            Self(
-                title: "Not Requested",
-                detail: "Asked the first time you start dictation.",
-                systemImage: "mic.badge.plus",
-                color: .secondary
-            )
-        case .denied:
-            Self(
-                title: "Access Denied",
-                detail:
-                    "Allow microphone access in System Settings before recording.",
-                systemImage: "mic.slash.fill",
-                color: .orange
-            )
-        case .granted:
-            Self(
-                title: "Access Granted",
-                detail: "Used only while you record.",
-                systemImage: "mic.fill",
-                color: .green
-            )
-        case .unavailable:
-            Self(
-                title: "Status Unavailable",
-                detail: "HoldType couldn’t read microphone access.",
-                systemImage: "mic.slash",
-                color: .red
-            )
-        }
-    }
-}
-
-struct IOSConsentPrivacyPresentation {
-    let title: String
-    let detail: String
-    let systemImage: String
-    let color: Color
-    let action: IOSProviderConsentPrivacyAction?
-
-    static func resolve(
-        _ snapshot: IOSProviderConsentPrivacySnapshot
-    ) -> Self {
-        if snapshot.requiresExplicitAcceptance {
-            return Self(
-                title: "Review Required",
-                detail: "Review the updated disclosure before using Voice.",
-                systemImage: "hand.raised",
-                color: .orange,
-                action: .acceptCurrentDisclosure
-            )
-        }
-
-        return switch snapshot.status {
-        case .notReviewed:
-            Self(
-                title: "Not Reviewed",
-                detail: "Review what HoldType sends before using Voice.",
-                systemImage: "hand.raised",
-                color: .secondary,
-                action: .acceptCurrentDisclosure
-            )
-        case .acceptedCurrentDisclosure:
-            Self(
-                title: "Accepted",
-                detail: "Voice can send recordings to OpenAI for processing.",
-                systemImage: "checkmark.shield.fill",
-                color: .green,
-                action: nil
-            )
-        case .reviewRequired:
-            Self(
-                title: "Review Required",
-                detail: "The processing disclosure changed and needs acceptance.",
-                systemImage: "exclamationmark.shield",
-                color: .orange,
-                action: .acceptCurrentDisclosure
-            )
-        case .withdrawn:
-            Self(
-                title: "Withdrawn",
-                detail: "Voice will not send requests to OpenAI.",
-                systemImage: "hand.raised.slash",
-                color: .orange,
-                action: .acceptCurrentDisclosure
-            )
-        case .localDataUnavailable:
-            Self(
-                title: "Consent Unavailable",
-                detail: "HoldType couldn’t read your saved consent.",
-                systemImage: "exclamationmark.triangle",
-                color: .red,
-                action: nil
-            )
-        }
     }
 }
 
