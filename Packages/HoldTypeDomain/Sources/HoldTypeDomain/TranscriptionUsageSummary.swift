@@ -25,7 +25,6 @@ public struct TranscriptionUsageSummary: Equatable, Sendable {
     public static let defaultWindowDays = 30
 
     public let generatedAt: Date
-    public let windowDays: Int
     public let dailyBuckets: [TranscriptionUsageDailyBucket]
     public let totalDurationSeconds: TimeInterval
     public let totalEstimatedCostUSD: Double?
@@ -99,7 +98,6 @@ public struct TranscriptionUsageSummary: Equatable, Sendable {
 
         return TranscriptionUsageSummary(
             generatedAt: now,
-            windowDays: safeWindowDays,
             dailyBuckets: buckets,
             totalDurationSeconds: totalDuration,
             totalEstimatedCostUSD: totalCost,

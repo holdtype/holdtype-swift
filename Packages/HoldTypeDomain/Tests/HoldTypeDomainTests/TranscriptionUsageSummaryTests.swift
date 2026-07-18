@@ -33,7 +33,6 @@ struct TranscriptionUsageSummaryTests {
         )
 
         #expect(summary.generatedAt == now)
-        #expect(summary.windowDays == 30)
         #expect(summary.dailyBuckets.count == 30)
         #expect(summary.todayDurationSeconds == 720)
         #expect(summary.totalDurationSeconds == 1_020)
@@ -104,7 +103,6 @@ struct TranscriptionUsageSummaryTests {
         #expect(defaultSummary.projected30DayCostUSD == 0)
         #expect(defaultSummary.averageDailyDurationSeconds == 0)
         #expect(!defaultSummary.hasUnpricedUsage)
-        #expect(clampedSummary.windowDays == 1)
         #expect(clampedSummary.dailyBuckets.count == 1)
         let expectedToday = try makeDate(year: 2026, month: 6, day: 22)
         #expect(clampedSummary.dailyBuckets[0].day == expectedToday)
