@@ -232,10 +232,6 @@ enum GlobalHotkeyRegistrationStatus: Equatable {
         }
     }
 
-    var isRegistered: Bool {
-        activeConfiguration != nil
-    }
-
     var displayText: String {
         switch self {
         case .registered(let configuration):

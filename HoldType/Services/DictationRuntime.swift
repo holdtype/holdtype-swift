@@ -254,11 +254,6 @@ final class DictationRuntime: ObservableObject {
         }
     }
 
-    func reportFailure(message: String) {
-        failurePresentation = nil
-        status = .failure(message: message)
-    }
-
     func dismissFailurePresentation() {
         controller.dismissFailurePresentation()
         failurePresentation = nil

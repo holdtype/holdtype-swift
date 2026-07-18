@@ -27,11 +27,6 @@ final class APIKeyCredentialProvider: APIKeyStorage {
         self.init(storage: Self.defaultStorage(environment: environment))
     }
 
-    @discardableResult
-    func preloadAPIKey() -> APIKeyAvailability {
-        (try? apiKeyAvailability()) ?? .unknown
-    }
-
     func saveAPIKey(_ apiKey: String) throws {
         let normalizedAPIKey = try Self.normalizedAPIKey(apiKey)
         try storage.saveAPIKey(normalizedAPIKey)

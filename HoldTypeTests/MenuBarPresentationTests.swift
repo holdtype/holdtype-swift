@@ -25,7 +25,6 @@ struct MenuBarPresentationTests {
         #expect(presentation.recordingActionTitle == "Transcribe")
         #expect(presentation.recordingActionShortcutHint == "Hold Right ⌘")
         #expect(presentation.isRecordingActionEnabled)
-        #expect(MenuBarPresentation.recordingShortcutHint == "Hold Right ⌘")
         #expect(presentation.translationActionTitle == "Transcribe & Translate")
         #expect(presentation.translationActionShortcutHint == "Hold Right ⌘ + Right ⌥")
         #expect(presentation.isTranslationActionEnabled)

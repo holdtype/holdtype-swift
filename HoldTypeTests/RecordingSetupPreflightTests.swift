@@ -151,7 +151,7 @@ private final class FakeRecordingSetupAPIKeyStorage: APIKeyStorage {
             throw loadError
         }
 
-        return availability.allowsTranscription ? "sk-test" : nil
+        return availability == .saved ? "sk-test" : nil
     }
 
     func deleteAPIKey() throws {}

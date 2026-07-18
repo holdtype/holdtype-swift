@@ -316,8 +316,6 @@ struct GlobalHotkeyServiceTests {
             GlobalHotkeyRegistrationStatus.registered(configuration).activeConfiguration
                 == configuration
         )
-        #expect(GlobalHotkeyRegistrationStatus.registered(configuration).isRegistered)
-        #expect(GlobalHotkeyRegistrationStatus.notRegistered.isRegistered == false)
         #expect(
             GlobalHotkeyRegistrationStatus.unavailable(message: "Already in use").displayText
                 == "Global hotkey unavailable"

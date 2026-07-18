@@ -170,10 +170,6 @@ enum AccessibilityPermissionStatus: Equatable {
         self == .trusted
     }
 
-    var canPasteIntoActiveApp: Bool {
-        canInsertTextIntoActiveApp
-    }
-
     var settingsDescription: String {
         switch self {
         case .trusted:

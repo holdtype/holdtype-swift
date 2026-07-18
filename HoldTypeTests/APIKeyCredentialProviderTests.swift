@@ -21,15 +21,6 @@ struct APIKeyCredentialProviderTests {
         #expect(storage.legacyLoadCount == 0)
     }
 
-    @Test func preloadDoesNotTouchBackingStorage() {
-        let storage = FakeCredentialStorage(apiKey: " sk-test \n")
-        let provider = APIKeyCredentialProvider(storage: storage)
-
-        #expect(provider.preloadAPIKey() == .unknown)
-        #expect(storage.nonInteractiveLoadCount == 0)
-        #expect(storage.legacyLoadCount == 0)
-    }
-
     @Test func loadAPIKeyLazilyStoresReadableKeyInMemoryForHotPathLoads() throws {
         let storage = FakeCredentialStorage(apiKey: " sk-test \n")
         let provider = APIKeyCredentialProvider(storage: storage)

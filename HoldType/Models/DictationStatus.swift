@@ -100,17 +100,6 @@ enum DictationStatus: Equatable {
         }
     }
 
-    var placeholderRecordingActionResult: DictationStatus {
-        switch self {
-        case .idle, .success, .failure:
-            return .recording
-        case .recording:
-            return .idle
-        case .transcribing:
-            return .transcribing
-        }
-    }
-
     static func compactFailureStatusText(for message: String) -> String {
         let reason = compactFailureReason(for: message)
         switch reason.kind {

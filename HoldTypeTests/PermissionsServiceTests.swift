@@ -114,8 +114,6 @@ struct PermissionsServiceTests {
         )
         #expect(AccessibilityPermissionStatus.trusted.canInsertTextIntoActiveApp)
         #expect(AccessibilityPermissionStatus.notTrusted.canInsertTextIntoActiveApp == false)
-        #expect(AccessibilityPermissionStatus.trusted.canPasteIntoActiveApp)
-        #expect(AccessibilityPermissionStatus.notTrusted.canPasteIntoActiveApp == false)
         #expect(trustedClient.promptRequests == [false])
         #expect(notTrustedClient.promptRequests == [false])
     }
@@ -566,54 +564,6 @@ struct PermissionsServiceTests {
         #expect(client.requestCount == 1)
         #expect(client.openSettingsCount == 1)
     }
-
-    #if DEBUG
-    @MainActor
-    @Test func debugInputMonitoringRecoveryDoesNothingWithoutEnvironmentFlag() {
-        let client = FakeInputMonitoringPermissionClient(authorizationStatus: .denied)
-        let service = InputMonitoringPermissionService(client: client)
-
-        DebugInputMonitoringPermissionRecovery.requestIfNeeded(
-            environment: [:],
-            permissionService: service,
-            activateApp: {}
-        )
-
-        #expect(client.requestCount == 0)
-        #expect(client.openSettingsCount == 0)
-    }
-
-    @MainActor
-    @Test func debugInputMonitoringRecoveryRequestsCurrentAppAndOpensSettingsWhenFlagged() {
-        let client = FakeInputMonitoringPermissionClient(
-            authorizationStatus: .denied,
-            opensSettings: true
-        )
-        let service = InputMonitoringPermissionService(client: client)
-        var activateCount = 0
-        var scheduledRequest: (@MainActor () -> Void)?
-
-        DebugInputMonitoringPermissionRecovery.requestIfNeeded(
-            environment: [DebugInputMonitoringPermissionRecovery.environmentKey: "1"],
-            permissionService: service,
-            activateApp: {
-                activateCount += 1
-            },
-            scheduleRequestAfterActivation: { request in
-                scheduledRequest = request
-            }
-        )
-
-        #expect(activateCount == 1)
-        #expect(client.requestCount == 0)
-        #expect(client.openSettingsCount == 0)
-
-        scheduledRequest?()
-
-        #expect(client.requestCount == 1)
-        #expect(client.openSettingsCount == 1)
-    }
-    #endif
 
     @Test func inputMonitoringSettingsCopyNamesStatusAndActions() {
         #expect(InputMonitoringPermissionStatus.allowed.settingsStatusText == "Input Monitoring: Allowed")

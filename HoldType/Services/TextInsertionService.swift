@@ -81,22 +81,6 @@ struct TextInsertionService {
         }
     }
 
-    func insertRecoveredTranscript(_ transcript: String, settings: AppSettings) async throws -> TextInsertionResult {
-        let savedToAppClipboard: Bool
-        if settings.saveTranscriptsToAppClipboard {
-            try await transcriptClipboardStore.save(transcript)
-            savedToAppClipboard = true
-        } else {
-            savedToAppClipboard = false
-        }
-
-        switch await activeAppTextInsertionService.insert(transcript) {
-        case .inserted:
-            return savedToAppClipboard ? .insertedAndSavedToAppClipboard : .inserted
-        case .failed(let reason):
-            return .failed(reason: reason, savedToAppClipboard: savedToAppClipboard)
-        }
-    }
 }
 
 enum TextInsertionResult: Equatable {

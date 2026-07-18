@@ -27,7 +27,6 @@ struct MenuBarPresentation: Equatable {
     static let projectURLString = "https://github.com/holdtype/holdtype-swift"
     static let translationActionTitle = "Transcribe & Translate"
     static let pasteLastResultTitle = "Paste Last Result"
-    static let recordingShortcutHint = GlobalHotkeyShortcut.defaultDictation.menuHoldText
     static let translationShortcutHint = GlobalHotkeyShortcut.translationDictation.menuHoldText
     static let pasteLastResultShortcutHint = GlobalHotkeyShortcut.appClipboardPaste.menuKeyEquivalentText
     static let historyTitle = "Transcript History"

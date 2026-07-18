@@ -380,7 +380,7 @@ private struct FakeRuntimeAPIKeyStorage: APIKeyStorage {
             throw KeychainServiceError.unhandledKeychainStatus(errSecInteractionNotAllowed)
         }
 
-        return availability.allowsTranscription ? "sk-test" : nil
+        return availability == .saved ? "sk-test" : nil
     }
 
     func deleteAPIKey() throws {}

@@ -137,7 +137,7 @@ private final class FakeOpenAIAPIKeySettingsStorage: APIKeyStorage {
     }
 
     func loadAPIKey() throws -> String? {
-        availability.allowsTranscription ? "sk-test" : nil
+        availability == .saved ? "sk-test" : nil
     }
 
     func deleteAPIKey() throws {

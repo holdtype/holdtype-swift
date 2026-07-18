@@ -6,10 +6,6 @@ enum APIKeyAvailability: Equatable {
     case missing
     case unavailable(String)
 
-    var allowsTranscription: Bool {
-        self == .saved
-    }
-
     var settingsStatusText: String {
         switch self {
         case .unknown:
@@ -119,10 +115,6 @@ struct AppSetupStatus: Equatable {
         }
 
         return blocker.message
-    }
-
-    var needsPermissionsAttention: Bool {
-        startupAttentionItems.contains { $0.settingsItem == .permissions }
     }
 
     private func setupItems() -> [AppSetupAttentionItem] {

@@ -152,40 +152,6 @@ enum DebugAccessibilityPermissionRecovery {
 }
 
 @MainActor
-enum DebugInputMonitoringPermissionRecovery {
-    static let environmentKey = "HOLDTYPE_DEBUG_REQUEST_INPUT_MONITORING"
-
-    static func requestIfNeeded(
-        environment: [String: String] = ProcessInfo.processInfo.environment,
-        permissionService: InputMonitoringPermissionService = InputMonitoringPermissionService(),
-        activateApp: () -> Void = {
-            NSApplication.shared.setActivationPolicy(.regular)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-        },
-        scheduleRequestAfterActivation: @escaping (@escaping @MainActor () -> Void) -> Void = { request in
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + InputMonitoringPermissionLaunchRecovery.requestDelayAfterActivation
-            ) {
-                Task { @MainActor in
-                    request()
-                }
-            }
-        }
-    ) {
-        guard environment[environmentKey] == "1" else {
-            return
-        }
-
-        InputMonitoringPermissionLaunchRecovery.requestIfNeeded(
-            environment: [InputMonitoringPermissionLaunchRecovery.requestEnvironmentKey: "1"],
-            permissionService: permissionService,
-            activateApp: activateApp,
-            scheduleRequestAfterActivation: scheduleRequestAfterActivation
-        )
-    }
-}
-
-@MainActor
 enum DebugTranscriptionFailurePromptLaunch {
     static let environmentKey = "HOLDTYPE_DEBUG_TRANSCRIPTION_FAILURE"
     static let presentationDelay: DispatchTimeInterval = .milliseconds(500)
@@ -421,17 +387,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
 enum QuitConfirmationDecision: Equatable {
     case cancel
     case quit
-}
-
-enum QuitConfirmationPolicy {
-    static func terminationReply(for decision: QuitConfirmationDecision) -> NSApplication.TerminateReply {
-        switch decision {
-        case .cancel:
-            return .terminateCancel
-        case .quit:
-            return .terminateNow
-        }
-    }
 }
 
 enum QuitConfirmationCopy {

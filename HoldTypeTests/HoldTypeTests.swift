@@ -100,13 +100,6 @@ struct DictationStatusTests {
         #expect(status.detailText == "No transcript available.")
     }
 
-    @Test func placeholderRecordingActionTogglesOnlyStartAndStopStates() {
-        #expect(DictationStatus.idle.placeholderRecordingActionResult == .recording)
-        #expect(DictationStatus.recording.placeholderRecordingActionResult == .idle)
-        #expect(DictationStatus.transcribing.placeholderRecordingActionResult == .transcribing)
-        #expect(DictationStatus.success(transcript: "Typed text").placeholderRecordingActionResult == .recording)
-        #expect(DictationStatus.failure(message: "Missing permission").placeholderRecordingActionResult == .recording)
-    }
 }
 
 struct TranscriptionFailurePromptTests {
@@ -347,11 +340,6 @@ private extension DictationStatus {
 }
 
 struct QuitConfirmationTests {
-
-    @Test func mapsCancelAndQuitDecisionsToTerminationReplies() {
-        #expect(QuitConfirmationPolicy.terminationReply(for: .cancel) == .terminateCancel)
-        #expect(QuitConfirmationPolicy.terminationReply(for: .quit) == .terminateNow)
-    }
 
     @Test func quitCopyWarnsWhenLaunchAtLoginIsNotEnabled() {
         let informativeText = QuitConfirmationCopy.informativeText(launchAtLoginStatus: .disabled)
