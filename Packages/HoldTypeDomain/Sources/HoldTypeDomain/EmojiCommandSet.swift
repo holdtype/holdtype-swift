@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct EmojiCommandAlias: Equatable, Identifiable, Sendable {
+public struct EmojiCommandAlias: Equatable, Sendable {
     public let spokenPhrase: String
     public let replacement: String
 
@@ -16,9 +16,6 @@ public struct EmojiCommandAlias: Equatable, Identifiable, Sendable {
         self.replacement = replacement
     }
 
-    public var id: String {
-        "\(spokenPhrase)|\(replacement)"
-    }
 }
 
 public struct EmojiCommand: Equatable, Identifiable, Sendable {
