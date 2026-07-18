@@ -1,26 +1,8 @@
 import Foundation
 
-nonisolated enum IOSVoiceSceneActivity: Equatable, Sendable {
-    case active
-    case inactive
-    case background
-}
-
 nonisolated struct IOSVoiceSceneIdentity: Hashable, Sendable {
     fileprivate let registryIdentity: ObjectIdentifier
     fileprivate let value: UInt64
-}
-
-extension IOSVoiceSceneIdentity:
-    CustomDebugStringConvertible,
-    CustomReflectable,
-    CustomStringConvertible {
-    var description: String { "IOSVoiceSceneIdentity" }
-    var debugDescription: String { description }
-
-    var customMirror: Mirror {
-        Mirror(self, children: ["identity": "opaque"])
-    }
 }
 
 nonisolated struct IOSVoiceSceneStartLease: Hashable, Sendable {
@@ -65,55 +47,6 @@ nonisolated struct IOSVoiceScenePromptDecisionCapability:
     fileprivate let generation: UInt64
 }
 
-extension IOSVoiceScenePromptDecisionCapability:
-    CustomDebugStringConvertible,
-    CustomReflectable,
-    CustomStringConvertible {
-    var description: String { "IOSVoiceScenePromptDecisionCapability" }
-    var debugDescription: String { description }
-
-    var customMirror: Mirror {
-        Mirror(self, children: ["capability": "opaque"])
-    }
-}
-
-extension IOSVoiceSceneStartLease:
-    CustomDebugStringConvertible,
-    CustomReflectable,
-    CustomStringConvertible {
-    var description: String { "IOSVoiceSceneStartLease" }
-    var debugDescription: String { description }
-
-    var customMirror: Mirror {
-        Mirror(self, children: ["lease": "opaque"])
-    }
-}
-
-nonisolated enum IOSVoiceSceneRegistrationMutation: Equatable, Sendable {
-    case accepted
-    case unchanged
-    case stale
-}
-
-nonisolated enum IOSVoiceSceneContinuationValidation: Equatable, Sendable {
-    case ready
-    case awaitingPermissionDecision
-    case awaitingInitiatingSceneReactivation
-    case stale
-}
-
-nonisolated enum IOSVoiceScenePromptPresentation: Equatable, Sendable {
-    case available
-    case ownedByThisScene
-    case ownedByAnotherScene
-    case unavailable
-}
-
-nonisolated enum IOSVoiceSceneForegroundLossDisposition: Equatable, Sendable {
-    case expectedMicrophonePermissionPrompt
-    case voiceWorkMustStop
-}
-
 nonisolated struct IOSVoiceSceneRegistryEvent: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case aggregateBecameActive
@@ -127,24 +60,6 @@ nonisolated struct IOSVoiceSceneRegistryEvent: Equatable, Sendable {
     fileprivate let registryIdentity: ObjectIdentifier
     fileprivate let foregroundRevision: UInt64
     fileprivate let promptRevision: UInt64
-}
-
-extension IOSVoiceSceneRegistryEvent:
-    CustomDebugStringConvertible,
-    CustomReflectable,
-    CustomStringConvertible {
-    var description: String { "IOSVoiceSceneRegistryEvent" }
-    var debugDescription: String { description }
-
-    var customMirror: Mirror {
-        Mirror(self, children: ["event": "content-free"])
-    }
-}
-
-nonisolated struct IOSVoiceSceneRegistrySnapshot: Equatable, Sendable {
-    let registeredSceneCount: Int
-    let foregroundActiveSceneCount: Int
-    let isForegroundActive: Bool
 }
 
 /// Thread-safe exact-once storage for a MainActor observer-removal action.
