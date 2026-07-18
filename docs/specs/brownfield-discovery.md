@@ -22,7 +22,6 @@ request or v2-labeled task opts in.
 - iOS containing app target: `HoldType-iOS`
 - Unit test target: `HoldTypeTests`
 - iOS unit test target: `HoldTypeIOSTests`
-- UI test target: `HoldTypeUITests`
 - Primary scheme: `HoldType`
 
 ## Source Map
@@ -52,7 +51,7 @@ request or v2-labeled task opts in.
 - `HoldTypeTests/`
   - focused unit coverage for services, settings view models, setup status,
     hotkeys, text insertion, OpenAI request handling, history, and diagnostics.
-- `HoldTypeIOS/`, `HoldTypeIOSTests/`, `HoldTypeUITests/`
+- `HoldTypeIOS/` and `HoldTypeIOSTests/`
   - exploratory or future-version surfaces unless a direct request targets
     them.
 
