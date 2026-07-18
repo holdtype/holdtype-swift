@@ -206,16 +206,12 @@ public struct IOSV1PendingRecording: Equatable, Sendable {
 @_spi(HoldTypeIOSCore)
 public struct IOSV1PendingRecordingExpectation: Equatable, Sendable {
     public let attemptID: UUID
-    public let phase: IOSV1PendingRecordingPhase
-    public let transcriptionID: UUID?
 
     let recording: IOSV1PendingRecording
 
     public init(recording: IOSV1PendingRecording) {
         self.recording = recording
         attemptID = recording.attemptID
-        phase = recording.phase
-        transcriptionID = recording.transcriptionID
     }
 }
 
@@ -457,7 +453,6 @@ public struct IOSV1CompletedCaptureRecoveryExpectation: Equatable, Sendable {
     public let attemptID: UUID
     public let recordingDurationLimit: RecordingDurationLimit
     public let durationMilliseconds: Int64
-    public let byteCount: Int64
 
     fileprivate let capture: IOSVoiceStateCapture
 
@@ -465,7 +460,6 @@ public struct IOSV1CompletedCaptureRecoveryExpectation: Equatable, Sendable {
         attemptID = recording.attemptID
         recordingDurationLimit = recording.recordingDurationLimit
         durationMilliseconds = recording.durationMilliseconds
-        byteCount = recording.byteCount
         capture = recording.capture
     }
 }
@@ -480,15 +474,6 @@ public enum IOSV1SavedRecordingObservation: Equatable, Sendable {
 public enum IOSV1SavedRecordingExpectation: Equatable, Sendable {
     case pending(IOSV1PendingRecordingExpectation)
     case completedCapture(IOSV1CompletedCaptureRecoveryExpectation)
-
-    public var attemptID: UUID {
-        switch self {
-        case .pending(let expectation):
-            expectation.attemptID
-        case .completedCapture(let expectation):
-            expectation.attemptID
-        }
-    }
 }
 
 @_spi(HoldTypeIOSCore)
