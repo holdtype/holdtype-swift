@@ -118,26 +118,6 @@ struct IOSVoiceHomeView: View {
             if case .notLoaded = draftOwner.state {
                 await draftOwner.refresh()
             }
-            let environment = ProcessInfo.processInfo.environment
-            guard environment["HOLDTYPE_AUTOMATION"] == "1",
-                  environment[
-                    "HOLDTYPE_AUTOMATION_FOCUS_DRAFT"
-                  ] == "1" else {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(250))
-            draftEditorIsFocused = true
-        }
-        .task {
-            let environment = ProcessInfo.processInfo.environment
-            guard environment["HOLDTYPE_AUTOMATION"] == "1",
-                  environment[
-                    "HOLDTYPE_AUTOMATION_FOCUS_PRACTICE"
-                  ] == "1" else {
-                return
-            }
-            await Task.yield()
-            practiceFieldIsFocused = true
         }
         .onChange(
             of: sceneOwner.presentation.phase,
