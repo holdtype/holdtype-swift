@@ -16,8 +16,7 @@ struct IOSVoiceSceneRegistryTests {
             registry.snapshot == IOSVoiceSceneRegistrySnapshot(
                 registeredSceneCount: 0,
                 foregroundActiveSceneCount: 0,
-                isForegroundActive: false,
-                revision: 0
+                isForegroundActive: false
             )
         )
         #expect(events.values.isEmpty)

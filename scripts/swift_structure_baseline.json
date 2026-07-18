@@ -35,7 +35,7 @@
     "HoldTypeIOS/IOSVoiceDraftOwner.swift": 587,
     "HoldTypeIOS/IOSVoiceHomeView.swift": 1723,
     "HoldTypeIOS/IOSVoiceRecorderAdapter.swift": 1492,
-    "HoldTypeIOS/IOSVoiceSceneRegistry.swift": 778,
+    "HoldTypeIOS/IOSVoiceSceneRegistry.swift": 764,
     "HoldTypeIOSTests/BrandStageKeyboardViewTests.swift": 1605,
     "HoldTypeIOSTests/IOSAcceptedTextHistoryStateOwnerTests.swift": 503,
     "HoldTypeIOSTests/IOSAppSettingsEditorSupportTests.swift": 627,

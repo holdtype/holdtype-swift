@@ -145,7 +145,6 @@ nonisolated struct IOSVoiceSceneRegistrySnapshot: Equatable, Sendable {
     let registeredSceneCount: Int
     let foregroundActiveSceneCount: Int
     let isForegroundActive: Bool
-    let revision: UInt64
 }
 
 /// Thread-safe exact-once storage for a MainActor observer-removal action.
@@ -305,7 +304,6 @@ final class IOSVoiceSceneRegistry {
     private var nextPromptGeneration: UInt64 = 1
     private var nextWaiterValue: UInt64 = 1
     private var nextObserverValue: UInt64 = 1
-    private var revision: UInt64 = 0
     private var foregroundRevision: UInt64 = 0
     private var promptRevision: UInt64 = 0
 
@@ -316,8 +314,7 @@ final class IOSVoiceSceneRegistry {
         return IOSVoiceSceneRegistrySnapshot(
             registeredSceneCount: scenes.count,
             foregroundActiveSceneCount: activeCount,
-            isForegroundActive: activeCount > 0,
-            revision: revision
+            isForegroundActive: activeCount > 0
         )
     }
 
@@ -347,7 +344,6 @@ final class IOSVoiceSceneRegistry {
         )
         nextSceneValue &+= 1
         scenes[identity.value] = SceneRecord(activity: initialActivity)
-        advanceRevision()
 
         var events: [IOSVoiceSceneRegistryEvent] = []
         appendAggregateTransitionIfNeeded(
@@ -371,7 +367,6 @@ final class IOSVoiceSceneRegistry {
 
         let wasForegroundActive = isForegroundActive
         scenes[identity.value]?.activity = activity
-        advanceRevision()
 
         var events: [IOSVoiceSceneRegistryEvent] = []
         reconcilePromptOwnerAfterSceneMutation(
@@ -397,7 +392,6 @@ final class IOSVoiceSceneRegistry {
 
         let wasForegroundActive = isForegroundActive
         scenes.removeValue(forKey: identity.value)
-        advanceRevision()
 
         var events: [IOSVoiceSceneRegistryEvent] = []
         if promptOwner?.sceneValue == identity.value {
@@ -442,7 +436,6 @@ final class IOSVoiceSceneRegistry {
             generation: generation,
             phase: .preflight
         )
-        advanceRevision()
         advancePromptRevision()
         return IOSVoiceSceneStartLease(
             registryIdentity: ObjectIdentifier(self),
@@ -497,7 +490,6 @@ final class IOSVoiceSceneRegistry {
             return false
         }
         promptOwner?.phase = .permissionPromptExpected
-        advanceRevision()
         advancePromptRevision()
         return true
     }
@@ -511,7 +503,6 @@ final class IOSVoiceSceneRegistry {
             return .stale
         }
 
-        advanceRevision()
         advancePromptRevision()
         if scene.activity == .active {
             promptOwner?.phase = .readyAfterPermission
@@ -565,7 +556,6 @@ final class IOSVoiceSceneRegistry {
         guard exactOwner(for: lease) != nil else { return false }
         var events: [IOSVoiceSceneRegistryEvent] = []
         invalidatePromptOwner(emitUnavailableEvent: false, events: &events)
-        advanceRevision()
         return true
     }
 
@@ -743,10 +733,6 @@ final class IOSVoiceSceneRegistry {
 
     fileprivate func removeEventObserver(_ observerValue: UInt64) -> Bool {
         eventObservers.removeValue(forKey: observerValue) != nil
-    }
-
-    private func advanceRevision() {
-        revision &+= 1
     }
 
     private func advancePromptRevision() {
