@@ -179,26 +179,6 @@
 			path = KeyboardShared;
 			sourceTree = "<group>";
 		};
-		D4A177012FF2000000000001 /* Packages/HoldTypeDomain/Tests/HoldTypeDomainTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeDomain/Tests/HoldTypeDomainTests;
-			sourceTree = "<group>";
-		};
-		D4A178012FF3000000000001 /* Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests;
-			sourceTree = "<group>";
-		};
-		D4A179012FF4000000000001 /* Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests;
-			sourceTree = "<group>";
-		};
-		D4A180012FF5000000000001 /* Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -269,10 +249,6 @@
 				D4A175032FF0000000000003 /* HoldTypeKeyboard */,
 				D4A175042FF0000000000004 /* KeyboardShared */,
 				9DB749B12FE800000053C3F3 /* HoldTypeIOSTests */,
-				D4A177012FF2000000000001 /* Packages/HoldTypeDomain/Tests/HoldTypeDomainTests */,
-				D4A179012FF4000000000001 /* Packages/HoldTypeOpenAI/Tests/HoldTypeOpenAITests */,
-				D4A178012FF3000000000001 /* Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests */,
-				D4A180012FF5000000000001 /* Packages/HoldTypeIOSCore/Tests/HoldTypeIOSCoreTests */,
 				9DB749792FE6D7320053C3F3 /* HoldTypeTests */,
 				9DB749832FE6D7320053C3F3 /* HoldTypeUITests */,
 				9DB7496A2FE6D7300053C3F3 /* Products */,
