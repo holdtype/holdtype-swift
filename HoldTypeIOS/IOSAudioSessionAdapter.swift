@@ -159,17 +159,14 @@ protocol IOSAudioSessionSystem: AnyObject {
 
 @MainActor
 final class IOSAudioSessionEventSubscription {
-    let attemptToken: IOSAudioSessionAttemptToken
     let generation: IOSAudioSessionObservationGeneration
 
     private var cancelAction: (@MainActor () -> Void)?
 
     init(
-        attemptToken: IOSAudioSessionAttemptToken,
         generation: IOSAudioSessionObservationGeneration,
         cancelAction: @escaping @MainActor () -> Void
     ) {
-        self.attemptToken = attemptToken
         self.generation = generation
         self.cancelAction = cancelAction
     }
@@ -336,7 +333,6 @@ final class IOSAudioSessionAdapter {
         diagnose(.observationInstalled)
 
         return IOSAudioSessionEventSubscription(
-            attemptToken: attemptToken,
             generation: generation
         ) { [weak self] in
             self?.removeObservation(matching: binding)
