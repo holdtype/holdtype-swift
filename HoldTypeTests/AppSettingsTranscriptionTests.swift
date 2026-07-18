@@ -48,7 +48,7 @@ struct AppSettingsTranscriptionTests {
             """
             \(prompt)
 
-            \(AppSettings.emojiCommandsPromptPrefix)\(
+            \(TranscriptionPromptComposition.emojiCommandsPromptPrefix)\(
                 settings.emojiCommandsConfiguration.promptText ?? ""
             )
             """

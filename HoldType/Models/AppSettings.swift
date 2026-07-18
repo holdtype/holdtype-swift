@@ -12,8 +12,6 @@ import HoldTypeDomain
 struct AppSettings: Equatable {
     static let defaultTranscriptionModel = TranscriptionConfiguration.defaultModel
     static let defaultTranslationModel = TranslationConfiguration.defaultModel
-    static let emojiCommandsPromptPrefix =
-        TranscriptionPromptComposition.emojiCommandsPromptPrefix
     static let defaultEnabledEmojiCommandSetIDs =
         EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
     static let defaultTextCorrectionPrompt = TextCorrectionConfiguration.defaultPrompt
@@ -173,23 +171,11 @@ struct AppSettings: Equatable {
         )
     }
 
-    var voiceSessionPreferences: VoiceSessionPreferences {
-        VoiceSessionPreferences(
-            audioCuesEnabled: soundEnabled,
-            recordingStopTailDuration: recordingStopTailDuration,
-            recordingDurationLimit: recordingDurationLimit
-        )
-    }
-
     var outputDeliveryPreferences: OutputDeliveryPreferences {
         OutputDeliveryPreferences(
             automaticInsertionPreferenceEnabled: automaticallyInsertTranscripts,
             keepLatestResult: saveTranscriptsToAppClipboard
         )
-    }
-
-    var enabledTextReplacementRules: [TextReplacementRule] {
-        transcriptPostProcessingConfiguration.enabledTextReplacementRules
     }
 
     var transcriptPostProcessingConfiguration: TranscriptPostProcessingConfiguration {

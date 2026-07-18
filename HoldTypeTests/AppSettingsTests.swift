@@ -44,7 +44,6 @@ struct AppSettingsTests {
         #expect(settings.isTextCorrectionPromptDefault)
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.textReplacementRules.isEmpty)
-        #expect(settings.enabledTextReplacementRules.isEmpty)
         #expect(settings.transcriptPostProcessingConfiguration == TranscriptPostProcessingConfiguration())
         #expect(settings.translationShortcutEnabled)
         #expect(settings.translationSourceMode == .sameAsTranscription)
@@ -68,7 +67,6 @@ struct AppSettingsTests {
         #expect(settings.saveTranscriptsToAppClipboard)
         #expect(settings.outputDeliveryPreferences == .defaults)
         #expect(settings.soundEnabled)
-        #expect(settings.voiceSessionPreferences == .defaults)
         #expect(settings.showFloatingIndicator)
         #expect(settings.recordingStopTailDuration == .off)
         #expect(settings.recordingStopTailDuration.duration == 0)
@@ -102,8 +100,6 @@ struct AppSettingsTests {
 
         #expect(settings.resolvedTextCorrectionModel == "custom-correction-model")
         #expect(settings.textCorrectionConfiguration.resolvedPrompt == "Fix only punctuation.")
-        #expect(settings.enabledTextReplacementRules.count == 1)
-        #expect(settings.enabledTextReplacementRules.first?.replacement == "plain")
         #expect(
             settings.transcriptPostProcessingConfiguration.textReplacementRules ==
                 settings.textReplacementRules
@@ -290,7 +286,6 @@ struct AppSettingsTests {
         #expect(settings.textReplacementRules.map(\.search) == ["—", "  "])
         #expect(settings.textReplacementRules.map(\.replacement) == ["-", ""])
         #expect(settings.textReplacementRules.map(\.isEnabled) == [true, false])
-        #expect(settings.enabledTextReplacementRules.count == 1)
 
         store.save(settings)
 
@@ -414,18 +409,7 @@ struct AppSettingsTests {
     }
 
 
-    @Test func projectsVoiceSessionPreferencesWithoutIncludingMacOnlyIndicatorState() {
-        var settings = AppSettings.defaults
-        settings.soundEnabled = false
-        settings.recordingStopTailDuration = .seconds1_5
-        settings.recordingDurationLimit = RecordingDurationLimit(minutes: 12)
-        settings.showFloatingIndicator = false
-
-        #expect(settings.voiceSessionPreferences == VoiceSessionPreferences(
-            audioCuesEnabled: false,
-            recordingStopTailDuration: .seconds1_5,
-            recordingDurationLimit: RecordingDurationLimit(minutes: 12)
-        ))
+    @Test func voiceSessionPreferenceOptionsHaveExpectedLabels() {
         #expect(RecordingStopTailDuration.allCases.map(\.displayName) == [
             "Off",
             "0.5 seconds",
@@ -517,11 +501,13 @@ struct AppSettingsTests {
             store.save(settings)
             #expect(defaults.bool(forKey: soundKey) == false)
             #expect(defaults.string(forKey: tailKey) == tail.rawValue)
-            #expect(store.load().voiceSessionPreferences == VoiceSessionPreferences(
-                audioCuesEnabled: false,
-                recordingStopTailDuration: tail,
-                recordingDurationLimit: RecordingDurationLimit(minutes: 12)
-            ))
+            let loaded = store.load()
+            #expect(!loaded.soundEnabled)
+            #expect(loaded.recordingStopTailDuration == tail)
+            #expect(
+                loaded.recordingDurationLimit
+                    == RecordingDurationLimit(minutes: 12)
+            )
         }
         #expect(defaults.integer(forKey: durationLimitKey) == 12)
 
@@ -532,7 +518,10 @@ struct AppSettingsTests {
         defaults.set("not-a-bool", forKey: soundKey)
         defaults.set(Data([0x01]), forKey: tailKey)
         defaults.set(Data([0x02]), forKey: durationLimitKey)
-        #expect(store.load().voiceSessionPreferences == .defaults)
+        let invalidLoaded = store.load()
+        #expect(invalidLoaded.soundEnabled)
+        #expect(invalidLoaded.recordingStopTailDuration == .off)
+        #expect(invalidLoaded.recordingDurationLimit == .default)
         #expect(defaults.string(forKey: soundKey) == "not-a-bool")
         #expect(defaults.data(forKey: tailKey) == Data([0x01]))
         #expect(defaults.data(forKey: durationLimitKey) == Data([0x02]))
@@ -540,7 +529,10 @@ struct AppSettingsTests {
         defaults.removeObject(forKey: soundKey)
         defaults.removeObject(forKey: tailKey)
         defaults.removeObject(forKey: durationLimitKey)
-        #expect(store.load().voiceSessionPreferences == .defaults)
+        let missingLoaded = store.load()
+        #expect(missingLoaded.soundEnabled)
+        #expect(missingLoaded.recordingStopTailDuration == .off)
+        #expect(missingLoaded.recordingDurationLimit == .default)
         #expect(defaults.object(forKey: soundKey) == nil)
         #expect(defaults.object(forKey: tailKey) == nil)
     }
