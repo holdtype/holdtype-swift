@@ -29,7 +29,7 @@ struct AppSettingsTests {
         #expect(settings.enabledEmojiCommandSetIDs == ["en"])
         #expect(settings.emojiCommandsConfiguration == .defaults)
         #expect(settings.customEmojiCommands.isEmpty)
-        #expect(settings.resolvedPrompt?.contains("Emoji command vocabulary") == true)
+        #expect(settings.transcriptionPromptComposition(context: nil).providerPrompt?.contains("Emoji command vocabulary") == true)
         #expect(settings.useActiveTextContext == false)
         #expect(settings.textCorrectionEnabled == false)
         #expect(settings.textCorrectionModelPreset == .quality)

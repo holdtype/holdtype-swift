@@ -16,7 +16,7 @@ struct AppSettingsTranscriptionTests {
         #expect(settings.resolvedCustomDictionaryEntries == ["OpenWhispr", "Synty"])
         #expect(settings.resolvedCustomDictionary.promptText == "OpenWhispr, Synty")
         #expect(
-            settings.resolvedPrompt ==
+            settings.transcriptionPromptComposition(context: nil).providerPrompt ==
                 """
                 release names, Swift symbols
 
@@ -44,15 +44,18 @@ struct AppSettingsTranscriptionTests {
             settings.customLanguageCodeValidation ==
                 configuration.customLanguageCodeValidation
         )
-        #expect(settings.resolvedPrompt == configuration.resolvedFreeformPrompt.map { prompt in
-            """
-            \(prompt)
+        #expect(
+            settings.transcriptionPromptComposition(context: nil).providerPrompt ==
+                configuration.resolvedFreeformPrompt.map { prompt in
+                    """
+                    \(prompt)
 
-            \(TranscriptionPromptComposition.emojiCommandsPromptPrefix)\(
-                settings.emojiCommandsConfiguration.promptText ?? ""
-            )
-            """
-        })
+                    \(TranscriptionPromptComposition.emojiCommandsPromptPrefix)\(
+                        settings.emojiCommandsConfiguration.promptText ?? ""
+                    )
+                    """
+                }
+        )
     }
 
     @Test func includesActiveTextContextOnlyWhenEnabled() throws {
@@ -64,18 +67,23 @@ struct AppSettingsTranscriptionTests {
             TranscriptionPromptContext("The user is already writing about macOS Accessibility.")
         )
 
-        #expect(disabledSettings.resolvedPrompt(context: context) == "Prefer project vocabulary.")
+        let disabledComposition = disabledSettings.transcriptionPromptComposition(
+            context: context
+        )
+        #expect(disabledComposition.providerPrompt == "Prefer project vocabulary.")
         #expect(
-            disabledSettings.transcriptionPromptComposition(context: context)
-                .contextEchoGuardText == nil
+            disabledComposition.contextEchoGuardText == nil
         )
 
         var enabledSettings = disabledSettings
         enabledSettings.useActiveTextContext = true
         enabledSettings.customDictionary = ["HoldType"]
 
+        let composition = enabledSettings.transcriptionPromptComposition(
+            context: context
+        )
         #expect(
-            enabledSettings.resolvedPrompt(context: context) ==
+            composition.providerPrompt ==
                 """
                 Prefer project vocabulary.
 
@@ -85,8 +93,6 @@ struct AppSettingsTranscriptionTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
-        let composition = enabledSettings.transcriptionPromptComposition(context: context)
-        #expect(composition.providerPrompt == enabledSettings.resolvedPrompt(context: context))
         #expect(
             composition.contextEchoGuardText ==
                 "The user is already writing about macOS Accessibility."
@@ -145,8 +151,9 @@ struct AppSettingsTranscriptionTests {
         settings.customDictionary = ["HoldType"]
         let context = try #require(TranscriptionPromptContext("Existing sentence."))
 
+        let composition = settings.transcriptionPromptComposition(context: context)
         #expect(
-            settings.resolvedPrompt(context: context) ==
+            composition.providerPrompt ==
                 """
                 Prefer product vocabulary.
 
@@ -158,8 +165,6 @@ struct AppSettingsTranscriptionTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
-        let composition = settings.transcriptionPromptComposition(context: context)
-        #expect(composition.providerPrompt == settings.resolvedPrompt(context: context))
         #expect(composition.contextEchoGuardText == "Existing sentence.")
         #expect(composition.dictionaryEchoGuardText == "HoldType")
     }

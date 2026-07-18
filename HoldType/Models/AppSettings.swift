@@ -186,14 +186,6 @@ struct AppSettings: Equatable {
         )
     }
 
-    var resolvedPrompt: String? {
-        resolvedPrompt(context: nil)
-    }
-
-    func resolvedPrompt(context: TranscriptionPromptContext?) -> String? {
-        transcriptionPromptComposition(context: context).providerPrompt
-    }
-
     func transcriptionPromptComposition(
         context: TranscriptionPromptContext?
     ) -> TranscriptionPromptComposition {
