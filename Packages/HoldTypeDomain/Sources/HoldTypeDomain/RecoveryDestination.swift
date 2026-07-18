@@ -4,7 +4,5 @@ public enum RecoveryDestination: Equatable, Sendable {
     case openAI
     case transcription
     case translation
-    case keyboard
-    case fullAccess
     case microphoneAndPrivacy
 }

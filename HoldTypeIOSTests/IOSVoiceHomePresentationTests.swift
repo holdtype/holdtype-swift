@@ -393,8 +393,6 @@ struct IOSVoiceHomePresentationTests {
             .openAI,
             .transcription,
             .translation,
-            .keyboard,
-            .fullAccess,
             .microphoneAndPrivacy,
         ]
 
@@ -407,18 +405,6 @@ struct IOSVoiceHomePresentationTests {
             #expect(!resolved.title.isEmpty)
             #expect(!resolved.detail.isEmpty)
         }
-    }
-
-    @Test func dormantFullAccessRecoveryCopyMatchesTheNoAccessContract() {
-        let resolved = IOSVoiceHomePresentation.resolve(
-            voicePresentation(setup: .needsSetup(.fullAccess))
-        )
-
-        #expect(resolved.title == "Full Access required for keyboard voice")
-        #expect(
-            resolved.detail
-                == "Turn on Allow Full Access for keyboard-controlled dictation. Local editing and Latest insertion remain available without it."
-        )
     }
 
     @Test func everyRecoveryRemainsVisibleAndNeverLooksReady() {
@@ -622,8 +608,6 @@ private func voiceStatusFixtures() -> [IOSForegroundVoicePresentation] {
         RecoveryDestination.openAI,
         .transcription,
         .translation,
-        .keyboard,
-        .fullAccess,
         .microphoneAndPrivacy,
     ].map { voicePresentation(setup: .needsSetup($0)) }
     values += [

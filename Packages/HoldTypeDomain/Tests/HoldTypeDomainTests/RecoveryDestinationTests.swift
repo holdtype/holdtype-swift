@@ -7,12 +7,10 @@ struct RecoveryDestinationTests {
             .openAI,
             .transcription,
             .translation,
-            .keyboard,
-            .fullAccess,
             .microphoneAndPrivacy,
         ]
 
-        #expect(destinations.count == 6)
+        #expect(destinations.count == 4)
         for destination in destinations {
             assertKnownDestination(destination)
         }
@@ -32,8 +30,6 @@ struct RecoveryDestinationTests {
         case .openAI,
              .transcription,
              .translation,
-             .keyboard,
-             .fullAccess,
              .microphoneAndPrivacy:
             break
         }

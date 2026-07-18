@@ -1451,16 +1451,6 @@ struct IOSVoiceHomeView: View {
                 "Review Privacy & Permissions",
                 { openVoiceRecoverySettings(destination) }
             )
-        case .keyboard:
-            (
-                "Open Keyboard Setup",
-                { openVoiceRecoverySettings(destination) }
-            )
-        case .fullAccess:
-            (
-                "Enable Full Access",
-                { openVoiceRecoverySettings(destination) }
-            )
         }
     }
 
@@ -1496,10 +1486,6 @@ struct IOSVoiceHomeView: View {
             .transcription
         case .translation:
             .translation
-        case .keyboard:
-            .keyboard
-        case .fullAccess:
-            .fullAccess
         case .microphoneAndPrivacy:
             sceneOwner.presentation.failure == .microphonePermissionDenied
                 ? .microphonePermission

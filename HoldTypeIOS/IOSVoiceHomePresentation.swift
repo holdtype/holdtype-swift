@@ -504,18 +504,6 @@ enum IOSVoiceHomePresentation {
                 "Choose a valid translation target before using Translate.",
                 "character.bubble"
             )
-        case .keyboard:
-            copy = (
-                "Keyboard setup required",
-                "Finish the keyboard setup and verify it in the practice field.",
-                "keyboard"
-            )
-        case .fullAccess:
-            copy = (
-                "Full Access required for keyboard voice",
-                "Turn on Allow Full Access for keyboard-controlled dictation. Local editing and Latest insertion remain available without it.",
-                "keyboard.badge.ellipsis"
-            )
         case .microphoneAndPrivacy:
             copy = (
                 "Privacy review required",

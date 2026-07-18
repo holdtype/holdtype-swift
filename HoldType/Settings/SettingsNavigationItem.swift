@@ -123,7 +123,7 @@ extension SettingsNavigationItem {
             self = .transcription
         case .translation:
             self = .translation
-        case .keyboard, .fullAccess, .microphoneAndPrivacy:
+        case .microphoneAndPrivacy:
             return nil
         }
     }
