@@ -254,53 +254,19 @@ struct IOSProviderConsentPresentationOwnerTests {
         #expect(lease.finish())
     }
 
-    @Test func privacyWithdrawalUsesExactConfirmationAndIsFailClosed()
-        async throws {
-        let fixture = try ConsentPresentationFixture()
-        defer { fixture.remove() }
-        _ = try await fixture.coordinator.accept(
-            using: fixture.coordinator.observe(),
-            decisionAt: fixture.now
-        )
-        let invalidations = ConsentPresentationProbe()
-        let owner = fixture.makeOwner()
-        owner.bindVoiceInvalidation { invalidations.recordInvalidation() }
-        await owner.activatePrivacy()
-        let token = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
-        )
-
-        owner.confirmPrivacyAction(token)
-        owner.confirmPrivacyAction(token)
-        await owner.waitUntilIdle()
-        try await consentEventually { invalidations.invalidationCount == 1 }
-
-        let snapshot = try #require(privacySnapshot(owner.privacyState))
-        #expect(snapshot.status == .withdrawn)
-        #expect(owner.notice == .withdrawn)
-        #expect(owner.failure == nil)
-        #expect(
-            owner.makePrivacyConfirmation(for: .withdraw) == nil
-        )
-    }
-
     @Test func privacyConfirmationValidityTracksExactProcessToken()
         async throws {
         let fixture = try ConsentPresentationFixture()
         defer { fixture.remove() }
-        _ = try await fixture.coordinator.accept(
-            using: fixture.coordinator.observe(),
-            decisionAt: fixture.now
-        )
         let owner = fixture.makeOwner()
         await owner.activatePrivacy()
 
         let stale = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
+            owner.makePrivacyConfirmation(for: .acceptCurrentDisclosure)
         )
         #expect(owner.isPrivacyConfirmationCurrent(stale))
         let current = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
+            owner.makePrivacyConfirmation(for: .acceptCurrentDisclosure)
         )
         #expect(!owner.isPrivacyConfirmationCurrent(stale))
         #expect(owner.isPrivacyConfirmationCurrent(current))
@@ -310,93 +276,11 @@ struct IOSProviderConsentPresentationOwnerTests {
         #expect(!owner.isPrivacyConfirmationCurrent(current))
         #expect(owner.confirmPrivacyAction(current) == .stale)
         let refreshed = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
+            owner.makePrivacyConfirmation(for: .acceptCurrentDisclosure)
         )
         #expect(owner.confirmPrivacyAction(refreshed) == .accepted)
         #expect(!owner.isPrivacyConfirmationCurrent(refreshed))
         await owner.waitUntilIdle()
-    }
-
-    @Test func preflightObservationCannotOverwriteQueuedWithdrawal()
-        async throws {
-        let fixture = try ConsentPresentationFixture()
-        defer { fixture.remove() }
-        _ = try await fixture.coordinator.accept(
-            using: fixture.coordinator.observe(),
-            decisionAt: fixture.now
-        )
-        let observeGate = ConsentPresentationGate()
-        let probe = ConsentPresentationProbe()
-        let owner = fixture.makeOwner(
-            probe: probe,
-            observeGateAfterFirstLoad: observeGate
-        )
-        await owner.activatePrivacy()
-        let scene = fixture.registry.registerScene(initialActivity: .active)
-        let lease = try #require(scene.acquireStartLease())
-        let start = Task { @MainActor in
-            let observation = await owner.observeForVoicePreflight()
-            return await owner.continueVoiceStart(
-                lease: lease,
-                observation: observation
-            )
-        }
-        try await consentEventually { probe.observeCount == 2 }
-        let token = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
-        )
-
-        owner.confirmPrivacyAction(token)
-        await observeGate.open()
-        #expect(await start.value == nil)
-        await owner.waitUntilIdle()
-
-        let snapshot = try #require(privacySnapshot(owner.privacyState))
-        #expect(snapshot.status == .withdrawn)
-        #expect(owner.voicePrompt == nil)
-        #expect(lease.finish())
-    }
-
-    @Test func olderObserveCannotPublishAfterNewerWithdrawal()
-        async throws {
-        let fixture = try ConsentPresentationFixture()
-        defer { fixture.remove() }
-        _ = try await fixture.coordinator.accept(
-            using: fixture.coordinator.observe(),
-            decisionAt: fixture.now
-        )
-        let interposition = ConsentPublicationInterposition(
-            heldSequence: 2
-        )
-        let owner = fixture.makeOwner(beforePublication: { sequence in
-            await interposition.pauseIfNeeded(sequence)
-        })
-        await owner.activatePrivacy()
-        let token = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
-        )
-        let scene = fixture.registry.registerScene(initialActivity: .active)
-        let lease = try #require(scene.acquireStartLease())
-        let start = Task { @MainActor in
-            let observation = await owner.observeForVoicePreflight()
-            return await owner.continueVoiceStart(
-                lease: lease,
-                observation: observation
-            )
-        }
-        await interposition.waitUntilPaused()
-
-        owner.confirmPrivacyAction(token)
-        await owner.waitUntilIdle()
-        let withdrawn = try #require(privacySnapshot(owner.privacyState))
-        #expect(withdrawn.status == .withdrawn)
-        await interposition.release()
-        #expect(await start.value == nil)
-
-        let final = try #require(privacySnapshot(owner.privacyState))
-        #expect(final.status == .withdrawn)
-        #expect(owner.voicePrompt == nil)
-        #expect(lease.finish())
     }
 
     @Test func olderNotReviewedObserveCannotPublishAfterNewerAcceptance()
@@ -500,7 +384,7 @@ struct IOSProviderConsentPresentationOwnerTests {
         #expect(lease.finish())
     }
 
-    @Test func failedWithdrawalFenceRotationRejectsStaleStartAndReaccepts()
+    @Test func failedVoiceDeclineKeepsGateClosedUntilReacceptance()
         async throws {
         let fixture = try ConsentPresentationFixture()
         defer { fixture.remove() }
@@ -508,40 +392,30 @@ struct IOSProviderConsentPresentationOwnerTests {
             using: fixture.coordinator.observe(),
             decisionAt: fixture.now
         )
-        let interposition = ConsentPublicationInterposition(
-            heldSequence: 2
-        )
+        fixture.coordinator.closeProviderAuthorizations()
         let failurePlan = ConsentPresentationFailurePlan(
             failNextWithdrawalAfterClose: true
         )
-        let owner = fixture.makeOwner(
-            failurePlan: failurePlan,
-            beforePublication: { sequence in
-                await interposition.pauseIfNeeded(sequence)
-            }
-        )
-        await owner.activatePrivacy()
-        let withdrawal = try #require(
-            owner.makePrivacyConfirmation(for: .withdraw)
-        )
+        let owner = fixture.makeOwner(failurePlan: failurePlan)
         let scene = fixture.registry.registerScene(initialActivity: .active)
         let lease = try #require(scene.acquireStartLease())
-        let staleStart = Task { @MainActor in
-            let observation = await owner.observeForVoicePreflight()
-            return await owner.continueVoiceStart(
+        let firstObservation = await owner.observeForVoicePreflight()
+        let declinedStart = Task { @MainActor in
+            await owner.continueVoiceStart(
                 lease: lease,
-                observation: observation
+                observation: firstObservation
             )
         }
-        await interposition.waitUntilPaused()
+        try await consentEventually { owner.voicePrompt != nil }
+        let declinePrompt = try #require(owner.voicePrompt)
+        let capability = try #require(scene.promptDecisionCapability())
 
-        owner.confirmPrivacyAction(withdrawal)
+        owner.declineVoicePrompt(declinePrompt.id, from: capability)
         await owner.waitUntilIdle()
+        #expect(await declinedStart.value == nil)
         let refreshed = try #require(privacySnapshot(owner.privacyState))
         #expect(refreshed.status == .acceptedCurrentDisclosure)
         #expect(refreshed.requiresExplicitAcceptance)
-        await interposition.release()
-        #expect(await staleStart.value == nil)
         #expect(owner.voicePrompt == nil)
 
         let fresh = await owner.observeForVoicePreflight()
@@ -553,7 +427,6 @@ struct IOSProviderConsentPresentationOwnerTests {
         }
         try await consentEventually { owner.voicePrompt != nil }
         let prompt = try #require(owner.voicePrompt)
-        let capability = try #require(scene.promptDecisionCapability())
         owner.acceptVoicePrompt(prompt.id, from: capability)
         await owner.waitUntilIdle()
         let reopened = try #require(await reaccept.value)
@@ -652,7 +525,6 @@ private final class ConsentPresentationFixture {
     func makeOwner(
         probe: ConsentPresentationProbe = ConsentPresentationProbe(),
         acceptGate: ConsentPresentationGate? = nil,
-        observeGateAfterFirstLoad: ConsentPresentationGate? = nil,
         failurePlan: ConsentPresentationFailurePlan? = nil,
         beforePublication:
             @escaping IOSProviderConsentPresentationOwner.BeforePublication = {
@@ -664,10 +536,7 @@ private final class ConsentPresentationFixture {
         return IOSProviderConsentPresentationOwner(
             client: IOSProviderConsentPresentationClient(
                 observe: {
-                    let count = probe.recordObserve()
-                    if count > 1, let observeGateAfterFirstLoad {
-                        await observeGateAfterFirstLoad.wait()
-                    }
+                    probe.recordObserve()
                     return await coordinator.observe()
                 },
                 accept: { observation, decisionAt in
@@ -762,10 +631,9 @@ private final class ConsentPresentationProbe: @unchecked Sendable {
         lock.withLock { storedInvalidationCount }
     }
 
-    func recordObserve() -> Int {
+    func recordObserve() {
         lock.withLock {
             storedObserveCount += 1
-            return storedObserveCount
         }
     }
     func recordAccept() { lock.withLock { storedAcceptCount += 1 } }

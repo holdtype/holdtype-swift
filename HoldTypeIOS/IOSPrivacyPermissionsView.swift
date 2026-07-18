@@ -88,7 +88,7 @@ struct IOSPrivacyPermissionsView: View {
             )
         }
         .confirmationDialog(
-            confirmationTitle,
+            "Reset Unreadable Consent Data?",
             isPresented: Binding(
                 get: { pendingConfirmationIsCurrent },
                 set: { if !$0 { pendingConfirmation = nil } }
@@ -97,8 +97,8 @@ struct IOSPrivacyPermissionsView: View {
         ) {
             if let pendingConfirmation {
                 Button(
-                    pendingConfirmation.action.confirmationButtonTitle,
-                    role: pendingConfirmation.action.confirmationRole
+                    "Reset Consent Data",
+                    role: .destructive
                 ) {
                     _ = consentOwner.confirmPrivacyAction(
                         pendingConfirmation.token
@@ -110,7 +110,10 @@ struct IOSPrivacyPermissionsView: View {
                 pendingConfirmation = nil
             }
         } message: {
-            Text(confirmationMessage)
+            Text(
+                "This removes only the unreadable consent decision. Your API "
+                    + "key, settings, History, and results stay unchanged."
+            )
         }
     }
 
@@ -208,20 +211,13 @@ struct IOSPrivacyPermissionsView: View {
                     attentionTarget: activeAttentionTarget
                 )
 
-                if let action = presentation.action {
-                    Button(
-                        action.buttonTitle,
-                        role: action.buttonRole
-                    ) {
-                        if action == .acceptCurrentDisclosure {
-                            beginDisclosureReview()
-                        } else {
-                            beginConfirmation(action)
-                        }
+                if presentation.action == .acceptCurrentDisclosure {
+                    Button("Review and Accept") {
+                        beginDisclosureReview()
                     }
                     .disabled(consentOwner.isBusy)
                     .accessibilityIdentifier(
-                        "ios.privacy.consent.\(action.accessibilityName)"
+                        "ios.privacy.consent.accept"
                     )
                 }
 
@@ -230,7 +226,7 @@ struct IOSPrivacyPermissionsView: View {
                         "Reset Unreadable Consent Data",
                         role: .destructive
                     ) {
-                        beginConfirmation(.resetUnreadableData)
+                        beginResetConfirmation()
                     }
                     .disabled(consentOwner.isBusy)
                     .accessibilityIdentifier(
@@ -262,10 +258,6 @@ struct IOSPrivacyPermissionsView: View {
         }
     }
 
-    private var confirmationTitle: String {
-        pendingConfirmation?.action.confirmationTitle ?? "Confirm Change"
-    }
-
     private var pendingConfirmationIsCurrent: Bool {
         guard let pendingConfirmation else { return false }
         return consentOwner.isPrivacyConfirmationCurrent(
@@ -273,21 +265,14 @@ struct IOSPrivacyPermissionsView: View {
         )
     }
 
-    private var confirmationMessage: String {
-        pendingConfirmation?.action.confirmationMessage ?? ""
-    }
-
-    private func beginConfirmation(
-        _ action: IOSProviderConsentPrivacyAction
-    ) {
+    private func beginResetConfirmation() {
         guard let token = consentOwner.makePrivacyConfirmation(
-            for: action
+            for: .resetUnreadableData
         ) else {
             return
         }
         pendingConfirmation = IOSPrivacyConsentConfirmation(
-            token: token,
-            action: action
+            token: token
         )
     }
 
@@ -298,8 +283,7 @@ struct IOSPrivacyPermissionsView: View {
             return
         }
         disclosureReview = IOSPrivacyConsentConfirmation(
-            token: token,
-            action: .acceptCurrentDisclosure
+            token: token
         )
     }
 
@@ -360,7 +344,6 @@ nonisolated enum IOSPrivacySettingsAttentionResolver {
 private struct IOSPrivacyConsentConfirmation: Identifiable {
     let id = UUID()
     let token: IOSProviderConsentConfirmationToken
-    let action: IOSProviderConsentPrivacyAction
 }
 
 private struct IOSProviderConsentPrivacyReviewSheet: View {
@@ -554,79 +537,6 @@ struct IOSConsentPrivacyPresentation {
     }
 }
 
-private extension IOSProviderConsentPrivacyAction {
-    var buttonTitle: String {
-        switch self {
-        case .acceptCurrentDisclosure:
-            "Review and Accept"
-        case .withdraw:
-            "Withdraw Consent"
-        case .resetUnreadableData:
-            "Reset Unreadable Consent Data"
-        }
-    }
-
-    var buttonRole: ButtonRole? {
-        switch self {
-        case .acceptCurrentDisclosure:
-            nil
-        case .withdraw, .resetUnreadableData:
-            .destructive
-        }
-    }
-
-    var confirmationTitle: String {
-        switch self {
-        case .acceptCurrentDisclosure:
-            "Accept OpenAI Processing?"
-        case .withdraw:
-            "Withdraw OpenAI Processing Consent?"
-        case .resetUnreadableData:
-            "Reset Unreadable Consent Data?"
-        }
-    }
-
-    var confirmationButtonTitle: String {
-        switch self {
-        case .acceptCurrentDisclosure:
-            "Accept"
-        case .withdraw:
-            "Withdraw Consent"
-        case .resetUnreadableData:
-            "Reset Consent Data"
-        }
-    }
-
-    var confirmationRole: ButtonRole? {
-        buttonRole
-    }
-
-    var confirmationMessage: String {
-        switch self {
-        case .acceptCurrentDisclosure:
-            "This allows Voice to send recordings to OpenAI for processing."
-        case .withdraw:
-            "This stops future OpenAI requests. A recording already captured "
-                + "stays available for Recover or Discard. Requests already "
-                + "received by OpenAI cannot be recalled."
-        case .resetUnreadableData:
-            "This removes only the unreadable consent decision. Your API key, "
-                + "settings, History, and results stay unchanged."
-        }
-    }
-
-    var accessibilityName: String {
-        switch self {
-        case .acceptCurrentDisclosure:
-            "accept"
-        case .withdraw:
-            "withdraw"
-        case .resetUnreadableData:
-            "reset-unreadable"
-        }
-    }
-}
-
 private extension IOSProviderConsentPresentationOperation {
     var progressTitle: String {
         switch self {
@@ -634,7 +544,7 @@ private extension IOSProviderConsentPresentationOperation {
             "Ready"
         case .acceptingVoice, .acceptingPrivacy:
             "Saving acceptance…"
-        case .decliningVoice, .withdrawingPrivacy:
+        case .decliningVoice:
             "Saving withdrawal…"
         case .resettingUnreadableData:
             "Resetting consent data…"

@@ -22,7 +22,6 @@ nonisolated enum IOSProviderConsentPresentationOperation:
     case acceptingVoice
     case decliningVoice
     case acceptingPrivacy
-    case withdrawingPrivacy
     case resettingUnreadableData
 }
 
@@ -58,7 +57,6 @@ nonisolated struct IOSProviderConsentVoicePromptPresentation:
 
 nonisolated enum IOSProviderConsentPrivacyAction: Equatable, Sendable {
     case acceptCurrentDisclosure
-    case withdraw
     case resetUnreadableData
 }
 
@@ -616,8 +614,6 @@ final class IOSProviderConsentPresentationOwner {
             confirmation.action {
         case .acceptCurrentDisclosure:
             .acceptingPrivacy
-        case .withdraw:
-            .withdrawingPrivacy
         case .resetUnreadableData:
             .resettingUnreadableData
         }
@@ -646,20 +642,6 @@ final class IOSProviderConsentPresentationOwner {
                         )
                     }
                     notice = .accepted
-                case .withdraw:
-                    result = try await self.operationGate.perform {
-                        let withdrawn = try await client.withdraw(
-                            observation,
-                            decisionAt,
-                            relay.signal
-                        )
-                        return IOSProviderConsentPresentedObservation(
-                            observation: withdrawn,
-                            isAuthorizationReady:
-                                client.isAuthorizationReady(withdrawn)
-                        )
-                    }
-                    notice = .withdrawn
                 case .resetUnreadableData:
                     result = try await self.operationGate.perform {
                         let reset = try await client.resetUnreadableData(
@@ -880,8 +862,6 @@ final class IOSProviderConsentPresentationOwner {
                 for: observation,
                 isAuthorizationReady: isAuthorizationReady
             )
-        case .withdraw:
-            return observation.status == .acceptedCurrentDisclosure
         case .resetUnreadableData:
             return observation.canResetUnreadableData
         }
