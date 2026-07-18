@@ -84,7 +84,7 @@
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSAppSettingsRepository.swift": 586,
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSLibraryRepository.swift": 540,
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSTranscriptionUsageRepository.swift": 633,
-    "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSV1ForegroundVoicePersistence.swift": 2026,
+    "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSV1ForegroundVoicePersistence.swift": 1776,
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSV1ProviderConsent.swift": 937,
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/IOSVoiceStateRepository.swift": 1831,
     "Packages/HoldTypePersistence/Sources/HoldTypePersistence/ProtectedAtomicMetadataFileSystem.swift": 907,
