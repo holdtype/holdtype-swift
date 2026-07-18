@@ -152,6 +152,8 @@ def snapshot_file(path: str, generated_files: set[str]) -> SwiftFileSnapshot | N
     if path in generated_files:
         return None
     absolute_path = REPOSITORY_ROOT / path
+    if not absolute_path.is_file():
+        return None
     try:
         source = absolute_path.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as error:
