@@ -17,10 +17,6 @@ protocol TextCorrectionServing {
     func cancelActiveCorrection()
 }
 
-extension TextCorrectionServing {
-    func cancelActiveCorrection() {}
-}
-
 struct TranscriptTextCorrectionService: TextCorrectionServing {
     private let openAITextCorrectionService: any OpenAITextCorrectionServing
     private let localPostProcessor: TranscriptTextPostProcessor

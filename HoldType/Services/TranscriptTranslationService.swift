@@ -17,10 +17,6 @@ protocol TranscriptTranslationServing {
     func cancelActiveTranslation()
 }
 
-extension TranscriptTranslationServing {
-    func cancelActiveTranslation() {}
-}
-
 struct TranscriptTranslationService: TranscriptTranslationServing {
     private let openAITextTranslationService: any OpenAITextTranslationServing
 
