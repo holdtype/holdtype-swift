@@ -936,10 +936,6 @@ public struct IOSV1ForegroundVoiceTranscriptionDispatch: Sendable {
         self.audio = audio
     }
 
-    public var expectation: IOSV1PendingRecordingExpectation {
-        IOSV1PendingRecordingExpectation(recording: recording)
-    }
-
     public func execute(
         using executor: any IOSV1PendingTranscriptionExecutor
     ) async throws -> String {
@@ -1657,12 +1653,6 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
                 )
             )
         } catch { throw mapRepositoryError(error) }
-    }
-
-    public func markPostProcessing(
-        expected: IOSV1PendingRecordingExpectation
-    ) async throws -> IOSV1PendingRecording {
-        try await advance(expected, to: .postProcessing)
     }
 
     public func markOutputDelivery(

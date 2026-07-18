@@ -462,7 +462,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
             transcriptionID: FacadeIDs.operation
         )
         let failed = try await fixture.owner.markFailed(
-            expected: first.expectation
+            expected: pendingExpectation(for: first)
         )
         #expect(failed.phase == .failed)
 
@@ -477,7 +477,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(retry.recording.transcriptionModel == "current-model")
         #expect(retry.recording.transcriptionLanguageCode == "ru")
         let retryFailed = try await fixture.owner.markFailed(
-            expected: retry.expectation
+            expected: pendingExpectation(for: retry)
         )
         fixture.events.clear()
 
@@ -502,7 +502,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
             transcriptionID: FacadeIDs.operation
         )
         let failed = try await fixture.owner.markFailed(
-            expected: dispatch.expectation,
+            expected: pendingExpectation(for: dispatch),
             transcriptionReplayBlocked: true
         )
 
@@ -551,7 +551,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
             )
         }
         let failed = try await fixture.owner.markFailed(
-            expected: first.expectation
+            expected: pendingExpectation(for: first)
         )
         #expect(calls.count == 1)
 
@@ -578,8 +578,9 @@ struct IOSV1ForegroundVoicePersistenceTests {
         #expect(text == "accepted after retry")
         #expect(calls.count == 2)
 
-        let post = try await fixture.owner.markPostProcessing(
-            expected: retry.expectation
+        let post = try await fixture.owner.checkpointTranscription(
+            expected: pendingExpectation(for: retry),
+            acceptedTranscript: text
         )
         let output = try await fixture.owner.markOutputDelivery(
             expected: IOSV1PendingRecordingExpectation(recording: post)
@@ -696,7 +697,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
         )
         let transcriptionCheckpoint = try await fixture.owner
             .checkpointTranscription(
-                expected: dispatch.expectation,
+                expected: pendingExpectation(for: dispatch),
                 acceptedTranscript: accepted
             )
         let outputCheckpoint = try await fixture.owner
@@ -829,7 +830,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
                 )
             }
             let failed = try await fixture.owner.markFailed(
-                expected: first.expectation
+                expected: pendingExpectation(for: first)
             )
             let retry = try await fixture.owner.retryTranscription(
                 expected: IOSV1PendingRecordingExpectation(
@@ -1262,7 +1263,7 @@ struct IOSV1ForegroundVoicePersistenceTests {
             }
             #expect(calls.count == 1)
             let failed = try await fixture.owner.markFailed(
-                expected: dispatch.expectation
+                expected: pendingExpectation(for: dispatch)
             )
             #expect(failed.phase == .failed)
             #expect(fixture.audio.contains(FacadeIDs.attempt))
@@ -1315,8 +1316,9 @@ struct IOSV1ForegroundVoicePersistenceTests {
                 outcome: .success("accepted unknown recording")
             )
         )
-        let post = try await fixture.owner.markPostProcessing(
-            expected: dispatch.expectation
+        let post = try await fixture.owner.checkpointTranscription(
+            expected: pendingExpectation(for: dispatch),
+            acceptedTranscript: text
         )
         let output = try await fixture.owner.markOutputDelivery(
             expected: IOSV1PendingRecordingExpectation(recording: post)
@@ -1656,8 +1658,9 @@ private final class FacadeFixture: @unchecked Sendable {
             expected: ready.expectation,
             transcriptionID: FacadeIDs.operation
         )
-        let post = try await owner.markPostProcessing(
-            expected: dispatch.expectation
+        let post = try await owner.checkpointTranscription(
+            expected: pendingExpectation(for: dispatch),
+            acceptedTranscript: "accepted text"
         )
         let output = try await owner.markOutputDelivery(
             expected: IOSV1PendingRecordingExpectation(recording: post)
@@ -1974,6 +1977,12 @@ private final class ReadProbe: @unchecked Sendable {
             storedCalls += 1
         }
     }
+}
+
+private func pendingExpectation(
+    for dispatch: IOSV1ForegroundVoiceTranscriptionDispatch
+) -> IOSV1PendingRecordingExpectation {
+    IOSV1PendingRecordingExpectation(recording: dispatch.recording)
 }
 
 private struct ReadingExecutor: IOSV1PendingTranscriptionExecutor {
