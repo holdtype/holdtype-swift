@@ -50,7 +50,7 @@ struct AppSettingsTests {
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.textReplacementRules.isEmpty)
         #expect(settings.enabledTextReplacementRules.isEmpty)
-        #expect(settings.transcriptPostProcessingConfiguration == .defaults)
+        #expect(settings.transcriptPostProcessingConfiguration == TranscriptPostProcessingConfiguration())
         #expect(settings.translationShortcutEnabled)
         #expect(settings.translationSourceMode == .sameAsTranscription)
         #expect(settings.translationSourceLanguage == .automatic)

@@ -1,8 +1,6 @@
 import Foundation
 
 public struct TranscriptPostProcessingConfiguration: Equatable, Sendable {
-    public static let defaults = TranscriptPostProcessingConfiguration()
-
     public var localTextCleanupEnabled: Bool
     public var emojiCommands: EmojiCommandsConfiguration
     public var textReplacementRules: [TextReplacementRule]

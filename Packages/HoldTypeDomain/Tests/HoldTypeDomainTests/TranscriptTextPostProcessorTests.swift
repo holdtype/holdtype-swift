@@ -5,7 +5,7 @@ struct TranscriptTextPostProcessorTests {
     private let processor = TranscriptTextPostProcessor()
 
     @Test func defaultConfigurationMatchesCurrentLocalPostProcessingDefaults() {
-        let configuration = TranscriptPostProcessingConfiguration.defaults
+        let configuration = TranscriptPostProcessingConfiguration()
 
         #expect(configuration.localTextCleanupEnabled)
         #expect(configuration.emojiCommands == .defaults)

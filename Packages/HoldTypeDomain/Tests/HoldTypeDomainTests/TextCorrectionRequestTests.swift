@@ -32,7 +32,7 @@ struct TextCorrectionRequestTests {
         let first = TextCorrectionRequest(
             acceptedTranscript: acceptedTranscript,
             correctionConfiguration: .defaults,
-            postProcessingConfiguration: .defaults
+            postProcessingConfiguration: TranscriptPostProcessingConfiguration()
         )
 
         #expect(first == first)
@@ -40,14 +40,14 @@ struct TextCorrectionRequestTests {
             first != TextCorrectionRequest(
                 acceptedTranscript: try AcceptedTranscript(rawText: "different"),
                 correctionConfiguration: .defaults,
-                postProcessingConfiguration: .defaults
+                postProcessingConfiguration: TranscriptPostProcessingConfiguration()
             )
         )
         #expect(
             first != TextCorrectionRequest(
                 acceptedTranscript: acceptedTranscript,
                 correctionConfiguration: TextCorrectionConfiguration(isEnabled: true),
-                postProcessingConfiguration: .defaults
+                postProcessingConfiguration: TranscriptPostProcessingConfiguration()
             )
         )
         #expect(
@@ -66,7 +66,7 @@ struct TextCorrectionRequestTests {
         let request = TextCorrectionRequest(
             acceptedTranscript: try AcceptedTranscript(rawText: "accepted"),
             correctionConfiguration: .defaults,
-            postProcessingConfiguration: .defaults
+            postProcessingConfiguration: TranscriptPostProcessingConfiguration()
         )
 
         #expect(((request as Any) is any Encodable) == false)
