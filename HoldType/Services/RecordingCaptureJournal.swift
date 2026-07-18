@@ -71,14 +71,6 @@ protocol RecordingCaptureJournaling: AnyObject {
     ) -> Int
 }
 
-extension RecordingCaptureJournaling {
-    func repairInterruptedCaptures(
-        into recoveryStore: any TranscriptionFailureRecoveryRecording
-    ) -> Int {
-        repairInterruptedCaptures(into: recoveryStore, onRepair: { _, _ in })
-    }
-}
-
 @MainActor
 final class RecordingCaptureJournal: RecordingCaptureJournaling {
     static let shared = RecordingCaptureJournal()

@@ -93,10 +93,6 @@ final class TranscriptionFailurePromptCoordinator: TranscriptionFailurePromptCoo
     private var pendingPresentationTask: Task<Void, Never>?
     private var isPresenting = false
 
-    convenience init() {
-        self.init(dictationRuntime: .shared)
-    }
-
     convenience init(dictationRuntime: DictationRuntime) {
         self.init(
             dictationRuntime: dictationRuntime,

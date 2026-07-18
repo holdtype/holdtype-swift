@@ -98,7 +98,7 @@ struct RecordingCaptureJournalTests {
         try contents.write(to: lease.audioFileURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
 
-        let recoveredCount = journal.repairInterruptedCaptures(into: recoveryStore)
+        let recoveredCount = repairWithoutObservingDiagnostics(journal, into: recoveryStore)
 
         #expect(recoveredCount == 1)
         let attempt = try #require(recoveryStore.failedAttempts.first)
@@ -125,7 +125,7 @@ struct RecordingCaptureJournalTests {
         try Data().write(to: lease.audioFileURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
 
-        let recoveredCount = journal.repairInterruptedCaptures(into: recoveryStore)
+        let recoveredCount = repairWithoutObservingDiagnostics(journal, into: recoveryStore)
 
         #expect(recoveredCount == 0)
         #expect(recoveryStore.failedAttempts.isEmpty)
@@ -150,7 +150,7 @@ struct RecordingCaptureJournalTests {
         let journal = makeJournal(directoryURL: cacheURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
 
-        let recoveredCount = journal.repairInterruptedCaptures(into: recoveryStore)
+        let recoveredCount = repairWithoutObservingDiagnostics(journal, into: recoveryStore)
 
         #expect(recoveredCount == 1)
         let attempt = try #require(recoveryStore.failedAttempts.first)
@@ -178,7 +178,7 @@ struct RecordingCaptureJournalTests {
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
         fileManager.failsAudioRemoval = true
 
-        #expect(journal.repairInterruptedCaptures(into: recoveryStore) == 1)
+        #expect(repairWithoutObservingDiagnostics(journal, into: recoveryStore) == 1)
         #expect(recoveryStore.failedAttempts.count == 1)
         #expect(FileManager.default.fileExists(atPath: lease.audioFileURL.path))
         let markerData = try Data(contentsOf: markerURL(in: activeURL))
@@ -193,7 +193,7 @@ struct RecordingCaptureJournalTests {
             fileManager: fileManager
         )
         #expect(
-            relaunchedJournal.repairInterruptedCaptures(into: recoveryStore) == 0
+            repairWithoutObservingDiagnostics(relaunchedJournal, into: recoveryStore) == 0
         )
         #expect(recoveryStore.failedAttempts.count == 1)
         #expect(FileManager.default.fileExists(atPath: lease.audioFileURL.path) == false)
@@ -246,10 +246,20 @@ struct RecordingCaptureJournalTests {
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
 
         #expect(journal.inspectCapture(lease, fallbackDuration: 10) == .unavailable)
-        #expect(journal.repairInterruptedCaptures(into: recoveryStore) == 0)
+        #expect(repairWithoutObservingDiagnostics(journal, into: recoveryStore) == 0)
         #expect(recoveryStore.failedAttempts.isEmpty)
         #expect(try Data(contentsOf: targetURL) == targetContents)
         #expect(FileManager.default.fileExists(atPath: markerURL(in: cacheURL).path))
+    }
+
+    private func repairWithoutObservingDiagnostics(
+        _ journal: RecordingCaptureJournal,
+        into recoveryStore: TranscriptionFailureRecoveryStore
+    ) -> Int {
+        journal.repairInterruptedCaptures(
+            into: recoveryStore,
+            onRepair: { _, _ in }
+        )
     }
 
     private func makeJournal(
