@@ -13,30 +13,7 @@ import Testing
 
 @MainActor
 struct DictationSessionControllerRecordingActionTests {
-    @Test func explicitStartOnlyStartsFromIdle() async {
-        let recorder = RecordingActionRecorder()
-        let controller = makeController(recorder: recorder)
-
-        await controller.startRecordingAction()
-        await controller.startRecordingAction()
-
-        #expect(controller.status == .recording)
-        #expect(recorder.startCount == 1)
-        #expect(recorder.stopCount == 0)
-
-        let transcribingRecorder = RecordingActionRecorder()
-        let transcribingController = makeController(
-            recorder: transcribingRecorder,
-            initialStatus: .transcribing
-        )
-
-        await transcribingController.startRecordingAction()
-
-        #expect(transcribingController.status == .transcribing)
-        #expect(transcribingRecorder.startCount == 0)
-    }
-
-    @Test func explicitStartTreatsCompletedPresentationAsInactiveWork() async {
+    @Test func recordingActionTreatsCompletedPresentationAsInactiveWork() async {
         let completedStatuses: [DictationStatus] = [
             .success(transcript: "Previous result"),
             .failure(message: "Previous failure"),
@@ -49,7 +26,7 @@ struct DictationSessionControllerRecordingActionTests {
                 initialStatus: completedStatus
             )
 
-            await controller.startRecordingAction()
+            await controller.performRecordingAction()
 
             #expect(controller.status == .recording)
             #expect(recorder.startCount == 1)
@@ -71,38 +48,10 @@ struct DictationSessionControllerRecordingActionTests {
             historyAudioPlaybackStopper: playbackStopper
         )
 
-        await controller.startRecordingAction()
+        await controller.performRecordingAction()
 
         #expect(order.events == ["playback-stop", "recorder-start"])
         #expect(controller.status == .recording)
-    }
-
-    @Test func explicitStopOnlyStopsActiveRecording() async {
-        let idleRecorder = RecordingActionRecorder()
-        let idleController = makeController(recorder: idleRecorder)
-
-        await idleController.stopRecordingAction()
-
-        #expect(idleController.status == .idle)
-        #expect(idleRecorder.stopCount == 0)
-
-        let recordingRecorder = RecordingActionRecorder(currentStatus: .recording)
-        let transcriptionService = RecordingActionTranscriptionService(result: " accepted text ")
-        let transcriptOutput = RecordingActionTranscriptOutput()
-        let recordingController = makeController(
-            recorder: recordingRecorder,
-            transcriptionService: transcriptionService,
-            transcriptOutput: transcriptOutput,
-            initialStatus: .recording
-        )
-
-        await recordingController.stopRecordingAction()
-        await recordingController.stopRecordingAction()
-
-        #expect(recordingController.status == .success(transcript: "accepted text"))
-        #expect(recordingRecorder.stopCount == 1)
-        #expect(transcriptionService.calls.count == 1)
-        #expect(transcriptOutput.calls == ["accepted text"])
     }
 
     @Test func overlappingStartRequestsUseOneRecorderStart() async {
@@ -115,12 +64,12 @@ struct DictationSessionControllerRecordingActionTests {
         let controller = makeController(recorder: recorder)
 
         let firstStart = Task { @MainActor in
-            await controller.startRecordingAction()
+            await controller.performRecordingAction()
         }
         await yieldUntil { recorder.startCount == 1 }
 
         let secondStart = Task { @MainActor in
-            await controller.startRecordingAction()
+            await controller.performRecordingAction()
         }
         await Task.yield()
 
@@ -159,12 +108,12 @@ struct DictationSessionControllerRecordingActionTests {
         )
 
         let firstStop = Task { @MainActor in
-            await controller.stopRecordingAction()
+            await controller.performRecordingAction()
         }
         await yieldUntil { recorder.stopCount == 1 }
 
         let secondStop = Task { @MainActor in
-            await controller.stopRecordingAction()
+            await controller.performRecordingAction()
         }
         await Task.yield()
 
