@@ -22,7 +22,7 @@ struct IOSContainingAppShell: View {
         NavigationSplitViewColumn = .detail
     @State private var openAIEditorDraft =
         IOSOpenAICredentialEditorDraft()
-    @State private var sceneDraft = IOSContainingAppSceneDraft()
+    @State private var practiceText = ""
     @State private var hasUnsavedEditor = false
     @State private var hasBlockingEditorOperation = false
     @State private var pendingDestination:
@@ -305,7 +305,7 @@ struct IOSContainingAppShell: View {
         case .voice:
             if foregroundVoiceRuntimeAvailable {
                 IOSVoiceHomeView(
-                    practiceText: $sceneDraft.practiceText,
+                    practiceText: $practiceText,
                     openSettings: openSettings
                 )
             } else {
@@ -327,7 +327,7 @@ struct IOSContainingAppShell: View {
         case .settings:
             IOSSettingsHomeView(
                 openAIEditorDraft: $openAIEditorDraft,
-                practiceText: $sceneDraft.practiceText,
+                practiceText: $practiceText,
                 foregroundVoiceRuntimeAvailable:
                     foregroundVoiceRuntimeAvailable,
                 reconcileRecordingCache: { policy in
@@ -477,10 +477,6 @@ struct IOSContainingAppShell: View {
             }
         }
     }
-}
-
-struct IOSContainingAppSceneDraft: Equatable {
-    var practiceText = ""
 }
 
 struct IOSContainingAppStorageUnavailableView: View {
