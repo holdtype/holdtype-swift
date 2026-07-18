@@ -297,32 +297,6 @@ final class IOSForegroundVoiceFeedbackBridge {
         clearClosing(attempt.token)
     }
 
-    /// Clears adapter and bridge state for interruption/media reset without a
-    /// success cue. Repeated or stale resets are idempotent.
-    func resetAfterInterruption() async {
-        switch state {
-        case .starting(let attempt):
-            state = nil
-            driver.cancelStart(attempt.token, .interrupted)
-        case .ready(let attempt):
-            state = nil
-            _ = driver.abandonReadyBoundary(attempt.token)
-        case .capturing(let attempt), .closedForDone(let attempt):
-            state = .closing(attempt)
-            _ = await driver.recorderDidClose(
-                attempt.token,
-                .interrupted,
-                attempt.preferences
-            )
-            clearClosing(attempt.token)
-        case .closing(let attempt):
-            state = nil
-            driver.cancelSuccessFeedback(attempt.token)
-        case nil:
-            break
-        }
-    }
-
     var hasActiveAttempt: Bool { state != nil }
 
     var recorderAttemptHandle: IOSForegroundVoiceFeedbackAttemptHandle? {

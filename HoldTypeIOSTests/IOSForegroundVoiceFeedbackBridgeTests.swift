@@ -128,31 +128,6 @@ struct IOSForegroundVoiceFeedbackBridgeTests {
     }
 
     @Test
-    func repeatedResetClearsReadyAndClosedDoneStatesExactlyOnce() async {
-        let readyFixture = FeedbackBridgeFixture()
-        let readyBridge = readyFixture.makeBridge()
-        #expect(await readyBridge.playStartBoundary(audioCuesEnabled: true))
-        await readyBridge.resetAfterInterruption()
-        await readyBridge.resetAfterInterruption()
-        #expect(readyFixture.abandonedTokens.count == 1)
-        #expect(!readyBridge.hasActiveAttempt)
-
-        let closedFixture = FeedbackBridgeFixture()
-        let closedBridge = closedFixture.makeBridge()
-        #expect(await closedBridge.playStartBoundary(audioCuesEnabled: true))
-        guard let closedHandle = requireFeedbackHandle(closedBridge) else {
-            return
-        }
-        #expect(closedBridge.retainedCaptureDidBegin(for: closedHandle))
-        await closedBridge.recorderDidClose(.done, for: closedHandle)
-        await closedBridge.resetAfterInterruption()
-        await closedBridge.resetAfterInterruption()
-        #expect(closedFixture.closeCalls.count == 1)
-        #expect(closedFixture.closeCalls.first?.disposition == .interrupted)
-        #expect(!closedBridge.hasActiveAttempt)
-    }
-
-    @Test
     func cancelledStartRetiresTokenAndLaterStartUsesFreshToken() async {
         let fixture = FeedbackBridgeFixture()
         let first = IOSVoiceBoundaryFeedbackToken()
