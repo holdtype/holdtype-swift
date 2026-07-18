@@ -11,15 +11,11 @@ struct KeyboardShortcutSettingsSection: View {
     @Binding var settings: AppSettings
 
     let status: GlobalHotkeyRegistrationStatus
-    let preferredConfiguration: GlobalHotkeyConfiguration
 
     var body: some View {
         Section("Keyboard Shortcut") {
             HotkeySettingsRow(
-                presentation: HotkeySettingsPresentation(
-                    status: status,
-                    preferredConfiguration: preferredConfiguration
-                )
+                presentation: HotkeySettingsPresentation(status: status)
             )
 
             Toggle(
@@ -59,10 +55,7 @@ private struct HotkeySettingsPresentation {
     let systemImage: String
     let statusTint: Color
 
-    init(
-        status: GlobalHotkeyRegistrationStatus,
-        preferredConfiguration: GlobalHotkeyConfiguration
-    ) {
+    init(status: GlobalHotkeyRegistrationStatus) {
         switch status {
         case .registered(let configuration):
             shortcutText = configuration.displayText
@@ -71,13 +64,13 @@ private struct HotkeySettingsPresentation {
             systemImage = "keyboard"
             statusTint = .secondary
         case .notRegistered:
-            shortcutText = preferredConfiguration.displayText
+            shortcutText = GlobalHotkeyConfiguration.defaultDictation.displayText
             statusText = "Global hotkey not active."
             detailText = "Use Transcribe in the menu until a shortcut is available."
             systemImage = "keyboard"
             statusTint = .secondary
         case .unavailable(let message):
-            shortcutText = preferredConfiguration.displayText
+            shortcutText = GlobalHotkeyConfiguration.defaultDictation.displayText
             statusText = "Global hotkey unavailable."
             detailText = "\(message) Use Transcribe in the menu."
             systemImage = "keyboard.badge.exclamationmark"
@@ -90,8 +83,7 @@ private struct HotkeySettingsPresentation {
     Form {
         KeyboardShortcutSettingsSection(
             settings: .constant(.defaults),
-            status: .registered(.defaultDictation),
-            preferredConfiguration: .defaultDictation
+            status: .registered(.defaultDictation)
         )
     }
     .formStyle(.grouped)

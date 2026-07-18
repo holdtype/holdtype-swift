@@ -21,7 +21,6 @@ struct DictationRuntimeTests {
         runtime.startHotkeyListening()
 
         #expect(hotkeyService.startListeningCount == 1)
-        #expect(runtime.preferredHotkeyConfiguration == .defaultDictation)
         #expect(runtime.hotkeyRegistrationStatus == .registered(.defaultDictation))
     }
 

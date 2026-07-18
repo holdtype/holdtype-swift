@@ -179,7 +179,6 @@ enum GlobalHotkeyServiceError: Error, Equatable, LocalizedError {
 typealias GlobalHotkeyActionHandler = (GlobalHotkeyEvent) -> Void
 
 protocol GlobalHotkeyService {
-    var preferredConfiguration: GlobalHotkeyConfiguration { get }
     var currentRegistrationStatus: GlobalHotkeyRegistrationStatus { get }
 
     func startListening(actionHandler: @escaping GlobalHotkeyActionHandler) throws

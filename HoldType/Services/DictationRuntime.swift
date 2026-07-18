@@ -23,8 +23,6 @@ final class DictationRuntime: ObservableObject {
     @Published private(set) var appSettings: AppSettings
     @Published private(set) var isLastResultPasteAvailable: Bool
 
-    let preferredHotkeyConfiguration: GlobalHotkeyConfiguration
-
     private let controller: DictationSessionController
     private let appSettingsStore: AppSettingsStore
     private let recordingSetupPreflight: RecordingSetupPreflight
@@ -61,7 +59,6 @@ final class DictationRuntime: ObservableObject {
         self.transcriptClipboardStore = resolvedTranscriptClipboardStore
         self.pasteLastResultService = pasteLastResultService
             ?? SpecialClipboardPasteService(transcriptClipboardStore: resolvedTranscriptClipboardStore)
-        self.preferredHotkeyConfiguration = resolvedHotkeyService.preferredConfiguration
         self.hotkeyRegistrationStatus = resolvedHotkeyService.currentRegistrationStatus
         self.status = resolvedController.status
         self.lastTranscriptText = resolvedController.lastTranscriptText

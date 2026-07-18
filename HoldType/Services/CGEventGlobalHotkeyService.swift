@@ -69,8 +69,6 @@ struct RightCommandHotkeyEventMapper {
 }
 
 final class CGEventGlobalHotkeyService: GlobalHotkeyService {
-    let preferredConfiguration = GlobalHotkeyConfiguration.defaultDictation
-
     private(set) var currentRegistrationStatus: GlobalHotkeyRegistrationStatus = .notRegistered
 
     private var eventTap: CFMachPort?
@@ -114,7 +112,7 @@ final class CGEventGlobalHotkeyService: GlobalHotkeyService {
         runLoopSource = newRunLoopSource
         CFRunLoopAddSource(CFRunLoopGetMain(), newRunLoopSource, .commonModes)
         CGEvent.tapEnable(tap: newEventTap, enable: true)
-        currentRegistrationStatus = .registered(preferredConfiguration)
+        currentRegistrationStatus = .registered(.defaultDictation)
     }
 
     func stopListening() {

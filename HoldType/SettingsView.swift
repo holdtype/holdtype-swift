@@ -29,7 +29,6 @@ struct SettingsView: View {
     @ObservedObject private var softwareUpdates: SoftwareUpdateService
 
     private let appSettingsStore: AppSettingsStore
-    private let preferredHotkeyConfiguration: GlobalHotkeyConfiguration
     private let hotkeyStatusProvider: @MainActor () -> GlobalHotkeyRegistrationStatus
     private let launchAtLoginService: any LaunchAtLoginServicing
     private let settingsVisibilityRestorer: @MainActor (SettingsNavigationItem) -> Void
@@ -44,7 +43,6 @@ struct SettingsView: View {
         inputMonitoringPermissionService: InputMonitoringPermissionService = InputMonitoringPermissionService(),
         apiKeyStorage: any APIKeyStorage = APIKeyCredentialProvider.shared,
         appSettingsStore: AppSettingsStore = AppSettingsStore(),
-        preferredHotkeyConfiguration: GlobalHotkeyConfiguration = .defaultDictation,
         hotkeyStatusProvider: @escaping @MainActor () -> GlobalHotkeyRegistrationStatus = { .notRegistered },
         launchAtLoginService: any LaunchAtLoginServicing = LaunchAtLoginService(),
         settingsVisibilityRestorer: @escaping @MainActor (SettingsNavigationItem) -> Void = { item in
@@ -59,7 +57,6 @@ struct SettingsView: View {
     ) {
         self.navigation = navigation
         self.appSettingsStore = appSettingsStore
-        self.preferredHotkeyConfiguration = preferredHotkeyConfiguration
         self.hotkeyStatusProvider = hotkeyStatusProvider
         self.launchAtLoginService = launchAtLoginService
         self.settingsVisibilityRestorer = settingsVisibilityRestorer
@@ -113,7 +110,6 @@ struct SettingsView: View {
                 apiKeyStatus: apiKeySettingsModel.status,
                 settings: appSettingsBinding,
                 hotkeyRegistrationStatus: hotkeyRegistrationStatus,
-                preferredHotkeyConfiguration: preferredHotkeyConfiguration,
                 microphonePermissionStatus: permissionsModel.microphonePermissionStatus,
                 accessibilityPermissionStatus: permissionsModel.accessibilityPermissionStatus,
                 inputMonitoringPermissionStatus: permissionsModel.inputMonitoringPermissionStatus,
