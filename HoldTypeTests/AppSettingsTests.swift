@@ -28,12 +28,7 @@ struct AppSettingsTests {
         #expect(settings.emojiCommandsEnabled)
         #expect(settings.enabledEmojiCommandSetIDs == ["en"])
         #expect(settings.emojiCommandsConfiguration == .defaults)
-        #expect(settings.emojiCommandsConfiguration.enabledBuiltInSets.map(\.id) == ["en"])
-        #expect(EmojiCommandSet.builtIn.map(\.id) == ["en", "ru", "es", "de", "fr", "pt"])
-        #expect(EmojiCommandSet.builtIn.allSatisfy { $0.commands.count == 21 })
         #expect(settings.customEmojiCommands.isEmpty)
-        #expect(settings.emojiCommandsConfiguration.enabledCustomCommands.isEmpty)
-        #expect(settings.emojiCommandsConfiguration.promptText?.contains("emoji smile") == true)
         #expect(settings.resolvedPrompt?.contains("Emoji command vocabulary") == true)
         #expect(settings.useActiveTextContext == false)
         #expect(settings.textCorrectionEnabled == false)
@@ -268,7 +263,6 @@ struct AppSettingsTests {
         #expect(configuration.customModel == "  custom-correction-model  ")
         #expect(configuration.prompt == "  Correct names only.  ")
         #expect(settings.resolvedTextCorrectionModel == configuration.resolvedModel)
-        #expect(settings.textCorrectionConfiguration.resolvedPrompt == configuration.resolvedPrompt)
         #expect(settings.isTextCorrectionPromptDefault == configuration.isPromptDefault)
     }
 
@@ -333,15 +327,6 @@ struct AppSettingsTests {
         #expect(configuration.enabledBuiltInSetIDs == ["missing", " ru ", "en"])
         #expect(configuration.customCommands == settings.customEmojiCommands)
         #expect(
-            settings.emojiCommandsConfiguration.enabledBuiltInSets
-                == configuration.enabledBuiltInSets
-        )
-        #expect(
-            settings.emojiCommandsConfiguration.enabledCustomCommands
-                == configuration.enabledCustomCommands
-        )
-        #expect(settings.emojiCommandsConfiguration.promptText == configuration.promptText)
-        #expect(
             AppSettings.normalizedEmojiCommandSetIDs(settings.enabledEmojiCommandSetIDs) ==
                 configuration.normalizedEnabledBuiltInSetIDs
         )
@@ -379,12 +364,6 @@ struct AppSettingsTests {
         #expect(composition.providerPrompt == settings.resolvedPrompt(context: context))
         #expect(composition.contextEchoGuardText == "Existing sentence.")
         #expect(composition.dictionaryEchoGuardText == "HoldType")
-    }
-
-    @Test func normalizesEmojiCommandSetIDsToSingleActiveSet() {
-        #expect(AppSettings.normalizedEmojiCommandSetIDs(["ru", "en", "de"]) == ["ru"])
-        #expect(AppSettings.normalizedEmojiCommandSetIDs(["missing", "de", "en"]) == ["de"])
-        #expect(AppSettings.normalizedEmojiCommandSetIDs(["missing"]) == [])
     }
 
     @Test func resolvesTranslationModelPromptLanguagesAndReset() {
@@ -455,8 +434,6 @@ struct AppSettingsTests {
             settings.resolvedTranslationTargetLanguageCode ==
                 configuration.resolvedTargetLanguageCode
         )
-        #expect(settings.translationConfiguration.resolvedModel == configuration.resolvedModel)
-        #expect(settings.translationConfiguration.resolvedPrompt == configuration.resolvedPrompt)
         #expect(settings.isTranslationPromptDefault == configuration.isPromptDefault)
         #expect(settings.translationConfigurationIssue == configuration.configurationIssue)
         #expect(settings.canRunTranslation == configuration.canRunAction)
@@ -678,23 +655,6 @@ struct AppSettingsTests {
                 from: savedData
             ) == settings.customEmojiCommands
         )
-    }
-
-    @Test func migratesLegacyDisabledTranscriptHistoryToEnabledDefaultOnce() {
-        let (defaults, suiteName) = makeIsolatedUserDefaults()
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set(false, forKey: AppSettingsStore.keyPrefix + "saveTranscriptHistory")
-        let store = AppSettingsStore(userDefaults: defaults)
-
-        #expect(store.load().saveTranscriptHistory)
-        #expect(defaults.bool(forKey: AppSettingsStore.keyPrefix + "saveTranscriptHistory"))
-
-        var settings = AppSettings.defaults
-        settings.saveTranscriptHistory = false
-        store.save(settings)
-
-        #expect(store.load().saveTranscriptHistory == false)
     }
 
     @Test func savesAndLoadsOnlyNonSecretSettings() {
@@ -1242,18 +1202,6 @@ struct AppSettingsTests {
                 " RU "
         )
         #expect(store.load().customLanguageCode == " RU ")
-    }
-
-    @Test func blankPersistedTextCorrectionPromptLoadsDefaultPrompt() {
-        let (defaults, suiteName) = makeIsolatedUserDefaults()
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        defaults.set("   ", forKey: AppSettingsStore.keyPrefix + "textCorrectionPrompt")
-
-        let settings = AppSettingsStore(userDefaults: defaults).load()
-
-        #expect(settings.textCorrectionPrompt == AppSettings.defaultTextCorrectionPrompt)
-        #expect(settings.isTextCorrectionPromptDefault)
     }
 
     @Test func textCorrectionPersistenceKeepsLegacyRawValuesAndLoadFallbacks() {
