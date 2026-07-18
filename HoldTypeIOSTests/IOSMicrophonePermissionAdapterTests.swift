@@ -5,19 +5,23 @@ import Testing
 @MainActor
 struct IOSMicrophonePermissionAdapterTests {
     @Test func passiveReadsNeverRequestPermission() async {
-        for status in [
-            IOSMicrophonePermissionStatus.granted,
-            .denied,
-            .unavailable,
-        ] {
+        let cases: [(
+            IOSMicrophonePermissionStatus,
+            IOSMicrophonePermissionRequestResult
+        )] = [
+            (.granted, .granted),
+            (.denied, .denied),
+            (.unavailable, .unavailable),
+        ]
+        for (status, expectedResult) in cases {
             let state = MicrophonePermissionFake(status: status)
             let adapter = IOSMicrophonePermissionAdapter(
                 client: state.client
             )
 
             #expect(adapter.currentStatus() == status)
-            let requestedStatus = await adapter.requestIfUndetermined()
-            #expect(requestedStatus == status)
+            let result = await adapter.requestOutcomeIfUndetermined()
+            #expect(result == expectedResult)
             #expect(state.requestCount == 0)
         }
     }
@@ -33,17 +37,17 @@ struct IOSMicrophonePermissionAdapterTests {
         )
         let adapter = IOSMicrophonePermissionAdapter(client: state.client)
 
-        async let first = adapter.requestIfUndetermined()
-        async let second = adapter.requestIfUndetermined()
+        async let first = adapter.requestOutcomeIfUndetermined()
+        async let second = adapter.requestOutcomeIfUndetermined()
         try await permissionEventually { state.requestCount == 1 }
         #expect(adapter.currentStatus() == .undetermined)
 
         state.status = .granted
         await request.open()
-        let firstStatus = await first
-        let secondStatus = await second
-        #expect(firstStatus == .granted)
-        #expect(secondStatus == .granted)
+        let firstResult = await first
+        let secondResult = await second
+        #expect(firstResult == .granted)
+        #expect(secondResult == .granted)
         #expect(state.requestCount == 1)
     }
 
@@ -54,8 +58,8 @@ struct IOSMicrophonePermissionAdapterTests {
         )
         let adapter = IOSMicrophonePermissionAdapter(client: state.client)
 
-        let status = await adapter.requestIfUndetermined()
-        #expect(status == .unavailable)
+        let result = await adapter.requestOutcomeIfUndetermined()
+        #expect(result == .unavailable)
         #expect(state.requestCount == 1)
     }
 

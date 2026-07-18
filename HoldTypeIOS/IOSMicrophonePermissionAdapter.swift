@@ -143,23 +143,6 @@ final class IOSMicrophonePermissionAdapter {
         return await waitForRequest(request)
     }
 
-    /// Transitional status projection for callers that have not yet adopted
-    /// the typed bounded result. Production Voice composition uses
-    /// `requestOutcomeIfUndetermined()` so timeout and cancellation remain
-    /// distinguishable.
-    func requestIfUndetermined() async -> IOSMicrophonePermissionStatus {
-        let result = await requestOutcomeIfUndetermined()
-        switch result {
-        case .granted:
-            return .granted
-        case .denied:
-            return .denied
-        case .unavailable, .timedOut, .cancelled:
-            let current = client.read()
-            return current == .undetermined ? .unavailable : current
-        }
-    }
-
     private func beginSystemRequest() -> RequestState {
         let request = RequestState()
         activeRequest = request
