@@ -193,13 +193,12 @@ actor IOSVoiceStateRepository {
         return pending
     }
 
-    @discardableResult
     func clearCapture(
         attemptID: UUID
-    ) throws -> IOSVoiceStateMutationResult {
+    ) throws {
         var snapshot = try load()
         guard let capture = snapshot.capture else {
-            return .unchanged(snapshot)
+            return
         }
         guard capture.attemptID == attemptID else {
             throw IOSVoiceStateRepositoryError.stalePending
@@ -209,7 +208,6 @@ actor IOSVoiceStateRepository {
         }
         snapshot.capture = nil
         try replace(snapshot)
-        return .changed(snapshot)
     }
 
     func mutationDate(after prior: Date) -> Date {

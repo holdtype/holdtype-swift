@@ -301,7 +301,7 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
         try begin(allowed: [.discarding])
         do {
             try fileSystem.remove(handle)
-            _ = try await repository.clearCapture(attemptID: handle.attemptID)
+            try await repository.clearCapture(attemptID: handle.attemptID)
             finish(release: true)
         } catch {
             finish()
@@ -327,7 +327,7 @@ final class IOSV1VoiceCaptureLease: @unchecked Sendable {
             to: .discarding
         )
         try fileSystem.remove(handle)
-        _ = try await repository.clearCapture(attemptID: handle.attemptID)
+        try await repository.clearCapture(attemptID: handle.attemptID)
         finish(phase: .discarding, release: true)
         return .discarded(reason)
     }

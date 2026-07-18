@@ -1221,7 +1221,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         }
         try unlinkAudio(for: pending, allowMissing: true)
         do {
-            _ = try await repository.discardPending(
+            try await repository.discardPending(
                 attemptID: pending.attemptID
             )
         } catch { throw mapRepositoryError(error) }
@@ -1558,7 +1558,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
         )
         try unlinkAudio(for: pending, allowMissing: true)
         do {
-            _ = try await repository.finishAcceptedCleanup(
+            try await repository.finishAcceptedCleanup(
                 attemptID: pending.attemptID,
                 resultID: record.resultID
             )
@@ -1709,7 +1709,7 @@ public actor IOSV1ForegroundVoicePersistenceOwner {
             try audioFileSystem.unlink(handle)
         }
         do {
-            _ = try await repository.clearCapture(
+            try await repository.clearCapture(
                 attemptID: discarding.attemptID
             )
         } catch { throw mapRepositoryError(error) }

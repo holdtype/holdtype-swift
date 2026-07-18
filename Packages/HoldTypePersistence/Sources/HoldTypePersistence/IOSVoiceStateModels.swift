@@ -240,11 +240,6 @@ struct IOSVoiceStateSnapshot: Equatable, Sendable {
     static let empty = Self(capture: nil, pending: nil, latest: nil)
 }
 
-enum IOSVoiceStateMutationResult: Equatable, Sendable {
-    case changed(IOSVoiceStateSnapshot)
-    case unchanged(IOSVoiceStateSnapshot)
-}
-
 extension IOSVoiceStatePending: CustomStringConvertible,
     CustomDebugStringConvertible, CustomReflectable {
     var description: String { "IOSVoiceStatePending(redacted)" }

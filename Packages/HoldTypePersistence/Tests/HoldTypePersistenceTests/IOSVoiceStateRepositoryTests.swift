@@ -575,12 +575,12 @@ struct IOSVoiceStateRepositoryTests {
         )
 
         await #expect(throws: IOSVoiceStateRepositoryError.stalePending) {
-            _ = try await repository.finishAcceptedCleanup(
+            try await repository.finishAcceptedCleanup(
                 attemptID: IDs.otherAttempt,
                 resultID: IDs.result
             )
         }
-        _ = try await repository.finishAcceptedCleanup(
+        try await repository.finishAcceptedCleanup(
             attemptID: IDs.attempt,
             resultID: IDs.result
         )
@@ -591,7 +591,7 @@ struct IOSVoiceStateRepositoryTests {
         _ = try await repository.installPending(
             try makePending(attemptID: IDs.otherAttempt)
         )
-        _ = try await repository.discardPending(
+        try await repository.discardPending(
             attemptID: IDs.otherAttempt
         )
         let afterDiscard = try await repository.load()

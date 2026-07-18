@@ -252,14 +252,13 @@ extension IOSVoiceStateRepository {
         return accepted
     }
 
-    @discardableResult
     func finishAcceptedCleanup(
         attemptID: UUID,
         resultID: UUID
-    ) throws -> IOSVoiceStateMutationResult {
+    ) throws {
         var snapshot = try load()
         guard let pending = snapshot.pending else {
-            return .unchanged(snapshot)
+            return
         }
         guard pending.attemptID == attemptID,
               case .acceptedCleanup(let accepted) = pending.status,
@@ -268,16 +267,14 @@ extension IOSVoiceStateRepository {
         }
         snapshot.pending = nil
         try replace(snapshot)
-        return .changed(snapshot)
     }
 
-    @discardableResult
     func discardPending(
         attemptID: UUID
-    ) throws -> IOSVoiceStateMutationResult {
+    ) throws {
         var snapshot = try load()
         guard let pending = snapshot.pending else {
-            return .unchanged(snapshot)
+            return
         }
         guard pending.attemptID == attemptID else {
             throw IOSVoiceStateRepositoryError.stalePending
@@ -285,7 +282,7 @@ extension IOSVoiceStateRepository {
         guard case .acceptedCleanup = pending.status else {
             snapshot.pending = nil
             try replace(snapshot)
-            return .changed(snapshot)
+            return
         }
         throw IOSVoiceStateRepositoryError.invalidTransition
     }
