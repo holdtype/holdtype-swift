@@ -17,10 +17,6 @@ public protocol OpenAITextCorrectionServing {
     func cancelActiveCorrection()
 }
 
-public extension OpenAITextCorrectionServing {
-    func cancelActiveCorrection() {}
-}
-
 public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable {
     static let defaultEndpointURL = URL(string: "https://api.openai.com/v1/responses")!
     static let defaultRequestTimeout: TimeInterval = 20

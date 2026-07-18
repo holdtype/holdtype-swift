@@ -16,10 +16,6 @@ public protocol OpenAITextTranslationServing {
     func cancelActiveTranslation()
 }
 
-public extension OpenAITextTranslationServing {
-    func cancelActiveTranslation() {}
-}
-
 public struct OpenAITextTranslationService: OpenAITextTranslationServing, Sendable {
     static let defaultEndpointURL = URL(string: "https://api.openai.com/v1/responses")!
     static let defaultRequestTimeout: TimeInterval = 20
