@@ -35,13 +35,6 @@ enum IOSForegroundVoiceRecovery: Equatable, Sendable {
     case blocked
 }
 
-enum IOSForegroundVoiceLatestAvailability: Equatable, Sendable {
-    case unknown
-    case absent
-    case available
-    case unavailable
-}
-
 enum IOSForegroundVoiceAction: Equatable, Sendable {
     case startStandard
     case startTranslation
@@ -89,7 +82,6 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
     let warning: IOSForegroundVoiceWarning?
     let recovery: IOSForegroundVoiceRecovery
     let availableActions: [IOSForegroundVoiceAction]
-    let latestAvailability: IOSForegroundVoiceLatestAvailability
 
     init(
         phase: VoiceWorkPhase,
@@ -99,7 +91,6 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         failure: IOSForegroundVoiceFailure?,
         recovery: IOSForegroundVoiceRecovery,
         availableActions: [IOSForegroundVoiceAction],
-        latestAvailability: IOSForegroundVoiceLatestAvailability,
         recordingDurationLimit: RecordingDurationLimit? = nil,
         activeDraftInsertionMode: IOSVoiceDraftInsertionMode? = nil,
         warning: IOSForegroundVoiceWarning? = nil
@@ -114,7 +105,6 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         self.warning = warning
         self.recovery = recovery
         self.availableActions = availableActions
-        self.latestAvailability = latestAvailability
     }
 
     static let initial = IOSForegroundVoicePresentation(
@@ -125,7 +115,6 @@ struct IOSForegroundVoicePresentation: Equatable, Sendable {
         failure: nil,
         recovery: .none,
         availableActions: [],
-        latestAvailability: .unknown,
         activeDraftInsertionMode: nil,
         warning: nil
     )
@@ -135,20 +124,17 @@ struct IOSForegroundVoiceObservation: Equatable, Sendable {
     let setup: IOSForegroundVoiceSetup
     let recovery: IOSForegroundVoiceRecovery
     let stage: VoiceAttemptStage?
-    let latestAvailability: IOSForegroundVoiceLatestAvailability
     let translationAvailable: Bool
 
     init(
         setup: IOSForegroundVoiceSetup,
         recovery: IOSForegroundVoiceRecovery,
         stage: VoiceAttemptStage? = nil,
-        latestAvailability: IOSForegroundVoiceLatestAvailability,
         translationAvailable: Bool = false
     ) {
         self.setup = setup
         self.recovery = recovery
         self.stage = stage
-        self.latestAvailability = latestAvailability
         self.translationAvailable = translationAvailable
     }
 }
@@ -321,10 +307,6 @@ final class IOSForegroundVoiceController {
     private var activeWork: ActiveWork?
     @ObservationIgnored
     private var activeAuthority: IOSForegroundVoiceAuthority?
-    @ObservationIgnored
-    private var activeBaselineLatestAvailability:
-        IOSForegroundVoiceLatestAvailability?
-    @ObservationIgnored
     private var activeOperation: IOSForegroundVoiceOperation?
     @ObservationIgnored
     private var activeProgressPosition: ProgressPosition?
@@ -391,8 +373,7 @@ final class IOSForegroundVoiceController {
             outcome: presentation.outcome,
             setup: presentation.setup,
             failure: nil,
-            recovery: presentation.recovery,
-            latestAvailability: presentation.latestAvailability
+            recovery: presentation.recovery
         )
 
         let client = client
@@ -568,7 +549,6 @@ final class IOSForegroundVoiceController {
 
         let authority = IOSForegroundVoiceAuthority(value: nextSerial())
         activeAuthority = authority
-        activeBaselineLatestAvailability = presentation.latestAvailability
         activeOperation = operation
         activeWork = .primary(authority)
         cancellationRequested = false
@@ -586,8 +566,7 @@ final class IOSForegroundVoiceController {
             outcome: nil,
             setup: presentation.setup,
             failure: nil,
-            recovery: .none,
-            latestAvailability: presentation.latestAvailability
+            recovery: .none
         )
 
         let client = client
@@ -639,8 +618,7 @@ final class IOSForegroundVoiceController {
             outcome: presentation.outcome,
             setup: presentation.setup,
             failure: failure,
-            recovery: presentation.recovery,
-            latestAvailability: presentation.latestAvailability
+            recovery: presentation.recovery
         )
     }
 
@@ -669,8 +647,7 @@ final class IOSForegroundVoiceController {
             outcome: presentation.outcome,
             setup: presentation.setup,
             failure: presentation.failure,
-            recovery: presentation.recovery,
-            latestAvailability: presentation.latestAvailability
+            recovery: presentation.recovery
         )
         activeTask?.cancel()
     }
@@ -694,8 +671,7 @@ final class IOSForegroundVoiceController {
             outcome: presentation.outcome,
             setup: presentation.setup,
             failure: presentation.failure,
-            recovery: presentation.recovery,
-            latestAvailability: presentation.latestAvailability
+            recovery: presentation.recovery
         )
 
         _ = client.providerConsentInvalidated(authority)
@@ -723,8 +699,7 @@ final class IOSForegroundVoiceController {
             outcome: presentation.outcome,
             setup: presentation.setup,
             failure: nil,
-            recovery: presentation.recovery,
-            latestAvailability: presentation.latestAvailability
+            recovery: presentation.recovery
         )
     }
 
@@ -748,7 +723,6 @@ final class IOSForegroundVoiceController {
         activeTask = nil
         activeWork = nil
         activeAuthority = nil
-        activeBaselineLatestAvailability = nil
         activeOperation = nil
         activeProgressPosition = nil
         cancellationRequested = false
@@ -782,7 +756,6 @@ final class IOSForegroundVoiceController {
             setup: observation.setup,
             failure: failure,
             recovery: observation.recovery,
-            latestAvailability: observation.latestAvailability,
             translationAvailable: observation.translationAvailable,
             warning: warning
         )
@@ -796,7 +769,6 @@ final class IOSForegroundVoiceController {
         setup: IOSForegroundVoiceSetup,
         failure: IOSForegroundVoiceFailure?,
         recovery: IOSForegroundVoiceRecovery,
-        latestAvailability: IOSForegroundVoiceLatestAvailability,
         translationAvailable: Bool? = nil,
         warning: IOSForegroundVoiceWarning? = nil
     ) {
@@ -821,7 +793,6 @@ final class IOSForegroundVoiceController {
             failure: failure,
             recovery: recovery,
             availableActions: availableActions,
-            latestAvailability: latestAvailability,
             recordingDurationLimit: recordingDurationLimit,
             activeDraftInsertionMode: activeDraftInsertionMode,
             warning: warning
@@ -982,14 +953,11 @@ final class IOSForegroundVoiceController {
         _ resolution: IOSForegroundVoiceResolution,
         kind: CancellationKind
     ) -> TerminalProjection {
-        let latest = activeBaselineLatestAvailability
-            ?? presentation.latestAvailability
         if resolution.outcome == .resultReady {
             return TerminalProjection(
                 observation: IOSForegroundVoiceObservation(
                     setup: presentation.setup,
-                    recovery: .blocked,
-                    latestAvailability: latest
+                    recovery: .blocked
                 ),
                 stage: nil,
                 outcome: nil,
@@ -1007,8 +975,6 @@ final class IOSForegroundVoiceController {
                         setup: resolution.observation.setup,
                         recovery: resolution.observation.recovery,
                         stage: reportedStage,
-                        latestAvailability:
-                            resolution.observation.latestAvailability,
                         translationAvailable:
                             resolution.observation.translationAvailable
                     ),
@@ -1021,7 +987,6 @@ final class IOSForegroundVoiceController {
                 observation: IOSForegroundVoiceObservation(
                     setup: resolution.observation.setup,
                     recovery: .none,
-                    latestAvailability: latest,
                     translationAvailable:
                         resolution.observation.translationAvailable
                 ),
@@ -1030,16 +995,12 @@ final class IOSForegroundVoiceController {
                 failure: nil
             )
         case .processing:
-            return cancelledProcessingProjection(
-                resolution,
-                latestAvailability: latest
-            )
+            return cancelledProcessingProjection(resolution)
         }
     }
 
     private func cancelledProcessingProjection(
-        _ resolution: IOSForegroundVoiceResolution,
-        latestAvailability: IOSForegroundVoiceLatestAvailability
+        _ resolution: IOSForegroundVoiceResolution
     ) -> TerminalProjection {
         let reportedStage = resolution.stage
             ?? resolution.observation.stage
@@ -1054,7 +1015,6 @@ final class IOSForegroundVoiceController {
                     setup: setup,
                     recovery: .pendingRetryOrDiscard,
                     stage: reportedStage,
-                    latestAvailability: latestAvailability,
                     translationAvailable: translationAvailable
                 ),
                 stage: reportedStage,
@@ -1066,7 +1026,6 @@ final class IOSForegroundVoiceController {
                 observation: IOSForegroundVoiceObservation(
                     setup: setup,
                     recovery: .blocked,
-                    latestAvailability: latestAvailability,
                     translationAvailable: translationAvailable
                 ),
                 stage: nil,
@@ -1078,7 +1037,6 @@ final class IOSForegroundVoiceController {
                 observation: IOSForegroundVoiceObservation(
                     setup: setup,
                     recovery: .none,
-                    latestAvailability: latestAvailability,
                     translationAvailable: translationAvailable
                 ),
                 stage: nil,
@@ -1091,7 +1049,6 @@ final class IOSForegroundVoiceController {
                 observation: IOSForegroundVoiceObservation(
                     setup: setup,
                     recovery: .blocked,
-                    latestAvailability: latestAvailability,
                     translationAvailable: translationAvailable
                 ),
                 stage: nil,
@@ -1274,13 +1231,6 @@ extension IOSForegroundVoiceWarning: IOSForegroundVoiceRedactedValue {
 
 extension IOSForegroundVoiceRecovery: IOSForegroundVoiceRedactedValue {
     nonisolated var description: String { "IOSForegroundVoiceRecovery(<redacted>)" }
-}
-
-extension IOSForegroundVoiceLatestAvailability:
-    IOSForegroundVoiceRedactedValue {
-    nonisolated var description: String {
-        "IOSForegroundVoiceLatestAvailability(<redacted>)"
-    }
 }
 
 extension IOSForegroundVoiceAction: IOSForegroundVoiceRedactedValue {

@@ -180,7 +180,6 @@ struct IOSForegroundVoiceWorkflowTests {
         #expect(result.disposition == .complete)
         #expect(result.observation.setup == .ready)
         #expect(result.observation.recovery == .none)
-        #expect(result.observation.latestAvailability == .absent)
         assertOrdered(
             [
                 "capture-orphan-repair",
@@ -2404,8 +2403,7 @@ struct IOSForegroundVoiceWorkflowTests {
             observe: {
                 IOSForegroundVoiceObservation(
                     setup: .ready,
-                    recovery: .none,
-                    latestAvailability: .absent
+                    recovery: .none
                 )
             },
             runStart: { _, lease, _, _ in
@@ -2417,8 +2415,7 @@ struct IOSForegroundVoiceWorkflowTests {
                     observation: IOSForegroundVoiceObservation(
                         setup: .ready,
                         recovery: .pendingRetryOrDiscard,
-                        stage: .transcription,
-                        latestAvailability: .absent
+                        stage: .transcription
                     ),
                     stage: .transcription,
                     outcome: .recoverableFailure,
@@ -2429,8 +2426,7 @@ struct IOSForegroundVoiceWorkflowTests {
                 IOSForegroundVoiceResolution(
                     observation: IOSForegroundVoiceObservation(
                         setup: .ready,
-                        recovery: .none,
-                        latestAvailability: .absent
+                        recovery: .none
                     )
                 )
             },

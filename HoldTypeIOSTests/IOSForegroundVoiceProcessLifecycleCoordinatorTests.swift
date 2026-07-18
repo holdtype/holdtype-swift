@@ -198,8 +198,7 @@ private actor LifecycleAsyncGate {
 private func lifecycleObservation() -> IOSForegroundVoiceObservation {
     IOSForegroundVoiceObservation(
         setup: .ready,
-        recovery: .none,
-        latestAvailability: .absent
+        recovery: .none
     )
 }
 

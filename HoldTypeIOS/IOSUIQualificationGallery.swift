@@ -389,7 +389,6 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
             setup: setup,
             recovery: recovery,
             stage: recoveryStage,
-            latestAvailability: .absent,
             translationAvailable: true
         )
     }

@@ -222,8 +222,7 @@ private final class VoiceSceneHostClientFixture {
 private func voiceSceneHostObservation() -> IOSForegroundVoiceObservation {
     IOSForegroundVoiceObservation(
         setup: .ready,
-        recovery: .none,
-        latestAvailability: .absent
+        recovery: .none
     )
 }
 

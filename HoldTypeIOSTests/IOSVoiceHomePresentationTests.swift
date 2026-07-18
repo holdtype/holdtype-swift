@@ -594,7 +594,6 @@ private func voicePresentation(
         failure: failure,
         recovery: recovery,
         availableActions: [],
-        latestAvailability: .absent,
         activeDraftInsertionMode: activeDraftInsertionMode,
         warning: warning
     )

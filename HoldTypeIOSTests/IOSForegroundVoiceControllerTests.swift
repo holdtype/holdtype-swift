@@ -62,9 +62,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(
-                    latest: .available
-                ),
+                observation: voiceObservation(),
                 outcome: .resultReady
             )
         )
@@ -73,7 +71,6 @@ struct IOSForegroundVoiceControllerTests {
         }
 
         #expect(controller.presentation.outcome == .resultReady)
-        #expect(controller.presentation.latestAvailability == .available)
         #expect(controller.presentation.recovery == .none)
         #expect(fixture.cancellationAuthorities.isEmpty)
     }
@@ -97,7 +94,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(latest: .available),
+                observation: voiceObservation(),
                 outcome: .resultReady,
                 warning: .historySaveFailed
             )
@@ -109,7 +106,6 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.outcome == .resultReady)
         #expect(controller.presentation.warning == .historySaveFailed)
         #expect(controller.presentation.recovery == .none)
-        #expect(controller.presentation.latestAvailability == .available)
         #expect(
             controller.presentation.availableActions
                 == [.startStandard, .startCorrection]
@@ -137,9 +133,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(
-                    latest: .available
-                ),
+                observation: voiceObservation(),
                 outcome: .resultReady
             )
         )
@@ -148,7 +142,6 @@ struct IOSForegroundVoiceControllerTests {
         }
 
         #expect(controller.presentation.outcome == .resultReady)
-        #expect(controller.presentation.latestAvailability == .available)
         #expect(controller.presentation.recovery == .none)
         #expect(fixture.cancellationAuthorities.isEmpty)
     }
@@ -476,9 +469,7 @@ struct IOSForegroundVoiceControllerTests {
     @Test func progressAndCompletionAreAuthorityChecked()
         async throws {
         let fixture = IOSForegroundVoiceClientFixture(
-            observation: voiceObservation(
-                latest: .available
-            )
+            observation: voiceObservation()
         )
         let controller = IOSForegroundVoiceController(
             client: fixture.makeClient()
@@ -488,10 +479,6 @@ struct IOSForegroundVoiceControllerTests {
         let firstStart = try voiceCommand(.startStandard, in: controller)
         #expect(submitVoiceCommand(firstStart, in: controller) == .accepted)
         try await voiceEventually { fixture.runOperations.count == 1 }
-        #expect(
-            controller.presentation.latestAvailability
-                == .available
-        )
 
         fixture.sendProgress(.listening(.defaultValue), at: 0)
         #expect(controller.presentation.phase == .listening)
@@ -512,10 +499,6 @@ struct IOSForegroundVoiceControllerTests {
         #expect(
             controller.presentation.availableActions
                 == [.cancelProcessing]
-        )
-        #expect(
-            controller.presentation.latestAvailability
-                == .available
         )
 
         fixture.sendProgress(.processing(.postProcessing), at: 0)
@@ -543,7 +526,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(latest: .available),
+                observation: voiceObservation(),
                 outcome: .resultReady
             )
         )
@@ -551,6 +534,7 @@ struct IOSForegroundVoiceControllerTests {
             controller.presentation.outcome == .resultReady
         }
         let completed = controller.presentation
+        #expect(completed.stage == nil)
 
         fixture.sendProgress(.listening(.defaultValue), at: 0)
         #expect(controller.presentation == completed)
@@ -566,7 +550,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 1,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(latest: .available)
+                observation: voiceObservation()
             )
         )
         try await voiceEventually {
@@ -665,8 +649,7 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: nil,
-                terminalFailure: .operationFailed,
-                terminalLatest: .available
+                terminalFailure: .operationFailed
             ),
             VoiceCancellationCase(
                 progress: .listening(.defaultValue),
@@ -678,8 +661,7 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: nil,
-                terminalFailure: .operationFailed,
-                terminalLatest: .available
+                terminalFailure: .operationFailed
             ),
             VoiceCancellationCase(
                 progress: .processing(.transcription),
@@ -691,8 +673,7 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: nil,
                 terminalOutcome: .recoverableFailure,
-                terminalFailure: .operationFailed,
-                terminalLatest: .available
+                terminalFailure: .operationFailed
             ),
             VoiceCancellationCase(
                 progress: .processing(.postProcessing),
@@ -704,16 +685,13 @@ struct IOSForegroundVoiceControllerTests {
                 terminalStage: .postProcessing,
                 resolutionOutcome: .recoverableFailure,
                 terminalOutcome: .recoverableFailure,
-                terminalFailure: .operationFailed,
-                terminalLatest: .available
+                terminalFailure: .operationFailed
             ),
         ]
 
         for scenario in scenarios {
             let fixture = IOSForegroundVoiceClientFixture(
-                observation: voiceObservation(
-                    latest: .available
-                )
+                observation: voiceObservation()
             )
             let controller = IOSForegroundVoiceController(
                 client: fixture.makeClient()
@@ -763,8 +741,7 @@ struct IOSForegroundVoiceControllerTests {
                 with: IOSForegroundVoiceResolution(
                     observation: voiceObservation(
                         recovery: scenario.resolutionRecovery,
-                        stage: .postProcessing,
-                        latest: .available
+                        stage: .postProcessing
                     ),
                     stage: .postProcessing,
                     outcome: scenario.resolutionOutcome,
@@ -791,10 +768,6 @@ struct IOSForegroundVoiceControllerTests {
                 controller.presentation.recovery
                     == scenario.terminalRecovery
             )
-            #expect(
-                controller.presentation.latestAvailability
-                    == scenario.terminalLatest
-            )
             #expect(controller.presentation.activeDraftInsertionMode == nil)
             #expect(fixture.cancellationAuthorities.count == 1)
         }
@@ -803,9 +776,7 @@ struct IOSForegroundVoiceControllerTests {
     @Test func cancelledScriptedSuccessCannotPublishNewResult()
         async throws {
         let fixture = IOSForegroundVoiceClientFixture(
-            observation: voiceObservation(
-                latest: .available
-            )
+            observation: voiceObservation()
         )
         let controller = IOSForegroundVoiceController(
             client: fixture.makeClient()
@@ -820,7 +791,7 @@ struct IOSForegroundVoiceControllerTests {
         fixture.resolveRun(
             at: 0,
             with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(latest: .available),
+                observation: voiceObservation(),
                 stage: .outputDelivery,
                 outcome: .resultReady
             )
@@ -833,10 +804,6 @@ struct IOSForegroundVoiceControllerTests {
         #expect(controller.presentation.failure == .localRecovery)
         #expect(controller.presentation.recovery == .blocked)
         #expect(controller.presentation.stage == nil)
-        #expect(
-            controller.presentation.latestAvailability
-                == .available
-        )
         #expect(controller.presentation.availableActions == [.checkAgain])
     }
 
@@ -1038,53 +1005,12 @@ struct IOSForegroundVoiceControllerTests {
         }
     }
 
-    @Test func resultReadyAndLatestAvailabilityArePreserved()
-        async throws {
-        let fixture = IOSForegroundVoiceClientFixture(
-            observation: voiceObservation(
-                latest: .available
-            )
-        )
-        let controller = IOSForegroundVoiceController(
-            client: fixture.makeClient()
-        )
-        await controller.activate()
-        let start = try voiceCommand(.startStandard, in: controller)
-        #expect(submitVoiceCommand(start, in: controller) == .accepted)
-        try await voiceEventually { fixture.runOperations.count == 1 }
-        fixture.sendProgress(.processing(.postProcessing), at: 0)
-
-        #expect(
-            controller.presentation.latestAvailability
-                == .available
-        )
-
-        fixture.resolveRun(
-            at: 0,
-            with: IOSForegroundVoiceResolution(
-                observation: voiceObservation(latest: .available),
-                stage: .outputDelivery,
-                outcome: .resultReady
-            )
-        )
-        try await voiceEventually {
-            controller.presentation.phase == .inactive
-        }
-
-        #expect(controller.presentation.outcome == .resultReady)
-        #expect(controller.presentation.stage == nil)
-        #expect(
-            controller.presentation.latestAvailability == .available
-        )
-    }
-
     @Test func diagnosticsAndReflectionAreAlwaysRedacted()
         async throws {
         let fixture = IOSForegroundVoiceClientFixture(
             observation: voiceObservation(
                 setup: .needsSetup(.translation),
                 recovery: .pendingRetryOrDiscard,
-                latest: .available,
                 translationAvailable: true
             )
         )
@@ -1121,10 +1047,6 @@ struct IOSForegroundVoiceControllerTests {
             (
                 IOSForegroundVoiceRecovery.pendingRetryOrDiscard,
                 "IOSForegroundVoiceRecovery(<redacted>)"
-            ),
-            (
-                IOSForegroundVoiceLatestAvailability.available,
-                "IOSForegroundVoiceLatestAvailability(<redacted>)"
             ),
             (
                 IOSForegroundVoiceAction.retryPending,
@@ -1231,7 +1153,6 @@ private struct VoiceCancellationCase {
     let resolutionOutcome: VoiceAttemptOutcome?
     let terminalOutcome: VoiceAttemptOutcome?
     let terminalFailure: IOSForegroundVoiceFailure?
-    let terminalLatest: IOSForegroundVoiceLatestAvailability
 }
 
 private struct VoiceTerminalCase {
@@ -1471,14 +1392,12 @@ private func voiceObservation(
     setup: IOSForegroundVoiceSetup = .ready,
     recovery: IOSForegroundVoiceRecovery = .none,
     stage: VoiceAttemptStage? = nil,
-    latest: IOSForegroundVoiceLatestAvailability = .absent,
     translationAvailable: Bool = false
 ) -> IOSForegroundVoiceObservation {
     IOSForegroundVoiceObservation(
         setup: setup,
         recovery: recovery,
         stage: stage,
-        latestAvailability: latest,
         translationAvailable: translationAvailable
     )
 }

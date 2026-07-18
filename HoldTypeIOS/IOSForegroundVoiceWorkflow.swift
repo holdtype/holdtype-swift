@@ -173,7 +173,6 @@ private enum IOSForegroundVoiceRetryProviderRequirement: Equatable {
 nonisolated struct IOSForegroundVoiceWorkflowDurableObservation: Sendable {
     let capture: IOSV1ForegroundVoiceCaptureRecoveryObservation
     let pending: IOSV1PendingRecordingObservation?
-    let latest: IOSV1ForegroundVoiceLatestResultObservation
 }
 
 nonisolated enum IOSKeyboardDictationWorkflowProgress: Equatable, Sendable {
@@ -774,7 +773,6 @@ final class IOSForegroundVoiceWorkflow {
     private var activeAttempt: Attempt?
     private var captureRecoveryAttemptID: UUID?
     private var pendingObservation: IOSV1PendingRecordingObservation?
-    private var latestAvailability = IOSForegroundVoiceLatestAvailability.unknown
     private var lastConfiguration: IOSForegroundVoiceWorkflowConfiguration?
     private var passiveConfigurationSetupOverride: IOSForegroundVoiceSetup?
     private var activeControllerAuthority: IOSForegroundVoiceAuthority?
@@ -1340,12 +1338,11 @@ final class IOSForegroundVoiceWorkflow {
         do {
             let pending = try await dependencies.loadPending()
             guard continueIf() else { throw CancellationError() }
-            let latest = try await dependencies.loadLatest()
+            _ = try await dependencies.loadLatest()
             guard continueIf() else { throw CancellationError() }
             let durable = IOSForegroundVoiceWorkflowDurableObservation(
                 capture: capture,
-                pending: pending,
-                latest: latest
+                pending: pending
             )
             if includeConfiguration,
                mapRecovery(
@@ -1413,7 +1410,6 @@ final class IOSForegroundVoiceWorkflow {
                 observation: IOSForegroundVoiceObservation(
                     setup: .unavailable,
                     recovery: .none,
-                    latestAvailability: latestAvailability,
                     translationAvailable: translationIsAvailable
                 ),
                 failure: .unavailable
@@ -2768,7 +2764,6 @@ final class IOSForegroundVoiceWorkflow {
                 setup: passiveSetup,
                 recovery: .pendingRetryOrDiscard,
                 stage: .transcription,
-                latestAvailability: latestAvailability,
                 translationAvailable: translationIsAvailable
             ),
             stage: .transcription,
@@ -2808,7 +2803,6 @@ final class IOSForegroundVoiceWorkflow {
                 setup: setup,
                 recovery: current.recovery,
                 stage: current.stage,
-                latestAvailability: current.latestAvailability,
                 translationAvailable: current.translationAvailable
             ),
             stage: current.stage,
@@ -3479,7 +3473,6 @@ final class IOSForegroundVoiceWorkflow {
             nil
         }
         pendingObservation = durable.pending
-        latestAvailability = map(durable.latest)
 
         let recovery = mapRecovery(
             capture: durable.capture,
@@ -3489,7 +3482,6 @@ final class IOSForegroundVoiceWorkflow {
             setup: recovery == .blocked ? .unavailable : passiveSetup,
             recovery: recovery,
             stage: stage(for: durable.pending),
-            latestAvailability: latestAvailability,
             translationAvailable: translationIsAvailable
         )
     }
@@ -3514,8 +3506,7 @@ final class IOSForegroundVoiceWorkflow {
         }
         return IOSForegroundVoiceObservation(
             setup: .unavailable,
-            recovery: recovery,
-            latestAvailability: .unavailable
+            recovery: recovery
         )
     }
 
@@ -3558,15 +3549,6 @@ final class IOSForegroundVoiceWorkflow {
             return .postProcessing
         case .outputDelivery, .acceptedCleanup:
             return .outputDelivery
-        }
-    }
-
-    private func map(
-        _ latest: IOSV1ForegroundVoiceLatestResultObservation
-    ) -> IOSForegroundVoiceLatestAvailability {
-        switch latest {
-        case .absent: .absent
-        case .resultReady: .available
         }
     }
 
@@ -3623,7 +3605,6 @@ final class IOSForegroundVoiceWorkflow {
                 setup: setup ?? passiveSetup,
                 recovery: current.recovery,
                 stage: current.stage,
-                latestAvailability: current.latestAvailability,
                 translationAvailable: current.translationAvailable
             ),
             failure: failure
@@ -3632,8 +3613,7 @@ final class IOSForegroundVoiceWorkflow {
 
     private static let unavailableObservation = IOSForegroundVoiceObservation(
         setup: .unavailable,
-        recovery: .blocked,
-        latestAvailability: .unavailable
+        recovery: .blocked
     )
 
     private static let unavailableResolution = IOSForegroundVoiceResolution(
@@ -3644,8 +3624,7 @@ final class IOSForegroundVoiceWorkflow {
     private static let busyResolution = IOSForegroundVoiceResolution(
         observation: IOSForegroundVoiceObservation(
             setup: .unavailable,
-            recovery: .blocked,
-            latestAvailability: .unknown
+            recovery: .blocked
         )
     )
 }
