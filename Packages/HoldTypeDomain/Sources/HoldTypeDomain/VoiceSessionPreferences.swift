@@ -156,6 +156,12 @@ public struct VoiceSessionWarningSchedule: Equatable, Sendable {
         }
     }
 
+    public func warning(
+        atElapsedWholeSecond elapsedWholeSecond: Int
+    ) -> VoiceSessionWarning? {
+        warnings.first { $0.elapsedWholeSeconds == elapsedWholeSecond }
+    }
+
     public func countdown(
         atElapsedWholeSecond elapsedWholeSecond: Int
     ) -> VoiceSessionCountdown? {

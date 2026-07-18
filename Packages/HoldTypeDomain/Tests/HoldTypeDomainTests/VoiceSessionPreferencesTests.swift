@@ -122,6 +122,16 @@ struct VoiceSessionPreferencesTests {
         ])
     }
 
+    @Test func warningLookupDoesNotDependOnFloatingPointEquality() {
+        let schedule = VoiceSessionWarningSchedule(limit: .default)
+        #expect(
+            schedule.warning(atElapsedWholeSecond: 240)
+                == schedule.warnings[0]
+        )
+        #expect(schedule.warning(atElapsedWholeSecond: 239) == nil)
+        #expect(schedule.warning(atElapsedWholeSecond: 241) == nil)
+    }
+
     @Test func countdownUsesWholeSecondsAndChangesUrgencyAtTenRemaining() {
         let schedule = VoiceSessionWarningSchedule(limit: .default)
         #expect(schedule.countdown(
