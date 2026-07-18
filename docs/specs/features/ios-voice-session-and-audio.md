@@ -438,7 +438,7 @@ from it.
   never receives microphone access.
 - The user manually returns to the host app and may need Globe re-selection.
   HoldType never attempts a private automatic return.
-- Stop, five-minute expiry, interruption, app termination, and force quit end
+- Stop, session expiry, interruption, app termination, and force quit end
   the armed session and microphone deterministically.
 - With Full Access off, Quick Session commands are unavailable; foreground
   one-shot recording and read-only/explicit insertion fallback remain.
