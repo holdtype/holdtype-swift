@@ -16,12 +16,13 @@ nonisolated struct IOSBuiltInEmojiCommandReference: Equatable, Hashable,
         self.commandID = commandID
     }
 
-    var commandSet: EmojiCommandSet? {
-        EmojiCommandSet.builtIn.first { $0.id == setID }
-    }
-
-    var command: EmojiCommand? {
-        commandSet?.commands.first { $0.id == commandID }
+    var command: EmojiCommand {
+        guard let command = EmojiCommandSet.builtIn.first(
+            where: { $0.id == setID }
+        )?.commands.first(where: { $0.id == commandID }) else {
+            preconditionFailure("Validated built-in emoji command is missing")
+        }
+        return command
     }
 }
 
@@ -39,15 +40,8 @@ extension IOSBuiltInEmojiSetSelection {
         case .custom:
             "Custom"
         case .builtIn(let identifier):
-            switch identifier {
-            case "en": "English"
-            case "ru": "Russian"
-            case "es": "Spanish"
-            case "de": "German"
-            case "fr": "French"
-            case "pt": "Portuguese"
-            default: "Unknown"
-            }
+            EmojiCommandSet.builtIn.first { $0.id == identifier }?
+                .displayName ?? "Unknown"
         }
     }
 

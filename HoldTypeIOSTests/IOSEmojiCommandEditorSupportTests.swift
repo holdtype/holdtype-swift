@@ -39,7 +39,7 @@ struct IOSEmojiCommandEditorSupportTests {
                 commandID: "smile"
             )
         )
-        #expect(reference.command?.emoji == "🙂")
+        #expect(reference.command.emoji == "🙂")
         #expect(
             IOSBuiltInEmojiCommandReference(
                 setID: "PRIVATE-PHRASE",

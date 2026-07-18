@@ -26,25 +26,26 @@ separate editing or text-expansion product.
 ## User-visible behavior
 
 - macOS Settings keeps emoji commands inside Dictionary. On iOS, Voice Emoji
-  Commands is a first-class content route inside the top-level Library
-  destination, never a separate Settings destination.
+  Commands is a first-class content route inside the top-level `Rules`
+  destination under `Dictation Rules`, never a separate Settings destination.
 - Emoji commands are controlled by one top-level toggle.
-- When enabled, users choose one active built-in command set from the language
-  tabs. The default active set is English.
+- When enabled, users choose one active built-in command set. The default active
+  set is English.
 - macOS Dictionary may keep the compact tabbed catalog. iOS uses a native
   active-set selection list plus a searchable catalog/detail because seven
   segmented tabs do not fit compact width. Built-in choices are English,
   Russian, Spanish, German, French, and Portuguese; Custom stores no built-in
   selection and keeps enabled custom rows active.
-- The iOS Library route always keeps custom rows visible below the selected
-  built-in catalog because enabled custom and built-in commands can be active
-  together. Selecting Custom hides only the built-in catalog and hints; it
-  does not hide, disable, or clear custom rows.
-- Each built-in tab should show the emoji, primary spoken command, and supported
-  aliases so users can discover the exact phrases without reading docs.
-- The Custom tab should let users add an emoji output, a primary spoken command,
-  and optional aliases. Custom commands may be enabled, disabled, or removed
-  without affecting built-in sets.
+- The iOS Dictation Rules route always keeps custom rows visible below the
+  selected built-in catalog because enabled custom and built-in commands can
+  be active together. Selecting Custom hides only the built-in catalog and
+  hints; it does not hide, disable, or clear custom rows.
+- Each built-in catalog should show the emoji, primary spoken command, and
+  supported aliases so users can discover the exact phrases without reading
+  docs.
+- The Custom selection should let users add an emoji output, a primary spoken
+  command, and optional aliases. Custom commands may be enabled, disabled, or
+  removed without affecting built-in sets.
 - iOS custom rows use UUID detail editors with explicit Save. A non-empty
   normalized output and primary phrase are required. The same normalized
   spoken phrase or alias cannot belong to two custom rows; custom/built-in
@@ -61,9 +62,9 @@ separate editing or text-expansion product.
 - Built-in command prefixes must use the canonical emoji term for the selected
   language set. Ordinary translated words such as `эмоции` must not trigger
   emoji replacement.
-- Selecting a built-in language tab makes that set active for both local emoji
+- Selecting a built-in language makes that set active for both local emoji
   replacement and OpenAI transcription prompt hints.
-- Selecting the Custom tab disables built-in command-set hints while keeping
+- Selecting Custom disables built-in command-set hints while keeping
   enabled custom commands active.
 - Custom commands are active only when emoji commands are enabled and the custom
   row itself is enabled.

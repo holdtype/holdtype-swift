@@ -426,13 +426,14 @@ struct IOSEmojiSetSelectionView: View {
                 .emojiCommandsConfiguration {
                 selectionList(configuration)
             } else {
-                IOSDestinationLoadFailureView(
-                    title: "Active Set Unavailable",
-                    description:
-                        "HoldType couldn’t read the saved dictation rules.",
-                    isRetrying: false,
-                    retry: {}
-                )
+                ContentUnavailableView {
+                    Label(
+                        "Active Set Unavailable",
+                        systemImage: "exclamationmark.triangle"
+                    )
+                } description: {
+                    Text("HoldType couldn’t read the saved dictation rules.")
+                }
             }
         }
         .navigationTitle("Active Set")
@@ -570,49 +571,41 @@ struct IOSBuiltInEmojiCommandDetailView: View {
     let reference: IOSBuiltInEmojiCommandReference
 
     var body: some View {
-        Group {
-            if let command = reference.command {
-                Form {
-                    Section("Output") {
-                        Text(command.emoji)
-                            .font(.largeTitle)
-                            .accessibilityLabel("Output \(command.emoji)")
-                    }
+        let command = reference.command
+        Form {
+            Section("Output") {
+                Text(command.emoji)
+                    .font(.largeTitle)
+                    .accessibilityLabel("Output \(command.emoji)")
+            }
 
-                    Section("Primary Spoken Phrase") {
-                        Text(command.primarySpokenPhrase)
+            Section("Primary Spoken Phrase") {
+                Text(command.primarySpokenPhrase)
+                    .textSelection(.enabled)
+            }
+
+            if !command.secondarySpokenPhrases.isEmpty {
+                Section("Aliases") {
+                    ForEach(
+                        command.secondarySpokenPhrases,
+                        id: \.self
+                    ) { alias in
+                        Text(alias)
                             .textSelection(.enabled)
                     }
-
-                    if !command.secondarySpokenPhrases.isEmpty {
-                        Section("Aliases") {
-                            ForEach(
-                                command.secondarySpokenPhrases,
-                                id: \.self
-                            ) { alias in
-                                Text(alias)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                    }
-
-                    Section {
-                        Text(
-                            "This bundled command is used locally after "
-                                + "transcription when its language set is active."
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    }
                 }
-            } else {
-                ContentUnavailableView(
-                    "Command Unavailable",
-                    systemImage: "exclamationmark.triangle"
+            }
+
+            Section {
+                Text(
+                    "This bundled command is used locally after "
+                        + "transcription when its language set is active."
                 )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(reference.command?.displayName ?? "Emoji Command")
+        .navigationTitle(command.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(
             "ios.library.emoji-commands.built-in-detail.screen"
