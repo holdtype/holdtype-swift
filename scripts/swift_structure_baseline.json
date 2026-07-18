@@ -78,7 +78,7 @@
     "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/IOSTranscriptionUsageRepositoryTests.swift": 1115,
     "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/IOSV1ForegroundVoicePersistenceTests.swift": 2057,
     "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/IOSV1VoiceCaptureTests.swift": 544,
-    "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/IOSVoiceStateRepositoryTests.swift": 864,
+    "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/IOSVoiceStateRepositoryTests.swift": 863,
     "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/OpenAIAPIKeyKeychainStorageTests.swift": 607,
     "Packages/HoldTypePersistence/Tests/HoldTypePersistenceTests/ProtectedAtomicMetadataFileSystemTests.swift": 694
   },
