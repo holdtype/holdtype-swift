@@ -20,10 +20,9 @@ enum APIKeyAvailability: Equatable {
     }
 }
 
-enum AppSetupAttentionKind: String, Equatable {
+enum AppSetupAttentionKind: Hashable {
     case microphone
     case accessibility
-    case inputMonitoring
 }
 
 struct AppSetupAttentionItem: Equatable, Identifiable {
