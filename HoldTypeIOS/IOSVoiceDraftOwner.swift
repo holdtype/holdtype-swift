@@ -104,25 +104,6 @@ enum IOSVoiceDraftNotice: Equatable, Sendable {
     case undoFailed
     case redoFailed
     case draftChanged
-
-    var message: String {
-        switch self {
-        case .appendFailed:
-            "The result is safe in Latest and History, but it couldn't be added to this Draft."
-        case .editFailed:
-            "The edit couldn't be saved. Your working text remains available to copy or retry."
-        case .draftFull:
-            "This Draft is full. Copy or clear it before adding another dictation."
-        case .clearFailed:
-            "The Draft couldn't be cleared. Its confirmed text remains available."
-        case .undoFailed:
-            "Undo couldn't be saved. The confirmed Draft remains available."
-        case .redoFailed:
-            "Redo couldn't be saved. The confirmed Draft remains available."
-        case .draftChanged:
-            "The Draft changed while that action was running. Review it and try again."
-        }
-    }
 }
 
 @MainActor
@@ -494,10 +475,6 @@ final class IOSVoiceDraftOwner {
                 self.markContentChange(.preservePosition)
             }
         )
-    }
-
-    func dismissNotice() {
-        notice = nil
     }
 
     private func replaceCurrent(

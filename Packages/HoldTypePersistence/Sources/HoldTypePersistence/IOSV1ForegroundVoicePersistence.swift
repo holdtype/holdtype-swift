@@ -308,9 +308,6 @@ public struct IOSV1AcceptedOutputDeliveryRecord: Equatable, Sendable {
     public let acceptedText: String
     public let createdAt: Date
 
-    public var deliveryID: UUID { resultID }
-    public var attemptID: UUID { sourceAttemptID }
-
     public init(
         resultID: UUID,
         sourceAttemptID: UUID,
@@ -574,7 +571,6 @@ public final class IOSV1ForegroundVoiceCaptureLease: @unchecked Sendable {
 
 @_spi(HoldTypeIOSCore)
 public final class IOSV1ForegroundVoiceCompletedCapture: @unchecked Sendable {
-    public var attemptID: UUID { completed.attemptID }
     public var recordingDurationLimit: RecordingDurationLimit {
         completed.recordingDurationLimit
     }
