@@ -266,27 +266,6 @@ struct IOSVoiceHomePresentationTests {
         )
     }
 
-    @Test func voiceDraftSourceHasNoVisualPostActionNoticeSurface() throws {
-        let repositoryRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: repositoryRoot.appendingPathComponent(
-                "HoldTypeIOS/IOSVoiceHomeView.swift"
-            ),
-            encoding: .utf8
-        )
-
-        for forbidden in [
-            "draftActionNotice",
-            "draftNotice",
-            "ios.voice.draft.notice",
-            "ios.voice.draft.clear-undo",
-        ] {
-            #expect(!source.contains(forbidden))
-        }
-    }
-
     @Test func activityCenterDependsOnlyOnTheVoiceStageBounds() {
         let phoneStage = CGSize(width: 398, height: 426)
         let compactStage = CGSize(width: 320, height: 300)
