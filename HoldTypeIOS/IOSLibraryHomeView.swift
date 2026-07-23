@@ -7,6 +7,17 @@ struct IOSLibraryHomeView: View {
     @State private var isLoading = false
     @Binding var hasUnsavedLibraryEditor: Bool
     @Binding var hasBlockingLibraryOperation: Bool
+    let textFixEditorClient: IOSTextFixEditorClient?
+
+    init(
+        hasUnsavedLibraryEditor: Binding<Bool>,
+        hasBlockingLibraryOperation: Binding<Bool>,
+        textFixEditorClient: IOSTextFixEditorClient? = nil
+    ) {
+        _hasUnsavedLibraryEditor = hasUnsavedLibraryEditor
+        _hasBlockingLibraryOperation = hasBlockingLibraryOperation
+        self.textFixEditorClient = textFixEditorClient
+    }
 
     var body: some View {
         Group {
@@ -85,6 +96,28 @@ struct IOSLibraryHomeView: View {
                     hasBlockingSceneOperation:
                         $hasBlockingLibraryOperation
                 )
+            case .fixes:
+                if let textFixEditorClient {
+                    IOSTextFixEditorView(
+                        model: IOSTextFixEditorModel(
+                            client: textFixEditorClient,
+                            onUnsavedStateChange: {
+                                hasUnsavedLibraryEditor = $0
+                            },
+                            onBlockingStateChange: {
+                                hasBlockingLibraryOperation = $0
+                            }
+                        )
+                    )
+                } else {
+                    ContentUnavailableView(
+                        "Fixes Unavailable",
+                        systemImage: "wand.and.stars",
+                        description: Text(
+                            "HoldType couldn’t open the local Fixes catalog."
+                        )
+                    )
+                }
             }
         }
         .accessibilityIdentifier(
@@ -178,6 +211,19 @@ struct IOSLibrarySummaryList: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section("Text Actions") {
+                NavigationLink(value: IOSLibraryRoute.fixes) {
+                    IOSLibraryDestinationLabel(
+                        destination: .fixes,
+                        summary: IOSLibraryDestination.fixes.detail
+                    )
+                }
+                .accessibilityIdentifier(
+                    IOSLibraryDestination.fixes
+                        .rowAccessibilityIdentifier
+                )
             }
         }
     }

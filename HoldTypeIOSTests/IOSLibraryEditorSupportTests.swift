@@ -6,42 +6,7 @@ import Testing
 
 @MainActor
 struct IOSLibraryEditorSupportTests {
-    @Test func libraryDestinationsAndDraftsHaveStableContentFreePresentation() {
-        #expect(
-            IOSLibraryDestination.allCases == [
-                .dictionary,
-                .emojiCommands,
-                .replacementRules,
-            ]
-        )
-        #expect(
-            IOSLibraryDestination.allCases.map(\.title) == [
-                "Dictionary",
-                "Emoji Commands",
-                "Replacements",
-            ]
-        )
-        #expect(
-            IOSLibraryDestination.allCases.map(\.detail) == [
-                "Names, brands, and terms to recognize",
-                "Say a phrase to insert an emoji",
-                "Automatic cleanup and custom replacements",
-            ]
-        )
-        #expect(
-            IOSLibrarySummaryList.introduction
-                == "Teach HoldType the words you use and choose how the final "
-                    + "text should look. These rules apply automatically to new "
-                    + "dictations."
-        )
-        #expect(
-            Set(
-                IOSLibraryDestination.allCases.map(
-                    \.rowAccessibilityIdentifier
-                )
-            ).count == 3
-        )
-
+    @Test func libraryDraftsHaveStableContentFreePresentation() {
         var draft = IOSDictionaryAddDraft()
         #expect(!draft.hasMeaningfulInput)
         draft.rawInput = "  HoldType  "

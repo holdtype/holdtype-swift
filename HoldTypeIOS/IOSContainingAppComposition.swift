@@ -149,6 +149,7 @@ final class IOSContainingAppComposition {
     let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
     let providerConsentCoordinator: IOSV1ProviderConsentCoordinator?
     let textFixCatalogRepository: TextFixCatalogRepository?
+    let textFixEditorClient: IOSTextFixEditorClient?
     let acceptedTextHistoryRepository:
         IOSAcceptedTextHistoryRepository?
     let acceptedAudioCache: IOSAcceptedAudioCache?
@@ -188,6 +189,7 @@ final class IOSContainingAppComposition {
             openAISettingsStateOwner = nil
             providerConsentCoordinator = nil
             textFixCatalogRepository = nil
+            textFixEditorClient = nil
             acceptedTextHistoryRepository = nil
             acceptedAudioCache = nil
             acceptedTextHistoryStateOwner = nil
@@ -326,7 +328,7 @@ final class IOSContainingAppComposition {
             )
         }
         self.foregroundVoiceProcessor = foregroundVoiceProcessor
-        keyboardFixRuntimeOwner = IOSKeyboardFixProductionFactory
+        let keyboardFixRuntimeOwner = IOSKeyboardFixProductionFactory
             .makeRuntimeOwner(
                 catalogRepository: textFixCatalogRepository,
                 settingsStateOwner: settingsStateOwner,
@@ -334,6 +336,7 @@ final class IOSContainingAppComposition {
                 credentialCoordinator: credentialCoordinator,
                 foregroundVoiceProcessor: foregroundVoiceProcessor
             )
+        self.keyboardFixRuntimeOwner = keyboardFixRuntimeOwner
         let foregroundVoiceRuntime = IOSForegroundVoiceRuntime(
             settingsStateOwner: settingsStateOwner,
             libraryStateOwner: libraryStateOwner,
@@ -353,6 +356,17 @@ final class IOSContainingAppComposition {
             factories: factories.voiceFactories
         )
         self.foregroundVoiceRuntime = foregroundVoiceRuntime
+        textFixEditorClient = IOSTextFixEditorClient(
+            repository: textFixCatalogRepository,
+            refreshAfterSave: {
+                [weak foregroundVoiceRuntime, weak keyboardFixRuntimeOwner] in
+                await foregroundVoiceRuntime?
+                    .voiceFixesCatalogOwner
+                    .refresh()
+                _ = await keyboardFixRuntimeOwner?
+                    .refreshCatalogMetadata()
+            }
+        )
         let historyAudioPlaybackOwner = foregroundVoiceRuntime
             .historyAudioPlaybackOwner
         historyPlaybackActions = historyAudioPlaybackOwner
@@ -428,6 +442,7 @@ final class IOSContainingAppComposition {
         openAISettingsStateOwner = nil
         providerConsentCoordinator = nil
         textFixCatalogRepository = nil
+        textFixEditorClient = nil
         acceptedTextHistoryRepository = nil
         acceptedAudioCache = nil
         acceptedTextHistoryStateOwner = nil

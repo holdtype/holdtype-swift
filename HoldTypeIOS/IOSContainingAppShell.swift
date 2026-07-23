@@ -41,6 +41,7 @@ struct IOSContainingAppShell: View {
         IOSPendingRecordingHistoryStateOwner?
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
+    let textFixEditorClient: IOSTextFixEditorClient?
     let layout: IOSContainingAppShellLayout
     let launchRouter: IOSKeyboardHandoffLaunchRouter
     let keyboardHandoffPresentationOwner:
@@ -54,6 +55,7 @@ struct IOSContainingAppShell: View {
             IOSPendingRecordingHistoryStateOwner? = nil,
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
+        textFixEditorClient: IOSTextFixEditorClient? = nil,
         layout: IOSContainingAppShellLayout = .current,
         launchRouter: IOSKeyboardHandoffLaunchRouter = .live,
         keyboardHandoffPresentationOwner:
@@ -67,6 +69,7 @@ struct IOSContainingAppShell: View {
             pendingRecordingHistoryStateOwner
         self.recordingCacheLifecycleActions =
             recordingCacheLifecycleActions
+        self.textFixEditorClient = textFixEditorClient
         self.layout = layout
         self.launchRouter = launchRouter
         self.keyboardHandoffPresentationOwner =
@@ -307,7 +310,8 @@ struct IOSContainingAppShell: View {
         case .library:
             IOSLibraryHomeView(
                 hasUnsavedLibraryEditor: $hasUnsavedEditor,
-                hasBlockingLibraryOperation: $hasBlockingEditorOperation
+                hasBlockingLibraryOperation: $hasBlockingEditorOperation,
+                textFixEditorClient: textFixEditorClient
             )
         case .history:
             IOSHistoryHomeView(

@@ -108,6 +108,8 @@ private extension HoldTypeIOSRootView {
                 composition.pendingRecordingHistoryStateOwner,
             recordingCacheLifecycleActions:
                 composition.recordingCacheLifecycleActions,
+            textFixEditorClient:
+                composition.textFixEditorClient,
             keyboardHandoffPresentationOwner:
                 keyboardHandoffPresentationOwner
         )

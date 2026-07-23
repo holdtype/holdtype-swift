@@ -78,6 +78,7 @@ struct HoldTypeIOSRootView: View {
         IOSPendingRecordingHistoryStateOwner?
     let recordingCacheLifecycleActions:
         IOSRecordingCacheLifecycleActions?
+    let textFixEditorClient: IOSTextFixEditorClient?
     let layout: IOSContainingAppShellLayout
     let keyboardHandoffPresentationOwner:
         IOSKeyboardHandoffPresentationOwner?
@@ -96,6 +97,7 @@ struct HoldTypeIOSRootView: View {
             IOSPendingRecordingHistoryStateOwner? = nil,
         recordingCacheLifecycleActions:
             IOSRecordingCacheLifecycleActions? = nil,
+        textFixEditorClient: IOSTextFixEditorClient? = nil,
         layout: IOSContainingAppShellLayout = .current,
         keyboardHandoffPresentationOwner:
             IOSKeyboardHandoffPresentationOwner? = nil
@@ -113,6 +115,7 @@ struct HoldTypeIOSRootView: View {
             pendingRecordingHistoryStateOwner
         self.recordingCacheLifecycleActions =
             recordingCacheLifecycleActions
+        self.textFixEditorClient = textFixEditorClient
         self.layout = layout
         self.keyboardHandoffPresentationOwner =
             keyboardHandoffPresentationOwner
@@ -148,6 +151,7 @@ struct HoldTypeIOSRootView: View {
                         pendingRecordingHistoryStateOwner,
                     recordingCacheLifecycleActions:
                         recordingCacheLifecycleActions,
+                    textFixEditorClient: textFixEditorClient,
                     layout: layout,
                     keyboardHandoffPresentationOwner:
                         keyboardHandoffPresentationOwner

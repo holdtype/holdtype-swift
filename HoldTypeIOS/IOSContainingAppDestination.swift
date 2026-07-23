@@ -252,6 +252,7 @@ enum IOSLibraryRoute: Hashable {
     case replacementRules
     case newReplacementRule(UUID)
     case replacementRule(UUID)
+    case fixes
 }
 
 enum IOSContainingAppRootPresentation: Equatable, Sendable {
