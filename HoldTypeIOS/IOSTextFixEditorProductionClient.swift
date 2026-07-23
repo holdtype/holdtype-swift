@@ -21,4 +21,17 @@ extension IOSTextFixEditorClient {
             return savedCatalog
         }
     }
+
+    @MainActor
+    static func production(
+        repository: TextFixCatalogRepository,
+        voiceRuntime: IOSForegroundVoiceRuntime,
+        keyboardRuntime: IOSKeyboardFixRuntimeOwner?
+    ) -> Self {
+        Self(repository: repository) {
+            [weak voiceRuntime, weak keyboardRuntime] in
+            await voiceRuntime?.voiceFixesCatalogOwner.refresh()
+            _ = await keyboardRuntime?.refreshCatalogMetadata()
+        }
+    }
 }

@@ -356,16 +356,10 @@ final class IOSContainingAppComposition {
             factories: factories.voiceFactories
         )
         self.foregroundVoiceRuntime = foregroundVoiceRuntime
-        textFixEditorClient = IOSTextFixEditorClient(
+        textFixEditorClient = .production(
             repository: textFixCatalogRepository,
-            refreshAfterSave: {
-                [weak foregroundVoiceRuntime, weak keyboardFixRuntimeOwner] in
-                await foregroundVoiceRuntime?
-                    .voiceFixesCatalogOwner
-                    .refresh()
-                _ = await keyboardFixRuntimeOwner?
-                    .refreshCatalogMetadata()
-            }
+            voiceRuntime: foregroundVoiceRuntime,
+            keyboardRuntime: keyboardFixRuntimeOwner
         )
         let historyAudioPlaybackOwner = foregroundVoiceRuntime
             .historyAudioPlaybackOwner

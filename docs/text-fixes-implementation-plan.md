@@ -1,6 +1,8 @@
 # HoldType Text Fixes Implementation Plan
 
-Status: approved for implementation; Phase 0 complete, Phase 1 complete
+Status: implementation delivered through Phase 7; Phase 8 automated and
+Simulator qualification complete; macOS host-matrix and signed-device keyboard
+qualification remain
 
 Date: 2026-07-23
 
@@ -8,6 +10,23 @@ Implementation authorization: granted 2026-07-23
 
 Current execution follows the active contract in
 `docs/specs/features/text-fixes.md`.
+
+## Implementation Closeout — 2026-07-23
+
+| Phase | Status | Evidence or remaining gate |
+| --- | --- | --- |
+| 0 — Product contract | Complete | Active specs define the shared catalog, `Option+J`, privacy, targeting, and platform boundaries. |
+| 1 — Feasibility spikes | Complete for implementation decisions | macOS and Voice paths are viable. Keyboard no-selection behavior is narrowed to fail closed when completeness cannot be proved, and the app-owned 60-second bridge is the selected provider boundary. |
+| 2 — Shared foundation | Complete | Domain, persistence, generic OpenAI transformation, typed Translate/Fix routing, timeout, cancellation, and validation are implemented and package-tested. |
+| 3 — macOS vertical slice | Implemented | Target capture, native palette, `Option+J`, stale-target rejection, execution, and exact-range replacement are covered by the macOS suite. The representative live-host matrix remains a Phase 8 release gate. |
+| 4 — macOS editor | Complete | Menu commands and the native searchable catalog editor with validation, CRUD, reorder, enablement, icons, and Restore Defaults are implemented. |
+| 5 — iOS Voice | Complete | Selection-aware and whole-Draft Fixes, typed actions, catalog presentation, stale-result protection, and Undo are implemented and verified in Simulator. |
+| 6 — Keyboard service | Implemented; signed-device exit pending | The bounded App Group request/result bridge, metadata projection, consent, Full Access, TTL, cancellation, privacy, and exactly-once guards are implemented. End-to-end selected-text proof on a signed physical iPhone remains required. |
+| 7 — Keyboard UX | Complete in Simulator | The center Fixes control, scrollable tile workspace, progress/error/privacy states, and mutual exclusion with Quick Insert are implemented and exercised in the real embedded keyboard extension. |
+| 8 — Integrated qualification | In progress | Package, macOS, iOS app, keyboard unit/integration suites and Simulator runtime QA pass. The macOS compatibility matrix, physical-iPhone keyboard matrix, and final live log audit remain. |
+
+The recorded automated and runtime evidence is in
+`docs/qa/runs/text-fixes-implementation-2026-07-23.md`.
 
 ## 1. Goal
 

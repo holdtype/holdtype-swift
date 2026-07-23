@@ -21,6 +21,8 @@ struct IOSVoiceFixesLauncher: View {
         Button(action: presentFixes) {
             Label("Fixes", systemImage: "wand.and.stars")
                 .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.horizontal, 6)
                 .frame(minHeight: 36)
         }

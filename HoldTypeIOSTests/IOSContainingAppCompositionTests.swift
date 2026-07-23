@@ -234,7 +234,6 @@ struct IOSContainingAppCompositionTests {
         let voiceRuntime = try #require(
             composition.foregroundVoiceRuntime
         )
-        #expect(composition.textFixEditorClient != nil)
         #expect(composition.historyPlaybackActions != nil)
         #expect(composition.pendingRecordingHistoryStateOwner != nil)
         #expect(composition.recordingCacheLifecycleActions != nil)
@@ -537,7 +536,6 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.usageEstimateStateOwner != nil)
         #expect(composition.foregroundVoiceProcessor == nil)
         #expect(composition.foregroundVoiceRuntime != nil)
-        #expect(composition.textFixEditorClient != nil)
         #expect(composition.voiceSceneLifecycleBinding != nil)
         #expect(providerConsentFactoryCalls == 1)
         #expect(foregroundPersistenceFactoryCalls == 1)
@@ -634,7 +632,6 @@ struct IOSContainingAppCompositionTests {
         #expect(composition.usageEstimateStateOwner == nil)
         #expect(composition.foregroundVoiceProcessor == nil)
         #expect(composition.foregroundVoiceRuntime == nil)
-        #expect(composition.textFixEditorClient == nil)
         #expect(composition.voiceSceneLifecycleBinding == nil)
         #expect(
             composition.lifecycleScheduler.latestDisposition
@@ -673,7 +670,6 @@ struct IOSContainingAppCompositionTests {
         #expect(app.composition.usageEstimateStateOwner == nil)
         #expect(app.composition.foregroundVoiceProcessor == nil)
         #expect(app.composition.foregroundVoiceRuntime == nil)
-        #expect(app.composition.textFixEditorClient == nil)
         #expect(app.composition.voiceSceneLifecycleBinding == nil)
         #expect(app.composition.lifecycleScheduler.latestDisposition == .complete)
     }
@@ -724,8 +720,6 @@ private func rootView(
         usageEstimateStateOwner:
             composition.usageEstimateStateOwner,
         acceptedTextHistoryStateOwner:
-            composition.acceptedTextHistoryStateOwner,
-        textFixEditorClient:
-            composition.textFixEditorClient
+            composition.acceptedTextHistoryStateOwner
     )
 }
