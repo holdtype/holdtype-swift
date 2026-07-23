@@ -159,6 +159,7 @@ public enum IOSVoiceDraftTextAction: Equatable, Sendable {
 public enum IOSVoiceDraftTextActionFailure: Equatable, Sendable {
     case busy
     case invalidText
+    case sourceTooLarge
     case invalidConfiguration
     case credentialUnavailable
     case consentUnavailable
@@ -206,6 +207,42 @@ extension IOSVoiceDraftTextActionRequest:
     CustomReflectable {
     public var description: String {
         "IOSVoiceDraftTextActionRequest(redacted)"
+    }
+
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: [:]) }
+}
+
+/// One validated catalog action applied to an existing app-private Voice Draft.
+@_spi(HoldTypeIOSCore)
+public struct IOSVoiceDraftTextFixRequest: Sendable {
+    public let action: TextFixAction
+    public let text: String
+    public let settings: IOSAppSettings
+    public let credential: IOSResolvedOpenAICredential
+    public let consentObservation: IOSV1ProviderConsentObservation
+
+    public init(
+        action: TextFixAction,
+        text: String,
+        settings: IOSAppSettings,
+        credential: IOSResolvedOpenAICredential,
+        consentObservation: IOSV1ProviderConsentObservation
+    ) {
+        self.action = action
+        self.text = text
+        self.settings = settings
+        self.credential = credential
+        self.consentObservation = consentObservation
+    }
+}
+
+extension IOSVoiceDraftTextFixRequest:
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
+    public var description: String {
+        "IOSVoiceDraftTextFixRequest(redacted)"
     }
 
     public var debugDescription: String { description }

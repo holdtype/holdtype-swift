@@ -16,15 +16,15 @@ public actor IOSForegroundVoiceProcessor {
     ) async -> Void
 
     private let persistenceOwner: any IOSForegroundVoicePersisting
-    private let consentCoordinator: IOSV1ProviderConsentCoordinator
-    private let stageExecutor: IOSProviderConsentStageExecutor
-    private let provider: IOSForegroundVoiceOpenAIProviderOperations
+    let consentCoordinator: IOSV1ProviderConsentCoordinator
+    let stageExecutor: IOSProviderConsentStageExecutor
+    let provider: IOSForegroundVoiceOpenAIProviderOperations
     private let recordUsage: UsageRecorder
-    private let recordProviderRejection: ProviderRejectionRecorder
+    let recordProviderRejection: ProviderRejectionRecorder
     private let makeUUID: @Sendable () -> UUID
     private let postProcessor: TranscriptTextPostProcessor
 
-    private var activeOperationID: UUID?
+    var activeOperationID: UUID?
 
     public init(
         persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
@@ -104,175 +104,6 @@ public actor IOSForegroundVoiceProcessor {
             operationID: operationID,
             progress: progress
         )
-    }
-
-    /// Runs a provider-only action against an existing app-private Draft. This
-    /// shares the Voice processor's operation gate but never creates Pending,
-    /// transcription usage, Latest, or History state.
-    @_spi(HoldTypeIOSCore)
-    public func processDraftText(
-        _ request: IOSVoiceDraftTextActionRequest
-    ) async -> IOSVoiceDraftTextActionResolution {
-        guard activeOperationID == nil else { return .failure(.busy) }
-        guard let source = try? AcceptedTranscript(rawText: request.text) else {
-            return .failure(.invalidText)
-        }
-        guard let authorization = consentCoordinator.makeAuthorization(
-            from: request.consentObservation
-        ) else {
-            return .failure(.consentUnavailable)
-        }
-        if request.action == .translate,
-           !request.settings.translationConfiguration.isConfigurationReady {
-            return .failure(.invalidConfiguration)
-        }
-
-        let operationID = UUID()
-        activeOperationID = operationID
-        defer {
-            if activeOperationID == operationID {
-                activeOperationID = nil
-            }
-        }
-
-        let outcome = await runDraftTextAction(
-            request,
-            source: source,
-            authorization: authorization
-        )
-        guard activeOperationID == operationID, !Task.isCancelled else {
-            return .failure(.cancelled)
-        }
-        return outcome
-    }
-
-    private func runDraftTextAction(
-        _ request: IOSVoiceDraftTextActionRequest,
-        source: AcceptedTranscript,
-        authorization: IOSV1ProviderConsentAuthorization
-    ) async -> IOSVoiceDraftTextActionResolution {
-        let provider = provider
-        let credential = request.credential.credential
-        let outcome: IOSProviderConsentStageOutcome<
-            AcceptedTranscript,
-            IOSForegroundVoiceProviderFailure
-        >
-
-        switch request.action {
-        case .correct:
-            var configuration = request.settings.textCorrectionConfiguration
-            configuration.isEnabled = true
-            let correctionConfiguration = configuration
-            outcome = await stageExecutor.execute(
-                authorization,
-                for: .correction,
-                operation: {
-                    try AcceptedTranscript(
-                        rawText: try await provider.correct(
-                            source,
-                            correctionConfiguration,
-                            credential
-                        )
-                    )
-                },
-                normalizeFailure: {
-                    IOSForegroundVoiceProviderFailureMapper.correction($0)
-                }
-            )
-        case .translate:
-            let translationRequest = TextTranslationRequest(
-                acceptedTranscript: source,
-                translationConfiguration:
-                    request.settings.translationConfiguration,
-                transcriptionConfiguration:
-                    request.settings.transcriptionConfiguration
-            )
-            outcome = await stageExecutor.execute(
-                authorization,
-                for: .translation,
-                operation: {
-                    try AcceptedTranscript(
-                        rawText: try await provider.translate(
-                            translationRequest,
-                            credential
-                        )
-                    )
-                },
-                normalizeFailure: {
-                    IOSForegroundVoiceProviderFailureMapper.translation($0)
-                }
-            )
-        }
-
-        switch outcome {
-        case .success(let result):
-            return acceptedDraftTextActionResult(
-                result,
-                source: source,
-                action: request.action,
-                settings: request.settings
-            )
-        case .failure(let failure):
-            if failure == .credentialRejected {
-                await recordProviderRejection(request.credential.generation)
-            }
-            return .failure(Self.draftTextActionFailure(from: failure))
-        case .cancelled:
-            return .failure(.cancelled)
-        case .authorizationUnavailable:
-            return .failure(.consentUnavailable)
-        }
-    }
-
-    private func acceptedDraftTextActionResult(
-        _ result: AcceptedTranscript,
-        source: AcceptedTranscript,
-        action: IOSVoiceDraftTextAction,
-        settings: IOSAppSettings
-    ) -> IOSVoiceDraftTextActionResolution {
-        if action == .correct,
-           !Self.isSafeCorrection(
-               original: source.text,
-               corrected: result.text
-           ) {
-            return .success(source.text)
-        }
-        guard action == .translate, settings.localTextCleanupEnabled else {
-            return .success(result.text)
-        }
-        let normalized = TranscriptTextPostProcessor
-            .normalizedInformalTypography(
-                from: result.text,
-                fallback: result.text
-            )
-        guard let accepted = try? AcceptedTranscript(rawText: normalized) else {
-            return .failure(.invalidResponse)
-        }
-        return .success(accepted.text)
-    }
-
-    private static func draftTextActionFailure(
-        from failure: IOSForegroundVoiceProviderFailure
-    ) -> IOSVoiceDraftTextActionFailure {
-        switch failure {
-        case .credentialMissing, .credentialUnavailable, .credentialRejected:
-            .credentialUnavailable
-        case .networkUnavailable:
-            .networkUnavailable
-        case .timedOut:
-            .timedOut
-        case .invalidRequest, .invalidTranslationRoute:
-            .invalidConfiguration
-        case .invalidResponse, .emptyResult, .dictionaryEcho, .contextEcho:
-            .invalidResponse
-        case .cancelled:
-            .cancelled
-        case .networkFailure, .rateLimited, .providerUnavailable,
-             .badRequest, .providerRejected, .unknown:
-            .providerUnavailable
-        case .invalidRecording, .multipartMetadataTooLarge:
-            .invalidResponse
-        }
     }
 
     private func run(
@@ -1257,19 +1088,6 @@ public actor IOSForegroundVoiceProcessor {
             && candidate.byteCount == source.byteCount
     }
 
-    private static func isSafeCorrection(
-        original: String,
-        corrected: String
-    ) -> Bool {
-        guard let normalized = AcceptedTranscript.nonEmptyNormalizedText(
-            from: corrected
-        ) else {
-            return false
-        }
-        guard original.count >= 20 else { return true }
-        return normalized.count >= max(1, original.count / 3)
-            && normalized.count <= original.count * 3
-    }
 }
 
 private final class IOSForegroundVoiceProviderDispatchEvidence:

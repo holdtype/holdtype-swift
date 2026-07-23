@@ -1,7 +1,7 @@
 import Foundation
 
 public final class IOSV1ProviderConsentCoordinator: @unchecked Sendable {
-    public static let currentDisclosureVersion: Int64 = 3
+    public static let currentDisclosureVersion: Int64 = 4
 
     private let repository: IOSV1ProviderConsentRepository
     private let fence = IOSV1ProviderConsentFence()

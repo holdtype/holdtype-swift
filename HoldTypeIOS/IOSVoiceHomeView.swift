@@ -15,6 +15,8 @@ struct IOSVoiceHomeView: View {
     private var sceneOwner
     @Environment(IOSVoiceDraftOwner.self)
     private var draftOwner
+    @Environment(IOSVoiceFixesCatalogOwner.self)
+    private var voiceFixesCatalogOwner
     @Environment(IOSVoiceDraftTextActionOwner.self)
     private var draftTextActionOwner
     @Environment(IOSProviderConsentPresentationOwner.self)
@@ -36,6 +38,8 @@ struct IOSVoiceHomeView: View {
     @State private var draftEditSaveTask: Task<Void, Never>?
     @State private var showsDraftJumpToLatest = false
     @State private var draftScrollToLatestRequest = 0
+    @State private var latestDraftTargetSnapshot:
+        IOSVoiceDraftTextTargetSnapshot?
     @State private var automaticallyOpenedSetup: RecoveryDestination?
     @State private var sessionModes = IOSVoiceSessionModes()
     @FocusState private var practiceFieldIsFocused: Bool
@@ -287,32 +291,6 @@ struct IOSVoiceHomeView: View {
         }
     }
 
-    private func draftTextActionButton(
-        _ action: IOSVoiceDraftTextAction
-    ) -> some View {
-        let presentation = IOSVoiceDraftTextActionPresentation.resolve(action)
-        let isEnabled = sceneOwner.presentation.phase == .inactive
-            && draftOwner.isAvailableForMutation
-            && !draftOwner.visibleText
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .isEmpty
-
-        return Button {
-            guard isEnabled else { return }
-            draftTextActionOwner.dismissOutcome()
-            _ = draftTextActionOwner.submit(action)
-        } label: {
-            Image(systemName: presentation.systemImage)
-                .font(.system(size: 18, weight: .medium))
-                .frame(width: 36, height: 36)
-        }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .accessibilityLabel(presentation.title)
-        .accessibilityHint("Processes the complete current Draft.")
-        .accessibilityIdentifier(presentation.accessibilityIdentifier)
-    }
-
     private var draftSurface: some View {
         VStack(alignment: .leading, spacing: 12) {
             draftActionBar
@@ -367,7 +345,7 @@ struct IOSVoiceHomeView: View {
             HStack(alignment: .center, spacing: 4) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
-                        oneShotDraftActions
+                        immediateDraftFixesAction
                     }
                     HStack(spacing: 4) {
                         draftEditingIconActions
@@ -385,16 +363,30 @@ struct IOSVoiceHomeView: View {
     @ViewBuilder
     private var draftIconActions: some View {
         HStack(spacing: 4) {
-            oneShotDraftActions
+            immediateDraftFixesAction
             draftEditingIconActions
         }
         .buttonStyle(.plain)
     }
 
     @ViewBuilder
-    private var oneShotDraftActions: some View {
-        draftTextActionButton(.translate)
-        draftTextActionButton(.correct)
+    private var immediateDraftFixesAction: some View {
+        IOSVoiceFixesLauncher(
+            draftEditorIsFocused: draftEditorFocusBinding,
+            isEnabled: sceneOwner.presentation.phase == .inactive
+                && !draftOwner.isBusy
+                && !draftTextActionOwner.isProcessing
+                && (draftOwner.isEditing
+                    || draftOwner.isAvailableForMutation)
+                && !draftOwner.visibleText.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ).isEmpty,
+            visibleText: draftOwner.visibleText,
+            draftIsEditing: draftOwner.isEditing,
+            latestTargetSnapshot: latestDraftTargetSnapshot,
+            catalogOwner: voiceFixesCatalogOwner,
+            actionOwner: draftTextActionOwner
+        )
     }
 
     @ViewBuilder
@@ -455,7 +447,10 @@ struct IOSVoiceHomeView: View {
                 contentChange: draftOwner.contentChange,
                 scrollToLatestRequest: draftScrollToLatestRequest,
                 usesAccessibilitySize: dynamicTypeSize.isAccessibilitySize,
-                reduceMotion: reduceMotion
+                reduceMotion: reduceMotion,
+                onTargetSnapshotChange: {
+                    latestDraftTargetSnapshot = $0
+                }
             )
             .frame(
                 minHeight: 120,
@@ -878,7 +873,7 @@ struct IOSVoiceHomeView: View {
 
     private var effectiveVoiceStatus: IOSVoiceStatusPresentation {
         if let action = draftTextActionOwner.activeAction {
-            return IOSVoiceDraftTextActionPresentation
+            return IOSVoiceTextFixPresentation
                 .resolve(action)
                 .processingStatus
         }

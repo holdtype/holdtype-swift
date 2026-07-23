@@ -68,15 +68,21 @@ struct IOSForegroundVoiceOpenAIProviderOperations: Sendable {
         TextTranslationRequest,
         OpenAICredential
     ) async throws -> String
+    typealias Transform = @Sendable (
+        TextTransformationRequest,
+        OpenAICredential
+    ) async throws -> String
 
     let transcribe: Transcribe
     let correct: Correct
     let translate: Translate
+    let transform: Transform
 
     init() {
         let transcriptionService = OpenAITranscriptionService()
         let correctionService = OpenAITextCorrectionService()
         let translationService = OpenAITextTranslationService()
+        let transformationService = OpenAITextTransformationService()
         transcribe = { request, credential in
             try await transcriptionService.transcribe(
                 request,
@@ -96,16 +102,26 @@ struct IOSForegroundVoiceOpenAIProviderOperations: Sendable {
                 credential: credential
             )
         }
+        transform = { request, credential in
+            try await transformationService.transform(
+                request,
+                credential: credential
+            )
+        }
     }
 
     init(
         transcribe: @escaping Transcribe,
         correct: @escaping Correct,
-        translate: @escaping Translate
+        translate: @escaping Translate,
+        transform: @escaping Transform = { _, _ in
+            throw OpenAITextTransformationServiceError.invalidRequest
+        }
     ) {
         self.transcribe = transcribe
         self.correct = correct
         self.translate = translate
+        self.transform = transform
     }
 }
 
@@ -199,6 +215,33 @@ enum IOSForegroundVoiceProviderFailureMapper {
         case .invalidLanguageConfiguration: .invalidTranslationRoute
         case .invalidRequest: .invalidRequest
         case .cancelled: .cancelled
+        }
+    }
+
+    static func transformation(
+        _ error: any Error
+    ) -> IOSForegroundVoiceProviderFailure {
+        if error is CancellationError { return .cancelled }
+        if error is TextTransformationRequest.ValidationError {
+            return .invalidRequest
+        }
+        guard let error = error as? OpenAITextTransformationServiceError else {
+            return .unknown
+        }
+        return switch error {
+        case .invalidRequest: .invalidRequest
+        case .timedOut: .timedOut
+        case .networkUnavailable: .networkUnavailable
+        case .networkFailure: .networkFailure
+        case .cancelled: .cancelled
+        case .invalidAPIKey: .credentialRejected
+        case .rateLimited: .rateLimited
+        case .providerUnavailable: .providerUnavailable
+        case .badRequest: .badRequest
+        case .providerRejected: .providerRejected
+        case .invalidResponse: .invalidResponse
+        case .emptyOutput: .emptyResult
+        case .outputTooLarge: .invalidResponse
         }
     }
 }

@@ -3,27 +3,42 @@ import Testing
 @testable import HoldTypePersistence
 
 struct IOSV1ProviderConsentTests {
-    @Test func versionTwoAcceptanceRequiresReviewForOptionalAudioRetention()
+    @Test func versionThreeAcceptanceRequiresReviewForTextFixes()
         async throws {
         try await withFixture { fixture in
-            let versionTwoRecord = Data(
-                #"{"decision":"accepted","decisionAtMilliseconds":1800000000000,"disclosureVersion":2,"revision":1,"schemaVersion":1}"#.utf8
+            let versionThreeRecord = Data(
+                #"{"decision":"accepted","decisionAtMilliseconds":1800000000000,"disclosureVersion":3,"revision":1,"schemaVersion":1}"#.utf8
             )
             try FileManager.default.createDirectory(
                 at: fixture.fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try versionTwoRecord.write(to: fixture.fileURL)
+            try versionThreeRecord.write(to: fixture.fileURL)
 
             let observation = await fixture.coordinator.observe()
 
             #expect(
-                IOSV1ProviderConsentCoordinator.currentDisclosureVersion == 3
+                IOSV1ProviderConsentCoordinator.currentDisclosureVersion == 4
             )
             #expect(observation.status == .reviewRequired)
             #expect(
                 fixture.coordinator.makeAuthorization(from: observation) == nil
             )
+
+            let accepted = try await fixture.coordinator.accept(
+                using: observation,
+                decisionAt: Date(timeIntervalSince1970: 1_800_000_001)
+            )
+            #expect(accepted.status == .acceptedCurrentDisclosure)
+            #expect(
+                fixture.coordinator.makeAuthorization(from: accepted) != nil
+            )
+
+            let restarted = IOSV1ProviderConsentCoordinator(
+                fileURL: fixture.fileURL
+            )
+            let current = await restarted.observe()
+            #expect(current.status == .acceptedCurrentDisclosure)
         }
     }
 

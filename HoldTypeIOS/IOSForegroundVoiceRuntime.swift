@@ -124,6 +124,7 @@ final class IOSForegroundVoiceRuntime {
         historyPlaybackArbitrator as? IOSHistoryAudioPlaybackOwner
     }
     let voiceDraftOwner: IOSVoiceDraftOwner
+    let voiceFixesCatalogOwner: IOSVoiceFixesCatalogOwner
     let voiceDraftTextActionOwner: IOSVoiceDraftTextActionOwner
     let workflow: IOSForegroundVoiceWorkflow
     let keyboardDictationSession: IOSKeyboardDictationSessionCoordinator
@@ -137,6 +138,8 @@ final class IOSForegroundVoiceRuntime {
         providerConsentCoordinator: IOSV1ProviderConsentCoordinator,
         persistenceOwner: IOSV1ForegroundVoicePersistenceOwner,
         voiceDraftOwner: IOSVoiceDraftOwner,
+        textFixCatalogClient: IOSVoiceFixesCatalogClient =
+            IOSVoiceFixesCatalogClient(load: { .defaults }),
         credentialCoordinator: IOSOpenAICredentialCoordinator?,
         processor: IOSForegroundVoiceProcessor?,
         publishKeyboardSnapshot: @escaping @Sendable () async -> Bool = {
@@ -181,6 +184,9 @@ final class IOSForegroundVoiceRuntime {
             .makeHistoryPlaybackArbitrator()
         self.historyPlaybackArbitrator = historyPlaybackArbitrator
         self.voiceDraftOwner = voiceDraftOwner
+        voiceFixesCatalogOwner = IOSVoiceFixesCatalogOwner(
+            client: textFixCatalogClient
+        )
         voiceDraftTextActionOwner = IOSVoiceDraftTextActionOwner(
             draftOwner: voiceDraftOwner,
             client: IOSVoiceDraftTextActionClient(

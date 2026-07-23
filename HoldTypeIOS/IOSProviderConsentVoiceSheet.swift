@@ -14,8 +14,8 @@ struct IOSProviderConsentVoiceSheet: View {
                             Text("OpenAI Processing")
                                 .font(.headline)
                             Text(
-                                "HoldType sends the recording to OpenAI only "
-                                    + "after you explicitly start Voice."
+                                "HoldType sends a recording after you start "
+                                    + "Voice, or Draft text after you run a Fix."
                             )
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -137,6 +137,12 @@ struct IOSProviderConsentDisclosureSections: View {
                     image: "character.bubble"
                 )
                 disclosurePoint(
+                    "When you run a Fix, HoldType sends the selected Draft "
+                        + "text—or the complete Draft when nothing is selected—"
+                        + "together with the chosen instruction.",
+                    image: "wand.and.stars"
+                )
+                disclosurePoint(
                     "Your saved API key is used to send these requests directly "
                         + "to OpenAI.",
                     image: "key.fill"
@@ -145,8 +151,9 @@ struct IOSProviderConsentDisclosureSections: View {
 
             Section("What Stays Private") {
                 disclosurePoint(
-                    "Ordinary typing and surrounding text from other apps are "
-                        + "not sent to OpenAI.",
+                    "Only the source you explicitly choose for a Fix is sent. "
+                        + "Ordinary keystrokes and unrelated surrounding text "
+                        + "are not sent to OpenAI.",
                     image: "keyboard"
                 )
                 disclosurePoint(

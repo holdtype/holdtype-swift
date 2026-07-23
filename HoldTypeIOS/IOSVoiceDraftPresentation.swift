@@ -1,47 +1,75 @@
 import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 import HoldTypePersistence
-struct IOSVoiceDraftTextActionPresentation: Equatable, Sendable {
+
+struct IOSVoiceTextFixPresentation: Equatable, Sendable {
     let title: String
     let systemImage: String
     let accessibilityIdentifier: String
     let processingStatus: IOSVoiceStatusPresentation
 
     static func resolve(
-        _ action: IOSVoiceDraftTextAction
-    ) -> IOSVoiceDraftTextActionPresentation {
-        switch action {
+        _ action: TextFixAction
+    ) -> IOSVoiceTextFixPresentation {
+        let systemImage = systemImage(for: action.icon)
+        return IOSVoiceTextFixPresentation(
+            title: action.title,
+            systemImage: systemImage,
+            accessibilityIdentifier: "ios.voice.fixes.action.\(action.id)",
+            processingStatus: IOSVoiceStatusPresentation(
+                title: processingTitle(for: action.kind),
+                detail: "Applying \(action.title) to the reserved Draft text.",
+                systemImage: systemImage,
+                tone: .active,
+                showsProgress: true,
+                setupDestination: nil
+            )
+        )
+    }
+
+    static func systemImage(for icon: TextFixIcon) -> String {
+        switch icon {
         case .translate:
-            IOSVoiceDraftTextActionPresentation(
-                title: "Translate",
-                systemImage: "character.bubble",
-                accessibilityIdentifier: "ios.voice.draft.translate",
-                processingStatus: IOSVoiceStatusPresentation(
-                    title: "Translating…",
-                    detail: "Applying the saved Translation settings to the current Draft.",
-                    systemImage: "character.bubble",
-                    tone: .active,
-                    showsProgress: true,
-                    setupDestination: nil
-                )
-            )
-        case .correct:
-            IOSVoiceDraftTextActionPresentation(
-                title: "Correction",
-                systemImage: "wand.and.stars",
-                accessibilityIdentifier: "ios.voice.draft.correct",
-                processingStatus: IOSVoiceStatusPresentation(
-                    title: "Improving…",
-                    detail: "Applying the saved Writing & Correction settings to the current Draft.",
-                    systemImage: "wand.and.stars",
-                    tone: .active,
-                    showsProgress: true,
-                    setupDestination: nil
-                )
-            )
+            "character.bubble"
+        case .fix:
+            "wand.and.stars"
+        case .improveWriting:
+            "wand.and.sparkles"
+        case .makeShorter:
+            "text.alignleft"
+        case .summarize:
+            "bolt"
+        case .bulletPoints:
+            "list.bullet"
+        case .casual:
+            "face.smiling"
+        case .markdown:
+            "chevron.left.forwardslash.chevron.right"
+        case .formal:
+            "briefcase"
+        case .expand:
+            "arrow.left.and.right.text.vertical"
+        case .rewrite:
+            "arrow.triangle.2.circlepath"
+        case .custom:
+            "text.badge.plus"
+        }
+    }
+
+    private static func processingTitle(
+        for kind: TextFixActionKind
+    ) -> String {
+        switch kind {
+        case .translate:
+            "Translating…"
+        case .fix:
+            "Fixing…"
+        case .customPrompt:
+            "Applying Fix…"
         }
     }
 }
+
 struct IOSVoiceDraftClearPresentation: Equatable, Sendable {
     let isVisible: Bool
     let isEnabled: Bool

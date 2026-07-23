@@ -75,23 +75,23 @@ struct IOSVoiceHomePresentationTests {
         }
     }
 
-    @Test func draftTextActionsExposeProviderOnlyProcessingCopy() {
-        let translation = IOSVoiceDraftTextActionPresentation.resolve(
-            .translate
+    @Test func draftFixesExposeProviderOnlyProcessingCopy() {
+        let translation = IOSVoiceTextFixPresentation.resolve(
+            TextFixCatalog.defaults.actions[0]
         )
-        let correction = IOSVoiceDraftTextActionPresentation.resolve(
-            .correct
+        let fix = IOSVoiceTextFixPresentation.resolve(
+            TextFixCatalog.defaults.actions[1]
         )
 
         #expect(translation.title == "Translate")
         #expect(translation.processingStatus.title == "Translating…")
         #expect(translation.processingStatus.showsProgress)
-        #expect(correction.title == "Correction")
-        #expect(correction.processingStatus.title == "Improving…")
-        #expect(correction.processingStatus.tone == .active)
+        #expect(fix.title == "Fix")
+        #expect(fix.processingStatus.title == "Fixing…")
+        #expect(fix.processingStatus.tone == .active)
         #expect(
             translation.accessibilityIdentifier
-                != correction.accessibilityIdentifier
+                != fix.accessibilityIdentifier
         )
     }
 
@@ -519,12 +519,9 @@ struct IOSVoiceHomePresentationTests {
         }
         let names = actions.map {
             IOSVoiceActionPresentation.resolve($0).systemImage
-        } + [
-            IOSVoiceDraftTextActionPresentation.resolve(.translate)
-                .systemImage,
-            IOSVoiceDraftTextActionPresentation.resolve(.correct)
-                .systemImage,
-        ] + statuses.map(\.systemImage) + [
+        } + TextFixCatalog.defaults.actions.map {
+            IOSVoiceTextFixPresentation.resolve($0).systemImage
+        } + statuses.map(\.systemImage) + [
             "xmark.circle",
         ]
 

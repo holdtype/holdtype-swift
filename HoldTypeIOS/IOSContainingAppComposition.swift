@@ -148,6 +148,7 @@ final class IOSContainingAppComposition {
     let credentialCoordinator: IOSOpenAICredentialCoordinator?
     let openAISettingsStateOwner: IOSOpenAICredentialSettingsStateOwner?
     let providerConsentCoordinator: IOSV1ProviderConsentCoordinator?
+    let textFixCatalogRepository: TextFixCatalogRepository?
     let acceptedTextHistoryRepository:
         IOSAcceptedTextHistoryRepository?
     let acceptedAudioCache: IOSAcceptedAudioCache?
@@ -185,6 +186,7 @@ final class IOSContainingAppComposition {
             credentialCoordinator = nil
             openAISettingsStateOwner = nil
             providerConsentCoordinator = nil
+            textFixCatalogRepository = nil
             acceptedTextHistoryRepository = nil
             acceptedAudioCache = nil
             acceptedTextHistoryStateOwner = nil
@@ -223,6 +225,10 @@ final class IOSContainingAppComposition {
                 applicationSupportDirectoryURL
             )
         self.providerConsentCoordinator = providerConsentCoordinator
+        let textFixCatalogRepository = TextFixCatalogRepository(
+            applicationSupportDirectoryURL: applicationSupportDirectoryURL
+        )
+        self.textFixCatalogRepository = textFixCatalogRepository
         let acceptedTextHistoryRepository =
             IOSAcceptedTextHistoryRepository(
                 applicationSupportDirectoryURL:
@@ -324,6 +330,9 @@ final class IOSContainingAppComposition {
             providerConsentCoordinator: providerConsentCoordinator,
             persistenceOwner: foregroundVoicePersistenceOwner,
             voiceDraftOwner: voiceDraftOwner,
+            textFixCatalogClient: IOSVoiceFixesCatalogClient(
+                repository: textFixCatalogRepository
+            ),
             credentialCoordinator: credentialCoordinator,
             processor: foregroundVoiceProcessor,
             publishKeyboardSnapshot: publishKeyboardSnapshot,
@@ -408,6 +417,7 @@ final class IOSContainingAppComposition {
         credentialCoordinator = nil
         openAISettingsStateOwner = nil
         providerConsentCoordinator = nil
+        textFixCatalogRepository = nil
         acceptedTextHistoryRepository = nil
         acceptedAudioCache = nil
         acceptedTextHistoryStateOwner = nil

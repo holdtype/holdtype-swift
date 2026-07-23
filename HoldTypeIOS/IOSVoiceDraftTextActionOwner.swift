@@ -1,11 +1,12 @@
 import Foundation
+import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 import Observation
 
 struct IOSVoiceDraftTextActionClient: Sendable {
     typealias Perform = @MainActor @Sendable (
-        IOSVoiceDraftTextAction,
+        TextFixAction,
         String
     ) async -> IOSVoiceDraftTextActionResolution
 
@@ -46,8 +47,8 @@ struct IOSVoiceDraftTextActionClient: Sendable {
             } catch {
                 return .failure(.credentialUnavailable)
             }
-            return await processor.processDraftText(
-                IOSVoiceDraftTextActionRequest(
+            return await processor.processDraftTextFix(
+                IOSVoiceDraftTextFixRequest(
                     action: action,
                     text: text,
                     settings: settings,
@@ -60,18 +61,21 @@ struct IOSVoiceDraftTextActionClient: Sendable {
 }
 
 enum IOSVoiceDraftTextActionOutcome: Equatable, Sendable {
-    case completed(IOSVoiceDraftTextAction, changed: Bool)
+    case completed(TextFixAction, changed: Bool)
     case failed(
-        IOSVoiceDraftTextAction,
+        TextFixAction,
         IOSVoiceDraftTextActionFailure
     )
 
     var accessibilityAnnouncement: String {
         switch self {
-        case .completed(.translate, changed: true):
+        case .completed(let action, changed: true)
+            where action.kind == .translate:
             "Draft translated"
-        case .completed(.correct, changed: true):
+        case .completed(let action, changed: true) where action.kind == .fix:
             "Draft improved"
+        case .completed(let action, changed: true):
+            "Draft updated with \(action.title)"
         case .completed(_, changed: false):
             "Draft unchanged"
         case .failed:
@@ -81,9 +85,10 @@ enum IOSVoiceDraftTextActionOutcome: Equatable, Sendable {
 
     var settingsRoute: IOSSettingsRoute? {
         switch self {
-        case .failed(.translate, .invalidConfiguration):
+        case .failed(let action, .invalidConfiguration)
+            where action.kind == .translate:
             .attention(.translation)
-        case .failed(.correct, .invalidConfiguration):
+        case .failed(_, .invalidConfiguration):
             .general(.writingCorrection)
         case .failed(_, .credentialUnavailable):
             .attention(.openAI)
@@ -93,12 +98,44 @@ enum IOSVoiceDraftTextActionOutcome: Equatable, Sendable {
             nil
         }
     }
+
+    var failureDetail: String? {
+        guard case .failed(_, let failure) = self else { return nil }
+        return switch failure {
+        case .busy:
+            "Another Voice action is still running."
+        case .invalidText:
+            "Select text or enter a Draft before running a Fix."
+        case .sourceTooLarge:
+            "This text is too large for one Fix."
+        case .invalidConfiguration:
+            "Review this Fix's saved settings, then try again."
+        case .credentialUnavailable:
+            "Add or review your OpenAI API key in Settings."
+        case .consentUnavailable:
+            "Review OpenAI processing consent in Settings."
+        case .networkUnavailable:
+            "The network is unavailable. The Draft was not changed."
+        case .timedOut:
+            "The Fix timed out. The Draft was not changed."
+        case .providerUnavailable:
+            "OpenAI could not complete this Fix."
+        case .invalidResponse:
+            "OpenAI returned no usable text."
+        case .draftChanged:
+            "The Draft changed before this Fix could be applied."
+        case .saveFailed:
+            "HoldType could not safely save the updated Draft."
+        case .cancelled:
+            "The Fix was cancelled."
+        }
+    }
 }
 
 @MainActor
 @Observable
 final class IOSVoiceDraftTextActionOwner {
-    private(set) var activeAction: IOSVoiceDraftTextAction?
+    private(set) var activeAction: TextFixAction?
     private(set) var outcome: IOSVoiceDraftTextActionOutcome?
 
     @ObservationIgnored
@@ -123,7 +160,7 @@ final class IOSVoiceDraftTextActionOwner {
     var isProcessing: Bool { activeAction != nil }
 
     @discardableResult
-    func submit(_ action: IOSVoiceDraftTextAction) -> Bool {
+    func submit(_ action: TextFixAction) -> Bool {
         guard let reservation = draftOwner.beginTransformation() else {
             return false
         }
@@ -132,7 +169,7 @@ final class IOSVoiceDraftTextActionOwner {
 
     @discardableResult
     func submit(
-        _ action: IOSVoiceDraftTextAction,
+        _ action: TextFixAction,
         capturing snapshot: IOSVoiceDraftTextTargetSnapshot
     ) async -> Bool {
         guard activeAction == nil,
@@ -145,7 +182,7 @@ final class IOSVoiceDraftTextActionOwner {
     }
 
     private func start(
-        _ action: IOSVoiceDraftTextAction,
+        _ action: TextFixAction,
         reservation: IOSVoiceDraftTransformationReservation
     ) -> Bool {
         guard activeAction == nil else {
@@ -157,6 +194,14 @@ final class IOSVoiceDraftTextActionOwner {
         let client = client
         activeTask = Task { @MainActor [self] in
             let resolution = await client.perform(action, reservation.text)
+            guard !Task.isCancelled else {
+                await self.finish(
+                    action,
+                    resolution: .failure(.cancelled),
+                    reservation: reservation
+                )
+                return
+            }
             await self.finish(
                 action,
                 resolution: resolution,
@@ -170,8 +215,12 @@ final class IOSVoiceDraftTextActionOwner {
         outcome = nil
     }
 
+    func cancelActiveAction() {
+        activeTask?.cancel()
+    }
+
     private func finish(
-        _ action: IOSVoiceDraftTextAction,
+        _ action: TextFixAction,
         resolution: IOSVoiceDraftTextActionResolution,
         reservation: IOSVoiceDraftTransformationReservation
     ) async {

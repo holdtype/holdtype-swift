@@ -1,4 +1,5 @@
 import Foundation
+import HoldTypeDomain
 @_spi(HoldTypeIOSCore) import HoldTypeIOSCore
 @_spi(HoldTypeIOSCore) import HoldTypePersistence
 import Testing
@@ -27,17 +28,17 @@ struct IOSVoiceDraftTextActionOwnerTests {
                 }
             )
 
-            #expect(owner.submit(.correct))
+            #expect(owner.submit(fixAction))
             #expect(owner.isProcessing)
-            #expect(!owner.submit(.translate))
+            #expect(!owner.submit(translateAction))
             try await waitUntil { !owner.isProcessing }
             #expect(draftOwner.text == "Improved 1: Original")
-            #expect(owner.outcome == .completed(.correct, changed: true))
+            #expect(owner.outcome == .completed(fixAction, changed: true))
             #expect(
                 owner.outcome?.accessibilityAnnouncement == "Draft improved"
             )
 
-            #expect(owner.submit(.correct))
+            #expect(owner.submit(fixAction))
             try await waitUntil { !owner.isProcessing }
             #expect(
                 draftOwner.text
@@ -67,15 +68,15 @@ struct IOSVoiceDraftTextActionOwnerTests {
                 }
             )
 
-            #expect(owner.submit(.translate))
+            #expect(owner.submit(translateAction))
             try await waitUntil { !owner.isProcessing }
             #expect(draftOwner.text == "Keep this")
             #expect(draftOwner.operation == .idle)
-            #expect(owner.outcome == .failed(.translate, .timedOut))
+            #expect(owner.outcome == .failed(translateAction, .timedOut))
             #expect(
                 owner.outcome?.accessibilityAnnouncement == "Draft unchanged"
             )
-            #expect(owner.submit(.translate))
+            #expect(owner.submit(translateAction))
             try await waitUntil { !owner.isProcessing }
         }
     }
@@ -113,7 +114,7 @@ struct IOSVoiceDraftTextActionOwnerTests {
                 }
             )
 
-            #expect(await owner.submit(.correct, capturing: snapshot))
+            #expect(await owner.submit(fixAction, capturing: snapshot))
             try await waitUntil { !owner.isProcessing }
 
             #expect(harness.inputs == ["selected 😀"])
@@ -128,6 +129,39 @@ struct IOSVoiceDraftTextActionOwnerTests {
                 draftOwner.text
                     == "Before Improved 1: selected 😀 after"
             )
+        }
+    }
+
+    @Test func cancellingAnActiveFixLeavesTheDraftAndReleasesItsReservation()
+        async throws {
+        try await withRepository { repository in
+            let draftOwner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await draftOwner.refresh())
+            #expect(
+                await draftOwner.accept(
+                    try accepted(1, text: "Keep this"),
+                    mode: .append
+                )
+            )
+            let owner = IOSVoiceDraftTextActionOwner(
+                draftOwner: draftOwner,
+                client: IOSVoiceDraftTextActionClient { _, _ in
+                    do {
+                        try await Task.sleep(for: .seconds(30))
+                        return .success("Unexpected")
+                    } catch {
+                        return .failure(.cancelled)
+                    }
+                }
+            )
+
+            #expect(owner.submit(fixAction))
+            owner.cancelActiveAction()
+            try await waitUntil { !owner.isProcessing }
+
+            #expect(draftOwner.text == "Keep this")
+            #expect(draftOwner.operation == .idle)
+            #expect(owner.outcome == .failed(fixAction, .cancelled))
         }
     }
 
@@ -169,6 +203,14 @@ struct IOSVoiceDraftTextActionOwnerTests {
         )!
     }
 
+    private var translateAction: TextFixAction {
+        TextFixCatalog.defaults.actions[0]
+    }
+
+    private var fixAction: TextFixAction {
+        TextFixCatalog.defaults.actions[1]
+    }
+
     private func waitUntil(
         _ condition: @escaping @MainActor () -> Bool
     ) async throws {
@@ -185,13 +227,13 @@ private final class IOSVoiceDraftTextActionHarness {
     private(set) var inputs: [String] = []
 
     func perform(
-        _ action: IOSVoiceDraftTextAction,
+        _ action: TextFixAction,
         text: String
     ) async -> IOSVoiceDraftTextActionResolution {
         inputs.append(text)
         try? await Task.sleep(for: .milliseconds(20))
-        return switch action {
-        case .correct:
+        return switch action.kind {
+        case .fix, .customPrompt:
             .success("Improved \(inputs.count): \(text)")
         case .translate:
             .success("Translated \(inputs.count): \(text)")

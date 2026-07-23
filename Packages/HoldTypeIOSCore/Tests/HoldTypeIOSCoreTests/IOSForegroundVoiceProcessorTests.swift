@@ -724,82 +724,6 @@ struct IOSForegroundVoiceProcessorTests {
         )
     }
 
-    @Test func draftCorrectionSkipsRecordingTranscriptionAndDurableVoiceState()
-        async throws {
-        let fixture = try await ProcessorFixture()
-        defer { fixture.removeFiles() }
-        let calls = ProcessorCallLog()
-        let processor = fixture.makeProcessor(
-            provider: provider(
-                transcribe: { _, _ in
-                    calls.record("transcription")
-                    return "unexpected"
-                },
-                correct: { transcript, configuration, _ in
-                    calls.record("correction")
-                    #expect(configuration.isEnabled)
-                    #expect(transcript.text == "Original Draft")
-                    return "Improved Draft"
-                }
-            )
-        )
-
-        let result = await processor.processDraftText(
-            fixture.draftRequest(
-                action: .correct,
-                text: "Original Draft"
-            )
-        )
-
-        #expect(result == .success("Improved Draft"))
-        #expect(calls.events == ["correction"])
-        #expect(
-            try await fixture.persistenceOwner.load()?.recording
-                == fixture.pending
-        )
-        #expect(
-            try await fixture.persistenceOwner.loadLatestResult() == .absent
-        )
-    }
-
-    @Test func draftTranslationUsesSavedRouteAndMapsBoundedFailure()
-        async throws {
-        var settings = IOSAppSettings.defaults
-        settings.translationConfiguration = TranslationConfiguration(
-            actionPreferenceEnabled: true,
-            targetLanguage: .french
-        )
-        let fixture = try await ProcessorFixture(settings: settings)
-        defer { fixture.removeFiles() }
-        let calls = ProcessorCallLog()
-        let processor = fixture.makeProcessor(
-            provider: provider(
-                translate: { request, _ in
-                    calls.record("translation")
-                    #expect(
-                        request.translationConfiguration.targetLanguage
-                            == .french
-                    )
-                    throw OpenAITextTranslationServiceError.timedOut
-                }
-            )
-        )
-
-        let result = await processor.processDraftText(
-            fixture.draftRequest(
-                action: .translate,
-                text: "Translate this"
-            )
-        )
-
-        #expect(result == .failure(.timedOut))
-        #expect(calls.events == ["translation"])
-        #expect(
-            try await fixture.persistenceOwner.load()?.recording
-                == fixture.pending
-        )
-    }
-
     @Test func diagnosticsRedactTextCredentialAndPaths() async throws {
         let fixture = try await ProcessorFixture()
         defer { fixture.removeFiles() }
@@ -842,7 +766,7 @@ struct IOSForegroundVoiceProcessorTests {
     }
 }
 
-private final class ProcessorFixture: @unchecked Sendable {
+final class ProcessorFixture: @unchecked Sendable {
     let root: URL
     let persistenceOwner: IOSV1ForegroundVoicePersistenceOwner
     let consentCoordinator: IOSV1ProviderConsentCoordinator
@@ -1150,7 +1074,7 @@ private final class ProcessorCancellationHostileProvider:
     }
 }
 
-private func provider(
+func provider(
     transcribe: @escaping IOSForegroundVoiceOpenAIProviderOperations.Transcribe = {
         _, _ in "Transcript"
     },
@@ -1159,12 +1083,16 @@ private func provider(
     },
     translate: @escaping IOSForegroundVoiceOpenAIProviderOperations.Translate = {
         _, _ in "Translated"
+    },
+    transform: @escaping IOSForegroundVoiceOpenAIProviderOperations.Transform = {
+        request, _ in request.sourceText
     }
 ) -> IOSForegroundVoiceOpenAIProviderOperations {
     IOSForegroundVoiceOpenAIProviderOperations(
         transcribe: transcribe,
         correct: correct,
-        translate: translate
+        translate: translate,
+        transform: transform
     )
 }
 
@@ -1178,7 +1106,7 @@ private final class ProcessorCallLog: @unchecked Sendable {
     }
 }
 
-private final class ProcessorUsageCapture: @unchecked Sendable {
+final class ProcessorUsageCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var storedValues: [SuccessfulTranscriptionUsage] = []
 
@@ -1190,7 +1118,7 @@ private final class ProcessorUsageCapture: @unchecked Sendable {
     }
 }
 
-private final class ProcessorGenerationCapture: @unchecked Sendable {
+final class ProcessorGenerationCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var storedValues: [IOSOpenAICredentialGeneration] = []
 
@@ -1261,7 +1189,7 @@ private final class ProcessorTranslationSequence: @unchecked Sendable {
     }
 }
 
-private final class ProcessorUUIDSequence: @unchecked Sendable {
+final class ProcessorUUIDSequence: @unchecked Sendable {
     private let lock = NSLock()
     private var counter: UInt8 = 1
 

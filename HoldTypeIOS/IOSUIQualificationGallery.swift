@@ -466,6 +466,7 @@ fileprivate enum IOSUIQualificationVoiceScenario: Sendable {
 private final class IOSUIQualificationVoiceFixture {
     let sceneOwner: IOSForegroundVoiceSceneHostOwner
     let draftOwner: IOSVoiceDraftOwner
+    lazy var fixesCatalogOwner = IOSVoiceFixesCatalogOwner(client: .init(load: { .defaults }))
     let draftTextActionOwner: IOSVoiceDraftTextActionOwner
     let consentOwner: IOSProviderConsentPresentationOwner
     let keyboardSession = IOSKeyboardDictationSessionCoordinator(
@@ -512,7 +513,6 @@ private final class IOSUIQualificationVoiceFixture {
             controller: controller,
             sceneRegistry: registry
         )
-
         let draftStore = IOSUIQualificationDraftStore(
             initial: IOSVoiceDraftRecord(
                 segments: [
@@ -539,7 +539,7 @@ private final class IOSUIQualificationVoiceFixture {
         draftTextActionOwner = IOSVoiceDraftTextActionOwner(
             draftOwner: draftOwner,
             client: IOSVoiceDraftTextActionClient { action, text in
-                let prefix = action == .translate ? "Translated: " : "Improved: "
+                let prefix = action.kind == .translate ? "Translated: " : "Improved: "
                 return .success(prefix + text)
             }
         )
@@ -555,7 +555,6 @@ private final class IOSUIQualificationVoiceFixture {
         _ = sceneOwner.register(initialActivity: .active)
         await controller.activate()
         _ = await draftOwner.refresh()
-
         guard scenario.startsOperation,
               let command = sceneOwner.actionCommands.first(where: {
                   $0.action == .startStandard
@@ -586,6 +585,7 @@ private struct IOSUIQualificationVoiceHost: View {
                 )
                 .environment(fixture.sceneOwner)
                 .environment(fixture.draftOwner)
+                .environment(fixture.fixesCatalogOwner)
                 .environment(fixture.draftTextActionOwner)
                 .environment(fixture.consentOwner)
                 .environment(fixture.keyboardSession)

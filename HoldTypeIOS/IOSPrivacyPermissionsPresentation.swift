@@ -80,7 +80,7 @@ struct IOSConsentPrivacyPresentation {
         if snapshot.requiresExplicitAcceptance {
             return Self(
                 title: "Review Required",
-                detail: "Review the updated disclosure before using Voice.",
+                detail: "Review the updated disclosure before using Voice or Fixes.",
                 systemImage: "hand.raised",
                 color: .orange,
                 action: .acceptCurrentDisclosure
@@ -91,7 +91,7 @@ struct IOSConsentPrivacyPresentation {
         case .notReviewed:
             Self(
                 title: "Not Reviewed",
-                detail: "Review what HoldType sends before using Voice.",
+                detail: "Review what HoldType sends before using Voice or Fixes.",
                 systemImage: "hand.raised",
                 color: .secondary,
                 action: .acceptCurrentDisclosure
@@ -99,7 +99,7 @@ struct IOSConsentPrivacyPresentation {
         case .acceptedCurrentDisclosure:
             Self(
                 title: "Accepted",
-                detail: "Voice can send recordings to OpenAI for processing.",
+                detail: "Voice and Fixes can send chosen content to OpenAI.",
                 systemImage: "checkmark.shield.fill",
                 color: .green,
                 action: nil
@@ -115,7 +115,7 @@ struct IOSConsentPrivacyPresentation {
         case .withdrawn:
             Self(
                 title: "Withdrawn",
-                detail: "Voice will not send requests to OpenAI.",
+                detail: "Voice and Fixes will not send requests to OpenAI.",
                 systemImage: "hand.raised.slash",
                 color: .orange,
                 action: .acceptCurrentDisclosure
