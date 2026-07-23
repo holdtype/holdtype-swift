@@ -5,6 +5,7 @@ nonisolated struct IOSKeyboardFixResultPublisher {
     let bridge: IOSKeyboardFixBridgeClient
     let clock: IOSKeyboardFixProcessorClock
     let signals: IOSKeyboardFixSignalClient
+    let diagnostics: IOSRuntimeTextFixDiagnosticClient
 
     func publishProcessing() -> Bool {
         guard let result = makeRecord(
@@ -13,12 +14,14 @@ nonisolated struct IOSKeyboardFixResultPublisher {
             phase: .processing
         ) else {
             signals.emit(.bridgeUnavailable)
+            record(.processing, outcome: .bridgeUnavailable)
             return false
         }
         do {
             try bridge.publishResult(result)
         } catch {
             signals.emit(.bridgeUnavailable)
+            record(.processing, outcome: .bridgeUnavailable)
             return false
         }
         signals.emit(
@@ -27,6 +30,7 @@ nonisolated struct IOSKeyboardFixResultPublisher {
                 actionIdentifier: request.actionIdentifier
             )
         )
+        record(.processing, outcome: .started)
         return true
     }
 
@@ -70,6 +74,7 @@ nonisolated struct IOSKeyboardFixResultPublisher {
                 actionIdentifier: request.actionIdentifier
             )
         )
+        record(.result, outcome: .expired)
         return .expired
     }
 
@@ -81,6 +86,7 @@ nonisolated struct IOSKeyboardFixResultPublisher {
             try bridge.publishResult(result)
         } catch {
             signals.emit(.bridgeUnavailable)
+            record(.result, outcome: .bridgeUnavailable)
             return .bridgeUnavailable
         }
         signals.emit(
@@ -90,6 +96,13 @@ nonisolated struct IOSKeyboardFixResultPublisher {
                 outcome: outcome
             )
         )
+        let diagnosticOutcome: IOSDiagnosticTextFixOutcome = switch outcome {
+        case .succeeded:
+            .succeeded
+        case .failed(let failure):
+            failure.diagnosticOutcome
+        }
+        record(.result, outcome: diagnosticOutcome)
         return .completed(outcome)
     }
 
@@ -114,7 +127,20 @@ nonisolated struct IOSKeyboardFixResultPublisher {
             return reportExpired()
         }
         signals.emit(.bridgeUnavailable)
+        record(.result, outcome: .bridgeUnavailable)
         return .bridgeUnavailable
+    }
+
+    private func record(
+        _ stage: IOSDiagnosticTextFixStage,
+        outcome: IOSDiagnosticTextFixOutcome
+    ) {
+        diagnostics.record(
+            stage,
+            actionIdentifier: request.actionIdentifier,
+            requestID: request.requestID,
+            outcome: outcome
+        )
     }
 
     private func encodedSize(of result: KeyboardFixResultRecord) -> Int {

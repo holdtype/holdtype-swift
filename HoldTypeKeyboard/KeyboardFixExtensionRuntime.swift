@@ -65,6 +65,10 @@ final class KeyboardFixExtensionRuntime {
             metadata = try dependencies.loadMetadata()
         } catch {
             metadata = nil
+            dependencies.diagnostics.record(
+                .eligibility,
+                outcome: .bridgeUnavailable
+            )
         }
         refreshAvailability(resetTransientStatus: true)
     }
@@ -117,15 +121,52 @@ final class KeyboardFixExtensionRuntime {
     }
 
     func activate(actionIdentifier: String) {
-        guard activeRequest == nil,
-              dependencies.hasFullAccess(),
-              !dependencies.dictationIsBusy(),
-              let metadata,
+        guard activeRequest == nil else {
+            dependencies.diagnostics.record(
+                .eligibility,
+                actionIdentifier: actionIdentifier,
+                outcome: .busy
+            )
+            refreshAvailability()
+            return
+        }
+        guard dependencies.hasFullAccess() else {
+            dependencies.diagnostics.record(
+                .eligibility,
+                actionIdentifier: actionIdentifier,
+                outcome: .blocked
+            )
+            refreshAvailability()
+            return
+        }
+        guard !dependencies.dictationIsBusy() else {
+            dependencies.diagnostics.record(
+                .eligibility,
+                actionIdentifier: actionIdentifier,
+                outcome: .busy
+            )
+            refreshAvailability()
+            return
+        }
+        guard let metadata,
               let action = metadata.enabledActions.first(where: {
                   $0.identifier == actionIdentifier
-              }),
-              let target = dependencies.currentTarget()
+              })
         else {
+            dependencies.diagnostics.record(
+                .eligibility,
+                actionIdentifier: actionIdentifier,
+                outcome: .unavailable
+            )
+            refreshAvailability()
+            return
+        }
+        guard let target = dependencies.currentTarget() else {
+            dependencies.diagnostics.record(
+                .eligibility,
+                actionIdentifier: actionIdentifier,
+                outcome: .blocked
+            )
             refreshAvailability()
             return
         }
@@ -152,6 +193,11 @@ final class KeyboardFixExtensionRuntime {
                     message: "This selection cannot be processed."
                 )
             )
+            dependencies.diagnostics.record(
+                .request,
+                actionIdentifier: actionIdentifier,
+                outcome: .failed
+            )
             return
         }
 
@@ -164,6 +210,12 @@ final class KeyboardFixExtensionRuntime {
                     message: "HoldType could not send this Fix."
                 )
             )
+            dependencies.diagnostics.record(
+                .request,
+                actionIdentifier: action.identifier,
+                requestID: request.requestID,
+                outcome: .bridgeUnavailable
+            )
             return
         }
 
@@ -175,6 +227,12 @@ final class KeyboardFixExtensionRuntime {
         presentation = KeyboardFixExtensionPresentation(
             actions: metadata.enabledActions,
             status: .processing(actionIdentifier: action.identifier)
+        )
+        dependencies.diagnostics.record(
+            .request,
+            actionIdentifier: action.identifier,
+            requestID: request.requestID,
+            outcome: .started
         )
         beginPolling()
         dependencies.postRequestChanged()
@@ -189,6 +247,13 @@ final class KeyboardFixExtensionRuntime {
             return
         }
         guard now < activeRequest.expiresAt else {
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .timedOut
+            )
             requestCancellation(
                 completingWith: .failure(
                     message: "The Fix timed out. Try again."
@@ -205,6 +270,13 @@ final class KeyboardFixExtensionRuntime {
                 status: .failure(
                     message: "HoldType could not read this Fix."
                 )
+            )
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .bridgeUnavailable
             )
             return
         }
@@ -233,6 +305,13 @@ final class KeyboardFixExtensionRuntime {
                 status: .failure(
                     message: "HoldType could not finish this Fix."
                 )
+            )
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .bridgeUnavailable
             )
             return
         }

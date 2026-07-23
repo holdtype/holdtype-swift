@@ -220,7 +220,8 @@ func makeKeyboardFixProcessor(
     execute: @escaping @Sendable (IOSKeyboardFixExecutionInput) async throws ->
         String,
     background: IOSKeyboardFixBackgroundTaskClient = .foregroundOnly,
-    signals: IOSKeyboardFixSignalClient = .silent
+    signals: IOSKeyboardFixSignalClient = .silent,
+    diagnostics: HoldTypeIOS.IOSRuntimeTextFixDiagnosticClient = .silent
 ) -> IOSKeyboardFixProcessor {
     IOSKeyboardFixProcessor(
         bridge: bridge,
@@ -231,7 +232,8 @@ func makeKeyboardFixProcessor(
         executor: IOSKeyboardFixExecutionClient(execute: execute),
         backgroundTask: background,
         clock: IOSKeyboardFixProcessorClock(now: { now }),
-        signals: signals
+        signals: signals,
+        diagnostics: diagnostics
     )
 }
 

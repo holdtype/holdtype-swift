@@ -11,6 +11,7 @@ nonisolated struct IOSKeyboardFixProcessorRunDependencies: Sendable {
     let backgroundTask: IOSKeyboardFixBackgroundTaskClient
     let clock: IOSKeyboardFixProcessorClock
     let signals: IOSKeyboardFixSignalClient
+    let diagnostics: IOSRuntimeTextFixDiagnosticClient
 }
 
 private nonisolated enum IOSKeyboardFixPipelineResolution: Sendable {
@@ -34,7 +35,8 @@ nonisolated enum IOSKeyboardFixProcessorRunEngine {
             request: request,
             bridge: dependencies.bridge,
             clock: dependencies.clock,
-            signals: dependencies.signals
+            signals: dependencies.signals,
+            diagnostics: dependencies.diagnostics
         )
         guard publisher.publishProcessing() else {
             return .bridgeUnavailable
@@ -168,6 +170,12 @@ nonisolated enum IOSKeyboardFixProcessorRunEngine {
         request: KeyboardFixRequestRecord,
         dependencies: IOSKeyboardFixProcessorRunDependencies
     ) async -> IOSKeyboardFixPipelineResolution {
+        dependencies.diagnostics.record(
+            .provider,
+            actionIdentifier: request.actionIdentifier,
+            requestID: request.requestID,
+            outcome: .started
+        )
         do {
             let output = try await dependencies.executor.execute(
                 IOSKeyboardFixExecutionInput(

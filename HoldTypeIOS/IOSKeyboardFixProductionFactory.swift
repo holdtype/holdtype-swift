@@ -47,7 +47,10 @@ nonisolated enum IOSKeyboardFixProductionFactory {
                 processor: foregroundVoiceProcessor
             ),
             backgroundTask: backgroundTaskRegistry.client,
-            signals: IOSKeyboardFixProductionClients.resultSignalClient
+            signals: IOSKeyboardFixProductionClients.resultSignalClient,
+            diagnostics: IOSRuntimeTextFixDiagnosticClient(
+                recordEvent: IOSRuntimeDiagnosticsStore.app.record
+            )
         )
         return IOSKeyboardFixRuntimeOwner(
             processor: processor,

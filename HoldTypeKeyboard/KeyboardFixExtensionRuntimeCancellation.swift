@@ -3,6 +3,15 @@ import Foundation
 @MainActor
 extension KeyboardFixExtensionRuntime {
     func cancelActiveRequest() {
+        if let activeRequest {
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .cancelled
+            )
+        }
         requestCancellation(
             completingWith: .failure(
                 message: "The Fix was cancelled."
@@ -27,6 +36,13 @@ extension KeyboardFixExtensionRuntime {
             issuedAt: now,
             expiresAt: expiresAt
         ) else {
+            dependencies.diagnostics.record(
+                .cancellation,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .failed
+            )
             finishActiveRequest(status: completionStatus)
             return
         }
@@ -43,10 +59,24 @@ extension KeyboardFixExtensionRuntime {
             )
         )
         beginPolling()
+        dependencies.diagnostics.record(
+            .cancellation,
+            actionIdentifier:
+                activeRequest.identity.actionIdentifier,
+            requestID: activeRequest.identity.requestID,
+            outcome: .started
+        )
         do {
             try dependencies.publishCancellationRequest(cancellation)
             dependencies.postCancellationChanged()
         } catch {
+            dependencies.diagnostics.record(
+                .cancellation,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .bridgeUnavailable
+            )
             // Fail closed until the same bounded cancellation window expires.
         }
     }
@@ -54,17 +84,49 @@ extension KeyboardFixExtensionRuntime {
     func pollCancellation(at now: Date) {
         guard let pendingCancellation else { return }
         if now >= pendingCancellation.expiresAt {
+            if let activeRequest {
+                dependencies.diagnostics.record(
+                    .cancellation,
+                    actionIdentifier:
+                        activeRequest.identity.actionIdentifier,
+                    requestID: activeRequest.identity.requestID,
+                    outcome: .timedOut
+                )
+            }
             finishActiveRequest(
                 status: pendingCancellation.completionStatus
             )
             return
         }
-        let acknowledgement = try? dependencies
-            .consumeCancellationAcknowledgement(
+        let acknowledgement: KeyboardFixCancellationRecord?
+        do {
+            acknowledgement = try dependencies
+                .consumeCancellationAcknowledgement(
                 pendingCancellation.requestID,
                 now
             )
+        } catch {
+            if let activeRequest {
+                dependencies.diagnostics.record(
+                    .cancellation,
+                    actionIdentifier:
+                        activeRequest.identity.actionIdentifier,
+                    requestID: activeRequest.identity.requestID,
+                    outcome: .bridgeUnavailable
+                )
+            }
+            return
+        }
         guard acknowledgement != nil else { return }
+        if let activeRequest {
+            dependencies.diagnostics.record(
+                .cancellation,
+                actionIdentifier:
+                    activeRequest.identity.actionIdentifier,
+                requestID: activeRequest.identity.requestID,
+                outcome: .acknowledged
+            )
+        }
         finishActiveRequest(
             status: pendingCancellation.completionStatus
         )
@@ -79,6 +141,12 @@ extension KeyboardFixExtensionRuntime {
             handleLaunchFailure(for: request.identity)
             return
         }
+        dependencies.diagnostics.record(
+            .launch,
+            actionIdentifier: request.actionIdentifier,
+            requestID: request.requestID,
+            outcome: .started
+        )
         dependencies.openContainingApp(url) { [weak self] in
             self?.handleLaunchFailure(for: request.identity)
         }
@@ -88,6 +156,12 @@ extension KeyboardFixExtensionRuntime {
         for identity: KeyboardFixRequestIdentity
     ) {
         guard activeRequest?.identity == identity else { return }
+        dependencies.diagnostics.record(
+            .launch,
+            actionIdentifier: identity.actionIdentifier,
+            requestID: identity.requestID,
+            outcome: .failed
+        )
         requestCancellation(
             completingWith: .failure(
                 message: "Could not open HoldType for this Fix."

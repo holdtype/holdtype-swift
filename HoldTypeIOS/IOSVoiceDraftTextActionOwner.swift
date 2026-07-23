@@ -137,20 +137,23 @@ enum IOSVoiceDraftTextActionOutcome: Equatable, Sendable {
 final class IOSVoiceDraftTextActionOwner {
     private(set) var activeAction: TextFixAction?
     private(set) var outcome: IOSVoiceDraftTextActionOutcome?
-
     @ObservationIgnored
     private let draftOwner: IOSVoiceDraftOwner
     @ObservationIgnored
     private let client: IOSVoiceDraftTextActionClient
     @ObservationIgnored
+    private let diagnostics: IOSRuntimeTextFixDiagnosticClient
+    @ObservationIgnored
     private var activeTask: Task<Void, Never>?
 
     init(
         draftOwner: IOSVoiceDraftOwner,
-        client: IOSVoiceDraftTextActionClient
+        client: IOSVoiceDraftTextActionClient,
+        diagnostics: IOSRuntimeTextFixDiagnosticClient = .silent
     ) {
         self.draftOwner = draftOwner
         self.client = client
+        self.diagnostics = diagnostics
     }
 
     deinit {
@@ -161,7 +164,12 @@ final class IOSVoiceDraftTextActionOwner {
 
     @discardableResult
     func submit(_ action: TextFixAction) -> Bool {
+        guard activeAction == nil else {
+            diagnose(.eligibility, action: action, outcome: .busy)
+            return false
+        }
         guard let reservation = draftOwner.beginTransformation() else {
+            diagnose(.eligibility, action: action, outcome: .blocked)
             return false
         }
         return start(action, reservation: reservation)
@@ -172,10 +180,14 @@ final class IOSVoiceDraftTextActionOwner {
         _ action: TextFixAction,
         capturing snapshot: IOSVoiceDraftTextTargetSnapshot
     ) async -> Bool {
-        guard activeAction == nil,
-              let reservation = await draftOwner.beginTransformation(
-                capturing: snapshot
-              ) else {
+        guard activeAction == nil else {
+            diagnose(.eligibility, action: action, outcome: .busy)
+            return false
+        }
+        guard let reservation = await draftOwner.beginTransformation(
+            capturing: snapshot
+        ) else {
+            diagnose(.eligibility, action: action, outcome: .blocked)
             return false
         }
         return start(action, reservation: reservation)
@@ -187,10 +199,12 @@ final class IOSVoiceDraftTextActionOwner {
     ) -> Bool {
         guard activeAction == nil else {
             draftOwner.cancelTransformation(reservation)
+            diagnose(.eligibility, action: action, outcome: .busy)
             return false
         }
         activeAction = action
         outcome = nil
+        diagnose(.processing, action: action, outcome: .started)
         let client = client
         activeTask = Task { @MainActor [self] in
             let resolution = await client.perform(action, reservation.text)
@@ -237,14 +251,34 @@ final class IOSVoiceDraftTextActionOwner {
             switch commit {
             case .confirmed(let changed):
                 outcome = .completed(action, changed: changed)
+                diagnose(.output, action: action, outcome: .succeeded)
             case .stale:
                 outcome = .failed(action, .draftChanged)
+                diagnose(.target, action: action, outcome: .stale)
             case .failed, .unavailable:
                 outcome = .failed(action, .saveFailed)
+                diagnose(.output, action: action, outcome: .failed)
             }
         case .failure(let failure):
             draftOwner.cancelTransformation(reservation)
             outcome = .failed(action, failure)
+            diagnose(
+                .result,
+                action: action,
+                outcome: failure.diagnosticOutcome
+            )
         }
+    }
+
+    private func diagnose(
+        _ stage: IOSDiagnosticTextFixStage,
+        action: TextFixAction,
+        outcome: IOSDiagnosticTextFixOutcome
+    ) {
+        diagnostics.record(
+            stage,
+            actionIdentifier: action.id,
+            outcome: outcome
+        )
     }
 }

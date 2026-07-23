@@ -22,16 +22,23 @@ final class KeyboardFixExtensionRuntimeFixture {
     var appliedOutputs: [String] = []
     var resultObserverAction: (@MainActor () -> Void)?
     var cancellationObserverAction: (@MainActor () -> Void)?
+    var shouldFailPublishingRequest = false
 
     init() throws {
         metadata = try makeKeyboardFixMetadataSnapshot()
     }
 
-    func makeRuntime() -> KeyboardFixExtensionRuntime {
+    func makeRuntime(
+        diagnostics: IOSRuntimeTextFixDiagnosticClient = .silent
+    ) -> KeyboardFixExtensionRuntime {
         KeyboardFixExtensionRuntime(
             dependencies: KeyboardFixExtensionRuntimeDependencies(
                 loadMetadata: { [unowned self] in metadata },
                 publishRequest: { [unowned self] request in
+                    if shouldFailPublishingRequest {
+                        throw KeyboardFixExtensionRuntimeFixtureError
+                            .injectedBridgeFailure
+                    }
                     publishedRequest = request
                 },
                 postRequestChanged: { [unowned self] in
@@ -114,7 +121,8 @@ final class KeyboardFixExtensionRuntimeFixture {
                 hasFullAccess: { [unowned self] in hasFullAccess },
                 dictationIsBusy: {
                     [unowned self] in dictationIsBusy
-                }
+                },
+                diagnostics: diagnostics
             )
         )
     }
@@ -169,4 +177,5 @@ final class KeyboardFixExtensionRuntimeFixture {
 enum KeyboardFixExtensionRuntimeFixtureError: Error {
     case missingRequest
     case missingCancellation
+    case injectedBridgeFailure
 }

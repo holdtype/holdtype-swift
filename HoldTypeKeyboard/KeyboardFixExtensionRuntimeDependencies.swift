@@ -42,6 +42,7 @@ struct KeyboardFixExtensionRuntimeDependencies {
     ) -> Bool
     let hasFullAccess: () -> Bool
     let dictationIsBusy: () -> Bool
+    let diagnostics: IOSRuntimeTextFixDiagnosticClient
 
     static func live(
         currentTarget: @escaping () -> KeyboardFixExtensionTarget?,
@@ -124,7 +125,10 @@ struct KeyboardFixExtensionRuntimeDependencies {
             currentTarget: currentTarget,
             applyOutput: applyOutput,
             hasFullAccess: hasFullAccess,
-            dictationIsBusy: dictationIsBusy
+            dictationIsBusy: dictationIsBusy,
+            diagnostics: IOSRuntimeTextFixDiagnosticClient(
+                recordEvent: IOSRuntimeDiagnosticsStore.keyboard.record
+            )
         )
     }
 }

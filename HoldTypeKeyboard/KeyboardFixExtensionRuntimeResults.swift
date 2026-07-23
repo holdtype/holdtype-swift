@@ -3,11 +3,23 @@ import Foundation
 extension KeyboardFixExtensionRuntime {
     func recoverLatestResult() {
         guard activeRequest == nil,
-              dependencies.hasFullAccess(),
-              let result = try? dependencies.loadLatestResult(
-                  dependencies.now()
-              )
+              dependencies.hasFullAccess()
         else {
+            return
+        }
+        let result: KeyboardFixResultRecord
+        do {
+            guard let loaded = try dependencies.loadLatestResult(
+                dependencies.now()
+            ) else {
+                return
+            }
+            result = loaded
+        } catch {
+            dependencies.diagnostics.record(
+                .result,
+                outcome: .bridgeUnavailable
+            )
             return
         }
         guard dependencies.currentTarget()?.matches(result.identity)
@@ -15,6 +27,12 @@ extension KeyboardFixExtensionRuntime {
             handleStaleRecoveredResult(result)
             return
         }
+        dependencies.diagnostics.record(
+            .result,
+            actionIdentifier: result.actionIdentifier,
+            requestID: result.requestID,
+            outcome: .started
+        )
         let title = metadata?.action(
             identifier: result.actionIdentifier
         )?.title ?? "Fix"
@@ -35,6 +53,14 @@ extension KeyboardFixExtensionRuntime {
         case .processing:
             return
         case .failed:
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier: result.actionIdentifier,
+                requestID: result.requestID,
+                outcome: (
+                    result.failureCode ?? .providerFailed
+                ).diagnosticOutcome
+            )
             finishActiveRequest(
                 status: .failure(
                     message: (
@@ -54,11 +80,13 @@ extension KeyboardFixExtensionRuntime {
         _ result: KeyboardFixResultRecord,
         activeRequest: ActiveRequest
     ) {
-        guard let output = result.outputText,
-              dependencies.currentTarget()?.matches(result.identity)
-                == true,
-              dependencies.applyOutput(output, result.identity)
-        else {
+        guard let output = result.outputText else {
+            dependencies.diagnostics.record(
+                .output,
+                actionIdentifier: result.actionIdentifier,
+                requestID: result.requestID,
+                outcome: .failed
+            )
             finishActiveRequest(
                 status: .failure(
                     message:
@@ -67,6 +95,43 @@ extension KeyboardFixExtensionRuntime {
             )
             return
         }
+        guard dependencies.currentTarget()?.matches(result.identity)
+                == true else {
+            dependencies.diagnostics.record(
+                .target,
+                actionIdentifier: result.actionIdentifier,
+                requestID: result.requestID,
+                outcome: .stale
+            )
+            finishActiveRequest(
+                status: .failure(
+                    message:
+                        "The selected text changed. Select it again."
+                )
+            )
+            return
+        }
+        guard dependencies.applyOutput(output, result.identity) else {
+            dependencies.diagnostics.record(
+                .output,
+                actionIdentifier: result.actionIdentifier,
+                requestID: result.requestID,
+                outcome: .stale
+            )
+            finishActiveRequest(
+                status: .failure(
+                    message:
+                        "The selected text changed. Select it again."
+                )
+            )
+            return
+        }
+        dependencies.diagnostics.record(
+            .output,
+            actionIdentifier: result.actionIdentifier,
+            requestID: result.requestID,
+            outcome: .succeeded
+        )
         finishActiveRequest(
             status: .applied(
                 message: "\(activeRequest.actionTitle) applied."
@@ -77,14 +142,29 @@ extension KeyboardFixExtensionRuntime {
     private func handleStaleRecoveredResult(
         _ result: KeyboardFixResultRecord
     ) {
+        dependencies.diagnostics.record(
+            .target,
+            actionIdentifier: result.actionIdentifier,
+            requestID: result.requestID,
+            outcome: .stale
+        )
         let completionStatus = KeyboardFixExtensionStatus.failure(
             message: "The selected text changed. Select it again."
         )
         if result.isTerminal {
-            _ = try? dependencies.consumeTerminalResult(
-                result.identity,
-                dependencies.now()
-            )
+            do {
+                _ = try dependencies.consumeTerminalResult(
+                    result.identity,
+                    dependencies.now()
+                )
+            } catch {
+                dependencies.diagnostics.record(
+                    .result,
+                    actionIdentifier: result.actionIdentifier,
+                    requestID: result.requestID,
+                    outcome: .bridgeUnavailable
+                )
+            }
             presentation = currentPresentation(
                 status: completionStatus
             )

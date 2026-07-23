@@ -19,6 +19,7 @@ actor IOSKeyboardFixProcessor {
     private let backgroundTask: IOSKeyboardFixBackgroundTaskClient
     private let clock: IOSKeyboardFixProcessorClock
     private let signals: IOSKeyboardFixSignalClient
+    private let diagnostics: IOSRuntimeTextFixDiagnosticClient
     private var activeRun: ActiveRun?
 
     init(
@@ -30,7 +31,8 @@ actor IOSKeyboardFixProcessor {
         executor: IOSKeyboardFixExecutionClient,
         backgroundTask: IOSKeyboardFixBackgroundTaskClient,
         clock: IOSKeyboardFixProcessorClock = .live,
-        signals: IOSKeyboardFixSignalClient = .silent
+        signals: IOSKeyboardFixSignalClient = .silent,
+        diagnostics: IOSRuntimeTextFixDiagnosticClient = .silent
     ) {
         self.bridge = bridge
         self.catalog = catalog
@@ -41,6 +43,7 @@ actor IOSKeyboardFixProcessor {
         self.backgroundTask = backgroundTask
         self.clock = clock
         self.signals = signals
+        self.diagnostics = diagnostics
     }
 
     deinit {
@@ -52,6 +55,7 @@ actor IOSKeyboardFixProcessor {
     func processPendingRequest() async -> IOSKeyboardFixProcessorOutcome {
         guard activeRun == nil else {
             signals.emit(.rejectedWhileBusy)
+            diagnostics.record(.processing, outcome: .busy)
             return .busy
         }
 
@@ -64,6 +68,7 @@ actor IOSKeyboardFixProcessor {
             request = consumed
         } catch {
             signals.emit(.bridgeUnavailable)
+            diagnostics.record(.request, outcome: .bridgeUnavailable)
             return .bridgeUnavailable
         }
 
@@ -74,8 +79,20 @@ actor IOSKeyboardFixProcessor {
                     actionIdentifier: request.actionIdentifier
                 )
             )
+            diagnostics.record(
+                .request,
+                actionIdentifier: request.actionIdentifier,
+                requestID: request.requestID,
+                outcome: .expired
+            )
             return .expired
         }
+        diagnostics.record(
+            .request,
+            actionIdentifier: request.actionIdentifier,
+            requestID: request.requestID,
+            outcome: .started
+        )
 
         let runID = UUID()
         let dependencies = IOSKeyboardFixProcessorRunDependencies(
@@ -87,7 +104,8 @@ actor IOSKeyboardFixProcessor {
             executor: executor,
             backgroundTask: backgroundTask,
             clock: clock,
-            signals: signals
+            signals: signals,
+            diagnostics: diagnostics
         )
         let task = Task {
             await IOSKeyboardFixProcessorRunEngine.run(
@@ -126,8 +144,17 @@ actor IOSKeyboardFixProcessor {
             cancellation = consumed
         } catch {
             signals.emit(.bridgeUnavailable)
+            diagnostics.record(
+                .cancellation,
+                outcome: .bridgeUnavailable
+            )
             return false
         }
+        diagnostics.record(
+            .cancellation,
+            requestID: cancellation.requestID,
+            outcome: .started
+        )
 
         _ = await cancelActiveRequest(
             requestID: cancellation.requestID
@@ -140,16 +167,31 @@ actor IOSKeyboardFixProcessor {
             try bridge.publishCancellationAcknowledgement(acknowledgement)
             else {
                 signals.emit(.bridgeUnavailable)
+                diagnostics.record(
+                    .cancellation,
+                    requestID: cancellation.requestID,
+                    outcome: .bridgeUnavailable
+                )
                 return false
             }
         } catch {
             signals.emit(.bridgeUnavailable)
+            diagnostics.record(
+                .cancellation,
+                requestID: cancellation.requestID,
+                outcome: .bridgeUnavailable
+            )
             return false
         }
         signals.emit(
             .cancellationAcknowledged(
                 requestID: cancellation.requestID
             )
+        )
+        diagnostics.record(
+            .cancellation,
+            requestID: cancellation.requestID,
+            outcome: .acknowledged
         )
         return true
     }

@@ -194,6 +194,9 @@ final class IOSForegroundVoiceRuntime {
                 consentOwner: providerConsentPresentationOwner,
                 credentialCoordinator: credentialCoordinator,
                 processor: processor
+            ),
+            diagnostics: IOSRuntimeTextFixDiagnosticClient(
+                recordEvent: IOSRuntimeDiagnosticsStore.app.record
             )
         )
 
