@@ -80,6 +80,14 @@ struct MenuBarView: View {
                 fixesRuntime.showPaletteAfterMenuDismissal()
             }
 
+            MenuBarActionButton(
+                title: MenuBarPresentation.editFixesTitle
+            ) {
+                dismiss()
+                FixesEditorWindowPresenter.shared
+                    .showAfterMenuDismissal()
+            }
+
             MenuBarActionButton(title: MenuBarPresentation.historyTitle) {
                 dismiss()
                 TranscriptHistoryWindowPresenter.shared.showAfterMenuDismissal()
