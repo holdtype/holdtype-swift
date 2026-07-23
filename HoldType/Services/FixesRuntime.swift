@@ -7,9 +7,12 @@ import HoldTypeOpenAI
 final class FixesRuntime: ObservableObject {
     static let shared = FixesRuntime()
     static let menuDismissalDelay: Duration = .milliseconds(100)
+    static let textFixesConsentRequiredMessage =
+        "Allow OpenAI Text Fixes in Settings > Permissions."
 
     @Published private(set) var hotkeyRegistrationStatus:
         FixesHotkeyRegistrationStatus = .notRegistered
+    @Published private(set) var isMenuActionAvailable = false
 
     private let catalogStore: any MacOSTextFixCatalogStoring
     private let targetService: FocusedTextTargetService
@@ -25,6 +28,9 @@ final class FixesRuntime: ObservableObject {
     private var activeTask: Task<Void, Never>?
     private var presentedCatalog: TextFixCatalog?
     private var presentedSnapshot: FocusedTextTargetSnapshot?
+    private var preparedMenuCaptureResult:
+        Result<FocusedTextTargetSnapshot, Error>?
+    private var lastValidExternalMenuSnapshot: FocusedTextTargetSnapshot?
     private var paletteModel: FixesPaletteModel?
 
     convenience init() {
@@ -84,13 +90,73 @@ final class FixesRuntime: ObservableObject {
             return
         }
 
-        preparationTask?.cancel()
-        panelPresenter.hide()
-        clearPresentation()
+        menuPresentationTask?.cancel()
+        menuPresentationTask = nil
+        clearPreparedMenuTarget()
 
         let captureResult = Result {
             try targetService.capture()
         }
+        startPalettePreparation(captureResult: captureResult)
+    }
+
+    func prepareMenuTarget() {
+        menuPresentationTask?.cancel()
+        menuPresentationTask = nil
+
+        guard activeTask == nil else {
+            clearPreparedMenuTarget()
+            return
+        }
+
+        resetPalettePreparation()
+        let captureResult = captureMenuTarget()
+        preparedMenuCaptureResult = captureResult
+        isMenuActionAvailable = (try? captureResult.get()) != nil
+    }
+
+    func menuDidOpen() {
+        menuPresentationTask?.cancel()
+        menuPresentationTask = nil
+
+        if preparedMenuCaptureResult == nil {
+            isMenuActionAvailable = false
+        }
+    }
+
+    func clearPreparedMenuTarget() {
+        preparedMenuCaptureResult = nil
+        isMenuActionAvailable = false
+    }
+
+    func showPaletteAfterMenuDismissal() {
+        guard activeTask == nil else {
+            return
+        }
+
+        menuPresentationTask?.cancel()
+        guard let captureResult = preparedMenuCaptureResult,
+              (try? captureResult.get()) != nil
+        else {
+            clearPreparedMenuTarget()
+            return
+        }
+        clearPreparedMenuTarget()
+        resetPalettePreparation()
+        menuPresentationTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.menuDismissalDelay)
+            guard !Task.isCancelled else {
+                return
+            }
+            self?.startPalettePreparation(captureResult: captureResult)
+            self?.menuPresentationTask = nil
+        }
+    }
+
+    private func startPalettePreparation(
+        captureResult: Result<FocusedTextTargetSnapshot, Error>
+    ) {
+        resetPalettePreparation()
         preparationTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
@@ -114,16 +180,35 @@ final class FixesRuntime: ObservableObject {
         }
     }
 
-    func showPaletteAfterMenuDismissal() {
-        menuPresentationTask?.cancel()
-        menuPresentationTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.menuDismissalDelay)
-            guard !Task.isCancelled else {
-                return
+    private func captureMenuTarget() -> Result<FocusedTextTargetSnapshot, Error> {
+        do {
+            let snapshot = try targetService.capture()
+            lastValidExternalMenuSnapshot = snapshot
+            return .success(snapshot)
+        } catch let error as FocusedTextTargetError
+            where error == .holdTypeOwnsFocus {
+            guard let lastValidExternalMenuSnapshot else {
+                return .failure(error)
             }
-            self?.showPalette()
-            self?.menuPresentationTask = nil
+
+            do {
+                try targetService.validate(lastValidExternalMenuSnapshot)
+                return .success(lastValidExternalMenuSnapshot)
+            } catch {
+                self.lastValidExternalMenuSnapshot = nil
+                return .failure(error)
+            }
+        } catch {
+            lastValidExternalMenuSnapshot = nil
+            return .failure(error)
         }
+    }
+
+    private func resetPalettePreparation() {
+        preparationTask?.cancel()
+        preparationTask = nil
+        panelPresenter.hide()
+        clearPresentation()
     }
 
     func dismissPalette() {
@@ -133,6 +218,7 @@ final class FixesRuntime: ObservableObject {
         preparationTask = nil
         activeTask?.cancel()
         executionService.cancelActiveExecution()
+        clearPreparedMenuTarget()
         panelPresenter.hide()
         clearPresentation()
     }
@@ -177,6 +263,11 @@ final class FixesRuntime: ObservableObject {
         if case .failure(let error) = captureResult {
             return .unavailable(message: Self.userFacingMessage(for: error))
         }
+        guard settingsProvider().hasCurrentTextFixesConsent else {
+            return .unavailable(
+                message: Self.textFixesConsentRequiredMessage
+            )
+        }
         return .ready
     }
 
@@ -198,6 +289,14 @@ final class FixesRuntime: ObservableObject {
         }
 
         let settings = settingsProvider()
+        guard settings.hasCurrentTextFixesConsent else {
+            paletteModel?.updateStatus(
+                .unavailable(
+                    message: Self.textFixesConsentRequiredMessage
+                )
+            )
+            return
+        }
         let credential: OpenAICredential
         do {
             credential = try credentialResolver.resolveOpenAICredential()
@@ -228,6 +327,7 @@ final class FixesRuntime: ObservableObject {
                     with: output
                 )
                 try Task.checkCancellation()
+                self.lastValidExternalMenuSnapshot = nil
                 self.panelPresenter.hide()
                 self.clearPresentation()
             } catch is CancellationError {

@@ -62,8 +62,8 @@ This spec covers:
 - The Settings window should use sidebar navigation once it contains multiple
   settings groups. The sidebar should put Permissions first and provide stable
   entries for Permissions, API key, Billing, Transcription, Text Correction,
-  Translation, Fixes, Dictionary, Shortcut, Behavior, Recording Cache, Updates,
-  and Diagnostics, with the selected entry shown in the detail pane.
+  Translation, Dictionary, Shortcut, Behavior, Recording Cache, Updates, and
+  Diagnostics, with the selected entry shown in the detail pane.
 - The Settings window title should identify both the app and the current
   section using the format `HoldType: <section title>`, such as
   `HoldType: Permissions` or `HoldType: Recording Cache`.
@@ -258,8 +258,9 @@ This spec covers:
   Translation section.
 - Translation shortcut settings and behavior are governed by
   `post-transcription-actions.md`.
-- The Settings window should include a dedicated Fixes editor governed by
-  `text-fixes.md`.
+- The Fixes editor governed by `text-fixes.md` is a separate normal app window
+  opened from `Edit Fixes…` in the menu bar surface, not a Settings sidebar
+  section.
 - The Fixes editor shows the typed Translate and Fix actions first and provides
   search, Add, title, prompt, supported icon, enablement, reorder, Delete, and
   Restore Defaults for custom actions.

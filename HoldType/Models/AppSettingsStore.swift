@@ -29,6 +29,7 @@ struct AppSettingsStore {
         static let textCorrectionPrompt = keyPrefix + "textCorrectionPrompt"
         static let localTextCleanupEnabled = keyPrefix + "localTextCleanupEnabled"
         static let textReplacementRules = keyPrefix + "textReplacementRules"
+        static let textFixesConsentVersion = keyPrefix + "textFixesConsentVersion"
         static let translationShortcutEnabled = keyPrefix + "translationShortcutEnabled"
         static let translationSourceMode = keyPrefix + "translationSourceMode"
         static let translationSourceLanguage = keyPrefix + "translationSourceLanguage"
@@ -108,6 +109,7 @@ struct AppSettingsStore {
             textReplacementRules: loadTextReplacementRules(
                 defaultValue: defaultSettings.textReplacementRules
             ),
+            textFixesConsentVersion: loadTextFixesConsentVersion(),
             translationShortcutEnabled: loadTranslationShortcutEnabled(
                 defaultValue: defaultSettings.translationShortcutEnabled
             ),
@@ -175,6 +177,10 @@ struct AppSettingsStore {
         userDefaults.set(settings.textCorrectionPrompt, forKey: Key.textCorrectionPrompt)
         userDefaults.set(settings.localTextCleanupEnabled, forKey: Key.localTextCleanupEnabled)
         saveTextReplacementRules(settings.textReplacementRules)
+        userDefaults.set(
+            settings.textFixesConsentVersion,
+            forKey: Key.textFixesConsentVersion
+        )
         userDefaults.set(settings.translationShortcutEnabled, forKey: Key.translationShortcutEnabled)
         userDefaults.removeObject(forKey: Key.legacyTranslateRussianToEnglishShortcutEnabled)
         userDefaults.set(settings.translationSourceMode.rawValue, forKey: Key.translationSourceMode)
@@ -270,6 +276,19 @@ struct AppSettingsStore {
         optionalBool(forKey: Key.translationShortcutEnabled)
             ?? optionalBool(forKey: Key.legacyTranslateRussianToEnglishShortcutEnabled)
             ?? defaultValue
+    }
+
+    private func loadTextFixesConsentVersion() -> Int {
+        guard let value = userDefaults.object(
+            forKey: Key.textFixesConsentVersion
+        ) as? NSNumber,
+              CFGetTypeID(value) == CFNumberGetTypeID(),
+              !CFNumberIsFloatType(value)
+        else {
+            return 0
+        }
+
+        return max(value.intValue, 0)
     }
 
     private func loadTranslationSourceMode(defaultValue: TranslationSourceMode) -> TranslationSourceMode {

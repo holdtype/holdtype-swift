@@ -19,7 +19,7 @@ struct MenuBarPresentationTests {
         )
 
         #expect(presentation.appTitle == "HoldType")
-        #expect(HoldTypeMenuBarIdentity.iconAssetName == "HoldTypeMenuBarIcon")
+        #expect(HoldTypeMenuBarIdentity.systemImageName == "mic.fill")
         #expect(HoldTypeMenuBarIdentity.helpText == "HoldType Dictation")
         #expect(presentation.statusText == "Ready")
         #expect(presentation.recordingActionTitle == "Transcribe")

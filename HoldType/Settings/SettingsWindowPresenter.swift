@@ -100,6 +100,9 @@ final class SettingsWindowPresenter: NSObject, NSWindowDelegate {
                 hotkeyStatusProvider: {
                     DictationRuntime.shared.refreshHotkeyRegistrationStatus()
                     return DictationRuntime.shared.hotkeyRegistrationStatus
+                },
+                fixesHotkeyStatusProvider: {
+                    FixesRuntime.shared.hotkeyRegistrationStatus
                 }
             )
         )

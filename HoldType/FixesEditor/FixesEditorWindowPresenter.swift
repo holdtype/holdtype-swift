@@ -58,6 +58,7 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
             rootView: FixesEditorView(model: model)
         )
         let editorWindow = NSWindow(contentViewController: hostingController)
+        editorWindow.unbind(.title)
         editorWindow.title = HoldTypeWindowTitle.titled("Edit Fixes")
         editorWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         editorWindow.minSize = NSSize(width: 760, height: 520)

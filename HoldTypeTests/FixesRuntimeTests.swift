@@ -21,6 +21,142 @@ struct FixesRuntimeTests {
         #expect(fixture.panel.anchorRect == fixture.targetClient.state?.anchorRect)
     }
 
+    @Test func menuPreparationFreezesTargetBeforeDismissal() async throws {
+        let fixture = try makeFixture()
+
+        fixture.runtime.prepareMenuTarget()
+
+        #expect(fixture.runtime.isMenuActionAvailable)
+        #expect(fixture.targetClient.focusedElementCallCount == 1)
+        fixture.targetClient.replaceText("prefix changed suffix")
+
+        fixture.runtime.showPaletteAfterMenuDismissal()
+
+        #expect(!fixture.runtime.isMenuActionAvailable)
+        #expect(fixture.panel.model == nil)
+        try await waitUntil {
+            fixture.panel.model != nil
+        }
+        #expect(fixture.targetClient.focusedElementCallCount == 1)
+
+        let model = try #require(fixture.panel.model)
+        model.activateSelection()
+
+        #expect(fixture.execution.calls.isEmpty)
+        #expect(fixture.replacement.calls.isEmpty)
+        guard case .staleTarget = model.status else {
+            Issue.record("Expected frozen menu target to become stale")
+            return
+        }
+    }
+
+    @Test func holdTypeFocusReusesTheLastValidExternalMenuTarget() async throws {
+        let fixture = try makeFixture()
+
+        fixture.runtime.prepareMenuTarget()
+        fixture.runtime.clearPreparedMenuTarget()
+        fixture.targetClient.focusHoldTypeElement()
+
+        fixture.runtime.prepareMenuTarget()
+
+        #expect(fixture.runtime.isMenuActionAvailable)
+        #expect(fixture.targetClient.focusedElementCallCount == 2)
+        fixture.runtime.showPaletteAfterMenuDismissal()
+        try await waitUntil {
+            fixture.panel.model != nil
+        }
+
+        let model = try #require(fixture.panel.model)
+        model.activateSelection()
+        try await waitUntil {
+            fixture.execution.calls.count == 1
+        }
+        #expect(fixture.execution.calls.first?.sourceText == "selected")
+    }
+
+    @Test func incompatibleExternalFocusForgetsTheLastMenuTarget() throws {
+        let fixture = try makeFixture()
+
+        fixture.runtime.prepareMenuTarget()
+        fixture.runtime.clearPreparedMenuTarget()
+        fixture.targetClient.focusSecureExternalElement()
+        fixture.runtime.prepareMenuTarget()
+
+        #expect(!fixture.runtime.isMenuActionAvailable)
+
+        fixture.targetClient.focusHoldTypeElement()
+        fixture.runtime.prepareMenuTarget()
+
+        #expect(!fixture.runtime.isMenuActionAvailable)
+    }
+
+    @Test func incompatibleMenuTargetDisablesActionAndDoesNotPresent() async throws {
+        let fixture = try makeFixture()
+        fixture.targetClient.state = nil
+
+        fixture.runtime.prepareMenuTarget()
+        fixture.runtime.showPaletteAfterMenuDismissal()
+
+        #expect(!fixture.runtime.isMenuActionAvailable)
+        try await Task.sleep(for: FixesRuntime.menuDismissalDelay)
+        #expect(fixture.panel.model == nil)
+        #expect(fixture.targetClient.focusedElementCallCount == 1)
+    }
+
+    @Test func reopeningMenuCancelsPendingPresentation() async throws {
+        let fixture = try makeFixture()
+
+        fixture.runtime.prepareMenuTarget()
+        fixture.runtime.showPaletteAfterMenuDismissal()
+        fixture.runtime.prepareMenuTarget()
+
+        try await Task.sleep(for: .milliseconds(150))
+        #expect(fixture.panel.model == nil)
+        #expect(fixture.runtime.isMenuActionAvailable)
+        #expect(fixture.targetClient.focusedElementCallCount == 2)
+    }
+
+    @Test func missingCurrentConsentBlocksActionBeforeProvider() async throws {
+        let fixture = try makeFixture(hasCurrentConsent: false)
+
+        fixture.runtime.showPalette()
+        try await waitUntil {
+            fixture.panel.model != nil
+        }
+
+        let model = try #require(fixture.panel.model)
+        #expect(
+            model.status
+                == .unavailable(
+                    message: FixesRuntime.textFixesConsentRequiredMessage
+                )
+        )
+        model.activateSelection()
+        #expect(fixture.execution.calls.isEmpty)
+        #expect(fixture.replacement.calls.isEmpty)
+    }
+
+    @Test func revokedConsentIsRecheckedAtActivation() async throws {
+        let fixture = try makeFixture()
+        fixture.runtime.showPalette()
+        try await waitUntil {
+            fixture.panel.model != nil
+        }
+        let model = try #require(fixture.panel.model)
+        fixture.settings.settings.setTextFixesConsentAccepted(false)
+
+        model.activateSelection()
+
+        #expect(
+            model.status
+                == .unavailable(
+                    message: FixesRuntime.textFixesConsentRequiredMessage
+                )
+        )
+        #expect(fixture.execution.calls.isEmpty)
+        #expect(fixture.replacement.calls.isEmpty)
+    }
+
     @Test func selectedActionTransformsAndReplacesTheFrozenSource() async throws {
         let fixture = try makeFixture()
         fixture.execution.output = "\nFixed\n"
@@ -130,7 +266,9 @@ struct FixesRuntimeTests {
         )
     }
 
-    private func makeFixture() throws -> FixesRuntimeFixture {
+    private func makeFixture(
+        hasCurrentConsent: Bool = true
+    ) throws -> FixesRuntimeFixture {
         let token = FocusedTextElementToken()
         let state = FocusedTextElementState(
             token: token,
@@ -153,6 +291,10 @@ struct FixesRuntimeTests {
         let execution = FixesRuntimeExecutionService()
         let panel = FixesRuntimePanelPresenter()
         let hotkeyService = FixesRuntimeHotkeyService()
+        var settings = AppSettings.defaults
+        settings.translationTargetLanguage = .english
+        settings.setTextFixesConsentAccepted(hasCurrentConsent)
+        let settingsBox = FixesRuntimeSettingsBox(settings: settings)
         let runtime = FixesRuntime(
             catalogStore: catalogStore,
             targetService: targetService,
@@ -160,9 +302,7 @@ struct FixesRuntimeTests {
             executionService: execution,
             credentialResolver: FixesRuntimeCredentialResolver(),
             settingsProvider: {
-                var settings = AppSettings.defaults
-                settings.translationTargetLanguage = .english
-                return settings
+                settingsBox.settings
             },
             panelPresenter: panel,
             hotkeyCoordinator: FixesHotkeyCoordinator(
@@ -175,7 +315,8 @@ struct FixesRuntimeTests {
             replacement: replacement,
             execution: execution,
             panel: panel,
-            hotkey: hotkeyService
+            hotkey: hotkeyService,
+            settings: settingsBox
         )
     }
 
@@ -200,6 +341,16 @@ private struct FixesRuntimeFixture {
     let execution: FixesRuntimeExecutionService
     let panel: FixesRuntimePanelPresenter
     let hotkey: FixesRuntimeHotkeyService
+    let settings: FixesRuntimeSettingsBox
+}
+
+@MainActor
+private final class FixesRuntimeSettingsBox {
+    var settings: AppSettings
+
+    init(settings: AppSettings) {
+        self.settings = settings
+    }
 }
 
 private actor FixesRuntimeCatalogStore: MacOSTextFixCatalogStoring {
@@ -215,56 +366,6 @@ private actor FixesRuntimeCatalogStore: MacOSTextFixCatalogStoring {
 
     func save(_ catalog: TextFixCatalog) async throws -> TextFixCatalog {
         catalog
-    }
-}
-
-@MainActor
-private final class FixesRuntimeTargetClient: FocusedTextTargetClient {
-    var state: FocusedTextElementState?
-    private(set) var focusedElementCallCount = 0
-
-    init(state: FocusedTextElementState) {
-        self.state = state
-    }
-
-    func focusedElement() -> FocusedTextElementState? {
-        focusedElementCallCount += 1
-        return state
-    }
-
-    func currentState(
-        for token: FocusedTextElementToken
-    ) -> FocusedTextElementState? {
-        state?.token == token ? state : nil
-    }
-
-    func focus(_ token: FocusedTextElementToken) -> Bool {
-        state?.token == token
-    }
-
-    func setSelectedRange(
-        _ range: NSRange,
-        for token: FocusedTextElementToken
-    ) -> Bool {
-        state?.token == token
-    }
-
-    func isFocused(_ token: FocusedTextElementToken) -> Bool {
-        state?.token == token
-    }
-
-    func replaceText(_ text: String) {
-        guard let state else {
-            return
-        }
-        self.state = FocusedTextElementState(
-            token: state.token,
-            processIdentifier: state.processIdentifier,
-            text: text,
-            selectedRange: state.selectedRange,
-            anchorRect: state.anchorRect,
-            isSecure: state.isSecure
-        )
     }
 }
 

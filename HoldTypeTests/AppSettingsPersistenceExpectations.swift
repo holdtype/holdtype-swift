@@ -17,6 +17,7 @@ let expectedAppSettingsPersistedKeys = Set(
         "textCorrectionPrompt",
         "localTextCleanupEnabled",
         "textReplacementRules",
+        "textFixesConsentVersion",
         "translationShortcutEnabled",
         "translationSourceMode",
         "translationSourceLanguage",

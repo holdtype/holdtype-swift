@@ -193,6 +193,10 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 - Settings disclose that running a Fix sends the selected text or complete
   compatible field plus the chosen instruction to OpenAI.
+- On macOS, Settings pairs that disclosure with an `Allow OpenAI Text Fixes`
+  control. Acceptance is versioned locally; a missing, revoked, or outdated
+  acceptance keeps immediate Fixes unavailable and names the Settings action
+  required to enable them.
 - iOS disclosure contract version `4` explains that a user-invoked Fix sends
   only its selected source plus the chosen instruction to OpenAI. An acceptance
   of version `3` or older requires review before the first later provider

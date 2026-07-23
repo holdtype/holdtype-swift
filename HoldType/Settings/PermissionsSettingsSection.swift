@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct PermissionsSettingsSection: View {
+    @Binding var settings: AppSettings
+
     let microphonePermissionStatus: MicrophonePermissionStatus
     let accessibilityPermissionStatus: AccessibilityPermissionStatus
     let inputMonitoringPermissionStatus: InputMonitoringPermissionStatus
@@ -82,9 +84,20 @@ struct PermissionsSettingsSection: View {
 
             if showsRemoteProcessingDisclosure {
                 Label(
-                    "Audio is sent to OpenAI for transcription. Enabled correction or translation sends transcript text in a separate OpenAI request. HoldType does not retain raw audio by default.",
+                    "Audio is sent to OpenAI for transcription. Enabled correction or translation sends transcript text in a separate OpenAI request. Running a Fix sends the selected text, or the complete compatible field when nothing is selected, plus the chosen instruction to OpenAI. HoldType does not retain raw audio by default.",
                     systemImage: "lock.shield"
                 )
+                .foregroundStyle(.secondary)
+
+                Toggle(
+                    "Allow OpenAI Text Fixes",
+                    isOn: textFixesConsentBinding
+                )
+
+                Text(
+                    "Required before HoldType can send text through Fixes. You can revoke this consent at any time."
+                )
+                .font(.footnote)
                 .foregroundStyle(.secondary)
             }
         }
@@ -105,6 +118,17 @@ struct PermissionsSettingsSection: View {
             showsCompletedRequiredPermissions: showsCompletedRequiredPermissions,
             showsInputMonitoringStatus: showsInputMonitoringStatus,
             showsRemoteProcessingDisclosure: showsRemoteProcessingDisclosure
+        )
+    }
+
+    private var textFixesConsentBinding: Binding<Bool> {
+        Binding(
+            get: {
+                settings.hasCurrentTextFixesConsent
+            },
+            set: { isAccepted in
+                settings.setTextFixesConsentAccepted(isAccepted)
+            }
         )
     }
 }
@@ -174,6 +198,7 @@ private struct ManualFallbackWarningText: View {
 #Preview {
     Form {
         PermissionsSettingsSection(
+            settings: .constant(.defaults),
             microphonePermissionStatus: .notDetermined,
             accessibilityPermissionStatus: .notTrusted,
             inputMonitoringPermissionStatus: .notDetermined,

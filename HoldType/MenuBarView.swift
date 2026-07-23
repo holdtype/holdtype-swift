@@ -12,16 +12,18 @@ import SwiftUI
 struct MenuBarView: View {
     private static let menuWidth: CGFloat = 420
 
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var dictationRuntime: DictationRuntime
     @StateObject private var fixesRuntime: FixesRuntime
+    private let dismissMenu: @MainActor () -> Void
 
     init(
         dictationRuntime: DictationRuntime? = nil,
-        fixesRuntime: FixesRuntime? = nil
+        fixesRuntime: FixesRuntime? = nil,
+        dismissMenu: @escaping @MainActor () -> Void = {}
     ) {
         _dictationRuntime = StateObject(wrappedValue: dictationRuntime ?? .shared)
         _fixesRuntime = StateObject(wrappedValue: fixesRuntime ?? .shared)
+        self.dismissMenu = dismissMenu
     }
 
     var body: some View {
@@ -74,40 +76,44 @@ struct MenuBarView: View {
                 title: MenuBarPresentation.fixesTitle,
                 shortcutHint: MenuBarPresentation.fixesShortcutHint(
                     for: fixesRuntime.hotkeyRegistrationStatus
-                )
+                ),
+                isEnabled: fixesRuntime.isMenuActionAvailable
             ) {
-                dismiss()
                 fixesRuntime.showPaletteAfterMenuDismissal()
+                dismissMenu()
             }
 
             MenuBarActionButton(
                 title: MenuBarPresentation.editFixesTitle
             ) {
-                dismiss()
+                dismissMenu()
                 FixesEditorWindowPresenter.shared
                     .showAfterMenuDismissal()
             }
 
             MenuBarActionButton(title: MenuBarPresentation.historyTitle) {
-                dismiss()
+                dismissMenu()
                 TranscriptHistoryWindowPresenter.shared.showAfterMenuDismissal()
             }
 
             MenuBarActionButton(title: MenuBarPresentation.settingsTitle) {
-                dismiss()
+                dismissMenu()
                 SettingsWindowPresenter.shared.showAfterMenuDismissal()
             }
 
             Divider()
 
             MenuBarActionButton(title: MenuBarPresentation.quitTitle) {
-                MenuBarQuitRequest.requestAfterMenuDismissal {
-                    dismiss()
-                }
+                MenuBarQuitRequest.requestAfterMenuDismissal(
+                    dismissMenu: dismissMenu
+                )
             }
         }
         .frame(width: Self.menuWidth)
         .padding(.vertical, 8)
+        .onAppear {
+            fixesRuntime.menuDidOpen()
+        }
     }
 
     private var presentation: MenuBarPresentation {
@@ -122,21 +128,21 @@ struct MenuBarView: View {
     }
 
     private func performRecordingAction() {
-        dismiss()
+        dismissMenu()
         Task {
             await dictationRuntime.performRecordingAction()
         }
     }
 
     private func performTranslationRecordingAction() {
-        dismiss()
+        dismissMenu()
         Task {
             await dictationRuntime.performRecordingAction(intent: .translate)
         }
     }
 
     private func pasteLastResult() {
-        dismiss()
+        dismissMenu()
         Task {
             await dictationRuntime.pasteLastResult()
         }
@@ -155,19 +161,19 @@ struct MenuBarView: View {
 
         if let settingsTarget = failurePresentation?.settingsTarget {
             MenuBarActionButton(title: settingsActionTitle(for: settingsTarget)) {
-                dismiss()
+                dismissMenu()
                 SettingsWindowPresenter.shared.showAfterMenuDismissal(focusing: settingsTarget)
             }
         }
 
         MenuBarActionButton(title: "Dismiss") {
-            dismiss()
+            dismissMenu()
             dictationRuntime.dismissFailurePresentation()
         }
     }
 
     private func retryFailedTranscription(id: FailedTranscriptionAttempt.ID) {
-        dismiss()
+        dismissMenu()
         Task {
             await dictationRuntime.retryFailedTranscription(
                 id: id,

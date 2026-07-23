@@ -15,6 +15,7 @@ struct SettingsDetailView: View {
     let apiKeyStatus: APIKeySettingsStatus
     @Binding var settings: AppSettings
     let hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
+    let fixesHotkeyRegistrationStatus: FixesHotkeyRegistrationStatus
     let microphonePermissionStatus: MicrophonePermissionStatus
     let accessibilityPermissionStatus: AccessibilityPermissionStatus
     let inputMonitoringPermissionStatus: InputMonitoringPermissionStatus
@@ -79,6 +80,7 @@ struct SettingsDetailView: View {
         switch item {
         case .permissions:
             PermissionsSettingsSection(
+                settings: $settings,
                 microphonePermissionStatus: microphonePermissionStatus,
                 accessibilityPermissionStatus: accessibilityPermissionStatus,
                 inputMonitoringPermissionStatus: inputMonitoringPermissionStatus,
@@ -115,7 +117,8 @@ struct SettingsDetailView: View {
         case .shortcut:
             KeyboardShortcutSettingsSection(
                 settings: $settings,
-                status: hotkeyRegistrationStatus
+                status: hotkeyRegistrationStatus,
+                fixesStatus: fixesHotkeyRegistrationStatus
             )
         case .behavior:
             BehaviorSettingsSection(
@@ -172,6 +175,7 @@ struct SettingsDetailView: View {
         apiKeyStatus: .missing,
         settings: .constant(.defaults),
         hotkeyRegistrationStatus: .registered(.defaultDictation),
+        fixesHotkeyRegistrationStatus: .registered,
         microphonePermissionStatus: .notDetermined,
         accessibilityPermissionStatus: .notTrusted,
         inputMonitoringPermissionStatus: .notDetermined,

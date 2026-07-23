@@ -10,7 +10,7 @@ import HoldTypeDomain
 
 enum HoldTypeMenuBarIdentity {
     static let title = "HoldType"
-    static let iconAssetName = "HoldTypeMenuBarIcon"
+    static let systemImageName = "mic.fill"
     static let helpText = "HoldType Dictation"
 }
 

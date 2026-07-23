@@ -11,11 +11,18 @@ struct KeyboardShortcutSettingsSection: View {
     @Binding var settings: AppSettings
 
     let status: GlobalHotkeyRegistrationStatus
+    let fixesStatus: FixesHotkeyRegistrationStatus
 
     var body: some View {
-        Section("Keyboard Shortcut") {
+        Section("Keyboard Shortcuts") {
             HotkeySettingsRow(
                 presentation: HotkeySettingsPresentation(status: status)
+            )
+
+            HotkeySettingsRow(
+                presentation: HotkeySettingsPresentation(
+                    fixesStatus: fixesStatus
+                )
             )
 
             Toggle(
@@ -48,7 +55,7 @@ private struct HotkeySettingsRow: View {
     }
 }
 
-private struct HotkeySettingsPresentation {
+struct HotkeySettingsPresentation {
     let shortcutText: String
     let statusText: String
     let detailText: String
@@ -77,13 +84,37 @@ private struct HotkeySettingsPresentation {
             statusTint = .red
         }
     }
+
+    init(fixesStatus: FixesHotkeyRegistrationStatus) {
+        shortcutText =
+            GlobalHotkeyShortcut.fixesPalette.menuKeyEquivalentText
+        systemImage = "wand.and.stars"
+
+        switch fixesStatus {
+        case .registered:
+            statusText = "Fixes shortcut active."
+            detailText =
+                "Press the shortcut to open Fixes for the current text field."
+            statusTint = .secondary
+        case .notRegistered:
+            statusText = "Fixes shortcut not active."
+            detailText =
+                "Use Fixes… in the menu until the shortcut is available."
+            statusTint = .secondary
+        case .unavailable(let message):
+            statusText = "Fixes shortcut unavailable."
+            detailText = "\(message) Use Fixes… in the menu."
+            statusTint = .red
+        }
+    }
 }
 
 #Preview {
     Form {
         KeyboardShortcutSettingsSection(
             settings: .constant(.defaults),
-            status: .registered(.defaultDictation)
+            status: .registered(.defaultDictation),
+            fixesStatus: .registered
         )
     }
     .formStyle(.grouped)

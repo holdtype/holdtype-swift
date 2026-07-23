@@ -33,6 +33,21 @@ struct FixesEditorWindowPresenterTests {
         #expect(restoredWindows.isEmpty)
     }
 
+    @Test func hostedNavigationTitleDoesNotReplaceEditorWindowTitle() throws {
+        let presenter = makePresenter(
+            activationHandler: {},
+            restoreAccessoryHandler: { _ in }
+        )
+
+        presenter.show()
+        let window = try #require(presenter.presentedWindow)
+        defer { window.close() }
+
+        window.contentViewController?.title = "Translate"
+
+        #expect(window.title == "HoldType: Edit Fixes")
+    }
+
     @Test func repeatedShowReusesWindowAndCloseRestoresAccessoryState() throws {
         var activationCount = 0
         var restoreCount = 0

@@ -16,6 +16,7 @@ struct AppSettings: Equatable {
         EmojiCommandsConfiguration.defaultEnabledBuiltInSetIDs
     static let defaultTextCorrectionPrompt = TextCorrectionConfiguration.defaultPrompt
     static let defaultTranslationPrompt = TranslationConfiguration.defaultPrompt
+    static let currentTextFixesConsentVersion = 1
 
     static let defaults = AppSettings(
         transcriptionModel: defaultTranscriptionModel,
@@ -70,6 +71,7 @@ struct AppSettings: Equatable {
     var textCorrectionPrompt: String = ""
     var localTextCleanupEnabled: Bool = true
     var textReplacementRules: [TextReplacementRule] = []
+    var textFixesConsentVersion: Int = 0
     var translationShortcutEnabled: Bool = true
     var translationSourceMode: TranslationSourceMode = .sameAsTranscription
     var translationSourceLanguage: TranscriptionLanguage = .automatic
@@ -119,6 +121,16 @@ struct AppSettings: Equatable {
 
     mutating func resetTextCorrectionPrompt() {
         textCorrectionPrompt = Self.defaultTextCorrectionPrompt
+    }
+
+    var hasCurrentTextFixesConsent: Bool {
+        textFixesConsentVersion == Self.currentTextFixesConsentVersion
+    }
+
+    mutating func setTextFixesConsentAccepted(_ isAccepted: Bool) {
+        textFixesConsentVersion = isAccepted
+            ? Self.currentTextFixesConsentVersion
+            : 0
     }
 
     var translationConfiguration: TranslationConfiguration {

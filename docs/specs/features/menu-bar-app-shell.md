@@ -35,7 +35,10 @@ This spec covers:
 - The menu bar item identity for the MVP is the title `HoldType`, the native
   SF Symbol `mic.fill`, and help text `HoldType Dictation`.
 - The menu bar title is the accessibility label. The help text is the tooltip
-  when the SwiftUI `MenuBarExtra` label exposes native macOS help.
+  on the native status item.
+- Activating the status item by pointer, keyboard, or Accessibility action
+  runs one native pre-open action before showing the popover. That action
+  captures Fixes availability while the external target still owns focus.
 - The top menu block should include the app title and current compact status.
 - The app should not copy OpenWhispr's Electron tray asset lookup, icon
   fallback generation, or cross-platform tray behavior.
@@ -180,5 +183,3 @@ recoverable failed attempt or its session-only retry audio.
 
 - Whether future product naming changes should replace `HoldType` before
   packaging.
-- Whether post-MVP menu bar polish needs a custom AppKit `NSStatusItem` for
-  status-specific icons or lower-level tooltip control.

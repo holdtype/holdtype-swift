@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var appSettings: AppSettings
     @StateObject private var apiKeySettingsModel: OpenAIAPIKeySettingsViewModel
     @State private var hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
+    @State private var fixesHotkeyRegistrationStatus:
+        FixesHotkeyRegistrationStatus
     @State private var launchAtLoginStatus: LaunchAtLoginStatus
     @State private var recordingCacheSummary: RecordingCacheSummary
     @State private var recordingCacheErrorMessage: String?
@@ -30,6 +32,8 @@ struct SettingsView: View {
 
     private let appSettingsStore: AppSettingsStore
     private let hotkeyStatusProvider: @MainActor () -> GlobalHotkeyRegistrationStatus
+    private let fixesHotkeyStatusProvider:
+        @MainActor () -> FixesHotkeyRegistrationStatus
     private let launchAtLoginService: any LaunchAtLoginServicing
     private let settingsVisibilityRestorer: @MainActor (SettingsNavigationItem) -> Void
     private let recordingCache: any RecordingCacheManaging
@@ -44,6 +48,7 @@ struct SettingsView: View {
         apiKeyStorage: any APIKeyStorage = APIKeyCredentialProvider.shared,
         appSettingsStore: AppSettingsStore = AppSettingsStore(),
         hotkeyStatusProvider: @escaping @MainActor () -> GlobalHotkeyRegistrationStatus = { .notRegistered },
+        fixesHotkeyStatusProvider: @escaping @MainActor () -> FixesHotkeyRegistrationStatus = { .notRegistered },
         launchAtLoginService: any LaunchAtLoginServicing = LaunchAtLoginService(),
         settingsVisibilityRestorer: @escaping @MainActor (SettingsNavigationItem) -> Void = { item in
             SettingsWindowPresenter.shared.showAfterSystemPermissionPrompt(focusing: item)
@@ -58,6 +63,7 @@ struct SettingsView: View {
         self.navigation = navigation
         self.appSettingsStore = appSettingsStore
         self.hotkeyStatusProvider = hotkeyStatusProvider
+        self.fixesHotkeyStatusProvider = fixesHotkeyStatusProvider
         self.launchAtLoginService = launchAtLoginService
         self.settingsVisibilityRestorer = settingsVisibilityRestorer
         self.recordingCache = recordingCache
@@ -87,6 +93,9 @@ struct SettingsView: View {
             wrappedValue: OpenAIAPIKeySettingsViewModel(apiKeyStorage: apiKeyStorage)
         )
         _hotkeyRegistrationStatus = State(initialValue: hotkeyStatusProvider())
+        _fixesHotkeyRegistrationStatus = State(
+            initialValue: fixesHotkeyStatusProvider()
+        )
         _launchAtLoginStatus = State(initialValue: launchAtLoginService.currentStatus())
         _recordingCacheSummary = State(initialValue: initialRecordingCacheState.summary)
         _recordingCacheErrorMessage = State(initialValue: initialRecordingCacheState.errorMessage)
@@ -110,6 +119,8 @@ struct SettingsView: View {
                 apiKeyStatus: apiKeySettingsModel.status,
                 settings: appSettingsBinding,
                 hotkeyRegistrationStatus: hotkeyRegistrationStatus,
+                fixesHotkeyRegistrationStatus:
+                    fixesHotkeyRegistrationStatus,
                 microphonePermissionStatus: permissionsModel.microphonePermissionStatus,
                 accessibilityPermissionStatus: permissionsModel.accessibilityPermissionStatus,
                 inputMonitoringPermissionStatus: permissionsModel.inputMonitoringPermissionStatus,
@@ -308,6 +319,7 @@ struct SettingsView: View {
 
     private func refreshHotkeyRegistrationStatus() {
         hotkeyRegistrationStatus = hotkeyStatusProvider()
+        fixesHotkeyRegistrationStatus = fixesHotkeyStatusProvider()
     }
 
     private func refreshLaunchAtLoginStatus() {
