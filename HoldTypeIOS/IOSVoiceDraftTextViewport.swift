@@ -11,6 +11,8 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
     let scrollToLatestRequest: Int
     let usesAccessibilitySize: Bool
     let reduceMotion: Bool
+    var onTargetSnapshotChange:
+        (IOSVoiceDraftTextTargetSnapshot) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -125,6 +127,7 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
             desiredFocus = true
             followTailState.suspend()
             parent.isFocused = true
+            captureTargetSnapshot(from: textView)
             reportJumpToLatestVisibility()
         }
 
@@ -142,6 +145,7 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
 
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
+            captureTargetSnapshot(from: textView)
         }
 
         func acceptExternalTextAssignment(_ value: String) {
@@ -153,8 +157,20 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
+            guard textView.isFirstResponder else { return }
+            captureTargetSnapshot(from: textView)
             guard textView.selectedRange.length > 0 else { return }
             followTailState.suspend()
+        }
+
+        func captureTargetSnapshot(from textView: UITextView) {
+            guard let snapshot = IOSVoiceDraftTextTargetSnapshot(
+                text: textView.text ?? "",
+                selectedRange: textView.selectedRange
+            ) else {
+                return
+            }
+            parent.onTargetSnapshotChange(snapshot)
         }
 
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -206,6 +222,7 @@ struct IOSVoiceDraftTextViewport: UIViewRepresentable {
                 case .becomeFirstResponder:
                     textView.becomeFirstResponder()
                 case .resignFirstResponder:
+                    self.captureTargetSnapshot(from: textView)
                     textView.resignFirstResponder()
                 }
             }

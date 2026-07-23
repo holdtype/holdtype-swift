@@ -5,8 +5,10 @@ import Observation
 struct IOSVoiceDraftTransformationReservation: Equatable, Sendable {
     fileprivate let id: UUID
     fileprivate let record: IOSVoiceDraftRecord
+    fileprivate let target: IOSVoiceDraftResolvedTextTarget
 
-    var text: String { record.text }
+    var text: String { target.sourceText }
+    var sourceUTF16Range: NSRange { target.utf16Range }
 }
 
 enum IOSVoiceDraftTransformationCommit: Equatable, Sendable {
@@ -220,10 +222,16 @@ final class IOSVoiceDraftOwner {
         return true
     }
 
-    func beginTransformation()
+    func beginTransformation(
+        targeting snapshot: IOSVoiceDraftTextTargetSnapshot? = nil
+    )
         -> IOSVoiceDraftTransformationReservation? {
         guard let current = confirmedRecord,
-              current.hasMeaningfulText,
+              !isEditing,
+              let target = IOSVoiceDraftResolvedTextTarget(
+                confirmedText: current.text,
+                captured: snapshot
+              ),
               begin(.transforming) else {
             return nil
         }
@@ -231,8 +239,21 @@ final class IOSVoiceDraftOwner {
         activeTransformationID = id
         return IOSVoiceDraftTransformationReservation(
             id: id,
-            record: current
+            record: current,
+            target: target
         )
+    }
+
+    func beginTransformation(
+        capturing snapshot: IOSVoiceDraftTextTargetSnapshot
+    ) async -> IOSVoiceDraftTransformationReservation? {
+        if let editingText {
+            guard editingText == snapshot.text,
+                  await finishEditing() else {
+                return nil
+            }
+        }
+        return beginTransformation(targeting: snapshot)
     }
 
     func commitTransformation(
@@ -246,7 +267,14 @@ final class IOSVoiceDraftOwner {
         }
         let updated: IOSVoiceDraftRecord
         do {
-            updated = try reservation.record.replacingText(text)
+            guard let completeText = reservation.target.replacingSource(
+                in: reservation.record.text,
+                with: text
+            ) else {
+                finishTransformation(reservation)
+                return .stale
+            }
+            updated = try reservation.record.replacingText(completeText)
         } catch {
             finishTransformation(reservation)
             return .failed

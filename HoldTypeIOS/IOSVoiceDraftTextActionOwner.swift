@@ -124,8 +124,32 @@ final class IOSVoiceDraftTextActionOwner {
 
     @discardableResult
     func submit(_ action: IOSVoiceDraftTextAction) -> Bool {
+        guard let reservation = draftOwner.beginTransformation() else {
+            return false
+        }
+        return start(action, reservation: reservation)
+    }
+
+    @discardableResult
+    func submit(
+        _ action: IOSVoiceDraftTextAction,
+        capturing snapshot: IOSVoiceDraftTextTargetSnapshot
+    ) async -> Bool {
         guard activeAction == nil,
-              let reservation = draftOwner.beginTransformation() else {
+              let reservation = await draftOwner.beginTransformation(
+                capturing: snapshot
+              ) else {
+            return false
+        }
+        return start(action, reservation: reservation)
+    }
+
+    private func start(
+        _ action: IOSVoiceDraftTextAction,
+        reservation: IOSVoiceDraftTransformationReservation
+    ) -> Bool {
+        guard activeAction == nil else {
+            draftOwner.cancelTransformation(reservation)
             return false
         }
         activeAction = action

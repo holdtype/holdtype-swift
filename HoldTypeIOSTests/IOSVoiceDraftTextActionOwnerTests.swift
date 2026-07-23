@@ -80,6 +80,57 @@ struct IOSVoiceDraftTextActionOwnerTests {
         }
     }
 
+    @Test func capturedWorkingSelectionIsTheOnlyProviderSourceAndReplacement()
+        async throws {
+        try await withRepository { repository in
+            let draftOwner = IOSVoiceDraftOwner(repository: repository)
+            #expect(await draftOwner.refresh())
+            #expect(
+                await draftOwner.accept(
+                    try accepted(1, text: "Before old after"),
+                    mode: .append
+                )
+            )
+            #expect(draftOwner.beginEditing())
+            draftOwner.updateEditingText("Before selected 😀 after")
+            let workingText = draftOwner.visibleText
+            let selectedRange = (workingText as NSString).range(
+                of: "selected 😀"
+            )
+            let snapshot = try #require(
+                IOSVoiceDraftTextTargetSnapshot(
+                    text: workingText,
+                    selectedRange: selectedRange
+                )
+            )
+            let harness = IOSVoiceDraftTextActionHarness()
+            let owner = IOSVoiceDraftTextActionOwner(
+                draftOwner: draftOwner,
+                client: IOSVoiceDraftTextActionClient {
+                    action,
+                    text in
+                    await harness.perform(action, text: text)
+                }
+            )
+
+            #expect(await owner.submit(.correct, capturing: snapshot))
+            try await waitUntil { !owner.isProcessing }
+
+            #expect(harness.inputs == ["selected 😀"])
+            #expect(
+                draftOwner.text
+                    == "Before Improved 1: selected 😀 after"
+            )
+            #expect(await draftOwner.undo())
+            #expect(draftOwner.text == workingText)
+            #expect(await draftOwner.redo())
+            #expect(
+                draftOwner.text
+                    == "Before Improved 1: selected 😀 after"
+            )
+        }
+    }
+
     private func withRepository(
         operation: (IOSVoiceDraftRepository) async throws -> Void
     ) async throws {
