@@ -52,6 +52,11 @@ struct GlobalHotkeyShortcut: Equatable {
         key: "V"
     )
 
+    static let fixesPalette = GlobalHotkeyShortcut(
+        modifiers: [.option],
+        key: "J"
+    )
+
     var modifiers: [GlobalHotkeyModifier]
     var key: String
 
