@@ -390,6 +390,7 @@ final class FixesRuntime: ObservableObject {
                 )
                 try Task.checkCancellation()
                 stage = .replacement
+                self.panelPresenter.releaseKeyboardFocus()
                 try await self.replacementService.replace(
                     snapshot: snapshot,
                     with: output

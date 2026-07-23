@@ -173,6 +173,8 @@ final class FixesDiagnosticsPanelPresenter:
         self.model = model
     }
 
+    func releaseKeyboardFocus() {}
+
     func hide() {
         model = nil
     }

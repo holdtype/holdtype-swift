@@ -212,7 +212,7 @@ struct FocusedTextTargetService {
     func restoreFocusAndReplacementRange(
         for snapshot: FocusedTextTargetSnapshot
     ) throws {
-        guard client.focus(snapshot.token),
+        guard (client.isFocused(snapshot.token) || client.focus(snapshot.token)),
               client.setSelectedRange(
                 snapshot.replacementRange,
                 for: snapshot.token

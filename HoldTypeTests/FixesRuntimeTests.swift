@@ -178,6 +178,7 @@ struct FixesRuntimeTests {
         let replacementCall = try #require(fixture.replacement.calls.first)
         #expect(replacementCall.output == "\nFixed\n")
         #expect(replacementCall.snapshot.sourceText == "selected")
+        #expect(fixture.panel.releaseKeyboardFocusCount == 1)
         #expect(fixture.panel.hideCount >= 1)
         #expect(!fixture.runtime.isPaletteVisible)
     }
@@ -436,6 +437,7 @@ private final class FixesRuntimePanelPresenter:
     FixesPalettePanelPresenting {
     private(set) var model: FixesPaletteModel?
     private(set) var anchorRect: CGRect?
+    private(set) var releaseKeyboardFocusCount = 0
     private(set) var hideCount = 0
 
     func show(
@@ -444,6 +446,10 @@ private final class FixesRuntimePanelPresenter:
     ) {
         self.model = model
         anchorRect = accessibilityAnchorRect
+    }
+
+    func releaseKeyboardFocus() {
+        releaseKeyboardFocusCount += 1
     }
 
     func hide() {

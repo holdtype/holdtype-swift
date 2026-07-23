@@ -88,6 +88,19 @@ struct FixesPalettePanelControllerTests {
         #expect(dismissCount == 0)
     }
 
+    @Test func releasingKeyboardFocusKeepsThePalettePresented() {
+        let monitor = FakeFixesPaletteOutsideClickMonitor()
+        let controller = makeController(monitor: monitor)
+        controller.show(model: makeModel(), accessibilityAnchorRect: nil)
+        defer { controller.hide() }
+
+        controller.releaseKeyboardFocus()
+
+        #expect(controller.presentedPanel != nil)
+        #expect(controller.isVisible)
+        #expect(monitor.isMonitoring)
+    }
+
     @Test func keyboardEventMappingHandlesArrowsReturnAndEscape() throws {
         #expect(try command(for: 126) == .moveUp)
         #expect(try command(for: 125) == .moveDown)

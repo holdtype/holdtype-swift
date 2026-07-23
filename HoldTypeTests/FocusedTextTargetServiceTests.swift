@@ -175,6 +175,30 @@ struct FocusedTextTargetServiceTests {
         try service.validateFocusedReplacementRange(snapshot)
     }
 
+    @Test func focusRestorationAcceptsAnAlreadyFocusedTarget() throws {
+        let token = FocusedTextElementToken()
+        let client = FakeFocusedTextTargetClient(
+            state: state(
+                token: token,
+                text: "Hello world",
+                selectedRange: NSRange(location: 6, length: 5)
+            )
+        )
+        client.alreadyFocusedToken = token
+        client.shouldFocus = false
+        let service = makeService(client: client)
+        let snapshot = try service.capture()
+
+        try service.restoreFocusAndReplacementRange(for: snapshot)
+
+        #expect(client.focusedTokens.isEmpty)
+        #expect(
+            client.selectedRanges
+                == [NSRange(location: 6, length: 5)]
+        )
+        try service.validateFocusedReplacementRange(snapshot)
+    }
+
     @Test func focusRestorationFailsWithoutMutatingRange() throws {
         let client = FakeFocusedTextTargetClient(state: state(text: "Hello"))
         client.shouldFocus = false
@@ -224,6 +248,7 @@ private final class FakeFocusedTextTargetClient: FocusedTextTargetClient {
     var state: FocusedTextElementState?
     var shouldFocus = true
     var shouldSetSelectedRange = true
+    var alreadyFocusedToken: FocusedTextElementToken?
     private(set) var focusedTokens: [FocusedTextElementToken] = []
     private(set) var selectedRanges: [NSRange] = []
 
@@ -274,7 +299,7 @@ private final class FakeFocusedTextTargetClient: FocusedTextTargetClient {
     }
 
     func isFocused(_ token: FocusedTextElementToken) -> Bool {
-        focusedTokens.last == token
+        alreadyFocusedToken == token || focusedTokens.last == token
     }
 }
 

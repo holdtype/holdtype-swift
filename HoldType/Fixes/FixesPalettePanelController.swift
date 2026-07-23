@@ -35,6 +35,7 @@ protocol FixesPalettePanelPresenting: AnyObject {
         model: FixesPaletteModel,
         accessibilityAnchorRect: CGRect?
     )
+    func releaseKeyboardFocus()
     func hide()
 }
 
@@ -120,6 +121,11 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
 
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+    }
+
+    func releaseKeyboardFocus() {
+        panel?.makeFirstResponder(nil)
+        panel?.resignKey()
     }
 
     func hide() {
