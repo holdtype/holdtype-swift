@@ -37,6 +37,8 @@ public struct TextFixAction:
         case emptyTitle
         case titleTooLong(maximumCharacterCount: Int)
         case invalidBuiltInIdentifier
+        case invalidBuiltInTitle
+        case invalidBuiltInIcon
         case reservedBuiltInIdentifier
         case missingPrompt
         case unexpectedPrompt
@@ -71,6 +73,8 @@ public struct TextFixAction:
         try Self.validatePayload(
             id: id,
             kind: kind,
+            title: title,
+            icon: icon,
             prompt: prompt,
             isEnabled: isEnabled
         )
@@ -159,6 +163,8 @@ public struct TextFixAction:
     private static func validatePayload(
         id: String,
         kind: TextFixActionKind,
+        title: String,
+        icon: TextFixIcon,
         prompt: String?,
         isEnabled: Bool
     ) throws {
@@ -167,12 +173,26 @@ public struct TextFixAction:
             guard id == translateIdentifier else {
                 throw ValidationError.invalidBuiltInIdentifier
             }
-            try validateBuiltInPayload(prompt: prompt, isEnabled: isEnabled)
+            try validateBuiltInPayload(
+                title: title,
+                expectedTitle: "Translate",
+                icon: icon,
+                expectedIcon: .translate,
+                prompt: prompt,
+                isEnabled: isEnabled
+            )
         case .fix:
             guard id == fixIdentifier else {
                 throw ValidationError.invalidBuiltInIdentifier
             }
-            try validateBuiltInPayload(prompt: prompt, isEnabled: isEnabled)
+            try validateBuiltInPayload(
+                title: title,
+                expectedTitle: "Fix",
+                icon: icon,
+                expectedIcon: .fix,
+                prompt: prompt,
+                isEnabled: isEnabled
+            )
         case .customPrompt:
             guard id != translateIdentifier, id != fixIdentifier else {
                 throw ValidationError.reservedBuiltInIdentifier
@@ -191,7 +211,20 @@ public struct TextFixAction:
         }
     }
 
-    private static func validateBuiltInPayload(prompt: String?, isEnabled: Bool) throws {
+    private static func validateBuiltInPayload(
+        title: String,
+        expectedTitle: String,
+        icon: TextFixIcon,
+        expectedIcon: TextFixIcon,
+        prompt: String?,
+        isEnabled: Bool
+    ) throws {
+        guard title == expectedTitle else {
+            throw ValidationError.invalidBuiltInTitle
+        }
+        guard icon == expectedIcon else {
+            throw ValidationError.invalidBuiltInIcon
+        }
         guard prompt == nil else {
             throw ValidationError.unexpectedPrompt
         }

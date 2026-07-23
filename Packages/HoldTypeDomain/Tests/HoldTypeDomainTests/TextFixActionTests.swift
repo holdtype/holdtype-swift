@@ -40,6 +40,24 @@ struct TextFixActionTests {
                 prompt: "Custom prompt"
             )
         }
+        #expect(throws: TextFixAction.ValidationError.invalidBuiltInTitle) {
+            try TextFixAction(
+                id: TextFixAction.translateIdentifier,
+                kind: .translate,
+                title: "Renamed",
+                icon: .translate,
+                prompt: nil
+            )
+        }
+        #expect(throws: TextFixAction.ValidationError.invalidBuiltInIcon) {
+            try TextFixAction(
+                id: TextFixAction.fixIdentifier,
+                kind: .fix,
+                title: "Fix",
+                icon: .custom,
+                prompt: nil
+            )
+        }
         #expect(throws: TextFixAction.ValidationError.unexpectedPrompt) {
             try TextFixAction(
                 id: TextFixAction.fixIdentifier,
