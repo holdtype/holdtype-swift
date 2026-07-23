@@ -23,6 +23,14 @@ protocol FocusedTextReplacementSleeping: Sendable {
     func sleep(seconds: TimeInterval) async throws
 }
 
+@MainActor
+protocol FocusedTextReplacing {
+    func replace(
+        snapshot: FocusedTextTargetSnapshot,
+        with output: String
+    ) async throws
+}
+
 struct TaskFocusedTextReplacementSleeper:
     FocusedTextReplacementSleeping {
     func sleep(seconds: TimeInterval) async throws {
@@ -36,7 +44,7 @@ struct TaskFocusedTextReplacementSleeper:
 }
 
 @MainActor
-struct FocusedTextReplacementService {
+struct FocusedTextReplacementService: FocusedTextReplacing {
     static let defaultReplacementTimeout: TimeInterval = 5
     static let defaultFocusAttemptCount = 20
     static let defaultFocusRetryDelay: TimeInterval = 0.05

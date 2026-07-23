@@ -30,6 +30,7 @@
 		D4A176072FF1000000000007 /* HoldTypeDomain in Frameworks */ = {isa = PBXBuildFile; productRef = D4A176082FF1000000000008 /* HoldTypeDomain */; };
 		D4A178042FF3000000000004 /* HoldTypePersistence in Frameworks */ = {isa = PBXBuildFile; productRef = D4A178022FF3000000000002 /* HoldTypePersistence */; };
 		D4A178052FF3000000000005 /* HoldTypePersistence in Frameworks */ = {isa = PBXBuildFile; productRef = D4A178032FF3000000000003 /* HoldTypePersistence */; };
+		D4A178062FF3000000000006 /* HoldTypePersistence in Frameworks */ = {isa = PBXBuildFile; productRef = D4A178012FF3000000000001 /* HoldTypePersistence */; };
 		D4A179062FF4000000000006 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179022FF4000000000002 /* HoldTypeOpenAI */; };
 		D4A179072FF4000000000007 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179032FF4000000000003 /* HoldTypeOpenAI */; };
 		D4A179082FF4000000000008 /* HoldTypeOpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = D4A179042FF4000000000004 /* HoldTypeOpenAI */; };
@@ -175,6 +176,7 @@
 			files = (
 				D4A176042FF1000000000004 /* HoldTypeDomain in Frameworks */,
 				D4A179062FF4000000000006 /* HoldTypeOpenAI in Frameworks */,
+				D4A178062FF3000000000006 /* HoldTypePersistence in Frameworks */,
 				D4A1740A2FEF17400000000A /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -268,6 +270,7 @@
 			packageProductDependencies = (
 				D4A176012FF1000000000001 /* HoldTypeDomain */,
 				D4A179022FF4000000000002 /* HoldTypeOpenAI */,
+				D4A178012FF3000000000001 /* HoldTypePersistence */,
 				D4A1740D2FEF17400000000D /* Sparkle */,
 			);
 			productName = HoldType;
@@ -1318,6 +1321,11 @@
 			productName = HoldTypeDomain;
 		};
 		D4A178022FF3000000000002 /* HoldTypePersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
+			productName = HoldTypePersistence;
+		};
+		D4A178012FF3000000000001 /* HoldTypePersistence */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
 			productName = HoldTypePersistence;

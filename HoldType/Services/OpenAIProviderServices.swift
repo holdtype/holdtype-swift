@@ -11,3 +11,8 @@ typealias OpenAITextCorrectionServiceError = HoldTypeOpenAI.OpenAITextCorrection
 typealias OpenAITextTranslationServing = HoldTypeOpenAI.OpenAITextTranslationServing
 typealias OpenAITextTranslationService = HoldTypeOpenAI.OpenAITextTranslationService
 typealias OpenAITextTranslationServiceError = HoldTypeOpenAI.OpenAITextTranslationServiceError
+
+typealias OpenAITextTransformationServing = HoldTypeOpenAI.OpenAITextTransformationServing
+typealias OpenAITextTransformationService = HoldTypeOpenAI.OpenAITextTransformationService
+typealias OpenAITextTransformationServiceError =
+    HoldTypeOpenAI.OpenAITextTransformationServiceError
