@@ -11,9 +11,10 @@ nonisolated enum KeyboardFixBridgeStoreError: Error, Equatable {
     case recordTooLarge(maximumBytes: Int, actualBytes: Int)
     case nonIncreasingMetadataRevision(current: UInt64, proposed: UInt64)
     case metadataRevisionExhausted
+    case cancellationPending
 }
 
-/// Bounded JSON I/O used by the three single-record Keyboard Fix projections.
+/// Bounded JSON I/O used by the single-record Keyboard Fix projections.
 nonisolated struct KeyboardFixAtomicRecordStore {
     let directoryURL: URL
     let fileManager: FileManager

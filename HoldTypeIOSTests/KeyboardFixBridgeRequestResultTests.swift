@@ -2,6 +2,28 @@ import Foundation
 import Testing
 
 struct KeyboardFixBridgeRequestResultTests {
+    @Test func sourceFingerprintIsDeterministicAndTextSensitive() {
+        let first = KeyboardFixSourceFingerprint.make(for: "Selected text")
+        let same = KeyboardFixSourceFingerprint.make(for: "Selected text")
+        let changed = KeyboardFixSourceFingerprint.make(for: "selected text")
+
+        #expect(first.count == 64)
+        #expect(first == same)
+        #expect(first != changed)
+        #expect(
+            KeyboardFixSourceFingerprint.matches(
+                first,
+                sourceText: "Selected text"
+            )
+        )
+        #expect(
+            !KeyboardFixSourceFingerprint.matches(
+                first,
+                sourceText: "Changed"
+            )
+        )
+    }
+
     @Test func requestPreservesOnlyTheExactSelectedSourceAndIdentity() throws {
         let source = "  First line\nSecond line  \n"
         let request = try makeKeyboardFixRequest(sourceText: source)

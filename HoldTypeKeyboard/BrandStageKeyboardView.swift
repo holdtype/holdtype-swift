@@ -5,6 +5,7 @@ struct BrandStageKeyboardPresentation: Equatable {
     let voiceStage: KeyboardVoiceStagePresentation
     let listeningCountdownSeconds: Int?
     let automaticVoiceAction: KeyboardVoiceAction
+    var fixes: KeyboardFixExtensionPresentation = .unavailable
     let latestIsEnabled: Bool
     let returnKey: KeyboardReturnKeyPresentation
     let returnIsEnabled: Bool
@@ -21,6 +22,15 @@ final class BrandStageKeyboardView: UIView {
     var onLatestRequested: (() -> Void)?
     var onMicrophoneRequested: (() -> Void)?
     var onQuickInsertRequested: ((String) -> Void)?
+    var onFixesVisibilityChanged: ((Bool) -> Void)? {
+        didSet {
+            commandWorkspace.onFixesVisibilityChanged =
+                onFixesVisibilityChanged
+        }
+    }
+    var onFixRequested: ((String) -> Void)? {
+        didSet { commandWorkspace.onFixRequested = onFixRequested }
+    }
     var onAutomaticVoiceActionChanged: ((KeyboardVoiceAction) -> Void)?
     var onSpaceRequested: (() -> Void)?
     var onSpaceCursorGesture: ((UIGestureRecognizer.State, CGFloat) -> Void)?
@@ -35,6 +45,7 @@ final class BrandStageKeyboardView: UIView {
     private let bodyStack = UIStackView()
     private let commandStack = UIStackView()
     private let quickInsertButton = UIButton(type: .system)
+    private let fixesButton = UIButton(type: .system)
     private let autoButton = UIButton(type: .system)
     private let automaticModesDismissControl = UIControl()
     private let automaticModesPanel = KeyboardAutomaticModesPanelView()
@@ -44,6 +55,7 @@ final class BrandStageKeyboardView: UIView {
     private let stageContainer = UIView()
     private let voiceStage = UIView()
     private let quickInsertStage = UIStackView()
+    private let fixesStage = KeyboardFixesPanelView()
     private let quickInsertPunctuationScrollView = UIScrollView()
     private let quickInsertEmojiPrimaryScrollView = UIScrollView()
     private let quickInsertEmojiSecondaryScrollView = UIScrollView()
@@ -71,8 +83,18 @@ final class BrandStageKeyboardView: UIView {
     private var reduceTransparencyObserver: NSObjectProtocol?
     private var renderedStatus: KeyboardVoiceStatus?
     private var renderedAutomaticVoiceAction: KeyboardVoiceAction = .standard
-    private var quickInsertIsPresented = false
     private var automaticModesArePresented = false
+    private lazy var commandWorkspace = KeyboardCommandWorkspaceCoordinator(
+        quickInsertButton: quickInsertButton,
+        quickInsertStage: quickInsertStage,
+        quickInsertButtons: { [weak self] in self?.quickInsertButtons ?? [] },
+        fixesButton: fixesButton,
+        fixesStage: fixesStage,
+        voiceStage: voiceStage,
+        voiceWaveformView: voiceWaveformView,
+        stageContainer: stageContainer,
+        activeVoiceAccessibilityTarget: microphoneView
+    )
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -138,8 +160,10 @@ final class BrandStageKeyboardView: UIView {
             )
         }
         renderedStatus = presentation.status
-        updateWorkspaceVisibility()
-        updateQuickInsertButtonPresentation()
+        commandWorkspace.render(
+            status: presentation.status,
+            fixes: presentation.fixes
+        )
         updateAutoButtonPresentation()
         updateAutomaticModesVisibility()
     }
@@ -206,16 +230,6 @@ final class BrandStageKeyboardView: UIView {
         listeningCountdownLabel.backgroundColor = accent.withAlphaComponent(
             traitCollection.userInterfaceStyle == .dark ? 0.24 : 0.13
         )
-    }
-
-    private func updateWorkspaceVisibility() {
-        quickInsertStage.isHidden = !quickInsertIsPresented
-        voiceStage.isHidden = quickInsertIsPresented
-        voiceWaveformView.setPresentationVisible(!quickInsertIsPresented)
-
-        stageContainer.accessibilityValue = quickInsertIsPresented
-            ? "Quick Insert"
-            : renderedStatus?.rawValue
     }
 
     func updatePreferredHeight(for traitCollection: UITraitCollection) {
@@ -311,11 +325,13 @@ final class BrandStageKeyboardView: UIView {
         let topRail = makeTopRail()
         configureVoiceStage()
         configureQuickInsertStage()
+        fixesStage.isHidden = true
         stageContainer.translatesAutoresizingMaskIntoConstraints = false
         stageContainer.accessibilityIdentifier = "keyboard.brand-stage.stage"
         let stageViews = [
             voiceStage,
             quickInsertStage,
+            fixesStage,
         ]
         for stageView in stageViews {
             stageContainer.addSubview(stageView)
@@ -445,6 +461,14 @@ final class BrandStageKeyboardView: UIView {
         quickInsertButton.accessibilityIdentifier =
             "keyboard.brand-stage.quick-insert-toggle"
 
+        configureUtilityKey(
+            fixesButton,
+            systemImage: "wand.and.stars",
+            accessibilityLabel: "Open Fixes"
+        )
+        fixesButton.accessibilityIdentifier =
+            "keyboard.brand-stage.fixes-toggle"
+
         configureTopAction(
             autoButton,
             title: "Auto",
@@ -523,8 +547,10 @@ final class BrandStageKeyboardView: UIView {
         let rail = UIView()
         rail.translatesAutoresizingMaskIntoConstraints = false
         rail.addSubview(topLeadingContainer)
+        rail.addSubview(fixesButton)
         rail.addSubview(trailingStack)
         topLeadingContainer.translatesAutoresizingMaskIntoConstraints = false
+        fixesButton.translatesAutoresizingMaskIntoConstraints = false
         latestButton.setContentCompressionResistancePriority(
             .required,
             for: .horizontal
@@ -538,6 +564,14 @@ final class BrandStageKeyboardView: UIView {
             ),
             topLeadingContainer.heightAnchor.constraint(equalToConstant: 44),
             topLeadingContainer.trailingAnchor.constraint(
+                lessThanOrEqualTo: fixesButton.leadingAnchor,
+                constant: -4
+            ),
+            fixesButton.centerXAnchor.constraint(equalTo: rail.centerXAnchor),
+            fixesButton.centerYAnchor.constraint(equalTo: rail.centerYAnchor),
+            fixesButton.widthAnchor.constraint(equalToConstant: 44),
+            fixesButton.heightAnchor.constraint(equalToConstant: 44),
+            fixesButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: trailingStack.leadingAnchor,
                 constant: -4
             ),
@@ -910,11 +944,11 @@ final class BrandStageKeyboardView: UIView {
     }
 
     private func configureInteractions() {
-        quickInsertButton.addTarget(
-            self,
-            action: #selector(quickInsertToggled),
-            for: .touchUpInside
-        )
+        commandWorkspace.onBeforeWorkspaceToggle = { [weak self] in
+            self?.dismissAutomaticModesPanel(
+                restoreAccessibilityFocus: false
+            )
+        }
         autoButton.addTarget(
             self,
             action: #selector(autoToggled),
@@ -1123,7 +1157,11 @@ final class BrandStageKeyboardView: UIView {
         ).cgColor
         layer.borderWidth = 1 / max(traitCollection.displayScale, 1)
         updateKeyAppearance(in: self)
-        updateQuickInsertButtonPresentation()
+        commandWorkspace.applyAppearance(
+            traitCollection: traitCollection,
+            inactiveBorder: Self.keyBorder,
+            activeBorder: Self.quickInsertActiveBorder
+        )
         updateAutoButtonPresentation()
         if let remainingSeconds = listeningCountdownLabel.text.flatMap(Int.init),
            !listeningCountdownLabel.isHidden {
@@ -1170,23 +1208,9 @@ final class BrandStageKeyboardView: UIView {
         onLatestRequested?()
     }
 
-    @objc private func quickInsertToggled() {
-        guard quickInsertButton.isEnabled else { return }
-        dismissAutomaticModesPanel(restoreAccessibilityFocus: false)
-        quickInsertIsPresented.toggle()
-        updateWorkspaceVisibility()
-        updateQuickInsertButtonPresentation()
-        UIAccessibility.post(
-            notification: .layoutChanged,
-            argument: quickInsertIsPresented
-                ? quickInsertButtons.first
-                : activeVoiceAccessibilityTarget
-        )
-    }
-
     func toggleAutomaticTranslation() {
         guard autoButton.isEnabled else { return }
-        closeQuickInsert()
+        commandWorkspace.closeAll()
         onAutomaticVoiceActionChanged?(
             renderedAutomaticVoiceAction.togglingTranslation()
         )
@@ -1195,7 +1219,7 @@ final class BrandStageKeyboardView: UIView {
 
     func toggleAutomaticCorrection() {
         guard autoButton.isEnabled else { return }
-        closeQuickInsert()
+        commandWorkspace.closeAll()
         onAutomaticVoiceActionChanged?(
             renderedAutomaticVoiceAction.togglingCorrection()
         )
@@ -1207,7 +1231,7 @@ final class BrandStageKeyboardView: UIView {
         if automaticModesArePresented {
             dismissAutomaticModesPanel()
         } else {
-            closeQuickInsert()
+            commandWorkspace.closeAll()
             automaticModesArePresented = true
             updateAutomaticModesVisibility()
             UIAccessibility.post(
@@ -1244,40 +1268,11 @@ final class BrandStageKeyboardView: UIView {
 
     private func handleQuickInsertSelection(_ text: String) {
         onQuickInsertRequested?(text)
-        closeQuickInsert()
+        commandWorkspace.closeQuickInsert()
         UIAccessibility.post(
             notification: .layoutChanged,
             argument: activeVoiceAccessibilityTarget
         )
-    }
-
-    private func closeQuickInsert() {
-        guard quickInsertIsPresented else { return }
-        quickInsertIsPresented = false
-        updateWorkspaceVisibility()
-        updateQuickInsertButtonPresentation()
-    }
-
-    private func updateQuickInsertButtonPresentation() {
-        var configuration = quickInsertButton.configuration
-        configuration?.image = UIImage(
-            systemName: quickInsertIsPresented ? "xmark" : "face.smiling"
-        )
-        quickInsertButton.configuration = configuration
-        quickInsertButton.accessibilityLabel = quickInsertIsPresented
-            ? "Close Quick Insert"
-            : "Open Quick Insert"
-        quickInsertButton.accessibilityValue = quickInsertIsPresented
-            ? "Open"
-            : "Closed"
-        quickInsertButton.layer.borderColor = (
-            quickInsertIsPresented
-                ? Self.quickInsertActiveBorder
-                : Self.keyBorder
-        ).resolvedColor(with: traitCollection).cgColor
-        quickInsertButton.layer.borderWidth = quickInsertIsPresented
-            ? 2
-            : (UIAccessibility.isDarkerSystemColorsEnabled ? 1.5 : 0.5)
     }
 
     private func updateAutoButtonPresentation() {

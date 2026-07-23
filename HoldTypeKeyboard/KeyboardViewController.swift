@@ -157,11 +157,11 @@ final class KeyboardViewController: UIInputViewController {
 
     let keyboardView = BrandStageKeyboardView()
     private let deleteRepeater = KeyboardDeleteRepeater()
-    private var dependencies = KeyboardViewControllerDependencies.live
+    var dependencies = KeyboardViewControllerDependencies.live
     private var lastDiagnosticState: IOSDiagnosticKeyboardState?
     private var cursorAccumulator = KeyboardCursorDragAccumulator()
     private var previousCursorLocationX: CGFloat?
-    private var insertionGate = KeyboardInsertionEventGate()
+    var insertionGate = KeyboardInsertionEventGate()
     private var latestItem: KeyboardBridgeItem?
     private var dictationExpiryTimer: Timer?
     private var listeningCountdownTimer: Timer?
@@ -199,6 +199,7 @@ final class KeyboardViewController: UIInputViewController {
     private var showsInputModeSwitchKey = true
     private var allowsStateReconnection = true
     private var automaticVoiceAction: KeyboardVoiceAction = .standard
+    lazy var fixRuntime = makeKeyboardFixRuntime()
 
     private struct ExpiredAttemptReconnect {
         let identity: KeyboardDictationAttemptIdentity
@@ -220,14 +221,6 @@ final class KeyboardViewController: UIInputViewController {
         self.dependencies = dependencies
     }
 
-    private var activeDocumentProxy: any UITextDocumentProxy {
-        if let documentProxyProviderOverride =
-            dependencies.documentProxyProviderOverride {
-            return documentProxyProviderOverride()
-        }
-        return dependencies.documentProxyOverride ?? textDocumentProxy
-    }
-
     private var activeDocumentIdentifier: UUID? {
         dependencies.loadDocumentIdentifier(activeDocumentProxy)
     }
@@ -235,10 +228,6 @@ final class KeyboardViewController: UIInputViewController {
     private var shouldShowInputModeSwitchKey: Bool {
         dependencies.inputModeSwitchKeyOverride
             ?? needsInputModeSwitchKey
-    }
-
-    private var hasSharedContainerAccess: Bool {
-        dependencies.fullAccessOverride ?? hasFullAccess
     }
 
     override func viewDidLoad() {
@@ -258,6 +247,7 @@ final class KeyboardViewController: UIInputViewController {
         hasDictationKey = true
         recordKeyboardState(.opened)
         beginExtensionLifetime()
+        fixRuntime.start()
         showsInputModeSwitchKey = shouldShowInputModeSwitchKey
         reloadSharedSnapshot()
         reloadDictationState()
@@ -273,6 +263,7 @@ final class KeyboardViewController: UIInputViewController {
         cancelListeningCountdown()
         cancelDocumentIdentifierRetry()
         cancelDeliveryObservation()
+        fixRuntime.stop()
         endExtensionLifetime()
         super.viewWillDisappear(animated)
     }
@@ -386,7 +377,7 @@ final class KeyboardViewController: UIInputViewController {
         render()
     }
 
-    private func render() {
+    func render() {
         let dictationPresentation = currentDictationPresentation
         keyboardView.render(
             BrandStageKeyboardPresentation(
@@ -396,6 +387,7 @@ final class KeyboardViewController: UIInputViewController {
                     for: dictationPresentation.voiceStage
                 ),
                 automaticVoiceAction: automaticVoiceAction,
+                fixes: currentKeyboardFixPresentation,
                 latestIsEnabled: recoverableDictationResult != nil
                     || latestItem != nil,
                 returnKey: KeyboardReturnKeyPresentation(
@@ -427,7 +419,7 @@ final class KeyboardViewController: UIInputViewController {
         return wholeSeconds
     }
 
-    private var currentDictationPresentation: (
+    var currentDictationPresentation: (
         status: KeyboardVoiceStatus,
         voiceStage: KeyboardVoiceStagePresentation
     ) {
@@ -1212,7 +1204,7 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    private func openContainingApp(
+    func openContainingApp(
         _ url: URL,
         onFailure: @escaping @MainActor () -> Void
     ) {

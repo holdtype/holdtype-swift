@@ -77,6 +77,11 @@ struct KeyboardFixBridgeStoreTests {
         )
         try fixture.store.publishResult(success)
         #expect(
+            try fixture.store.loadLatestResult(
+                at: success.publishedAt
+            ) == success
+        )
+        #expect(
             try fixture.store.consumeTerminalResult(
                 matching: request.identity,
                 at: success.publishedAt

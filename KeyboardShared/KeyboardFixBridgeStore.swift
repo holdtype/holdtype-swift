@@ -62,6 +62,23 @@ nonisolated struct KeyboardFixBridgeStore {
 
     /// Extension writer. A newer request retires all earlier transient results.
     func publishRequest(_ request: KeyboardFixRequestRecord) throws {
+        if let cancellation: KeyboardFixCancellationRecord = try records.load(
+            KeyboardFixCancellationRecord.self,
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename,
+            maximumBytes:
+                KeyboardFixBridgeConfiguration.maximumCancellationBytes
+        ),
+        cancellation.phase == .requested,
+        cancellation.isValid(at: request.issuedAt) {
+            throw KeyboardFixBridgeStoreError.cancellationPending
+        }
+        try records.remove(
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename
+        )
+        try records.remove(
+            filename:
+                KeyboardFixBridgeConfiguration.cancellationClaimFilename
+        )
         try records.remove(
             filename: KeyboardFixBridgeConfiguration.resultFilename
         )
@@ -103,9 +120,132 @@ nonisolated struct KeyboardFixBridgeStore {
         )
     }
 
+    /// Extension writer. The marker is published before matching source/result
+    /// retirement so the app can still cancel a request already consumed.
+    func publishCancellationRequest(
+        _ cancellation: KeyboardFixCancellationRecord
+    ) throws {
+        guard cancellation.phase == .requested else {
+            throw KeyboardFixBridgeStoreError.encodeFailed
+        }
+        try records.remove(
+            filename:
+                KeyboardFixBridgeConfiguration.cancellationClaimFilename
+        )
+        try records.save(
+            cancellation,
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename,
+            maximumBytes:
+                KeyboardFixBridgeConfiguration.maximumCancellationBytes
+        )
+        try cancelRequest(requestID: cancellation.requestID)
+    }
+
+    /// App reader. The request remains published until app cleanup replaces it
+    /// with an acknowledgement, so process loss cannot erase cancellation.
+    func consumeCancellationRequest(
+        at date: Date = Date()
+    ) throws -> KeyboardFixCancellationRecord? {
+        guard let cancellation: KeyboardFixCancellationRecord =
+            try records.load(
+            KeyboardFixCancellationRecord.self,
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename,
+            maximumBytes:
+                KeyboardFixBridgeConfiguration.maximumCancellationBytes
+        ),
+        cancellation.phase == .requested,
+        cancellation.isValid(at: date)
+        else {
+            return nil
+        }
+        return cancellation
+    }
+
+    /// App writer. A missing or replaced request marker is never recreated.
+    @discardableResult
+    func publishCancellationAcknowledgement(
+        _ acknowledgement: KeyboardFixCancellationRecord
+    ) throws -> Bool {
+        guard acknowledgement.phase == .acknowledged,
+              let current: KeyboardFixCancellationRecord =
+                  try records.load(
+                      KeyboardFixCancellationRecord.self,
+                      filename:
+                          KeyboardFixBridgeConfiguration
+                              .cancellationFilename,
+                      maximumBytes:
+                          KeyboardFixBridgeConfiguration
+                              .maximumCancellationBytes
+                  ),
+              current.phase == .requested,
+              current.requestID == acknowledgement.requestID,
+              current.issuedAt == acknowledgement.issuedAt,
+              current.expiresAt == acknowledgement.expiresAt
+        else {
+            return false
+        }
+        try records.save(
+            acknowledgement,
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename,
+            maximumBytes:
+                KeyboardFixBridgeConfiguration.maximumCancellationBytes
+        )
+        return true
+    }
+
+    /// Extension reader. Only the exact acknowledgement releases cancelling.
+    func consumeCancellationAcknowledgement(
+        matching requestID: UUID,
+        at date: Date = Date()
+    ) throws -> KeyboardFixCancellationRecord? {
+        guard let current: KeyboardFixCancellationRecord = try records.load(
+            KeyboardFixCancellationRecord.self,
+            filename: KeyboardFixBridgeConfiguration.cancellationFilename,
+            maximumBytes:
+                KeyboardFixBridgeConfiguration.maximumCancellationBytes
+        ),
+        current.phase == .acknowledged,
+        current.requestID == requestID
+        else {
+            return nil
+        }
+        guard let acknowledgement: KeyboardFixCancellationRecord =
+            try records.take(
+                KeyboardFixCancellationRecord.self,
+                filename:
+                    KeyboardFixBridgeConfiguration.cancellationFilename,
+                claimFilename:
+                    KeyboardFixBridgeConfiguration
+                        .cancellationClaimFilename,
+                maximumBytes:
+                    KeyboardFixBridgeConfiguration.maximumCancellationBytes
+            ),
+            acknowledgement.phase == .acknowledged,
+            acknowledgement.requestID == requestID,
+            acknowledgement.isValid(at: date)
+        else {
+            return nil
+        }
+        return acknowledgement
+    }
+
     /// Read-only progress lookup. It never authorizes replacement.
     func loadResult(
         matching identity: KeyboardFixRequestIdentity,
+        at date: Date = Date()
+    ) throws -> KeyboardFixResultRecord? {
+        guard let result = try loadLatestResult(at: date),
+              result.matches(identity)
+        else {
+            return nil
+        }
+        return result
+    }
+
+    /// Lets a recreated extension recover one unexpired app result before it
+    /// has rebuilt an in-memory request identity. Target validation remains
+    /// mandatory before the caller consumes or applies a terminal result.
+    func loadLatestResult(
         at date: Date = Date()
     ) throws -> KeyboardFixResultRecord? {
         guard let result: KeyboardFixResultRecord = try records.load(
@@ -113,7 +253,6 @@ nonisolated struct KeyboardFixBridgeStore {
             filename: KeyboardFixBridgeConfiguration.resultFilename,
             maximumBytes: KeyboardFixBridgeConfiguration.maximumResultBytes
         ),
-        result.matches(identity),
         result.isValid(at: date)
         else {
             return nil
@@ -171,6 +310,8 @@ nonisolated struct KeyboardFixBridgeStore {
             KeyboardFixBridgeConfiguration.requestClaimFilename,
             KeyboardFixBridgeConfiguration.resultFilename,
             KeyboardFixBridgeConfiguration.resultClaimFilename,
+            KeyboardFixBridgeConfiguration.cancellationFilename,
+            KeyboardFixBridgeConfiguration.cancellationClaimFilename,
         ] {
             try records.remove(filename: filename)
         }

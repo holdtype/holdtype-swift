@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 nonisolated enum KeyboardFixBridgeConfiguration {
@@ -6,10 +7,21 @@ nonisolated enum KeyboardFixBridgeConfiguration {
     static let requestClaimFilename = "keyboard-fix-request-claim-v1.json"
     static let resultFilename = "keyboard-fix-result-v1.json"
     static let resultClaimFilename = "keyboard-fix-result-claim-v1.json"
+    static let cancellationFilename =
+        "keyboard-fix-cancellation-v1.json"
+    static let cancellationClaimFilename =
+        "keyboard-fix-cancellation-claim-v1.json"
+    static let requestNotification =
+        "app.holdtype.keyboard-fix.request.changed.v1"
+    static let resultNotification =
+        "app.holdtype.keyboard-fix.result.changed.v1"
+    static let cancellationNotification =
+        "app.holdtype.keyboard-fix.cancellation.changed.v1"
 
     static let maximumMetadataBytes = 64 * 1_024
     static let maximumRequestBytes = 40 * 1_024
     static let maximumResultBytes = 72 * 1_024
+    static let maximumCancellationBytes = 4 * 1_024
     static let maximumActionCount = 100
     static let maximumIdentifierUTF8Bytes = 128
     static let maximumTitleCharacterCount = 80
@@ -24,10 +36,46 @@ nonisolated enum KeyboardFixBridgeConfiguration {
     static let fixIdentifier = "builtin.fix"
 }
 
+nonisolated enum KeyboardFixSourceFingerprint {
+    static func make(for sourceText: String) -> String {
+        SHA256.hash(data: Data(sourceText.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    static func matches(_ fingerprint: String, sourceText: String) -> Bool {
+        fingerprint == make(for: sourceText)
+    }
+}
+
 nonisolated enum KeyboardFixActionKind: String, Codable, CaseIterable, Sendable {
     case translate
     case fix
     case customPrompt
+}
+
+nonisolated enum KeyboardFixBridgeSignal {
+    static func postRequestChanged() {
+        post(KeyboardFixBridgeConfiguration.requestNotification)
+    }
+
+    static func postResultChanged() {
+        post(KeyboardFixBridgeConfiguration.resultNotification)
+    }
+
+    static func postCancellationChanged() {
+        post(KeyboardFixBridgeConfiguration.cancellationNotification)
+    }
+
+    private static func post(_ name: String) {
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(name as CFString),
+            nil,
+            nil,
+            true
+        )
+    }
 }
 
 nonisolated enum KeyboardFixIconToken: String, Codable, CaseIterable, Sendable {
