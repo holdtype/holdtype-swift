@@ -280,7 +280,8 @@ contains no transcript card, alphabet layout, number deck, Shift, Caps Lock,
 The centered status is short and contains no transcript text or manual route:
 
 - `Ready` — the microphone can start a warm attempt or a cold handoff;
-- `Full Access required` — voice commands cannot use the shared command boundary;
+- `Full Access required` — voice commands and app-mediated Fixes cannot use
+  their shared boundaries;
 - `Allow Microphone` — the app lacks microphone authorization;
 - `Starting…` — Start was written and is awaiting real app acknowledgement;
 - `Listening…` — the app acknowledged real capture for this request;

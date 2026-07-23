@@ -136,7 +136,10 @@ This spec covers:
   listening, depending on the implementation path. Missing Input Monitoring
   must not imply hidden recording, open required Settings recovery by itself, or
   prevent menu-driven recording controls.
-- If registration fails, Settings should show that no global hotkey is active.
+- If the Right Command dictation registration fails, Settings should identify
+  that dictation shortcut as unavailable.
+- If the independent `Option+J` Fixes registration fails, Settings should
+  identify only the Fixes shortcut as unavailable.
 - A Fixes registration failure does not downgrade, disable, or change the
   separate Right Command dictation registration.
 

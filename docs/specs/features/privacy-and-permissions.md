@@ -104,10 +104,11 @@ This spec covers:
 - OpenAI translation input and output are current-request-only unless the final
   translated transcript is later saved by Last Transcript, Last Result,
   or recovery history under their own specs.
-- Immediate Fix source, custom prompt, and result are current-request-only.
-  They are not written to Last Transcript, Last Result, History, Usage,
-  diagnostics, or default logs. The durable Fix catalog stores prompts but
-  never source or result text.
+- Immediate Fix source and result, plus the projection of a chosen prompt into
+  one provider request, are current-request-only. They are not written to Last
+  Transcript, Last Result, History, Usage, diagnostics, or default logs. The
+  durable Fix catalog stores the canonical custom prompt but never source or
+  result text.
 - Debug logging must not include raw dictated text, raw audio payloads, tokens,
   credentials, or full provider responses in the default product log stream.
 - Fixes logging may include only opaque action identity and closed lifecycle or

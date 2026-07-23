@@ -542,11 +542,13 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
 - The API key remains in app-owned Keychain storage.
 - Provider consent is current, explicit, app-private, and checked before every
   remote stage.
-- The optional-audio-retention disclosure remains contract version `3`.
-  Acceptance of the former History-without-cache-disclosure version `2`, or the
-  no-History version `1`, requires explicit review before another provider
-  request. Returning the cache default to off does not lower the disclosure
-  version or require users who accepted version `3` to review it again.
+- The Text Fixes disclosure is contract version `4`. It adds the
+  user-invoked selected-text or qualified complete-field source and chosen Fix
+  instruction to the disclosed provider data categories.
+- Acceptance of the optional-audio-retention version `3`, the former
+  History-without-cache-disclosure version `2`, or the no-History version `1`
+  requires explicit review before another provider request. Returning the
+  recording-cache default to off does not lower the disclosure version.
 - The main Privacy & Permissions screen shows microphone status, OpenAI
   processing status, and an acceptance action only when review is required. It
   does not include a separate local-data, History, or Recording Cache summary.
@@ -563,12 +565,14 @@ Unicode; ordinary free typing and system emoji remain available through Globe.
   Privacy explain why Allow Full Access is needed for keyboard-to-app command
   exchange. The extension itself does not contact OpenAI or transmit host
   keystrokes.
-- With Full Access disabled, voice commands are unavailable but local editing,
-  Globe, and any safe restricted-mode Latest access remain functional.
-- Keyboard setup explains that Full Access is needed only for HoldType voice
-  actions and that ordinary typing remains available without it. The underlying
-  bounded command and Latest-result transport remains an implementation and
-  verification contract rather than primary setup copy.
+- With Full Access disabled, voice commands and keyboard Fixes are unavailable,
+  but local editing, Globe, Quick Insert, and any safe restricted-mode Latest
+  access remain functional.
+- Keyboard setup explains that Full Access is needed for HoldType voice and
+  app-mediated Fixes actions and that ordinary typing remains available without
+  it. The underlying bounded command, immediate-Fix, and Latest-result
+  transports remain implementation and verification contracts rather than
+  primary setup copy.
 - The extension receives no API key or provider client.
 - Pending audio, the canonical 20-entry History, and full Fixes prompts remain
   app-private,

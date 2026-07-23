@@ -16,7 +16,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - built-in Translate and Fix actions
 - user-authored prompt actions
 - local catalog editing and persistence
-- macOS `Option-J` palette behavior
+- macOS `Option+J` palette behavior
 - selection and complete-field target rules
 - iOS Voice and keyboard presentation
 - remote processing, privacy, failure, and stale-target behavior
@@ -65,17 +65,18 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   - macOS uses the complete value of the same compatible Accessibility text
     element;
   - iOS Voice uses the complete confirmed Draft;
-  - HoldType Keyboard uses the complete host field only after public API
-    evidence proves both complete traversal and exact replacement.
+  - HoldType Keyboard reports that a text selection is required.
 - A visually blank source is unavailable and starts no provider request.
 - The source is limited to 32 KiB of UTF-8 for one Fix request. A larger target
   remains unchanged and shows a concise size-limit failure.
 - macOS support means compatible non-secure text controls exposed through
   public Accessibility APIs. Custom-rendered, protected, or incomplete
   controls may be unavailable.
-- Keyboard selection support uses the host-provided selected text. The
-  no-selection path is a signed-device release gate. A partial or uncertain
-  context is never presented or processed as the complete input.
+- Keyboard support is selection-only in the first release and uses the
+  host-provided selected text. Public keyboard context APIs do not prove a
+  complete no-selection field or provide a safe exact replacement primitive.
+  A partial or uncertain context is never presented or processed as the
+  complete input.
 
 ## Processing And Replacement
 
@@ -106,7 +107,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## macOS
 
-- `Option-J` is the default global Fixes shortcut.
+- `Option+J` is the default global Fixes shortcut. Product UI renders it as
+  `⌥J`.
 - The shortcut captures the current external text target before opening UI.
 - A compact searchable palette opens near the caret or selected-text bounds,
   clamped to the visible screen.
@@ -116,7 +118,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   stale-target states without showing provider payloads.
 - Successful replacement dismisses the palette. A failed request may be
   retried only while the original target snapshot still validates.
-- If `Option-J` cannot be registered, HoldType keeps dictation and menu
+- If `Option+J` cannot be registered, HoldType keeps dictation and menu
   controls available and reports the Fixes shortcut as unavailable.
 - The menu bar exposes `Fixes…` and `Edit Fixes…`. Opening a HoldType-owned
   editor never changes the captured external target.
@@ -131,8 +133,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   actions.
 - A non-empty Draft selection is transformed; otherwise the complete confirmed
   Draft is transformed.
-- Editing is committed before the snapshot is reserved. Recording, starting,
-  finalizing, processing, or another Fix makes immediate Fixes unavailable.
+- When the launcher is invoked during editing, HoldType captures the visible
+  working text and non-empty selection before ending focus. It then commits
+  that edit, validates the captured range against the confirmed Draft, and
+  reserves the Fix snapshot. Recording, starting, finalizing, processing, or
+  another Fix makes immediate Fixes unavailable.
 - A result is spliced into the exact reserved range after Draft revision and
   source validation.
 - A successful replacement creates one app-level Undo mutation and clears Redo.
@@ -153,12 +158,24 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - The extension receives only bounded action metadata: identifier, kind,
   title, icon, order, and enabled state. Custom prompts and credentials remain
   app-private.
+- One metadata snapshot contains at most 100 actions and at most 64 KiB of
+  encoded JSON. Identifier and kind strings are at most 128 UTF-8 bytes each;
+  titles retain the catalog's 80-character limit; icon tokens are at most 128
+  UTF-8 bytes.
 - The extension sends one bounded, expiring immediate-Fix request containing
   request identity, action identity, source text, source kind, document
   identity, and source fingerprint. It never sends surrounding text that is
   outside the chosen source.
+- A keyboard Fix requires a non-empty host `documentIdentifier`. Missing
+  identity is unavailable; a context fingerprint never substitutes for it.
+- An encoded request is limited to 40 KiB, including a source already limited
+  to 32 KiB and opaque identifier or fingerprint strings each limited to 128
+  UTF-8 bytes.
 - The containing app resolves the action and prompt, checks consent and
   credential, performs the provider request, and publishes one bounded result.
+- A result is limited to 64 KiB of UTF-8 output and 72 KiB of encoded JSON.
+  Closed error codes are limited to 256 UTF-8 bytes. Any count, member, or
+  encoded-size overflow fails closed without truncating text.
 - Source and result bridge records expire after 60 seconds and are replaced
   atomically. They are transient coordination, not History or a replay queue.
 - Before replacement, the active visible controller must still own the exact
@@ -176,6 +193,10 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 - Settings disclose that running a Fix sends the selected text or complete
   compatible field plus the chosen instruction to OpenAI.
+- iOS disclosure contract version `4` explains that a user-invoked Fix sends
+  only its selected source plus the chosen instruction to OpenAI. An acceptance
+  of version `3` or older requires review before the first later provider
+  request, including Voice, Retry, or Fix.
 - The keyboard consent copy explains that a user-invoked Fix sends only its
   chosen source through transient App Group coordination to the containing app.
 - API keys never enter the catalog, App Group, keyboard extension, logs, or
@@ -193,7 +214,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 - Immediate Fixes never overwrite text outside the captured target.
 - A stale or uncertain target is never replaced.
-- A partial keyboard context is never treated as the complete field.
+- A keyboard Fix never runs without a non-empty host selection.
 - A Fix request never starts recording or changes an active dictation request.
 - The keyboard extension never reads Keychain or contacts OpenAI.
 - External operations have explicit bounded timeouts and real cancellation.
@@ -246,7 +267,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 ## Release Gate
 
 Keyboard Fixes may ship for selected text after the signed-device path proves
-target continuity and app-mediated processing. No-selection keyboard Fixes may
-ship only after the same device matrix proves complete traversal and exact
-replacement in supported hosts. Failure of the second gate narrows keyboard
-Fixes to selection-only; it does not block macOS or iOS Voice.
+target continuity and app-mediated processing. The first release does not run
+a keyboard Fix without a selection. A later complete-field path requires a new
+spec change backed by public-API proof of complete traversal and exact
+replacement; it does not block macOS or iOS Voice.

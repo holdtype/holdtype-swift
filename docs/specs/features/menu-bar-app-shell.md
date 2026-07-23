@@ -53,6 +53,13 @@ This spec covers:
 - The menu should include `Paste Last Result` for inserting the last saved
   accepted transcript into the active app. It should be disabled when the
   setting that keeps the last result is off or no last result is available.
+- After the three primary dictation and paste commands, the menu should include
+  `Fixes…` with the `⌥J` hint. It captures the last valid non-HoldType external
+  target before opening the palette and is disabled when no compatible target
+  can be captured.
+- The menu should include `Edit Fixes…` after `Fixes…`. It opens the normal
+  Fixes editor and never treats a HoldType-owned editor field as the external
+  transformation target.
 - The menu should not show a separate permission checklist or permission
   recovery block. Required permission recovery belongs in full Settings.
 - If the user chooses Transcribe while required setup is incomplete,

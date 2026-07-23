@@ -55,9 +55,14 @@ the exact setting that makes the requested action usable.
 
 - iOS has no durable Translation enabled/disabled preference. Translation is
   available whenever its saved source and target route is valid.
-- One-shot Translate and the Auto Translate session mode remain inline on Voice.
-  Translate remains inline on HoldType Keyboard.
-- If the route is incomplete, tapping any of those controls opens Translation
-  Settings and targets the invalid source control or missing target control.
+- Immediate Translate remains the first item inside the Voice and keyboard
+  Fixes surfaces. Auto Translate remains a separate Voice next-dictation mode.
+- If the route is incomplete, tapping immediate Translate from Voice or Fixes,
+  or selecting Auto Translate, opens Translation Settings and targets the
+  invalid source control or missing target control.
+- A keyboard Fix blocked by missing or outdated provider consent, API key, or
+  Translation route uses the opaque containing-app recovery route for the exact
+  owning Settings destination. No host text, prompt, credential, or provider
+  payload enters that route.
 - A legacy persisted iOS Translation action preference is accepted during
   migration but cannot disable Translation and is not written by new iOS saves.

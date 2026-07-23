@@ -1,6 +1,6 @@
 # HoldType Text Fixes Implementation Plan
 
-Status: approved for implementation; Phase 0 in progress
+Status: approved for implementation; Phase 0 complete, Phase 1 complete
 
 Date: 2026-07-23
 
@@ -18,7 +18,7 @@ transformation to the text currently being edited:
 - otherwise use the complete editable field or complete HoldType Voice Draft;
 - replace only the captured target with the transformation result;
 - expose the same action concept in:
-  - the macOS app through a global `Option-J` shortcut and a popup near the
+  - the macOS app through a global `Option+J` shortcut and a popup near the
     active text field;
   - the iOS containing app's Voice panel;
   - the HoldType iOS keyboard extension.
@@ -101,11 +101,11 @@ Observed actions included:
 
 The installed build currently advertises:
 
-- `Option-J` for **Open prompt picker**;
+- `Option+J` for **Open prompt picker**;
 - `Option-S` for **Fix current line**.
 
 This matches the corrected HoldType shortcut requirement. HoldType should use
-`Option-J` by default.
+`Option+J` by default.
 
 The installed FixKey commands were disabled in the observed runtime state, so
 this research does not claim provider-result or replacement behavior that
@@ -286,7 +286,7 @@ locally in their respective containers. Sync can be specified separately.
 
 ### 7.1 macOS global palette
 
-Default invocation: `Option-J`.
+Default invocation: `Option+J`.
 
 The palette should:
 

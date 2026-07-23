@@ -61,8 +61,11 @@ without opening the custom keyboard.
   unavailable.
 - Copy operates on the visible working text. Clear first commits the visible
   working text when editing is active, then atomically replaces that exact
-  Draft with empty so Undo restores what the user saw before Clear. Fixes and
-  new dictation are unavailable until the edit is safely committed.
+  Draft with empty so Undo restores what the user saw before Clear. New
+  dictation is unavailable until the edit is safely committed. Invoking Fixes
+  while editing first captures the visible working text and selection, ends
+  focus, commits that edit, and validates the captured range before reserving
+  any provider work.
 - Starting, Listening, Finalizing, or Processing makes the editor read-only and
   cannot summon the keyboard. Clear and other Draft mutation controls remain
   unavailable throughout those active Voice phases. App-level Undo and Redo
@@ -236,10 +239,12 @@ without opening the custom keyboard.
   `text-fixes.md`, with Translate and Fix first. It never starts recording or
   transcription and does not change the selected state of the bottom Auto
   menu.
-- After editing ends and commits, a Fix freezes the current confirmed Draft and
-  its non-empty selection or complete-Draft fallback, shows the purple
-  processing activity, and atomically splices accepted output into that exact
-  range.
+- A Fix freezes the current confirmed Draft and its non-empty captured
+  selection or complete-Draft fallback, shows the purple processing activity,
+  and atomically splices accepted output into that exact range. If editing was
+  active, HoldType captures the working text and selection before ending focus,
+  commits the edit, then requires the exact captured text and UTF-16 range to
+  match the confirmed Draft before starting the request.
   Translate uses the saved Translation route; Fix forces the saved Writing &
   Correction model and prompt without changing the durable correction
   preference; custom actions use their app-private prompts.
@@ -281,8 +286,9 @@ without opening the custom keyboard.
   setup screen with the complete public Settings path, an Open System Settings
   action, and a practice field. The containing app reports Full Access as not
   currently verified; it never invents a direct reading of the system switch.
-- Missing Full Access blocks keyboard-controlled voice only. It never disables
-  standalone foreground dictation, Draft editing, Copy, or safe Latest use.
+- Missing Full Access blocks keyboard-controlled voice and keyboard Fixes only.
+  It never disables standalone foreground dictation, Draft editing, containing-
+  app Fixes, Copy, or safe Latest use.
 - Recoverable capture and Pending states expose only the exact Recover, Retry,
   and confirmed Discard commands admitted by the shared Voice controller.
 - Draft load or mutation failure preserves the last confirmed presentation and

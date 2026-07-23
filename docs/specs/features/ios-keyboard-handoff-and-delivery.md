@@ -194,9 +194,9 @@ resolved by silently degrading the keyboard into that manual-session design.
 
 - Choosing an enabled Fix is a separate explicit request. It never writes
   Start, Finish, Cancel, or an Auto mode and never claims Listening.
-- The active visible keyboard controller captures either the host-provided
-  non-empty selection or a complete field proven by the signed-device
-  traversal gate. An uncertain or partial no-selection context is unavailable.
+- The active visible keyboard controller captures the host-provided non-empty
+  selection. The first release does not attempt a no-selection complete-field
+  traversal; an uncertain or partial context is unavailable.
 - The extension atomically publishes one bounded request containing opaque
   request, action, and document identity; the exact chosen source; source kind;
   fingerprint; creation date; and 60-second expiry.
@@ -212,8 +212,9 @@ resolved by silently degrading the keyboard into that manual-session design.
   loss, expiry, replacement by a newer request, or action cancellation ends the
   request without applying late output.
 - Before replacement, the same active visible controller revalidates request
-  ownership, non-empty document identity where available, selected source or
-  qualified complete-field traversal, and source fingerprint.
+  ownership, a required non-empty document identity, the exact selected source,
+  and source fingerprint. Missing document identity blocks the request; a
+  fingerprint never substitutes for it.
 - One result may cause at most one replacement invocation. The extension
   acknowledges that invocation, then clears or retires the transient request
   and result. Uncertain replacement is never replayed.
