@@ -22,6 +22,7 @@ final class FixesRuntime: ObservableObject {
     private let settingsProvider: @MainActor () -> AppSettings
     private let panelPresenter: any FixesPalettePanelPresenting
     private let hotkeyCoordinator: FixesHotkeyCoordinator
+    private let eventLogger: any FixesEventLogging
 
     private var preparationTask: Task<Void, Never>?
     private var menuPresentationTask: Task<Void, Never>?
@@ -56,7 +57,8 @@ final class FixesRuntime: ObservableObject {
         credentialResolver: any OpenAICredentialResolving,
         settingsProvider: @escaping @MainActor () -> AppSettings,
         panelPresenter: any FixesPalettePanelPresenting,
-        hotkeyCoordinator: FixesHotkeyCoordinator
+        hotkeyCoordinator: FixesHotkeyCoordinator,
+        eventLogger: any FixesEventLogging = OSLogFixesEventLogger()
     ) {
         self.catalogStore = catalogStore
         self.targetService = targetService
@@ -66,6 +68,7 @@ final class FixesRuntime: ObservableObject {
         self.settingsProvider = settingsProvider
         self.panelPresenter = panelPresenter
         self.hotkeyCoordinator = hotkeyCoordinator
+        self.eventLogger = eventLogger
     }
 
     var isPaletteVisible: Bool {
@@ -87,6 +90,7 @@ final class FixesRuntime: ObservableObject {
 
     func showPalette() {
         guard activeTask == nil else {
+            eventLogger.record(.availability(outcome: .blockedBusy))
             return
         }
 
@@ -97,6 +101,7 @@ final class FixesRuntime: ObservableObject {
         let captureResult = Result {
             try targetService.capture()
         }
+        recordCapture(captureResult)
         startPalettePreparation(captureResult: captureResult)
     }
 
@@ -106,11 +111,13 @@ final class FixesRuntime: ObservableObject {
 
         guard activeTask == nil else {
             clearPreparedMenuTarget()
+            eventLogger.record(.availability(outcome: .blockedBusy))
             return
         }
 
         resetPalettePreparation()
         let captureResult = captureMenuTarget()
+        recordCapture(captureResult)
         preparedMenuCaptureResult = captureResult
         isMenuActionAvailable = (try? captureResult.get()) != nil
     }
@@ -131,6 +138,7 @@ final class FixesRuntime: ObservableObject {
 
     func showPaletteAfterMenuDismissal() {
         guard activeTask == nil else {
+            eventLogger.record(.availability(outcome: .blockedBusy))
             return
         }
 
@@ -258,30 +266,59 @@ final class FixesRuntime: ObservableObject {
         catalogResult: Result<TextFixCatalog, Error>
     ) -> FixesPaletteStatus {
         if case .failure(let error) = catalogResult {
+            eventLogger.record(
+                .availability(outcome: .blockedCatalogUnavailable)
+            )
             return .unavailable(message: Self.userFacingMessage(for: error))
         }
         if case .failure(let error) = captureResult {
+            eventLogger.record(
+                .availability(outcome: .blockedTargetUnavailable)
+            )
             return .unavailable(message: Self.userFacingMessage(for: error))
         }
         guard settingsProvider().hasCurrentTextFixesConsent else {
+            eventLogger.record(
+                .availability(outcome: .blockedConsentRequired)
+            )
             return .unavailable(
                 message: Self.textFixesConsentRequiredMessage
             )
         }
+        eventLogger.record(.availability(outcome: .ready))
         return .ready
     }
 
     private func activate(actionID: String) {
-        guard activeTask == nil,
-              let snapshot = presentedSnapshot,
-              let action = presentedCatalog?.action(id: actionID)
-        else {
+        guard let action = presentedCatalog?.action(id: actionID) else {
+            eventLogger.record(
+                .availability(outcome: .blockedActionUnavailable)
+            )
+            return
+        }
+        let identity = FixesActionIdentity(action: action)
+        guard activeTask == nil else {
+            eventLogger.record(
+                .action(identity: identity, outcome: .blockedBusy)
+            )
+            return
+        }
+        guard let snapshot = presentedSnapshot else {
+            eventLogger.record(
+                .action(
+                    identity: identity,
+                    outcome: .blockedTargetUnavailable
+                )
+            )
             return
         }
 
         do {
             try targetService.validate(snapshot)
         } catch {
+            eventLogger.record(
+                .action(identity: identity, outcome: .stale)
+            )
             paletteModel?.updateStatus(
                 .staleTarget(message: Self.userFacingMessage(for: error))
             )
@@ -290,6 +327,12 @@ final class FixesRuntime: ObservableObject {
 
         let settings = settingsProvider()
         guard settings.hasCurrentTextFixesConsent else {
+            eventLogger.record(
+                .action(
+                    identity: identity,
+                    outcome: .blockedConsentRequired
+                )
+            )
             paletteModel?.updateStatus(
                 .unavailable(
                     message: Self.textFixesConsentRequiredMessage
@@ -301,6 +344,12 @@ final class FixesRuntime: ObservableObject {
         do {
             credential = try credentialResolver.resolveOpenAICredential()
         } catch {
+            eventLogger.record(
+                .action(
+                    identity: identity,
+                    outcome: .blockedCredentialUnavailable
+                )
+            )
             paletteModel?.updateStatus(
                 .failure(
                     message: Self.userFacingMessage(for: error),
@@ -310,10 +359,12 @@ final class FixesRuntime: ObservableObject {
             return
         }
 
+        eventLogger.record(.action(identity: identity, outcome: .started))
         activeTask = Task { @MainActor [weak self] in
             guard let self else {
                 return
             }
+            var stage = FixesActionStage.provider
             do {
                 let output = try await self.executionService.execute(
                     action: action,
@@ -322,23 +373,42 @@ final class FixesRuntime: ObservableObject {
                     credential: credential
                 )
                 try Task.checkCancellation()
+                stage = .replacement
                 try await self.replacementService.replace(
                     snapshot: snapshot,
                     with: output
                 )
                 try Task.checkCancellation()
+                self.eventLogger.record(
+                    .action(identity: identity, outcome: .succeeded)
+                )
                 self.lastValidExternalMenuSnapshot = nil
                 self.panelPresenter.hide()
                 self.clearPresentation()
             } catch is CancellationError {
+                self.eventLogger.record(
+                    .action(identity: identity, outcome: .cancelled)
+                )
                 // Dismissal owns cancellation and has already cleared the UI.
             } catch let error as FocusedTextTargetError where error == .stale {
+                self.eventLogger.record(
+                    .action(identity: identity, outcome: .stale)
+                )
                 self.paletteModel?.updateStatus(
                     .staleTarget(
                         message: Self.userFacingMessage(for: error)
                     )
                 )
             } catch {
+                self.eventLogger.record(
+                    .action(
+                        identity: identity,
+                        outcome: FixesActionOutcome.terminal(
+                            for: error,
+                            stage: stage
+                        )
+                    )
+                )
                 self.paletteModel?.updateStatus(
                     .failure(
                         message: Self.userFacingMessage(for: error),
@@ -347,6 +417,21 @@ final class FixesRuntime: ObservableObject {
                 )
             }
             self.activeTask = nil
+        }
+    }
+
+    private func recordCapture(
+        _ result: Result<FocusedTextTargetSnapshot, Error>
+    ) {
+        switch result {
+        case .success:
+            eventLogger.record(.capture(outcome: .succeeded))
+        case .failure(let error):
+            eventLogger.record(
+                .capture(
+                    outcome: FixesCaptureOutcome.closedCategory(for: error)
+                )
+            )
         }
     }
 

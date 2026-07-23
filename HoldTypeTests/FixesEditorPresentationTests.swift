@@ -65,6 +65,30 @@ struct FixesEditorPresentationTests {
         #expect(rejected.promptMessage?.contains("8192") == true)
     }
 
+    @Test func draftDescriptionsAndReflectionRedactEditableContent() {
+        let identifierCanary = "custom.ID-CANARY-614"
+        let titleCanary = "TITLE-CANARY-153"
+        let promptCanary = "PROMPT-CANARY-927"
+        let draft = FixesEditorDraft(
+            id: identifierCanary,
+            title: titleCanary,
+            prompt: promptCanary
+        )
+
+        let renderedValues = [
+            String(describing: draft),
+            String(reflecting: draft),
+            draft.debugDescription,
+        ] + draft.customMirror.children.map {
+            String(describing: $0.value)
+        }
+
+        #expect(renderedValues.allSatisfy { !$0.contains(identifierCanary) })
+        #expect(renderedValues.allSatisfy { !$0.contains(titleCanary) })
+        #expect(renderedValues.allSatisfy { !$0.contains(promptCanary) })
+        #expect(renderedValues.joined().contains("<redacted>"))
+    }
+
     @Test func corruptAndUnsupportedIssuesPromisePreservation() {
         let corrupt = FixesEditorIssue.loading(
             TextFixCatalogRepositoryError.malformedData

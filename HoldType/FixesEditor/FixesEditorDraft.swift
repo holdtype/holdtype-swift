@@ -1,7 +1,12 @@
 import Foundation
 import HoldTypeDomain
 
-struct FixesEditorDraft: Equatable, Identifiable {
+struct FixesEditorDraft:
+    Equatable,
+    Identifiable,
+    CustomStringConvertible,
+    CustomDebugStringConvertible,
+    CustomReflectable {
     let id: String
     var title: String
     var prompt: String
@@ -35,6 +40,28 @@ struct FixesEditorDraft: Equatable, Identifiable {
 
     var validation: FixesEditorDraftValidation {
         FixesEditorDraftValidation(title: title, prompt: prompt)
+    }
+
+    var description: String {
+        "FixesEditorDraft(id: <redacted>, title: <redacted>, prompt: <redacted>)"
+    }
+
+    var debugDescription: String {
+        description
+    }
+
+    var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "id": "<redacted>",
+                "title": "<redacted>",
+                "prompt": "<redacted>",
+                "icon": icon.rawValue,
+                "isEnabled": isEnabled,
+                "isNew": isNew,
+            ]
+        )
     }
 
     func makeAction() throws -> TextFixAction {
