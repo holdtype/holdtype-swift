@@ -27,15 +27,21 @@ enum HoldTypeApp {
         let isDebugTranscriptionFailureLaunch = DebugTranscriptionFailurePromptLaunch.shouldRequest(
             environment: launchEnvironment
         )
+        let isDebugFixesQALaunch = DebugFixesQALaunch.shouldRequest(
+            environment: launchEnvironment
+        )
         #else
         let isDebugTranscriptionFailureLaunch = false
+        let isDebugFixesQALaunch = false
         #endif
 
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
             InputMonitoringPermissionLaunchRecovery.requestIfNeeded(environment: launchEnvironment)
         }
 
-        if !isInputMonitoringRecoveryLaunch && !isDebugTranscriptionFailureLaunch {
+        if !isInputMonitoringRecoveryLaunch
+            && !isDebugTranscriptionFailureLaunch
+            && !isDebugFixesQALaunch {
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
                 AppSetupController().presentSetupIfNeededForLaunch()
             }
@@ -300,6 +306,12 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
 
         #if DEBUG
         DebugTranscriptionFailurePromptLaunch.requestIfNeeded(environment: launchEnvironment)
+        DebugFixesQALaunch.requestIfNeeded(
+            environment: launchEnvironment,
+            showPalette: { [fixesRuntime] in
+                fixesRuntime.showPalette()
+            }
+        )
         #endif
     }
 

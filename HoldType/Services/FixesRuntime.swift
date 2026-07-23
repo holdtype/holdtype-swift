@@ -5,7 +5,7 @@ import HoldTypeOpenAI
 
 @MainActor
 final class FixesRuntime: ObservableObject {
-    static let shared = FixesRuntime()
+    static let shared = makeSharedRuntime()
     static let menuDismissalDelay: Duration = .milliseconds(100)
     static let textFixesConsentRequiredMessage =
         "Allow OpenAI Text Fixes in Settings > Permissions."
@@ -33,6 +33,22 @@ final class FixesRuntime: ObservableObject {
         Result<FocusedTextTargetSnapshot, Error>?
     private var lastValidExternalMenuSnapshot: FocusedTextTargetSnapshot?
     private var paletteModel: FixesPaletteModel?
+
+    static func makeSharedRuntime(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        productionRuntimeFactory: @MainActor () -> FixesRuntime = {
+            FixesRuntime()
+        }
+    ) -> FixesRuntime {
+        #if DEBUG
+        if let runtime = DebugFixesQARuntimeFactory.makeRuntimeIfRequested(
+            environment: environment
+        ) {
+            return runtime
+        }
+        #endif
+        return productionRuntimeFactory()
+    }
 
     convenience init() {
         self.init(
