@@ -62,6 +62,8 @@ struct MenuBarStatusItemControllerTests {
                 == HoldTypeMenuBarIdentity.helpText
         )
         #expect(button.image != nil)
+        #expect(button.title == HoldTypeMenuBarIdentity.title)
+        #expect(button.imagePosition == .imageLeading)
         #expect(button.toolTip == HoldTypeMenuBarIdentity.helpText)
         #expect(events.isEmpty)
     }

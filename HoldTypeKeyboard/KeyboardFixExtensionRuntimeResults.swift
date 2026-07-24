@@ -22,16 +22,21 @@ extension KeyboardFixExtensionRuntime {
             )
             return
         }
-        guard dependencies.currentTarget()?.matches(result.identity)
-                == true else {
-            handleStaleRecoveredResult(result)
+        let interruptionStatus = KeyboardFixExtensionStatus.failure(
+            message: "The Fix was interrupted. Select text and try again."
+        )
+        guard !result.isTerminal else {
+            discardRecoveredTerminalResult(
+                result,
+                status: interruptionStatus
+            )
             return
         }
         dependencies.diagnostics.record(
             .result,
             actionIdentifier: result.actionIdentifier,
             requestID: result.requestID,
-            outcome: .started
+            outcome: .cancelled
         )
         let title = metadata?.action(
             identifier: result.actionIdentifier
@@ -41,8 +46,7 @@ extension KeyboardFixExtensionRuntime {
             actionTitle: title,
             expiresAt: result.expiresAt
         )
-        beginPolling()
-        poll()
+        requestCancellation(completingWith: interruptionStatus)
     }
 
     func handleTerminal(
@@ -139,45 +143,29 @@ extension KeyboardFixExtensionRuntime {
         )
     }
 
-    private func handleStaleRecoveredResult(
-        _ result: KeyboardFixResultRecord
+    private func discardRecoveredTerminalResult(
+        _ result: KeyboardFixResultRecord,
+        status: KeyboardFixExtensionStatus
     ) {
         dependencies.diagnostics.record(
             .target,
             actionIdentifier: result.actionIdentifier,
             requestID: result.requestID,
-            outcome: .stale
+            outcome: .cancelled
         )
-        let completionStatus = KeyboardFixExtensionStatus.failure(
-            message: "The selected text changed. Select it again."
-        )
-        if result.isTerminal {
-            do {
-                _ = try dependencies.consumeTerminalResult(
-                    result.identity,
-                    dependencies.now()
-                )
-            } catch {
-                dependencies.diagnostics.record(
-                    .result,
-                    actionIdentifier: result.actionIdentifier,
-                    requestID: result.requestID,
-                    outcome: .bridgeUnavailable
-                )
-            }
-            presentation = currentPresentation(
-                status: completionStatus
+        do {
+            _ = try dependencies.consumeTerminalResult(
+                result.identity,
+                dependencies.now()
             )
-        } else {
-            let title = metadata?.action(
-                identifier: result.actionIdentifier
-            )?.title ?? "Fix"
-            activeRequest = ActiveRequest(
-                identity: result.identity,
-                actionTitle: title,
-                expiresAt: result.expiresAt
+        } catch {
+            dependencies.diagnostics.record(
+                .result,
+                actionIdentifier: result.actionIdentifier,
+                requestID: result.requestID,
+                outcome: .bridgeUnavailable
             )
-            requestCancellation(completingWith: completionStatus)
         }
+        presentation = currentPresentation(status: status)
     }
 }

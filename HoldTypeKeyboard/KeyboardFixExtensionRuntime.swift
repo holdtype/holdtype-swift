@@ -55,6 +55,7 @@ final class KeyboardFixExtensionRuntime {
         }
     }
     func stop() {
+        cancelActiveRequest()
         resultObserver = nil
         cancellationObserver = nil
         pollTimer?.invalidate()

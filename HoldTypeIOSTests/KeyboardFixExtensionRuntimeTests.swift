@@ -128,7 +128,7 @@ struct KeyboardFixExtensionRuntimeTests {
         )
     }
 
-    @Test func recreatedRuntimeRecoversMatchingTerminalResult() throws {
+    @Test func recreatedRuntimeDiscardsMatchingTerminalResult() throws {
         let fixture = try KeyboardFixExtensionRuntimeFixture()
         let target = try #require(fixture.target)
         let request = try #require(
@@ -154,8 +154,15 @@ struct KeyboardFixExtensionRuntimeTests {
 
         runtime.start()
 
-        #expect(fixture.appliedOutputs == ["Recovered"])
+        #expect(fixture.appliedOutputs.isEmpty)
         #expect(fixture.latestResult == nil)
+        #expect(
+            runtime.presentation.status
+                == .failure(
+                    message:
+                        "The Fix was interrupted. Select text and try again."
+                )
+        )
     }
 
     @Test func closedFailureMapsToConciseMessage() throws {

@@ -126,7 +126,7 @@ struct KeyboardFixExtensionCancellationTests {
         )
     }
 
-    @Test func stopPreservesRequestForRecreatedRuntimeRecovery()
+    @Test func stopCancelsRequestBeforeRuntimeCanBeRecreated()
         throws {
         let fixture = try KeyboardFixExtensionRuntimeFixture()
         let runtime = fixture.makeRuntime()
@@ -136,13 +136,13 @@ struct KeyboardFixExtensionCancellationTests {
 
         runtime.stop()
 
-        #expect(fixture.cancellationRequest == nil)
-        #expect(fixture.publishedRequest == request)
+        #expect(
+            try fixture.requireCancellation().requestID == request.requestID
+        )
+        #expect(fixture.publishedRequest == nil)
         let recreatedRuntime = fixture.makeRuntime()
         recreatedRuntime.start()
-        try fixture.publishSuccess(output: "Recovered after suspension")
-        fixture.resultObserverAction?()
-        #expect(fixture.appliedOutputs == ["Recovered after suspension"])
+        #expect(fixture.appliedOutputs.isEmpty)
         #expect(fixture.latestResult == nil)
     }
 
@@ -164,7 +164,7 @@ struct KeyboardFixExtensionCancellationTests {
         )
     }
 
-    @Test func staleRecoveredProcessingResultUsesCancellationHandshake()
+    @Test func recreatedRuntimeCancelsProcessingResult()
         throws {
         let fixture = try KeyboardFixExtensionRuntimeFixture()
         let target = try #require(fixture.target)
@@ -188,10 +188,6 @@ struct KeyboardFixExtensionCancellationTests {
             outputText: nil,
             publishedAt: fixture.now
         )
-        fixture.target = KeyboardFixExtensionTarget(
-            documentIdentifier: target.documentIdentifier,
-            selectedText: "Changed"
-        )
         let runtime = fixture.makeRuntime()
 
         runtime.start()
@@ -209,7 +205,7 @@ struct KeyboardFixExtensionCancellationTests {
             runtime.presentation.status
                 == .failure(
                     message:
-                        "The selected text changed. Select it again."
+                        "The Fix was interrupted. Select text and try again."
                 )
         )
     }

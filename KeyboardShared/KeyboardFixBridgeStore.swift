@@ -242,9 +242,9 @@ nonisolated struct KeyboardFixBridgeStore {
         return result
     }
 
-    /// Lets a recreated extension recover one unexpired app result before it
-    /// has rebuilt an in-memory request identity. Target validation remains
-    /// mandatory before the caller consumes or applies a terminal result.
+    /// Reads the current unexpired bridge result. A recreated extension uses
+    /// this only to retire terminal output or request cancellation; it never
+    /// restores replacement eligibility.
     func loadLatestResult(
         at date: Date = Date()
     ) throws -> KeyboardFixResultRecord? {
@@ -261,7 +261,7 @@ nonisolated struct KeyboardFixBridgeStore {
     }
 
     /// Extension reader. A terminal value is acknowledged by removal before
-    /// return, ensuring at most one replacement invocation across restarts.
+    /// return, ensuring it cannot be replayed after an uncertain lifecycle.
     func consumeTerminalResult(
         matching identity: KeyboardFixRequestIdentity,
         at date: Date = Date()

@@ -108,7 +108,7 @@ final class MenuBarStatusItemController: NSObject {
         }
 
         let statusItem = statusBar.statusItem(
-            withLength: NSStatusItem.squareLength
+            withLength: NSStatusItem.variableLength
         )
         guard let button = statusItem.button else {
             statusBar.removeStatusItem(statusItem)
@@ -119,7 +119,8 @@ final class MenuBarStatusItemController: NSObject {
             systemSymbolName: HoldTypeMenuBarIdentity.systemImageName,
             accessibilityDescription: nil
         )
-        button.imagePosition = .imageOnly
+        button.title = HoldTypeMenuBarIdentity.title
+        button.imagePosition = .imageLeading
         button.imageScaling = .scaleProportionallyDown
         button.toolTip = HoldTypeMenuBarIdentity.helpText
         button.setAccessibilityLabel(HoldTypeMenuBarIdentity.title)
