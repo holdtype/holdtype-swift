@@ -53,7 +53,9 @@ enum HoldTypeApp {
         }
         #endif
 
-        application.run()
+        withExtendedLifetime(appDelegate) {
+            application.run()
+        }
     }
 }
 
