@@ -42,8 +42,6 @@ struct KeyboardCommandSurfaceIOSTests {
             "Starting…",
             "Listening…",
             "Processing…",
-            "Allow Microphone",
-            "No Network",
             "Dictation failed",
         ])
         #expect(KeyboardVoiceStatus.ready.accessibilityAnnouncement == nil)

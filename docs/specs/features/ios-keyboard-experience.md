@@ -282,15 +282,22 @@ The centered status is short and contains no transcript text or manual route:
 - `Ready` — the microphone can start a warm attempt or a cold handoff;
 - `Full Access required` — voice commands and app-mediated Fixes cannot use
   their shared boundaries;
-- `Allow Microphone` — the app lacks microphone authorization;
+- `Opening HoldType…` — the handoff was created and the keyboard is waiting for
+  the containing app to open;
+- `Couldn’t open HoldType` — the handoff could not be stored or the containing
+  app could not be opened;
 - `Starting…` — Start was written and is awaiting real app acknowledgement;
 - `Listening…` — the app acknowledged real capture for this request;
 - `Processing…` — capture stopped and app-owned processing is active;
-- `No Network` — the current request cannot reach the provider;
-- `Dictation failed` — a bounded failure ended the request.
+- `Dictation failed` — a bounded runtime, provider, or network failure ended the
+  request.
 
 Inserted text is its own success confirmation. The keyboard returns to `Ready`
 without showing `Inserted` or rendering a result preview.
+Permission and other preflight blockers discovered before capture belong to the
+containing app's temporary handoff sheet. After the user returns to the host,
+offline, provider, and other terminal runtime failures use the keyboard's
+compact `Dictation failed` presentation rather than separate failure labels.
 
 ## Shared Boundary
 

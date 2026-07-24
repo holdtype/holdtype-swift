@@ -1,5 +1,3 @@
-import Foundation
-
 struct KeyboardQuickInsertItem: Equatable, Sendable {
     let id: String
     let text: String
@@ -138,4 +136,3 @@ enum KeyboardQuickInsertCatalog {
 
     static let emoji = emojiPrimary + emojiSecondary
 }
-

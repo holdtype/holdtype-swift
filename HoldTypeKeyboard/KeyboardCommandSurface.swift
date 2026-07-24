@@ -8,8 +8,6 @@ enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
     case starting = "Starting…"
     case listening = "Listening…"
     case processing = "Processing…"
-    case allowMicrophone = "Allow Microphone"
-    case noNetwork = "No Network"
     case dictationFailed = "Dictation failed"
 
     var accessibilityAnnouncement: String? {
@@ -22,8 +20,6 @@ enum KeyboardVoiceStatus: String, CaseIterable, Equatable, Sendable {
              .starting,
              .listening,
              .processing,
-             .allowMicrophone,
-             .noNetwork,
              .dictationFailed:
             rawValue
         }

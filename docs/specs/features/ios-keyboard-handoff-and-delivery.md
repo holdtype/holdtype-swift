@@ -229,7 +229,8 @@ The keyboard may present these product states:
 - `Ready`: tapping the microphone begins a new handoff;
 - `Opening HoldType`: the handoff was requested but recording is not yet
   acknowledged;
-- `Allow Microphone`: iOS permission is required or was denied;
+- `Couldn’t open HoldType`: the handoff could not be stored or the containing
+  app could not be opened;
 - `Listening`: the containing app has acknowledged real capture;
 - `Processing`: recording ended and accepted text is not ready yet;
 - `Result ready`: safe automatic insertion is pending or explicit recovery is
@@ -238,6 +239,11 @@ The keyboard may present these product states:
   transcribed/retried, or explicitly deleted;
 - `Failed` or `Expired`: the request cannot continue and a new microphone tap
   starts a fresh request after retiring the previous keyboard attempt.
+
+Permission and other pre-start setup blockers are presented in the containing
+app's temporary handoff sheet, not as separate keyboard-extension states.
+Offline, provider, and other terminal runtime failures after return may use the
+keyboard's compact failed presentation.
 
 No surface may claim `Listening` before the containing app has started real
 capture. Stale state from an earlier request must never make the current
