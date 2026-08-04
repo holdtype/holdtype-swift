@@ -57,6 +57,7 @@ struct FixesRuntimeTests {
         #expect(fixture.panel.releaseKeyboardFocusCount == 1)
         #expect(fixture.panel.hideCount >= 1)
         #expect(!fixture.runtime.isPaletteVisible)
+        #expect(fixture.recentUseStore.recordedActionIDs == ["default.improve-writing"])
     }
 
     @Test func changedTextBeforeActivationFailsClosed() async throws {
@@ -102,6 +103,7 @@ struct FixesRuntimeTests {
         #expect(message == "Provider failed for this Fix.")
         #expect(allowsRetry)
         #expect(fixture.replacement.calls.isEmpty)
+        #expect(fixture.recentUseStore.recordedActionIDs.isEmpty)
     }
 
     @Test func dismissalCancelsProviderAndLeavesSourceUntouched() async throws {
@@ -182,6 +184,7 @@ struct FixesRuntimeTests {
         let execution = FixesRuntimeExecutionService()
         let panel = FixesRuntimePanelPresenter()
         let hotkeyService = FixesRuntimeHotkeyService()
+        let recentUseStore = FixesRuntimeRecentUseStore()
         var settings = AppSettings.defaults
         settings.translationTargetLanguage = .english
         let settingsBox = FixesRuntimeSettingsBox(settings: settings)
@@ -197,7 +200,8 @@ struct FixesRuntimeTests {
             panelPresenter: panel,
             hotkeyCoordinator: FixesHotkeyCoordinator(
                 hotkeyService: hotkeyService
-            )
+            ),
+            recentUseStore: recentUseStore
         )
         return FixesRuntimeFixture(
             runtime: runtime,
@@ -206,7 +210,8 @@ struct FixesRuntimeTests {
             execution: execution,
             panel: panel,
             hotkey: hotkeyService,
-            settings: settingsBox
+            settings: settingsBox,
+            recentUseStore: recentUseStore
         )
     }
 
@@ -232,6 +237,7 @@ private struct FixesRuntimeFixture {
     let panel: FixesRuntimePanelPresenter
     let hotkey: FixesRuntimeHotkeyService
     let settings: FixesRuntimeSettingsBox
+    let recentUseStore: FixesRuntimeRecentUseStore
 }
 
 @MainActor
@@ -370,6 +376,19 @@ private final class FixesRuntimeHotkeyService: FixesHotkeyListening {
 
     func trigger() {
         handler?()
+    }
+}
+
+@MainActor
+private final class FixesRuntimeRecentUseStore: FixesRecentUseStoring {
+    private(set) var recordedActionIDs: [String] = []
+
+    func recentActionIDs() -> [String] {
+        []
+    }
+
+    func recordSuccessfulUse(of actionID: String) {
+        recordedActionIDs.append(actionID)
     }
 }
 

@@ -8,9 +8,11 @@ struct FixesPaletteView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            searchField
 
-            Divider()
+            if !model.visibleActions.isEmpty || !model.searchText.isEmpty {
+                Divider()
+            }
 
             actionList
 
@@ -20,13 +22,14 @@ struct FixesPaletteView: View {
                 FixesPaletteStatusBanner(presentation: status)
             }
         }
+        .padding(5)
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(.separator.opacity(0.65), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
         .onAppear {
             isSearchFocused = true
         }
@@ -35,69 +38,53 @@ struct FixesPaletteView: View {
         .accessibilityLabel("HoldType Fixes")
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Label("Fixes", systemImage: "wand.and.stars")
-                    .font(.headline)
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
 
-                Spacer()
-
-                Text("⌥J")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
-                    .accessibilityLabel("Option J")
-            }
-
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-
-                TextField(
-                    "Search Fixes",
-                    text: Binding(
-                        get: { model.searchText },
-                        set: model.setSearchText
-                    )
+            TextField(
+                "Search Fixes",
+                text: Binding(
+                    get: { model.searchText },
+                    set: model.setSearchText
                 )
-                .textFieldStyle(.plain)
-                .focused($isSearchFocused)
+            )
+            .textFieldStyle(.plain)
+            .font(.system(size: 13))
+            .focused($isSearchFocused)
 
-                if !model.searchText.isEmpty {
-                    Button {
-                        model.setSearchText("")
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear Search")
+            if !model.searchText.isEmpty {
+                Button {
+                    model.setSearchText("")
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear Search")
             }
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            .background(.quaternary.opacity(0.7))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .padding(12)
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background(.quaternary.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
     }
 
     @ViewBuilder
     private var actionList: some View {
-        if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            EmptyView()
-        } else if model.visibleActions.isEmpty {
-            ContentUnavailableView(
-                "No Matching Fixes",
-                systemImage: "magnifyingglass",
-                description: Text("Try another search.")
-            )
-            .padding(.vertical, 14)
+        if model.visibleActions.isEmpty {
+            if !model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("No matching Fixes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 7)
+            }
         } else {
-            VStack(spacing: 3) {
+            VStack(spacing: 1) {
                 ForEach(model.visibleActions) { action in
                     FixesPaletteActionRow(
                         action: action,
@@ -111,7 +98,7 @@ struct FixesPaletteView: View {
                     .id(action.id)
                 }
             }
-            .padding(6)
+            .padding(.vertical, 2)
         }
     }
 
@@ -133,36 +120,28 @@ private struct FixesPaletteActionRow: View {
 
     var body: some View {
         Button(action: perform) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: action.systemImageName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(isSelected ? Color.accentColor : .secondary)
-                    .frame(width: 24, height: 24)
-                    .background(
-                        Color.accentColor.opacity(isSelected ? 0.14 : 0),
-                        in: RoundedRectangle(cornerRadius: 6)
-                    )
+                    .frame(width: 16)
 
                 Text(action.title)
+                    .font(.system(size: 13))
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if isProcessing {
                     ProgressView()
                         .controlSize(.small)
-                } else if isSelected {
-                    Image(systemName: "return")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
                 }
             }
-            .padding(.horizontal, 9)
-            .frame(height: 38)
+            .padding(.horizontal, 8)
+            .frame(height: 30)
             .contentShape(Rectangle())
             .background(
                 isSelected ? Color.accentColor.opacity(0.11) : Color.clear,
-                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
             )
         }
         .buttonStyle(.plain)
@@ -177,7 +156,7 @@ private struct FixesPaletteStatusBanner: View {
     let presentation: FixesPaletteStatusPresentation
 
     var body: some View {
-        HStack(alignment: .top, spacing: 9) {
+        HStack(alignment: .top, spacing: 6) {
             if presentation.showsProgress {
                 ProgressView()
                     .controlSize(.small)
@@ -191,7 +170,7 @@ private struct FixesPaletteStatusBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(presentation.title)
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .fontWeight(.medium)
 
                 if let message = presentation.message {
                     Text(message)
@@ -203,8 +182,8 @@ private struct FixesPaletteStatusBanner: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
     }
 
@@ -228,6 +207,7 @@ private struct FixesPalettePreviewContainer: View {
         _model = StateObject(
             wrappedValue: FixesPaletteModel(
                 catalog: .defaults,
+                recentActionIDs: ["default.make-shorter", "default.improve-writing"],
                 status: status,
                 onActivate: { _ in },
                 onDismiss: {}

@@ -18,6 +18,7 @@ final class FixesRuntime: ObservableObject {
     private let panelPresenter: any FixesPalettePanelPresenting
     private let hotkeyCoordinator: FixesHotkeyCoordinator
     private let eventLogger: any FixesEventLogging
+    private let recentUseStore: any FixesRecentUseStoring
 
     private var preparationTask: Task<Void, Never>?
     private var activeTask: Task<Void, Never>?
@@ -53,7 +54,8 @@ final class FixesRuntime: ObservableObject {
                 AppSettingsStore().load()
             },
             panelPresenter: FixesPalettePanelController(),
-            hotkeyCoordinator: FixesHotkeyCoordinator()
+            hotkeyCoordinator: FixesHotkeyCoordinator(),
+            recentUseStore: FixesRecentUseStore()
         )
     }
 
@@ -66,6 +68,7 @@ final class FixesRuntime: ObservableObject {
         settingsProvider: @escaping @MainActor () -> AppSettings,
         panelPresenter: any FixesPalettePanelPresenting,
         hotkeyCoordinator: FixesHotkeyCoordinator,
+        recentUseStore: (any FixesRecentUseStoring)? = nil,
         eventLogger: any FixesEventLogging = OSLogFixesEventLogger()
     ) {
         self.catalogStore = catalogStore
@@ -76,6 +79,7 @@ final class FixesRuntime: ObservableObject {
         self.settingsProvider = settingsProvider
         self.panelPresenter = panelPresenter
         self.hotkeyCoordinator = hotkeyCoordinator
+        self.recentUseStore = recentUseStore ?? FixesRecentUseStore()
         self.eventLogger = eventLogger
     }
 
@@ -191,6 +195,7 @@ final class FixesRuntime: ObservableObject {
         presentedSnapshot = snapshot
         let model = FixesPaletteModel(
             catalog: catalog,
+            recentActionIDs: recentUseStore.recentActionIDs(),
             status: status,
             onActivate: { [weak self] actionID in
                 self?.activate(actionID: actionID)
@@ -303,6 +308,7 @@ final class FixesRuntime: ObservableObject {
                     with: output
                 )
                 try Task.checkCancellation()
+                self.recentUseStore.recordSuccessfulUse(of: action.id)
                 self.eventLogger.record(
                     .action(identity: identity, outcome: .succeeded)
                 )

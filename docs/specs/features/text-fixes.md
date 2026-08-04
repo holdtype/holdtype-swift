@@ -58,6 +58,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Catalogs are local and separate on macOS and iOS in the first release.
 - Corrupt or unsupported catalog data is preserved and reported. HoldType does
   not overwrite it with defaults while reporting a successful load.
+- macOS keeps a local recent-use record containing only an action identifier
+  and the time of its most recent successful immediate Fix. It contains no
+  source text, result, prompt, target, or provider data.
 
 ## Target Selection
 
@@ -115,15 +118,22 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - The shortcut captures the current external text target before opening UI.
 - A compact searchable palette opens centered in the visible area of the
   display containing the active text target.
-- Before the search field contains non-whitespace text, the palette shows no
-  Fix rows and does not reserve a large empty results area.
-- Typing filters the catalog and reveals only matching Fix rows. The palette is
-  a search surface, not a browsable or scrollable catalog; users refine the
-  query instead of paging through all actions.
+- The palette opens with up to five enabled Fix rows. It orders previously
+  successful actions by most recent use, then fills remaining places from the
+  stable catalog order so a new user has clear examples.
+- On open, the first visible Fix is selected, so Return applies the top recent
+  or catalog example without requiring an additional arrow-key press.
+- Typing filters the catalog and reveals at most five matching Fix rows. Exact
+  and prefix matches rank before other title matches; recency then breaks
+  ties. The palette is not a scrollable catalog; users refine the query instead
+  of paging through all actions.
+- A successful replacement updates that Fix's local recent-use record. Failed,
+  cancelled, stale, or blocked actions never change the order.
 - Arrow keys move selection only among visible matches; Return runs the
   selected Fix; Escape and click-outside dismiss without changing text.
-- The palette shows icon, short title, progress, unavailable, failure, and
-  stale-target states without showing provider payloads.
+- The palette uses compact menu-like rows with one supported icon and one short
+  title. It keeps spacing, status, progress, unavailable, failure, and stale
+  states compact without showing provider payloads.
 - Successful replacement dismisses the palette. A failed request may be
   retried only while the original target snapshot still validates.
 - If `Option+J` cannot be registered, HoldType keeps dictation and menu

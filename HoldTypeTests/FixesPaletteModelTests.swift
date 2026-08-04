@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct FixesPaletteModelTests {
-    @Test func startsWithEnabledCatalogOrderAndNoActionSelectedUntilSearch() throws {
+    @Test func startsWithFiveCatalogActionsAndTopActionSelected() throws {
         let disabledID = TextFixCatalog.defaults.customActions[0].id
         let catalog = try TextFixCatalog.defaults.settingCustomActionEnabled(
             id: disabledID,
@@ -15,8 +15,11 @@ struct FixesPaletteModelTests {
 
         #expect(model.actions.map(\.id) == catalog.enabledActions.map(\.id))
         #expect(model.actions.contains(where: { $0.id == disabledID }) == false)
-        #expect(model.selectedActionID == nil)
-        #expect(model.visibleActions.isEmpty)
+        #expect(model.selectedActionID == catalog.enabledActions.first?.id)
+        #expect(
+            model.visibleActions.map(\.id)
+                == Array(catalog.enabledActions.prefix(5)).map(\.id)
+        )
     }
 
     @Test func searchIsCaseAndDiacriticInsensitive() throws {
@@ -37,24 +40,61 @@ struct FixesPaletteModelTests {
         #expect(model.selectedActionID == resume.id)
     }
 
-    @Test func clearingSearchHidesResultsAndClearsSelection() {
+    @Test func clearingSearchRestoresRecentMenuAndClearsSelection() {
         let model = makeModel()
         model.setSearchText("Fix")
         #expect(model.visibleActions.isEmpty == false)
 
         model.setSearchText("")
 
-        #expect(model.visibleActions.isEmpty)
+        #expect(model.visibleActions.count == FixesPaletteModel.maximumVisibleActionCount)
         #expect(model.selectedActionID == nil)
     }
 
-    @Test func whitespaceOnlySearchDoesNotRevealResults() {
+    @Test func whitespaceOnlySearchShowsRecentMenuAndClearsSelection() {
         let model = makeModel()
 
         model.setSearchText("   \n")
 
-        #expect(model.visibleActions.isEmpty)
+        #expect(model.visibleActions.count == FixesPaletteModel.maximumVisibleActionCount)
         #expect(model.selectedActionID == nil)
+    }
+
+    @Test func recentActionsLeadTheInitialMenu() {
+        let model = makeModel(
+            recentActionIDs: ["default.summarize", "default.make-shorter"]
+        )
+
+        #expect(
+            model.visibleActions.map(\.id)
+                == [
+                    "default.summarize",
+                    "default.make-shorter",
+                    TextFixAction.translateIdentifier,
+                    TextFixAction.fixIdentifier,
+                    "default.improve-writing",
+                ]
+        )
+    }
+
+    @Test func searchUsesMatchQualityAndShowsAtMostFive() throws {
+        let rewrite = try TextFixAction(
+            id: "custom.rewrite",
+            kind: .customPrompt,
+            title: "Rewrite",
+            icon: .rewrite,
+            prompt: "Rewrite this text.",
+            isEnabled: true
+        )
+        let catalog = try TextFixCatalog.defaults.addingCustomAction(rewrite)
+        let model = makeModel(
+            catalog: catalog,
+            recentActionIDs: [rewrite.id, "default.improve-writing"]
+        )
+
+        model.setSearchText("writ")
+
+        #expect(model.visibleActions.map(\.id) == [rewrite.id, "default.improve-writing"])
     }
 
     @Test func unmatchedSearchClearsSelection() {
@@ -150,10 +190,12 @@ struct FixesPaletteModelTests {
 
     private func makeModel(
         catalog: TextFixCatalog = .defaults,
+        recentActionIDs: [String] = [],
         onActivate: @escaping FixesPaletteModel.ActionHandler = { _ in }
     ) -> FixesPaletteModel {
         FixesPaletteModel(
             catalog: catalog,
+            recentActionIDs: recentActionIDs,
             onActivate: onActivate,
             onDismiss: {}
         )
