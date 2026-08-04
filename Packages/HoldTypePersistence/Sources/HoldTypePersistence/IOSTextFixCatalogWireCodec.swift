@@ -119,19 +119,51 @@ enum IOSTextFixCatalogWireCodec {
             throw IOSTextFixCatalogRepositoryError.invalidValue(path: iconPath)
         }
 
+        let id = try reader.requiredString("id")
+        let title = try reader.requiredString("title")
+        let prompt = try reader.optionalString("prompt")
+        let isEnabled = try reader.requiredBoolean("isEnabled")
+
         do {
             return try TextFixAction(
-                id: try reader.requiredString("id"),
+                id: id,
                 kind: kind,
-                title: try reader.requiredString("title"),
+                title: canonicalTitle(
+                    id: id,
+                    kind: kind,
+                    title: title,
+                    icon: icon,
+                    prompt: prompt,
+                    isEnabled: isEnabled
+                ),
                 icon: icon,
-                prompt: try reader.optionalString("prompt"),
-                isEnabled: try reader.requiredBoolean("isEnabled")
+                prompt: prompt,
+                isEnabled: isEnabled
             )
         } catch let error as IOSTextFixCatalogRepositoryError {
             throw error
         } catch {
             throw IOSTextFixCatalogRepositoryError.invalidValue(path: path)
         }
+    }
+
+    private static func canonicalTitle(
+        id: String,
+        kind: TextFixActionKind,
+        title: String,
+        icon: TextFixIcon,
+        prompt: String?,
+        isEnabled: Bool
+    ) -> String {
+        guard id == TextFixAction.fixIdentifier,
+              kind == .fix,
+              title == "Fix",
+              icon == .fix,
+              prompt == nil,
+              isEnabled
+        else {
+            return title
+        }
+        return "Correct Text"
     }
 }

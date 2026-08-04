@@ -63,6 +63,29 @@ struct IOSTextFixCatalogRepositoryTests {
         #expect(fileSystem.readPolicies == [expectedTextFixCatalogFilePolicy])
     }
 
+    @Test func legacyBuiltInFixTitleMigratesWithoutChangingCustomActions()
+        async throws {
+        let custom = try makeCustomTextFixAction(
+            id: "custom.legacy",
+            title: "Keep this title",
+            prompt: "Keep this prompt exactly."
+        )
+        var actions = textFixBuiltInActionObjects()
+        actions[1]["title"] = "Fix"
+        actions.append(textFixActionObject(custom))
+        let fileSystem = TextFixCatalogFileSystemFake(
+            data: try textFixRootData(actions: actions)
+        )
+        let repository = makeTextFixCatalogRepository(fileSystem: fileSystem)
+
+        let loaded = try await repository.load()
+
+        #expect(loaded.actions[1].id == TextFixAction.fixIdentifier)
+        #expect(loaded.actions[1].title == "Correct Text")
+        #expect(loaded.actions[2] == custom)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
     @Test func canonicalV1SaveRoundTripsOrderStateAndExactPromptWhitespace()
         async throws {
         let first = try makeCustomTextFixAction(

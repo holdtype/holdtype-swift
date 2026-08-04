@@ -48,6 +48,21 @@ struct MacOSTextFixCatalogRepositoryTests {
         #expect(fileSystem.readPolicies == [expectedTextFixCatalogFilePolicy])
     }
 
+    @Test func macOSLegacyBuiltInFixTitleLoadsWithoutRewritingTheCatalog()
+        async throws {
+        var actions = textFixBuiltInActionObjects()
+        actions[1]["title"] = "Fix"
+        let data = try textFixRootData(actions: actions)
+        let fileSystem = TextFixCatalogFileSystemFake(data: data)
+
+        let loaded = try await makeMacOSRepository(fileSystem: fileSystem).load()
+
+        #expect(loaded.actions[1].id == TextFixAction.fixIdentifier)
+        #expect(loaded.actions[1].title == "Correct Text")
+        #expect(fileSystem.data == data)
+        #expect(fileSystem.replacementCallCount == 0)
+    }
+
     @Test func macOSAndIOSFacadesUseTheSameStrictCanonicalV1Codec()
         async throws {
         let action = try makeCustomTextFixAction(

@@ -59,6 +59,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Catalogs are local and separate on macOS and iOS in the first release.
 - Corrupt or unsupported catalog data is preserved and reported. HoldType does
   not overwrite it with defaults while reporting a successful load.
+- A catalog written before the built-in `Fix` label was renamed to `Correct
+  Text` remains usable. On load, HoldType recognizes only the exact former
+  built-in `builtin.fix` payload and presents it as `Correct Text`; it leaves
+  custom action titles and prompts unchanged. Any other invalid built-in
+  payload remains corrupt catalog data and is reported without being rewritten.
 - macOS keeps a local recent-use record containing only an action identifier
   and the time of its most recent successful immediate Fix. It contains no
   source text, result, prompt, target, or provider data.
