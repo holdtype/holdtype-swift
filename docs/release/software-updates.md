@@ -173,12 +173,15 @@ dispatched `master` SHA when it does not exist, or verifies an existing tag
 before publishing. Use the tag-push trigger only if the environment protection
 rules have first been changed and verified to allow that tag ref.
 
-Before dispatch, add `docs/release/notes/<version>.md`, validate it, commit it
-with the product changes, and push `master`. An agent operating the release
-must use the available authenticated GitHub UI automation or Computer Use for
-ordinary Actions navigation and dispatch; it must not hand those routine
-buttons back to the operator. Authenticated CLI or API automation is also
-acceptable when it is already available.
+Before dispatch, run the full test suite locally as the developer gate, then
+add `docs/release/notes/<version>.md`, validate it, commit it with the product
+changes, and push `master`. The GitHub Release workflow does not rerun the test
+suite; it packages, notarizes, and publishes the already locally-validated
+commit. An agent operating the release must use the available authenticated
+GitHub UI automation or Computer Use for ordinary Actions navigation and
+dispatch; it must not hand those routine buttons back to the operator.
+Authenticated CLI or API automation is also acceptable when it is already
+available.
 
 `.github/workflows/pages.yml` is a manual recovery workflow that republishes
 the same complete Pages artifact from the latest stable release. Routine

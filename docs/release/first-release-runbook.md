@@ -389,12 +389,13 @@ version.
 
 Prepare and validate the release on `master`:
 
-1. Add `docs/release/notes/<version>.md` with a matching
+1. Run the full test suite locally as the developer gate.
+2. Add `docs/release/notes/<version>.md` with a matching
    `# HoldType <version>` heading and an accurate summary of changes since the
    last published release.
-2. Validate the notes and exact version/build/tag inputs.
-3. Commit the release notes with the intended product state and push `master`.
-4. In GitHub Actions, open the `Release` workflow at the pushed `master` SHA
+3. Validate the notes and exact version/build/tag inputs.
+4. Commit the release notes with the intended product state and push `master`.
+5. In GitHub Actions, open the `Release` workflow at the pushed `master` SHA
    and use `Run workflow` with the explicit version and build values.
 
 The current `github-pages` environment protection admits `master` but rejects
@@ -456,39 +457,39 @@ specific authentication blocker. Do not fall back to a tag push, create a
 replacement credential, or ask the operator to perform routine Actions
 navigation.
 
-The GitHub Actions release workflow should:
+The GitHub Actions release workflow packages, notarizes, and publishes the
+locally validated commit. It should:
 
 1. validate `version`, `build`, `tag`, release directory, and download URL
    inputs;
-2. run tests;
-3. import the Developer ID certificate;
-4. build and export the Release archive;
-5. verify that the exported app embeds the expected Sparkle feed URL and public
+2. import the Developer ID certificate;
+3. build and export the Release archive;
+4. verify that the exported app embeds the expected Sparkle feed URL and public
    EdDSA key;
-6. notarize and staple the app and DMG;
-7. generate checksums and verify `release-manifest.json`;
-8. fetch the existing Sparkle appcast, treating 404 as first-release absence
+5. notarize and staple the app and DMG;
+6. generate checksums and verify `release-manifest.json`;
+7. fetch the existing Sparkle appcast, treating 404 as first-release absence
    but stopping on server or network failures;
-9. generate Sparkle `appcast.xml`;
-10. verify signatures, stapled tickets, checksums, the DMG layout, and the DMG
+8. generate Sparkle `appcast.xml`;
+9. verify signatures, stapled tickets, checksums, the DMG layout, and the DMG
    copy/install path;
-11. verify that the appcast and Homebrew cask metadata point at the release DMG
+10. verify that the appcast and Homebrew cask metadata point at the release DMG
    and SHA-256, and that the appcast build and marketing version match the
    release manifest;
-12. prune unexpected assets from an existing GitHub Release so stale
-    preview/notary/debug artifacts cannot remain public;
-13. publish GitHub Release assets, forcing any existing release out of
-    draft/prerelease state;
-14. deploy the landing page, `appcast.xml`, and all referenced release notes to
-    GitHub Pages;
-15. verify the GitHub Release is not a draft or prerelease, has the expected
-    uploaded non-empty assets, and matches the Pages appcast;
-16. prepare and upload the official Homebrew Cask submission bundle using the
-    configured `HOMEBREW_MINIMUM_MACOS` value;
-17. render, verify, and audit the Homebrew tap cask;
-18. open a Homebrew tap pull request.
-19. open an official Homebrew Cask bump PR when the official cask has already
-    been accepted and official bump automation is enabled.
+11. prune unexpected assets from an existing GitHub Release so stale
+   preview/notary/debug artifacts cannot remain public;
+12. publish GitHub Release assets, forcing any existing release out of
+   draft/prerelease state;
+13. deploy the landing page, `appcast.xml`, and all referenced release notes to
+   GitHub Pages;
+14. verify the GitHub Release is not a draft or prerelease, has the expected
+   uploaded non-empty assets, and matches the Pages appcast;
+15. prepare and upload the official Homebrew Cask submission bundle using the
+   configured `HOMEBREW_MINIMUM_MACOS` value;
+16. render, verify, and audit the Homebrew tap cask;
+17. open a Homebrew tap pull request.
+18. open an official Homebrew Cask bump PR when the official cask has already
+   been accepted and official bump automation is enabled.
 
 The workflow wraps GitHub Release publication, tap clone/push, tap pull
 request, and official cask bump commands in explicit timeouts. A hung external

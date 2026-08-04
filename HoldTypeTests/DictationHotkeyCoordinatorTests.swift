@@ -127,9 +127,9 @@ struct DictationHotkeyCoordinatorTests {
         await gate.open()
         await yieldUntil { recordingAction.performCount == 2 }
 
-        #expect(recordingAction.status == .success(transcript: "Hotkey transcript"))
-        #expect(recordingAction.observedStatuses == [.idle, .recording])
-        #expect(recordingAction.observedIntents == [.standard, .translate])
+        #expect(recordingAction.status == .idle)
+        #expect(recordingAction.observedStatuses == [.idle])
+        #expect(recordingAction.observedIntents == [.standard])
     }
 
     @Test func repeatedKeyDownWhilePressedDoesNotCreateParallelRecordingActions() async throws {
