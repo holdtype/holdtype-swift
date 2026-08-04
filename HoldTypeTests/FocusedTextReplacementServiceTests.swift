@@ -143,10 +143,7 @@ struct FocusedTextReplacementServiceTests {
         )
         let targetService = makeTargetService(client: client)
         let snapshot = try targetService.capture()
-        let poster = ReplacementTextEventPoster(
-            eventLog: eventLog,
-            delayNanoseconds: 1_000_000_000
-        )
+        let poster = CancellationOnlyReplacementTextEventPoster()
         let service = FocusedTextReplacementService(
             targetService: targetService,
             applicationActivator: ReplacementApplicationActivator(
@@ -164,7 +161,7 @@ struct FocusedTextReplacementServiceTests {
         ) {
             try await service.replace(snapshot: snapshot, with: "Changed")
         }
-        #expect(await poster.texts.isEmpty)
+        #expect(await poster.wasCancelled)
     }
 
     private func makeTargetService(
@@ -293,25 +290,33 @@ private struct ReplacementApplicationActivator:
 
 private actor ReplacementTextEventPoster: TextEventPosting {
     let eventLog: ReplacementEventLog
-    let delayNanoseconds: UInt64
     private(set) var texts: [String] = []
 
-    init(
-        eventLog: ReplacementEventLog,
-        delayNanoseconds: UInt64 = 0
-    ) {
+    init(eventLog: ReplacementEventLog) {
         self.eventLog = eventLog
-        self.delayNanoseconds = delayNanoseconds
     }
 
     func postText(_ text: String) async throws {
-        if delayNanoseconds > 0 {
-            try await Task.sleep(nanoseconds: delayNanoseconds)
-        }
         await MainActor.run {
             eventLog.events.append("post")
         }
         texts.append(text)
+    }
+}
+
+private actor CancellationOnlyReplacementTextEventPoster: TextEventPosting {
+    private(set) var wasCancelled = false
+
+    func postText(_ text: String) async throws {
+        do {
+            while true {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        } catch is CancellationError {
+            wasCancelled = true
+            throw CancellationError()
+        }
     }
 }
 
