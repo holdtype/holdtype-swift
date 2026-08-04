@@ -198,10 +198,6 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Privacy And Data
 
-- The macOS Fixes editor or action surface shows concise, non-blocking copy
-  that running a Fix sends the selected text or complete compatible field plus
-  the chosen instruction to OpenAI. The disclosure does not appear in
-  Permissions.
 - macOS has no `Allow OpenAI Text Fixes` control, versioned local Fixes
   acceptance, or other app-owned consent gate. A compatible immediate Fix is
   enabled by default when its OpenAI API key and Accessibility prerequisites

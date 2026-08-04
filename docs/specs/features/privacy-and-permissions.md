@@ -49,8 +49,7 @@ This spec covers:
 - The product must disclose that audio is sent to OpenAI when OpenAI
   transcription is used.
 - Settings must include a concise OpenAI audio-processing disclosure near the
-  relevant transcription controls, not as an application-owned item in
-  Permissions.
+  relevant transcription controls, never in Permissions.
 - If the user enables nearby text context, the product must disclose that a
   short excerpt from the active editable text field may also be sent to OpenAI
   with the recording to improve continuation quality.
@@ -60,10 +59,11 @@ This spec covers:
 - When the translation shortcut is enabled, the product must disclose that the
   post-correction transcript text may be sent to OpenAI in a separate
   translation request before output delivery.
-- The Fixes feature surface must show a concise, non-blocking disclosure that
-  running a Fix sends the selected text, or the complete compatible field when
-  nothing is selected, plus the chosen instruction to OpenAI. This disclosure
-  is not a system permission, consent switch, or availability gate.
+- Before immediate Fixes are available, the product must disclose that running
+  a Fix sends the selected text, or the complete compatible field when nothing
+  is selected, plus the chosen instruction to OpenAI. This disclosure must not
+  appear in Permissions and must not create a separate consent or availability
+  gate.
 - HoldType Keyboard sends only the user-invoked Fix source through bounded
   transient App Group coordination to the containing app. Ordinary keystrokes
   and unrelated surrounding host text remain excluded.
@@ -182,8 +182,9 @@ This spec covers:
   action such as requesting permission or opening the relevant System Settings
   pane.
 - Permissions must not contain application-owned feature toggles, consent
-  switches, defaults, gates, or detailed remote-processing copy. In particular,
-  an OpenAI Text Fixes control or a Fixes disclosure does not belong there.
+  switches, defaults, gates, or any privacy-disclosure block. In particular,
+  an OpenAI Text Fixes control, its footnote, and all audio, correction,
+  translation, and Fixes processing copy do not belong there.
 - Launch at login is system-managed availability setup, not a TCC privacy
   permission. It must not appear as a required permission, must not block
   recording, and must not be included in required setup warning banners.
@@ -367,9 +368,9 @@ This spec covers:
   OpenAI API key setup. Missing-key handling belongs to the OpenAI Settings
   surface.
 - The Permissions Settings warning banner must not check, display, or link to
-  Fixes-specific consent or disclosure. Missing Accessibility for a macOS
-  active-app Fix is a system-permission blocker; missing API key handling
-  belongs to the OpenAI Settings surface.
+  Fixes-specific consent. Missing Accessibility for a macOS active-app Fix is
+  a system-permission blocker; missing API key handling belongs to the OpenAI
+  Settings surface.
 
 ## Invariants
 
@@ -380,7 +381,7 @@ This spec covers:
 - No remote provider other than OpenAI without a product-level decision and
   user-visible disclosure.
 - The Permissions surface must not represent an app-owned feature choice or
-  remote-processing disclosure as a macOS permission.
+  privacy disclosure as a macOS permission.
 - No persistent audio outside the explicit local recording cache setting and
   bounded session-only failed-attempt recovery.
 - Recording cache controls must show local disk usage and provide a way to
