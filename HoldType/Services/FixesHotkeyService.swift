@@ -15,12 +15,17 @@ enum FixesHotkeyRegistrationStatus: Equatable {
 }
 
 final class CarbonFixesHotkeyService: FixesHotkeyListening {
+    private let configurationStore: ShortcutConfigurationStore
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
     private var handlerBox: FixesHotkeyHandlerBox?
 
     var isListening: Bool {
         hotKeyRef != nil
+    }
+
+    init(configurationStore: ShortcutConfigurationStore = ShortcutConfigurationStore()) {
+        self.configurationStore = configurationStore
     }
 
     func start(handler: @escaping () -> Void) throws {
@@ -51,13 +56,14 @@ final class CarbonFixesHotkeyService: FixesHotkeyListening {
         }
 
         var newHotKeyRef: EventHotKeyRef?
+        let shortcut = configurationStore.load().fixes
         let hotKeyID = EventHotKeyID(
             signature: FixesHotkeyCarbonID.signature,
             id: FixesHotkeyCarbonID.id
         )
         let registerStatus = RegisterEventHotKey(
-            FixesHotkeyCarbonRegistration.keyCode,
-            FixesHotkeyCarbonRegistration.modifiers,
+            UInt32(shortcut.keyCode),
+            shortcut.carbonModifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,

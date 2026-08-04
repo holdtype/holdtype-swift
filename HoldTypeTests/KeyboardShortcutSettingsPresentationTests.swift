@@ -1,55 +1,50 @@
+import Foundation
 import Testing
 @testable import HoldType
 
 struct KeyboardShortcutSettingsPresentationTests {
-    @Test func fixesFailureDoesNotChangeRegisteredDictationStatus() {
-        let dictation = HotkeySettingsPresentation(
-            status: .registered(.defaultDictation)
-        )
-        let fixes = HotkeySettingsPresentation(
-            fixesStatus: .unavailable(
-                message: "Could not register Option+J for Fixes."
-            )
-        )
+    @Test func shortcutConfigurationContainsAllEditableActions() {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let configuration = ShortcutConfiguration.defaults
+        let store = ShortcutConfigurationStore(userDefaults: defaults)
 
-        #expect(dictation.statusText == "Global hotkey active.")
-        #expect(
-            dictation.shortcutText
-                == GlobalHotkeyConfiguration.defaultDictation.displayText
-        )
-        #expect(fixes.shortcutText == "⌥J")
-        #expect(fixes.statusText == "Fixes shortcut unavailable.")
-        #expect(
-            fixes.detailText
-                == "Could not register Option+J for Fixes. Fixes cannot open until the shortcut is available."
-        )
+        #expect(store.load() == configuration)
+        #expect(defaults.data(forKey: ShortcutConfigurationStore.key) != nil)
+        #expect(configuration[.dictation] == .defaultDictation)
+        #expect(configuration[.translation] == .translationDictation)
+        #expect(configuration[.fixes] == .fixesPalette)
+        #expect(configuration[.pasteLastResult] == .appClipboardPaste)
     }
 
-    @Test func dictationFailureDoesNotChangeRegisteredFixesStatus() {
-        let dictation = HotkeySettingsPresentation(
-            status: .unavailable(message: "Dictation unavailable.")
-        )
-        let fixes = HotkeySettingsPresentation(fixesStatus: .registered)
+    @Test func duplicateAssignmentsAreRejectedBeforePersistence() throws {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        #expect(dictation.statusText == "Global hotkey unavailable.")
-        #expect(fixes.shortcutText == "⌥J")
-        #expect(fixes.statusText == "Fixes shortcut active.")
-        #expect(
-            fixes.detailText
-                == "Press the shortcut to open Fixes for the current text field."
-        )
+        var configuration = ShortcutConfiguration.defaults
+        configuration.fixes = configuration.dictation
+        let store = ShortcutConfigurationStore(userDefaults: defaults)
+
+        #expect(throws: ShortcutConfigurationError.duplicate(.dictation)) {
+            try store.save(configuration)
+        }
+        #expect(store.load() == .defaults)
     }
 
-    @Test func fixesNotRegisteredHasItsOwnInactiveState() {
-        let fixes = HotkeySettingsPresentation(
-            fixesStatus: .notRegistered
-        )
+    @Test func customAssignmentsPersistAndRoundTrip() throws {
+        let (defaults, suiteName) = makeIsolatedUserDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        #expect(fixes.shortcutText == "⌥J")
-        #expect(fixes.statusText == "Fixes shortcut not active.")
-        #expect(
-            fixes.detailText
-                == "Fixes are unavailable until the shortcut can be registered."
+        var configuration = ShortcutConfiguration.defaults
+        configuration.dictation = GlobalHotkeyShortcut(
+            modifiers: [.control, .option],
+            key: "D",
+            keyCode: 2
         )
+        let store = ShortcutConfigurationStore(userDefaults: defaults)
+
+        try store.save(configuration)
+
+        #expect(store.load() == configuration)
     }
 }

@@ -41,7 +41,7 @@ This spec covers:
 - account management
 - cloud sync
 - team policy management
-- full hotkey customization UI
+- cloud-synced or policy-managed hotkey profiles
 - provider marketplaces, local model downloads, self-hosted transcription
   endpoints, or multi-provider settings beyond the OpenAI MVP
 - microphone input device selection
@@ -146,9 +146,16 @@ This spec covers:
 - OpenAI prompt instruction fields should fill the available Settings content
   width. Header actions such as Reset should not consume textarea width, and
   prompt fields should have a visible vertical gap below their header row.
-- The Settings window should include hotkey display.
-- The hotkey row is read-only for MVP and shows the active shortcut,
-  activation mode, and unavailable/fallback status when known.
+- The Settings window should include a Shortcut editor. It lists Dictation,
+  Translation, Fixes, and Paste Last Result with the active assignment,
+  activation mode, registration status, and an in-app control for capturing a
+  replacement shortcut.
+- The Shortcut editor validates duplicate or unsupported candidates and does
+  not persist a candidate until registration succeeds. Registration failure
+  leaves the prior assignment active and explains the failure locally.
+- The Shortcut editor contains no Translation enable/disable toggle and no
+  Translation language, model, or prompt controls. Translation enablement and
+  its detailed route remain in the dedicated Translation section.
 - The Settings window should include an Insert transcripts automatically
   toggle.
 - Insert transcripts automatically controls whether accepted transcripts are
@@ -258,9 +265,8 @@ This spec covers:
   with common preset language codes plus Custom.
 - Translation target language should start unconfigured on new installs and
   should include common preset language codes plus Custom.
-- The Shortcut area may still display that `Right Command+Option` is the
-  translation shortcut, but detailed translation configuration belongs in the
-  Translation section.
+- The Shortcut area may display the current Translation assignment, while
+  detailed translation configuration belongs in the Translation section.
 - Translation shortcut settings and behavior are governed by
   `post-transcription-actions.md`.
 - The Fixes editor governed by `text-fixes.md` is a separate normal app window

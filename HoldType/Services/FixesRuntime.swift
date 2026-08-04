@@ -21,6 +21,7 @@ final class FixesRuntime: ObservableObject {
 
     private var preparationTask: Task<Void, Never>?
     private var activeTask: Task<Void, Never>?
+    private var shortcutConfigurationObserver: NSObjectProtocol?
     private var presentedCatalog: TextFixCatalog?
     private var presentedSnapshot: FocusedTextTargetSnapshot?
     private var paletteModel: FixesPaletteModel?
@@ -83,6 +84,26 @@ final class FixesRuntime: ObservableObject {
     }
 
     func startHotkeyListening() {
+        if shortcutConfigurationObserver == nil {
+            shortcutConfigurationObserver = NotificationCenter.default.addObserver(
+                forName: .shortcutConfigurationDidChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self else {
+                        return
+                    }
+
+                    self.hotkeyCoordinator.stop()
+                    self.hotkeyCoordinator.start { [weak self] in
+                        self?.showPalette()
+                    }
+                    self.hotkeyRegistrationStatus = self.hotkeyCoordinator.registrationStatus
+                }
+            }
+        }
+
         hotkeyCoordinator.start { [weak self] in
             self?.showPalette()
         }
@@ -93,6 +114,10 @@ final class FixesRuntime: ObservableObject {
         dismissPalette()
         hotkeyCoordinator.stop()
         hotkeyRegistrationStatus = hotkeyCoordinator.registrationStatus
+        if let shortcutConfigurationObserver {
+            NotificationCenter.default.removeObserver(shortcutConfigurationObserver)
+            self.shortcutConfigurationObserver = nil
+        }
     }
 
     func showPalette() {

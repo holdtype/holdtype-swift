@@ -73,6 +73,7 @@ struct MenuBarPresentation: Equatable {
         outputStatusText: String? = nil,
         recordingCountdown: VoiceSessionCountdown? = nil,
         settings: AppSettings = .defaults,
+        shortcutConfiguration: ShortcutConfiguration = .defaults,
         isLastResultPasteAvailable: Bool = false
     ) {
         appTitle = HoldTypeMenuBarIdentity.title
@@ -83,14 +84,16 @@ struct MenuBarPresentation: Equatable {
             recordingCountdown: recordingCountdown
         )
         recordingActionTitle = dictationStatus.recordingActionTitle
-        recordingActionShortcutHint = dictationStatus.recordingActionShortcutHint
+        recordingActionShortcutHint = dictationStatus.voiceWorkPhase == .listening
+            ? nil
+            : shortcutConfiguration.dictation.menuHoldText
         isRecordingActionEnabled = dictationStatus.isRecordingActionEnabled
         translationActionTitle = Self.translationActionTitle
-        translationActionShortcutHint = Self.translationShortcutHint
+        translationActionShortcutHint = shortcutConfiguration.translation.menuHoldText
         isTranslationActionEnabled = Self.canStartNewRecording(from: dictationStatus)
             && settings.translationShortcutEnabled
         pasteLastResultTitle = Self.pasteLastResultTitle
-        pasteLastResultActionShortcutHint = Self.pasteLastResultShortcutHint
+        pasteLastResultActionShortcutHint = shortcutConfiguration.pasteLastResult.menuKeyEquivalentText
         isPasteLastResultEnabled = settings.saveTranscriptsToAppClipboard
             && isLastResultPasteAvailable
         showsFailureRecoveryActions = Self.isFailure(dictationStatus)

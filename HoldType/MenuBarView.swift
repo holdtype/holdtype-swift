@@ -63,7 +63,6 @@ struct MenuBarView: View {
             ) {
                 pasteLastResult()
             }
-            .keyboardShortcut("v", modifiers: [.control, .command])
 
             Divider()
 
@@ -92,6 +91,7 @@ struct MenuBarView: View {
             outputStatusText: dictationRuntime.outputStatusText,
             recordingCountdown: dictationRuntime.recordingCountdown,
             settings: dictationRuntime.appSettings,
+            shortcutConfiguration: dictationRuntime.shortcutConfiguration,
             isLastResultPasteAvailable: dictationRuntime.isLastResultPasteAvailable
         )
     }

@@ -14,6 +14,8 @@ struct SettingsDetailView: View {
     @Binding var apiKeyInput: String
     let apiKeyStatus: APIKeySettingsStatus
     @Binding var settings: AppSettings
+    @State private var shortcutConfiguration = ShortcutConfiguration.defaults
+    let shortcutConfigurationStore: ShortcutConfigurationStore = ShortcutConfigurationStore()
     let hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
     let fixesHotkeyRegistrationStatus: FixesHotkeyRegistrationStatus
     let microphonePermissionStatus: MicrophonePermissionStatus
@@ -73,6 +75,9 @@ struct SettingsDetailView: View {
         .contentMargins(.bottom, 18, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(item.title)
+        .onAppear {
+            shortcutConfiguration = shortcutConfigurationStore.load()
+        }
     }
 
     @ViewBuilder
@@ -117,6 +122,8 @@ struct SettingsDetailView: View {
         case .shortcut:
             KeyboardShortcutSettingsSection(
                 settings: $settings,
+                configuration: $shortcutConfiguration,
+                configurationStore: shortcutConfigurationStore,
                 status: hotkeyRegistrationStatus,
                 fixesStatus: fixesHotkeyRegistrationStatus
             )

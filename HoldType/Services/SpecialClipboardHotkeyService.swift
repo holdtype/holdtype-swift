@@ -16,12 +16,17 @@ protocol SpecialClipboardHotkeyListening: AnyObject {
 }
 
 final class CarbonSpecialClipboardHotkeyService: SpecialClipboardHotkeyListening {
+    private let configurationStore: ShortcutConfigurationStore
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
     private var handlerBox: SpecialClipboardHotkeyHandlerBox?
 
     var isListening: Bool {
         hotKeyRef != nil
+    }
+
+    init(configurationStore: ShortcutConfigurationStore = ShortcutConfigurationStore()) {
+        self.configurationStore = configurationStore
     }
 
     func start(handler: @escaping () -> Void) throws {
@@ -50,13 +55,14 @@ final class CarbonSpecialClipboardHotkeyService: SpecialClipboardHotkeyListening
         }
 
         var newHotKeyRef: EventHotKeyRef?
+        let shortcut = configurationStore.load().pasteLastResult
         let hotKeyID = EventHotKeyID(
             signature: SpecialClipboardHotkeyCarbonID.signature,
             id: SpecialClipboardHotkeyCarbonID.id
         )
         let registerStatus = RegisterEventHotKey(
-            SpecialClipboardHotkeyCarbonRegistration.keyCode,
-            SpecialClipboardHotkeyCarbonRegistration.modifiers,
+            UInt32(shortcut.keyCode),
+            shortcut.carbonModifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -102,6 +108,7 @@ final class SpecialClipboardHotkeyCoordinator {
     private let transcriptClipboardStore: any TranscriptClipboardStoring
 
     private var settingsObserver: NSObjectProtocol?
+    private var shortcutConfigurationObserver: NSObjectProtocol?
     private var isStarted = false
     private(set) var lastStatusText: String?
 
@@ -133,6 +140,16 @@ final class SpecialClipboardHotkeyCoordinator {
             }
         }
 
+        shortcutConfigurationObserver = NotificationCenter.default.addObserver(
+            forName: .shortcutConfigurationDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reloadHotkeyRegistration(forceRestart: true)
+            }
+        }
+
         reloadHotkeyRegistration()
     }
 
@@ -140,14 +157,22 @@ final class SpecialClipboardHotkeyCoordinator {
         if let settingsObserver {
             NotificationCenter.default.removeObserver(settingsObserver)
         }
+        if let shortcutConfigurationObserver {
+            NotificationCenter.default.removeObserver(shortcutConfigurationObserver)
+        }
 
         hotkeyService.stop()
         settingsObserver = nil
+        shortcutConfigurationObserver = nil
         isStarted = false
     }
 
-    private func reloadHotkeyRegistration() {
+    private func reloadHotkeyRegistration(forceRestart: Bool = false) {
         let settings = settingsStore.load()
+
+        if forceRestart {
+            hotkeyService.stop()
+        }
 
         guard settings.saveTranscriptsToAppClipboard else {
             hotkeyService.stop()

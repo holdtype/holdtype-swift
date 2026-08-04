@@ -237,4 +237,52 @@ struct GlobalHotkeyServiceTests {
         )
     }
 
+    @Test func customNormalKeyAssignmentsEmitHoldEvents() {
+        var configuration = ShortcutConfiguration.defaults
+        configuration.dictation = GlobalHotkeyShortcut(
+            modifiers: [.control],
+            key: "D",
+            keyCode: UInt16(kVK_ANSI_D)
+        )
+        var mapper = GlobalHotkeyEventMapper(configuration: configuration)
+
+        let keyDown = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_D),
+            flags: [.maskControl]
+        )
+        let keyUp = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_D),
+            flags: []
+        )
+
+        #expect(keyDown == .keyDown())
+        #expect(keyUp == .keyUp())
+    }
+
+    @Test func customTranslationAssignmentStartsTranslationIntent() {
+        var configuration = ShortcutConfiguration.defaults
+        configuration.translation = GlobalHotkeyShortcut(
+            modifiers: [.control, .option],
+            key: "T",
+            keyCode: UInt16(kVK_ANSI_T)
+        )
+        var mapper = GlobalHotkeyEventMapper(configuration: configuration)
+
+        let keyDown = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_T),
+            flags: [.maskControl, .maskAlternate]
+        )
+        let keyUp = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_T),
+            flags: []
+        )
+
+        #expect(keyDown == .keyDown(outputIntent: .translate))
+        #expect(keyUp == .keyUp())
+    }
+
 }

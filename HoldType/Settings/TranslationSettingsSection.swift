@@ -13,9 +13,9 @@ struct TranslationSettingsSection: View {
 
     var body: some View {
         Section("Translation Shortcut") {
-            Toggle("Translate with Option+Right Command", isOn: $settings.translationShortcutEnabled)
+            Toggle("Enable translation shortcut", isOn: $settings.translationShortcutEnabled)
 
-            Text("When a target language is selected, runs one additional OpenAI request after transcription and correction.")
+            Text("When enabled and a target language is selected, the Translation shortcut runs one additional OpenAI request after transcription and correction. Change its key in Shortcut settings.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

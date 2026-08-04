@@ -12,7 +12,7 @@ started with a dedicated shortcut.
 
 - Shortcut-triggered post-transcription output intent.
 - OpenAI translation after transcription.
-- Settings for enabling the translation shortcut.
+- Settings for enabling the translation action and configuring its route.
 - Settings for translation source behavior, target language, model, and prompt.
 - Handoff ordering with text correction, Last Transcript, history, clipboard,
   and automatic insertion.
@@ -31,9 +31,9 @@ started with a dedicated shortcut.
 
 - The normal `Right Command` hold shortcut keeps the existing dictation
   behavior and outputs the final transcript in the transcription language.
-- Settings may expose a special `Right Command+Option` hold shortcut mode that
-  translates the accepted transcript to the configured target language after
-  transcription.
+- The default Translation assignment is `Right Command+Option` with
+  hold-to-record semantics. Users may change that assignment in Shortcut
+  Settings; enabling or disabling the action remains in Translation Settings.
 - The special translation shortcut is enabled by default. Translation still
   requires a configured target language before HoldType can make the additional
   OpenAI text request after transcription.
@@ -65,8 +65,8 @@ started with a dedicated shortcut.
   override is invalid, a translation-mode session must fail visibly before
   output delivery and must not make transcription or translation requests when
   the invalid configuration is known before those requests.
-- If translation mode is disabled, the special shortcut must behave like normal
-  dictation.
+- If translation mode is disabled, the Translation assignment must not create a
+  translation request. The normal Dictation assignment remains independent.
 - Translation runs after successful transcription and after the existing
   optional text-correction and local cleanup stages.
 - When local plain-typography cleanup is enabled, successful translation output

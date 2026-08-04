@@ -21,6 +21,7 @@ final class DictationRuntime: ObservableObject {
     @Published private(set) var recordingCountdown: VoiceSessionCountdown?
     @Published private(set) var hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
     @Published private(set) var appSettings: AppSettings
+    @Published private(set) var shortcutConfiguration: ShortcutConfiguration
     @Published private(set) var isLastResultPasteAvailable: Bool
 
     private let controller: DictationSessionController
@@ -34,6 +35,7 @@ final class DictationRuntime: ObservableObject {
 
     private var hotkeyCoordinator: DictationHotkeyCoordinator?
     private var settingsObserver: NSObjectProtocol?
+    private var shortcutConfigurationObserver: NSObjectProtocol?
 
     init(
         controller: DictationSessionController? = nil,
@@ -66,6 +68,7 @@ final class DictationRuntime: ObservableObject {
         self.failurePresentation = resolvedController.failurePresentation
         self.recordingCountdown = resolvedController.recordingCountdown
         self.appSettings = resolvedAppSettingsStore.load()
+        self.shortcutConfiguration = ShortcutConfigurationStore().load()
         self.isLastResultPasteAvailable = false
 
         resolvedController.statusDidChange = { [weak self] status in
@@ -97,6 +100,22 @@ final class DictationRuntime: ObservableObject {
             }
         }
 
+        shortcutConfigurationObserver = NotificationCenter.default.addObserver(
+            forName: .shortcutConfigurationDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.shortcutConfiguration = ShortcutConfigurationStore().load()
+                guard let self, self.hotkeyCoordinator != nil else {
+                    return
+                }
+
+                self.stopHotkeyListening()
+                self.startHotkeyListening()
+            }
+        }
+
         Task { @MainActor in
             await refreshLastResultPasteAvailability()
         }
@@ -105,6 +124,9 @@ final class DictationRuntime: ObservableObject {
     deinit {
         if let settingsObserver {
             NotificationCenter.default.removeObserver(settingsObserver)
+        }
+        if let shortcutConfigurationObserver {
+            NotificationCenter.default.removeObserver(shortcutConfigurationObserver)
         }
     }
 

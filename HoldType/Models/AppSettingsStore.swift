@@ -446,4 +446,6 @@ struct AppSettingsStore {
 
 extension Notification.Name {
     static let appSettingsDidChange = Notification.Name("holdtype.appSettingsDidChange")
+    static let shortcutConfigurationDidChange =
+        Notification.Name("holdtype.shortcutConfigurationDidChange")
 }

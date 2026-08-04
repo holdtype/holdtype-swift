@@ -184,4 +184,32 @@ struct MenuBarPresentationTests {
         #expect(presentation.statusText == "Error: Network unavailable")
         #expect(presentation.showsFailureRecoveryActions)
     }
+
+    @Test func menuHintsUseCurrentShortcutConfiguration() {
+        var configuration = ShortcutConfiguration.defaults
+        configuration.dictation = GlobalHotkeyShortcut(
+            modifiers: [.control],
+            key: "D",
+            keyCode: 2
+        )
+        configuration.translation = GlobalHotkeyShortcut(
+            modifiers: [.control, .option],
+            key: "T",
+            keyCode: 17
+        )
+        configuration.pasteLastResult = GlobalHotkeyShortcut(
+            modifiers: [.command, .option],
+            key: "P",
+            keyCode: 35
+        )
+
+        let presentation = MenuBarPresentation(
+            dictationStatus: .idle,
+            shortcutConfiguration: configuration
+        )
+
+        #expect(presentation.recordingActionShortcutHint == "Hold D + Control")
+        #expect(presentation.translationActionShortcutHint == "Hold T + Control + Option")
+        #expect(presentation.pasteLastResultActionShortcutHint == "⌘⌥P")
+    }
 }

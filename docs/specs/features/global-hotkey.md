@@ -17,10 +17,12 @@ This spec covers:
 - app clipboard paste shortcut
 - post-transcription output intent for the translation shortcut
 - immediate Fixes palette shortcut
+- editable local shortcut assignments for Dictation, Translation, Fixes, and
+  Paste Last Result
 
 ## Non-goals
 
-- final shortcut customization UI
+- cloud-synced or policy-managed shortcut profiles
 - multiple named hotkey slots
 - Electron, React, Node.js, or cross-platform shortcut architecture
 - voice-agent, meeting, notes, or local-model hotkeys
@@ -57,12 +59,21 @@ This spec covers:
   keep menu controls usable and show a clear hotkey-unavailable status.
 - If no shortcut can be registered, Transcribe and Stop Recording from
   the menu remain the supported manual path.
-- The Settings window should show the active shortcut and activation mode as
-  read-only MVP information: `Right Command - Hold to record`.
+- The Shortcut Settings section is an editor, not a help-only surface. It lists
+  Dictation, Translation, Fixes, and Paste Last Result with each action's
+  current assignment and activation mode.
+- Dictation and Translation use hold-to-record semantics. Fixes and Paste Last
+  Result run on release. Each assignment can be captured in the app and is
+  applied only when the candidate is valid and registration succeeds.
+- The Shortcut section must not contain an enable/disable toggle for
+  Translation or any Translation language, model, or prompt controls. Those
+  controls remain in the Translation section.
 - The menu should expose the active shortcut near the Transcribe action when
   practical.
-- Full shortcut editing is deferred, but future editing must validate and
-  register a candidate before persisting it.
+- A candidate shortcut must not duplicate another HoldType action, use an
+  unsupported key, or replace a working assignment until registration has
+  succeeded. A failed candidate leaves the previous assignment active and
+  shows a concise error in the editor.
 - The Paste Last Result shortcut is `Control+Command+V`.
 - `Control+Command+V` is not a dictation shortcut. It inserts the current Last
   Result text into the current active app when Keep last result is enabled.
@@ -155,9 +166,11 @@ The app state must distinguish:
 - the output intent attached to the active hotkey-started recording session
 - the independent `Option+J` Fixes registration status
 
-The fixed shortcut is local runtime configuration. Until shortcut editing
-exists, the app uses the spec-defined default and persists no custom hotkey
-input.
+Shortcut assignments are versioned local runtime configuration. A first load
+migrates the spec-defined defaults into the configuration store. The store
+persists only validated assignments and keeps the current assignment when a
+registration attempt fails. Translation enablement remains a Translation
+setting and does not live in the shortcut configuration.
 
 ## Verification mapping
 
