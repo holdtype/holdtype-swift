@@ -43,7 +43,7 @@ struct FixesEditorModelLoadingTests {
             #expect(model.selectedBuiltIn != nil)
             #expect(model.selectedDraft == nil)
             #expect(!model.canDeleteSelection)
-            #expect(!model.canReorderCustomActions)
+            #expect(model.canReorderCustomActions)
         }
     }
 

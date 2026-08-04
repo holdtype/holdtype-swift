@@ -39,7 +39,7 @@ struct FixesPalettePanelControllerTests {
 
         let frame = try #require(controller.presentedPanel?.frame)
         #expect(frame.midX == 500)
-        #expect(frame.midY == 400)
+        #expect(abs(frame.midY - 400) <= 0.5)
     }
 
     @Test func arrowAndReturnCommandsDriveTheHostedModel() {

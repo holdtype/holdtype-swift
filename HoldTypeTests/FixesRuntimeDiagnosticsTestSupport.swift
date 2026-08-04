@@ -11,6 +11,7 @@ struct FixesRuntimeDiagnosticsFixture {
     let execution: FixesDiagnosticsExecutionService
     let replacement: FixesDiagnosticsReplacementService
     let panel: FixesDiagnosticsPanelPresenter
+    let invocationFeedback: FixesDiagnosticsInvocationFeedbackPresenter
     let actionID: String
     let actionTag: String
 }
@@ -57,6 +58,7 @@ func makeFixesRuntimeDiagnosticsFixture(
     let execution = FixesDiagnosticsExecutionService(output: result)
     let replacement = FixesDiagnosticsReplacementService()
     let panel = FixesDiagnosticsPanelPresenter()
+    let invocationFeedback = FixesDiagnosticsInvocationFeedbackPresenter()
     let settings = AppSettings.defaults
     let settingsBox = FixesDiagnosticsSettingsBox(settings: settings)
     let runtime = FixesRuntime(
@@ -69,6 +71,7 @@ func makeFixesRuntimeDiagnosticsFixture(
             settingsBox.settings
         },
         panelPresenter: panel,
+        invocationFeedbackPresenter: invocationFeedback,
         hotkeyCoordinator: FixesHotkeyCoordinator(
             hotkeyService: FixesDiagnosticsHotkeyService()
         ),
@@ -80,6 +83,7 @@ func makeFixesRuntimeDiagnosticsFixture(
         execution: execution,
         replacement: replacement,
         panel: panel,
+        invocationFeedback: invocationFeedback,
         actionID: action.id,
         actionTag: FixesActionIdentity(action: action).formatted
     )
@@ -176,6 +180,18 @@ final class FixesDiagnosticsPanelPresenter:
     func hide() {
         model = nil
     }
+}
+
+@MainActor
+final class FixesDiagnosticsInvocationFeedbackPresenter:
+    FixesInvocationFeedbackPresenting {
+    private(set) var messages: [String] = []
+
+    func show(message: String) {
+        messages.append(message)
+    }
+
+    func hide() {}
 }
 
 private actor FixesDiagnosticsCatalogStore:

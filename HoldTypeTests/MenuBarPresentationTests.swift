@@ -209,7 +209,7 @@ struct MenuBarPresentationTests {
         )
 
         #expect(presentation.recordingActionShortcutHint == "Hold D + Control")
-        #expect(presentation.translationActionShortcutHint == "Hold T + Control + Option")
+        #expect(presentation.translationActionShortcutHint == "Hold T + Control + Right ⌥")
         #expect(presentation.pasteLastResultActionShortcutHint == "⌘⌥P")
     }
 }

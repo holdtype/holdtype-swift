@@ -116,6 +116,7 @@ struct FixesEditorModelMutationTests {
             ]
         )
 
+        model.selectAction(id: movedID)
         await model.deleteSelection()
 
         snapshot = await store.snapshot()

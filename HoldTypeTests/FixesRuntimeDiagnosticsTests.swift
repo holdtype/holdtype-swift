@@ -66,14 +66,15 @@ struct FixesRuntimeDiagnosticsTests {
         )
 
         secureFixture.runtime.showPalette()
-        try await waitUntil {
-            secureFixture.panel.model != nil
-        }
 
+        #expect(secureFixture.panel.model == nil)
+        #expect(
+            secureFixture.invocationFeedback.messages
+                == ["Fixes is not available in secure text fields."]
+        )
         #expect(
             secureRecorder.events == [
                 .capture(outcome: .blockedSecureField),
-                .availability(outcome: .blockedTargetUnavailable),
             ]
         )
     }
@@ -155,6 +156,7 @@ struct FixesRuntimeDiagnosticsTests {
         _ fixture: FixesRuntimeDiagnosticsFixture
     ) throws {
         let model = try #require(fixture.panel.model)
+        model.setSearchText("Diagnostics")
         model.selectAction(id: fixture.actionID)
         model.activateSelection()
     }

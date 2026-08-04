@@ -121,6 +121,7 @@ jobs:
               -project HoldType.xcodeproj \
               -scheme HoldType \
               -destination 'platform=macOS' \
+              -parallel-testing-enabled NO \
               -retry-tests-on-failure \
               -test-iterations 3 \
               test \
