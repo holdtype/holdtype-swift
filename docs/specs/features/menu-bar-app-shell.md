@@ -58,7 +58,7 @@ This spec covers:
   accepted transcript into the active app. It should be disabled when the
   setting that keeps the last result is off or no last result is available.
 - After the three primary dictation and paste commands, the menu should include
-  `Edit Fixes…`. It opens the normal Fixes editor and never treats a
+  `Manage Fixes…`. It opens the normal Fixes editor and never treats a
   HoldType-owned editor field as an external transformation target.
 - The menu does not include an actionable `Fixes…` command or another fallback
   for launching the Fixes palette. The palette is invoked only through its

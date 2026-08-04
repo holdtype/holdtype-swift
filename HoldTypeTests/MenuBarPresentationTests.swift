@@ -38,14 +38,14 @@ struct MenuBarPresentationTests {
         #expect(presentation.pasteLastResultActionShortcutHint == "⌃⌘V")
         #expect(presentation.isPasteLastResultEnabled)
         #expect(MenuBarPresentation.pasteLastResultShortcutHint == "⌃⌘V")
-        #expect(MenuBarPresentation.editFixesTitle == "Edit Fixes…")
+        #expect(MenuBarPresentation.editFixesTitle == "Manage Fixes…")
         #expect(
             MenuBarPresentation.utilityActions
                 == [.editFixes, .history, .settings]
         )
         #expect(
             MenuBarPresentation.utilityActions.map(\.title)
-                == ["Edit Fixes…", "Transcript History", "Settings…"]
+                == ["Manage Fixes…", "Transcript History", "Settings…"]
         )
         #expect(
             !MenuBarPresentation.utilityActions.map(\.title)

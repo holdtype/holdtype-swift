@@ -47,7 +47,7 @@ struct MenuBarPresentation: Equatable {
     static let pasteLastResultTitle = "Paste Last Result"
     static let translationShortcutHint = GlobalHotkeyShortcut.translationDictation.menuHoldText
     static let pasteLastResultShortcutHint = GlobalHotkeyShortcut.appClipboardPaste.menuKeyEquivalentText
-    static let editFixesTitle = "Edit Fixes…"
+    static let editFixesTitle = "Manage Fixes…"
     static let historyTitle = "Transcript History"
     static let settingsTitle = "Settings\u{2026}"
     static let checkForUpdatesTitle = "Check for Updates..."

@@ -264,7 +264,7 @@ This spec covers:
 - Translation shortcut settings and behavior are governed by
   `post-transcription-actions.md`.
 - The Fixes editor governed by `text-fixes.md` is a separate normal app window
-  opened from `Edit Fixes…` in the menu bar surface, not a Settings sidebar
+  opened from `Manage Fixes…` in the menu bar surface, not a Settings sidebar
   section.
 - The Fixes editor shows the typed Translate and Fix actions first and provides
   search, Add, title, prompt, supported icon, enablement, reorder, Delete, and

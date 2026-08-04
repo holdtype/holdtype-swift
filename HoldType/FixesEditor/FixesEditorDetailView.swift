@@ -27,6 +27,9 @@ struct FixesEditorDetailView: View {
                 )
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            FixesEditorInfoBanner()
+        }
     }
 }
 
