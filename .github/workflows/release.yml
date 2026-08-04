@@ -123,7 +123,8 @@ jobs:
               -destination 'platform=macOS' \
               -retry-tests-on-failure \
               -test-iterations 3 \
-              test
+              test \
+              CODE_SIGNING_ALLOWED=NO
           else
             echo "Host macOS $host_version is below HoldType's $minimum_version deployment target; building test bundles without running them."
             scripts/release/with_timeout.py 2400 \
@@ -131,7 +132,8 @@ jobs:
               -project HoldType.xcodeproj \
               -scheme HoldType \
               -destination 'generic/platform=macOS' \
-              build-for-testing
+              build-for-testing \
+              CODE_SIGNING_ALLOWED=NO
           fi
 
       - name: Import Developer ID certificate
