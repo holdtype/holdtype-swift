@@ -124,6 +124,11 @@ This spec covers:
 - If the selected transcription model has known local pricing, Billing may show
   estimated USD. If a model is unknown, Billing must still show minutes and
   explicitly mark cost as unavailable or partial instead of inventing a price.
+- Local usage records preserve the known pricing snapshot used when they were
+  created. The `gpt-transcribe` pricing rollout may backfill only records whose
+  canonical model identifier is exactly `gpt-transcribe` and whose complete
+  pricing snapshot is absent; this one-way migration is idempotent and must not
+  alter another model or any record with an existing known snapshot.
 - Billing may include a local Reset Usage Estimate action. Resetting usage must
   not remove the API key, app settings, transcript history, raw audio, or
   external OpenAI account data.
@@ -546,6 +551,11 @@ Local OpenAI usage estimate records may store:
 - known price per minute when available
 - estimated cost when available
 - local pricing source label
+
+The current local price for `gpt-transcribe` is `$0.0045` per audio minute,
+reviewed against OpenAI model/pricing documentation on 2026-08-04. Future
+pricing changes apply only to newly saved records unless a later product
+contract explicitly defines another migration.
 
 Transcript recovery history retention, failed-attempt retry audio, and clearing
 behavior are governed by `transcript-history.md`.

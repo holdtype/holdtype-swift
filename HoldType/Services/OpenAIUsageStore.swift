@@ -167,8 +167,12 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
                 }
                 return event
             }
-            return retainedEntries(events)
+            let migratedEvents = try applyingPricingBackfill(to: events)
+            return retainedEntries(migratedEvents)
         } catch {
+            if let storeError = error as? OpenAIUsageStoreError {
+                throw storeError
+            }
             throw OpenAIUsageStoreError.unreadableUsage
         }
     }
@@ -213,6 +217,26 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         } catch {
             throw OpenAIUsageStoreError.saveFailed
         }
+    }
+
+    private func applyingPricingBackfill(
+        to events: [OpenAIUsageEvent]
+    ) throws -> [OpenAIUsageEvent] {
+        var didBackfill = false
+        let migratedEvents = try events.map { event in
+            guard let backfilledEvent = try pricing.backfilledEventIfEligible(event) else {
+                return event
+            }
+            didBackfill = true
+            return backfilledEvent
+        }
+
+        guard didBackfill else {
+            return events
+        }
+
+        try save(migratedEvents)
+        return migratedEvents
     }
 
     private func retainedEntries(_ entries: [OpenAIUsageEvent]) -> [OpenAIUsageEvent] {

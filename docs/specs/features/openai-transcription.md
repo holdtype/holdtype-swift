@@ -41,6 +41,8 @@ This spec covers:
 
 - OpenAI Speech to Text guide, reviewed 2026-07-10:
   `https://developers.openai.com/api/docs/guides/speech-to-text`
+- OpenAI `gpt-transcribe` model and pricing documentation, reviewed 2026-08-04:
+  `https://developers.openai.com/api/docs/models/gpt-transcribe`
 - OpenAI Create transcription API reference, reviewed 2026-07-10:
   `https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create`
 - Apple `URLSession.uploadTask(withStreamedRequest:)`, reviewed 2026-07-10:
@@ -142,6 +144,13 @@ This spec covers:
 - A successful transcription may create a local usage estimate record using the
   completed recording duration and selected model. This record is for local
   cost projection only and is not a provider usage receipt.
+- `gpt-transcribe` local estimates use the reviewed price of `$0.0045` per
+  audio minute. The record snapshots this known price when it is created so a
+  later pricing-table change cannot rewrite past estimates.
+- The `gpt-transcribe` pricing rollout may backfill only existing records whose
+  canonical model identifier is exactly `gpt-transcribe` and whose entire
+  pricing snapshot is absent. The backfill must be idempotent and must not
+  change records for another model or any record with a known price snapshot.
 - A whitespace-only or empty transcript is a failed session, not a successful
   accepted transcript.
 - If a completed recording cannot be transcribed because OpenAI rejects the API

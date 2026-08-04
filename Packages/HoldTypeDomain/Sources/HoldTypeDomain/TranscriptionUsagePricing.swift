@@ -11,6 +11,7 @@ public struct TranscriptionUsagePricing: Equatable, Sendable {
 
     public static let current = TranscriptionUsagePricing(
         validatedRatesUSDPerMinute: [
+            "gpt-transcribe": 0.0045,
             "gpt-4o-transcribe": 0.006,
             "gpt-4o-mini-transcribe": 0.003,
         ],
@@ -86,6 +87,26 @@ public struct TranscriptionUsagePricing: Equatable, Sendable {
             model: usage.model,
             durationSeconds: usage.audioDuration,
             id: usage.transcriptionID
+        )
+    }
+
+    /// Adds the reviewed price only to legacy `gpt-transcribe` records with no snapshot.
+    public func backfilledEventIfEligible(
+        _ event: TranscriptionUsageEvent
+    ) throws -> TranscriptionUsageEvent? {
+        guard event.model == "gpt-transcribe",
+              event.priceUSDPerMinute == nil,
+              event.estimatedCostUSD == nil,
+              event.pricingSource == nil,
+              rateUSDPerMinute(for: event.model) != nil else {
+            return nil
+        }
+
+        return try makeEvent(
+            timestamp: event.timestamp,
+            model: event.model,
+            durationSeconds: event.durationSeconds,
+            id: event.id
         )
     }
 
