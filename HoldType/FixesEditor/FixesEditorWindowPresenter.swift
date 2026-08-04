@@ -61,6 +61,7 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
         editorWindow.unbind(.title)
         editorWindow.title = HoldTypeWindowTitle.titled("Manage Fixes")
         editorWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        editorWindow.addTitlebarAccessoryViewController(makeDescriptionAccessory())
         editorWindow.minSize = NSSize(width: 760, height: 520)
         editorWindow.setContentSize(NSSize(width: 900, height: 620))
         editorWindow.center()
@@ -69,5 +70,13 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
         editorWindow.setFrameAutosaveName("HoldType.FixesEditor")
         editorWindow.delegate = self
         return editorWindow
+    }
+
+    private func makeDescriptionAccessory() -> NSTitlebarAccessoryViewController {
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.layoutAttribute = .right
+        accessory.view = NSHostingView(rootView: FixesEditorInfoBanner())
+        accessory.view.frame = NSRect(x: 0, y: 0, width: 480, height: 38)
+        return accessory
     }
 }

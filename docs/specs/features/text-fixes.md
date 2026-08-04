@@ -140,11 +140,12 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   title remains static while users change the selected Fix. It provides search,
   Add, title, prompt, icon, enabled state, reorder, Delete, and Restore
   Defaults.
-- The Fixes editor shows one compact, single-line description in the toolbar of
-  its detail pane, to the right of the sidebar divider. It appears for every
-  selection state, including when no Fix is selected. The description explains
-  that Fixes transform text and summarizes `⌥J`, arrow-key selection, Return,
-  and Escape. It contains no title, icon, management guidance, or privacy note.
+- The Fixes editor shows one plain, two-line description in the title bar to
+  the right of the sidebar divider. It appears for every selection state,
+  including when no Fix is selected. The description explains that Fixes
+  transform selected text or the complete current text field, and summarizes
+  `⌥J`, arrow-key selection, Return, and Escape. It has no background, shadow,
+  border, title, icon, management guidance, or privacy note.
 
 ## iOS Voice
 
