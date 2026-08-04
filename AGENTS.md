@@ -43,12 +43,16 @@ An accepted, committed specification is an operator-owned product decision. An
 agent must not unilaterally cancel, weaken, replace, or reinterpret that
 decision to fit an implementation, a bug fix, a hardening idea, or a test.
 
-When implementation evidence conflicts with an accepted spec, the agent must
-report the discrepancy and ask the operator whether a spec change is intended.
-It may propose a precise spec amendment, but must not make that amendment or
-implement the conflicting behavior without explicit operator authorization.
-An explicit operator request for a behavior change authorizes the corresponding
-spec amendment; record that decision in the spec before changing implementation.
+An explicit operator request to change behavior authorizes the corresponding
+spec amendment and implementation. The agent must make the requested change:
+it must not ask the operator to justify the request, or treat the existing spec
+as a blocker. Record the operator's decision in the spec before changing
+implementation.
+
+When an agent identifies a behavior change that the operator did not request,
+or cannot determine the intended contract from the request, it must not alter
+the accepted spec on its own. It must present a precise plan for the spec
+change and ask the operator to approve it before implementation.
 
 System-permission settings are status and request surfaces for genuine macOS
 permissions only. They must not add application-owned consent switches,
