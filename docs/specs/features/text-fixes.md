@@ -155,7 +155,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   including when no Fix is selected. The description explains that Fixes
   transform selected text or the complete current text field, and summarizes
   `⌥J`, arrow-key selection, Return, and Escape. It has no background, shadow,
-  border, title, icon, management guidance, or privacy note.
+  border, title, icon, management guidance, or privacy note. Within its
+  title-bar area, the description is leading-aligned with a small left inset;
+  it does not shift the window title, Add button, or sidebar divider.
 
 ## iOS Voice
 

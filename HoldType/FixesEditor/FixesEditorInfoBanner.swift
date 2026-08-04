@@ -6,13 +6,16 @@ struct FixesEditorInfoBanner: View {
         + "Press ⌥J to open Fixes; use ↑/↓ to choose, Return to run, and Escape to close."
 
     var body: some View {
-        Text(Self.instructions)
-            .font(.caption)
-            .multilineTextAlignment(.leading)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.leading, 12)
-            .frame(width: 480, alignment: .leading)
+        HStack(spacing: 0) {
+            Text(Self.instructions)
+                .font(.caption)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(Self.instructions)
     }
 }
