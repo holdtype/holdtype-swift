@@ -33,6 +33,19 @@ struct FixesRuntimeTests {
         #expect(model.status == .ready)
     }
 
+    @Test func unavailableTargetShowsFeedbackWithoutOpeningPalette() throws {
+        let fixture = try makeFixture()
+        fixture.targetClient.state = nil
+
+        fixture.runtime.showPalette()
+
+        #expect(fixture.panel.model == nil)
+        #expect(
+            fixture.invocationFeedback.messages
+                == ["Fixes is not available for this text field."]
+        )
+    }
+
     @Test func selectedActionTransformsAndReplacesTheFrozenSource() async throws {
         let fixture = try makeFixture()
         fixture.execution.output = "\nFixed\n"
@@ -183,6 +196,7 @@ struct FixesRuntimeTests {
         let replacement = FixesRuntimeReplacementService()
         let execution = FixesRuntimeExecutionService()
         let panel = FixesRuntimePanelPresenter()
+        let invocationFeedback = FixesRuntimeInvocationFeedbackPresenter()
         let hotkeyService = FixesRuntimeHotkeyService()
         let recentUseStore = FixesRuntimeRecentUseStore()
         var settings = AppSettings.defaults
@@ -198,6 +212,7 @@ struct FixesRuntimeTests {
                 settingsBox.settings
             },
             panelPresenter: panel,
+            invocationFeedbackPresenter: invocationFeedback,
             hotkeyCoordinator: FixesHotkeyCoordinator(
                 hotkeyService: hotkeyService
             ),
@@ -209,6 +224,7 @@ struct FixesRuntimeTests {
             replacement: replacement,
             execution: execution,
             panel: panel,
+            invocationFeedback: invocationFeedback,
             hotkey: hotkeyService,
             settings: settingsBox,
             recentUseStore: recentUseStore
@@ -235,6 +251,7 @@ private struct FixesRuntimeFixture {
     let replacement: FixesRuntimeReplacementService
     let execution: FixesRuntimeExecutionService
     let panel: FixesRuntimePanelPresenter
+    let invocationFeedback: FixesRuntimeInvocationFeedbackPresenter
     let hotkey: FixesRuntimeHotkeyService
     let settings: FixesRuntimeSettingsBox
     let recentUseStore: FixesRuntimeRecentUseStore
@@ -351,6 +368,18 @@ private final class FixesRuntimePanelPresenter:
         hideCount += 1
         model = nil
     }
+}
+
+@MainActor
+private final class FixesRuntimeInvocationFeedbackPresenter:
+    FixesInvocationFeedbackPresenting {
+    private(set) var messages: [String] = []
+
+    func show(message: String) {
+        messages.append(message)
+    }
+
+    func hide() {}
 }
 
 private struct FixesRuntimeCredentialResolver:

@@ -118,6 +118,12 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - The shortcut captures the current external text target before opening UI.
 - A compact searchable palette opens centered in the visible area of the
   display containing the active text target.
+- If HoldType cannot capture a compatible external target, it does not open a
+  palette. It briefly shows one non-interactive, neutral message instead; the
+  message has no search, Fix rows, keyboard selection, controls, or alert
+  sound. This applies before a Fix action is chosen. Failures after an action
+  has started remain in the palette when retry or stale-target context is
+  useful.
 - The palette opens with up to five enabled Fix rows. It orders previously
   successful actions by most recent use, then fills remaining places from the
   stable catalog order so a new user has clear examples.

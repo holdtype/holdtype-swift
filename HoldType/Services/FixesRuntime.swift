@@ -16,6 +16,7 @@ final class FixesRuntime: ObservableObject {
     private let credentialResolver: any OpenAICredentialResolving
     private let settingsProvider: @MainActor () -> AppSettings
     private let panelPresenter: any FixesPalettePanelPresenting
+    private let invocationFeedbackPresenter: any FixesInvocationFeedbackPresenting
     private let hotkeyCoordinator: FixesHotkeyCoordinator
     private let eventLogger: any FixesEventLogging
     private let recentUseStore: any FixesRecentUseStoring
@@ -54,6 +55,7 @@ final class FixesRuntime: ObservableObject {
                 AppSettingsStore().load()
             },
             panelPresenter: FixesPalettePanelController(),
+            invocationFeedbackPresenter: FixesInvocationFeedbackController(),
             hotkeyCoordinator: FixesHotkeyCoordinator(),
             recentUseStore: FixesRecentUseStore()
         )
@@ -67,6 +69,7 @@ final class FixesRuntime: ObservableObject {
         credentialResolver: any OpenAICredentialResolving,
         settingsProvider: @escaping @MainActor () -> AppSettings,
         panelPresenter: any FixesPalettePanelPresenting,
+        invocationFeedbackPresenter: (any FixesInvocationFeedbackPresenting)? = nil,
         hotkeyCoordinator: FixesHotkeyCoordinator,
         recentUseStore: (any FixesRecentUseStoring)? = nil,
         eventLogger: any FixesEventLogging = OSLogFixesEventLogger()
@@ -78,6 +81,8 @@ final class FixesRuntime: ObservableObject {
         self.credentialResolver = credentialResolver
         self.settingsProvider = settingsProvider
         self.panelPresenter = panelPresenter
+        self.invocationFeedbackPresenter = invocationFeedbackPresenter
+            ?? FixesInvocationFeedbackController()
         self.hotkeyCoordinator = hotkeyCoordinator
         self.recentUseStore = recentUseStore ?? FixesRecentUseStore()
         self.eventLogger = eventLogger
@@ -130,11 +135,18 @@ final class FixesRuntime: ObservableObject {
             return
         }
 
+        invocationFeedbackPresenter.hide()
         let captureResult = Result {
             try targetService.capture()
         }
         recordCapture(captureResult)
-        startPalettePreparation(captureResult: captureResult)
+        switch captureResult {
+        case .success:
+            startPalettePreparation(captureResult: captureResult)
+        case .failure(let error):
+            resetPalettePreparation()
+            invocationFeedbackPresenter.show(message: Self.userFacingMessage(for: error))
+        }
     }
 
     private func startPalettePreparation(
