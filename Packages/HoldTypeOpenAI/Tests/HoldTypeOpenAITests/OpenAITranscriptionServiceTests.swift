@@ -487,7 +487,7 @@ struct OpenAITranscriptionServiceTests {
         await expectTranscriptionError(.dictionaryEcho) {
             try await service.transcribe(
                 try makeTranscriptionRequest(
-                    audioFileURL: audioFileURL,
+                    audioFileURL: audioFileURL, transcriptionConfiguration: .init(model: "whisper-1"),
                     customDictionary: CustomDictionary(
                         entries: ["OpenWhispr", "Parakeet", "Alcahest"]
                     )

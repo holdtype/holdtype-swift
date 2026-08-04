@@ -80,7 +80,11 @@ public struct OpenAITranscriptionService:
             credential: credential
         )
         try validateHTTPResponse(response)
-        return try parseTranscript(from: data, promptComposition: request.promptComposition)
+        return try parseTranscript(
+            from: data,
+            model: request.model,
+            promptComposition: request.promptComposition
+        )
     }
 
     public func transcribe(
@@ -99,7 +103,11 @@ public struct OpenAITranscriptionService:
             credential: credential
         )
         try validateHTTPResponse(response)
-        return try parseTranscript(from: data, promptComposition: request.promptComposition)
+        return try parseTranscript(
+            from: data,
+            model: request.model,
+            promptComposition: request.promptComposition
+        )
     }
 
     public func cancelActiveTranscription() {
@@ -254,16 +262,19 @@ public struct OpenAITranscriptionService:
 
     private func parseTranscript(
         from data: Data,
+        model: String,
         promptComposition: TranscriptionPromptComposition
     ) throws -> String {
         do {
             let response = try decoder.decode(OpenAITranscriptionResponse.self, from: data)
             let transcript = try AcceptedTranscript(rawText: response.text).text
-            guard !DictionaryEchoFilter.matches(
-                transcript: transcript,
-                dictionaryPrompt: promptComposition.dictionaryEchoGuardText
-            ) else {
-                throw OpenAITranscriptionServiceError.dictionaryEcho
+            if model != TranscriptionConfiguration.defaultModel {
+                guard !DictionaryEchoFilter.matches(
+                    transcript: transcript,
+                    dictionaryPrompt: promptComposition.dictionaryEchoGuardText
+                ) else {
+                    throw OpenAITranscriptionServiceError.dictionaryEcho
+                }
             }
 
             guard !ActiveTextContextEchoFilter.matches(

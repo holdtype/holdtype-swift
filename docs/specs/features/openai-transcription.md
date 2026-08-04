@@ -146,8 +146,12 @@ This spec covers:
   nearby active-text context, built-in emoji command hints. Dictionary entries
   are separate `keywords[]` fields; the legacy compatibility prompt retains
   the prior dictionary section for explicit older models.
-- If the provider returns only, or almost only, the dictionary hint itself, the
-  app must reject the result instead of accepting it as dictated text.
+- For explicit legacy transcription models, if the provider returns only, or
+  almost only, the dictionary hint itself from the dictionary-in-`prompt`
+  compatibility path, the app must reject the result instead of accepting it as
+  dictated text. For `gpt-transcribe`, a keyword may be the dictated content;
+  the app must not reject a transcript solely because it matches a
+  `keywords[]` entry.
 - If the provider returns only a copied excerpt of nearby active-text context,
   the app must reject the result instead of accepting it as new dictated text.
 - The MVP requests the normal JSON transcription response and reads the
@@ -245,8 +249,9 @@ sections are present, the projection is `nil`.
 
 The composition also exposes the normalized dictionary keyword candidates, only
 the unprefixed dictionary prompt text, and the context text used by the existing
-local dictionary/context echo filters, so the sent fields and rejection guards
-derive from the same frozen inputs.
+local dictionary/context echo filters. The dictionary echo guard applies only
+to explicit legacy models that still send dictionary text inside `prompt`;
+`gpt-transcribe` keyword terms remain eligible transcript content.
 
 The macOS compatibility projection may pass Nearby Text context into this value
 only when the existing setting and Accessibility acquisition path have already
