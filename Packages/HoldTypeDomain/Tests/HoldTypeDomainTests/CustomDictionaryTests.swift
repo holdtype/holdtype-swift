@@ -45,4 +45,12 @@ struct CustomDictionaryTests {
         #expect(CustomDictionary.empty.entries.isEmpty)
         #expect(CustomDictionary.empty.promptText == nil)
     }
+
+    @Test func keywordHintsExcludeValuesRejectedByGPTTranscribe() {
+        let dictionary = CustomDictionary(
+            entries: ["HoldType", "Line\nBreak", "<unsafe>", "OpenAI"]
+        )
+
+        #expect(dictionary.keywordHints == ["HoldType", "OpenAI"])
+    }
 }

@@ -39,11 +39,11 @@ This spec covers:
 
 ## Evidence
 
-- OpenAI Speech to Text guide, reviewed 2026-07-10:
+- OpenAI Speech to Text guide, reviewed 2026-08-04:
   `https://developers.openai.com/api/docs/guides/speech-to-text`
 - OpenAI `gpt-transcribe` model and pricing documentation, reviewed 2026-08-04:
   `https://developers.openai.com/api/docs/models/gpt-transcribe`
-- OpenAI Create transcription API reference, reviewed 2026-07-10:
+- OpenAI Create transcription API reference, reviewed 2026-08-04:
   `https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create`
 - Apple `URLSession.uploadTask(withStreamedRequest:)`, reviewed 2026-07-10:
   `https://developer.apple.com/documentation/foundation/urlsession/uploadtask(withstreamedrequest:)`
@@ -68,10 +68,15 @@ This spec covers:
   25,000,000 bytes before provider contact.
 - Multipart preparation must not load the complete audio file into memory. It
   copies audio into one app-owned scratch request body with reads no larger
-  than 64 KiB. Form fields remain ordered as `model`, `response_format`,
-  optional `language`, optional `prompt`, then `file`. The provider filename is
+  than 64 KiB. For the default `gpt-transcribe` model, form fields remain
+  ordered as `model`, `response_format`, optional `languages[]`, optional
+  `prompt`, zero or more `keywords[]`, then `file`. The provider filename is
   controlled as `recording.m4a` or `recording.wav` from the validated format;
   the original local filename is never included.
+- The `gpt-transcribe` request uses the plural `languages[]` field. Auto sends
+  no language field; a selected or custom language sends one normalized code as
+  one `languages[]` field. The request must not send the legacy singular
+  `language` field for this model.
 - Non-audio multipart bytes are capped at 1 MiB, and the complete body size is
   calculated with overflow checking before upload. Oversized metadata is a
   request-settings failure rather than an audio-file failure.
@@ -94,26 +99,39 @@ This spec covers:
 - The foreground transport accepts at most 1 MiB of provider response data.
   A larger declared or streamed response is cancelled and treated as an
   unreadable provider response.
-- Language `Auto` sends no language parameter.
-- Language `English` sends `en`; language `Russian` sends `ru`.
+- Language `Auto` sends no language parameter for `gpt-transcribe`.
+- Language `English` sends `en`; language `Russian` sends `ru` in one
+  `languages[]` field for `gpt-transcribe`.
 - A custom language must be a two- or three-letter ISO-639-style language code
   accepted by the implementation's validation. An empty custom value falls back
   to Auto. An invalid non-empty custom value blocks transcription with a
   settings error before upload.
 - The optional prompt is sent only when non-empty after trimming whitespace.
-- Prompt text should guide spelling, vocabulary, and style. It must not be
-  treated as secret, but it may contain user content and must not be logged by
-  default.
+- For `gpt-transcribe`, prompt text carries unstructured recording context:
+  the user prompt, nearby active-text context, and built-in emoji-command
+  hints. It should guide spelling, vocabulary, formatting, and style. It must
+  not be treated as secret, but it may contain user content and must not be
+  logged by default.
 - The app may maintain a local custom dictionary of user-provided words or
   phrases that should be recognized with exact spelling when spoken.
-- Custom dictionary entries are sent as transcription prompt context when at
-  least one entry remains after trimming and duplicate removal.
+- For `gpt-transcribe`, each normalized custom dictionary entry is sent as a
+  separate `keywords[]` multipart field when at least one entry remains after
+  trimming and duplicate removal. Keywords are literal hints, not guaranteed
+  output, and the app must send only relevant terms.
+- A `gpt-transcribe` keyword must be one line and must not contain `<`, `>`, a
+  carriage return, or a line feed. Existing local entries that cannot be sent
+  as keywords are omitted from the keyword fields rather than encoded into an
+  invalid multipart request.
+- Explicit legacy transcription models may continue using the existing
+  singular `language` field and dictionary-in-`prompt` compatibility shape;
+  the `gpt-transcribe` path is the product default and the contract above.
 - Built-in emoji command hints are sent as transcription prompt context when
   emoji commands are enabled and at least one command set is active. Emoji
   command behavior is governed by `voice-emoji-commands.md`.
-- If a freeform prompt, nearby active-text context, emoji command hints, and
-  dictionary entries exist, the request prompt should include all active parts
-  with the dictionary appended as spelling context.
+- If a freeform prompt, nearby active-text context, or emoji command hints
+  exist, the `gpt-transcribe` request prompt should include those active parts
+  in that order. Dictionary entries should be sent through `keywords[]` and
+  should not be duplicated in the new-model prompt.
 - When Use Nearby Text Context is enabled, the app may read a short excerpt
   from the currently focused editable text field and include it in the
   transcription prompt so continued dictation keeps topic, spelling,
@@ -121,11 +139,13 @@ This spec covers:
 - Nearby text context is optional and best-effort. If Accessibility permission
   is missing, the focused app does not expose editable text, the field is
   secure, or the excerpt is empty, transcription continues with only the
-  normal prompt and dictionary context.
+  normal context prompt and any eligible dictionary keyword fields.
 - Nearby text context must be bounded to a short excerpt near the cursor. It is
   not a full-document import and must not read unrelated app content.
-- The composed prompt should order context as: user prompt, nearby active-text
-  context, built-in emoji command hints, custom dictionary spelling context.
+- The `gpt-transcribe` context prompt should order sections as: user prompt,
+  nearby active-text context, built-in emoji command hints. Dictionary entries
+  are separate `keywords[]` fields; the legacy compatibility prompt retains
+  the prior dictionary section for explicit older models.
 - If the provider returns only, or almost only, the dictionary hint itself, the
   app must reject the result instead of accepting it as dictated text.
 - If the provider returns only a copied excerpt of nearby active-text context,
@@ -216,13 +236,17 @@ one normalized `CustomDictionary`. It receives no full `AppSettings`, model,
 language, credential, audio, provider response, output preference, history, or
 platform permission state.
 
-The provider prompt keeps the exact existing section order: freeform prompt,
-Nearby Text context, prefixed emoji-command hints, then prefixed dictionary
-spelling guidance. Non-empty sections are joined with exactly two newline
-characters. When all four sources are absent, the provider prompt is `nil`.
-The composition also exposes only the unprefixed dictionary prompt text and the
-context text used by the existing local dictionary/context echo filters, so the
-sent prompt and rejection guards derive from the same frozen inputs.
+The composition keeps two prompt projections from the same frozen inputs. The
+`gpt-transcribe` context prompt contains the non-empty freeform prompt, Nearby
+Text context, and prefixed emoji-command hints in that order, joined with
+exactly two newline characters. The legacy provider prompt retains the prior
+dictionary section for explicit non-`gpt-transcribe` models. When no applicable
+sections are present, the projection is `nil`.
+
+The composition also exposes the normalized dictionary keyword candidates, only
+the unprefixed dictionary prompt text, and the context text used by the existing
+local dictionary/context echo filters, so the sent fields and rejection guards
+derive from the same frozen inputs.
 
 The macOS compatibility projection may pass Nearby Text context into this value
 only when the existing setting and Accessibility acquisition path have already

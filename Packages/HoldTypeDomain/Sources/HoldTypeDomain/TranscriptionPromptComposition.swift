@@ -5,6 +5,8 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
         "Custom Dictionary (use these exact spellings when they appear in the text): "
 
     public let providerPrompt: String?
+    public let gptTranscribeContextPrompt: String?
+    public let dictionaryKeywordHints: [String]
     public let dictionaryEchoGuardText: String?
     public let contextEchoGuardText: String?
 
@@ -16,23 +18,29 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
     ) {
         let emojiPrompt = emojiCommandsConfiguration.promptText
         let dictionaryPrompt = customDictionary.promptText
-        var promptParts: [String] = []
+        var contextPromptParts: [String] = []
 
         if let resolvedFreeformPrompt, !resolvedFreeformPrompt.isEmpty {
-            promptParts.append(resolvedFreeformPrompt)
+            contextPromptParts.append(resolvedFreeformPrompt)
         }
         if let context {
-            promptParts.append(context.promptText)
+            contextPromptParts.append(context.promptText)
         }
         if let emojiPrompt {
-            promptParts.append(Self.emojiCommandsPromptPrefix + emojiPrompt)
-        }
-        if let dictionaryPrompt {
-            promptParts.append(Self.customDictionaryPromptPrefix + dictionaryPrompt)
+            contextPromptParts.append(Self.emojiCommandsPromptPrefix + emojiPrompt)
         }
 
-        let composedPrompt = promptParts.joined(separator: "\n\n")
-        providerPrompt = composedPrompt.isEmpty ? nil : composedPrompt
+        let contextPrompt = contextPromptParts.joined(separator: "\n\n")
+        gptTranscribeContextPrompt = contextPrompt.isEmpty ? nil : contextPrompt
+
+        var legacyPromptParts = contextPromptParts
+        if let dictionaryPrompt {
+            legacyPromptParts.append(Self.customDictionaryPromptPrefix + dictionaryPrompt)
+        }
+
+        let legacyPrompt = legacyPromptParts.joined(separator: "\n\n")
+        providerPrompt = legacyPrompt.isEmpty ? nil : legacyPrompt
+        dictionaryKeywordHints = customDictionary.keywordHints
         dictionaryEchoGuardText = dictionaryPrompt
         contextEchoGuardText = context?.text
     }

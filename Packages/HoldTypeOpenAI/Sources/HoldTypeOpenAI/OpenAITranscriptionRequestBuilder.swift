@@ -208,12 +208,13 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
         var prefix = ""
         prefix.appendFormField(name: "model", value: transcriptionRequest.model, boundary: boundary)
         prefix.appendFormField(name: "response_format", value: "json", boundary: boundary)
-        if let languageCode = transcriptionRequest.languageCode {
-            prefix.appendFormField(name: "language", value: languageCode, boundary: boundary)
-        }
-        if let prompt = transcriptionRequest.promptComposition.providerPrompt {
-            prefix.appendFormField(name: "prompt", value: prompt, boundary: boundary)
-        }
+        appendModelSpecificContext(
+            for: transcriptionRequest.model,
+            languageCode: transcriptionRequest.languageCode,
+            promptComposition: transcriptionRequest.promptComposition,
+            to: &prefix,
+            boundary: boundary
+        )
         prefix.appendFileFieldHeader(
             name: "file",
             fileName: supportedFile.controlledFileName,
@@ -231,12 +232,13 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
         var prefix = ""
         prefix.appendFormField(name: "model", value: transcriptionRequest.model, boundary: boundary)
         prefix.appendFormField(name: "response_format", value: "json", boundary: boundary)
-        if let languageCode = transcriptionRequest.languageCode {
-            prefix.appendFormField(name: "language", value: languageCode, boundary: boundary)
-        }
-        if let prompt = transcriptionRequest.promptComposition.providerPrompt {
-            prefix.appendFormField(name: "prompt", value: prompt, boundary: boundary)
-        }
+        appendModelSpecificContext(
+            for: transcriptionRequest.model,
+            languageCode: transcriptionRequest.languageCode,
+            promptComposition: transcriptionRequest.promptComposition,
+            to: &prefix,
+            boundary: boundary
+        )
         prefix.appendFileFieldHeader(
             name: "file",
             fileName: supportedFile.controlledFileName,
@@ -255,12 +257,13 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
         var metadata: Int64 = 0
         try addFormFieldSize(name: "model", value: transcriptionRequest.model, boundary: boundary, to: &metadata)
         try addFormFieldSize(name: "response_format", value: "json", boundary: boundary, to: &metadata)
-        if let language = transcriptionRequest.languageCode {
-            try addFormFieldSize(name: "language", value: language, boundary: boundary, to: &metadata)
-        }
-        if let prompt = transcriptionRequest.promptComposition.providerPrompt {
-            try addFormFieldSize(name: "prompt", value: prompt, boundary: boundary, to: &metadata)
-        }
+        try addModelSpecificContextSizes(
+            for: transcriptionRequest.model,
+            languageCode: transcriptionRequest.languageCode,
+            promptComposition: transcriptionRequest.promptComposition,
+            boundary: boundary,
+            to: &metadata
+        )
         for value in [
             "--", boundary,
             "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"",
@@ -292,12 +295,13 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
         var metadata: Int64 = 0
         try addFormFieldSize(name: "model", value: transcriptionRequest.model, boundary: boundary, to: &metadata)
         try addFormFieldSize(name: "response_format", value: "json", boundary: boundary, to: &metadata)
-        if let language = transcriptionRequest.languageCode {
-            try addFormFieldSize(name: "language", value: language, boundary: boundary, to: &metadata)
-        }
-        if let prompt = transcriptionRequest.promptComposition.providerPrompt {
-            try addFormFieldSize(name: "prompt", value: prompt, boundary: boundary, to: &metadata)
-        }
+        try addModelSpecificContextSizes(
+            for: transcriptionRequest.model,
+            languageCode: transcriptionRequest.languageCode,
+            promptComposition: transcriptionRequest.promptComposition,
+            boundary: boundary,
+            to: &metadata
+        )
         for value in [
             "--", boundary,
             "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"",
@@ -340,6 +344,80 @@ nonisolated struct OpenAITranscriptionRequestBuilder: Sendable {
             throw OpenAITranscriptionRequestBuilderError.multipartBodyTooLarge
         }
         count = addition.partialValue
+    }
+
+    private func appendModelSpecificContext(
+        for model: String,
+        languageCode: String?,
+        promptComposition: TranscriptionPromptComposition,
+        to prefix: inout String,
+        boundary: String
+    ) {
+        if Self.usesGPTTranscribeContextFields(model) {
+            if let languageCode {
+                prefix.appendFormField(
+                    name: "languages[]",
+                    value: languageCode,
+                    boundary: boundary
+                )
+            }
+            if let prompt = promptComposition.gptTranscribeContextPrompt {
+                prefix.appendFormField(name: "prompt", value: prompt, boundary: boundary)
+            }
+            for keyword in promptComposition.dictionaryKeywordHints {
+                prefix.appendFormField(name: "keywords[]", value: keyword, boundary: boundary)
+            }
+            return
+        }
+
+        if let languageCode {
+            prefix.appendFormField(name: "language", value: languageCode, boundary: boundary)
+        }
+        if let prompt = promptComposition.providerPrompt {
+            prefix.appendFormField(name: "prompt", value: prompt, boundary: boundary)
+        }
+    }
+
+    private func addModelSpecificContextSizes(
+        for model: String,
+        languageCode: String?,
+        promptComposition: TranscriptionPromptComposition,
+        boundary: String,
+        to metadata: inout Int64
+    ) throws {
+        if Self.usesGPTTranscribeContextFields(model) {
+            if let languageCode {
+                try addFormFieldSize(
+                    name: "languages[]",
+                    value: languageCode,
+                    boundary: boundary,
+                    to: &metadata
+                )
+            }
+            if let prompt = promptComposition.gptTranscribeContextPrompt {
+                try addFormFieldSize(name: "prompt", value: prompt, boundary: boundary, to: &metadata)
+            }
+            for keyword in promptComposition.dictionaryKeywordHints {
+                try addFormFieldSize(
+                    name: "keywords[]",
+                    value: keyword,
+                    boundary: boundary,
+                    to: &metadata
+                )
+            }
+            return
+        }
+
+        if let languageCode {
+            try addFormFieldSize(name: "language", value: languageCode, boundary: boundary, to: &metadata)
+        }
+        if let prompt = promptComposition.providerPrompt {
+            try addFormFieldSize(name: "prompt", value: prompt, boundary: boundary, to: &metadata)
+        }
+    }
+
+    private static func usesGPTTranscribeContextFields(_ model: String) -> Bool {
+        model == "gpt-transcribe"
     }
 
     private static func isSafeBoundary(_ boundary: String) -> Bool {

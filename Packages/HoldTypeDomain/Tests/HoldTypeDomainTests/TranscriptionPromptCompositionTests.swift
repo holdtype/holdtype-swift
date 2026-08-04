@@ -41,6 +41,8 @@ struct TranscriptionPromptCompositionTests {
                 TranscriptionPromptComposition.customDictionaryPromptPrefix +
                 "HoldType, Synty"
         )
+        #expect(composition(dictionary: dictionary).gptTranscribeContextPrompt == nil)
+        #expect(composition(dictionary: dictionary).dictionaryKeywordHints == ["HoldType", "Synty"])
     }
 
     @Test func fourSourcesPreserveExactOrderSeparatorsAndEchoGuards() throws {
@@ -70,6 +72,18 @@ struct TranscriptionPromptCompositionTests {
                 Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
+        #expect(
+            composition.gptTranscribeContextPrompt ==
+                """
+                Prefer product vocabulary.
+
+                Current writing context near the cursor. Use this only for continuity; transcribe only the new speech:
+                Existing sentence.
+
+                Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): emoji rocket
+                """
+        )
+        #expect(composition.dictionaryKeywordHints == ["HoldType"])
         #expect(composition.dictionaryEchoGuardText == "HoldType")
         #expect(composition.contextEchoGuardText == "Existing sentence.")
     }
