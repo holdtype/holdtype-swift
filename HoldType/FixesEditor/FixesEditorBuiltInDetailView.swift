@@ -42,27 +42,6 @@ struct FixesEditorBuiltInDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Section("Order") {
-                HStack {
-                    Button {
-                    } label: {
-                        Label("Move Up", systemImage: "arrow.up")
-                    }
-                    .disabled(true)
-
-                    Button {
-                    } label: {
-                        Label("Move Down", systemImage: "arrow.down")
-                    }
-                    .disabled(true)
-
-                    Spacer()
-
-                    Text("Built-in Fixes are pinned first.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

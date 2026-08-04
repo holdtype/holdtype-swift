@@ -50,6 +50,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - The icon comes from a finite HoldType-supported SF Symbols set so every
   surface can render the same semantic icon safely.
 - Users can add, edit, reorder, enable, disable, and delete custom Fixes.
+- On macOS, users reorder custom Fixes by dragging their rows in the Fixes
+  editor sidebar. Reordering is unavailable while the sidebar is filtered.
+  Translate and Fix remain pinned above the draggable custom rows.
 - Restore Defaults recreates missing default custom actions without deleting
   or changing other custom actions.
 - Catalogs are local and separate on macOS and iOS in the first release.
@@ -138,8 +141,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its window
   title remains static while users change the selected Fix. It provides search,
-  Add, title, prompt, icon, enabled state, reorder, Delete, and Restore
-  Defaults.
+  Add, title, prompt, icon, enabled state, drag-to-reorder custom rows, Delete,
+  and Restore Defaults. It does not show a separate Order section or move
+  buttons in the detail pane.
 - The Fixes editor shows one plain, two-line description in the title bar to
   the right of the sidebar divider. It appears for every selection state,
   including when no Fix is selected. The description explains that Fixes

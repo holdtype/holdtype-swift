@@ -44,8 +44,7 @@ struct FixesEditorModelLoadingTests {
             #expect(model.selectedDraft == nil)
             #expect(!model.canSaveSelectedDraft)
             #expect(!model.canDeleteSelection)
-            #expect(!model.canMoveSelectionUp)
-            #expect(!model.canMoveSelectionDown)
+            #expect(!model.canReorderCustomActions)
         }
     }
 

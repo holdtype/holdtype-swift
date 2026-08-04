@@ -46,12 +46,37 @@ struct FixesEditorSidebarView: View {
                 set: model.selectAction
             )
         ) {
-            ForEach(model.visibleActions) { action in
-                FixesEditorSidebarRow(action: action)
-                    .tag(action.id)
+            if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ForEach(model.builtInActionPresentations) { action in
+                    sidebarRow(for: action)
+                }
+
+                if model.canReorderCustomActions {
+                    ForEach(model.customActionPresentations) { action in
+                        sidebarRow(for: action)
+                    }
+                    .onMove { source, destination in
+                        Task {
+                            await model.moveCustomActions(from: source, toOffset: destination)
+                        }
+                    }
+                } else {
+                    ForEach(model.customActionPresentations) { action in
+                        sidebarRow(for: action)
+                    }
+                }
+            } else {
+                ForEach(model.visibleActions) { action in
+                    sidebarRow(for: action)
+                }
             }
         }
         .listStyle(.sidebar)
+    }
+
+    private func sidebarRow(for action: FixesEditorActionPresentation) -> some View {
+        FixesEditorSidebarRow(action: action)
+            .tag(action.id)
     }
 
     @ViewBuilder

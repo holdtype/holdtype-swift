@@ -110,18 +110,22 @@ final class FixesEditorModel: ObservableObject {
         return catalog?.action(id: selectedActionID)?.kind == .customPrompt
     }
 
-    var canMoveSelectionUp: Bool {
-        selectedCustomIndex.map { $0 > 0 } == true && !activity.isBusy
+    var builtInActionPresentations: [FixesEditorActionPresentation] {
+        allActionPresentations.filter(\.isBuiltIn)
     }
 
-    var canMoveSelectionDown: Bool {
-        guard let catalog,
-              let selectedCustomIndex
-        else {
+    var customActionPresentations: [FixesEditorActionPresentation] {
+        allActionPresentations.filter { !$0.isBuiltIn }
+    }
+
+    var canReorderCustomActions: Bool {
+        guard let catalog else {
             return false
         }
-        return selectedCustomIndex < catalog.customActions.count - 1
+        return searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && pendingActionIDs.isEmpty
             && !activity.isBusy
+            && catalog.customActions.count > 1
     }
 
     var canRestoreDefaults: Bool {
@@ -274,18 +278,26 @@ final class FixesEditorModel: ObservableObject {
         }
     }
 
-    func moveSelectionUp() async {
-        guard let selectedCustomIndex else {
+    func moveCustomActions(from source: IndexSet, toOffset destination: Int) async {
+        guard canReorderCustomActions,
+              source.count == 1,
+              let sourceIndex = source.first,
+              let catalog,
+              catalog.customActions.indices.contains(sourceIndex),
+              (0...catalog.customActions.count).contains(destination)
+        else {
             return
         }
-        await moveSelection(toCustomIndex: selectedCustomIndex - 1)
-    }
 
-    func moveSelectionDown() async {
-        guard let selectedCustomIndex else {
+        let destinationIndex = destination > sourceIndex ? destination - 1 : destination
+        guard destinationIndex != sourceIndex else {
             return
         }
-        await moveSelection(toCustomIndex: selectedCustomIndex + 1)
+
+        await moveCustomAction(
+            id: catalog.customActions[sourceIndex].id,
+            toCustomIndex: destinationIndex
+        )
     }
 
     func restoreDefaults() async {
@@ -310,13 +322,6 @@ final class FixesEditorModel: ObservableObject {
         let pending = pendingActionIDs.compactMap { drafts[$0] }
             .map(FixesEditorActionPresentation.init)
         return saved + pending
-    }
-
-    private var selectedCustomIndex: Int? {
-        guard let selectedActionID else {
-            return nil
-        }
-        return catalog?.customActions.firstIndex { $0.id == selectedActionID }
     }
 
     private func load() async {
@@ -359,16 +364,18 @@ final class FixesEditorModel: ObservableObject {
         }
     }
 
-    private func moveSelection(toCustomIndex destinationIndex: Int) async {
+    private func moveCustomAction(
+        id: String,
+        toCustomIndex destinationIndex: Int
+    ) async {
         guard let catalog,
-              let selectedActionID,
               !activity.isBusy
         else {
             return
         }
         do {
             let candidate = try catalog.movingCustomAction(
-                id: selectedActionID,
+                id: id,
                 toCustomIndex: destinationIndex
             )
             _ = await persist(candidate, activity: .reordering)

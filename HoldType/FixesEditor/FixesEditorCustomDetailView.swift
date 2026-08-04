@@ -10,7 +10,6 @@ struct FixesEditorCustomDetailView: View {
         Form {
             identitySection
             promptSection
-            orderSection
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -99,36 +98,6 @@ struct FixesEditorCustomDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
-            }
-        }
-    }
-
-    private var orderSection: some View {
-        Section("Order") {
-            HStack {
-                Button {
-                    Task {
-                        await model.moveSelectionUp()
-                    }
-                } label: {
-                    Label("Move Up", systemImage: "arrow.up")
-                }
-                .disabled(!model.canMoveSelectionUp)
-
-                Button {
-                    Task {
-                        await model.moveSelectionDown()
-                    }
-                } label: {
-                    Label("Move Down", systemImage: "arrow.down")
-                }
-                .disabled(!model.canMoveSelectionDown)
-
-                Spacer()
-
-                Text("Translate and Fix stay pinned first.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }

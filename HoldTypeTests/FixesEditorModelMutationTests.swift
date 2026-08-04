@@ -1,3 +1,4 @@
+import Foundation
 import HoldTypeDomain
 import Testing
 @testable import HoldType
@@ -65,8 +66,7 @@ struct FixesEditorModelMutationTests {
         await model.loadIfNeeded()
         let movedID = TextFixCatalog.defaults.customActions[1].id
 
-        model.selectAction(id: movedID)
-        await model.moveSelectionUp()
+        await model.moveCustomActions(from: IndexSet(integer: 1), toOffset: 0)
 
         var snapshot = await store.snapshot()
         #expect(snapshot.catalog.customActions.first?.id == movedID)
@@ -88,6 +88,25 @@ struct FixesEditorModelMutationTests {
                 TextFixAction.fixIdentifier,
             ]
         )
+    }
+
+    @Test func dragReorderUsesFinalCustomIndexAndIsDisabledWhileFiltering() async {
+        let store = FixesEditorTestStore()
+        let model = FixesEditorModel(store: store)
+        await model.loadIfNeeded()
+        let movedID = TextFixCatalog.defaults.customActions[0].id
+
+        await model.moveCustomActions(from: IndexSet(integer: 0), toOffset: 3)
+
+        var snapshot = await store.snapshot()
+        #expect(snapshot.catalog.customActions[2].id == movedID)
+
+        model.setSearchText("shorter")
+        #expect(!model.canReorderCustomActions)
+        await model.moveCustomActions(from: IndexSet(integer: 0), toOffset: 2)
+
+        snapshot = await store.snapshot()
+        #expect(snapshot.catalog.customActions[2].id == movedID)
     }
 
     @Test func restoreDefaultsAppendsMissingDefaultAndPreservesUserAction() async throws {
