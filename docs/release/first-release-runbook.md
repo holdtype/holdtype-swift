@@ -411,6 +411,51 @@ authenticated GitHub CLI or API is also acceptable. Use the `v*` tag-push
 trigger only as a fallback after the `github-pages` environment protection has
 been explicitly changed and verified to allow that tag ref.
 
+### Dispatch With Computer Use In Safari
+
+When the Mac's authenticated GitHub session is in Safari, use Computer Use to
+operate Safari. Do not substitute an unauthenticated in-app browser or ask the
+operator to repeat ordinary GitHub Actions clicks.
+
+1. Before the first Computer Use action, start a scoped awake guard and retain
+   its PID for cleanup:
+
+   ```sh
+   caffeinate -dimsu &
+   echo $!
+   ```
+
+2. With Computer Use, activate Safari and open the exact workflow URL:
+
+   ```text
+   https://github.com/holdtype/holdtype-swift/actions/workflows/release.yml
+   ```
+
+3. Confirm that Safari shows the intended signed-in GitHub account, the
+   `holdtype/holdtype-swift` repository, and the `Release` workflow. Open
+   **Run workflow**, select `master`, and enter the validated values without a
+   leading `v` for the version and as a positive integer for the build.
+4. Immediately before the final **Run workflow** submission, confirm that the
+   selected ref is `master`, the version/build match the validated release
+   inputs, and the pushed commit contains `docs/release/notes/<version>.md`.
+   Submit the workflow through Computer Use; do not create or push the release
+   tag manually.
+5. Keep the workflow page open and monitor the `Build, notarize, and publish`
+   job to completion. The successful run creates `v<version>`, publishes the
+   notarized DMG and metadata, updates the Sparkle appcast and Pages content,
+   and opens the configured Homebrew tap pull request.
+6. Stop the awake guard after the browser work completes:
+
+   ```sh
+   kill <caffeinate-pid>
+   ```
+
+If the Safari session is unavailable and authentication requires a physical
+credential or second factor that Computer Use cannot perform, report that
+specific authentication blocker. Do not fall back to a tag push, create a
+replacement credential, or ask the operator to perform routine Actions
+navigation.
+
 The GitHub Actions release workflow should:
 
 1. validate `version`, `build`, `tag`, release directory, and download URL
