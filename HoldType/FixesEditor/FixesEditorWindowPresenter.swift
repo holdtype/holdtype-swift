@@ -74,7 +74,7 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
 
     private func makeDescriptionAccessory() -> NSTitlebarAccessoryViewController {
         let accessory = NSTitlebarAccessoryViewController()
-        accessory.layoutAttribute = .right
+        accessory.layoutAttribute = .left
         accessory.view = NSHostingView(rootView: FixesEditorInfoBanner())
         accessory.view.frame = NSRect(x: 0, y: 0, width: 480, height: 38)
         return accessory

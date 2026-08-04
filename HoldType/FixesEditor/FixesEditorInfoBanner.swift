@@ -11,6 +11,7 @@ struct FixesEditorInfoBanner: View {
             .multilineTextAlignment(.leading)
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
+            .padding(.leading, 12)
             .frame(width: 480, alignment: .leading)
             .accessibilityLabel(Self.instructions)
     }
