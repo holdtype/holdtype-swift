@@ -5,14 +5,14 @@ struct FixesEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FixesEditorInfoBanner()
-
             NavigationSplitView {
                 FixesEditorSidebarView(model: model)
                     .navigationSplitViewColumnWidth(min: 230, ideal: 280, max: 360)
             } detail: {
                 FixesEditorDetailView(model: model)
             }
+
+            FixesEditorInfoBanner()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let issue = model.issue {

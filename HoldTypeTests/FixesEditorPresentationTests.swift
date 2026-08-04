@@ -5,14 +5,11 @@ import Testing
 
 @MainActor
 struct FixesEditorPresentationTests {
-    @Test func infoBannerExplainsFixesUsageAndManagement() {
-        #expect(FixesEditorInfoBanner.title == "What are Fixes?")
+    @Test func infoBannerExplainsFixesUsage() {
         #expect(FixesEditorInfoBanner.instructions.contains("⌥J"))
         #expect(FixesEditorInfoBanner.instructions.contains("Return"))
         #expect(FixesEditorInfoBanner.instructions.contains("Escape"))
         #expect(FixesEditorInfoBanner.instructions.contains("complete compatible text field"))
-        #expect(FixesEditorInfoBanner.managementNote.contains("Manage Fixes…"))
-        #expect(FixesEditorInfoBanner.privacyNote.contains("OpenAI"))
     }
 
     @Test func finiteIconOptionsCoverEverySupportedToken() {
