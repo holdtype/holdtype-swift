@@ -9,7 +9,6 @@ struct FixesEditorPresentationTests {
         #expect(FixesEditorInfoBanner.instructions.contains("⌥J"))
         #expect(FixesEditorInfoBanner.instructions.contains("Return"))
         #expect(FixesEditorInfoBanner.instructions.contains("Escape"))
-        #expect(FixesEditorInfoBanner.instructions.contains("complete compatible text field"))
     }
 
     @Test func finiteIconOptionsCoverEverySupportedToken() {

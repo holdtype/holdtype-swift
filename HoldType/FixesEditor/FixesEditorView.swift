@@ -10,9 +10,12 @@ struct FixesEditorView: View {
                     .navigationSplitViewColumnWidth(min: 230, ideal: 280, max: 360)
             } detail: {
                 FixesEditorDetailView(model: model)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            FixesEditorInfoBanner()
+                        }
+                    }
             }
-
-            FixesEditorInfoBanner()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let issue = model.issue {
