@@ -141,9 +141,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its window
   title remains static while users change the selected Fix. It provides search,
-  Add, title, prompt, icon, enabled state, drag-to-reorder custom rows, Delete,
-  and Restore Defaults. It does not show a separate Order section or move
-  buttons in the detail pane.
+  Add, and Restore Defaults. A selected custom Fix provides title, prompt,
+  icon, enabled state, drag-to-reorder custom rows, and Delete. A selected
+  built-in Fix shows only its lock-marked informational block; it exposes no
+  editable fields, action buttons, or other detail sections. The editor does
+  not show a separate Order section or move buttons in the detail pane.
 - The Fixes editor shows one plain, two-line description in the title bar to
   the right of the sidebar divider. It appears for every selection state,
   including when no Fix is selected. The description explains that Fixes

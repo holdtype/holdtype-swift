@@ -11,12 +11,8 @@ struct FixesEditorDetailView: View {
                     systemImage: "wand.and.stars",
                     description: Text("Load the saved catalog to edit Fixes.")
                 )
-            } else if let action = model.selectedAction,
-                      let presentation = model.selectedBuiltIn {
-                FixesEditorBuiltInDetailView(
-                    action: action,
-                    presentation: presentation
-                )
+            } else if let presentation = model.selectedBuiltIn {
+                FixesEditorBuiltInDetailView(presentation: presentation)
             } else if model.selectedDraft != nil {
                 FixesEditorCustomDetailView(model: model)
             } else {

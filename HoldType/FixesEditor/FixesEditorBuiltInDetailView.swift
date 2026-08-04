@@ -2,7 +2,6 @@ import HoldTypeDomain
 import SwiftUI
 
 struct FixesEditorBuiltInDetailView: View {
-    let action: TextFixAction
     let presentation: FixesEditorBuiltInPresentation
 
     var body: some View {
@@ -22,50 +21,9 @@ struct FixesEditorBuiltInDetailView: View {
                 }
                 .padding(.vertical, 4)
             }
-
-            Section("Fix") {
-                TextField("Title", text: .constant(action.title))
-                    .disabled(true)
-
-                FixesEditorIconPicker(
-                    selection: .constant(action.icon),
-                    isEnabled: false
-                )
-
-                Toggle("Enabled", isOn: .constant(true))
-                    .disabled(true)
-            }
-
-            Section("Behavior") {
-                Text(presentation.detail)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            actionBar
-        }
-    }
-
-    private var actionBar: some View {
-        HStack {
-            Button("Delete", role: .destructive) {}
-                .disabled(true)
-
-            Spacer()
-
-            Button("Save") {}
-                .disabled(true)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 50)
-        .background(.bar)
-        .overlay(alignment: .top) {
-            Divider()
-        }
     }
 }
 
@@ -73,10 +31,7 @@ struct FixesEditorBuiltInDetailView: View {
     let action = TextFixCatalog.defaults.actions[0]
     if let presentation = FixesEditorBuiltInPresentation(action: action) {
         NavigationStack {
-            FixesEditorBuiltInDetailView(
-                action: action,
-                presentation: presentation
-            )
+            FixesEditorBuiltInDetailView(presentation: presentation)
         }
         .frame(width: 620, height: 540)
     }
