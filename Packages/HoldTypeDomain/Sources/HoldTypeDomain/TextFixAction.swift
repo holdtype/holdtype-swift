@@ -187,7 +187,7 @@ public struct TextFixAction:
             }
             try validateBuiltInPayload(
                 title: title,
-                expectedTitle: "Fix",
+                expectedTitle: "Correct Text",
                 icon: icon,
                 expectedIcon: .fix,
                 prompt: prompt,
@@ -245,7 +245,7 @@ public struct TextFixAction:
     static let builtInFix = TextFixAction(
         validatedID: fixIdentifier,
         kind: .fix,
-        title: "Fix",
+        title: "Correct Text",
         icon: .fix,
         prompt: nil,
         isEnabled: true

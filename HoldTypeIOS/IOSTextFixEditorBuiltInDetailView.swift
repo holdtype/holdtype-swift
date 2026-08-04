@@ -6,7 +6,7 @@ struct IOSTextFixEditorBuiltInDetailView: View {
 
     var body: some View {
         Form {
-            Section("Built-in Fix") {
+            Section("Built-in \(action.title)") {
                 LabeledContent("Title", value: action.title)
                 LabeledContent(
                     "Icon",

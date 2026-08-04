@@ -37,10 +37,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - **Fixes** is the feature and catalog name. One catalog item is a **Fix**.
 - The first two actions are always:
   1. `Translate`, using the saved HoldType Translation route and model;
-  2. `Fix`, forcing the saved Writing & Correction model and prompt for this
-     request without changing the durable automatic-correction preference.
-- Translate and Fix are typed actions. They cannot be deleted or converted into
-  arbitrary prompts.
+  2. `Correct Text`, the built-in typed `Fix` action, forcing the saved Writing
+     & Correction model and prompt for this request without changing the
+     durable automatic-correction preference.
+- Translate and Correct Text are typed actions. They cannot be deleted or
+  converted into arbitrary prompts.
 - New catalogs also include editable prompt actions for Improve Writing, Make
   Shorter, Summarize, Bullet Points, Change to Casual, and Markdown.
 - A custom Fix has one stable identifier, title, supported icon, prompt,
@@ -52,7 +53,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Users can add, edit, reorder, enable, disable, and delete custom Fixes.
 - On macOS, users reorder custom Fixes by dragging their rows in the Fixes
   editor sidebar. Reordering is unavailable while the sidebar is filtered.
-  Translate and Fix remain pinned above the draggable custom rows.
+  Translate and Correct Text remain pinned above the draggable custom rows.
 - HoldType does not provide a Restore Defaults action for Fixes. Custom Fixes
   remain unchanged unless the user explicitly edits, reorders, or deletes them.
 - Catalogs are local and separate on macOS and iOS in the first release.
@@ -98,8 +99,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Custom Fix output is used exactly as returned. HoldType does not trim,
   normalize typography, strip Markdown, or rewrite meaningful whitespace.
   Empty or whitespace-only output is invalid.
-- Translate and Fix retain their existing typed output normalization and
-  failure semantics.
+- Translate and Correct Text retain their existing typed output normalization
+  and failure semantics.
 - Immediately before replacement, HoldType revalidates the same target,
   document, source range, and source text.
 - A changed, missing, unsupported, or stale target rejects the result and
@@ -195,8 +196,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 - The former separate one-shot Translate and Correction controls become one
   `Fixes` launcher in the Draft action area.
-- The Fixes surface shows Translate and Fix first, followed by enabled custom
-  actions.
+- The Fixes surface shows Translate and Correct Text first, followed by enabled
+  custom actions.
 - A non-empty Draft selection is transformed; otherwise the complete confirmed
   Draft is transformed.
 - When the launcher is invoked during editing, HoldType captures the visible

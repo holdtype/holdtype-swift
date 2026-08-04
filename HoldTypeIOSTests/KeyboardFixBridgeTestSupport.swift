@@ -43,7 +43,7 @@ func makeKeyboardFixMetadataActions(
     let fix = KeyboardFixMetadataAction(
         identifier: KeyboardFixBridgeConfiguration.fixIdentifier,
         kind: .fix,
-        title: "Fix",
+        title: "Correct Text",
         icon: .fix,
         order: 1,
         isEnabled: true

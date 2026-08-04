@@ -86,7 +86,7 @@ struct IOSVoiceHomePresentationTests {
         #expect(translation.title == "Translate")
         #expect(translation.processingStatus.title == "Translating…")
         #expect(translation.processingStatus.showsProgress)
-        #expect(fix.title == "Fix")
+        #expect(fix.title == "Correct Text")
         #expect(fix.processingStatus.title == "Fixing…")
         #expect(fix.processingStatus.tone == .active)
         #expect(

@@ -17,7 +17,7 @@ struct TextFixCatalogTests {
         ])
         #expect(catalog.actions.map(\.title) == [
             "Translate",
-            "Fix",
+            "Correct Text",
             "Improve Writing",
             "Make Shorter",
             "Summarize",

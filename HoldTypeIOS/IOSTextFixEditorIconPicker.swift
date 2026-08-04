@@ -5,7 +5,7 @@ enum IOSTextFixEditorIconPresentation {
     static func title(for icon: TextFixIcon) -> String {
         switch icon {
         case .translate: "Translate"
-        case .fix: "Fix"
+        case .fix: "Correct Text"
         case .improveWriting: "Improve Writing"
         case .makeShorter: "Make Shorter"
         case .summarize: "Summarize"

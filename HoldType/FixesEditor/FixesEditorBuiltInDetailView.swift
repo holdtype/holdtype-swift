@@ -9,7 +9,7 @@ struct FixesEditorBuiltInDetailView: View {
             Section {
                 Label {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Built-in Fix")
+                        Text("Built-in \(presentation.title)")
                             .fontWeight(.semibold)
                         Text(presentation.detail)
                             .font(.caption)

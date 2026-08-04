@@ -53,7 +53,7 @@ struct TextFixActionTests {
             try TextFixAction(
                 id: TextFixAction.fixIdentifier,
                 kind: .fix,
-                title: "Fix",
+                title: "Correct Text",
                 icon: .custom,
                 prompt: nil
             )
@@ -62,7 +62,7 @@ struct TextFixActionTests {
             try TextFixAction(
                 id: TextFixAction.fixIdentifier,
                 kind: .fix,
-                title: "Fix",
+                title: "Correct Text",
                 icon: .fix,
                 prompt: "Not allowed"
             )

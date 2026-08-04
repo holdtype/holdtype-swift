@@ -49,7 +49,7 @@ struct FixesPalettePanelControllerTests {
         controller.show(model: model, accessibilityAnchorRect: nil)
         defer { controller.hide() }
 
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
         #expect(controller.handleKeyboardCommand(.moveDown))
         #expect(model.selectedActionID == TextFixAction.fixIdentifier)
 

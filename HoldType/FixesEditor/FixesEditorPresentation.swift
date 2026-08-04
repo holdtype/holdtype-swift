@@ -68,7 +68,7 @@ struct FixesEditorBuiltInPresentation: Equatable {
             detail =
                 "Uses your saved Translation route and model. Edit those values in Settings."
         case .fix:
-            title = "Fix"
+            title = "Correct Text"
             detail =
                 "Uses your saved Writing & Correction model and prompt without changing automatic correction."
         case .customPrompt:
@@ -119,7 +119,7 @@ extension TextFixIcon {
         case .translate:
             return "Translate"
         case .fix:
-            return "Fix"
+            return "Correct Text"
         case .improveWriting:
             return "Improve Writing"
         case .makeShorter:

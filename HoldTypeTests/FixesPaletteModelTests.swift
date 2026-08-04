@@ -42,7 +42,7 @@ struct FixesPaletteModelTests {
 
     @Test func clearingSearchRestoresRecentMenuAndClearsSelection() {
         let model = makeModel()
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
         #expect(model.visibleActions.isEmpty == false)
 
         model.setSearchText("")
@@ -109,7 +109,7 @@ struct FixesPaletteModelTests {
 
     @Test func arrowMovementClampsAtListEdges() {
         let model = makeModel()
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
 
         model.moveSelection(.up)
         #expect(model.selectedActionID == model.visibleActions.first?.id)
@@ -144,7 +144,7 @@ struct FixesPaletteModelTests {
     @Test func retryableFailureAllowsAnotherActivation() {
         var activatedIDs: [String] = []
         let model = makeModel { activatedIDs.append($0) }
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
         model.updateStatus(
             .failure(message: "The service is temporarily unavailable.", allowsRetry: true)
         )
@@ -159,7 +159,7 @@ struct FixesPaletteModelTests {
     @Test func unavailableAndStaleStatesBlockActivation() {
         var activationCount = 0
         let model = makeModel { _ in activationCount += 1 }
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
 
         model.updateStatus(.unavailable(message: "Select some text."))
         model.activateSelection()
@@ -181,7 +181,7 @@ struct FixesPaletteModelTests {
         model.requestDismissal()
         model.requestDismissal()
         model.activateSelection()
-        model.setSearchText("Fix")
+        model.setSearchText("Correct")
 
         #expect(dismissCount == 1)
         #expect(activationCount == 0)

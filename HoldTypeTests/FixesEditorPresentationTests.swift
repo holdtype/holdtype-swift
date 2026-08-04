@@ -45,6 +45,13 @@ struct FixesEditorPresentationTests {
         #expect(pending.subtitle == "Not saved")
     }
 
+    @Test func builtInCorrectionPresentationUsesCorrectTextTitle() {
+        let action = TextFixCatalog.defaults.actions[1]
+        let presentation = FixesEditorBuiltInPresentation(action: action)
+
+        #expect(presentation?.title == "Correct Text")
+    }
+
     @Test func draftValidationUsesCharacterAndUTF8Limits() {
         let accepted = FixesEditorDraftValidation(
             title: String(
