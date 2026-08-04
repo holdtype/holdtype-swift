@@ -6,8 +6,8 @@ struct TranscriptionConfigurationTests {
         let configuration = TranscriptionConfiguration()
 
         #expect(configuration == .defaults)
-        #expect(configuration.model == "gpt-4o-transcribe")
-        #expect(configuration.resolvedModel == "gpt-4o-transcribe")
+        #expect(configuration.model == "gpt-transcribe")
+        #expect(configuration.resolvedModel == "gpt-transcribe")
         #expect(configuration.language == .automatic)
         #expect(configuration.customLanguageCode.isEmpty)
         #expect(configuration.resolvedLanguageCode == nil)

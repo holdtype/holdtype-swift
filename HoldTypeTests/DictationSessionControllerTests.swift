@@ -2309,7 +2309,7 @@ struct DictationSessionControllerTests {
                 )
             ]
         )
-        #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
+        #expect(usageRecorder.calls.map(\.model) == [AppSettings.defaultTranscriptionModel])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
     }
 
@@ -2350,7 +2350,7 @@ struct DictationSessionControllerTests {
         #expect(transcriptHistory.entries.isEmpty)
         #expect(transcriptOutput.calls.map(\.transcript) == ["accepted text"])
         #expect(usageRecorder.calls.count == 1)
-        #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
+        #expect(usageRecorder.calls.map(\.model) == [AppSettings.defaultTranscriptionModel])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
         #expect(
             controller.outputStatusText
@@ -2700,7 +2700,7 @@ struct DictationSessionControllerTests {
             usageRecorder.calls == [
                 try SuccessfulTranscriptionUsage(
                     transcriptionID: transcriptionID,
-                    model: "gpt-4o-transcribe",
+                    model: AppSettings.defaultTranscriptionModel,
                     audioDuration: 1.2
                 )
             ]
@@ -4447,7 +4447,7 @@ struct DictationSessionControllerTests {
             ]
         )
         #expect(transcriptHistory.entries.map(\.transcriptText) == ["Delivered text"])
-        #expect(usageRecorder.calls.map(\.model) == ["gpt-4o-transcribe"])
+        #expect(usageRecorder.calls.map(\.model) == [AppSettings.defaultTranscriptionModel])
         #expect(usageRecorder.calls.map(\.audioDuration) == [1.2])
         #expect(transcriptHistory.calls.first?.audioDuration == 1.2)
         #expect(failureRecovery.failedAttempts.isEmpty)

@@ -363,7 +363,7 @@ This spec covers:
 
 The MVP non-secret settings default to:
 
-- transcription model: `gpt-4o-transcribe`
+- transcription model: `gpt-transcribe`
 - language: Auto
 - custom language code: empty
 - prompt: empty

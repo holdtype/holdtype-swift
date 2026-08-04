@@ -70,7 +70,7 @@ and the OpenAI API key.
 
 ## Default configuration
 
-- transcription model: `gpt-4o-transcribe`
+- transcription model: `gpt-transcribe`
 - dictation language: Auto
 - custom language code and transcription prompt: empty
 - custom dictionary: empty

@@ -7,7 +7,7 @@ struct IOSAppSettingsRepositoryTests {
     @Test func runtimeValueHasDocumentedDefaultsAndIsNotAWireDTO() {
         let settings = IOSAppSettings.defaults
 
-        #expect(settings.transcriptionConfiguration == .defaults)
+        #expect(settings.transcriptionConfiguration.model == "gpt-transcribe")
         #expect(settings.textCorrectionConfiguration == .defaults)
         #expect(settings.localTextCleanupEnabled)
         #expect(settings.translationConfiguration == .defaults)

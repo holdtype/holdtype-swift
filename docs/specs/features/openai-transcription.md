@@ -52,10 +52,13 @@ This spec covers:
   completed temporary audio file to OpenAI's transcription endpoint.
 - The request must use `multipart/form-data` with the audio file and selected
   transcription settings.
-- The default model is `gpt-4o-transcribe`. The model remains a local setting
+- The default model is `gpt-transcribe`. The model remains a local setting
   so a later release can change it without code changes.
 - A blank model setting falls back to the default. A model rejected by OpenAI
   fails with a settings-focused error instead of silently changing providers.
+- Changing the default does not rewrite a non-blank saved model. Fresh,
+  missing, and blank values use the current default; explicit saved values
+  remain unchanged.
 - The app should produce an OpenAI-supported upload format for MVP recordings,
   preferably `m4a` or `wav`.
 - The current adapter accepts only an existing regular `m4a` or `wav` file. It

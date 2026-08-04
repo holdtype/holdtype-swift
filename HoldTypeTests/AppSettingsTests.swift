@@ -15,9 +15,9 @@ struct AppSettingsTests {
     @Test func defaultsMatchMVPContracts() {
         let settings = AppSettings.defaults
 
-        #expect(settings.transcriptionModel == "gpt-4o-transcribe")
+        #expect(settings.transcriptionModel == "gpt-transcribe")
         #expect(settings.transcriptionConfiguration == .defaults)
-        #expect(settings.resolvedTranscriptionModel == "gpt-4o-transcribe")
+        #expect(settings.resolvedTranscriptionModel == "gpt-transcribe")
         #expect(settings.language == .automatic)
         #expect(settings.resolvedLanguageCode == nil)
         #expect(settings.customLanguageCode.isEmpty)

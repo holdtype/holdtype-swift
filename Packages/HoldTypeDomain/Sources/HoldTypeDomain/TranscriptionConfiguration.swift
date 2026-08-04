@@ -1,7 +1,7 @@
 import Foundation
 
 public struct TranscriptionConfiguration: Equatable, Sendable {
-    public static let defaultModel = "gpt-4o-transcribe"
+    public static let defaultModel = "gpt-transcribe"
     public static let defaults = TranscriptionConfiguration()
 
     public var model: String
