@@ -16,6 +16,7 @@ This spec covers:
 - microphone consent
 - Accessibility consent for active-app paste automation
 - Input Monitoring consent when native global-hotkey listening requires it
+- the boundary of the system Permissions surface
 - recording visibility
 - OpenAI remote-service disclosure
 - immediate Fixes text-processing disclosure
@@ -48,7 +49,8 @@ This spec covers:
 - The product must disclose that audio is sent to OpenAI when OpenAI
   transcription is used.
 - Settings must include a concise OpenAI audio-processing disclosure near the
-  relevant transcription or permissions controls.
+  relevant transcription controls, not as an application-owned item in
+  Permissions.
 - If the user enables nearby text context, the product must disclose that a
   short excerpt from the active editable text field may also be sent to OpenAI
   with the recording to improve continuation quality.
@@ -58,9 +60,10 @@ This spec covers:
 - When the translation shortcut is enabled, the product must disclose that the
   post-correction transcript text may be sent to OpenAI in a separate
   translation request before output delivery.
-- Before immediate Fixes are available, the product must disclose that running
-  a Fix sends the selected text, or the complete compatible field when nothing
-  is selected, plus the chosen instruction to OpenAI.
+- The Fixes feature surface must show a concise, non-blocking disclosure that
+  running a Fix sends the selected text, or the complete compatible field when
+  nothing is selected, plus the chosen instruction to OpenAI. This disclosure
+  is not a system permission, consent switch, or availability gate.
 - HoldType Keyboard sends only the user-invoked Fix source through bounded
   transient App Group coordination to the containing app. Ordinary keystrokes
   and unrelated surrounding host text remain excluded.
@@ -173,9 +176,14 @@ This spec covers:
   recording action must keep recording inactive. For first-time microphone
   permission it may show the platform prompt; otherwise it must open Settings
   focused on Permissions.
-- Permissions settings should show microphone, Accessibility, and Input
-  Monitoring status using product language and provide a bounded next action
-  such as requesting permission or opening the relevant System Settings pane.
+- Permissions settings are exclusively a status and request surface for genuine
+  macOS permissions: Microphone, Accessibility, and Input Monitoring. They
+  must show each status using product language and provide a bounded next
+  action such as requesting permission or opening the relevant System Settings
+  pane.
+- Permissions must not contain application-owned feature toggles, consent
+  switches, defaults, gates, or detailed remote-processing copy. In particular,
+  an OpenAI Text Fixes control or a Fixes disclosure does not belong there.
 - Launch at login is system-managed availability setup, not a TCC privacy
   permission. It must not appear as a required permission, must not block
   recording, and must not be included in required setup warning banners.
@@ -187,6 +195,10 @@ This spec covers:
 - Input Monitoring is an optional global-shortcut capability unless an enabled
   production hotkey path requires it. Missing Input Monitoring must not by
   itself open Settings as a required startup setup surface.
+- Input Monitoring is not a prerequisite for an immediate Fix after a Fixes
+  action has been invoked by a path that is already available. It is required
+  only when the selected global shortcut invocation path needs macOS key
+  monitoring outside HoldType.
 - The Accessibility next action must actively request macOS Accessibility trust
   before or alongside opening System Settings. It must not only deep-link to an
   empty Accessibility list.
@@ -354,6 +366,10 @@ This spec covers:
 - The Permissions Settings warning banner must not check, display, or link to
   OpenAI API key setup. Missing-key handling belongs to the OpenAI Settings
   surface.
+- The Permissions Settings warning banner must not check, display, or link to
+  Fixes-specific consent or disclosure. Missing Accessibility for a macOS
+  active-app Fix is a system-permission blocker; missing API key handling
+  belongs to the OpenAI Settings surface.
 
 ## Invariants
 
@@ -363,6 +379,8 @@ This spec covers:
 - No hidden background recording.
 - No remote provider other than OpenAI without a product-level decision and
   user-visible disclosure.
+- The Permissions surface must not represent an app-owned feature choice or
+  remote-processing disclosure as a macOS permission.
 - No persistent audio outside the explicit local recording cache setting and
   bounded session-only failed-attempt recovery.
 - Recording cache controls must show local disk usage and provide a way to

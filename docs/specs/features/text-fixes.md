@@ -86,9 +86,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   revision or fingerprint.
 - Custom Fixes use the saved Writing & Correction model with their own prompt.
   They do not inherit transcript-correction length-ratio safety rules.
-- Every remote request uses the current app-owned OpenAI credential, current
-  provider consent, `store: false`, explicit cancellation, and a 20-second
-  maximum wait.
+- Every remote request uses the current app-owned OpenAI credential, any
+  platform-level provider authorization that applies, `store: false`, explicit
+  cancellation, and a 20-second maximum wait.
 - Custom Fix output is used exactly as returned. HoldType does not trim,
   normalize typography, strip Markdown, or rewrite meaningful whitespace.
   Empty or whitespace-only output is invalid.
@@ -120,6 +120,12 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   retried only while the original target snapshot still validates.
 - If `Option+J` cannot be registered, HoldType keeps dictation and menu
   controls available and reports the Fixes shortcut as unavailable.
+- On macOS, an immediate Fix is available by default when its source is
+  compatible, an OpenAI API key is available, and Accessibility trust permits
+  active-app text access. It does not require a separate Fixes consent.
+- Input Monitoring is required only when the chosen global shortcut invocation
+  path needs it. It is not required for a Fixes action invoked through an
+  already-available path.
 - The menu bar exposes `Fixes…` and `Edit Fixes…`. Opening a HoldType-owned
   editor never changes the captured external target.
 - The Fixes editor is a normal native window with search, Add, title, prompt,
@@ -171,8 +177,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - An encoded request is limited to 40 KiB, including a source already limited
   to 32 KiB and opaque identifier or fingerprint strings each limited to 128
   UTF-8 bytes.
-- The containing app resolves the action and prompt, checks consent and
-  credential, performs the provider request, and publishes one bounded result.
+- The containing app resolves the action and prompt, checks the applicable iOS
+  provider authorization and credential, performs the provider request, and
+  publishes one bounded result.
 - A result is limited to 64 KiB of UTF-8 output and 72 KiB of encoded JSON.
   Closed error codes are limited to 256 UTF-8 bytes. Any count, member, or
   encoded-size overflow fails closed without truncating text.
@@ -191,12 +198,14 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Privacy And Data
 
-- Settings disclose that running a Fix sends the selected text or complete
-  compatible field plus the chosen instruction to OpenAI.
-- On macOS, Settings pairs that disclosure with an `Allow OpenAI Text Fixes`
-  control. Acceptance is versioned locally; a missing, revoked, or outdated
-  acceptance keeps immediate Fixes unavailable and names the Settings action
-  required to enable them.
+- The macOS Fixes editor or action surface shows concise, non-blocking copy
+  that running a Fix sends the selected text or complete compatible field plus
+  the chosen instruction to OpenAI. The disclosure does not appear in
+  Permissions.
+- macOS has no `Allow OpenAI Text Fixes` control, versioned local Fixes
+  acceptance, or other app-owned consent gate. A compatible immediate Fix is
+  enabled by default when its OpenAI API key and Accessibility prerequisites
+  are available.
 - iOS disclosure contract version `4` explains that a user-invoked Fix sends
   only its selected source plus the chosen instruction to OpenAI. An acceptance
   of version `3` or older requires review before the first later provider
@@ -211,8 +220,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Default product logs contain action identifiers and closed outcome
   categories only. They contain no source, result, prompt, field context, API
   key, or provider body.
-- No action performs a remote request until current provider consent and a
-  credential are available.
+- No action performs a remote request until its applicable platform-level
+  provider authorization and credential are available. On macOS, the Fixes
+  feature has no separate provider-consent requirement.
 
 ## Invariants
 
@@ -226,8 +236,10 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Failure Policy
 
-- Missing permission, consent, credential, Full Access, or Translation route
-  produces a concise actionable blocked state and no provider request.
+- Missing required permission, applicable platform-level provider
+  authorization, credential, Full Access, or Translation route produces a
+  concise actionable blocked state and no provider request. On macOS, a Fixes
+  action must not be blocked by an app-owned consent state.
 - Provider, timeout, cancellation, invalid-output, and local-save failures
   preserve the source.
 - If a catalog cannot be loaded, existing text surfaces remain usable and
