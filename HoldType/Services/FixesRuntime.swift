@@ -135,22 +135,25 @@ final class FixesRuntime: ObservableObject {
             return
         }
 
-        invocationFeedbackPresenter.hide()
-        let captureResult = Result {
-            try targetService.capture()
-        }
-        recordCapture(captureResult)
-        switch captureResult {
-        case .success:
-            startPalettePreparation(captureResult: captureResult)
-        case .failure(let error):
+        switch targetService.captureForFixesInvocation() {
+        case .noFocusedTextTarget(let error):
+            recordCapture(error)
+        case .unusableTextTarget(let error):
+            recordCapture(error)
             resetPalettePreparation()
-            invocationFeedbackPresenter.show(message: Self.userFacingMessage(for: error))
+            invocationFeedbackPresenter.hide()
+            invocationFeedbackPresenter.show(
+                message: Self.userFacingMessage(for: error)
+            )
+        case .ready(let snapshot):
+            eventLogger.record(.capture(outcome: .succeeded))
+            invocationFeedbackPresenter.hide()
+            startPalettePreparation(snapshot: snapshot)
         }
     }
 
     private func startPalettePreparation(
-        captureResult: Result<FocusedTextTargetSnapshot, Error>
+        snapshot: FocusedTextTargetSnapshot
     ) {
         resetPalettePreparation()
         preparationTask = Task { @MainActor [weak self] in
@@ -169,7 +172,7 @@ final class FixesRuntime: ObservableObject {
                 return
             }
             self.present(
-                captureResult: captureResult,
+                snapshot: snapshot,
                 catalogResult: catalogResult
             )
             self.preparationTask = nil
@@ -193,15 +196,11 @@ final class FixesRuntime: ObservableObject {
     }
 
     private func present(
-        captureResult: Result<FocusedTextTargetSnapshot, Error>,
+        snapshot: FocusedTextTargetSnapshot,
         catalogResult: Result<TextFixCatalog, Error>
     ) {
         let catalog = (try? catalogResult.get()) ?? .defaults
-        let snapshot = try? captureResult.get()
-        let status = initialStatus(
-            captureResult: captureResult,
-            catalogResult: catalogResult
-        )
+        let status = initialStatus(catalogResult: catalogResult)
 
         presentedCatalog = catalog
         presentedSnapshot = snapshot
@@ -221,23 +220,16 @@ final class FixesRuntime: ObservableObject {
         paletteModel = model
         panelPresenter.show(
             model: model,
-            accessibilityAnchorRect: snapshot?.anchorRect
+            accessibilityAnchorRect: snapshot.anchorRect
         )
     }
 
     private func initialStatus(
-        captureResult: Result<FocusedTextTargetSnapshot, Error>,
         catalogResult: Result<TextFixCatalog, Error>
     ) -> FixesPaletteStatus {
         if case .failure(let error) = catalogResult {
             eventLogger.record(
                 .availability(outcome: .blockedCatalogUnavailable)
-            )
-            return .unavailable(message: Self.userFacingMessage(for: error))
-        }
-        if case .failure(let error) = captureResult {
-            eventLogger.record(
-                .availability(outcome: .blockedTargetUnavailable)
             )
             return .unavailable(message: Self.userFacingMessage(for: error))
         }
@@ -363,19 +355,10 @@ final class FixesRuntime: ObservableObject {
         }
     }
 
-    private func recordCapture(
-        _ result: Result<FocusedTextTargetSnapshot, Error>
-    ) {
-        switch result {
-        case .success:
-            eventLogger.record(.capture(outcome: .succeeded))
-        case .failure(let error):
-            eventLogger.record(
-                .capture(
-                    outcome: FixesCaptureOutcome.closedCategory(for: error)
-                )
-            )
-        }
+    private func recordCapture(_ error: Error) {
+        eventLogger.record(
+            .capture(outcome: FixesCaptureOutcome.closedCategory(for: error))
+        )
     }
 
     private func snapshotStillValid(

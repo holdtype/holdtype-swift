@@ -48,17 +48,39 @@ struct FixesRuntimeTests {
         #expect(translate.title == "Translate to EN")
     }
 
-    @Test func unavailableTargetShowsFeedbackWithoutOpeningPalette() throws {
+    @Test func noFocusedTargetDoesNothing() async throws {
         let fixture = try makeFixture()
         fixture.targetClient.state = nil
 
         fixture.runtime.showPalette()
 
         #expect(fixture.panel.model == nil)
+        #expect(fixture.invocationFeedback.messages.isEmpty)
+        #expect(fixture.execution.calls.isEmpty)
+        #expect(await fixture.catalogStore.loadCount() == 0)
+    }
+
+    @Test func unusableFocusedTextFieldShowsFeedbackWithoutOpeningPalette() async throws {
+        let fixture = try makeFixture()
+        let state = try #require(fixture.targetClient.state)
+        fixture.targetClient.state = FocusedTextElementState(
+            token: state.token,
+            processIdentifier: state.processIdentifier,
+            text: state.text,
+            selectedRange: state.selectedRange,
+            anchorRect: state.anchorRect,
+            isSecure: true
+        )
+
+        fixture.runtime.showPalette()
+
+        #expect(fixture.panel.model == nil)
         #expect(
             fixture.invocationFeedback.messages
-                == ["Fixes is not available for this text field."]
+                == ["Fixes is not available in secure text fields."]
         )
+        #expect(fixture.execution.calls.isEmpty)
+        #expect(await fixture.catalogStore.loadCount() == 0)
     }
 
     @Test func selectedActionTransformsAndReplacesTheFrozenSource() async throws {
@@ -236,6 +258,7 @@ struct FixesRuntimeTests {
         return FixesRuntimeFixture(
             runtime: runtime,
             targetClient: targetClient,
+            catalogStore: catalogStore,
             replacement: replacement,
             execution: execution,
             panel: panel,
@@ -263,6 +286,7 @@ struct FixesRuntimeTests {
 private struct FixesRuntimeFixture {
     let runtime: FixesRuntime
     let targetClient: FixesRuntimeTargetClient
+    let catalogStore: FixesRuntimeCatalogStore
     let replacement: FixesRuntimeReplacementService
     let execution: FixesRuntimeExecutionService
     let panel: FixesRuntimePanelPresenter
@@ -283,13 +307,19 @@ private final class FixesRuntimeSettingsBox {
 
 private actor FixesRuntimeCatalogStore: MacOSTextFixCatalogStoring {
     let catalog: TextFixCatalog
+    private var loads = 0
 
     init(catalog: TextFixCatalog) {
         self.catalog = catalog
     }
 
     func load() async throws -> TextFixCatalog {
-        catalog
+        loads += 1
+        return catalog
+    }
+
+    func loadCount() -> Int {
+        loads
     }
 
     func save(_ catalog: TextFixCatalog) async throws -> TextFixCatalog {

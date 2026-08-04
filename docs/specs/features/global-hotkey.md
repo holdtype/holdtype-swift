@@ -92,12 +92,17 @@ This spec covers:
 - Paste Last Result must not write transcript text to the macOS system
   clipboard.
 - The immediate Fixes palette shortcut is `Option+J`.
-- `Option+J` captures the current compatible external text target and opens the
-  palette governed by `text-fixes.md`. It does not start recording or reuse the
-  current-line behavior of another product.
-- The shortcut must be suppressed from the target app only when HoldType has
-  accepted the invocation. Failed or unavailable registration must not make
-  ordinary `Option+J` typing disappear silently.
+- Fixes accepts a press only after the configured key and every configured
+  modifier were observed together. A bare configured key (for the default,
+  `J` without Option) is not a Fixes invocation and must not trigger
+  Accessibility inspection or any Fixes UI.
+- A confirmed Fixes shortcut captures the current external text target and
+  opens the palette only when that target is compatible, as governed by
+  `text-fixes.md`. It does not start recording or reuse the current-line
+  behavior of another product.
+- The Fixes listener must preserve ordinary key input. In particular, failed or
+  unavailable registration and a bare configured key must not make typing
+  disappear silently.
 - If `Option+J` conflicts with another owner, HoldType keeps dictation and menu
   controls usable and reports only the Fixes shortcut as unavailable. The menu
   does not provide a fallback for opening the Fixes palette.

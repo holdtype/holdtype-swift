@@ -1,4 +1,5 @@
 import Carbon.HIToolbox
+import CoreGraphics
 import Testing
 @testable import HoldType
 
@@ -13,19 +14,85 @@ struct FixesHotkeyServiceTests {
         #expect(shortcut.menuKeyEquivalentText == "⌥J")
     }
 
-    @Test func carbonRegistrationUsesOptionJOnRelease() {
-        #expect(
-            FixesHotkeyCarbonRegistration.keyCode
-                == UInt32(kVK_ANSI_J)
+    @Test func bareJDoesNotActivateFixes() {
+        var mapper = FixesHotkeyEventMapper(shortcut: .fixesPalette)
+
+        let keyDown = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: []
         )
-        #expect(
-            FixesHotkeyCarbonRegistration.modifiers
-                == UInt32(optionKey)
+        let keyUp = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: []
         )
-        #expect(
-            FixesHotkeyCarbonRegistration.eventKind
-                == UInt32(kEventHotKeyReleased)
+
+        #expect(!keyDown)
+        #expect(!keyUp)
+    }
+
+    @Test func optionJActivatesOnceOnRelease() {
+        var mapper = FixesHotkeyEventMapper(shortcut: .fixesPalette)
+
+        let keyDown = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: [.maskAlternate]
         )
+        let repeatedKeyDown = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: [.maskAlternate]
+        )
+        let keyUp = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: [.maskAlternate]
+        )
+        let repeatedKeyUp = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: []
+        )
+
+        #expect(!keyDown)
+        #expect(!repeatedKeyDown)
+        #expect(keyUp)
+        #expect(!repeatedKeyUp)
+    }
+
+    @Test func configuredShortcutRequiresEveryConfiguredModifier() {
+        let shortcut = GlobalHotkeyShortcut(
+            modifiers: [.control, .option],
+            key: "J",
+            keyCode: UInt16(kVK_ANSI_J)
+        )
+        var mapper = FixesHotkeyEventMapper(shortcut: shortcut)
+
+        _ = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: [.maskAlternate]
+        )
+        let incompleteRelease = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: []
+        )
+        _ = mapper.event(
+            type: .keyDown,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: [.maskControl, .maskAlternate]
+        )
+        let confirmedRelease = mapper.event(
+            type: .keyUp,
+            keyCode: Int64(kVK_ANSI_J),
+            flags: []
+        )
+
+        #expect(!incompleteRelease)
+        #expect(confirmedRelease)
     }
 
     @Test func coordinatorRegistersOnceAndForwardsActions() {
@@ -65,7 +132,7 @@ struct FixesHotkeyServiceTests {
         #expect(
             coordinator.registrationStatus
                 == FixesHotkeyRegistrationStatus.unavailable(
-                    message: "Could not register Option+J for Fixes."
+                    message: "Could not register the Fixes shortcut."
                 )
         )
     }

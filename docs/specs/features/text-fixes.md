@@ -115,16 +115,26 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 - `Option+J` is the default global Fixes shortcut. Product UI renders it as
   `⌥J`.
+- Fixes reacts only to a confirmed press and release of its configured shortcut.
+  A matching letter without every configured modifier is ordinary typing: it
+  does not inspect the Accessibility focus, open UI, or start a request.
 - The shortcut captures the current external text target before opening UI.
+- When no external compatible text target is focused, including a web page or
+  other non-text element, Fixes does nothing. It does not open a palette or an
+  explanatory dialog.
+- When a focused external text control is found but cannot be used (for
+  example it is secure, blank, exposes an invalid selection, or exceeds the
+  source limit), Fixes does not open a palette and shows the compact Fixes
+  dialog described below.
 - A compact searchable palette opens centered in the visible area of the
   display containing the active text target.
-- If HoldType cannot capture a compatible external target, it does not open a
-  palette. It instead shows a compact centered Fixes dialog with a clear title,
-  fully readable explanatory text, and one `OK` button. The dialog closes when
-  the user chooses `OK`, presses Escape, clicks outside it, or after four
-  seconds. It has no search, Fix rows, keyboard selection, or alert sound.
-  This applies before a Fix action is chosen. Failures after an action has
-  started remain in the palette when retry or stale-target context is useful.
+- The compact centered Fixes dialog has a clear title, fully readable
+  explanatory text, and one `OK` button. It closes when the user chooses `OK`,
+  presses Escape, clicks outside it, or after four seconds. It has no search,
+  Fix rows, keyboard selection, or alert sound. It is shown only for a found
+  but unusable text control before a Fix action is chosen. Failures after an
+  action has started remain in the palette when retry or stale-target context
+  is useful.
 - The palette opens with up to five enabled Fix rows. It orders previously
   successful actions by most recent use, then fills remaining places from the
   stable catalog order so a new user has clear examples.

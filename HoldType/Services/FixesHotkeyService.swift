@@ -1,4 +1,5 @@
 import Carbon.HIToolbox
+import CoreGraphics
 import Foundation
 
 protocol FixesHotkeyListening: AnyObject {
@@ -14,14 +15,59 @@ enum FixesHotkeyRegistrationStatus: Equatable {
     case unavailable(message: String)
 }
 
-final class CarbonFixesHotkeyService: FixesHotkeyListening {
+struct FixesHotkeyEventMapper {
+    private let shortcut: GlobalHotkeyShortcut
+    private var isShortcutPressed = false
+
+    init(shortcut: GlobalHotkeyShortcut) {
+        self.shortcut = shortcut
+    }
+
+    mutating func event(
+        type: CGEventType,
+        keyCode: Int64,
+        flags: CGEventFlags
+    ) -> Bool {
+        switch type {
+        case .keyDown:
+            guard !isShortcutPressed,
+                  Int64(shortcut.keyCode) == keyCode,
+                  flags.contains(shortcut.eventFlags)
+            else {
+                return false
+            }
+            isShortcutPressed = true
+            return false
+        case .keyUp:
+            guard isShortcutPressed,
+                  Int64(shortcut.keyCode) == keyCode
+            else {
+                return false
+            }
+            isShortcutPressed = false
+            return true
+        default:
+            return false
+        }
+    }
+
+    mutating func reset() {
+        isShortcutPressed = false
+    }
+}
+
+final class CGEventFixesHotkeyService: FixesHotkeyListening {
     private let configurationStore: ShortcutConfigurationStore
     private var hotKeyRef: EventHotKeyRef?
-    private var eventHandlerRef: EventHandlerRef?
-    private var handlerBox: FixesHotkeyHandlerBox?
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    private var handler: (() -> Void)?
+    private var eventMapper = FixesHotkeyEventMapper(
+        shortcut: .fixesPalette
+    )
 
     var isListening: Bool {
-        hotKeyRef != nil
+        hotKeyRef != nil && eventTap != nil
     }
 
     init(configurationStore: ShortcutConfigurationStore = ShortcutConfigurationStore()) {
@@ -31,70 +77,98 @@ final class CarbonFixesHotkeyService: FixesHotkeyListening {
     func start(handler: @escaping () -> Void) throws {
         stop()
 
-        let handlerBox = FixesHotkeyHandlerBox(handler: handler)
-        self.handlerBox = handlerBox
-
-        var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard),
-            eventKind: FixesHotkeyCarbonRegistration.eventKind
-        )
-        var newEventHandlerRef: EventHandlerRef?
-        let installStatus = InstallEventHandler(
-            GetApplicationEventTarget(),
-            fixesHotkeyEventHandler,
-            1,
-            &eventType,
-            Unmanaged.passUnretained(handlerBox).toOpaque(),
-            &newEventHandlerRef
-        )
-
-        guard installStatus == noErr else {
-            self.handlerBox = nil
-            throw FixesHotkeyServiceError.registrationFailed(
-                status: installStatus
-            )
-        }
-
-        var newHotKeyRef: EventHotKeyRef?
         let shortcut = configurationStore.load().fixes
-        let hotKeyID = EventHotKeyID(
-            signature: FixesHotkeyCarbonID.signature,
-            id: FixesHotkeyCarbonID.id
-        )
-        let registerStatus = RegisterEventHotKey(
+        var newHotKeyRef: EventHotKeyRef?
+        let registrationStatus = RegisterEventHotKey(
             UInt32(shortcut.keyCode),
             shortcut.carbonModifiers,
-            hotKeyID,
+            EventHotKeyID(
+                signature: FixesHotkeyCarbonID.signature,
+                id: FixesHotkeyCarbonID.id
+            ),
             GetApplicationEventTarget(),
             0,
             &newHotKeyRef
         )
-
-        guard registerStatus == noErr else {
-            if let newEventHandlerRef {
-                RemoveEventHandler(newEventHandlerRef)
-            }
-            self.handlerBox = nil
+        guard registrationStatus == noErr, let newHotKeyRef else {
             throw FixesHotkeyServiceError.registrationFailed(
-                status: registerStatus
+                status: registrationStatus
             )
         }
 
-        eventHandlerRef = newEventHandlerRef
+        let eventMask = CGEventMask(
+            (1 << CGEventType.keyDown.rawValue)
+                | (1 << CGEventType.keyUp.rawValue)
+        )
+        guard let newEventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: eventMask,
+            callback: fixesHotkeyEventTapCallback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            UnregisterEventHotKey(newHotKeyRef)
+            throw FixesHotkeyServiceError.registrationUnavailable(
+                message: "Input Monitoring is required for the Fixes shortcut."
+            )
+        }
+
+        guard let newRunLoopSource = CFMachPortCreateRunLoopSource(
+            kCFAllocatorDefault,
+            newEventTap,
+            0
+        ) else {
+            CFMachPortInvalidate(newEventTap)
+            UnregisterEventHotKey(newHotKeyRef)
+            throw FixesHotkeyServiceError.registrationUnavailable(
+                message: "Could not start the Fixes shortcut listener."
+            )
+        }
+
         hotKeyRef = newHotKeyRef
+        eventTap = newEventTap
+        runLoopSource = newRunLoopSource
+        eventMapper = FixesHotkeyEventMapper(shortcut: shortcut)
+        self.handler = handler
+        CFRunLoopAddSource(CFRunLoopGetMain(), newRunLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: newEventTap, enable: true)
     }
 
     func stop() {
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        }
+        if let eventTap {
+            CFMachPortInvalidate(eventTap)
+        }
         if let hotKeyRef {
             UnregisterEventHotKey(hotKeyRef)
         }
-        if let eventHandlerRef {
-            RemoveEventHandler(eventHandlerRef)
-        }
 
         self.hotKeyRef = nil
-        self.eventHandlerRef = nil
-        handlerBox = nil
+        self.eventTap = nil
+        self.runLoopSource = nil
+        handler = nil
+        eventMapper.reset()
+    }
+
+    fileprivate func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
+        if eventMapper.event(
+            type: type,
+            keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            flags: event.flags
+        ) {
+            handler?()
+        }
+        return Unmanaged.passUnretained(event)
     }
 
     deinit {
@@ -112,7 +186,7 @@ final class FixesHotkeyCoordinator {
 
     init(
         hotkeyService: any FixesHotkeyListening =
-            CarbonFixesHotkeyService()
+            CGEventFixesHotkeyService()
     ) {
         self.hotkeyService = hotkeyService
     }
@@ -154,16 +228,16 @@ final class FixesHotkeyCoordinator {
 
 enum FixesHotkeyServiceError: Error, Equatable, LocalizedError {
     case registrationFailed(status: OSStatus)
+    case registrationUnavailable(message: String)
 
     var errorDescription: String? {
-        "Could not register Option+J for Fixes."
+        switch self {
+        case .registrationFailed:
+            return "Could not register the Fixes shortcut."
+        case .registrationUnavailable(let message):
+            return message
+        }
     }
-}
-
-enum FixesHotkeyCarbonRegistration {
-    static let keyCode = UInt32(kVK_ANSI_J)
-    static let modifiers = UInt32(optionKey)
-    static let eventKind = UInt32(kEventHotKeyReleased)
 }
 
 private enum FixesHotkeyCarbonID {
@@ -171,43 +245,18 @@ private enum FixesHotkeyCarbonID {
     static let id: UInt32 = 2
 }
 
-private final class FixesHotkeyHandlerBox {
-    let handler: () -> Void
-
-    init(handler: @escaping () -> Void) {
-        self.handler = handler
-    }
-}
-
-private func fixesHotkeyEventHandler(
-    nextHandler: EventHandlerCallRef?,
-    event: EventRef?,
-    userData: UnsafeMutableRawPointer?
-) -> OSStatus {
-    guard let event, let userData else {
-        return noErr
+private func fixesHotkeyEventTapCallback(
+    _ proxy: CGEventTapProxy,
+    _ type: CGEventType,
+    event: CGEvent,
+    _ userInfo: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+    guard let userInfo else {
+        return Unmanaged.passUnretained(event)
     }
 
-    var hotKeyID = EventHotKeyID()
-    let status = GetEventParameter(
-        event,
-        EventParamName(kEventParamDirectObject),
-        EventParamType(typeEventHotKeyID),
-        nil,
-        MemoryLayout<EventHotKeyID>.size,
-        nil,
-        &hotKeyID
-    )
-    guard status == noErr,
-          hotKeyID.signature == FixesHotkeyCarbonID.signature,
-          hotKeyID.id == FixesHotkeyCarbonID.id
-    else {
-        return noErr
-    }
-
-    let handlerBox = Unmanaged<FixesHotkeyHandlerBox>
-        .fromOpaque(userData)
+    let service = Unmanaged<CGEventFixesHotkeyService>
+        .fromOpaque(userInfo)
         .takeUnretainedValue()
-    handlerBox.handler()
-    return noErr
+    return service.handle(type: type, event: event)
 }

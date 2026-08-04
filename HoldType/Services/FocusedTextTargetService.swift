@@ -7,6 +7,18 @@ enum FocusedTextSourceKind: Equatable {
     case completeField
 }
 
+enum FocusedTextTargetProbe {
+    case noFocusedTextTarget
+    case unsupportedTextTarget
+    case state(FocusedTextElementState)
+}
+
+enum FixesInvocationTargetCapture {
+    case noFocusedTextTarget(FocusedTextTargetError)
+    case unusableTextTarget(FocusedTextTargetError)
+    case ready(FocusedTextTargetSnapshot)
+}
+
 final class FocusedTextElementToken: @unchecked Sendable, Hashable {
     let rawElement: AXUIElement?
 
@@ -153,6 +165,15 @@ protocol FocusedTextTargetClient: AnyObject {
     func isFocused(_ token: FocusedTextElementToken) -> Bool
 }
 
+extension FocusedTextTargetClient {
+    func focusedTargetProbe() -> FocusedTextTargetProbe {
+        guard let state = focusedElement() else {
+            return .noFocusedTextTarget
+        }
+        return .state(state)
+    }
+}
+
 @MainActor
 struct FocusedTextTargetService {
     static let maximumSourceByteCount = 32 * 1_024
@@ -183,11 +204,38 @@ struct FocusedTextTargetService {
         guard accessibilityPermissionService.currentStatus() == .trusted else {
             throw FocusedTextTargetError.accessibilityNotTrusted
         }
-        guard let state = client.focusedElement() else {
+
+        switch client.focusedTargetProbe() {
+        case .state(let state):
+            return try makeSnapshot(from: state)
+        case .noFocusedTextTarget,
+             .unsupportedTextTarget:
             throw FocusedTextTargetError.unavailable
         }
+    }
 
-        return try makeSnapshot(from: state)
+    func captureForFixesInvocation() -> FixesInvocationTargetCapture {
+        guard accessibilityPermissionService.currentStatus() == .trusted else {
+            return .noFocusedTextTarget(.accessibilityNotTrusted)
+        }
+
+        switch client.focusedTargetProbe() {
+        case .noFocusedTextTarget:
+            return .noFocusedTextTarget(.unavailable)
+        case .unsupportedTextTarget:
+            return .unusableTextTarget(.unavailable)
+        case .state(let state):
+            do {
+                return .ready(try makeSnapshot(from: state))
+            } catch let error as FocusedTextTargetError {
+                if error == .holdTypeOwnsFocus {
+                    return .noFocusedTextTarget(error)
+                }
+                return .unusableTextTarget(error)
+            } catch {
+                return .unusableTextTarget(.unavailable)
+            }
+        }
     }
 
     func validate(_ snapshot: FocusedTextTargetSnapshot) throws {

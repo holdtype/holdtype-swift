@@ -5,14 +5,28 @@ import Foundation
 @MainActor
 final class AXFocusedTextTargetClient: FocusedTextTargetClient {
     func focusedElement() -> FocusedTextElementState? {
-        guard let element = copyFocusedElement() else {
+        guard case .state(let state) = focusedTargetProbe() else {
             return nil
         }
+        return state
+    }
 
-        return makeState(
+    func focusedTargetProbe() -> FocusedTextTargetProbe {
+        guard let element = copyFocusedElement() else {
+            return .noFocusedTextTarget
+        }
+
+        guard isTextControl(element) else {
+            return .noFocusedTextTarget
+        }
+
+        guard let state = makeState(
             from: element,
             token: FocusedTextElementToken(rawElement: element)
-        )
+        ) else {
+            return .unsupportedTextTarget
+        }
+        return .state(state)
     }
 
     func currentState(
@@ -111,6 +125,15 @@ final class AXFocusedTextTargetClient: FocusedTextTargetClient {
             anchorRect: copyBounds(for: anchorRange, from: element),
             isSecure: false
         )
+    }
+
+    private func isTextControl(_ element: AXUIElement) -> Bool {
+        let role = copyStringAttribute(
+            from: element,
+            attribute: kAXRoleAttribute
+        )
+        return role == (kAXTextFieldRole as String)
+            || role == (kAXTextAreaRole as String)
     }
 
     private func copyFocusedElement() -> AXUIElement? {

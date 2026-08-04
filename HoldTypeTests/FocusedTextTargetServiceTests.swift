@@ -83,6 +83,38 @@ struct FocusedTextTargetServiceTests {
         }
     }
 
+    @Test func invocationCaptureSeparatesNoTargetFromUnusableTextField() {
+        let client = FakeFocusedTextTargetClient(state: nil)
+        let service = makeService(client: client)
+
+        switch service.captureForFixesInvocation() {
+        case .noFocusedTextTarget(.unavailable):
+            break
+        default:
+            Issue.record("Expected no focused text target")
+        }
+
+        client.state = state(text: "", isSecure: true)
+        switch service.captureForFixesInvocation() {
+        case .unusableTextTarget(.secureField):
+            break
+        default:
+            Issue.record("Expected unusable secure text target")
+        }
+
+        client.state = state(text: "Text", processIdentifier: 99)
+        let ownFocusService = makeService(
+            client: client,
+            holdTypeProcessIdentifier: 99
+        )
+        switch ownFocusService.captureForFixesInvocation() {
+        case .noFocusedTextTarget(.holdTypeOwnsFocus):
+            break
+        default:
+            Issue.record("Expected HoldType focus to be ignored")
+        }
+    }
+
     @Test func captureRejectsInvalidBlankAndOversizedSources() {
         let client = FakeFocusedTextTargetClient(
             state: state(
