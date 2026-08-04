@@ -381,12 +381,35 @@ or Homebrew.
 
 ## 7. Create The Release
 
-Update the app version/build, then create and push a release tag:
+For recurring releases, use the next patch version by default. Choose a minor
+or major version only when an explicit product/release decision identifies a
+substantial backward-compatible milestone or a breaking release; a collection
+of ordinary fixes and incremental features does not by itself require a minor
+version.
 
-```sh
-git tag v1.0.0
-git push origin v1.0.0
-```
+Prepare and validate the release on `master`:
+
+1. Add `docs/release/notes/<version>.md` with a matching
+   `# HoldType <version>` heading and an accurate summary of changes since the
+   last published release.
+2. Validate the notes and exact version/build/tag inputs.
+3. Commit the release notes with the intended product state and push `master`.
+4. In GitHub Actions, open the `Release` workflow at the pushed `master` SHA
+   and use `Run workflow` with the explicit version and build values.
+
+The current `github-pages` environment protection admits `master` but rejects
+tag refs. Therefore the normal recurring path is `workflow_dispatch` from
+`master`, not pushing the tag first. The release workflow derives
+`v<version>` from the version input and creates that tag at the dispatched
+`master` SHA when it publishes a new GitHub Release. If the exact tag already
+exists, the workflow verifies it before publishing instead.
+
+An agent carrying out a user-authorized release must operate ordinary GitHub
+Actions controls itself through available authenticated browser automation or
+Computer Use rather than asking the operator to click them. An already
+authenticated GitHub CLI or API is also acceptable. Use the `v*` tag-push
+trigger only as a fallback after the `github-pages` environment protection has
+been explicitly changed and verified to allow that tag ref.
 
 The GitHub Actions release workflow should:
 

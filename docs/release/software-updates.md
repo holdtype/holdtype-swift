@@ -69,6 +69,10 @@ unconfigured.
 ## Release Contract
 
 - Tags use `v<version>`, for example `v1.0.0`.
+- Unless an explicit product/release decision calls for a substantial new
+  backward-compatible milestone or a breaking release, increment the latest
+  published patch version. The number of commits alone does not justify a
+  minor-version increment.
 - `MARKETING_VERSION` matches `<version>` without the leading `v`.
 - `CURRENT_PROJECT_VERSION` is the build number used for Sparkle version
   comparison.
@@ -159,13 +163,28 @@ The CI release job should make the manual flow reproducible:
   in explicit timeouts so external services cannot hang the release job
   indefinitely.
 
-The tracked release workflow is `.github/workflows/release.yml`. It runs on
-`v*` tags and uses `macos-26` runners so the project can build with the current
-Xcode 26 toolchain. `.github/workflows/pages.yml` is a manual recovery workflow
-that republishes the same complete Pages artifact from the latest stable
-release. Routine landing-page pushes are deployed by DigitalOcean and do not
-start GitHub Pages. The two GitHub workflows share the `holdtype-publication`
-concurrency queue so a manual recovery cannot race a release.
+The tracked release workflow is `.github/workflows/release.yml`. It supports
+both `v*` tag pushes and manual `workflow_dispatch`, and uses `macos-26` runners
+so the project can build with the current Xcode 26 toolchain. The current
+`github-pages` environment protection allows deployments from `master`, not
+from tag refs, so recurring releases must be dispatched from `master` with the
+explicit version and build inputs. The workflow creates the release tag at the
+dispatched `master` SHA when it does not exist, or verifies an existing tag
+before publishing. Use the tag-push trigger only if the environment protection
+rules have first been changed and verified to allow that tag ref.
+
+Before dispatch, add `docs/release/notes/<version>.md`, validate it, commit it
+with the product changes, and push `master`. An agent operating the release
+must use the available authenticated GitHub UI automation or Computer Use for
+ordinary Actions navigation and dispatch; it must not hand those routine
+buttons back to the operator. Authenticated CLI or API automation is also
+acceptable when it is already available.
+
+`.github/workflows/pages.yml` is a manual recovery workflow that republishes
+the same complete Pages artifact from the latest stable release. Routine
+landing-page pushes are deployed by DigitalOcean and do not start GitHub
+Pages. The two GitHub workflows share the `holdtype-publication` concurrency
+queue so a manual recovery cannot race a release.
 
 The tracked scripts are:
 
@@ -208,8 +227,7 @@ Preflight also runs `scripts/release/verify_release_workflow.py` to confirm the
 GitHub Actions release workflow still wires the required build, notarization,
 appcast, published-release, and Homebrew tap steps in order.
 
-Validate the exact first release inputs before creating or manually dispatching
-the workflow:
+Validate the exact release inputs before dispatching the workflow:
 
 ```sh
 scripts/release/validate_release_inputs.py \
