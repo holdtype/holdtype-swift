@@ -330,14 +330,14 @@ The existing floating dictation indicator is a useful panel-lifecycle
 reference but cannot be reused as-is: it is non-key, ignores the mouse, and is
 anchored to a fixed screen location.
 
-The menu-bar app should expose:
+> Superseded 2026-08-04: the delivered menu-launch slice is no longer part of
+> the active product contract. The palette is invoked only through
+> `Option+J`; the menu exposes **Edit Fixes…** for catalog management and no
+> actionable **Fixes…** command or shortcut fallback. The historical delivery
+> and QA receipts below remain evidence of the earlier implementation.
 
-- **Fixes…** to open the palette for the last valid non-HoldType text target;
-- **Edit Fixes…** to open the editor;
-- shortcut status and conflict guidance.
-
-Opening the menu or editor must not accidentally make a HoldType-owned field
-the transformation target.
+Opening the editor must not make a HoldType-owned field the transformation
+target.
 
 ### 7.2 macOS Fix Editor
 

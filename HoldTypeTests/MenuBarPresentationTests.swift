@@ -5,6 +5,7 @@
 //  Created by Codex on 6/22/26.
 //
 
+import AppKit
 import Foundation
 import HoldTypeDomain
 import Testing
@@ -19,8 +20,12 @@ struct MenuBarPresentationTests {
         )
 
         #expect(presentation.appTitle == "HoldType")
-        #expect(HoldTypeMenuBarIdentity.systemImageName == "mic.fill")
+        #expect(HoldTypeMenuBarIdentity.visibleTitle == nil)
+        #expect(HoldTypeMenuBarIdentity.iconAssetName == "HoldTypeMenuBarIcon")
         #expect(HoldTypeMenuBarIdentity.helpText == "HoldType Dictation")
+        let icon = NSImage(named: HoldTypeMenuBarIdentity.iconAssetName)
+        #expect(icon != nil)
+        #expect(icon?.isTemplate == true)
         #expect(presentation.statusText == "Ready")
         #expect(presentation.recordingActionTitle == "Transcribe")
         #expect(presentation.recordingActionShortcutHint == "Hold Right ⌘")
@@ -33,14 +38,19 @@ struct MenuBarPresentationTests {
         #expect(presentation.pasteLastResultActionShortcutHint == "⌃⌘V")
         #expect(presentation.isPasteLastResultEnabled)
         #expect(MenuBarPresentation.pasteLastResultShortcutHint == "⌃⌘V")
-        #expect(MenuBarPresentation.fixesTitle == "Fixes…")
-        #expect(MenuBarPresentation.fixesShortcutHint == "⌥J")
-        #expect(
-            MenuBarPresentation.fixesShortcutHint(
-                for: .unavailable(message: "Already in use")
-            ) == "Shortcut unavailable"
-        )
         #expect(MenuBarPresentation.editFixesTitle == "Edit Fixes…")
+        #expect(
+            MenuBarPresentation.utilityActions
+                == [.editFixes, .history, .settings]
+        )
+        #expect(
+            MenuBarPresentation.utilityActions.map(\.title)
+                == ["Edit Fixes…", "Transcript History", "Settings…"]
+        )
+        #expect(
+            !MenuBarPresentation.utilityActions.map(\.title)
+                .contains("Fixes…")
+        )
         #expect(MenuBarPresentation.historyTitle == "Transcript History")
         #expect(HoldTypeWindowTitle.history == "HoldType: History")
         #expect(MenuBarPresentation.settingsTitle == "Settings…")

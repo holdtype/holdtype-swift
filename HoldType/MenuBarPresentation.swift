@@ -10,7 +10,8 @@ import HoldTypeDomain
 
 enum HoldTypeMenuBarIdentity {
     static let title = "HoldType"
-    static let systemImageName = "mic.fill"
+    static let visibleTitle: String? = nil
+    static let iconAssetName = "HoldTypeMenuBarIcon"
     static let helpText = "HoldType Dictation"
 }
 
@@ -23,28 +24,35 @@ enum HoldTypeWindowTitle {
 }
 
 struct MenuBarPresentation: Equatable {
+    enum UtilityAction: CaseIterable, Hashable {
+        case editFixes
+        case history
+        case settings
+
+        var title: String {
+            switch self {
+            case .editFixes:
+                return MenuBarPresentation.editFixesTitle
+            case .history:
+                return MenuBarPresentation.historyTitle
+            case .settings:
+                return MenuBarPresentation.settingsTitle
+            }
+        }
+    }
+
     static let projectTitle = "View Project on GitHub"
     static let projectURLString = "https://github.com/holdtype/holdtype-swift"
     static let translationActionTitle = "Transcribe & Translate"
     static let pasteLastResultTitle = "Paste Last Result"
     static let translationShortcutHint = GlobalHotkeyShortcut.translationDictation.menuHoldText
     static let pasteLastResultShortcutHint = GlobalHotkeyShortcut.appClipboardPaste.menuKeyEquivalentText
-    static let fixesTitle = "Fixes…"
-    static let fixesShortcutHint = GlobalHotkeyShortcut.fixesPalette.menuKeyEquivalentText
     static let editFixesTitle = "Edit Fixes…"
     static let historyTitle = "Transcript History"
     static let settingsTitle = "Settings\u{2026}"
     static let checkForUpdatesTitle = "Check for Updates..."
     static let quitTitle = "Quit HoldType"
-
-    static func fixesShortcutHint(
-        for status: FixesHotkeyRegistrationStatus
-    ) -> String {
-        if case .unavailable = status {
-            return "Shortcut unavailable"
-        }
-        return fixesShortcutHint
-    }
+    static let utilityActions = UtilityAction.allCases
 
     let appTitle: String
     let statusText: String

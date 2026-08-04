@@ -8,18 +8,14 @@
 import AppKit
 import Darwin
 import HoldTypeOpenAI
+import SwiftUI
 
 @main
-enum HoldTypeApp {
-    @MainActor
-    static func main() {
+struct HoldTypeApp: App {
+    @NSApplicationDelegateAdaptor(HoldTypeAppDelegate.self) private var appDelegate
+
+    init() {
         let launchEnvironment = ProcessInfo.processInfo.environment
-        let application = NSApplication.shared
-        let appDelegate = HoldTypeAppDelegate()
-        application.delegate = appDelegate
-        application.mainMenu = HoldTypeApplicationMenu.make(
-            application: application
-        )
         let isInputMonitoringRecoveryLaunch = InputMonitoringPermissionLaunchRecovery.shouldRequest(
             environment: launchEnvironment
         )
@@ -52,10 +48,24 @@ enum HoldTypeApp {
             DebugAccessibilityPermissionRecovery.requestIfNeeded()
         }
         #endif
+    }
 
-        withExtendedLifetime(appDelegate) {
-            application.run()
+    var body: some Scene {
+        MenuBarExtra {
+            MenuBarView()
+        } label: {
+            Group {
+                Image(HoldTypeMenuBarIdentity.iconAssetName)
+                    .renderingMode(.template)
+                    .accessibilityLabel(HoldTypeMenuBarIdentity.title)
+                    .help(HoldTypeMenuBarIdentity.helpText)
+
+                if let visibleTitle = HoldTypeMenuBarIdentity.visibleTitle {
+                    Text(visibleTitle)
+                }
+            }
         }
+        .menuBarExtraStyle(.window)
     }
 }
 
@@ -209,8 +219,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let dictationRuntime = DictationRuntime.shared
     private let fixesRuntime = FixesRuntime.shared
     private let floatingIndicatorCoordinator = FloatingIndicatorCoordinator.shared
-    private lazy var menuBarStatusItemController =
-        MenuBarStatusItemController.live(fixesRuntime: fixesRuntime)
     private let quitConfirmationPresenter: any QuitConfirmationPresenting
     private let transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)?
     private let launchEnvironment: [String: String]
@@ -299,7 +307,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         if let startRuntimeComponentsOverride {
             startRuntimeComponentsOverride()
         } else {
-            menuBarStatusItemController.start()
             floatingIndicatorCoordinator.start()
             specialClipboardHotkeyCoordinator.start()
             dictationRuntime.startHotkeyListening()
@@ -348,7 +355,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         if let stopRuntimeComponentsOverride {
             stopRuntimeComponentsOverride()
         } else {
-            menuBarStatusItemController.stop()
             floatingIndicatorCoordinator.stop()
             fixesRuntime.stopHotkeyListening()
             dictationRuntime.stopHotkeyListening()

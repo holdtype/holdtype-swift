@@ -21,7 +21,7 @@ struct KeyboardShortcutSettingsPresentationTests {
         #expect(fixes.statusText == "Fixes shortcut unavailable.")
         #expect(
             fixes.detailText
-                == "Could not register Option+J for Fixes. Use Fixes… in the menu."
+                == "Could not register Option+J for Fixes. Fixes cannot open until the shortcut is available."
         )
     }
 
@@ -49,7 +49,7 @@ struct KeyboardShortcutSettingsPresentationTests {
         #expect(fixes.statusText == "Fixes shortcut not active.")
         #expect(
             fixes.detailText
-                == "Use Fixes… in the menu until the shortcut is available."
+                == "Fixes are unavailable until the shortcut can be registered."
         )
     }
 }

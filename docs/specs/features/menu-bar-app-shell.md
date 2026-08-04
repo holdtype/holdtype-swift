@@ -32,13 +32,14 @@ This spec covers:
 
 - The app should run as a macOS menu bar app.
 - The menu bar status item should remain available while the app is running.
-- The menu bar item identity for the MVP is the title `HoldType`, the native
-  SF Symbol `mic.fill`, and help text `HoldType Dictation`.
-- The menu bar title is the accessibility label. The help text is the tooltip
-  on the native status item.
-- Activating the status item by pointer, keyboard, or Accessibility action
-  runs one native pre-open action before showing the popover. That action
-  captures Fixes availability while the external target still owns focus.
+- The menu bar item uses the branded template asset `HoldTypeMenuBarIcon`
+  without a visible text title. Its accessibility label is `HoldType` and its
+  help text is `HoldType Dictation`.
+- The compact surface is a native SwiftUI `MenuBarExtra` using window style.
+  Escape, a click outside the surface or in another app, and a second click on
+  the menu bar item dismiss it through the standard macOS interaction.
+- Opening the menu bar surface does not capture or retain an external text
+  target for Fixes.
 - The top menu block should include the app title and current compact status.
 - The app should not copy OpenWhispr's Electron tray asset lookup, icon
   fallback generation, or cross-platform tray behavior.
@@ -57,12 +58,11 @@ This spec covers:
   accepted transcript into the active app. It should be disabled when the
   setting that keeps the last result is off or no last result is available.
 - After the three primary dictation and paste commands, the menu should include
-  `Fixes…` with the `⌥J` hint. It captures the last valid non-HoldType external
-  target before opening the palette and is disabled when no compatible target
-  can be captured.
-- The menu should include `Edit Fixes…` after `Fixes…`. It opens the normal
-  Fixes editor and never treats a HoldType-owned editor field as the external
-  transformation target.
+  `Edit Fixes…`. It opens the normal Fixes editor and never treats a
+  HoldType-owned editor field as an external transformation target.
+- The menu does not include an actionable `Fixes…` command or another fallback
+  for launching the Fixes palette. The palette is invoked only through its
+  global shortcut.
 - The menu should not show a separate permission checklist or permission
   recovery block. Required permission recovery belongs in full Settings.
 - If the user chooses Transcribe while required setup is incomplete,
@@ -147,6 +147,9 @@ This spec covers:
   still work.
 - Closing Settings or Transcript History windows should not show the quit
   confirmation and should not terminate the app.
+- Dismissing the menu bar surface with Escape, an outside click, a click in
+  another app, or a second click on the menu bar item must not leave an
+  invisible HoldType surface holding focus.
 - Restarting macOS does not make global shortcuts available by itself. HoldType
   must be running, either because the user opened it or because launch at login
   is enabled and approved in macOS Login Items.

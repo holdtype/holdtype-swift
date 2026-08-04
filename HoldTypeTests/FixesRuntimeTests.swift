@@ -21,101 +21,6 @@ struct FixesRuntimeTests {
         #expect(fixture.panel.anchorRect == fixture.targetClient.state?.anchorRect)
     }
 
-    @Test func menuPreparationFreezesTargetBeforeDismissal() async throws {
-        let fixture = try makeFixture()
-
-        fixture.runtime.prepareMenuTarget()
-
-        #expect(fixture.runtime.isMenuActionAvailable)
-        #expect(fixture.targetClient.focusedElementCallCount == 1)
-        fixture.targetClient.replaceText("prefix changed suffix")
-
-        fixture.runtime.showPaletteAfterMenuDismissal()
-
-        #expect(!fixture.runtime.isMenuActionAvailable)
-        #expect(fixture.panel.model == nil)
-        try await waitUntil {
-            fixture.panel.model != nil
-        }
-        #expect(fixture.targetClient.focusedElementCallCount == 1)
-
-        let model = try #require(fixture.panel.model)
-        model.activateSelection()
-
-        #expect(fixture.execution.calls.isEmpty)
-        #expect(fixture.replacement.calls.isEmpty)
-        guard case .staleTarget = model.status else {
-            Issue.record("Expected frozen menu target to become stale")
-            return
-        }
-    }
-
-    @Test func holdTypeFocusReusesTheLastValidExternalMenuTarget() async throws {
-        let fixture = try makeFixture()
-
-        fixture.runtime.prepareMenuTarget()
-        fixture.runtime.clearPreparedMenuTarget()
-        fixture.targetClient.focusHoldTypeElement()
-
-        fixture.runtime.prepareMenuTarget()
-
-        #expect(fixture.runtime.isMenuActionAvailable)
-        #expect(fixture.targetClient.focusedElementCallCount == 2)
-        fixture.runtime.showPaletteAfterMenuDismissal()
-        try await waitUntil {
-            fixture.panel.model != nil
-        }
-
-        let model = try #require(fixture.panel.model)
-        model.activateSelection()
-        try await waitUntil {
-            fixture.execution.calls.count == 1
-        }
-        #expect(fixture.execution.calls.first?.sourceText == "selected")
-    }
-
-    @Test func incompatibleExternalFocusForgetsTheLastMenuTarget() throws {
-        let fixture = try makeFixture()
-
-        fixture.runtime.prepareMenuTarget()
-        fixture.runtime.clearPreparedMenuTarget()
-        fixture.targetClient.focusSecureExternalElement()
-        fixture.runtime.prepareMenuTarget()
-
-        #expect(!fixture.runtime.isMenuActionAvailable)
-
-        fixture.targetClient.focusHoldTypeElement()
-        fixture.runtime.prepareMenuTarget()
-
-        #expect(!fixture.runtime.isMenuActionAvailable)
-    }
-
-    @Test func incompatibleMenuTargetDisablesActionAndDoesNotPresent() async throws {
-        let fixture = try makeFixture()
-        fixture.targetClient.state = nil
-
-        fixture.runtime.prepareMenuTarget()
-        fixture.runtime.showPaletteAfterMenuDismissal()
-
-        #expect(!fixture.runtime.isMenuActionAvailable)
-        try await Task.sleep(for: FixesRuntime.menuDismissalDelay)
-        #expect(fixture.panel.model == nil)
-        #expect(fixture.targetClient.focusedElementCallCount == 1)
-    }
-
-    @Test func reopeningMenuCancelsPendingPresentation() async throws {
-        let fixture = try makeFixture()
-
-        fixture.runtime.prepareMenuTarget()
-        fixture.runtime.showPaletteAfterMenuDismissal()
-        fixture.runtime.prepareMenuTarget()
-
-        try await Task.sleep(for: .milliseconds(150))
-        #expect(fixture.panel.model == nil)
-        #expect(fixture.runtime.isMenuActionAvailable)
-        #expect(fixture.targetClient.focusedElementCallCount == 2)
-    }
-
     @Test func compatibleTargetIsReadyByDefault() async throws {
         let fixture = try makeFixture()
 
@@ -219,23 +124,39 @@ struct FixesRuntimeTests {
         #expect(!fixture.runtime.isPaletteVisible)
     }
 
-    @Test func optionJCoordinatorStartsTriggersCaptureAndStops() async throws {
+    @Test func optionJCapturesExecutesAndReplacesThroughTheDirectPath() async throws {
         let fixture = try makeFixture()
+        fixture.execution.output = "Shortcut fixed"
 
         fixture.runtime.startHotkeyListening()
         #expect(fixture.runtime.hotkeyRegistrationStatus == .registered)
+        #expect(fixture.targetClient.focusedElementCallCount == 0)
         fixture.hotkey.trigger()
 
         #expect(fixture.targetClient.focusedElementCallCount == 1)
         try await waitUntil {
             fixture.panel.model != nil
         }
+        let model = try #require(fixture.panel.model)
+        model.selectAction(id: "default.improve-writing")
+        model.activateSelection()
+
+        try await waitUntil {
+            fixture.replacement.calls.count == 1
+        }
+        #expect(fixture.targetClient.focusedElementCallCount == 1)
+        #expect(fixture.execution.calls.count == 1)
+        #expect(fixture.execution.calls.first?.sourceText == "selected")
+        #expect(fixture.replacement.calls.first?.output == "Shortcut fixed")
+        #expect(fixture.panel.releaseKeyboardFocusCount == 1)
 
         fixture.runtime.stopHotkeyListening()
         #expect(!fixture.hotkey.isListening)
         #expect(
             fixture.runtime.hotkeyRegistrationStatus == .notRegistered
         )
+        fixture.hotkey.trigger()
+        #expect(fixture.targetClient.focusedElementCallCount == 1)
     }
 
     private func makeFixture() throws -> FixesRuntimeFixture {

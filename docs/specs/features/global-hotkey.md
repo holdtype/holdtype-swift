@@ -84,7 +84,8 @@ This spec covers:
   accepted the invocation. Failed or unavailable registration must not make
   ordinary `Option+J` typing disappear silently.
 - If `Option+J` conflicts with another owner, HoldType keeps dictation and menu
-  controls usable and reports only the Fixes shortcut as unavailable.
+  controls usable and reports only the Fixes shortcut as unavailable. The menu
+  does not provide a fallback for opening the Fixes palette.
 - When enabled in Settings, `Right Command+Option` may act as a hold-to-record
   dictation shortcut that requests configured translation after transcription
   under `post-transcription-actions.md`.

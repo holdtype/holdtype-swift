@@ -99,11 +99,11 @@ struct HotkeySettingsPresentation {
         case .notRegistered:
             statusText = "Fixes shortcut not active."
             detailText =
-                "Use Fixes… in the menu until the shortcut is available."
+                "Fixes are unavailable until the shortcut can be registered."
             statusTint = .secondary
         case .unavailable(let message):
             statusText = "Fixes shortcut unavailable."
-            detailText = "\(message) Use Fixes… in the menu."
+            detailText = "\(message) Fixes cannot open until the shortcut is available."
             statusTint = .red
         }
     }

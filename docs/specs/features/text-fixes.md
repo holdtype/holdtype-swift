@@ -58,8 +58,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Target Selection
 
-- The target is captured before a palette, menu, or app transition can move
-  focus.
+- The target is captured when the platform's supported Fixes invocation occurs,
+  before the palette or app transition can move focus.
 - A non-empty selection is the source and replacement range.
 - With no selection:
   - macOS uses the complete value of the same compatible Accessibility text
@@ -119,15 +119,18 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Successful replacement dismisses the palette. A failed request may be
   retried only while the original target snapshot still validates.
 - If `Option+J` cannot be registered, HoldType keeps dictation and menu
-  controls available and reports the Fixes shortcut as unavailable.
+  controls available and reports the Fixes shortcut as unavailable. It does
+  not expose a menu fallback for opening the Fixes palette.
 - On macOS, an immediate Fix is available by default when its source is
   compatible, an OpenAI API key is available, and Accessibility trust permits
   active-app text access. It does not require a separate Fixes consent.
 - Input Monitoring is required only when the chosen global shortcut invocation
   path needs it. It is not required for a Fixes action invoked through an
   already-available path.
-- The menu bar exposes `Fixes…` and `Edit Fixes…`. Opening a HoldType-owned
-  editor never changes the captured external target.
+- The menu bar exposes `Edit Fixes…` for catalog management but does not expose
+  an actionable `Fixes…` palette command. On macOS, immediate Fixes are invoked
+  only with `Option+J`.
+- Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window with search, Add, title, prompt,
   icon, enabled state, reorder, Delete, and Restore Defaults.
 

@@ -68,25 +68,4 @@ final class FixesRuntimeTargetClient: FocusedTextTargetClient {
         )
     }
 
-    func focusHoldTypeElement() {
-        state = FocusedTextElementState(
-            token: FocusedTextElementToken(),
-            processIdentifier: 999,
-            text: "HoldType editor",
-            selectedRange: NSRange(location: 0, length: 0),
-            anchorRect: nil,
-            isSecure: false
-        )
-    }
-
-    func focusSecureExternalElement() {
-        state = FocusedTextElementState(
-            token: FocusedTextElementToken(),
-            processIdentifier: 202,
-            text: "secret",
-            selectedRange: NSRange(location: 0, length: 0),
-            anchorRect: nil,
-            isSecure: true
-        )
-    }
 }
