@@ -108,9 +108,13 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
         hostingView.frame = CGRect(origin: .zero, size: panelSize)
         hostingView.autoresizingMask = [.width, .height]
         panel.contentView = hostingView
+        hostingView.layoutSubtreeIfNeeded()
+        let initialHeight = max(1, hostingView.fittingSize.height)
+        let initialSize = CGSize(width: panelSize.width, height: initialHeight)
+        hostingView.frame = CGRect(origin: .zero, size: initialSize)
         panel.setFrame(
             panelFrame(
-                size: panelSize,
+                size: initialSize,
                 accessibilityAnchorRect: accessibilityAnchorRect
             ),
             display: false
@@ -267,7 +271,6 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
             size: size
         )
     }
-
 }
 
 private final class FixesPalettePanel: NSPanel {
