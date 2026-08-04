@@ -41,10 +41,16 @@ struct OpenAIGptTranscriptionRequestBuilderTests {
         #expect(body.contains("name=\"keywords[]\"\r\n\r\nHoldType\r\n"))
         #expect(body.contains("name=\"keywords[]\"\r\n\r\nOpenAI\r\n"))
         #expect(body.contains("name=\"language\"") == false)
-        #expect(body.contains("Custom Dictionary") == false)
+        #expect(
+            body.contains(
+                "name=\"prompt\"\r\n\r\nProduct context\n\n" +
+                    "Custom Dictionary (use these exact spellings when they appear in the text): " +
+                    "HoldType, OpenAI\r\n"
+            )
+        )
         #expect(body.contains("Line\nBreak") == false)
         #expect(body.contains("<unsafe>") == false)
-        #expect(body.contains("name=\"prompt\"\r\n\r\nProduct context\r\n"))
+        #expect(body.contains("name=\"prompt\"\r\n\r\nProduct context\n"))
         #expect(body.contains("filename=\"recording.m4a\"") == true)
         #expect(body.hasSuffix("\r\n--Boundary-GPT-Transcribe--\r\n"))
     }

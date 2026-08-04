@@ -109,9 +109,10 @@ This spec covers:
 - The optional prompt is sent only when non-empty after trimming whitespace.
 - For `gpt-transcribe`, prompt text carries unstructured recording context:
   the user prompt, nearby active-text context, and built-in emoji-command
-  hints. It should guide spelling, vocabulary, formatting, and style. It must
-  not be treated as secret, but it may contain user content and must not be
-  logged by default.
+  hints, followed by an exact-spelling custom-dictionary section when the
+  dictionary is non-empty. It should guide spelling, vocabulary, formatting,
+  and style. It must not be treated as secret, but it may contain user content
+  and must not be logged by default.
 - The app may maintain a local custom dictionary of user-provided words or
   phrases that should be recognized with exact spelling when spoken.
 - For `gpt-transcribe`, each normalized custom dictionary entry is sent as a
@@ -131,7 +132,8 @@ This spec covers:
 - If a freeform prompt, nearby active-text context, or emoji command hints
   exist, the `gpt-transcribe` request prompt should include those active parts
   in that order. Dictionary entries should be sent through `keywords[]` and
-  should not be duplicated in the new-model prompt.
+  also appear in the exact-spelling prompt section so terms spoken in another
+  script can be emitted using the configured spelling.
 - When Use Nearby Text Context is enabled, the app may read a short excerpt
   from the currently focused editable text field and include it in the
   transcription prompt so continued dictation keeps topic, spelling,
@@ -143,9 +145,10 @@ This spec covers:
 - Nearby text context must be bounded to a short excerpt near the cursor. It is
   not a full-document import and must not read unrelated app content.
 - The `gpt-transcribe` context prompt should order sections as: user prompt,
-  nearby active-text context, built-in emoji command hints. Dictionary entries
-  are separate `keywords[]` fields; the legacy compatibility prompt retains
-  the prior dictionary section for explicit older models.
+  nearby active-text context, built-in emoji command hints, exact-spelling
+  custom dictionary guidance. Dictionary entries are also separate
+  `keywords[]` fields; the legacy compatibility prompt retains the same
+  dictionary section for explicit older models.
 - For explicit legacy transcription models, if the provider returns only, or
   almost only, the dictionary hint itself from the dictionary-in-`prompt`
   compatibility path, the app must reject the result instead of accepting it as
@@ -242,10 +245,11 @@ platform permission state.
 
 The composition keeps two prompt projections from the same frozen inputs. The
 `gpt-transcribe` context prompt contains the non-empty freeform prompt, Nearby
-Text context, and prefixed emoji-command hints in that order, joined with
-exactly two newline characters. The legacy provider prompt retains the prior
-dictionary section for explicit non-`gpt-transcribe` models. When no applicable
-sections are present, the projection is `nil`.
+Text context, prefixed emoji-command hints, and exact-spelling dictionary
+guidance in that order, joined with exactly two newline characters. The legacy
+provider prompt retains the same dictionary section for explicit
+non-`gpt-transcribe` models. When no applicable sections are present, the
+projection is `nil`.
 
 The composition also exposes the normalized dictionary keyword candidates, only
 the unprefixed dictionary prompt text, and the context text used by the existing

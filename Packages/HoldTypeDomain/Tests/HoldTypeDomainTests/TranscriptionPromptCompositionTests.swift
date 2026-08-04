@@ -41,7 +41,11 @@ struct TranscriptionPromptCompositionTests {
                 TranscriptionPromptComposition.customDictionaryPromptPrefix +
                 "HoldType, Synty"
         )
-        #expect(composition(dictionary: dictionary).gptTranscribeContextPrompt == nil)
+        #expect(
+            composition(dictionary: dictionary).gptTranscribeContextPrompt ==
+                TranscriptionPromptComposition.customDictionaryPromptPrefix +
+                "HoldType, Synty"
+        )
         #expect(composition(dictionary: dictionary).dictionaryKeywordHints == ["HoldType", "Synty"])
     }
 
@@ -81,6 +85,8 @@ struct TranscriptionPromptCompositionTests {
                 Existing sentence.
 
                 Emoji command vocabulary (transcribe these spoken phrases exactly when spoken): emoji rocket
+
+                Custom Dictionary (use these exact spellings when they appear in the text): HoldType
                 """
         )
         #expect(composition.dictionaryKeywordHints == ["HoldType"])

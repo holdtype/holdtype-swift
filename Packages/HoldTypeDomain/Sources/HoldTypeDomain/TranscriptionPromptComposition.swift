@@ -18,6 +18,9 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
     ) {
         let emojiPrompt = emojiCommandsConfiguration.promptText
         let dictionaryPrompt = customDictionary.promptText
+        let gptDictionaryPrompt = customDictionary.keywordHints.isEmpty
+            ? nil
+            : customDictionary.keywordHints.joined(separator: ", ")
         var contextPromptParts: [String] = []
 
         if let resolvedFreeformPrompt, !resolvedFreeformPrompt.isEmpty {
@@ -30,14 +33,18 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
             contextPromptParts.append(Self.emojiCommandsPromptPrefix + emojiPrompt)
         }
 
-        let contextPrompt = contextPromptParts.joined(separator: "\n\n")
-        gptTranscribeContextPrompt = contextPrompt.isEmpty ? nil : contextPrompt
+        var gptPromptParts = contextPromptParts
+        if let gptDictionaryPrompt {
+            gptPromptParts.append(Self.customDictionaryPromptPrefix + gptDictionaryPrompt)
+        }
+
+        let gptPrompt = gptPromptParts.joined(separator: "\n\n")
+        gptTranscribeContextPrompt = gptPrompt.isEmpty ? nil : gptPrompt
 
         var legacyPromptParts = contextPromptParts
         if let dictionaryPrompt {
             legacyPromptParts.append(Self.customDictionaryPromptPrefix + dictionaryPrompt)
         }
-
         let legacyPrompt = legacyPromptParts.joined(separator: "\n\n")
         providerPrompt = legacyPrompt.isEmpty ? nil : legacyPrompt
         dictionaryKeywordHints = customDictionary.keywordHints
