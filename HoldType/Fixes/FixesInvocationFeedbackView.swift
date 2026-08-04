@@ -1,34 +1,68 @@
 import SwiftUI
 
-struct FixesInvocationFeedbackView: View {
+struct FixesInvocationFeedbackPresentation: Equatable {
+    let title: String
     let message: String
 
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "info.circle")
-                .foregroundStyle(.secondary)
+    init(message: String) {
+        title = "Fixes Unavailable"
+        self.message = message
+    }
+}
 
-            Text(message)
-                .font(.system(size: 13))
-                .foregroundStyle(.primary)
-                .lineLimit(2)
+struct FixesInvocationFeedbackView: View {
+    static let contentWidth: CGFloat = 380
+
+    let presentation: FixesInvocationFeedbackPresentation
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(.orange)
+                    .padding(.top, 1)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(presentation.title)
+                        .font(.system(size: 15, weight: .semibold))
+
+                    Text(presentation.message)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                Spacer()
+
+                Button("OK", action: onDismiss)
+                    .keyboardShortcut(.defaultAction)
+                    .controlSize(.regular)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .padding(20)
+        .frame(width: Self.contentWidth, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .stroke(.separator.opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.separator.opacity(0.45), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Fixes")
+        .accessibilityLabel(presentation.title)
+        .accessibilityValue(presentation.message)
     }
 }
 
 #Preview {
     FixesInvocationFeedbackView(
-        message: "Fixes is not available in this field."
+        presentation: FixesInvocationFeedbackPresentation(
+            message: "This text field does not support Fixes. Try another field."
+        ),
+        onDismiss: {}
     )
-    .frame(width: 300)
     .padding(30)
 }

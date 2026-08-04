@@ -9,21 +9,61 @@ protocol FixesInvocationFeedbackPresenting: AnyObject {
 
 @MainActor
 final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting {
-    nonisolated static let defaultDisplayDuration: TimeInterval = 1.8
+    nonisolated static let defaultDisplayDuration: TimeInterval = 4
 
     private let displayDuration: TimeInterval
-    private var panel: NSPanel?
+    private let outsideClickMonitor: any FixesPaletteOutsideClickMonitoring
+    private let screenProvider: @MainActor () -> [NSScreen]
+    private let mouseLocationProvider: @MainActor () -> CGPoint
+    private var panel: FixesInvocationFeedbackPanel?
     private var dismissWorkItem: DispatchWorkItem?
 
-    init(displayDuration: TimeInterval = defaultDisplayDuration) {
+    convenience init(displayDuration: TimeInterval = defaultDisplayDuration) {
+        self.init(
+            displayDuration: displayDuration,
+            outsideClickMonitor: FixesPaletteOutsideClickMonitor(),
+            screenProvider: { NSScreen.screens },
+            mouseLocationProvider: { NSEvent.mouseLocation }
+        )
+    }
+
+    init(
+        displayDuration: TimeInterval,
+        outsideClickMonitor: any FixesPaletteOutsideClickMonitoring,
+        screenProvider: @escaping @MainActor () -> [NSScreen],
+        mouseLocationProvider: @escaping @MainActor () -> CGPoint
+    ) {
         self.displayDuration = max(0, displayDuration)
+        self.outsideClickMonitor = outsideClickMonitor
+        self.screenProvider = screenProvider
+        self.mouseLocationProvider = mouseLocationProvider
+    }
+
+    var isVisible: Bool {
+        panel?.isVisible == true
+    }
+
+    var presentedPanel: NSPanel? {
+        panel
     }
 
     func show(message: String) {
         hide()
 
+        let presentation = FixesInvocationFeedbackPresentation(message: message)
         let hostingView = NSHostingView(
-            rootView: FixesInvocationFeedbackView(message: message)
+            rootView: FixesInvocationFeedbackView(
+                presentation: presentation,
+                onDismiss: { [weak self] in
+                    self?.hide()
+                }
+            )
+        )
+        hostingView.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: FixesInvocationFeedbackView.contentWidth,
+            height: 1
         )
         hostingView.layoutSubtreeIfNeeded()
         let size = hostingView.fittingSize
@@ -32,8 +72,12 @@ final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting
         let panel = makePanel(size: size)
         panel.contentView = hostingView
         panel.setFrame(centeredFrame(for: size), display: false)
-        panel.orderFrontRegardless()
         self.panel = panel
+        outsideClickMonitor.start(panel: panel) { [weak self] in
+            self?.hide()
+        }
+        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
 
         guard displayDuration > 0 else {
             return
@@ -51,12 +95,16 @@ final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting
     func hide() {
         dismissWorkItem?.cancel()
         dismissWorkItem = nil
+        outsideClickMonitor.stop()
+        panel?.onDismiss = nil
+        panel?.makeFirstResponder(nil)
+        panel?.resignKey()
         panel?.orderOut(nil)
         panel?.contentView = nil
         panel = nil
     }
 
-    private func makePanel(size: CGSize) -> NSPanel {
+    private func makePanel(size: CGSize) -> FixesInvocationFeedbackPanel {
         let panel = FixesInvocationFeedbackPanel(
             contentRect: CGRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -67,18 +115,22 @@ final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
-        panel.ignoresMouseEvents = true
+        panel.ignoresMouseEvents = false
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.animationBehavior = .utilityWindow
+        panel.onDismiss = { [weak self] in
+            self?.hide()
+        }
         return panel
     }
 
     private func centeredFrame(for size: CGSize) -> CGRect {
-        let mouseLocation = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { $0.frame.contains(mouseLocation) }
-            ?? NSScreen.main
+        let mouseLocation = mouseLocationProvider()
+        let screens = screenProvider()
+        let screen = screens.first { $0.frame.contains(mouseLocation) }
+            ?? screens.first
         let visibleFrame = screen?.visibleFrame ?? .zero
         return CGRect(
             x: visibleFrame.midX - (size.width / 2),
@@ -90,11 +142,17 @@ final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting
 }
 
 private final class FixesInvocationFeedbackPanel: NSPanel {
+    var onDismiss: (() -> Void)?
+
     override var canBecomeKey: Bool {
-        false
+        true
     }
 
     override var canBecomeMain: Bool {
         false
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        onDismiss?()
     }
 }
