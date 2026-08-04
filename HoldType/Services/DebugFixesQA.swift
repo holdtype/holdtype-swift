@@ -109,8 +109,7 @@ enum DebugFixesQARuntimeFactory {
             return nil
         }
 
-        var settings = AppSettings.defaults
-        settings.setTextFixesConsentAccepted(true)
+        let settings = AppSettings.defaults
 
         return FixesRuntime(
             catalogStore: MacOSTextFixCatalogStore(),

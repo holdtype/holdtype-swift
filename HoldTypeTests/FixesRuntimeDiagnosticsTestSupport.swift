@@ -23,7 +23,6 @@ func makeFixesRuntimeDiagnosticsFixture(
     result: String = "result",
     apiKey: String = "test-key",
     isSecure: Bool = false,
-    hasCurrentConsent: Bool = true,
     eventLogger: any FixesEventLogging
 ) throws -> FixesRuntimeDiagnosticsFixture {
     let action = try TextFixAction(
@@ -58,8 +57,7 @@ func makeFixesRuntimeDiagnosticsFixture(
     let execution = FixesDiagnosticsExecutionService(output: result)
     let replacement = FixesDiagnosticsReplacementService()
     let panel = FixesDiagnosticsPanelPresenter()
-    var settings = AppSettings.defaults
-    settings.setTextFixesConsentAccepted(hasCurrentConsent)
+    let settings = AppSettings.defaults
     let settingsBox = FixesDiagnosticsSettingsBox(settings: settings)
     let runtime = FixesRuntime(
         catalogStore: FixesDiagnosticsCatalogStore(catalog: catalog),

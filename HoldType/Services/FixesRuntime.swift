@@ -7,9 +7,6 @@ import HoldTypeOpenAI
 final class FixesRuntime: ObservableObject {
     static let shared = makeSharedRuntime()
     static let menuDismissalDelay: Duration = .milliseconds(100)
-    static let textFixesConsentRequiredMessage =
-        "Allow OpenAI Text Fixes in Settings > Permissions."
-
     @Published private(set) var hotkeyRegistrationStatus:
         FixesHotkeyRegistrationStatus = .notRegistered
     @Published private(set) var isMenuActionAvailable = false
@@ -293,14 +290,6 @@ final class FixesRuntime: ObservableObject {
             )
             return .unavailable(message: Self.userFacingMessage(for: error))
         }
-        guard settingsProvider().hasCurrentTextFixesConsent else {
-            eventLogger.record(
-                .availability(outcome: .blockedConsentRequired)
-            )
-            return .unavailable(
-                message: Self.textFixesConsentRequiredMessage
-            )
-        }
         eventLogger.record(.availability(outcome: .ready))
         return .ready
     }
@@ -342,20 +331,6 @@ final class FixesRuntime: ObservableObject {
         }
 
         let settings = settingsProvider()
-        guard settings.hasCurrentTextFixesConsent else {
-            eventLogger.record(
-                .action(
-                    identity: identity,
-                    outcome: .blockedConsentRequired
-                )
-            )
-            paletteModel?.updateStatus(
-                .unavailable(
-                    message: Self.textFixesConsentRequiredMessage
-                )
-            )
-            return
-        }
         let credential: OpenAICredential
         do {
             credential = try credentialResolver.resolveOpenAICredential()

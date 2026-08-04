@@ -13,7 +13,6 @@ struct PermissionsSettingsSection: View {
     let microphonePermissionStatus: MicrophonePermissionStatus
     let accessibilityPermissionStatus: AccessibilityPermissionStatus
     let inputMonitoringPermissionStatus: InputMonitoringPermissionStatus
-    var showsRemoteProcessingDisclosure = true
     var showsInputMonitoringStatus = true
     var showsCompletedRequiredPermissions = true
     var showsInputMonitoringManualFallbackWarning = false
@@ -82,24 +81,6 @@ struct PermissionsSettingsSection: View {
                 }
             }
 
-            if showsRemoteProcessingDisclosure {
-                Label(
-                    "Audio is sent to OpenAI for transcription. Enabled correction or translation sends transcript text in a separate OpenAI request. Running a Fix sends the selected text, or the complete compatible field when nothing is selected, plus the chosen instruction to OpenAI. HoldType does not retain raw audio by default.",
-                    systemImage: "lock.shield"
-                )
-                .foregroundStyle(.secondary)
-
-                Toggle(
-                    "Allow OpenAI Text Fixes",
-                    isOn: textFixesConsentBinding
-                )
-
-                Text(
-                    "Required before HoldType can send text through Fixes. You can revoke this consent at any time."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
         }
 
         Section("Availability") {
@@ -116,19 +97,7 @@ struct PermissionsSettingsSection: View {
             microphonePermissionStatus: microphonePermissionStatus,
             accessibilityPermissionStatus: accessibilityPermissionStatus,
             showsCompletedRequiredPermissions: showsCompletedRequiredPermissions,
-            showsInputMonitoringStatus: showsInputMonitoringStatus,
-            showsRemoteProcessingDisclosure: showsRemoteProcessingDisclosure
-        )
-    }
-
-    private var textFixesConsentBinding: Binding<Bool> {
-        Binding(
-            get: {
-                settings.hasCurrentTextFixesConsent
-            },
-            set: { isAccepted in
-                settings.setTextFixesConsentAccepted(isAccepted)
-            }
+            showsInputMonitoringStatus: showsInputMonitoringStatus
         )
     }
 }
@@ -142,8 +111,7 @@ struct PermissionsSettingsSectionVisibility: Equatable {
         microphonePermissionStatus: MicrophonePermissionStatus,
         accessibilityPermissionStatus: AccessibilityPermissionStatus,
         showsCompletedRequiredPermissions: Bool,
-        showsInputMonitoringStatus: Bool,
-        showsRemoteProcessingDisclosure: Bool
+        showsInputMonitoringStatus: Bool
     ) {
         showsMicrophoneStatus = showsCompletedRequiredPermissions
             || microphonePermissionStatus != .allowed
@@ -153,7 +121,6 @@ struct PermissionsSettingsSectionVisibility: Equatable {
             && !showsMicrophoneStatus
             && !showsAccessibilityStatus
             && !showsInputMonitoringStatus
-            && !showsRemoteProcessingDisclosure
     }
 }
 

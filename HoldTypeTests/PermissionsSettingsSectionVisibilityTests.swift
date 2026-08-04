@@ -8,8 +8,7 @@ struct PermissionsSettingsSectionVisibilityTests {
             microphonePermissionStatus: .allowed,
             accessibilityPermissionStatus: .notTrusted,
             showsCompletedRequiredPermissions: false,
-            showsInputMonitoringStatus: false,
-            showsRemoteProcessingDisclosure: false
+            showsInputMonitoringStatus: false
         )
 
         #expect(visibility.showsMicrophoneStatus == false)
@@ -22,8 +21,7 @@ struct PermissionsSettingsSectionVisibilityTests {
             microphonePermissionStatus: .allowed,
             accessibilityPermissionStatus: .trusted,
             showsCompletedRequiredPermissions: false,
-            showsInputMonitoringStatus: false,
-            showsRemoteProcessingDisclosure: false
+            showsInputMonitoringStatus: false
         )
 
         #expect(visibility.showsMicrophoneStatus == false)
@@ -36,8 +34,7 @@ struct PermissionsSettingsSectionVisibilityTests {
             microphonePermissionStatus: .allowed,
             accessibilityPermissionStatus: .trusted,
             showsCompletedRequiredPermissions: true,
-            showsInputMonitoringStatus: true,
-            showsRemoteProcessingDisclosure: true
+            showsInputMonitoringStatus: true
         )
 
         #expect(visibility.showsMicrophoneStatus)

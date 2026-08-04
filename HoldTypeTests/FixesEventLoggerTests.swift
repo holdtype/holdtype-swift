@@ -20,9 +20,7 @@ struct FixesEventLoggerTests {
         let identity = FixesActionIdentity(action: action)
 
         logger.record(.capture(outcome: .blockedSecureField))
-        logger.record(
-            .availability(outcome: .blockedConsentRequired)
-        )
+        logger.record(.availability(outcome: .blockedTargetUnavailable))
         logger.record(
             .action(identity: identity, outcome: .timedOutProvider)
         )
@@ -39,7 +37,7 @@ struct FixesEventLoggerTests {
                     category: "fixes",
                     name: "availability",
                     severity: .error,
-                    fields: ["outcome": "blocked_consent_required"]
+                    fields: ["outcome": "blocked_target_unavailable"]
                 ),
                 RuntimeDiagnosticEvent(
                     category: "fixes",

@@ -58,7 +58,7 @@ struct FixesRuntimeDiagnosticsTests {
         }
     }
 
-    @Test func blockedCaptureAndConsentUseClosedOutcomes() async throws {
+    @Test func blockedCaptureUsesAClosedOutcome() async throws {
         let secureRecorder = FixesDiagnosticsEventRecorder()
         let secureFixture = try makeFixesRuntimeDiagnosticsFixture(
             isSecure: true,
@@ -74,23 +74,6 @@ struct FixesRuntimeDiagnosticsTests {
             secureRecorder.events == [
                 .capture(outcome: .blockedSecureField),
                 .availability(outcome: .blockedTargetUnavailable),
-            ]
-        )
-
-        let consentRecorder = FixesDiagnosticsEventRecorder()
-        let consentFixture = try makeFixesRuntimeDiagnosticsFixture(
-            hasCurrentConsent: false,
-            eventLogger: consentRecorder
-        )
-        consentFixture.runtime.showPalette()
-        try await waitUntil {
-            consentFixture.panel.model != nil
-        }
-
-        #expect(
-            consentRecorder.events == [
-                .capture(outcome: .succeeded),
-                .availability(outcome: .blockedConsentRequired),
             ]
         )
     }

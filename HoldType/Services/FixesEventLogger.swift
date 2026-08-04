@@ -32,7 +32,6 @@ enum FixesAvailabilityOutcome: String, Equatable {
     case ready
     case blockedBusy = "blocked_busy"
     case blockedCatalogUnavailable = "blocked_catalog_unavailable"
-    case blockedConsentRequired = "blocked_consent_required"
     case blockedTargetUnavailable = "blocked_target_unavailable"
     case blockedActionUnavailable = "blocked_action_unavailable"
 }
@@ -42,7 +41,6 @@ enum FixesActionOutcome: String, Equatable {
     case succeeded
     case blockedBusy = "blocked_busy"
     case blockedTargetUnavailable = "blocked_target_unavailable"
-    case blockedConsentRequired = "blocked_consent_required"
     case blockedCredentialUnavailable = "blocked_credential_unavailable"
     case failedProvider = "failed_provider"
     case failedReplacement = "failed_replacement"
@@ -136,7 +134,6 @@ struct OSLogFixesEventLogger: FixesEventLogging {
              .succeeded,
              .blockedBusy,
              .blockedTargetUnavailable,
-             .blockedConsentRequired,
              .blockedCredentialUnavailable,
              .cancelled,
              .stale:
@@ -199,7 +196,6 @@ private extension FixesActionOutcome {
              .succeeded,
              .blockedBusy,
              .blockedTargetUnavailable,
-             .blockedConsentRequired,
              .blockedCredentialUnavailable,
              .cancelled,
              .stale:

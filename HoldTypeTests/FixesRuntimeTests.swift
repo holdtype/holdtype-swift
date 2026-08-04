@@ -116,45 +116,16 @@ struct FixesRuntimeTests {
         #expect(fixture.targetClient.focusedElementCallCount == 2)
     }
 
-    @Test func missingCurrentConsentBlocksActionBeforeProvider() async throws {
-        let fixture = try makeFixture(hasCurrentConsent: false)
-
-        fixture.runtime.showPalette()
-        try await waitUntil {
-            fixture.panel.model != nil
-        }
-
-        let model = try #require(fixture.panel.model)
-        #expect(
-            model.status
-                == .unavailable(
-                    message: FixesRuntime.textFixesConsentRequiredMessage
-                )
-        )
-        model.activateSelection()
-        #expect(fixture.execution.calls.isEmpty)
-        #expect(fixture.replacement.calls.isEmpty)
-    }
-
-    @Test func revokedConsentIsRecheckedAtActivation() async throws {
+    @Test func compatibleTargetIsReadyByDefault() async throws {
         let fixture = try makeFixture()
+
         fixture.runtime.showPalette()
         try await waitUntil {
             fixture.panel.model != nil
         }
+
         let model = try #require(fixture.panel.model)
-        fixture.settings.settings.setTextFixesConsentAccepted(false)
-
-        model.activateSelection()
-
-        #expect(
-            model.status
-                == .unavailable(
-                    message: FixesRuntime.textFixesConsentRequiredMessage
-                )
-        )
-        #expect(fixture.execution.calls.isEmpty)
-        #expect(fixture.replacement.calls.isEmpty)
+        #expect(model.status == .ready)
     }
 
     @Test func selectedActionTransformsAndReplacesTheFrozenSource() async throws {
@@ -267,9 +238,7 @@ struct FixesRuntimeTests {
         )
     }
 
-    private func makeFixture(
-        hasCurrentConsent: Bool = true
-    ) throws -> FixesRuntimeFixture {
+    private func makeFixture() throws -> FixesRuntimeFixture {
         let token = FocusedTextElementToken()
         let state = FocusedTextElementState(
             token: token,
@@ -294,7 +263,6 @@ struct FixesRuntimeTests {
         let hotkeyService = FixesRuntimeHotkeyService()
         var settings = AppSettings.defaults
         settings.translationTargetLanguage = .english
-        settings.setTextFixesConsentAccepted(hasCurrentConsent)
         let settingsBox = FixesRuntimeSettingsBox(settings: settings)
         let runtime = FixesRuntime(
             catalogStore: catalogStore,
