@@ -16,6 +16,7 @@ final class FixesEditorModel: ObservableObject {
 
     private let store: any MacOSTextFixCatalogStoring
     private let identifierGenerator: IdentifierGenerator
+    private let automaticSave = FixesEditorAutomaticSaveScheduler()
 
     init(
         store: any MacOSTextFixCatalogStoring,
@@ -87,17 +88,6 @@ final class FixesEditorModel: ObservableObject {
             < TextFixCatalog.maximumActionCount
     }
 
-    var canSaveSelectedDraft: Bool {
-        guard !activity.isBusy,
-              catalog != nil,
-              let draft = selectedDraft,
-              draft.validation.isValid
-        else {
-            return false
-        }
-        return draft.differs(from: catalog?.action(id: draft.id))
-    }
-
     var canDeleteSelection: Bool {
         guard !activity.isBusy,
               let selectedActionID
@@ -158,6 +148,8 @@ final class FixesEditorModel: ObservableObject {
     }
 
     func selectAction(id: String?) {
+        savePendingChangesBeforeChangingSelection()
+
         guard let id else {
             selectedActionID = nil
             return
@@ -214,52 +206,38 @@ final class FixesEditorModel: ObservableObject {
     }
 
     func saveSelectedDraft() async {
-        guard let catalog,
-              let draft = selectedDraft
-        else {
-            return
-        }
-        guard draft.validation.isValid else {
-            issue = .validation(
-                draft.validation.titleMessage
-                    ?? draft.validation.promptMessage
-                    ?? "Review the Fix fields and try again."
-            )
-            return
-        }
-
-        do {
-            let action = try draft.makeAction()
-            let candidate: TextFixCatalog
-            if catalog.action(id: action.id) == nil {
-                candidate = try catalog.addingCustomAction(action)
-            } else {
-                candidate = try catalog.replacingCustomAction(action)
-            }
-            guard let saved = await persist(candidate, activity: .saving),
-                  let savedAction = saved.action(id: action.id)
-            else {
-                return
-            }
-
-            drafts[action.id] = FixesEditorDraft(action: savedAction)
-            pendingActionIDs.removeAll { $0 == action.id }
-            selectedActionID = action.id
-        } catch {
-            issue = .validation("Review the title and prompt, then try again.")
-        }
+        await flushPendingAutomaticSave()
     }
 
     func deleteSelection() async {
-        guard let selectedActionID,
-              canDeleteSelection
-        else {
+        guard let selectedActionID else {
             return
         }
-        if pendingActionIDs.contains(selectedActionID) {
-            pendingActionIDs.removeAll { $0 == selectedActionID }
-            drafts[selectedActionID] = nil
-            selectFirstAvailableAction()
+        await deleteAction(id: selectedActionID)
+    }
+
+    func canDeleteAction(id: String) -> Bool {
+        guard !activity.isBusy else {
+            return false
+        }
+        if pendingActionIDs.contains(id) {
+            return true
+        }
+        return catalog?.action(id: id)?.kind == .customPrompt
+    }
+
+    func deleteAction(id: String) async {
+        guard canDeleteAction(id: id) else {
+            return
+        }
+        automaticSave.cancel(for: id)
+
+        if pendingActionIDs.contains(id) {
+            pendingActionIDs.removeAll { $0 == id }
+            drafts[id] = nil
+            if selectedActionID == id {
+                selectFirstAvailableAction()
+            }
             return
         }
         guard let catalog else {
@@ -267,15 +245,24 @@ final class FixesEditorModel: ObservableObject {
         }
 
         do {
-            let candidate = try catalog.deletingCustomAction(id: selectedActionID)
+            let candidate = try catalog.deletingCustomAction(id: id)
             guard let saved = await persist(candidate, activity: .deleting) else {
                 return
             }
-            drafts[selectedActionID] = nil
-            self.selectedActionID = saved.actions.first?.id
+            drafts[id] = nil
+            if selectedActionID == id {
+                selectedActionID = saved.actions.first?.id
+            }
         } catch {
             issue = .validation("This Fix cannot be deleted.")
         }
+    }
+
+    func savePendingChangesBeforeClosing() {
+        guard let id = automaticSave.actionID else {
+            return
+        }
+        queueAutomaticSave(for: id, after: .zero)
     }
 
     func moveCustomActions(from source: IndexSet, toOffset destination: Int) async {
@@ -393,6 +380,66 @@ final class FixesEditorModel: ObservableObject {
         }
         mutation(&draft)
         drafts[selectedActionID] = draft
+        queueAutomaticSave(for: selectedActionID, after: .milliseconds(500))
+    }
+
+    private func saveDraft(id: String) async {
+        guard let catalog,
+              let draft = drafts[id],
+              draft.validation.isValid,
+              draft.differs(from: catalog.action(id: id))
+        else {
+            return
+        }
+
+        do {
+            let action = try draft.makeAction()
+            let candidate: TextFixCatalog
+            if catalog.action(id: action.id) == nil {
+                candidate = try catalog.addingCustomAction(action)
+            } else {
+                candidate = try catalog.replacingCustomAction(action)
+            }
+            guard let saved = await persist(candidate, activity: .saving),
+                  let savedAction = saved.action(id: action.id)
+            else {
+                return
+            }
+
+            drafts[action.id] = FixesEditorDraft(action: savedAction)
+            pendingActionIDs.removeAll { $0 == action.id }
+        } catch {
+            issue = .validation("Review the title and prompt, then try again.")
+        }
+    }
+
+    private func savePendingChangesBeforeChangingSelection() {
+        guard let id = automaticSave.actionID else {
+            return
+        }
+        queueAutomaticSave(for: id, after: .zero)
+    }
+
+    private func flushPendingAutomaticSave() async {
+        guard let id = automaticSave.actionID else {
+            return
+        }
+        automaticSave.cancel(for: id)
+        await saveDraft(id: id)
+    }
+
+    private func queueAutomaticSave(for id: String, after delay: Duration) {
+        automaticSave.cancel()
+        guard let draft = drafts[id],
+              draft.validation.isValid,
+              draft.differs(from: catalog?.action(id: id))
+        else {
+            return
+        }
+
+        automaticSave.schedule(id: id, after: delay) { [weak self] in
+            await self?.saveDraft(id: id)
+        }
     }
 
     private func makeAvailableIdentifier() -> String? {

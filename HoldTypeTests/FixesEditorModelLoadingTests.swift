@@ -42,7 +42,6 @@ struct FixesEditorModelLoadingTests {
             #expect(model.selectedAction?.id == id)
             #expect(model.selectedBuiltIn != nil)
             #expect(model.selectedDraft == nil)
-            #expect(!model.canSaveSelectedDraft)
             #expect(!model.canDeleteSelection)
             #expect(!model.canReorderCustomActions)
         }

@@ -5,6 +5,47 @@ import Testing
 
 @MainActor
 struct FixesEditorModelMutationTests {
+    @Test func automaticSaveDebouncesTheLatestCustomFixEdit() async throws {
+        let store = FixesEditorTestStore()
+        let model = FixesEditorModel(store: store)
+        await model.loadIfNeeded()
+        let original = try #require(TextFixCatalog.defaults.customActions.first)
+
+        model.selectAction(id: original.id)
+        model.setSelectedTitle("Improve This Writing")
+        model.setSelectedPrompt("Rewrite clearly and return only the result.")
+
+        try await Task.sleep(for: .milliseconds(250))
+        let earlySnapshot = await store.snapshot()
+        #expect(earlySnapshot.saveCount == 0)
+
+        try await Task.sleep(for: .milliseconds(350))
+        let snapshot = await store.snapshot()
+        let saved = try #require(snapshot.catalog.action(id: original.id))
+        #expect(saved.title == "Improve This Writing")
+        #expect(saved.prompt == "Rewrite clearly and return only the result.")
+        #expect(snapshot.saveCount == 1)
+        #expect(!model.selectedDraftHasChanges)
+    }
+
+    @Test func changingSelectionFlushesPendingCustomFixEdit() async throws {
+        let store = FixesEditorTestStore()
+        let model = FixesEditorModel(store: store)
+        await model.loadIfNeeded()
+        let original = try #require(TextFixCatalog.defaults.customActions.first)
+        let next = try #require(TextFixCatalog.defaults.customActions.dropFirst().first)
+
+        model.selectAction(id: original.id)
+        model.setSelectedTitle("Improve This Writing")
+        model.selectAction(id: next.id)
+
+        try await Task.sleep(for: .milliseconds(100))
+        let snapshot = await store.snapshot()
+        #expect(snapshot.catalog.action(id: original.id)?.title == "Improve This Writing")
+        #expect(snapshot.saveCount == 1)
+        #expect(model.selectedActionID == next.id)
+    }
+
     @Test func addValidatesThenSavesStableCustomAction() async throws {
         let store = FixesEditorTestStore()
         let model = FixesEditorModel(
@@ -19,14 +60,12 @@ struct FixesEditorModelMutationTests {
         #expect(model.selectedDraft?.isNew == true)
         #expect(model.selectedDraftValidation?.titleMessage == "Enter a title.")
         #expect(model.selectedDraftValidation?.promptMessage == "Enter a prompt.")
-        #expect(!model.canSaveSelectedDraft)
 
         model.setSelectedTitle("Polish")
         model.setSelectedPrompt("Polish the text without changing its meaning.")
         model.setSelectedIcon(.rewrite)
         model.setSelectedEnabled(false)
 
-        #expect(model.canSaveSelectedDraft)
         await model.saveSelectedDraft()
 
         let snapshot = await store.snapshot()

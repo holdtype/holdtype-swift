@@ -50,6 +50,7 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        model.savePendingChangesBeforeClosing()
         restoreAccessoryHandler(notification.object as? NSWindow)
     }
 

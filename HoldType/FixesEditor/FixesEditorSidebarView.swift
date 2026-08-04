@@ -3,6 +3,8 @@ import SwiftUI
 struct FixesEditorSidebarView: View {
     @ObservedObject var model: FixesEditorModel
 
+    @State private var deletionAction: FixesEditorActionPresentation?
+
     var body: some View {
         Group {
             if model.catalog == nil {
@@ -36,6 +38,19 @@ struct FixesEditorSidebarView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             restoreDefaultsBar
+        }
+        .alert("Delete this Fix?", isPresented: deletionAlertIsPresented) {
+            Button("Delete", role: .destructive) {
+                if let id = deletionAction?.id {
+                    Task {
+                        await model.deleteAction(id: id)
+                    }
+                }
+                deletionAction = nil
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the Fix from the macOS catalog.")
         }
     }
 
@@ -77,6 +92,14 @@ struct FixesEditorSidebarView: View {
     private func sidebarRow(for action: FixesEditorActionPresentation) -> some View {
         FixesEditorSidebarRow(action: action)
             .tag(action.id)
+            .contextMenu {
+                if !action.isBuiltIn {
+                    Button("Delete", role: .destructive) {
+                        deletionAction = action
+                    }
+                    .disabled(!model.canDeleteAction(id: action.id))
+                }
+            }
     }
 
     @ViewBuilder
@@ -122,6 +145,17 @@ struct FixesEditorSidebarView: View {
         }
         .background(.bar)
     }
+
+    private var deletionAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { deletionAction != nil },
+            set: { isPresented in
+                if !isPresented {
+                    deletionAction = nil
+                }
+            }
+        )
+    }
 }
 
 private struct FixesEditorSidebarRow: View {
@@ -150,11 +184,6 @@ private struct FixesEditorSidebarRow: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .accessibilityLabel("Pinned built-in Fix")
-            } else if action.isPending {
-                Image(systemName: "circle.dashed")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Not saved")
             } else if !action.isEnabled {
                 Image(systemName: "slash.circle")
                     .font(.caption)

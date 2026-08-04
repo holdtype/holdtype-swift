@@ -142,10 +142,14 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its window
   title remains static while users change the selected Fix. It provides search,
   Add, and Restore Defaults. A selected custom Fix provides title, prompt,
-  icon, enabled state, drag-to-reorder custom rows, and Delete. A selected
-  built-in Fix shows only its lock-marked informational block; it exposes no
-  editable fields, action buttons, or other detail sections. The editor does
-  not show a separate Order section or move buttons in the detail pane.
+  icon, and enabled state; changes save automatically 500 ms after the most
+  recent edit, and any pending change saves before the user selects another
+  Fix or closes the editor. The custom Fix row exposes Delete in its context
+  menu. The detail pane has no Save or Delete buttons. Users drag custom rows
+  to reorder them. A selected built-in Fix shows only its lock-marked
+  informational block; it exposes no editable fields, action buttons, or
+  other detail sections. The editor does not show a separate Order section or
+  move buttons in the detail pane.
 - The Fixes editor shows one plain, two-line description in the title bar to
   the right of the sidebar divider. It appears for every selection state,
   including when no Fix is selected. The description explains that Fixes

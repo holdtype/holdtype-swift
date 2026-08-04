@@ -4,8 +4,6 @@ import SwiftUI
 struct FixesEditorCustomDetailView: View {
     @ObservedObject var model: FixesEditorModel
 
-    @State private var showsDeleteConfirmation = false
-
     var body: some View {
         Form {
             identitySection
@@ -13,19 +11,6 @@ struct FixesEditorCustomDetailView: View {
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            actionBar
-        }
-        .alert("Delete this Fix?", isPresented: $showsDeleteConfirmation) {
-            Button("Delete", role: .destructive) {
-                Task {
-                    await model.deleteSelection()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the Fix from the macOS catalog.")
-        }
     }
 
     private var identitySection: some View {
@@ -99,46 +84,6 @@ struct FixesEditorCustomDetailView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-        }
-    }
-
-    private var actionBar: some View {
-        HStack {
-            Button("Delete", role: .destructive) {
-                showsDeleteConfirmation = true
-            }
-            .disabled(!model.canDeleteSelection)
-
-            if model.selectedDraft?.isNew == true {
-                Text("Not saved")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if model.selectedDraftHasChanges {
-                Text("Unsaved changes")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if model.activity.isBusy {
-                ProgressView()
-                    .controlSize(.small)
-            }
-
-            Button("Save") {
-                Task {
-                    await model.saveSelectedDraft()
-                }
-            }
-            .keyboardShortcut(.defaultAction)
-            .disabled(!model.canSaveSelectedDraft)
-        }
-        .padding(.horizontal, 16)
-        .frame(height: 50)
-        .background(.bar)
-        .overlay(alignment: .top) {
-            Divider()
         }
     }
 
