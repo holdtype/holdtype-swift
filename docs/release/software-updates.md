@@ -177,11 +177,13 @@ Before dispatch, run the full test suite locally as the developer gate, then
 add `docs/release/notes/<version>.md`, validate it, commit it with the product
 changes, and push `master`. The GitHub Release workflow does not rerun the test
 suite; it packages, notarizes, and publishes the already locally-validated
-commit. An agent operating the release must use the available authenticated
-GitHub UI automation or Computer Use for ordinary Actions navigation and
-dispatch; it must not hand those routine buttons back to the operator.
-Authenticated CLI or API automation is also acceptable when it is already
-available.
+commit. The standard dispatch surface is an authenticated GitHub CLI (`gh`),
+not Safari or Computer Use. Set up `gh` once with repository write access and
+verify it with `gh auth status`; the release agent then dispatches and monitors
+the workflow through `gh` wrapped by `scripts/release/with_timeout.py`. Do not
+use browser UI automation for routine release dispatch or monitoring. The
+complete CLI setup and command sequence is in
+`docs/release/first-release-runbook.md`.
 
 `.github/workflows/pages.yml` is a manual recovery workflow that republishes
 the same complete Pages artifact from the latest stable release. Routine

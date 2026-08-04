@@ -395,8 +395,8 @@ Prepare and validate the release on `master`:
    last published release.
 3. Validate the notes and exact version/build/tag inputs.
 4. Commit the release notes with the intended product state and push `master`.
-5. In GitHub Actions, open the `Release` workflow at the pushed `master` SHA
-   and use `Run workflow` with the explicit version and build values.
+5. Dispatch the `Release` workflow from the pushed `master` SHA through the
+   authenticated GitHub CLI with the explicit version and build values.
 
 The current `github-pages` environment protection admits `master` but rejects
 tag refs. Therefore the normal recurring path is `workflow_dispatch` from
@@ -405,57 +405,95 @@ tag refs. Therefore the normal recurring path is `workflow_dispatch` from
 `master` SHA when it publishes a new GitHub Release. If the exact tag already
 exists, the workflow verifies it before publishing instead.
 
-An agent carrying out a user-authorized release must operate ordinary GitHub
-Actions controls itself through available authenticated browser automation or
-Computer Use rather than asking the operator to click them. An already
-authenticated GitHub CLI or API is also acceptable. Use the `v*` tag-push
-trigger only as a fallback after the `github-pages` environment protection has
-been explicitly changed and verified to allow that tag ref.
+### Dispatch With The GitHub CLI
 
-### Dispatch With Computer Use In Safari
+Safari and Computer Use are not part of the release path. Install and
+authenticate the GitHub CLI once on the release machine, then use it for every
+dispatch, status check, and post-release inspection.
 
-When the Mac's authenticated GitHub session is in Safari, use Computer Use to
-operate Safari. Do not substitute an unauthenticated in-app browser or ask the
-operator to repeat ordinary GitHub Actions clicks.
-
-1. Before the first Computer Use action, start a scoped awake guard and retain
-   its PID for cleanup:
+1. Verify that the CLI is available. If it is missing, install the official
+   GitHub CLI through the normal machine-management process (for example,
+   `brew install gh`). Do not commit its credentials or any personal access
+   token to this repository.
 
    ```sh
-   caffeinate -dimsu &
-   echo $!
+   gh --version
    ```
 
-2. With Computer Use, activate Safari and open the exact workflow URL:
-
-   ```text
-   https://github.com/holdtype/holdtype-swift/actions/workflows/release.yml
-   ```
-
-3. Confirm that Safari shows the intended signed-in GitHub account, the
-   `holdtype/holdtype-swift` repository, and the `Release` workflow. Open
-   **Run workflow**, select `master`, and enter the validated values without a
-   leading `v` for the version and as a positive integer for the build.
-4. Immediately before the final **Run workflow** submission, confirm that the
-   selected ref is `master`, the version/build match the validated release
-   inputs, and the pushed commit contains `docs/release/notes/<version>.md`.
-   Submit the workflow through Computer Use; do not create or push the release
-   tag manually.
-5. Keep the workflow page open and monitor the `Build, notarize, and publish`
-   job to completion. The successful run creates `v<version>`, publishes the
-   notarized DMG and metadata, updates the Sparkle appcast and Pages content,
-   and opens the configured Homebrew tap pull request.
-6. Stop the awake guard after the browser work completes:
+2. Authenticate once as a GitHub account that has write access to
+   `holdtype/holdtype-swift`. The web authorization opened by this command is
+   only the one-time GitHub login for the CLI; release operations themselves
+   remain CLI-only.
 
    ```sh
-   kill <caffeinate-pid>
+   gh auth login --hostname github.com --git-protocol ssh --web --scopes repo
+   gh auth status
    ```
 
-If the Safari session is unavailable and authentication requires a physical
-credential or second factor that Computer Use cannot perform, report that
-specific authentication blocker. Do not fall back to a tag push, create a
-replacement credential, or ask the operator to perform routine Actions
-navigation.
+   `gh auth status` must show the intended active GitHub account and the
+   `repo` scope before a release is dispatched. If the CLI is already logged
+   in but lacks that scope, refresh the existing login rather than creating a
+   token in a shell command:
+
+   ```sh
+   gh auth refresh --hostname github.com --scopes repo
+   gh auth status
+   ```
+
+3. Confirm the current checkout is the pushed `master` release commit and
+   dispatch the workflow. Keep every remote operation bounded with the tracked
+   timeout helper. Enter the version without the leading `v`; the build must be
+   a positive integer. Do not create or push the tag manually.
+
+   ```sh
+   git status --short --branch
+   scripts/release/with_timeout.py 300 \
+     gh workflow run Release \
+       --repo holdtype/holdtype-swift \
+       --ref master \
+       -f version=1.0.7 \
+       -f build=8
+   ```
+
+4. Find the run ID and monitor it to completion. `gh run watch` can be invoked
+   repeatedly with a short timeout; use `gh run view` between attempts to read
+   the current state without an unbounded wait.
+
+   ```sh
+   scripts/release/with_timeout.py 120 \
+     gh run list \
+       --repo holdtype/holdtype-swift \
+       --workflow Release \
+       --limit 1 \
+       --json databaseId,url,status,conclusion,headSha,createdAt
+
+   scripts/release/with_timeout.py 60 \
+     gh run watch <run-id> \
+       --repo holdtype/holdtype-swift \
+       --exit-status
+
+   scripts/release/with_timeout.py 60 \
+     gh run view <run-id> \
+       --repo holdtype/holdtype-swift \
+       --json status,conclusion,url,jobs
+   ```
+
+   A successful run creates `v<version>`, publishes the notarized DMG and
+   metadata, updates the Sparkle appcast and Pages content, and updates the
+   configured Homebrew tap. If the run fails, inspect only the failed log
+   before changing anything:
+
+   ```sh
+   scripts/release/with_timeout.py 120 \
+     gh run view <run-id> \
+       --repo holdtype/holdtype-swift \
+       --log-failed
+   ```
+
+If `gh auth status` cannot establish an authenticated account with repository
+write access, release dispatch is blocked until that one-time CLI
+authentication is completed. Do not switch to Safari, Computer Use, or a
+manual tag push as a workaround.
 
 The GitHub Actions release workflow packages, notarizes, and publishes the
 locally validated commit. It should:
@@ -501,15 +539,20 @@ indefinitely.
 After the workflow passes, verify:
 
 ```sh
-scripts/release/verify_published_release.py \
+scripts/release/with_timeout.py 900 \
+  scripts/release/verify_published_release.py \
   --repository holdtype/holdtype-swift \
   --version 1.0.0 \
   --appcast-url https://holdtype.github.io/holdtype-swift/appcast.xml \
   --release-notes-file /path/to/release-notes.md \
   --download-dmg \
   --verify-downloaded-dmg-install
-gh release view v1.0.0
-gh release download v1.0.0 --pattern 'HoldType-1.0.0.dmg'
+scripts/release/with_timeout.py 60 \
+  gh release view v1.0.0 --repo holdtype/holdtype-swift
+scripts/release/with_timeout.py 300 \
+  gh release download v1.0.0 \
+    --repo holdtype/holdtype-swift \
+    --pattern 'HoldType-1.0.0.dmg'
 shasum -a 256 HoldType-1.0.0.dmg
 spctl --assess --type open --context context:primary-signature --verbose=4 HoldType-1.0.0.dmg
 scripts/release/verify_dmg_install.sh --dmg HoldType-1.0.0.dmg
