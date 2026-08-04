@@ -37,6 +37,28 @@ ordering. When no reliable spec exists, the agent may inspect code and tests as
 evidence only after recording that gap, and must produce or update first-pass
 specs before implementation begins.
 
+## Specification Authority And Change Control
+
+An accepted, committed specification is an operator-owned product decision. An
+agent must not unilaterally cancel, weaken, replace, or reinterpret that
+decision to fit an implementation, a bug fix, a hardening idea, or a test.
+
+When implementation evidence conflicts with an accepted spec, the agent must
+report the discrepancy and ask the operator whether a spec change is intended.
+It may propose a precise spec amendment, but must not make that amendment or
+implement the conflicting behavior without explicit operator authorization.
+An explicit operator request for a behavior change authorizes the corresponding
+spec amendment; record that decision in the spec before changing implementation.
+
+System-permission settings are status and request surfaces for genuine macOS
+permissions only. They must not add application-owned consent switches,
+defaults, or gates as substitutes for a system permission, or place unrelated
+product opt-ins in the system-permission section, unless an active spec
+explicitly requires it and the operator has approved that product decision.
+Application-specific privacy disclosure belongs in the feature or privacy
+surface that explains the action; it must not be presented as a fictitious
+system permission.
+
 The gate does not require a product spec for formatting, comments, copy-only
 marketing work, documentation-only maintenance, or proven behavior-neutral
 internal cleanup. If behavioral impact is uncertain, the gate applies.
