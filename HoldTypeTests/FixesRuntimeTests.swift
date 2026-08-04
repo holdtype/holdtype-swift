@@ -33,6 +33,21 @@ struct FixesRuntimeTests {
         #expect(model.status == .ready)
     }
 
+    @Test func paletteShowsTheConfiguredTranslationTarget() async throws {
+        let fixture = try makeFixture()
+
+        fixture.runtime.showPalette()
+        try await waitUntil {
+            fixture.panel.model != nil
+        }
+
+        let model = try #require(fixture.panel.model)
+        let translate = try #require(
+            model.actions.first { $0.id == TextFixAction.translateIdentifier }
+        )
+        #expect(translate.title == "Translate to EN")
+    }
+
     @Test func unavailableTargetShowsFeedbackWithoutOpeningPalette() throws {
         let fixture = try makeFixture()
         fixture.targetClient.state = nil

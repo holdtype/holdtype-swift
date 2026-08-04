@@ -21,21 +21,29 @@ final class FixesPaletteModel: ObservableObject {
     private let onActivate: ActionHandler
     private let onDismiss: DismissHandler
     private let recentActionIDs: [String]
+    private let translationTargetLanguageCode: String?
     private var didRequestDismissal = false
 
     init(
         catalog: TextFixCatalog,
         recentActionIDs: [String] = [],
+        translationTargetLanguageCode: String? = nil,
         status: FixesPaletteStatus = .ready,
         onActivate: @escaping ActionHandler,
         onDismiss: @escaping DismissHandler
     ) {
-        let actions = catalog.enabledActions.map(FixesPaletteActionPresentation.init)
+        let actions = catalog.enabledActions.map {
+            FixesPaletteActionPresentation(
+                action: $0,
+                translationTargetLanguageCode: translationTargetLanguageCode
+            )
+        }
         self.actions = actions
         self.status = status
         self.onActivate = onActivate
         self.onDismiss = onDismiss
         self.recentActionIDs = recentActionIDs
+        self.translationTargetLanguageCode = translationTargetLanguageCode
         selectedActionID = actionsRankedByRecency(actions).first?.id
     }
 
@@ -105,7 +113,12 @@ final class FixesPaletteModel: ObservableObject {
     }
 
     func updateActions(from catalog: TextFixCatalog) {
-        actions = catalog.enabledActions.map(FixesPaletteActionPresentation.init)
+        actions = catalog.enabledActions.map {
+            FixesPaletteActionPresentation(
+                action: $0,
+                translationTargetLanguageCode: translationTargetLanguageCode
+            )
+        }
         reconcileSelection()
     }
 

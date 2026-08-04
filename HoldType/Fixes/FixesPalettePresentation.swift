@@ -6,9 +6,17 @@ struct FixesPaletteActionPresentation: Equatable, Identifiable {
     let title: String
     let systemImageName: String
 
-    init(action: TextFixAction) {
+    init(
+        action: TextFixAction,
+        translationTargetLanguageCode: String? = nil
+    ) {
         id = action.id
-        title = action.title
+        if action.id == TextFixAction.translateIdentifier,
+           let translationTargetLanguageCode {
+            title = "Translate to \(translationTargetLanguageCode.uppercased())"
+        } else {
+            title = action.title
+        }
         systemImageName = action.icon.fixesPaletteSystemImageName
     }
 }

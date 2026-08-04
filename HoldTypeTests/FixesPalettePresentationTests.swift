@@ -37,6 +37,29 @@ struct FixesPalettePresentationTests {
         #expect(String(reflecting: presentation).contains(action.prompt ?? "") == false)
     }
 
+    @Test func translatePresentationShowsTheConfiguredTargetCode() throws {
+        let translate = try #require(
+            TextFixCatalog.defaults.action(id: TextFixAction.translateIdentifier)
+        )
+        let customAction = TextFixCatalog.defaults.customActions[0]
+
+        let translatePresentation = FixesPaletteActionPresentation(
+            action: translate,
+            translationTargetLanguageCode: "es"
+        )
+        let defaultTranslatePresentation = FixesPaletteActionPresentation(
+            action: translate
+        )
+        let customPresentation = FixesPaletteActionPresentation(
+            action: customAction,
+            translationTargetLanguageCode: "es"
+        )
+
+        #expect(translatePresentation.title == "Translate to ES")
+        #expect(defaultTranslatePresentation.title == "Translate")
+        #expect(customPresentation.title == customAction.title)
+    }
+
     @Test func readyStatusHasNoBannerAndAllowsActivation() {
         #expect(FixesPaletteStatus.ready.presentation(actionTitle: nil) == nil)
         #expect(FixesPaletteStatus.ready.allowsActionActivation)

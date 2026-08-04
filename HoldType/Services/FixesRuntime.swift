@@ -208,6 +208,8 @@ final class FixesRuntime: ObservableObject {
         let model = FixesPaletteModel(
             catalog: catalog,
             recentActionIDs: recentUseStore.recentActionIDs(),
+            translationTargetLanguageCode: settingsProvider()
+                .resolvedTranslationTargetLanguageCode,
             status: status,
             onActivate: { [weak self] actionID in
                 self?.activate(actionID: actionID)

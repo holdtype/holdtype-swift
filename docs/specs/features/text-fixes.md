@@ -138,6 +138,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   cancelled, stale, or blocked actions never change the order.
 - Arrow keys move selection only among visible matches; Return runs the
   selected Fix; Escape and click-outside dismiss without changing text.
+- When Translation Settings resolve a target-language code, the built-in
+  `Translate` row reads `Translate to <code>`, using the normalized two-letter
+  code. If no target code is configured, it remains `Translate`. This label
+  change applies only to the built-in action; custom Fix titles remain exactly
+  as the user named them.
 - The palette uses compact menu-like rows with one supported icon and one short
   title. It keeps spacing, status, progress, unavailable, failure, and stale
   states compact without showing provider payloads.
