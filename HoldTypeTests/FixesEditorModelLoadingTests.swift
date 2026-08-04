@@ -63,7 +63,6 @@ struct FixesEditorModelLoadingTests {
 
         model.addFix()
         await model.saveSelectedDraft()
-        await model.restoreDefaults()
         await model.deleteSelection()
 
         var snapshot = await store.snapshot()

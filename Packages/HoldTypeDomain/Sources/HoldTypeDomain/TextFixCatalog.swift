@@ -140,19 +140,6 @@ public struct TextFixCatalog:
         return try TextFixCatalog(actions: updatedActions)
     }
 
-    /// Appends any missing default custom Fixes without changing existing actions.
-    public func restoringDefaults() throws -> TextFixCatalog {
-        let existingIdentifiers = Set(actions.map(\.id))
-        let missingDefaults = Self.defaultCustomActions.filter {
-            !existingIdentifiers.contains($0.id)
-        }
-        guard actions.count + missingDefaults.count <= Self.maximumActionCount else {
-            throw MutationError.tooManyActions(maximumCount: Self.maximumActionCount)
-        }
-
-        return try TextFixCatalog(actions: actions + missingDefaults)
-    }
-
     public var description: String {
         "TextFixCatalog(actionCount: \(actions.count), prompts: <redacted>)"
     }

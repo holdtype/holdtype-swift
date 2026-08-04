@@ -53,8 +53,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - On macOS, users reorder custom Fixes by dragging their rows in the Fixes
   editor sidebar. Reordering is unavailable while the sidebar is filtered.
   Translate and Fix remain pinned above the draggable custom rows.
-- Restore Defaults recreates missing default custom actions without deleting
-  or changing other custom actions.
+- HoldType does not provide a Restore Defaults action for Fixes. Custom Fixes
+  remain unchanged unless the user explicitly edits, reorders, or deletes them.
 - Catalogs are local and separate on macOS and iOS in the first release.
 - Corrupt or unsupported catalog data is preserved and reported. HoldType does
   not overwrite it with defaults while reporting a successful load.
@@ -140,8 +140,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its window
-  title remains static while users change the selected Fix. It provides search,
-  Add, and Restore Defaults. A selected custom Fix provides title, prompt,
+  title remains static while users change the selected Fix. It provides search
+  and Add. A selected custom Fix provides title, prompt,
   icon, and enabled state; changes save automatically 500 ms after the most
   recent edit, and any pending change saves before the user selects another
   Fix or closes the editor. The custom Fix row exposes Delete in its context
@@ -285,8 +285,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Verification Mapping
 
-- Domain and persistence tests cover defaults, CRUD, ordering, validation,
-  corruption, migration, Restore Defaults, byte bounds, and redaction.
+- Domain and persistence tests cover initial defaults, CRUD, ordering,
+  validation, corruption, migration, byte bounds, and redaction.
 - Provider tests cover exact prompt/source projection, typed action routing,
   exact custom output, timeout, cancellation, empty output, late response, and
   no live calls.

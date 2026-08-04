@@ -118,16 +118,6 @@ final class FixesEditorModel: ObservableObject {
             && catalog.customActions.count > 1
     }
 
-    var canRestoreDefaults: Bool {
-        guard let catalog, !activity.isBusy else {
-            return false
-        }
-        let existingIDs = Set(catalog.actions.map(\.id))
-        return TextFixCatalog.defaults.customActions.contains {
-            !existingIDs.contains($0.id)
-        }
-    }
-
     func loadIfNeeded() async {
         guard catalog == nil, activity == .idle else {
             return
@@ -285,18 +275,6 @@ final class FixesEditorModel: ObservableObject {
             id: catalog.customActions[sourceIndex].id,
             toCustomIndex: destinationIndex
         )
-    }
-
-    func restoreDefaults() async {
-        guard let catalog, canRestoreDefaults else {
-            return
-        }
-        do {
-            let candidate = try catalog.restoringDefaults()
-            _ = await persist(candidate, activity: .restoringDefaults)
-        } catch {
-            issue = .validation("There is no room to restore the missing default Fixes.")
-        }
     }
 
     private var allActionPresentations: [FixesEditorActionPresentation] {

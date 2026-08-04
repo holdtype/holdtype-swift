@@ -148,33 +148,6 @@ struct FixesEditorModelMutationTests {
         #expect(snapshot.catalog.customActions[2].id == movedID)
     }
 
-    @Test func restoreDefaultsAppendsMissingDefaultAndPreservesUserAction() async throws {
-        let missingID = TextFixCatalog.defaults.customActions[0].id
-        let userAction = try TextFixAction(
-            id: "custom.keep-me",
-            kind: .customPrompt,
-            title: "Keep Me",
-            icon: .custom,
-            prompt: "Keep this custom Fix.",
-            isEnabled: false
-        )
-        let startingCatalog = try TextFixCatalog.defaults
-            .deletingCustomAction(id: missingID)
-            .addingCustomAction(userAction)
-        let store = FixesEditorTestStore(catalog: startingCatalog)
-        let model = FixesEditorModel(store: store)
-        await model.loadIfNeeded()
-
-        #expect(model.canRestoreDefaults)
-        await model.restoreDefaults()
-
-        let snapshot = await store.snapshot()
-        #expect(snapshot.catalog.action(id: userAction.id) == userAction)
-        #expect(snapshot.catalog.customActions.last?.id == missingID)
-        #expect(snapshot.saveCount == 1)
-        #expect(!model.canRestoreDefaults)
-    }
-
     @Test func saveFailureKeepsCanonicalCatalogAndEditableDraft() async throws {
         let store = FixesEditorTestStore(saveFails: true)
         let model = FixesEditorModel(store: store)

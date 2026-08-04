@@ -7,7 +7,6 @@ enum FixesEditorActivity: Equatable {
     case saving
     case deleting
     case reordering
-    case restoringDefaults
 
     var isBusy: Bool {
         self != .idle

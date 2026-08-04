@@ -36,9 +36,6 @@ struct FixesEditorSidebarView: View {
                 .help("Add Fix")
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            restoreDefaultsBar
-        }
         .alert("Delete this Fix?", isPresented: deletionAlertIsPresented) {
             Button("Delete", role: .destructive) {
                 if let id = deletionAction?.id {
@@ -125,25 +122,6 @@ struct FixesEditorSidebarView: View {
                 }
             }
         }
-    }
-
-    private var restoreDefaultsBar: some View {
-        VStack(spacing: 0) {
-            Divider()
-
-            Button {
-                Task {
-                    await model.restoreDefaults()
-                }
-            } label: {
-                Label("Restore Defaults", systemImage: "arrow.counterclockwise")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            .disabled(!model.canRestoreDefaults)
-            .padding(12)
-        }
-        .background(.bar)
     }
 
     private var deletionAlertIsPresented: Binding<Bool> {

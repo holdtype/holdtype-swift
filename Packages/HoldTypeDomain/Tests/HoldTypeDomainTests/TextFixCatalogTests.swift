@@ -146,45 +146,6 @@ struct TextFixCatalogTests {
         }
     }
 
-    @Test func restoreDefaultsAppendsOnlyMissingRowsAndPreservesEveryExistingRow() throws {
-        let customizedImprove = try makeCustom(
-            id: "default.improve-writing",
-            title: "My Improve",
-            prompt: "My private improved-writing prompt",
-            isEnabled: false
-        )
-        let withCustomization = try TextFixCatalog.defaults
-            .replacingCustomAction(customizedImprove)
-            .addingCustomAction(makeCustom(id: "user.personal", title: "Personal"))
-            .deletingCustomAction(id: "default.summarize")
-        let restored = try withCustomization.restoringDefaults()
-
-        #expect(Array(restored.actions.dropLast()) == withCustomization.actions)
-        #expect(restored.actions.last?.id == "default.summarize")
-        #expect(restored.action(id: customizedImprove.id) == customizedImprove)
-        #expect(restored.action(id: "user.personal") == withCustomization.action(id: "user.personal"))
-        #expect(try restored.restoringDefaults() == restored)
-    }
-
-    @Test func restoreDefaultsFailsAtomicallyWhenTheCatalogIsFull() throws {
-        let missingOneDefault = try TextFixCatalog.defaults.deletingCustomAction(
-            id: "default.markdown"
-        )
-        let full = try (0..<93).reduce(missingOneDefault) { catalog, index in
-            try catalog.addingCustomAction(makeCustom(id: "user.full.\(index)"))
-        }
-
-        #expect(full.actions.count == TextFixCatalog.maximumActionCount)
-        #expect(
-            throws: TextFixCatalog.MutationError.tooManyActions(
-                maximumCount: TextFixCatalog.maximumActionCount
-            )
-        ) {
-            try full.restoringDefaults()
-        }
-        #expect(full.action(id: "default.markdown") == nil)
-    }
-
     @Test func runtimeCatalogIsSendableNotCodableAndRedactsNestedPrompts() {
         requireSendable(TextFixCatalog.self)
         let catalog = TextFixCatalog.defaults
