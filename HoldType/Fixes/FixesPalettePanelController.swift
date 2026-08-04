@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 enum FixesPaletteKeyboardCommand: Equatable {
@@ -41,7 +42,7 @@ protocol FixesPalettePanelPresenting: AnyObject {
 
 @MainActor
 final class FixesPalettePanelController: FixesPalettePanelPresenting {
-    nonisolated static let defaultPanelSize = CGSize(width: 360, height: 392)
+    nonisolated static let defaultPanelSize = CGSize(width: 360, height: 140)
 
     private let panelSize: CGSize
     private let outsideClickMonitor: any FixesPaletteOutsideClickMonitoring
@@ -51,6 +52,9 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
     private var panel: FixesPalettePanel?
     private var hostingView: NSHostingView<FixesPaletteView>?
     private var model: FixesPaletteModel?
+    private var accessibilityAnchorRect: CGRect?
+    private var modelObservation: AnyCancellable?
+    private var resizeWorkItem: DispatchWorkItem?
 
     convenience init(panelSize: CGSize = defaultPanelSize) {
         self.init(
@@ -102,15 +106,23 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
             rootView: FixesPaletteView(model: model)
         )
         hostingView.frame = CGRect(origin: .zero, size: panelSize)
+        hostingView.autoresizingMask = [.width, .height]
         panel.contentView = hostingView
         panel.setFrame(
-            panelFrame(accessibilityAnchorRect: accessibilityAnchorRect),
+            panelFrame(
+                size: panelSize,
+                accessibilityAnchorRect: accessibilityAnchorRect
+            ),
             display: false
         )
 
         self.panel = panel
         self.hostingView = hostingView
         self.model = model
+        self.accessibilityAnchorRect = accessibilityAnchorRect
+        modelObservation = model.objectWillChange.sink { [weak self] _ in
+            self?.scheduleContentResize()
+        }
 
         panel.onKeyboardCommand = { [weak self] command in
             self?.handleKeyboardCommand(command) == true
@@ -121,6 +133,7 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
 
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+        scheduleContentResize()
     }
 
     func releaseKeyboardFocus() {
@@ -133,9 +146,13 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
         panel?.onKeyboardCommand = nil
         panel?.orderOut(nil)
         panel?.contentView = nil
+        modelObservation = nil
+        resizeWorkItem?.cancel()
+        resizeWorkItem = nil
         panel = nil
         hostingView = nil
         model = nil
+        accessibilityAnchorRect = nil
     }
 
     @discardableResult
@@ -191,7 +208,10 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
         return panel
     }
 
-    private func panelFrame(accessibilityAnchorRect: CGRect?) -> CGRect {
+    private func panelFrame(
+        size: CGSize,
+        accessibilityAnchorRect: CGRect?
+    ) -> CGRect {
         let anchor: FixesPaletteAnchor
         if let accessibilityAnchorRect {
             anchor = .accessibility(accessibilityAnchorRect)
@@ -208,11 +228,46 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
         }
 
         return FixesPalettePlacement.panelFrame(
-            panelSize: panelSize,
+            panelSize: size,
             anchor: anchor,
             screens: screenGeometryProvider()
         )
     }
+
+    private func scheduleContentResize() {
+        resizeWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else {
+                return
+            }
+
+            self.resizeToContent()
+        }
+        resizeWorkItem = workItem
+        DispatchQueue.main.async(execute: workItem)
+    }
+
+    private func resizeToContent() {
+        guard let panel,
+              let hostingView
+        else {
+            return
+        }
+
+        hostingView.layoutSubtreeIfNeeded()
+        let fittingHeight = max(1, hostingView.fittingSize.height)
+        let size = CGSize(width: panelSize.width, height: fittingHeight)
+        let frame = panelFrame(
+            size: size,
+            accessibilityAnchorRect: accessibilityAnchorRect
+        )
+        panel.setFrame(frame, display: true)
+        hostingView.frame = panel.contentView?.bounds ?? CGRect(
+            origin: .zero,
+            size: size
+        )
+    }
+
 }
 
 private final class FixesPalettePanel: NSPanel {

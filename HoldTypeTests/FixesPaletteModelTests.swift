@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct FixesPaletteModelTests {
-    @Test func startsWithEnabledCatalogOrderAndFirstActionSelected() throws {
+    @Test func startsWithEnabledCatalogOrderAndNoActionSelectedUntilSearch() throws {
         let disabledID = TextFixCatalog.defaults.customActions[0].id
         let catalog = try TextFixCatalog.defaults.settingCustomActionEnabled(
             id: disabledID,
@@ -15,7 +15,8 @@ struct FixesPaletteModelTests {
 
         #expect(model.actions.map(\.id) == catalog.enabledActions.map(\.id))
         #expect(model.actions.contains(where: { $0.id == disabledID }) == false)
-        #expect(model.selectedActionID == TextFixAction.translateIdentifier)
+        #expect(model.selectedActionID == nil)
+        #expect(model.visibleActions.isEmpty)
     }
 
     @Test func searchIsCaseAndDiacriticInsensitive() throws {
@@ -36,15 +37,24 @@ struct FixesPaletteModelTests {
         #expect(model.selectedActionID == resume.id)
     }
 
-    @Test func clearingSearchRestoresFullListAndKeepsVisibleSelection() {
+    @Test func clearingSearchHidesResultsAndClearsSelection() {
         let model = makeModel()
         model.setSearchText("Fix")
-        let selectedID = model.selectedActionID
+        #expect(model.visibleActions.isEmpty == false)
 
         model.setSearchText("")
 
-        #expect(model.visibleActions.count == TextFixCatalog.defaults.enabledActions.count)
-        #expect(model.selectedActionID == selectedID)
+        #expect(model.visibleActions.isEmpty)
+        #expect(model.selectedActionID == nil)
+    }
+
+    @Test func whitespaceOnlySearchDoesNotRevealResults() {
+        let model = makeModel()
+
+        model.setSearchText("   \n")
+
+        #expect(model.visibleActions.isEmpty)
+        #expect(model.selectedActionID == nil)
     }
 
     @Test func unmatchedSearchClearsSelection() {
@@ -59,6 +69,7 @@ struct FixesPaletteModelTests {
 
     @Test func arrowMovementClampsAtListEdges() {
         let model = makeModel()
+        model.setSearchText("Fix")
 
         model.moveSelection(.up)
         #expect(model.selectedActionID == model.visibleActions.first?.id)
@@ -77,6 +88,7 @@ struct FixesPaletteModelTests {
     @Test func activationImmediatelyEntersProcessingAndPreventsDuplicateAction() {
         var activatedIDs: [String] = []
         let model = makeModel { activatedIDs.append($0) }
+        model.setSearchText("Translate")
 
         model.activateSelection()
         model.activateSelection()
@@ -92,6 +104,7 @@ struct FixesPaletteModelTests {
     @Test func retryableFailureAllowsAnotherActivation() {
         var activatedIDs: [String] = []
         let model = makeModel { activatedIDs.append($0) }
+        model.setSearchText("Fix")
         model.updateStatus(
             .failure(message: "The service is temporarily unavailable.", allowsRetry: true)
         )
@@ -106,6 +119,7 @@ struct FixesPaletteModelTests {
     @Test func unavailableAndStaleStatesBlockActivation() {
         var activationCount = 0
         let model = makeModel { _ in activationCount += 1 }
+        model.setSearchText("Fix")
 
         model.updateStatus(.unavailable(message: "Select some text."))
         model.activateSelection()

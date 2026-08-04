@@ -30,6 +30,7 @@ struct FixesPaletteView: View {
         .onAppear {
             isSearchFocused = true
         }
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("HoldType Fixes")
     }
@@ -86,42 +87,31 @@ struct FixesPaletteView: View {
 
     @ViewBuilder
     private var actionList: some View {
-        if model.visibleActions.isEmpty {
+        if model.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            EmptyView()
+        } else if model.visibleActions.isEmpty {
             ContentUnavailableView(
                 "No Matching Fixes",
                 systemImage: "magnifyingglass",
                 description: Text("Try another search.")
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.vertical, 14)
         } else {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 3) {
-                        ForEach(model.visibleActions) { action in
-                            FixesPaletteActionRow(
-                                action: action,
-                                isSelected: action.id == model.selectedActionID,
-                                isProcessing: isProcessing(action.id),
-                                isEnabled: model.status.allowsActionActivation
-                            ) {
-                                model.selectAction(id: action.id)
-                                model.activateSelection()
-                            }
-                            .id(action.id)
-                        }
+            VStack(spacing: 3) {
+                ForEach(model.visibleActions) { action in
+                    FixesPaletteActionRow(
+                        action: action,
+                        isSelected: action.id == model.selectedActionID,
+                        isProcessing: isProcessing(action.id),
+                        isEnabled: model.status.allowsActionActivation
+                    ) {
+                        model.selectAction(id: action.id)
+                        model.activateSelection()
                     }
-                    .padding(6)
-                }
-                .onChange(of: model.selectedActionID) { _, selectedActionID in
-                    guard let selectedActionID else {
-                        return
-                    }
-
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        proxy.scrollTo(selectedActionID, anchor: .center)
-                    }
+                    .id(action.id)
                 }
             }
+            .padding(6)
         }
     }
 
@@ -247,7 +237,7 @@ private struct FixesPalettePreviewContainer: View {
 
     var body: some View {
         FixesPaletteView(model: model)
-            .frame(width: 360, height: 392)
+            .frame(width: 360)
             .padding(30)
     }
 }

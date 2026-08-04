@@ -31,14 +31,12 @@ enum FixesPaletteCoordinateConverter {
 }
 
 enum FixesPalettePlacement {
-    static let defaultGap: CGFloat = 8
     static let defaultScreenMargin: CGFloat = 8
 
     static func panelFrame(
         panelSize: CGSize,
         anchor: FixesPaletteAnchor,
         screens: [FixesPaletteScreenGeometry],
-        gap: CGFloat = defaultGap,
         screenMargin: CGFloat = defaultScreenMargin
     ) -> CGRect {
         let usableScreens = screens.filter {
@@ -71,21 +69,13 @@ enum FixesPalettePlacement {
 
         let minimumX = visibleFrame.minX + screenMargin
         let maximumX = visibleFrame.maxX - screenMargin - size.width
-        let centeredX = convertedAnchor.midX - (size.width / 2)
+        let centeredX = visibleFrame.midX - (size.width / 2)
         let x = clamp(centeredX, minimum: minimumX, maximum: maximumX)
 
         let minimumY = visibleFrame.minY + screenMargin
         let maximumY = visibleFrame.maxY - screenMargin - size.height
-        let belowY = convertedAnchor.minY - gap - size.height
-        let aboveY = convertedAnchor.maxY + gap
-        let y: CGFloat
-        if belowY >= minimumY {
-            y = min(belowY, maximumY)
-        } else if aboveY <= maximumY {
-            y = max(aboveY, minimumY)
-        } else {
-            y = clamp(belowY, minimum: minimumY, maximum: maximumY)
-        }
+        let centeredY = visibleFrame.midY - (size.height / 2)
+        let y = clamp(centeredY, minimum: minimumY, maximum: maximumY)
 
         return CGRect(origin: CGPoint(x: x, y: y), size: size)
     }

@@ -110,10 +110,15 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - `Option+J` is the default global Fixes shortcut. Product UI renders it as
   `⌥J`.
 - The shortcut captures the current external text target before opening UI.
-- A compact searchable palette opens near the caret or selected-text bounds,
-  clamped to the visible screen.
-- Arrow keys move selection; Return runs the selected Fix; Escape and
-  click-outside dismiss without changing text.
+- A compact searchable palette opens centered in the visible area of the
+  display containing the active text target.
+- Before the search field contains non-whitespace text, the palette shows no
+  Fix rows and does not reserve a large empty results area.
+- Typing filters the catalog and reveals only matching Fix rows. The palette is
+  a search surface, not a browsable or scrollable catalog; users refine the
+  query instead of paging through all actions.
+- Arrow keys move selection only among visible matches; Return runs the
+  selected Fix; Escape and click-outside dismiss without changing text.
 - The palette shows icon, short title, progress, unavailable, failure, and
   stale-target states without showing provider payloads.
 - Successful replacement dismisses the palette. A failed request may be
@@ -127,12 +132,20 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Input Monitoring is required only when the chosen global shortcut invocation
   path needs it. It is not required for a Fixes action invoked through an
   already-available path.
-- The menu bar exposes `Edit Fixes…` for catalog management but does not expose
+- The menu bar exposes `Manage Fixes…` for catalog management but does not expose
   an actionable `Fixes…` palette command. On macOS, immediate Fixes are invoked
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window with search, Add, title, prompt,
   icon, enabled state, reorder, Delete, and Restore Defaults.
+- The Fixes editor shows a persistent explanation at the top of its detail pane
+  for every selection state, including when no Fix is selected. The explanation
+  tells users that Fixes transform text in the current app, that `⌥J` opens the
+  palette, that arrow keys choose an action, Return runs it, and Escape closes
+  it. It also explains that an empty selection uses the complete compatible
+  text field and points users to `Manage Fixes…` for catalog management.
+- The explanation may include a concise privacy note that running a Fix sends
+  only the captured text and chosen instruction to OpenAI.
 
 ## iOS Voice
 

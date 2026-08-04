@@ -29,6 +29,19 @@ struct FixesPalettePanelControllerTests {
         #expect(monitor.isMonitoring)
     }
 
+    @Test func panelStartsCenteredInVisibleScreen() throws {
+        let controller = makeController()
+        controller.show(
+            model: makeModel(),
+            accessibilityAnchorRect: CGRect(x: 40, y: 740, width: 1, height: 18)
+        )
+        defer { controller.hide() }
+
+        let frame = try #require(controller.presentedPanel?.frame)
+        #expect(frame.midX == 500)
+        #expect(frame.midY == 400)
+    }
+
     @Test func arrowAndReturnCommandsDriveTheHostedModel() {
         var activatedIDs: [String] = []
         let controller = makeController()
@@ -36,6 +49,7 @@ struct FixesPalettePanelControllerTests {
         controller.show(model: model, accessibilityAnchorRect: nil)
         defer { controller.hide() }
 
+        model.setSearchText("Fix")
         #expect(controller.handleKeyboardCommand(.moveDown))
         #expect(model.selectedActionID == TextFixAction.fixIdentifier)
 

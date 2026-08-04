@@ -32,7 +32,7 @@ struct FixesPalettePlacementTests {
         #expect(rect == input)
     }
 
-    @Test func placesPaletteBelowAnchorWhenSpaceIsAvailable() {
+    @Test func centersPaletteInVisibleAreaContainingAnchor() {
         let frame = FixesPalettePlacement.panelFrame(
             panelSize: CGSize(width: 360, height: 300),
             anchor: .appKit(
@@ -41,10 +41,10 @@ struct FixesPalettePlacementTests {
             screens: [primary]
         )
 
-        #expect(frame == CGRect(x: 280, y: 192, width: 360, height: 300))
+        #expect(frame == CGRect(x: 320, y: 250, width: 360, height: 300))
     }
 
-    @Test func placesPaletteAboveAnchorWhenBelowWouldCrossVisibleFrame() {
+    @Test func centersPaletteRegardlessOfAnchorVerticalPosition() {
         let frame = FixesPalettePlacement.panelFrame(
             panelSize: CGSize(width: 360, height: 300),
             anchor: .appKit(
@@ -53,10 +53,10 @@ struct FixesPalettePlacementTests {
             screens: [primary]
         )
 
-        #expect(frame == CGRect(x: 280, y: 128, width: 360, height: 300))
+        #expect(frame == CGRect(x: 320, y: 250, width: 360, height: 300))
     }
 
-    @Test func clampsHorizontalOriginToVisibleScreenMargins() {
+    @Test func centersPaletteEvenWhenAnchorIsNearScreenEdges() {
         let leftFrame = FixesPalettePlacement.panelFrame(
             panelSize: CGSize(width: 360, height: 300),
             anchor: .appKit(
@@ -72,8 +72,8 @@ struct FixesPalettePlacementTests {
             screens: [primary]
         )
 
-        #expect(leftFrame.minX == 8)
-        #expect(rightFrame.maxX == 992)
+        #expect(leftFrame.minX == 320)
+        #expect(rightFrame.maxX == 680)
     }
 
     @Test func usesSecondaryVisibleFrameAfterGlobalCoordinateConversion() {

@@ -32,13 +32,13 @@ final class FixesPaletteModel: ObservableObject {
         self.status = status
         self.onActivate = onActivate
         self.onDismiss = onDismiss
-        selectedActionID = actions.first?.id
+        selectedActionID = nil
     }
 
     var visibleActions: [FixesPaletteActionPresentation] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            return actions
+            return []
         }
 
         return actions.filter { action in
