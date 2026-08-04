@@ -13,32 +13,32 @@ struct FixesEditorInfoBanner: View {
         "When you run a Fix, only the captured text and chosen instruction are sent to OpenAI."
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(Self.title, systemImage: "wand.and.stars")
-                .font(.headline)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "wand.and.stars")
+                .foregroundStyle(.tint)
+                .frame(width: 18)
 
-            Text(Self.instructions)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Self.title)
+                    .font(.headline)
 
-            Text(Self.managementNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(Self.instructions)
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(Self.privacyNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(Self.managementNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            .quaternary.opacity(0.45),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
         .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 4)
+        .padding(.vertical, 12)
+        .background(.bar)
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
         .accessibilityElement(children: .combine)
     }
 }

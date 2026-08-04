@@ -138,8 +138,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - The Fixes editor is a normal native window with search, Add, title, prompt,
   icon, enabled state, reorder, Delete, and Restore Defaults.
-- The Fixes editor shows a persistent explanation at the top of its detail pane
-  for every selection state, including when no Fix is selected. The explanation
+- The Fixes editor shows one persistent explanation banner at the top of the
+  window, above the sidebar and detail panes, for every selection state,
+  including when no Fix is selected. The explanation
   tells users that Fixes transform text in the current app, that `⌥J` opens the
   palette, that arrow keys choose an action, Return runs it, and Escape closes
   it. It also explains that an empty selection uses the complete compatible
