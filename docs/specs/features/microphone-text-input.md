@@ -202,6 +202,11 @@ This spec covers:
   are failed recording results and must not be sent to OpenAI. Any positive-byte
   completed artifact is preserved for recovery; a zero or unavailable duration
   alone must not delete or hide it.
+- If recorder finalization yields no usable audio file, HoldType ends the
+  attempt without transcription, retry, or recovery controls. It returns to a
+  state where the user may record again and shows only `Couldn't transcribe the
+  recording.` HoldType must not claim that a recording was saved when no
+  playable artifact exists.
 - Turning off recording cache retention affects future attempts immediately:
   completed recordings from those attempts are deleted after the attempt
   finishes, whether transcription succeeds or fails.

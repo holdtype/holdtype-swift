@@ -1155,6 +1155,16 @@ final class DictationSessionController {
             stopRecordingDurationMonitoring()
             finishSession(sessionID)
             recordFailure(error, at: stage)
+            // A fileless finalization has no recoverable audio. Keep the
+            // user-facing result deliberately short and return directly to
+            // Ready so another recording can begin.
+            if recoveryResult.attempt == nil,
+               Self.isUntranscribableRecordingFailure(error) {
+                outputStatusText = Self.untranscribableRecordingStatusText
+                failurePresentation = nil
+                status = .idle
+                return
+            }
             let message = Self.userFacingMessage(for: error)
             if checkpointAttempted, recoveryCheckpoint == nil {
                 outputStatusText = message
@@ -1869,16 +1879,6 @@ final class DictationSessionController {
         } catch AcceptedTranscript.ValidationError.emptyText {
             throw OpenAITranscriptionServiceError.emptyTranscript
         }
-    }
-
-    private static func userFacingMessage(for error: Error) -> String {
-        if let localizedError = error as? LocalizedError,
-           let description = localizedError.errorDescription,
-           !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return description
-        }
-
-        return error.localizedDescription
     }
 
     private func failurePresentation(
