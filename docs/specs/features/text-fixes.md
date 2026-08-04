@@ -136,8 +136,10 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   an actionable `Fixes…` palette command. On macOS, immediate Fixes are invoked
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
-- The Fixes editor is a normal native window with search, Add, title, prompt,
-  icon, enabled state, reorder, Delete, and Restore Defaults.
+- The Fixes editor is a normal native window titled `Manage Fixes`. Its window
+  title remains static while users change the selected Fix. It provides search,
+  Add, title, prompt, icon, enabled state, reorder, Delete, and Restore
+  Defaults.
 - The Fixes editor shows one persistent explanation banner at the bottom of the
   window, below the sidebar and detail panes, for every selection state,
   including when no Fix is selected. The explanation

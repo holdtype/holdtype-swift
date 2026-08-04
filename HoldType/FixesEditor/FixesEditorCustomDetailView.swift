@@ -14,7 +14,6 @@ struct FixesEditorCustomDetailView: View {
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle(navigationTitle)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actionBar
         }
@@ -172,11 +171,6 @@ struct FixesEditorCustomDetailView: View {
         .overlay(alignment: .top) {
             Divider()
         }
-    }
-
-    private var navigationTitle: String {
-        let title = model.selectedDraft?.title ?? ""
-        return title.isEmpty ? "New Fix" : title
     }
 
     private var promptByteCount: String {

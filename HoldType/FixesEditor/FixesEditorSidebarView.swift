@@ -17,7 +17,6 @@ struct FixesEditorSidebarView: View {
                 actionList
             }
         }
-        .navigationTitle("Fixes")
         .searchable(
             text: Binding(
                 get: { model.searchText },

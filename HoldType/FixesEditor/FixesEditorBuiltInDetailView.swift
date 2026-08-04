@@ -66,7 +66,6 @@ struct FixesEditorBuiltInDetailView: View {
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle(presentation.title)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actionBar
         }
