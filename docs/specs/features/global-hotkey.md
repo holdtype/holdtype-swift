@@ -44,9 +44,13 @@ This spec covers:
   - key down starts one recording session when the app is idle and microphone
     permission is available;
   - key up stops that same recording session and starts transcription;
-  - if key up arrives while the key-down start action is still completing, the
-    release must be remembered and stop that recording as soon as start
-    succeeds;
+  - if key up arrives after microphone capture has started while the key-down
+    action is still completing, the release is remembered and stops that same
+    recording as soon as start succeeds;
+  - if key up arrives while key down is waiting for microphone permission or
+    setup before capture starts, granting permission must not begin a new
+    recording. HoldType returns to Ready without an audio file, History row,
+    transcription, Retry, or Dismiss control;
   - key repeat or a second key down while the key is already held must be
     ignored.
 - If reliable key-up handling is unavailable, registration is unavailable and

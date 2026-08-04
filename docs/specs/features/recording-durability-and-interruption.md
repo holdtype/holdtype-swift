@@ -30,8 +30,10 @@ Every terminal recording event has exactly one product cause:
 
 Only `explicitUserDiscard` may intentionally delete a non-empty retained
 recording. A descriptor- or file-handle-proven zero-byte source may enter
-cleanup-only Discard state without a user action. Every other cause preserves
-positive bytes under one durable owner.
+cleanup-only Discard state without a user action. A feature spec may also define
+a minimum capture duration before durable ownership begins; its sub-threshold
+app-created artifact is cleanup-only rather than a retained recording. Every
+other cause preserves positive bytes under one durable owner.
 
 ## Capture ownership
 
@@ -83,8 +85,8 @@ positive bytes under one durable owner.
 
 ## Saved Recording and History
 
-- Before provider work, every finalized non-empty source has one durable,
-  playable owner.
+- Before provider work, every finalized non-empty source that meets the active
+  feature's minimum capture duration has one durable, playable owner.
 - Involuntary or internal termination is provider-free unless the user had
   already requested Finish or the configured limit had already elapsed.
 - A provider-free Saved Recording offers Play, Transcribe, and Delete. Delete
@@ -120,7 +122,8 @@ positive bytes under one durable owner.
 For every platform terminal cause, tests assert:
 
 - positive bytes result in exactly one durable playable owner unless the user
-  explicitly requested Discard;
+  explicitly requested Discard or the active feature defines the source as a
+  sub-threshold non-recording;
 - zero-byte cleanup never deletes another attempt;
 - provider dispatch occurs at most once and only after durable ownership;
 - involuntary/internal termination performs no provider dispatch unless Finish

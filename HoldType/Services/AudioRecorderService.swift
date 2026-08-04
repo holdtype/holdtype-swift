@@ -46,7 +46,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         },
         recorderFactory: any AudioRecorderEngineFactory = AVFoundationAudioRecorderEngineFactory(),
         fileManager: FileManager = .default,
-        minimumRecordingDuration: TimeInterval = 0.3,
+        minimumRecordingDuration: TimeInterval = 1,
         maximumRecordingDuration: TimeInterval = AVFoundationAudioRecorderService.defaultMaximumRecordingDuration,
         finalizedMediaDurationProvider: @escaping @Sendable (URL) async throws -> TimeInterval = { fileURL in
             let duration = try await AVURLAsset(url: fileURL).load(.duration)

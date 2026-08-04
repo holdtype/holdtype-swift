@@ -194,7 +194,7 @@ struct DictationHotkeyCoordinatorTests {
         #expect(recordingAction.performCount == 1)
     }
 
-    @Test func keyUpDuringInFlightStartStopsRecordingAfterStartCompletes() async throws {
+    @Test func keyUpDuringInFlightStartPreventsCaptureAfterStartCompletes() async throws {
         let gate = AsyncHotkeyGate()
         let hotkeyService = FakeGlobalHotkeyService()
         let eventLogger = FakeDictationEventLogger()
@@ -226,9 +226,9 @@ struct DictationHotkeyCoordinatorTests {
         await gate.open()
         await startTask.value
 
-        #expect(recordingAction.status == .success(transcript: "Hotkey transcript"))
-        #expect(recordingAction.observedStatuses == [.idle, .recording])
-        #expect(recordingAction.observedIntents == [.standard, .standard])
+        #expect(recordingAction.status == .idle)
+        #expect(recordingAction.observedStatuses == [.idle])
+        #expect(recordingAction.observedIntents == [.standard])
     }
 
     private func makeCoordinator(
@@ -241,8 +241,11 @@ struct DictationHotkeyCoordinatorTests {
             statusProvider: {
                 recordingAction.status
             },
-            performRecordingAction: { intent in
-                await recordingAction.perform(intent: intent)
+            performRecordingAction: { intent, shouldStartRecording in
+                await recordingAction.perform(
+                    intent: intent,
+                    shouldStartRecording: shouldStartRecording
+                )
             },
             eventLogger: eventLogger
         )
@@ -286,11 +289,18 @@ private final class FakeHotkeyRecordingAction {
         self.beforeStatusChange = beforeStatusChange
     }
 
-    func perform(intent: DictationOutputIntent) async {
+    func perform(
+        intent: DictationOutputIntent,
+        shouldStartRecording: @escaping @MainActor () -> Bool
+    ) async {
         performCount += 1
         observedStatuses.append(status)
         observedIntents.append(intent)
         await beforeStatusChange?()
+
+        guard status.voiceWorkPhase != .inactive || shouldStartRecording() else {
+            return
+        }
 
         switch status {
         case .idle, .success, .failure:

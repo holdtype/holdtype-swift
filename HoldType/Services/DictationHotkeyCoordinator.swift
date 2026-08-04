@@ -11,7 +11,10 @@ import HoldTypeDomain
 @MainActor
 final class DictationHotkeyCoordinator {
     typealias StatusProvider = @MainActor () -> DictationStatus
-    typealias RecordingAction = @MainActor (DictationOutputIntent) async -> Void
+    typealias RecordingAction = @MainActor (
+        DictationOutputIntent,
+        @escaping @MainActor () -> Bool
+    ) async -> Void
 
     private let hotkeyService: any GlobalHotkeyService
     private let statusProvider: StatusProvider
@@ -120,7 +123,12 @@ final class DictationHotkeyCoordinator {
         }
 
         let outputIntent = command == .stopRecording ? activeOutputIntent : event.outputIntent
-        await runRecordingAction(intent: outputIntent)
+        await runRecordingAction(
+            intent: outputIntent,
+            shouldStartRecording: command == .startRecording
+                ? { [weak self] in self?.isHotkeyStartStillRequested ?? false }
+                : { true }
+        )
 
         if command == .startRecording, statusProvider().voiceWorkPhase != .listening {
             isHotkeyRecordingActive = false
@@ -168,13 +176,20 @@ final class DictationHotkeyCoordinator {
         let outputIntent = activeOutputIntent
         isHotkeyRecordingActive = false
         eventLogger.record(.hotkeyStopReplayed)
-        await runRecordingAction(intent: outputIntent)
+        await runRecordingAction(intent: outputIntent, shouldStartRecording: { true })
         activeOutputIntent = .standard
     }
 
-    private func runRecordingAction(intent: DictationOutputIntent) async {
+    private var isHotkeyStartStillRequested: Bool {
+        isShortcutPressed && isHotkeyRecordingActive && !shouldStopAfterCurrentAction
+    }
+
+    private func runRecordingAction(
+        intent: DictationOutputIntent,
+        shouldStartRecording: @escaping @MainActor () -> Bool
+    ) async {
         isPerformingRecordingAction = true
-        await performRecordingAction(intent)
+        await performRecordingAction(intent, shouldStartRecording)
         isPerformingRecordingAction = false
     }
 }

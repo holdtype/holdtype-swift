@@ -107,6 +107,27 @@ struct DictationRuntimeTests {
         #expect(settingsPresenter.systemPromptFocusedItems.isEmpty)
     }
 
+    @Test func releasedHotkeyAfterMicrophoneGrantDoesNotStartRecording() async throws {
+        let microphoneClient = FakeRuntimeMicrophonePermissionClient(status: .notDetermined, requestResults: [true])
+        let recorder = FakeAudioRecorderService()
+        let controller = DictationSessionController(recorder: recorder)
+        let preflight = RecordingSetupPreflight(
+            setupStatusProvider: makeSetupStatusProvider(
+                microphoneClient: microphoneClient,
+                accessibilityTrusted: true,
+                inputMonitoringAuthorizationStatus: .allowed
+            ), apiKeyStorage: FakeRuntimeAPIKeyStorage(availability: .saved)
+        )
+        let runtime = DictationRuntime(
+            controller: controller,
+            appSettingsStore: AppSettingsStore(userDefaults: makeTestUserDefaults()),
+            recordingSetupPreflight: preflight
+        )
+        await runtime.performRecordingAction(shouldStartRecording: { false })
+        #expect(microphoneClient.requestCount == 1)
+        #expect(recorder.startCount == 0)
+        #expect(runtime.status == .idle && runtime.outputStatusText == nil && runtime.failurePresentation == nil)
+    }
     @Test func deniedMicrophonePreflightOpensSettingsWithoutPromptRequest() async {
         let settingsPresenter = SpyRuntimeSettingsPresenter()
         let microphoneClient = FakeRuntimeMicrophonePermissionClient(

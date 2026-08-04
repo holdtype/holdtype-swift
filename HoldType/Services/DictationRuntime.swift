@@ -140,8 +140,11 @@ final class DictationRuntime: ObservableObject {
             statusProvider: { [weak self] in
                 self?.status ?? .idle
             },
-            performRecordingAction: { [weak self] intent in
-                await self?.performRecordingAction(intent: intent)
+            performRecordingAction: { [weak self] intent, shouldStartRecording in
+                await self?.performRecordingAction(
+                    intent: intent,
+                    shouldStartRecording: shouldStartRecording
+                )
             }
         )
         hotkeyCoordinator = coordinator
@@ -177,7 +180,10 @@ final class DictationRuntime: ObservableObject {
             ?? hotkeyService.currentRegistrationStatus
     }
 
-    func performRecordingAction(intent: DictationOutputIntent = .standard) async {
+    func performRecordingAction(
+        intent: DictationOutputIntent = .standard,
+        shouldStartRecording: @escaping @MainActor () -> Bool = { true }
+    ) async {
         var credential: OpenAICredential?
         if shouldValidateSetupBeforeRecording {
             let settings = appSettingsStore.load()
@@ -199,6 +205,13 @@ final class DictationRuntime: ObservableObject {
                 failurePresentation = nil
                 status = .failure(message: microphoneStatus.settingsDescription)
                 settingsPresenter.showAfterSystemPermissionPrompt(focusing: .permissions)
+                return
+            }
+
+            guard shouldStartRecording() else {
+                failurePresentation = nil
+                outputStatusText = nil
+                status = .idle
                 return
             }
 

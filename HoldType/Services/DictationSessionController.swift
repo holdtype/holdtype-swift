@@ -742,9 +742,7 @@ final class DictationSessionController {
                         )
                     }
                 case .automatic(.failure(let error)):
-                    // A joined stop that produced a non-empty artifact is more
-                    // authoritative than a racing delegate failure. Keep the
-                    // anomaly in diagnostics without discarding the artifact.
+                    // A joined artifact wins over a racing delegate failure.
                     recordFailure(error, at: .recordingFinalization)
                 }
             }
@@ -783,10 +781,7 @@ final class DictationSessionController {
                    artifact,
                    limit: recordingDurationLimit
                ) {
-                // Key-up may win the exact-once boundary just before the
-                // recorder delegate or controller watchdog. Preserve the
-                // product-level maximum reason from the finalized artifact so
-                // that scheduling order cannot change retention semantics.
+                // Preserve the maximum reason when key-up wins the finalization race.
                 resolvedAutomaticCompletion = AudioRecorderAutomaticCompletion(
                     artifact: artifact,
                     reason: .maximumDuration
@@ -810,9 +805,7 @@ final class DictationSessionController {
                 return
             }
 
-            // An automatic recorder boundary owns its feedback immediately,
-            // before persistence, configuration, credentials, or provider
-            // work can fail.
+            // An automatic recorder boundary owns its feedback before later work can fail.
             if resolvedAutomaticCompletion?.reason == .maximumDuration {
                 playCue(.recordingLimitReached, settings: settings)
             } else if resolvedAutomaticCompletion != nil {
@@ -824,9 +817,7 @@ final class DictationSessionController {
                 settings: settings
             )
             completedRecordingSettings = transcriptionSettings
-            // From this boundary onward a finalized, non-empty artifact owns
-            // a recoverable transcription attempt, even if the durable copy
-            // itself fails and we must expose the emergency original.
+            // A finalized artifact owns a recoverable attempt before provider work.
             stage = .transcription
             allowsRecordingCacheHandling = false
             checkpointAttempted = true
@@ -1088,7 +1079,16 @@ final class DictationSessionController {
             guard isCurrentSession(sessionID) else {
                 return
             }
-
+            if Self.isNonRecordingFinalizationFailure(error) {
+                discardNonRecordingCapture()
+                stopRecordingDurationMonitoring()
+                finishSession(sessionID)
+                recordFailure(error, at: stage)
+                outputStatusText = nil
+                failurePresentation = nil
+                status = .idle
+                return
+            }
             let recoveryResult: (
                 attempt: FailedTranscriptionAttempt?,
                 allowsRecordingCacheHandling: Bool
@@ -1155,16 +1155,6 @@ final class DictationSessionController {
             stopRecordingDurationMonitoring()
             finishSession(sessionID)
             recordFailure(error, at: stage)
-            // A fileless finalization has no recoverable audio. Keep the
-            // user-facing result deliberately short and return directly to
-            // Ready so another recording can begin.
-            if recoveryResult.attempt == nil,
-               Self.isUntranscribableRecordingFailure(error) {
-                outputStatusText = Self.untranscribableRecordingStatusText
-                failurePresentation = nil
-                status = .idle
-                return
-            }
             let message = Self.userFacingMessage(for: error)
             if checkpointAttempted, recoveryCheckpoint == nil {
                 outputStatusText = message
@@ -1541,7 +1531,17 @@ final class DictationSessionController {
             return nil
         }
     }
-
+    private func discardNonRecordingCapture() {
+        if let captureLease = activeRecordingCaptureLease {
+            do {
+                try recordingCaptureJournal.discardCapture(captureLease)
+            } catch {
+                eventLogger.record(.recordingStopFailed(category: Self.operatorLogCategory(for: error)))
+            }
+        }
+        activeRecordingCaptureLease = nil
+        activeRecordingSettings = nil
+    }
     private func handleRecordingFinalizationFailure(
         _ error: AudioRecorderServiceError,
         sessionID: Int,

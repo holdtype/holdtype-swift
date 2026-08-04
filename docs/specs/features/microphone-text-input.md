@@ -96,10 +96,10 @@ This spec covers:
   same interval preserves positive bytes under the durability spec.
 - After capture stops, the app may enter a processing state while
   transcription completes.
-- Before any provider request, a non-empty completed artifact becomes a local
-  recovery checkpoint visible from History with Play. While processing it is
-  labelled accordingly; if transcription fails it remains available with
-  Transcribe/Retry and Delete.
+- Before any provider request, a completed artifact lasting at least one second
+  becomes a local recovery checkpoint visible from History with Play. While
+  processing it is labelled accordingly; if transcription fails it remains
+  available with Transcribe/Retry and Delete.
 - If HoldType cannot first create an app-owned recovery copy, the original
   completed artifact remains playable and deletable but cannot be uploaded.
   History offers a local Retry Save/Repair action; provider Retry becomes
@@ -180,10 +180,10 @@ This spec covers:
   permissions.
 - If no microphone is available, the app should fail before entering a false
   recording state.
-- If the user stops recording immediately, an empty artifact produces a clear
-  no-input message. A finalized recording shorter than 0.3 seconds produces a
-  clear too-short message and is not sent to the provider. Its positive-byte
-  audio remains eligible for local recovery rather than being silently deleted.
+- A missing, empty, or finalized recording shorter than one second is not a
+  completed recording. HoldType removes only that current app-created temporary
+  artifact and returns to Ready without a status message, History row,
+  transcription request, recovery prompt, Retry, or Dismiss control.
 - If transcription produces low-confidence or empty output, the app should not
   pretend the result is final useful text.
 - If a late transcription result arrives after cancellation or failure, it must
@@ -198,15 +198,13 @@ This spec covers:
   validates duration from the finalized media artifact and never deletes a
   positive-byte recording solely because the stopped clock reports zero or
   disagrees with the file.
-- Missing, empty, or reliably measured too-short completed recording artifacts
-  are failed recording results and must not be sent to OpenAI. Any positive-byte
-  completed artifact is preserved for recovery; a zero or unavailable duration
-  alone must not delete or hide it.
+- Missing, empty, or reliably measured sub-one-second artifacts must not be
+  sent to OpenAI or retained for recovery. A zero or unavailable duration alone
+  must not delete a positive-byte artifact that otherwise meets the one-second
+  minimum.
 - If recorder finalization yields no usable audio file, HoldType ends the
-  attempt without transcription, retry, or recovery controls. It returns to a
-  state where the user may record again and shows only `Couldn't transcribe the
-  recording.` HoldType must not claim that a recording was saved when no
-  playable artifact exists.
+  attempt without transcription, retry, recovery controls, or an error message.
+  It returns to Ready and must not claim that a recording was saved.
 - Turning off recording cache retention affects future attempts immediately:
   completed recordings from those attempts are deleted after the attempt
   finishes, whether transcription succeeds or fails.
@@ -239,8 +237,8 @@ default logs.
 ## Verification mapping
 
 - Add tests or manual QA for permission denied, microphone unavailable,
-  start/stop, cancel, timeout, empty speech, empty-file rejection, temp-file
-  cleanup, recording cache retention, configurable auto-Finish, warning cadence,
+  start/stop, cancel, timeout, empty speech, empty-file and sub-one-second
+  rejection, silent temp-file cleanup, recording cache retention, configurable auto-Finish, warning cadence,
   finalized-media duration, false recorder callbacks at the maximum boundary,
   exact-once finalization, recovery playback, and successful transcription
   states when implementation code exists.
