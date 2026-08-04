@@ -697,10 +697,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HoldType/HoldType.entitlements;
 				CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = "$(HOLDTYPE_CODE_SIGN_STYLE)";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "$(HOLDTYPE_DEVELOPMENT_TEAM)";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = PUA6HH22D7;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -731,10 +733,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HoldType/HoldType.entitlements;
 				CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = "$(HOLDTYPE_CODE_SIGN_STYLE)";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "$(HOLDTYPE_DEVELOPMENT_TEAM)";
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = PUA6HH22D7;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -1320,12 +1324,12 @@
 			package = D4A176002FF1000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypeDomain" */;
 			productName = HoldTypeDomain;
 		};
-		D4A178022FF3000000000002 /* HoldTypePersistence */ = {
+		D4A178012FF3000000000001 /* HoldTypePersistence */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
 			productName = HoldTypePersistence;
 		};
-		D4A178012FF3000000000001 /* HoldTypePersistence */ = {
+		D4A178022FF3000000000002 /* HoldTypePersistence */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4A178002FF3000000000000 /* XCLocalSwiftPackageReference "Packages/HoldTypePersistence" */;
 			productName = HoldTypePersistence;
