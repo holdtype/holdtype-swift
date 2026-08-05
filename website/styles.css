@@ -979,10 +979,18 @@ h3 {
   width: min(100%, 620px);
 }
 
-.menu-shot img {
-  border: 1px solid var(--line-strong);
+.menu-shot-frame {
+  overflow: hidden;
   border-radius: var(--radius-medium);
-  box-shadow: var(--shadow-small);
+  background: #fff;
+}
+
+.menu-shot img {
+  display: block;
+  width: 100%;
+  max-width: none;
+  transform: scale(1.02);
+  transform-origin: center;
 }
 
 .data-section {
