@@ -19,6 +19,7 @@ private struct FixesEditorWindowRoot: View {
         FixesEditorView(model: model)
             .onDisappear {
                 model.savePendingChangesBeforeClosing()
+                AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
             }
     }
 }

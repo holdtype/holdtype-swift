@@ -33,6 +33,9 @@ struct MenuBarPresentationTests {
                 events.append("schedule after editor")
                 afterEditorClose = action
             },
+            activateApplication: {
+                events.append("activate")
+            },
             openFreshEditor: {
                 events.append("open")
             }
@@ -59,9 +62,63 @@ struct MenuBarPresentationTests {
                 "schedule after menu",
                 "dismiss editor",
                 "schedule after editor",
+                "activate",
                 "open"
             ]
         )
+    }
+
+    @Test @MainActor func openingHistoryActivatesBeforeOpeningWindow() {
+        var events: [String] = []
+        var scheduledAction: (@MainActor () -> Void)?
+
+        TranscriptHistoryWindowRequest.openAfterMenuDismissal(
+            dismissMenu: {
+                events.append("dismiss menu")
+            },
+            scheduleAfterMenuDismissal: { action in
+                events.append("schedule")
+                scheduledAction = action
+            },
+            activateApplication: {
+                events.append("activate")
+            },
+            openHistory: {
+                events.append("open")
+            }
+        )
+
+        #expect(events == ["dismiss menu", "schedule"])
+        scheduledAction?()
+        #expect(events == ["dismiss menu", "schedule", "activate", "open"])
+    }
+
+    @Test @MainActor func openingSettingsActivatesBeforeRefreshingAndOpeningWindow() {
+        var events: [String] = []
+        var scheduledAction: (@MainActor () -> Void)?
+
+        SettingsSceneRequest.openAfterMenuDismissal(
+            dismissMenu: {
+                events.append("dismiss menu")
+            },
+            scheduleAfterMenuDismissal: { action in
+                events.append("schedule")
+                scheduledAction = action
+            },
+            activateApplication: {
+                events.append("activate")
+            },
+            refreshFocusedSettings: {
+                events.append("refresh")
+            },
+            openSettings: {
+                events.append("open")
+            }
+        )
+
+        #expect(events == ["dismiss menu", "schedule"])
+        scheduledAction?()
+        #expect(events == ["dismiss menu", "schedule", "activate", "refresh", "open"])
     }
 
     @Test func idleMenuExposesMVPItems() {

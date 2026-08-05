@@ -35,7 +35,10 @@ struct EmojiCommandsSettingsSection: View {
                 builtInCommandSetEditor(commandSet)
             }
         }
-        .onAppear(perform: syncSelectedTabFromSettings)
+        .task {
+            await Task.yield()
+            syncSelectedTabFromSettings()
+        }
         .onChange(of: selectedTabID) { _, newValue in
             activateSelectedTab(newValue)
         }

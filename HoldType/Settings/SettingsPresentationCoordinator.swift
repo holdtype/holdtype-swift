@@ -100,16 +100,45 @@ enum SettingsSceneRequest {
         dismissMenu: () -> Void,
         openSettings: @escaping @MainActor () -> Void
     ) {
+        openAfterMenuDismissal(
+            focusing: item,
+            dismissMenu: dismissMenu,
+            scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
+            activateApplication: AppWindowActivation.showRegularApp,
+            refreshFocusedSettings: {
+                SettingsPresentationCoordinator.shared.navigation.requestFocusedSettingsRefresh()
+            },
+            openSettings: openSettings
+        )
+    }
+
+    static func openAfterMenuDismissal(
+        focusing item: SettingsNavigationItem? = nil,
+        dismissMenu: () -> Void,
+        scheduleAfterMenuDismissal: @escaping (@escaping @MainActor () -> Void) -> Void,
+        activateApplication: @escaping @MainActor () -> Void,
+        refreshFocusedSettings: @escaping @MainActor () -> Void,
+        openSettings: @escaping @MainActor () -> Void
+    ) {
         if let item {
             SettingsPresentationCoordinator.shared.navigation.focus(item)
         }
 
         dismissMenu()
 
+        scheduleAfterMenuDismissal {
+            activateApplication()
+            refreshFocusedSettings()
+            openSettings()
+        }
+    }
+
+    private static func scheduleAfterMenuDismissal(
+        _ action: @escaping @MainActor () -> Void
+    ) {
         Task { @MainActor in
             try? await Task.sleep(for: menuDismissalDelay)
-            SettingsPresentationCoordinator.shared.navigation.requestFocusedSettingsRefresh()
-            openSettings()
+            action()
         }
     }
 }

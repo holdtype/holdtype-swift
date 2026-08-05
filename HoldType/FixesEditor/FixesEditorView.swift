@@ -31,6 +31,7 @@ struct FixesEditorView: View {
             }
         }
         .task {
+            await Task.yield()
             await model.loadIfNeeded()
         }
         .toolbar(removing: .sidebarToggle)

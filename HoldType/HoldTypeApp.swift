@@ -81,6 +81,7 @@ private struct HoldTypeMenuBarLabel: View {
         }
         .onAppear {
             SettingsPresentationCoordinator.shared.install {
+                AppWindowActivation.showRegularApp()
                 openWindow(id: SettingsScene.identifier)
             }
             QuitConfirmationCoordinator.shared.install {

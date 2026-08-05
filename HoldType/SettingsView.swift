@@ -164,30 +164,28 @@ struct SettingsView: View {
             )
         }
         .frame(minWidth: 720, minHeight: 480)
-        .onAppear {
-            navigation.selectedItem = navigation.selectedItem ?? .permissions
+        .task {
+            await Task.yield()
+            if navigation.selectedItem == nil {
+                navigation.selectedItem = .permissions
+            }
             refreshFocusedSettingsWindowState()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshFocusedSettingsWindowState()
+            scheduleFocusedSettingsWindowRefresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: .recordingCacheDidChange)) { _ in
-            refreshRecordingCache()
+            scheduleRecordingCacheRefresh()
         }
         .onChange(of: navigation.focusRefreshToken) { _, _ in
-            refreshFocusedSettingsWindowState()
+            scheduleFocusedSettingsWindowRefresh()
         }
         .onChange(of: navigation.selectedItem) { _, selectedItem in
-            let item = selectedItem ?? .permissions
-
-            if item == .permissions {
-                permissionsModel.refreshOnAppearOrFocus()
-            }
-
-            updatePermissionsPolling(for: item)
+            scheduleSelectionRefresh(for: selectedItem ?? .permissions)
         }
         .onDisappear {
             permissionsModel.stopVisiblePermissionsPolling()
+            AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
         }
     }
 
@@ -271,6 +269,30 @@ struct SettingsView: View {
     private func refreshFocusedSettingsWindowState() {
         refreshSettingsWindowState()
         updatePermissionsPolling(for: navigation.selectedItem ?? .permissions)
+    }
+
+    private func scheduleFocusedSettingsWindowRefresh() {
+        Task { @MainActor in
+            await Task.yield()
+            refreshFocusedSettingsWindowState()
+        }
+    }
+
+    private func scheduleRecordingCacheRefresh() {
+        Task { @MainActor in
+            await Task.yield()
+            refreshRecordingCache()
+        }
+    }
+
+    private func scheduleSelectionRefresh(for item: SettingsNavigationItem) {
+        Task { @MainActor in
+            await Task.yield()
+            if item == .permissions {
+                permissionsModel.refreshOnAppearOrFocus()
+            }
+            updatePermissionsPolling(for: item)
+        }
     }
 
     private func refreshSetupStatusForVisibleSettings() {

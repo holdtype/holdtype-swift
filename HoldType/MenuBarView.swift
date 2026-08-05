@@ -230,6 +230,7 @@ enum FixesEditorWindowRequest {
             dismissExistingEditor: dismissExistingEditor,
             scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
             scheduleAfterEditorClose: scheduleAfterEditorClose,
+            activateApplication: AppWindowActivation.showRegularApp,
             openFreshEditor: openFreshEditor
         )
     }
@@ -239,12 +240,16 @@ enum FixesEditorWindowRequest {
         dismissExistingEditor: @escaping () -> Void,
         scheduleAfterMenuDismissal: @escaping (@escaping @MainActor () -> Void) -> Void,
         scheduleAfterEditorClose: @escaping (@escaping @MainActor () -> Void) -> Void,
+        activateApplication: @escaping @MainActor () -> Void,
         openFreshEditor: @escaping @MainActor () -> Void
     ) {
         dismissMenu()
         scheduleAfterMenuDismissal {
             dismissExistingEditor()
-            scheduleAfterEditorClose(openFreshEditor)
+            scheduleAfterEditorClose {
+                activateApplication()
+                openFreshEditor()
+            }
         }
     }
 

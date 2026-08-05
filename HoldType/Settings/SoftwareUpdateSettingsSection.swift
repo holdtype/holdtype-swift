@@ -77,7 +77,10 @@ struct SoftwareUpdateSettingsSection: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .onAppear(perform: reloadPreferences)
+        .task {
+            await Task.yield()
+            reloadPreferences()
+        }
     }
 
     private func reloadPreferences() {

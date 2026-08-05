@@ -20,11 +20,34 @@ enum TranscriptHistoryWindowRequest {
         dismissMenu: () -> Void,
         openHistory: @escaping @MainActor () -> Void
     ) {
+        openAfterMenuDismissal(
+            dismissMenu: dismissMenu,
+            scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
+            activateApplication: AppWindowActivation.showRegularApp,
+            openHistory: openHistory
+        )
+    }
+
+    static func openAfterMenuDismissal(
+        dismissMenu: () -> Void,
+        scheduleAfterMenuDismissal: @escaping (@escaping @MainActor () -> Void) -> Void,
+        activateApplication: @escaping @MainActor () -> Void,
+        openHistory: @escaping @MainActor () -> Void
+    ) {
         dismissMenu()
 
+        scheduleAfterMenuDismissal {
+            activateApplication()
+            openHistory()
+        }
+    }
+
+    private static func scheduleAfterMenuDismissal(
+        _ action: @escaping @MainActor () -> Void
+    ) {
         Task { @MainActor in
             try? await Task.sleep(for: menuDismissalDelay)
-            openHistory()
+            action()
         }
     }
 }

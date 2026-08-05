@@ -75,7 +75,8 @@ struct SettingsDetailView: View {
         .contentMargins(.bottom, 18, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(SettingsWindowTitle.title(for: item))
-        .onAppear {
+        .task {
+            await Task.yield()
             shortcutConfiguration = shortcutConfigurationStore.load()
         }
     }

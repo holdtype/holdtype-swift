@@ -73,12 +73,18 @@ struct TranscriptHistoryView: View {
             }
         }
         .frame(minWidth: 620, minHeight: 420)
-        .onAppear(perform: reloadAppSettings)
-        .onReceive(NotificationCenter.default.publisher(for: .appSettingsDidChange)) { _ in
+        .task {
+            await Task.yield()
             reloadAppSettings()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .appSettingsDidChange)) { _ in
+            scheduleAppSettingsReload()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .recordingCacheDidChange)) { _ in
-            recordingCacheRevision += 1
+            scheduleRecordingCacheRefresh()
+        }
+        .onDisappear {
+            AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
         }
     }
 
@@ -218,6 +224,20 @@ struct TranscriptHistoryView: View {
 
         if !appSettings.saveTranscriptHistory {
             historyStore.clear()
+        }
+    }
+
+    private func scheduleAppSettingsReload() {
+        Task { @MainActor in
+            await Task.yield()
+            reloadAppSettings()
+        }
+    }
+
+    private func scheduleRecordingCacheRefresh() {
+        Task { @MainActor in
+            await Task.yield()
+            recordingCacheRevision += 1
         }
     }
 
