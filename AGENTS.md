@@ -97,6 +97,24 @@ visual solution.
 - Do not substitute generic UI intuition, ad-hoc AppKit/UIKit code, or a
   screenshot-only iteration for the applicable skill workflow.
 
+### Mandatory Computer Use For UI QA
+
+For every macOS or iOS task that changes a visible interface or interaction,
+agents must use the provided `computer-use:computer-use` plugin for the runtime
+QA pass whenever it is available in the session. The agent must operate the
+actual app UI itself: inspect the current screen, perform the changed action by
+clicking or keyboard interaction, and inspect the resulting screen. Do not
+replace this with AppleScript, `osascript`, JXA, CGEvent synthesis, or an
+unattended screenshot-only check.
+
+An alternative verification path is allowed only when Computer Use is genuinely
+unavailable or cannot perform that specific interaction after a bounded attempt
+(for example, the target is not exposed to its accessibility/screen surface).
+Record the concrete limitation, retain all successful Computer Use evidence,
+then use the narrowest available non-AppleScript fallback such as an
+app-provided UI test or a focused runtime test. This exception is not a reason
+to skip Computer Use when it is available.
+
 ## Full AppKit Prohibition
 
 AppKit is prohibited in this repository. Product code must not import AppKit or
