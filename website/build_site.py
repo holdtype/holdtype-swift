@@ -885,7 +885,12 @@ def validate_catalogs(
             if any("<" in text or ">" in text for text in message_texts(value)):
                 raise SiteBuildError(f"locale {code} message {key} contains raw HTML")
             validate_rich_shape(key, english[key], value, links)
-            if placeholder_counter(value) != placeholder_counter(english[key]):
+            locale_tokens = placeholder_counter(value)
+            english_tokens = placeholder_counter(english[key])
+            optional_download_platform = (
+                key == "common.downloadForMacOS" and not locale_tokens
+            )
+            if locale_tokens != english_tokens and not optional_download_platform:
                 raise SiteBuildError(f"locale {code} placeholders differ from English for {key}")
 
     required_runtime_keys = set(RUNTIME_MESSAGE_KEYS)
