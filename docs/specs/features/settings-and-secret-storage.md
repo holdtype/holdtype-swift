@@ -222,9 +222,9 @@ This spec covers:
 - The Settings window should include a Keep Transcript Recovery History toggle
   and a Clear Transcript History action once the recovery history surface is
   implemented.
-- Keep Transcript Recovery History controls session-only recovery entries. When
-  turned off, it immediately clears current recovery entries and stops future
-  history writes until it is turned back on.
+- Keep Transcript Recovery History controls bounded durable accepted transcript
+  entries. When turned off, it immediately clears those entries from local
+  storage and stops future accepted-history writes until it is turned back on.
 - Recovery entries include accepted transcript rows and bounded recoverable
   failed transcription attempts. Clearing or disabling recovery history also
   removes temporary failed-attempt retry audio, but does not clear the normal
@@ -563,8 +563,8 @@ reviewed against OpenAI model/pricing documentation on 2026-08-04. Future
 pricing changes apply only to newly saved records unless a later product
 contract explicitly defines another migration.
 
-Transcript recovery history retention, failed-attempt retry audio, and clearing
-behavior are governed by `transcript-history.md`.
+Transcript history persistence and retention, failed-attempt retry audio, and
+clearing behavior are governed by `transcript-history.md`.
 
 Recording cache entries are app-owned local audio files. Settings may show their
 metadata and disk usage, but UserDefaults should store only the cache retention

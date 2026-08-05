@@ -96,8 +96,9 @@ This spec covers:
 - Recording cache retention defaults to a bounded "keep last 10 recordings"
   policy when enabled. Unlimited retention is allowed only as an explicit user
   choice and must be paired with visible cache size and clear controls.
-- Transcript recovery history is session-only, local-only, enabled by default,
-  and governed by `transcript-history.md`.
+- Accepted transcript history is local-only, enabled by default, bounded to the
+  20 most recent entries, durable across relaunches, and governed by
+  `transcript-history.md`.
 - Nearby text context is current-request-only. It must not be written to
   transcript history, UserDefaults, local files, debug payloads, or default
   logs.
@@ -383,7 +384,7 @@ This spec covers:
 - The Permissions surface must not represent an app-owned feature choice or
   privacy disclosure as a macOS permission.
 - No persistent audio outside the explicit local recording cache setting and
-  bounded session-only failed-attempt recovery.
+  bounded recording-recovery ownership governed by `transcript-history.md`.
 - Recording cache controls must show local disk usage and provide a way to
   clear app-owned cached recordings.
 - Default logs must be short, scannable, and free of sensitive dictated content.
@@ -463,8 +464,7 @@ This spec covers:
   launch or Settings changes. This cache must not be persisted outside
   Keychain.
 - Local storage of audio is limited to the explicit recording cache setting and
-  bounded session-only failed-attempt retry audio governed by
-  `transcript-history.md`.
+  bounded failed-attempt retry audio governed by `transcript-history.md`.
 - App-owned runtime diagnostic logs are local derived diagnostics governed by
   `diagnostics-and-crash-reports.md`; they are separate from transcript history,
   recording cache audio, and macOS system crash reports.

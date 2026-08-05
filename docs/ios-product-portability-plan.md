@@ -324,9 +324,9 @@ need a refreshed snapshot.
 
 ### Durable history decision
 
-The macOS product currently presents session-only recovery history even though
-a separate persistent store exists. Session-only state is not robust on iOS,
-where process eviction is routine.
+The macOS product presents bounded durable accepted transcript history plus a
+separate Saved Recordings recovery queue. The iOS adaptation must preserve that
+relaunch behavior because process eviction is routine.
 
 The approved iOS contract is a local, bounded history that survives app
 restart, capped initially at 20 accepted entries plus a small failed-attempt
@@ -362,7 +362,7 @@ attempt remains a separate recovery invariant, not accepted transcript history.
 | OpenAI correction and translation | `Packages/HoldTypeOpenAI` | Moved unchanged; transport and injection seams remain internal |
 | Credential value | `Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAICredential.swift` | Portable value/resolver contract moved; storage adapters remain platform-specific |
 | Usage models/store | `Models/OpenAIUsageEstimate.swift`, `Services/OpenAIUsageStore.swift` | Move model; inject persistence and clock |
-| History models | `Models/TranscriptHistoryEntry.swift`, `Services/TranscriptHistoryStore.swift` | Redesign before moving: current Codable drops audio URL and failed recovery is session-only/absolute-path/transcription-only |
+| History models | `Models/TranscriptHistoryEntry.swift`, `Services/TranscriptRecoveryHistoryStore.swift` | Adapt the bounded durable accepted-history contract; keep the intentionally session-only cached-audio URL out of persisted rows and redesign Saved Recording identifiers for iOS |
 | Runtime diagnostic formatting | `Services/RuntimeDiagnosticsLogStore.swift` | Do not move generic string metadata; replace with typed event/field allowlists and forbidden-value tests |
 | Session orchestration | `Services/DictationSessionController.swift` | Extract only after output results, cache lifecycle, recovery destinations, and status presentation are platform-neutral |
 

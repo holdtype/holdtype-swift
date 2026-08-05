@@ -12,6 +12,7 @@ struct BehaviorSettingsSection: View {
     @Binding var settings: AppSettings
     let launchAtLoginStatus: LaunchAtLoginStatus
     let transcriptHistoryCount: Int
+    let transcriptHistoryError: String?
     let onSetLaunchAtLogin: (Bool) -> Void
     let onOpenLoginItemsSettings: () -> Void
     let onClearTranscriptHistory: () -> Void
@@ -89,9 +90,15 @@ struct BehaviorSettingsSection: View {
                 isOn: $settings.saveTranscriptHistory
             )
 
-            Text("Keeps recent accepted transcripts until you clear history or quit HoldType. Saved recordings remain until transcription succeeds or you delete them in History.")
+            Text("Keeps the 20 most recent accepted transcripts on this Mac until you clear or delete them. Saved recordings remain until transcription succeeds or you delete them in History.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            if let transcriptHistoryError {
+                Text(transcriptHistoryError)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
 
             Button("Clear Accepted Transcript History", role: .destructive, action: onClearTranscriptHistory)
                 .disabled(transcriptHistoryCount == 0)
@@ -105,6 +112,7 @@ struct BehaviorSettingsSection: View {
             settings: .constant(.defaults),
             launchAtLoginStatus: .disabled,
             transcriptHistoryCount: 0,
+            transcriptHistoryError: nil,
             onSetLaunchAtLogin: { _ in },
             onOpenLoginItemsSettings: {},
             onClearTranscriptHistory: {}

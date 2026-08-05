@@ -116,7 +116,6 @@ struct QuitConfirmationTests {
     @Test func applicationDelegateStartsAndStopsRuntimeComponentsForNormalLaunch() {
         var startCount = 0
         var stopCount = 0
-        var clearHistoryCount = 0
         var maintenanceScheduleCount = 0
         var repairCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
@@ -124,9 +123,6 @@ struct QuitConfirmationTests {
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
             transcriptionFailurePromptCoordinator: promptCoordinator,
             launchEnvironment: [:],
-            clearTranscriptHistory: {
-                clearHistoryCount += 1
-            },
             startRuntimeComponents: {
                 startCount += 1
             },
@@ -146,7 +142,6 @@ struct QuitConfirmationTests {
 
         #expect(startCount == 1)
         #expect(stopCount == 1)
-        #expect(clearHistoryCount == 1)
         #expect(maintenanceScheduleCount == 1)
         #expect(repairCount == 1)
         #expect(promptCoordinator.startCount == 1)
@@ -157,7 +152,6 @@ struct QuitConfirmationTests {
     @Test func applicationDelegateSkipsRuntimeComponentsForInputMonitoringRecoveryLaunch() {
         var startCount = 0
         var stopCount = 0
-        var clearHistoryCount = 0
         var maintenanceScheduleCount = 0
         var repairCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
@@ -165,9 +159,6 @@ struct QuitConfirmationTests {
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
             transcriptionFailurePromptCoordinator: promptCoordinator,
             launchEnvironment: [InputMonitoringPermissionLaunchRecovery.requestEnvironmentKey: "1"],
-            clearTranscriptHistory: {
-                clearHistoryCount += 1
-            },
             startRuntimeComponents: {
                 startCount += 1
             },
@@ -187,7 +178,6 @@ struct QuitConfirmationTests {
 
         #expect(startCount == 0)
         #expect(stopCount == 0)
-        #expect(clearHistoryCount == 0)
         #expect(maintenanceScheduleCount == 0)
         #expect(repairCount == 0)
         #expect(promptCoordinator.startCount == 0)

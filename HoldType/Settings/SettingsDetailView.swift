@@ -24,6 +24,7 @@ struct SettingsDetailView: View {
     let showsInputMonitoringManualFallbackWarning: Bool
     let launchAtLoginStatus: LaunchAtLoginStatus
     let transcriptHistoryCount: Int
+    let transcriptHistoryError: String?
     let openAIUsageSummary: OpenAIUsageSummary
     let openAIUsageStorageError: String?
     let recordingCacheSummary: RecordingCacheSummary
@@ -133,6 +134,7 @@ struct SettingsDetailView: View {
                 settings: $settings,
                 launchAtLoginStatus: launchAtLoginStatus,
                 transcriptHistoryCount: transcriptHistoryCount,
+                transcriptHistoryError: transcriptHistoryError,
                 onSetLaunchAtLogin: onSetLaunchAtLogin,
                 onOpenLoginItemsSettings: onOpenLoginItemsSettings,
                 onClearTranscriptHistory: onClearTranscriptHistory
@@ -190,6 +192,7 @@ struct SettingsDetailView: View {
         showsInputMonitoringManualFallbackWarning: true,
         launchAtLoginStatus: .disabled,
         transcriptHistoryCount: 0,
+        transcriptHistoryError: nil,
         openAIUsageSummary: .empty(),
         openAIUsageStorageError: nil,
         recordingCacheSummary: RecordingCacheSummary(

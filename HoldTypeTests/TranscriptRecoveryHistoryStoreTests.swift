@@ -13,8 +13,9 @@ import Testing
 @MainActor
 struct TranscriptRecoveryHistoryStoreTests {
 
-    @Test func recordsAcceptedTranscriptsNewestFirstInMemory() throws {
-        let store = TranscriptRecoveryHistoryStore()
+    @Test func recordsAcceptedTranscriptsNewestFirstAndRestoresThemAfterRelaunch() throws {
+        let persistence = InMemoryTranscriptHistoryPersistence()
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
 
         try store.recordAcceptedTranscript(
             try makeRequest(
@@ -37,10 +38,38 @@ struct TranscriptRecoveryHistoryStoreTests {
         #expect(store.entries.first?.transcriptionModel == "gpt-4o-mini-transcribe")
         #expect(store.entries.first?.languageCode == "en")
         #expect(store.entries.first?.audioDuration == 2.5)
+
+        let relaunchedStore = TranscriptRecoveryHistoryStore(persistence: persistence)
+        #expect(
+            relaunchedStore.entries.map(\.transcriptText)
+                == ["Second transcript", "First transcript"]
+        )
+    }
+
+    @Test func userDefaultsHistorySurvivesAStoreRelaunch() throws {
+        let suiteName = "holdtype.TranscriptRecoveryHistoryStoreTests.\(UUID().uuidString)"
+        let userDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+        let storageKey = "history-relaunch"
+
+        let firstStore = TranscriptRecoveryHistoryStore(
+            userDefaults: userDefaults,
+            storageKey: storageKey
+        )
+        try firstStore.recordAcceptedTranscript(try makeRequest("Persisted transcript"))
+
+        let relaunchedStore = TranscriptRecoveryHistoryStore(
+            userDefaults: userDefaults,
+            storageKey: storageKey
+        )
+
+        #expect(relaunchedStore.entries.map(\.transcriptText) == ["Persisted transcript"])
     }
 
     @Test func disabledSettingDoesNotRecordTranscript() throws {
-        let store = TranscriptRecoveryHistoryStore()
+        let store = TranscriptRecoveryHistoryStore(
+            persistence: InMemoryTranscriptHistoryPersistence()
+        )
 
         try store.recordAcceptedTranscript(
             try makeRequest(
@@ -53,7 +82,8 @@ struct TranscriptRecoveryHistoryStoreTests {
     }
 
     @Test func recordsCachedAudioFileURLWhenRecordingCacheKeepsRecordings() throws {
-        let store = TranscriptRecoveryHistoryStore()
+        let persistence = InMemoryTranscriptHistoryPersistence()
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
         let cachedAudioFileURL = URL(fileURLWithPath: "/tmp/HoldType-cache-enabled.m4a")
 
         try store.recordAcceptedTranscript(
@@ -66,10 +96,16 @@ struct TranscriptRecoveryHistoryStoreTests {
         )
 
         #expect(store.entries.first?.cachedAudioFileURL == cachedAudioFileURL)
+        #expect(
+            TranscriptRecoveryHistoryStore(persistence: persistence)
+                .entries.first?.cachedAudioFileURL == nil
+        )
     }
 
     @Test func dropsCachedAudioFileURLWhenRecordingCacheDeletesImmediately() throws {
-        let store = TranscriptRecoveryHistoryStore()
+        let store = TranscriptRecoveryHistoryStore(
+            persistence: InMemoryTranscriptHistoryPersistence()
+        )
         let cachedAudioFileURL = URL(fileURLWithPath: "/tmp/HoldType-cache-disabled.m4a")
 
         try store.recordAcceptedTranscript(
@@ -85,7 +121,8 @@ struct TranscriptRecoveryHistoryStoreTests {
     }
 
     @Test func retainsOnlyMostRecentTwentyEntries() throws {
-        let store = TranscriptRecoveryHistoryStore()
+        let persistence = InMemoryTranscriptHistoryPersistence()
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
 
         for offset in 0..<21 {
             try store.recordAcceptedTranscript(
@@ -97,22 +134,29 @@ struct TranscriptRecoveryHistoryStoreTests {
         #expect(store.entries.first?.transcriptText == "Transcript 20")
         #expect(store.entries.last?.transcriptText == "Transcript 1")
         #expect(store.entries.contains { $0.transcriptText == "Transcript 0" } == false)
+        #expect(
+            TranscriptRecoveryHistoryStore(persistence: persistence).entries.count
+                == TranscriptRecoveryHistoryStore.defaultRetentionLimit
+        )
     }
 
-    @Test func clearRemovesOnlyCurrentRecoveryEntries() throws {
-        let store = TranscriptRecoveryHistoryStore()
+    @Test func clearRemovesPersistedRecoveryEntries() throws {
+        let persistence = InMemoryTranscriptHistoryPersistence()
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
 
         try store.recordAcceptedTranscript(
             try makeRequest("Recoverable transcript")
         )
 
-        store.clear()
+        try store.clear()
 
         #expect(store.entries.isEmpty)
+        #expect(TranscriptRecoveryHistoryStore(persistence: persistence).entries.isEmpty)
     }
 
-    @Test func deleteEntryRemovesOnlyMatchingRecoveryEntry() throws {
-        let store = TranscriptRecoveryHistoryStore()
+    @Test func deleteEntryRemovesOnlyMatchingPersistedEntry() throws {
+        let persistence = InMemoryTranscriptHistoryPersistence()
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
 
         try store.recordAcceptedTranscript(
             try makeRequest("Keep this transcript")
@@ -123,9 +167,35 @@ struct TranscriptRecoveryHistoryStoreTests {
 
         let entryToDelete = try #require(store.entries.first)
 
-        #expect(store.deleteEntry(id: entryToDelete.id))
+        #expect(try store.deleteEntry(id: entryToDelete.id))
         #expect(store.entries.map(\.transcriptText) == ["Keep this transcript"])
-        #expect(store.deleteEntry(id: UUID()) == false)
+        #expect(try store.deleteEntry(id: UUID()) == false)
+        #expect(
+            TranscriptRecoveryHistoryStore(persistence: persistence)
+                .entries.map(\.transcriptText) == ["Keep this transcript"]
+        )
+    }
+
+    @Test func persistenceFailuresDoNotPublishUncommittedChanges() throws {
+        let persistence = InMemoryTranscriptHistoryPersistence(saveError: TestPersistenceError.failed)
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
+
+        #expect(throws: TranscriptRecoveryHistoryError.saveFailed) {
+            try store.recordAcceptedTranscript(try makeRequest("Unsaved transcript"))
+        }
+        #expect(store.entries.isEmpty)
+        #expect(store.storageErrorMessage == "Transcript history could not be saved.")
+    }
+
+    @Test func unreadablePersistedHistoryIsReportedWithoutCrashingLaunch() {
+        let persistence = InMemoryTranscriptHistoryPersistence(
+            storedData: Data("not-json".utf8)
+        )
+
+        let store = TranscriptRecoveryHistoryStore(persistence: persistence)
+
+        #expect(store.entries.isEmpty)
+        #expect(store.storageErrorMessage == "Saved transcript history could not be read.")
     }
 
     private func makeRequest(
@@ -152,5 +222,49 @@ struct TranscriptRecoveryHistoryStoreTests {
             audioDuration: audioDuration,
             cachedAudioFileURL: cachedAudioFileURL
         )
+    }
+}
+
+private enum TestPersistenceError: Error {
+    case failed
+}
+
+private final class InMemoryTranscriptHistoryPersistence: TranscriptHistoryPersistence {
+    private var storedData: Data?
+    private let loadError: Error?
+    private let saveError: Error?
+    private let removeError: Error?
+
+    init(
+        storedData: Data? = nil,
+        loadError: Error? = nil,
+        saveError: Error? = nil,
+        removeError: Error? = nil
+    ) {
+        self.storedData = storedData
+        self.loadError = loadError
+        self.saveError = saveError
+        self.removeError = removeError
+    }
+
+    func loadTranscriptHistoryData(forKey key: String) throws -> Data? {
+        if let loadError {
+            throw loadError
+        }
+        return storedData
+    }
+
+    func saveTranscriptHistoryData(_ data: Data, forKey key: String) throws {
+        if let saveError {
+            throw saveError
+        }
+        storedData = data
+    }
+
+    func removeTranscriptHistoryData(forKey key: String) throws {
+        if let removeError {
+            throw removeError
+        }
+        storedData = nil
     }
 }

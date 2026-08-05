@@ -215,7 +215,7 @@ struct TranscriptHistoryView: View {
             return "Accepted history off · \(savedCount) saved \(savedCount == 1 ? "recording" : "recordings")"
         }
 
-        return "\(count) session \(count == 1 ? "entry" : "entries")"
+        return "\(count) \(count == 1 ? "entry" : "entries")"
     }
 
     private var historyRows: [TranscriptHistoryRow] {
@@ -260,7 +260,11 @@ struct TranscriptHistoryView: View {
         appSettings = appSettingsStore.load()
 
         if !appSettings.saveTranscriptHistory {
-            historyStore.clear()
+            do {
+                try historyStore.clear()
+            } catch {
+                actionStatusText = error.localizedDescription
+            }
         }
     }
 
@@ -280,7 +284,12 @@ struct TranscriptHistoryView: View {
 
     private func clearHistory() {
         let summary = bulkClearSummary
-        historyStore.clear()
+        do {
+            try historyStore.clear()
+        } catch {
+            actionStatusText = error.localizedDescription
+            return
+        }
         let savedRecordingResult = failureRecoveryStore.removeAllDeletableAttempts()
         let clearedEntryCount = summary.acceptedTranscriptCount + savedRecordingResult.deletedCount
         let clearedEntryNoun = clearedEntryCount == 1 ? "entry" : "entries"
@@ -335,10 +344,14 @@ struct TranscriptHistoryView: View {
     }
 
     private func deleteEntry(_ entry: TranscriptHistoryEntry) {
-        let didDelete = historyStore.deleteEntry(id: entry.id)
-        actionStatusText = didDelete
-            ? "Deleted history row."
-            : "History row was already gone."
+        do {
+            let didDelete = try historyStore.deleteEntry(id: entry.id)
+            actionStatusText = didDelete
+                ? "Deleted history row."
+                : "History row was already gone."
+        } catch {
+            actionStatusText = error.localizedDescription
+        }
     }
 
     private func retryAttempt(_ attempt: FailedTranscriptionAttempt) {

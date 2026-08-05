@@ -141,8 +141,8 @@ This spec covers:
   session when the setting is enabled.
 - Automatic insertion is a local UserDefaults-backed behavior setting and
   defaults on for the MVP.
-- If transcript recovery history is enabled, accepted transcripts may also be
-  kept in session-only recovery history under `transcript-history.md`.
+- If transcript history is enabled, accepted transcripts are also kept in
+  bounded durable local history under `transcript-history.md`.
 - Output handoff may require platform permissions such as Accessibility control
   or keyboard event simulation.
 - Persistent drafts outside transcript history require a separate storage spec.

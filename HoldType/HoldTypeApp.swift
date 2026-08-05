@@ -178,7 +178,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let quitConfirmationRequester: any QuitConfirmationRequesting
     private let transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)?
     private let launchEnvironment: [String: String]
-    private let clearTranscriptHistoryOverride: (@MainActor () -> Void)?
     private let startRuntimeComponentsOverride: (@MainActor () -> Void)?
     private let stopRuntimeComponentsOverride: (@MainActor () -> Void)?
     private let scheduleProviderStartupMaintenance: @MainActor () -> Void
@@ -200,7 +199,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         quitConfirmationRequester = QuitConfirmationCoordinator.shared
         transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator.shared
         launchEnvironment = ProcessInfo.processInfo.environment
-        clearTranscriptHistoryOverride = nil
         startRuntimeComponentsOverride = nil
         stopRuntimeComponentsOverride = nil
         scheduleProviderStartupMaintenance = {
@@ -229,7 +227,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         quitConfirmationRequester: any QuitConfirmationRequesting,
         transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
         launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-        clearTranscriptHistory: (@MainActor () -> Void)? = nil,
         startRuntimeComponents: (@MainActor () -> Void)? = nil,
         stopRuntimeComponents: (@MainActor () -> Void)? = nil,
         scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
@@ -245,7 +242,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         self.quitConfirmationRequester = quitConfirmationRequester
         self.transcriptionFailurePromptCoordinator = transcriptionFailurePromptCoordinator
         self.launchEnvironment = launchEnvironment
-        clearTranscriptHistoryOverride = clearTranscriptHistory
         startRuntimeComponentsOverride = startRuntimeComponents
         stopRuntimeComponentsOverride = stopRuntimeComponents
         self.scheduleProviderStartupMaintenance = scheduleProviderStartupMaintenance
@@ -262,7 +258,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         quitConfirmationPresenter: any QuitConfirmationPresenting,
         transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
         launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-        clearTranscriptHistory: (@MainActor () -> Void)? = nil,
         startRuntimeComponents: (@MainActor () -> Void)? = nil,
         stopRuntimeComponents: (@MainActor () -> Void)? = nil,
         scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
@@ -281,7 +276,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             ),
             transcriptionFailurePromptCoordinator: transcriptionFailurePromptCoordinator,
             launchEnvironment: launchEnvironment,
-            clearTranscriptHistory: clearTranscriptHistory,
             startRuntimeComponents: startRuntimeComponents,
             stopRuntimeComponents: stopRuntimeComponents,
             scheduleProviderStartupMaintenance: scheduleProviderStartupMaintenance,
@@ -347,12 +341,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         guard !isInputMonitoringRecoveryLaunch else {
             return
-        }
-
-        if let clearTranscriptHistoryOverride {
-            clearTranscriptHistoryOverride()
-        } else {
-            TranscriptRecoveryHistoryStore.shared.clear()
         }
 
         if let stopRuntimeComponentsOverride {

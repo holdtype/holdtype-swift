@@ -1,28 +1,28 @@
-# Transcript Recovery History
+# Transcript History And Recording Recovery
 
 ## Goal
 
-Keep recent successful dictations recoverable during the current app session so
-users do not need to re-dictate long text when active-app insertion fails, the
-target input changes, or a completed recording fails to transcribe for a
-recoverable provider or network reason.
+Keep recent successful dictations recoverable across app relaunches so users do
+not need to re-dictate text when active-app insertion fails, the target input
+changes, or they return to an earlier result. Keep completed recordings
+recoverable when provider or lifecycle work fails.
 
 ## Decision
 
-Accepted transcript recovery history is a session-only local feature. It is
-enabled by default because successful transcript entries are kept in app
-memory only and are cleared when the app quits.
+Accepted transcript history is a bounded, durable, local-only feature. It is
+enabled by default, keeps the 20 most recent accepted entries, and restores
+them after HoldType quits and relaunches.
 
 An unfinished recording is a separate safety checkpoint. HoldType protects its
 audio and compact recovery metadata on local disk before the first provider
 request, so a long dictation or provider failure does not disappear. A
 recording that reaches its configured limit remains in this bounded store even
 after successful transcription, together with its accepted text. This is an
-explicit recovery exception, not general durable transcript persistence or the
-normal recording cache.
+explicit recording-recovery exception, separate from accepted transcript
+persistence and the normal recording cache.
 
 Users can disable accepted transcript history in Settings. Disabling it clears
-accepted session entries and stops future accepted-history writes. It does not
+durable accepted entries and stops future accepted-history writes. It does not
 delete an unfinished recovery checkpoint; only successful cleanup or the
 user's explicit Delete/Discard action may do that.
 
@@ -38,7 +38,7 @@ text.
 
 This spec covers:
 
-- session-only storage of accepted transcript text
+- bounded durable local storage of accepted transcript text
 - protected local storage of one or more bounded unfinished transcription
   attempts
 - default history setting
@@ -53,8 +53,7 @@ This spec covers:
 
 ## Non-goals
 
-- durable disk-backed transcript persistence outside the bounded successful
-  limit-completed recording exception
+- unbounded transcript archives
 - durable raw audio retention outside bounded unfinished-attempt recovery, the
   successful limit-completed recording exception, or the explicit normal
   recording cache setting
@@ -66,11 +65,11 @@ This spec covers:
 
 ## User-visible behavior
 
-- Transcript recovery history is on by default for the current app session.
+- Transcript history is on by default and survives app relaunch.
 - Existing installs that still carry the legacy off default are switched on
   once during settings load.
 - Settings exposes a Keep Transcript Recovery History toggle.
-- Turning recovery history off immediately clears accepted transcript entries
+- Turning recovery history off immediately clears durable accepted transcript entries
   and stops future accepted-history writes. Saved recordings remain visible.
 - Turning recovery history back on affects future successful dictations. It
   does not restore entries cleared earlier.
@@ -86,7 +85,7 @@ This spec covers:
   explicit Delete action. It never offers Retry because its provider work has
   already succeeded.
 - A successful limit-completed row is the sole History row for that result;
-  HoldType does not add a duplicate session-only accepted row with the same text.
+  HoldType does not add a duplicate accepted row with the same text.
 - The successful limit-completed row and protected audio survive relaunch,
   accepted History being disabled or cleared, normal recording-cache cleanup
   including `Delete immediately`, and normal app quit. Only explicit Delete or
@@ -149,7 +148,7 @@ This spec covers:
   Transcription` action. Saving it preserves that truthful label; it cannot
   masquerade as a translated success or turn back into provider Retry.
 - The immediate user-facing failure surface for a completed recording is the
-  menu bar recovery prompt. Transcript History is the session recovery surface
+  menu bar recovery prompt. Transcript History is the durable recovery surface
   the user can open from the normal menu item.
 - A failed attempt row must be visually distinct from accepted transcript rows.
   It should show `Not transcribed`, a compact reason, the attempt time, and any
@@ -258,7 +257,7 @@ This spec covers:
 - History row system clipboard copy does not require the Keep last result
   setting, does not update the Last Result recovery value, and does not
   trigger active-app insertion.
-- Each history row can delete only that row from current recovery history.
+- Each history row can durably delete only that row from transcript history.
 - The history window provides a destructive `Clear History` action. It is
   enabled whenever the window contains an accepted transcript entry or a
   deletable Saved Recording, even if there are no accepted transcript entries.
@@ -274,16 +273,16 @@ This spec covers:
   both its recovery metadata and exact audio artifact were removed; if either
   operation fails, the saved row remains or is reconstructed and the failure
   is shown instead of a false success message.
-- Clearing History removes every accepted session entry and every deletable
+- Clearing History durably removes every accepted transcript entry and every deletable
   Saved Recording shown in History. It does not delete Keychain secrets,
   settings, normal recording-cache state, or Last Transcript current-session
   state. A Processing row remains protected because its provider operation owns
   the audio; clearing reports that it was kept. If a Saved Recording cannot be
   deleted completely, its row remains or is reconstructed and the result
   reports that it was kept rather than claiming a full clear.
-- Quitting the app clears accepted transcript entries. Unfinished saved
-  recordings and their compact recovery metadata remain available after
-  relaunch.
+- Quitting the app does not clear accepted transcript entries. Accepted entries,
+  unfinished saved recordings, and their compact recovery metadata remain
+  available after relaunch.
 - The main menu does not provide a manual Save Last Transcript action. When
   Keep last result is enabled, accepted transcripts are saved there
   automatically under `text-output-workflow.md`.
@@ -328,8 +327,8 @@ entries, rejected transcript candidates, or debug payloads.
 
 ## Privacy and storage
 
-- Accepted transcript history is local-only and session-only for this MVP
-  slice.
+- Accepted transcript history is local-only, bounded to the 20 most recent
+  entries, and durable across app relaunches.
 - Recovery metadata and audio are local-only, app-owned, and bounded. Unfinished
   rows persist until successful processing or explicit deletion. A successful
   limit-completed row additionally persists only its accepted transcript text
@@ -340,8 +339,8 @@ entries, rejected transcript candidates, or debug payloads.
 - Default logs must not include transcript text or history entry contents.
 - Default logs must not include recording cache paths, failed-attempt audio
   paths, playback paths, or retry payloads.
-- Durable transcript history beyond the bounded successful limit-completed
-  recording exception requires a future spec update before implementation.
+- Unbounded or cloud-synced transcript history requires a future spec update
+  before implementation.
 
 ## Edge cases and failure policy
 
@@ -394,14 +393,16 @@ entries, rejected transcript candidates, or debug payloads.
 - A saved-recording row whose audio cannot be opened as supported playable
   audio is treated as an invalid local artifact rather than a playback failure:
   the row is excluded from History and cannot be uploaded or retried.
-- If the app terminates normally, accepted session history is cleared while
-  unfinished and successful limit-completed saved recordings remain recoverable.
+- If the app terminates normally, accepted transcript history, unfinished saved
+  recordings, and successful limit-completed saved recordings remain
+  recoverable after relaunch.
 
 ## Verification mapping
 
 - Settings tests should prove recovery history is enabled by default,
-  disabling it clears current entries, and the setting persists.
-- History tests should cover accepted append, max-20 accepted retention, failed
+  disabling it clears durable accepted entries, and the setting persists.
+- History tests should cover accepted append, durable relaunch restoration,
+  max-20 accepted retention, durable row deletion and clear, failed
   attempt append, failed-attempt retention and audio cleanup, clear,
   disabled accepted-history behavior, successful limit-completed saved-row
   round-trip and retention, saved-row survival while disabled, relaunch

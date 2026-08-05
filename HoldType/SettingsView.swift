@@ -127,6 +127,7 @@ struct SettingsView: View {
                 showsInputMonitoringManualFallbackWarning: permissionsModel.showsInputMonitoringManualFallbackWarning,
                 launchAtLoginStatus: launchAtLoginStatus,
                 transcriptHistoryCount: transcriptHistoryStore.entries.count,
+                transcriptHistoryError: transcriptHistoryStore.storageErrorMessage,
                 openAIUsageSummary: OpenAIUsageSummary.make(events: openAIUsageStore.entries),
                 openAIUsageStorageError: openAIUsageStore.storageErrorMessage,
                 recordingCacheSummary: recordingCacheSummary,
@@ -239,12 +240,15 @@ struct SettingsView: View {
                 let oldSettings = appSettings
                 let shouldClearTranscriptHistory = oldSettings.saveTranscriptHistory
                     && !newValue.saveTranscriptHistory
-                appSettings = newValue
-                appSettingsStore.save(newValue)
 
                 if shouldClearTranscriptHistory {
-                    transcriptHistoryStore.clear()
+                    if (try? transcriptHistoryStore.clear()) == nil {
+                        return
+                    }
                 }
+
+                appSettings = newValue
+                appSettingsStore.save(newValue)
 
                 applyRecordingCacheRetentionIfNeeded(oldSettings: oldSettings, newSettings: newValue)
                 refreshSetupStatusAfterSettingsChange()
@@ -356,9 +360,7 @@ struct SettingsView: View {
         _ = launchAtLoginService.openLoginItemsSettings()
     }
 
-    private func clearTranscriptHistory() {
-        transcriptHistoryStore.clear()
-    }
+    private func clearTranscriptHistory() { _ = try? transcriptHistoryStore.clear() }
 
     private func refreshOpenAIUsage() {
         openAIUsageStore.reload()

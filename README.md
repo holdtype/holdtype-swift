@@ -153,8 +153,8 @@ HoldType keeps the product boundary explicit:
 - Completed audio is not retained by default. A recoverable failed attempt may
   keep bounded session-only audio for Retry when recovery history is enabled.
   Optional recording-cache retention is local and user-controlled.
-- Transcript recovery is local and session-only. Last Result does not use the
-  macOS system clipboard.
+- Accepted transcript history is local, keeps the 20 most recent entries, and
+  survives app relaunch. Last Result does not use the macOS system clipboard.
 - HoldType has no account system, server-side app state, analytics, telemetry,
   or cloud sync.
 
