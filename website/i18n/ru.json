@@ -9,7 +9,7 @@
     "skipToContent": "Перейти к содержанию",
     "brandHomeAria": "Главная страница {brand.holdType}",
     "primaryNavigationAria": "Основная навигация",
-    "downloadForMacOS": "Скачать для Mac"
+    "downloadForMacOS": "Скачать для {brand.macOS}"
   },
   "localeUi": {
     "switcherLabel": "Язык",
