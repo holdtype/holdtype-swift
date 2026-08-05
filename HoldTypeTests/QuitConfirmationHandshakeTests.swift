@@ -4,6 +4,28 @@ import Testing
 
 @MainActor
 struct QuitConfirmationHandshakeTests {
+    @Test func coordinatorOpensConfirmationWindowBeforeWaitingForDecision() {
+        let coordinator = QuitConfirmationCoordinator(
+            launchAtLoginStatusProvider: { .disabled }
+        )
+        var windowRequestCount = 0
+        var resolvedDecision: QuitConfirmationDecision?
+
+        coordinator.install {
+            windowRequestCount += 1
+        }
+        coordinator.requestQuitConfirmation { decision in
+            resolvedDecision = decision
+        }
+
+        #expect(windowRequestCount == 1)
+        #expect(coordinator.presentation != nil)
+
+        coordinator.resolve(.cancel)
+
+        #expect(resolvedDecision == .cancel)
+    }
+
     @Test func confirmedAsynchronousPromptRequestsTerminationThenPrepares() async {
         let requester = DeferredQuitConfirmationRequester()
         var terminationRequestCount = 0

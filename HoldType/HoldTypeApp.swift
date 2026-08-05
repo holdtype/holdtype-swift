@@ -86,6 +86,7 @@ private struct HoldTypeMenuBarLabel: View {
                 openWindow(id: SettingsScene.identifier)
             }
             QuitConfirmationCoordinator.shared.install {
+                AppWindowActivation.showRegularApp()
                 openWindow(id: QuitConfirmationScene.identifier)
             }
             TranscriptionFailurePromptCoordinator.shared.install {

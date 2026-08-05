@@ -141,11 +141,12 @@ private struct QuitConfirmationAlertHost: View {
                 Button("Cancel", role: .cancel) {
                     resolve(.cancel)
                 }
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.cancelAction)
 
-                Button("Quit \(HoldTypeMenuBarIdentity.title)", role: .destructive) {
+                Button("Quit \(HoldTypeMenuBarIdentity.title)") {
                     resolve(.quit)
                 }
+                .keyboardShortcut(.defaultAction)
             } message: {
                 Text(presentation?.informativeText ?? "")
             }
