@@ -86,7 +86,16 @@ other cause preserves positive bytes under one durable owner.
 ## Saved Recording and History
 
 - Before provider work, every finalized non-empty source that meets the active
-  feature's minimum capture duration has one durable, playable owner.
+  feature's minimum capture duration is durably owned and locally validated.
+  A source becomes a user-visible Saved Recording only when the supported-audio
+  decoder can open it and prove that it contains playable audio data. Positive
+  byte count, extension, or container metadata alone never establish
+  playability.
+- A malformed, truncated, header-only, renamed non-audio, or otherwise
+  undecodable positive-byte artifact remains non-destructively owned but is
+  excluded from History and from Play, Transcribe, Retry, and Transcribe Again.
+  Exclusion is not cleanup: HoldType does not remove its file or metadata
+  without a separately approved destructive product action.
 - Involuntary or internal termination is provider-free unless the user had
   already requested Finish or the configured limit had already elapsed.
 - A provider-free Saved Recording offers Play, Transcribe, and Delete. Delete
@@ -114,6 +123,9 @@ other cause preserves positive bytes under one durable owner.
   recovery presentation.
 - Failure UI never claims that audio was saved unless a durable playable owner
   can be loaded.
+- Local validation failure uses the compact user-facing explanation `This
+  saved recording can’t be opened, so it can’t be played or transcribed.` and
+  never exposes provider internals or an action that cannot succeed.
 - Default logs record the terminal cause, attempt identifier, durability
   outcome, and whether provider work was authorized. They do not contain raw
   audio, transcript text, secrets, or local paths.

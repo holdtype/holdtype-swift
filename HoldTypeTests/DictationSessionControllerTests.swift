@@ -13,7 +13,6 @@ import Testing
 
 @MainActor
 struct DictationSessionControllerTests {
-
     @Test func recordingActionStartsThroughInjectedRecorderOnly() async {
         let recorder = FakeAudioRecorderService()
         let transcriptionService = FakeControllerTranscriptionService()
@@ -353,7 +352,7 @@ struct DictationSessionControllerTests {
         #expect(savedAttempt.canRetry == false)
         #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
         #expect(
-            TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt)
+            TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt)
         )
         #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
     }
@@ -423,7 +422,7 @@ struct DictationSessionControllerTests {
         #expect(savedAttempt.completionKind == .maximumDuration)
         #expect(savedAttempt.acceptedTranscriptText == "Callback preserved transcript")
         #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt))
         #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
     }
 
@@ -670,7 +669,7 @@ struct DictationSessionControllerTests {
         )
         #expect(emergencyAttempt.reason == .recoveryOwnershipPersistenceFailed)
         #expect(emergencyAttempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(emergencyAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(emergencyAttempt))
         let emergencyPresentation = TranscriptionRecoveryHistoryRowPresentation(
             attempt: emergencyAttempt
         )
@@ -704,7 +703,7 @@ struct DictationSessionControllerTests {
         #expect(savedAttempt.state == .saved)
         #expect(savedAttempt.acceptedTranscriptText == "Accepted only after local save")
         #expect(savedAttempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt))
 
         let relaunchedStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL
@@ -772,7 +771,7 @@ struct DictationSessionControllerTests {
         #expect(transcriptionService.calls.isEmpty)
         #expect(recoveryStore.failedAttempts.first?.canRetry == false)
         #expect(FileManager.default.fileExists(atPath: originalURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(emergencyAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(emergencyAttempt))
     }
 
     @Test func unownedEmergencyWithDualOwnershipWriteFailureStaysFailClosed() async throws {
@@ -854,7 +853,7 @@ struct DictationSessionControllerTests {
         #expect(relaunchedAttempt.id == attemptID)
         #expect(relaunchedAttempt.completionKind == .maximumDuration)
         #expect(FileManager.default.fileExists(atPath: relaunchedAttempt.audioFileURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(relaunchedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(relaunchedAttempt))
         #expect(FileManager.default.fileExists(atPath: metadataURL.path))
         #expect(transcriptionService.calls.isEmpty)
     }
@@ -1009,7 +1008,7 @@ struct DictationSessionControllerTests {
         #expect(uncertainAttempt.completionKind == .maximumDuration)
         #expect(uncertainAttempt.acceptedTranscriptText == nil)
         #expect(uncertainAttempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(uncertainAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(uncertainAttempt))
         let uncertainPresentation = TranscriptionRecoveryHistoryRowPresentation(
             attempt: uncertainAttempt
         )
@@ -1094,7 +1093,7 @@ struct DictationSessionControllerTests {
         )
         #expect(failClosedAttempt.acceptedTranscriptText == "русский текст")
         #expect(failClosedAttempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(failClosedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(failClosedAttempt))
         let presentation = TranscriptionRecoveryHistoryRowPresentation(
             attempt: failClosedAttempt
         )
@@ -1214,7 +1213,7 @@ struct DictationSessionControllerTests {
         )
         #expect(failClosedAttempt.acceptedTranscriptText == "обычный сырой текст")
         #expect(failClosedAttempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(failClosedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(failClosedAttempt))
 
         await controller.retryFailedTranscription(id: failClosedAttempt.id)
         #expect(transcriptionService.calls.count == 1)
@@ -1521,7 +1520,7 @@ struct DictationSessionControllerTests {
         #expect(savedAttempt.acceptedTranscriptText == "Recovered max checkpoint")
         #expect(savedAttempt.canRetry == false)
         #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt))
 
         await retryController.retryFailedTranscription(id: restoredAttempt.id)
         #expect(transcriptionService.calls.count == 1)
@@ -1609,7 +1608,7 @@ struct DictationSessionControllerTests {
         #expect(savedAttempt.acceptedTranscriptText == "Recovered after relaunch")
         #expect(savedAttempt.canRetry == false)
         #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt))
     }
 
     @Test func unexpectedRecorderCompletionSavesWithoutProviderDispatch() async throws {
@@ -1868,7 +1867,7 @@ struct DictationSessionControllerTests {
         )
         #expect(savedAttempt.canRetry == false)
         #expect(FileManager.default.fileExists(atPath: savedAttempt.audioFileURL.path))
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(savedAttempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(savedAttempt))
         #expect(FileManager.default.fileExists(atPath: originalURL.path) == false)
     }
 
@@ -4519,6 +4518,7 @@ struct DictationSessionControllerTests {
             settingsProvider: settingsProvider ?? { settings },
             transcriptOutput: transcriptOutput,
             cuePlayer: cuePlayer,
+            recoveryAudioReadiness: TranscriptHistoryAudioReadiness(isPlayableAudioFile: { _ in true }),
             recordingDurationMonitor: recordingDurationMonitor,
             privateAudioOutputRouteProvider: privateAudioOutputRouteProvider,
             transcriptHistory: transcriptHistory,

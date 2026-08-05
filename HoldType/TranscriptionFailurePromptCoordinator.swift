@@ -30,7 +30,8 @@ enum TranscriptionFailurePromptActions {
 }
 
 enum TranscriptionFailurePromptCopy {
-    static let repeatTranscriptionConfirmation = "This will submit the saved recording for transcription again."
+    static let repeatTranscriptionConfirmation =
+        "The previous request may already have completed. Sending this saved recording again could create a duplicate transcription."
 
     static func informativeText(for presentation: DictationFailurePresentation) -> String {
         let message = presentation.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -50,7 +51,7 @@ enum TranscriptionFailurePromptCopy {
     static func buttonTitle(for decision: TranscriptionFailurePromptDecision) -> String {
         switch decision {
         case .retry:
-            return "Try Again"
+            return "Retry Transcription"
         case .transcribeAgain:
             return "Transcribe Again…"
         case .openSettings(let item):

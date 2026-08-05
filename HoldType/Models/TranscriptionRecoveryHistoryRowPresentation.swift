@@ -12,8 +12,8 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
     init(attempt: FailedTranscriptionAttempt) {
         switch attempt.state {
         case .processing:
-            title = "Processing"
-            message = "Recording saved. Transcription is in progress."
+            title = "Transcribing…"
+            message = "HoldType is transcribing the saved recording."
             systemImage = "waveform"
             showsProgress = true
             showsSettings = false
@@ -28,6 +28,9 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
             } else if attempt.reason == .postProcessingFailedAfterProviderAcceptance {
                 title = "Raw transcription recovered — post-processing failed"
                 message = attempt.acceptedTranscriptText ?? attempt.reason.message
+            } else if attempt.reason == .providerOutcomeUncertain {
+                title = attempt.reason.title
+                message = attempt.reason.message
             } else if attempt.reason == .recoveryOwnershipPersistenceFailed
                         || attempt.reason == .providerDispatchPersistenceFailed {
                 title = "Recording — save incomplete"

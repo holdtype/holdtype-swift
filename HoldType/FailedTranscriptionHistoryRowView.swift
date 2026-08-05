@@ -54,7 +54,7 @@ struct FailedTranscriptionHistoryRowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 6) {
-                if canPlayAudio {
+                if canPlayAudio, attempt.state != .processing {
                     Button(action: onPlayAudio) {
                         Label("Play", systemImage: "play.circle")
                     }
@@ -78,22 +78,15 @@ struct FailedTranscriptionHistoryRowView: View {
                 }
 
                 if presentation.showsRetry {
-                    Button(action: onRetry) {
-                        Label("Retry", systemImage: "arrow.clockwise")
-                    }
+                    Button("Retry Transcription", systemImage: "arrow.clockwise", action: onRetry)
                     .help("Retry Transcription")
                     .controlSize(.small)
                     .disabled(!savedRecordingActionsEnabled)
                 }
 
                 if presentation.showsDuplicateRetry {
-                    Button(action: onDuplicateRetry) {
-                        Label("Transcribe Again", systemImage: "arrow.clockwise")
-                    }
-                    .help("Transcribe Again")
-                    .accessibilityLabel("Transcribe Again")
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+                    Button("Transcribe Again…", systemImage: "arrow.clockwise", action: onDuplicateRetry)
+                    .help("Submit this saved recording for transcription again")
                     .controlSize(.small)
                     .disabled(!savedRecordingActionsEnabled)
                 }
@@ -110,18 +103,17 @@ struct FailedTranscriptionHistoryRowView: View {
                     .disabled(!savedRecordingActionsEnabled)
                 }
 
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
+                if attempt.canDelete {
+                    Button(role: .destructive, action: onDelete) {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .help("Delete Saved Recording")
+                    .accessibilityLabel("Delete Saved Recording")
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(!savedRecordingActionsEnabled)
                 }
-                .help("Delete Saved Recording")
-                .accessibilityLabel("Delete Saved Recording")
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .controlSize(.small)
-                .disabled(
-                    !savedRecordingActionsEnabled
-                        || !attempt.canDelete
-                )
             }
         }
         .padding(12)

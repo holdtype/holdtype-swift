@@ -16,7 +16,7 @@ struct TranscriptionFailurePromptTests {
 
         #expect(presentation.showsRecoveryPrompt)
         #expect(actions == [.retry(failedAttemptID), .dismiss])
-        #expect(actionTitles(for: actions) == ["Try Again", "Dismiss"])
+        #expect(actionTitles(for: actions) == ["Retry Transcription", "Dismiss"])
     }
 
     @Test func apiKeyFailureOffersSettingsBeforeRetryAndDismiss() throws {
@@ -33,7 +33,7 @@ struct TranscriptionFailurePromptTests {
         let actions = TranscriptionFailurePromptActions.actions(for: presentation)
 
         #expect(actions == [.openSettings(.openAI), .retry(failedAttemptID), .dismiss])
-        #expect(actionTitles(for: actions) == ["Open OpenAI Settings", "Try Again", "Dismiss"])
+        #expect(actionTitles(for: actions) == ["Open OpenAI Settings", "Retry Transcription", "Dismiss"])
     }
 
     @Test func settingsOnlyFailureDoesNotShowFakeRetry() {
@@ -89,7 +89,7 @@ struct TranscriptionFailurePromptTests {
         #expect(informativeText.contains("saved for retry") == false)
         #expect(
             TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation
-                == "This will submit the saved recording for transcription again."
+                == "The previous request may already have completed. Sending this saved recording again could create a duplicate transcription."
         )
     }
 

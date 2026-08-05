@@ -169,6 +169,38 @@ struct TranscriptHistoryAudioPlaybackActionTests {
         #expect(attempt.canDelete)
     }
 
+    @Test func processingAndOutcomeUncertainRowsExposeDistinctActions() {
+        let processing = FailedTranscriptionAttempt(
+            audioFileURL: URL(fileURLWithPath: "/tmp/holdtype-processing.m4a"),
+            audioDuration: 12,
+            transcriptionModel: "gpt-transcribe",
+            languageCode: nil,
+            state: .processing,
+            reason: .other
+        )
+        let uncertain = FailedTranscriptionAttempt(
+            audioFileURL: URL(fileURLWithPath: "/tmp/holdtype-uncertain.m4a"),
+            audioDuration: 12,
+            transcriptionModel: "gpt-transcribe",
+            languageCode: nil,
+            state: .failed,
+            reason: .providerOutcomeUncertain
+        )
+        let processingPresentation = TranscriptionRecoveryHistoryRowPresentation(attempt: processing)
+        let uncertainPresentation = TranscriptionRecoveryHistoryRowPresentation(attempt: uncertain)
+
+        #expect(processingPresentation.title == "Transcribing…")
+        #expect(processingPresentation.showsProgress)
+        #expect(processingPresentation.showsRetry == false)
+        #expect(processingPresentation.showsDuplicateRetry == false)
+        #expect(processing.canDelete == false)
+        #expect(uncertainPresentation.title == "Transcription outcome uncertain")
+        #expect(uncertainPresentation.message.contains("duplicate transcription"))
+        #expect(uncertainPresentation.showsRetry == false)
+        #expect(uncertainPresentation.showsDuplicateRetry)
+        #expect(uncertain.canDelete)
+    }
+
     @Test func doesNotPlayEmptySavedRecoveryAudio() throws {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-history-empty-playback-\(UUID().uuidString)", isDirectory: true)
@@ -193,13 +225,46 @@ struct TranscriptHistoryAudioPlaybackActionTests {
         #expect(player.playedURLs.isEmpty)
     }
 
+    @Test func doesNotExposeMalformedSavedRecoveryAudioAsPlayable() throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("holdtype-history-malformed-playback-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        let audioFileURL = directoryURL.appendingPathComponent("malformed.m4a")
+        try Data("not audio".utf8).write(to: audioFileURL)
+
+        let attempt = FailedTranscriptionAttempt(
+            audioFileURL: audioFileURL,
+            audioDuration: 12,
+            transcriptionModel: "gpt-transcribe",
+            languageCode: nil,
+            state: .failed,
+            reason: .networkUnavailable
+        )
+
+        let action = TranscriptHistoryAudioPlaybackAction()
+        #expect(action.canPlay(attempt) == false)
+        #expect(action.visibleSavedRecordings(in: [attempt]).isEmpty)
+    }
+
     private func makeTemporaryAudioFile() throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-history-playback-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         let fileURL = directoryURL.appendingPathComponent("cached.m4a")
-        try Data("audio".utf8).write(to: fileURL)
+        try validWAVFixture.write(to: fileURL)
         return fileURL
+    }
+
+    private var validWAVFixture: Data {
+        Data([
+            0x52, 0x49, 0x46, 0x46, 0x26, 0x00, 0x00, 0x00,
+            0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
+            0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+            0x40, 0x1F, 0x00, 0x00, 0x80, 0x3E, 0x00, 0x00,
+            0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61,
+            0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ])
     }
 }
 

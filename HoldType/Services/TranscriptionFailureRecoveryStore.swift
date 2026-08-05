@@ -91,7 +91,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             }
         }
     }
-
     func recordProcessingCheckpoint(
         audioFileURL: URL,
         settings: AppSettings,
@@ -99,7 +98,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         completionKind: TranscriptionRecoveryCompletionKind
     ) throws -> FailedTranscriptionAttempt {
         try validateNonemptyAudio(at: audioFileURL)
-
         let id = uuidProvider()
         let createdAt = now()
         let recoveryAudioURL = try copyAudioForRecovery(
@@ -119,10 +117,8 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             state: .processing,
             reason: .other
         )
-
         let checkpointMarkerWasWritten =
             (try? persistProcessingCheckpointMarker(attempt)) != nil
-
         do {
             try replaceAttemptsWithRetained([attempt] + failedAttempts)
             if checkpointMarkerWasWritten {
@@ -148,7 +144,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         guard settings.saveTranscriptHistory, reason.shouldRecordFailedAttempt else {
             return nil
         }
-
         let attempt = try recordProcessingCheckpoint(
             audioFileURL: audioFileURL,
             settings: settings,
@@ -466,12 +461,24 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }) else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
-
         // A successfully transcribed retained recording is terminal even
         // while downstream processing or local metadata still needs repair.
         // Preserve the accepted provider text and never clear its dispatch
         // seal merely because a later translation or formatting stage failed.
         guard failedAttempts[index].state != .saved else {
+            return
+        }
+        if reason == .invalidRecording {
+            var unavailableAttempts = failedAttempts
+            unavailableAttempts[index].state = .failed
+            unavailableAttempts[index].reason = .invalidRecording
+            unavailableAttempts[index].updatedAt = now()
+            unavailableAttempts = unavailableAttempts.sorted { $0.updatedAt > $1.updatedAt }
+            // Keep any lifetime provider-dispatch seal. It still proves that
+            // an earlier uncertain request may have reached the provider.
+            try? persist(unavailableAttempts)
+            failedAttempts = unavailableAttempts
+            try? deleteProcessingCheckpointMarker(id: id)
             return
         }
         if failedAttempts[index].reason == .savedStatePersistenceFailed {
@@ -495,7 +502,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 != .postProcessingFailedAfterProviderAcceptance else {
             return
         }
-
         var updatedAttempts = failedAttempts
         let wasFailed = updatedAttempts[index].state == .failed
         updatedAttempts[index].state = .failed
@@ -521,26 +527,22 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         guard let attempt = failedAttempts.first(where: { $0.id == id }) else {
             return false
         }
-
         if emergencyFallbackAttemptIDs.contains(id) {
             do {
                 try deleteExactRegularAudio(attempt.audioFileURL)
             } catch {
                 throw TranscriptionFailureRecoveryError.deleteFailed
             }
-
             emergencyFallbackAttemptIDs.remove(id)
             failedAttempts.removeAll { $0.id == id }
             return true
         }
-
         let retainedAttempts = failedAttempts.filter { $0.id != id }
         do {
             try persist(retainedAttempts)
         } catch {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
-
         do {
             try deleteRecoveryAudio(attempt.audioFileURL)
         } catch {
@@ -550,7 +552,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             try? persist(failedAttempts)
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
-
         // The dispatch seal is the final fail-closed evidence that this audio
         // may already have reached the provider. Keep it until the exact
         // recovery artifact is gone: if unlink and metadata rollback both
@@ -1222,7 +1223,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             return marker
         }
     }
-
 }
 
 private struct RecoveryRestoration {

@@ -65,7 +65,12 @@ This spec covers:
   preferably `m4a` or `wav`.
 - The current adapter accepts only an existing regular `m4a` or `wav` file. It
   rejects an empty file and any file whose size is greater than or equal to
-  25,000,000 bytes before provider contact.
+  25,000,000 bytes before provider contact. Before normal or repeated provider
+  work, HoldType must also open the exact file with its local supported-audio
+  decoder and verify that it contains readable audio data. Filename extension,
+  container header, positive byte count, and metadata alone are insufficient.
+  Text renamed to an audio extension, header-only, truncated, malformed, and
+  otherwise undecodable files fail locally and are never uploaded.
 - Multipart preparation must not load the complete audio file into memory. It
   copies audio into one app-owned scratch request body with reads no larger
   than 64 KiB. For the default `gpt-transcribe` model, form fields remain
@@ -195,7 +200,7 @@ This spec covers:
 - The recovery prompt should appear only after the app has entered the
   terminal failure state, so recording/transcribing indicators and menu status
   do not remain visually active behind the prompt.
-- The recovery prompt should offer only applicable direct actions: Try Again,
+- The recovery prompt should offer only applicable direct actions: Retry Transcription,
   Open OpenAI Settings, Open Transcription Settings, or Dismiss. It should not
   include a Transcript History shortcut; the normal menu item already exposes
   that recovery surface.
@@ -217,14 +222,20 @@ This spec covers:
   current safe transcription settings. It must not reuse stored API keys,
   provider payloads, prompts, nearby active-text context, or custom dictionary
   text from the failed attempt.
-- On macOS, Try Again from the frontmost recovery prompt or menu recovery block
+- Retry and confirmation-gated Transcribe Again perform supported playable-
+  audio validation before publishing a processing state or beginning request
+  preparation. If local failure is discovered after processing was already
+  published because of a race, failure presentation waits until the saved
+  attempt has reached an explicit terminal state. Dismissing that presentation
+  cannot be the mechanism that completes the attempt.
+- On macOS, Retry Transcription from the frontmost recovery prompt or menu recovery block
   behaves like a resumed dictation attempt for output delivery: when automatic
   insertion is enabled, a successful retry should insert the recovered
   transcript into the current active app. If insertion fails, the recovered
   transcript should remain available through Last Result when that setting is
   enabled. P4 iOS Retry ends at app-owned accepted-result presentation and never
   inserts into whichever external app happens to be active.
-- A Try Again action must not be dropped silently while the app is finishing a
+- A Retry Transcription action must not be dropped silently while the app is finishing a
   short recording, transcription, or failure-presentation state transition. If
   the retry cannot start immediately, the app should run it after the current
   transition completes.
@@ -495,7 +506,7 @@ runtime request value still does not own its scratch-file lifecycle.
 - Post-capture transcription failure UI must settle in this order: terminal
   failure status first, active recording/transcribing indicators hidden next,
   and any blocking recovery prompt only after those visible surfaces are no
-  longer active. The user's first Try Again click must start the retry; it must
+  longer active. The user's first Retry Transcription click must start the retry; it must
   not be consumed by stale UI cleanup such as hiding a still-visible
   transcribing indicator.
 - A completed recording may be deleted after successful provider acceptance
@@ -548,7 +559,7 @@ runtime request value still does not own its scratch-file lifecycle.
   transcript text, or full provider responses.
 - Tests for recovery prompts should use fakes to cover the ordering between
   terminal failure status, failed-attempt presentation, floating indicator
-  hiding, and Try Again retry dispatch. Do not rely on live OpenAI, microphone
+  hiding, and Retry Transcription dispatch. Do not rely on live OpenAI, microphone
   input, or toggling real network connectivity to prove this ordering.
 - Prompt-composition tests must cover each individual source, the exact
   four-source order and separators, disabled/empty emoji and dictionary inputs,

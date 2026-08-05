@@ -8,18 +8,6 @@
 import Foundation
 import HoldTypeDomain
 import HoldTypeOpenAI
-protocol TranscriptOutputDelivering {
-    func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult
-}
-extension TextInsertionService: TranscriptOutputDelivering {}
-enum FailedTranscriptionRetryOutputMode: Equatable {
-    case saveOnly
-    case followAutomaticInsertion
-}
-enum FailedTranscriptionRetryAuthorization: Equatable {
-    case ordinary
-    case confirmedDuplicateSubmission
-}
 private struct PendingFailedTranscriptionRetry {
     let id: FailedTranscriptionAttempt.ID
     let credential: OpenAICredential?
@@ -31,15 +19,6 @@ private enum DeferredRecordingTerminalOutcome {
         Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
     )
     case maximumDurationAwaitingArtifact
-}
-protocol RecordingStopTailSleeping {
-    func sleep(seconds: TimeInterval) async throws
-}
-struct TaskRecordingStopTailSleeper: RecordingStopTailSleeping {
-    func sleep(seconds: TimeInterval) async throws {
-        let nanoseconds = UInt64(seconds * 1_000_000_000)
-        try await Task.sleep(nanoseconds: nanoseconds)
-    }
 }
 @MainActor
 final class DictationSessionController {
@@ -62,6 +41,7 @@ final class DictationSessionController {
     private let transcriptOutput: any TranscriptOutputDelivering
     private let cuePlayer: any DictationCuePlaying
     private let historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping
+    private let recoveryAudioReadiness: TranscriptHistoryAudioReadiness
     private let recordingDurationMonitor: any RecordingDurationMonitoring
     private let privateAudioOutputRouteProvider: any PrivateAudioOutputRouteProviding
     private let transcriptHistory: any TranscriptRecoveryHistoryRecording
@@ -137,6 +117,7 @@ final class DictationSessionController {
         cuePlayer: any DictationCuePlaying = NativeDictationCuePlayer.shared,
         historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping =
             TranscriptHistoryAudioPlayer.shared,
+        recoveryAudioReadiness: TranscriptHistoryAudioReadiness = TranscriptHistoryAudioReadiness(),
         recordingDurationMonitor: (any RecordingDurationMonitoring)? = nil,
         privateAudioOutputRouteProvider: any PrivateAudioOutputRouteProviding =
             CoreAudioPrivateOutputRouteProvider(),
@@ -164,6 +145,7 @@ final class DictationSessionController {
         self.transcriptOutput = transcriptOutput
         self.cuePlayer = cuePlayer
         self.historyAudioPlaybackStopper = historyAudioPlaybackStopper
+        self.recoveryAudioReadiness = recoveryAudioReadiness
         self.recordingDurationMonitor = recordingDurationMonitor
             ?? ContinuousRecordingDurationMonitor()
         self.privateAudioOutputRouteProvider = privateAudioOutputRouteProvider
@@ -299,7 +281,6 @@ final class DictationSessionController {
         defer { completeExclusiveAction() }
         await performFailedTranscriptionRetry(retry)
     }
-
     private func performFailedTranscriptionRetry(_ retry: PendingFailedTranscriptionRetry) async {
         guard let attempt = transcriptionFailureRecovery.failedAttempts.first(where: { $0.id == retry.id }) else {
             outputStatusText = TranscriptionFailureRecoveryError.attemptUnavailable.localizedDescription
@@ -316,6 +297,25 @@ final class DictationSessionController {
         }
         outputStatusText = nil
         failurePresentation = nil
+        guard recoveryAudioReadiness.isPlayableAudioFile(at: attempt.audioFileURL) else {
+            let error = OpenAITranscriptionServiceError.invalidRecording(
+                .unreadableAudioFile(attempt.audioFileURL)
+            )
+            try? transcriptionFailureRecovery.updateFailedAttempt(
+                id: attempt.id,
+                reason: .invalidRecording
+            )
+            let message = FailedTranscriptionReason.invalidRecording.message
+            recordFailure(error, at: .transcription)
+            status = .failure(message: message)
+            failurePresentation = failurePresentation(
+                message: message,
+                error: error,
+                failedAttempt: transcriptionFailureRecovery.failedAttempts.first { $0.id == attempt.id },
+                showsRecoveryPrompt: true
+            )
+            return
+        }
         var sessionID: Int?
         do {
             let credential = try resolvedCredential(providedCredential: retry.credential)
@@ -409,7 +409,6 @@ final class DictationSessionController {
             if activeRecoveryCheckpointID == attempt.id {
                 activeRecoveryCheckpointID = nil
             }
-
             let deliveryRequest = OutputDeliveryRequest(
                 acceptedTranscript: acceptedTranscript,
                 preferences: outputDeliveryPreferences(
@@ -430,11 +429,9 @@ final class DictationSessionController {
                 guard isCurrentSession(sessionID) else {
                     return
                 }
-
                 recordFailure(error, at: .outputDelivery)
                 outputStatusText = Self.userFacingMessage(for: error)
             }
-
             finishSession(sessionID)
         } catch {
             if let sessionID, !isCurrentSession(sessionID) {
@@ -449,12 +446,15 @@ final class DictationSessionController {
                 finishSession(sessionID)
             }
             recordFailure(error, at: .transcription)
-            let message = Self.userFacingMessage(for: error)
+            let failedAttempt = transcriptionFailureRecovery.failedAttempts.first { $0.id == retry.id }
+            let message = failedAttempt?.reason == .invalidRecording
+                ? FailedTranscriptionReason.invalidRecording.message
+                : Self.userFacingMessage(for: error)
             status = .failure(message: message)
             failurePresentation = failurePresentation(
                 message: message,
                 error: error,
-                failedAttempt: transcriptionFailureRecovery.failedAttempts.first { $0.id == retry.id },
+                failedAttempt: failedAttempt,
                 showsRecoveryPrompt: true
             )
         }

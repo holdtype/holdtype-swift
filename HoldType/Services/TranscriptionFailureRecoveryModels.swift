@@ -151,7 +151,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
         case .invalidAPIKey:
             return "OpenAI rejected the saved API key. The recording was not transcribed."
         case .invalidRecording:
-            return "The recording could not be prepared for transcription."
+            return "This saved recording can’t be opened, so it can’t be played or transcribed."
         case .invalidRequest:
             return "The transcription request could not be prepared."
         case .timedOut:
@@ -185,7 +185,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
         case .providerDispatchPersistenceFailed:
             return "The recording must be prepared locally before transcription can retry."
         case .providerOutcomeUncertain:
-            return "The provider request may have completed. The recording is playable, but it cannot be uploaded again."
+            return "The previous request may have completed. Sending it again could create a duplicate transcription."
         case .postProcessingFailedAfterProviderAcceptance:
             return "Transcription succeeded, but downstream processing failed. The raw transcription is preserved locally."
         case .savedStatePersistenceFailed:
@@ -199,9 +199,10 @@ enum FailedTranscriptionReason: Codable, Equatable {
         switch self {
         case .missingAPIKey, .apiKeyUnavailable, .invalidAPIKey:
             return .openAI
-        case .invalidRecording, .invalidRequest, .badRequest, .dictionaryEcho, .contextEcho:
+        case .invalidRequest, .badRequest, .dictionaryEcho, .contextEcho:
             return .transcription
-        case .timedOut,
+        case .invalidRecording,
+             .timedOut,
              .networkUnavailable,
              .networkFailure,
              .cancelled,

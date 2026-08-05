@@ -163,7 +163,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(restored.completionKind == .maximumDuration)
         #expect(restored.canRetry)
         #expect(restored.audioFileURL == orphanAudioURL)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(restored))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(restored))
     }
 
     @Test func failedUpdateTransitionsProcessingCheckpointWithoutCountingInitialFailureAsRetry() throws {
@@ -485,7 +485,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(attempt.audioFileURL == sourceURL)
         #expect(attempt.reason == .recoveryOwnershipPersistenceFailed)
         #expect(attempt.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(attempt))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(attempt))
         #expect(store.failedAttempts == [attempt])
         #expect(FileManager.default.fileExists(atPath: sourceURL.path))
 
@@ -719,7 +719,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(restored.reason == .savedStatePersistenceFailed)
         #expect(restored.acceptedTranscriptText == "Accepted standard transcript")
         #expect(restored.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(restored))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(restored))
         let presentation = TranscriptionRecoveryHistoryRowPresentation(
             attempt: restored
         )
@@ -886,7 +886,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(uncertain.completionKind == .maximumDuration)
         #expect(uncertain.reason == .providerOutcomeUncertain)
         #expect(uncertain.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(uncertain))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(uncertain))
         let presentation = TranscriptionRecoveryHistoryRowPresentation(
             attempt: uncertain
         )
@@ -976,7 +976,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(uncertain.completionKind == .maximumDuration)
         #expect(uncertain.reason == .providerOutcomeUncertain)
         #expect(uncertain.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(uncertain))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(uncertain))
     }
 
     @Test func savedAttemptRoundTripsAcceptedTextAndAudioAcrossRelaunch() throws {
@@ -1213,7 +1213,7 @@ struct TranscriptionFailureRecoveryStoreTests {
         #expect(restored.completionKind == .standard)
         #expect(restored.reason == .providerOutcomeUncertain)
         #expect(restored.canRetry == false)
-        #expect(TranscriptHistoryAudioPlaybackAction().canPlay(restored))
+        #expect(TranscriptHistoryAudioPlaybackAction.bypassingDecoderValidation.canPlay(restored))
     }
 
     @Test func standardAcceptedCheckpointSurvivesPostProcessingFailureAndLocalSave() throws {

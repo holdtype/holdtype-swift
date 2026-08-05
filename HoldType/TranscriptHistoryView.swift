@@ -208,7 +208,7 @@ struct TranscriptHistoryView: View {
     private var headerSubtitle: String {
         let count = historyRows.count
         if !appSettings.saveTranscriptHistory {
-            let savedCount = failureRecoveryStore.failedAttempts.count
+            let savedCount = visibleFailedAttempts.count
             guard savedCount > 0 else {
                 return "Accepted transcript history is disabled"
             }
@@ -220,17 +220,23 @@ struct TranscriptHistoryView: View {
 
     private var historyRows: [TranscriptHistoryRow] {
         let transcriptRows = historyStore.entries.map(TranscriptHistoryRow.transcript)
-        let failedRows = failureRecoveryStore.failedAttempts.map(TranscriptHistoryRow.failed)
+        let failedRows = visibleFailedAttempts.map(TranscriptHistoryRow.failed)
 
         return (transcriptRows + failedRows).sorted { lhs, rhs in
             lhs.createdAt > rhs.createdAt
         }
     }
 
+    private var visibleFailedAttempts: [FailedTranscriptionAttempt] {
+        playHistoryAudioAction.visibleSavedRecordings(
+            in: failureRecoveryStore.failedAttempts
+        )
+    }
+
     private var bulkClearSummary: TranscriptHistoryBulkClearSummary {
         TranscriptHistoryBulkClearSummary(
             acceptedTranscriptCount: historyStore.entries.count,
-            savedRecordings: failureRecoveryStore.failedAttempts
+            savedRecordings: visibleFailedAttempts
         )
     }
 
@@ -342,6 +348,11 @@ struct TranscriptHistoryView: View {
             return
         }
 
+        guard canPlayAudio(for: attempt) else {
+            actionStatusText = FailedTranscriptionReason.invalidRecording.message
+            return
+        }
+
         guard attempt.canRetry else {
             if attempt.state == .processing {
                 actionStatusText = "Transcription is already in progress."
@@ -379,6 +390,11 @@ struct TranscriptHistoryView: View {
         guard savedRecordingActionsEnabled,
               attempt.requiresDuplicateRetryConfirmation else {
             actionStatusText = attempt.reason.message
+            return
+        }
+
+        guard canPlayAudio(for: attempt) else {
+            actionStatusText = FailedTranscriptionReason.invalidRecording.message
             return
         }
 
@@ -459,39 +475,6 @@ struct TranscriptHistoryView: View {
         }
 
         return day.formatted(date: .abbreviated, time: .omitted)
-    }
-}
-
-private struct TranscriptHistoryGroup: Identifiable {
-    let day: Date
-    let title: String
-    let rows: [TranscriptHistoryRow]
-
-    var id: Date {
-        day
-    }
-}
-
-private enum TranscriptHistoryRow: Identifiable {
-    case transcript(TranscriptHistoryEntry)
-    case failed(FailedTranscriptionAttempt)
-
-    var id: String {
-        switch self {
-        case .transcript(let entry):
-            return "transcript-\(entry.id.uuidString)"
-        case .failed(let attempt):
-            return "failed-\(attempt.id.uuidString)"
-        }
-    }
-
-    var createdAt: Date {
-        switch self {
-        case .transcript(let entry):
-            return entry.createdAt
-        case .failed(let attempt):
-            return attempt.updatedAt
-        }
     }
 }
 

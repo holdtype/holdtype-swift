@@ -179,7 +179,7 @@ struct MenuBarView: View {
 
         if let failedAttemptID = failurePresentation?.failedAttemptID,
            failurePresentation?.canRetry == true {
-            MenuBarActionButton(title: "Try Again") {
+            MenuBarActionButton(title: "Retry Transcription") {
                 retryFailedTranscription(id: failedAttemptID)
             }
         }

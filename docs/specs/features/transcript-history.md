@@ -101,6 +101,13 @@ This spec covers:
   transcription for a recoverable OpenAI, network, timeout, rate-limit,
   unreadable-response, or empty-result reason changes that row to a failed
   attempt without deleting its audio.
+- Before a completed recording is displayed as a Saved Recording or restored
+  into History, HoldType verifies that its protected audio is a locally
+  readable, playable supported audio container. A zero-length, truncated,
+  malformed, or otherwise locally unplayable artifact never appears as a
+  History row and never offers Play, Retry, or Transcribe Again. HoldType
+  reports the compact local recording failure at the time it is detected
+  without exposing the unusable artifact as recoverable user work.
 - The maximum-duration completion identity is part of the durable checkpoint.
   If its first provider attempt fails, that identity survives relaunch; an
   explicit Retry success promotes the same row to `Saved and transcribed`
@@ -158,6 +165,48 @@ This spec covers:
   outcome-uncertain row instead offers `Transcribe Again…`, which first asks
   the user to confirm that it will send the same audio through those current
   settings and key.
+- A retryable row shows one clearly labelled `Retry Transcription` action. An
+  outcome-uncertain row shows one clearly labelled `Transcribe Again…` action;
+  it is not rendered as an unexplained icon and it never appears beside an
+  ordinary Retry action for the same row.
+- History presents saved attempts through one user-facing state model:
+  - `Saved and transcribed` explains that text is available. It offers Copy and
+    Delete, and offers Play only while the linked recording passes the same
+    local playable-audio validation used for saved recordings. It offers no
+    transcription retry.
+  - `Transcribing…` explains that HoldType is processing the saved recording.
+    It offers no Play, Retry, Transcribe Again, or Delete action. It must always
+    leave this state when the owned attempt finishes.
+  - `Not transcribed` explains the actionable failure in plain language. It
+    offers one `Retry Transcription` action when current settings can make a
+    fresh attempt, plus applicable Settings, Play, and Delete actions. It never
+    offers `Transcribe Again…`.
+  - `Transcription outcome uncertain` explains that the previous request may
+    already have been accepted and that another submission could duplicate the
+    transcription. It offers one `Transcribe Again…` action, plus Play and
+    Delete, but never ordinary Retry. Confirmation repeats the duplicate-risk
+    explanation before any new request starts.
+  - `Recording unavailable` is a terminal local-artifact classification, not a
+    visible History row. Its message is `This saved recording can’t be opened,
+    so it can’t be played or transcribed.` It offers no Play, Retry, or
+    Transcribe Again. Detection excludes the row without deleting its metadata
+    or file; destructive cleanup requires a separate approved product action.
+- Retry and Transcribe Again validate the exact retained file with the local
+  supported-audio decoder before changing the row to `Transcribing…`, creating
+  request scratch data, or contacting the provider. If the file has become
+  unavailable or invalid, the action does not start, the attempt records the
+  terminal `Recording unavailable` classification, the row is excluded, and
+  the compact message is shown.
+- Every started provider attempt terminates as saved, failed, outcome-uncertain,
+  or another explicit terminal classification. A local preparation or
+  validation failure discovered after a row entered `Transcribing…` must still
+  finish the state transition. A retained dispatch seal may continue blocking
+  ordinary replay, but it must not block writing the terminal failure state or
+  leave a spinner active.
+- Dismiss closes only the current recovery message. It does not mutate retry
+  eligibility, erase an error, remove a row, or complete an attempt. Therefore
+  the attempt must already be in its truthful terminal state before a failure
+  message can be dismissed.
 - Saved-recording Play, Retry, and Delete are unavailable while another
   dictation is recording or processing. The controller independently rejects a
   Retry that races with active recording, so recovery UI can never move the
@@ -339,6 +388,9 @@ entries, rejected transcript candidates, or debug payloads.
 - If a cached recording is missing or cannot be played, the history row should
   stop offering Play or report a compact playback failure without logging the
   file path.
+- A saved-recording row whose audio cannot be opened as supported playable
+  audio is treated as an invalid local artifact rather than a playback failure:
+  the row is excluded from History and cannot be uploaded or retried.
 - If the app terminates normally, accepted session history is cleared while
   unfinished and successful limit-completed saved recordings remain recoverable.
 

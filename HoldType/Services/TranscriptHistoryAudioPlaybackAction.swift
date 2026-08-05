@@ -53,13 +53,16 @@ final class TranscriptHistoryAudioPlayer: NSObject,
 struct TranscriptHistoryAudioPlaybackAction {
     private let audioPlayer: any TranscriptHistoryAudioPlaying
     private let fileManager: FileManager
+    private let audioReadiness: TranscriptHistoryAudioReadiness
 
     init(
         audioPlayer: any TranscriptHistoryAudioPlaying = TranscriptHistoryAudioPlayer.shared,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        audioReadiness: TranscriptHistoryAudioReadiness = TranscriptHistoryAudioReadiness()
     ) {
         self.audioPlayer = audioPlayer
         self.fileManager = fileManager
+        self.audioReadiness = audioReadiness
     }
 
     func canPlay(_ entry: TranscriptHistoryEntry, settings: AppSettings) -> Bool {
@@ -71,6 +74,7 @@ struct TranscriptHistoryAudioPlaybackAction {
         var isDirectory: ObjCBool = false
         return fileManager.fileExists(atPath: cachedAudioFileURL.path, isDirectory: &isDirectory)
             && !isDirectory.boolValue
+            && audioReadiness.isPlayableAudioFile(at: cachedAudioFileURL)
     }
 
     func play(_ entry: TranscriptHistoryEntry, settings: AppSettings) -> TranscriptHistoryAudioPlaybackResult {
@@ -89,6 +93,12 @@ struct TranscriptHistoryAudioPlaybackAction {
 
     func canPlay(_ attempt: FailedTranscriptionAttempt) -> Bool {
         isNonemptyFile(at: attempt.audioFileURL)
+    }
+
+    func visibleSavedRecordings(
+        in attempts: [FailedTranscriptionAttempt]
+    ) -> [FailedTranscriptionAttempt] {
+        attempts.filter(canPlay)
     }
 
     func play(_ attempt: FailedTranscriptionAttempt) -> TranscriptHistoryAudioPlaybackResult {
@@ -113,7 +123,7 @@ struct TranscriptHistoryAudioPlaybackAction {
             return false
         }
 
-        return byteCount.int64Value > 0
+        return byteCount.int64Value > 0 && audioReadiness.isPlayableAudioFile(at: fileURL)
     }
 }
 
