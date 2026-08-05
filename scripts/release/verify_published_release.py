@@ -95,7 +95,7 @@ def release_api_url(api_base_url: str, repository: str, tag: str) -> str:
 
 def expected_asset_names(version: str) -> set[str]:
     return {
-        f"{APP_NAME}-{version}.dmg",
+        f"{APP_NAME}.dmg",
         f"{APP_NAME}-{version}.zip",
         "SHA256SUMS.txt",
         "release-manifest.json",
@@ -328,7 +328,7 @@ def check_manifest(
 
     artifact_shas: dict[str, str] = {}
     for key, expected_name in (
-        ("dmg", f"{APP_NAME}-{version}.dmg"),
+        ("dmg", f"{APP_NAME}.dmg"),
         ("zip", f"{APP_NAME}-{version}.zip"),
     ):
         value = manifest.get(key)
@@ -507,13 +507,19 @@ def check_all_appcast_release_notes_links(
         version = (version_element.text or "").strip() if version_element is not None else ""
         link = (notes_element.text or "").strip() if notes_element is not None else ""
         check_name = f"{name}:all-releaseNotesLinks:{version or index}"
-        expected_filename = f"{APP_NAME}-{version}.md" if version else ""
         if not version or not link:
             checks.append(fail_check(check_name, "missing version or releaseNotesLink"))
             continue
-        if Path(urllib.parse.urlparse(link).path).name != expected_filename:
+        notes_path = urllib.parse.urlparse(link).path
+        legacy_suffix = f"/{APP_NAME}-{version}.md"
+        versioned_suffix = f"/release-notes/v{version}/{APP_NAME}.md"
+        if not (notes_path.endswith(legacy_suffix) or notes_path.endswith(versioned_suffix)):
             checks.append(
-                fail_check(check_name, f"expected URL ending in {expected_filename}, got {link}")
+                fail_check(
+                    check_name,
+                    "expected URL ending in "
+                    f"{legacy_suffix} or {versioned_suffix}, got {link}",
+                )
             )
             continue
         try:
@@ -733,7 +739,7 @@ def main() -> int:
     if sha256s_text is not None and artifact_shas:
         checks.extend(check_sha256s(sha256s_text, artifact_shas=artifact_shas))
 
-    dmg_name = f"{APP_NAME}-{version}.dmg"
+    dmg_name = f"{APP_NAME}.dmg"
     dmg_asset = assets.get(dmg_name, {})
     dmg_url = asset_download_url(dmg_asset)
     dmg_size_raw = dmg_asset.get("size")

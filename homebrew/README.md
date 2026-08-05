@@ -25,7 +25,7 @@ Render it from this repository after a GitHub Release DMG exists:
 scripts/release/update_homebrew_tap.sh \
   --tap-dir /path/to/homebrew-tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift
 ```
 
@@ -35,7 +35,7 @@ Run a local audit when Homebrew is available:
 scripts/release/update_homebrew_tap.sh \
   --tap-dir /path/to/homebrew-tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --tap-repository holdtype/homebrew-tap \
   --audit
@@ -49,7 +49,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --tap-repository holdtype/homebrew-tap \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --minimum-macos ">= :sonoma"
 ```
 
@@ -96,7 +96,7 @@ Prepare the official cask candidate in a local Homebrew Cask checkout or fork:
 scripts/release/prepare_official_homebrew_cask.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit
@@ -117,7 +117,7 @@ Verify a rendered official candidate without modifying the checkout:
 scripts/release/verify_homebrew_cask.py \
   --cask-path "$(brew --repository homebrew/cask)/Casks/h/holdtype.rb" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --official-layout
@@ -143,7 +143,7 @@ the version, SHA-256, repository, and minimum macOS values yourself:
 scripts/release/create_official_homebrew_cask_pr.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit \
@@ -164,7 +164,7 @@ PR flow:
 ```sh
 scripts/release/bump_official_homebrew_cask_pr.sh \
   --version 1.0.1 \
-  --sha256 <sha256-of-HoldType-1.0.1.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift
 ```
 

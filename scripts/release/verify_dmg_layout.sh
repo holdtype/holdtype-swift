@@ -7,7 +7,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/release/verify_dmg_layout.sh --dmg /path/to/HoldType-1.0.0.dmg
+  scripts/release/verify_dmg_layout.sh --dmg /path/to/HoldType.dmg
 
 Options:
   --dmg PATH

@@ -445,7 +445,7 @@ def check_official_homebrew_cask_text(
 ) -> list[Check]:
     expected_url = (
         f"https://github.com/{expected_repository}/releases/download/v#{{version}}/"
-        f"{APP_NAME}-#{{version}}.dmg"
+        f"{APP_NAME}.dmg"
     )
     expected_fragments = {
         "github-official-cask:token": f'cask "{CASK_TOKEN}" do',

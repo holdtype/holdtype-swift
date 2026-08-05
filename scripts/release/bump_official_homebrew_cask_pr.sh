@@ -12,7 +12,7 @@ Usage:
 
 Options:
   --version VERSION          New app version without leading v.
-  --sha256 SHA256           SHA-256 of HoldType-VERSION.dmg.
+  --sha256 SHA256           SHA-256 of HoldType.dmg.
   --repository OWNER/REPO   GitHub release repository.
   --url URL                 Override the release DMG URL.
   --cask-token TOKEN        Defaults to holdtype.
@@ -33,7 +33,7 @@ USAGE
 
 validate_release_dmg_url() {
   local url="$1"
-  local expected_file="$APP_NAME-$VERSION.dmg"
+  local expected_file="$APP_NAME.dmg"
 
   case "$url" in
     https://*)
@@ -149,7 +149,7 @@ esac
 [ "${#SHA256}" -eq 64 ] || die "sha256 must be a 64-character hex digest"
 SHA256="$(printf '%s' "$SHA256" | tr '[:upper:]' '[:lower:]')"
 
-URL="${URL:-https://github.com/$REPOSITORY/releases/download/v$VERSION/$APP_NAME-$VERSION.dmg}"
+URL="${URL:-https://github.com/$REPOSITORY/releases/download/v$VERSION/$APP_NAME.dmg}"
 validate_release_dmg_url "$URL"
 
 require_command "$BREW_BIN"

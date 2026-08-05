@@ -242,7 +242,7 @@
   },
   "links": {
     "latestRelease": {
-      "href": "https://github.com/holdtype/holdtype-swift/releases/latest"
+      "href": "https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg"
     },
     "allReleases": {
       "href": "https://github.com/holdtype/holdtype-swift/releases"

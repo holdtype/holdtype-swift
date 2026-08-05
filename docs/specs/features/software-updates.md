@@ -32,8 +32,10 @@ installed version without requiring accounts, telemetry, or a custom backend.
 ## User-visible behavior
 
 - HoldType should use a native macOS updater for direct distribution builds.
-- GitHub Releases should provide a standard notarized disk image named
-  `HoldType-<version>.dmg`.
+- GitHub Releases should provide one standard notarized disk image named
+  `HoldType.dmg`, without a version suffix, so the landing page can link
+  directly to the latest macOS download through GitHub's stable
+  `/releases/latest/download/HoldType.dmg` route.
 - Opening the disk image should present `HoldType.app` and an Applications
   shortcut so the user can drag the app into `/Applications`.
 - The first Homebrew distribution path should be a project-owned tap and cask,
@@ -108,8 +110,8 @@ installed version without requiring accounts, telemetry, or a custom backend.
 - The update appcast URL and updater public key live in the app bundle Info
   plist for production builds.
 - User update preferences are non-secret local settings.
-- Release tags use `v<version>` and GitHub Release artifacts use
-  `HoldType-<version>.dmg`.
+- Release tags use `v<version>` and the GitHub Release DMG is named
+  `HoldType.dmg`.
 - A stable public appcast URL points to the latest signed update metadata.
 - The release workflow may publish appcast metadata to GitHub Pages or another
   stable HTTPS host, but the URL must match the app bundle's `SUFeedURL`.

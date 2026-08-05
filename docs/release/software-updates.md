@@ -7,8 +7,12 @@ bundle should point at the generated Sparkle appcast.
 The canonical public install artifact is a notarized disk image:
 
 ```text
-HoldType-<version>.dmg
+HoldType.dmg
 ```
+
+Each stable GitHub Release contains only this canonical DMG. Its stable name
+supports the landing page's permanent latest-download link while the release
+tag keeps every Sparkle and Homebrew URL version-pinned.
 
 The same GitHub Release DMG is used by direct-download users and the Homebrew
 Cask. Sparkle appcasts must point at final GitHub Release assets, not temporary
@@ -76,7 +80,7 @@ unconfigured.
 - `MARKETING_VERSION` matches `<version>` without the leading `v`.
 - `CURRENT_PROJECT_VERSION` is the build number used for Sparkle version
   comparison.
-- The release artifact name is `HoldType-<version>.dmg`.
+- The release artifact name is `HoldType.dmg`.
 - The disk image contains `HoldType.app` and an Applications shortcut, and the
   app can be copied out of the mounted DMG with its bundle/signature intact.
 - `release-manifest.json` must describe `kind: public-release`, the version,
@@ -84,6 +88,9 @@ unconfigured.
   SHA-256 values.
 - Sparkle appcast generation must read the release DMG filename from
   `release-manifest.json`, not from a wildcard match in the release directory.
+- New release-note links use `release-notes/v<version>/HoldType.md` so the DMG
+  and notes keep matching stems for Sparkle without overwriting older notes;
+  legacy `HoldType-<version>.md` links remain supported.
 - A `scripts/release/build_release.sh --skip-notarization` artifact must be
   treated as verification-only. Its manifest is marked
   `kind: notarization-skipped-release`, `notarized: false`, and
@@ -144,7 +151,7 @@ The CI release job should make the manual flow reproducible:
 - prune unexpected assets from an existing GitHub Release before upload so
   stale preview/notary/debug artifacts cannot remain attached to the public
   release;
-- upload release assets and appcast through GitHub APIs.
+- upload the canonical release assets and appcast through GitHub APIs;
 - when updating an existing GitHub Release, force it out of draft/prerelease
   state before the published-release verification gate;
 - deploy one complete Pages artifact containing the product landing, appcast,
@@ -380,7 +387,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --tap-repository holdtype/homebrew-tap \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --minimum-macos ">= :sonoma"
 ```
 
@@ -401,7 +408,7 @@ with the token `holdtype`. A project-owned tap can support the short token only
 after a user has already tapped it; it cannot make the unqualified command work
 for new users by itself.
 
-The cask should download `HoldType-<version>.dmg` from the matching GitHub
+The cask should download `HoldType.dmg` from the matching GitHub
 Release, install `HoldType.app`, include `auto_updates true`, and pin a concrete
 SHA-256. Do not use `version :latest` or `sha256 :no_check` for production
 releases unless a future distribution decision intentionally trades away
@@ -435,7 +442,7 @@ official cask layout before audit:
 scripts/release/prepare_official_homebrew_cask.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository holdtype/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit
@@ -461,7 +468,7 @@ To verify an already rendered cask without changing it:
 scripts/release/verify_homebrew_cask.py \
   --cask-path "$(brew --repository homebrew/cask)/Casks/h/holdtype.rb" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository holdtype/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --official-layout
@@ -494,7 +501,7 @@ opens a pull request when those flags are present:
 scripts/release/create_official_homebrew_cask_pr.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository holdtype/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit \
@@ -518,7 +525,7 @@ the official cask tap as a local git checkout:
 ```sh
 scripts/release/bump_official_homebrew_cask_pr.sh \
   --version 1.0.1 \
-  --sha256 <sha256-of-HoldType-1.0.1.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository holdtype/holdtype-swift
 ```
 
@@ -555,15 +562,15 @@ The release scripts are intended to make the manual flow reproducible, but the
 minimum release evidence remains:
 
 ```sh
-scripts/release/verify_dmg_layout.sh --dmg HoldType-<version>.dmg
-scripts/release/verify_dmg_install.sh --dmg HoldType-<version>.dmg
+scripts/release/verify_dmg_layout.sh --dmg HoldType.dmg
+scripts/release/verify_dmg_install.sh --dmg HoldType.dmg
 codesign --verify --deep --strict --verbose=2 HoldType.app
 codesign -dvvv --entitlements :- HoldType.app
 spctl --assess --type execute --verbose=4 HoldType.app
 xcrun stapler validate HoldType.app
-xcrun stapler validate HoldType-<version>.dmg
-spctl --assess --type open --context context:primary-signature --verbose=4 HoldType-<version>.dmg
-shasum -a 256 HoldType-<version>.dmg
+xcrun stapler validate HoldType.dmg
+spctl --assess --type open --context context:primary-signature --verbose=4 HoldType.dmg
+shasum -a 256 HoldType.dmg
 brew audit --cask holdtype
 ```
 

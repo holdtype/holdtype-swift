@@ -276,14 +276,14 @@ UI states were redrawn or retouched.
 
 ## Distribution verification
 
-Checked on 2026-07-09:
+Distribution configuration updated on 2026-08-05:
 
 - `https://github.com/holdtype/holdtype-swift/releases/latest` resolves to the
-  public, non-prerelease `v1.0.3` release and includes
-  `HoldType-1.0.3.dmg`.
-- Primary Download CTAs deliberately use GitHub's stable `releases/latest`
-  pointer, which advances automatically; a secondary `All releases` link opens
-  the full release history.
+  latest public, non-prerelease release.
+- Primary Download CTAs use GitHub's stable
+  `releases/latest/download/HoldType.dmg` asset link, which advances
+  automatically; a secondary `All releases` link opens the full release
+  history.
 - `holdtype/homebrew-tap` contains `Casks/holdtype.rb` at version `1.0.3`,
   pointing to the same GitHub Release disk image and requiring macOS Sonoma.
 - The Homebrew block keeps the explicit project-tap flow (`tap`, `trust`,

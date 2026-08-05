@@ -37,8 +37,12 @@ PUBLIC_LOCALE_DIRECTORIES = (
     "zh-hans",
 )
 SITE_BUILD_TIMEOUT_SECONDS = 60
+NOTES_VERSION_PATTERN = r"[0-9][0-9A-Za-z.-]*"
 NOTES_FILENAME_PATTERN = re.compile(
-    r"^HoldType-(?P<version>[0-9][0-9A-Za-z.-]*)\.md$"
+    rf"^HoldType-(?P<version>{NOTES_VERSION_PATTERN})\.md$"
+)
+VERSIONED_NOTES_PATH_PATTERN = re.compile(
+    rf"^release-notes/v(?P<version>{NOTES_VERSION_PATTERN})/HoldType\.md$"
 )
 PLACEHOLDER_PATTERN = re.compile(
     r"\b(TODO|TBD|FIXME|CHANGEME)\b|"
@@ -86,9 +90,22 @@ def release_note_targets(appcast_path: Path, *, pages_base_url: str) -> dict[str
         path_parts = tuple(part for part in parsed.path.split("/") if part)
         if ".." in path_parts:
             raise PagesArtifactError(f"unsafe Sparkle release notes URL: {link!r}")
-        filename = Path(parsed.path).name
-        match = NOTES_FILENAME_PATTERN.fullmatch(filename)
-        if not link or match is None:
+        if (
+            not link
+            or parsed.scheme != "https"
+            or parsed.netloc != expected_base.netloc
+            or bool(parsed.query)
+            or bool(parsed.fragment)
+            or not parsed.path.startswith(expected_path)
+        ):
+            raise PagesArtifactError(
+                f"Sparkle release notes URL is outside {pages_base_url!r}: {link!r}"
+            )
+        relative_path = parsed.path[len(expected_path) :]
+        legacy_match = NOTES_FILENAME_PATTERN.fullmatch(relative_path)
+        versioned_match = VERSIONED_NOTES_PATH_PATTERN.fullmatch(relative_path)
+        match = legacy_match or versioned_match
+        if match is None:
             raise PagesArtifactError(f"unsupported Sparkle release notes URL: {link!r}")
         version = match.group("version")
         if ".." in version:
@@ -96,20 +113,12 @@ def release_note_targets(appcast_path: Path, *, pages_base_url: str) -> dict[str
         if appcast_version != version:
             raise PagesArtifactError(
                 "Sparkle release notes version does not match "
-                f"shortVersionString: {filename!r} vs {appcast_version!r}"
+                f"shortVersionString: {relative_path!r} vs {appcast_version!r}"
             )
-        if (
-            parsed.scheme != "https"
-            or parsed.netloc != expected_base.netloc
-            or parsed.path != f"{expected_path}{filename}"
-        ):
-            raise PagesArtifactError(
-                f"Sparkle release notes URL is outside {pages_base_url!r}: {link!r}"
-            )
-        previous = targets.get(filename)
+        previous = targets.get(relative_path)
         if previous is not None and previous != version:
-            raise PagesArtifactError(f"conflicting release notes target: {filename}")
-        targets[filename] = version
+            raise PagesArtifactError(f"conflicting release notes target: {relative_path}")
+        targets[relative_path] = version
 
     if not targets:
         raise PagesArtifactError("appcast does not contain Sparkle release notes links")
@@ -347,7 +356,7 @@ def prepare_artifact(
         if not current_notes_text.strip():
             raise PagesArtifactError(f"current release notes are empty: {current_notes_path}")
 
-    for filename, version in sorted(targets.items()):
+    for relative_path, version in sorted(targets.items()):
         if version == current_version and current_notes_text is not None:
             notes = validate_release_notes(current_notes_text, version=version)
         else:
@@ -358,7 +367,8 @@ def prepare_artifact(
                 token=token,
                 timeout=timeout,
             )
-        destination = output_dir / filename
+        destination = output_dir / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(notes)
         written.append(destination)
 

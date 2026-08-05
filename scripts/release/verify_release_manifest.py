@@ -146,8 +146,7 @@ def check_artifact(
     *,
     data: dict[str, Any],
     key: str,
-    version: str,
-    extension: str,
+    expected_name: str,
     artifact_root: Path,
     require_under_root: bool,
     require_relative_path: bool,
@@ -181,7 +180,6 @@ def check_artifact(
             checks.append(pass_check(f"manifest:{key}.path", raw_path))
 
     artifact_path = resolve_artifact_path(raw_path, artifact_root)
-    expected_name = f"{APP_NAME}-{version}.{extension}"
     if artifact_path.name == expected_name:
         checks.append(pass_check(f"manifest:{key}.name", expected_name))
     else:
@@ -251,8 +249,7 @@ def collect_checks(
             check_artifact(
                 data=data,
                 key="dmg",
-                version=version,
-                extension="dmg",
+                expected_name=f"{APP_NAME}.dmg",
                 artifact_root=artifact_root,
                 require_under_root=require_artifacts_under_root,
                 require_relative_path=require_relative_artifact_paths,
@@ -262,8 +259,7 @@ def collect_checks(
             check_artifact(
                 data=data,
                 key="zip",
-                version=version,
-                extension="zip",
+                expected_name=f"{APP_NAME}-{version}.zip",
                 artifact_root=artifact_root,
                 require_under_root=require_artifacts_under_root,
                 require_relative_path=require_relative_artifact_paths,

@@ -76,7 +76,7 @@ def asset_delete_url(api_base_url: str, repository: str, asset_id: int) -> str:
 
 def expected_asset_names(version: str) -> set[str]:
     return {
-        f"{APP_NAME}-{version}.dmg",
+        f"{APP_NAME}.dmg",
         f"{APP_NAME}-{version}.zip",
         "SHA256SUMS.txt",
         "release-manifest.json",

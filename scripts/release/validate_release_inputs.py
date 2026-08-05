@@ -114,7 +114,7 @@ def validate_download_url_prefix(version: str, tag: str, download_url_prefix: st
             )
         )
 
-    expected_dmg_name = f"{APP_NAME}-{version}.dmg"
+    expected_dmg_name = f"{APP_NAME}.dmg"
     checks.append(pass_check("download-url-prefix:dmg-name", expected_dmg_name))
     return checks
 

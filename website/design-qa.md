@@ -75,7 +75,8 @@ story, installation instructions, and a fuller FAQ.
   clipboard contains the exact four-line command block.
 - A native FAQ disclosure opens and exposes its answer.
 - Internal navigation targets exist; primary downloads use
-  `releases/latest`, while `All releases` points to the release history.
+  `releases/latest/download/HoldType.dmg`, while `All releases` points to the
+  release history.
 - The default finite hero sequence reaches the inserted state. With reduced
   motion it starts and remains inserted, and animation durations collapse to
   `0.01ms`.

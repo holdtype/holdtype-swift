@@ -147,9 +147,8 @@ def check_manifest_artifact(
     *,
     release_dir: Path,
     manifest: dict[str, object],
-    version: str,
     key: str,
-    extension: str,
+    expected_name: str,
 ) -> tuple[dict[str, str], list[Check]]:
     checks: list[Check] = []
     value = manifest.get(key)
@@ -163,7 +162,6 @@ def check_manifest_artifact(
         checks.append(fail_check(f"manifest:{key}.path", "missing"))
         return {"path": "", "sha256": expected_sha}, checks
 
-    expected_name = f"{APP_NAME}-{version}.{extension}"
     if raw_path == expected_name:
         checks.append(pass_check(f"manifest:{key}.path", expected_name))
     elif is_artifact_filename(raw_path):
@@ -221,17 +219,15 @@ def check_manifest_and_artifacts(
     dmg_artifact, dmg_checks = check_manifest_artifact(
         release_dir=release_dir,
         manifest=manifest,
-        version=version,
         key="dmg",
-        extension="dmg",
+        expected_name=f"{APP_NAME}.dmg",
     )
     checks.extend(dmg_checks)
     zip_artifact, zip_checks = check_manifest_artifact(
         release_dir=release_dir,
         manifest=manifest,
-        version=version,
         key="zip",
-        extension="zip",
+        expected_name=f"{APP_NAME}-{version}.zip",
     )
     checks.extend(zip_checks)
 
@@ -428,7 +424,7 @@ def check_homebrew_cask(
         "homebrew-cask:sha256": f'sha256 "{sha256}"',
         "homebrew-cask:url": (
             f"https://github.com/{repository}/releases/download/v#{{version}}/"
-            f"{APP_NAME}-#{{version}}.dmg"
+            f"{APP_NAME}.dmg"
         ),
         "homebrew-cask:auto-updates": "auto_updates true",
         "homebrew-cask:app": f'app "{APP_NAME}.app"',

@@ -284,7 +284,7 @@ def check_homebrew_template(root: Path) -> list[Check]:
     required_fragments = (
         'cask "holdtype" do',
         'sha256 "{{SHA256}}"',
-        "https://github.com/{{REPOSITORY}}/releases/download/v#{version}/HoldType-#{version}.dmg",
+        "https://github.com/{{REPOSITORY}}/releases/download/v#{version}/HoldType.dmg",
         "auto_updates true",
         'app "HoldType.app"',
         'uninstall quit: "app.holdtype.HoldType"',

@@ -208,7 +208,7 @@ After a release DMG exists, the tap cask can be updated manually with:
 scripts/release/update_homebrew_tap.sh \
   --tap-dir /path/to/homebrew-tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --tap-repository holdtype/homebrew-tap \
   --audit
@@ -238,7 +238,7 @@ cask metadata points at the public GitHub Release DMG:
 scripts/release/prepare_official_homebrew_cask.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit
@@ -253,7 +253,7 @@ To inspect a rendered candidate directly without changing it:
 scripts/release/verify_homebrew_cask.py \
   --cask-path "$(brew --repository homebrew/cask)/Casks/h/holdtype.rb" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --official-layout
@@ -282,7 +282,7 @@ the version, SHA-256, repository, and minimum macOS values yourself:
 scripts/release/create_official_homebrew_cask_pr.sh \
   --homebrew-cask-dir "$(brew --repository homebrew/cask)" \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift \
   --minimum-macos ">= :sonoma" \
   --audit \
@@ -301,7 +301,7 @@ flow instead of the new-cask helper:
 ```sh
 scripts/release/bump_official_homebrew_cask_pr.sh \
   --version 1.0.1 \
-  --sha256 <sha256-of-HoldType-1.0.1.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --repository <app-owner>/holdtype-swift
 ```
 
@@ -516,8 +516,9 @@ locally validated commit. It should:
    release manifest;
 11. prune unexpected assets from an existing GitHub Release so stale
    preview/notary/debug artifacts cannot remain public;
-12. publish GitHub Release assets, forcing any existing release out of
-   draft/prerelease state;
+12. publish GitHub Release assets, including the single canonical
+   `HoldType.dmg`, while forcing any existing release out of draft/prerelease
+   state;
 13. deploy the landing page, `appcast.xml`, and all referenced release notes to
    GitHub Pages;
 14. verify the GitHub Release is not a draft or prerelease, has the expected
@@ -552,10 +553,10 @@ scripts/release/with_timeout.py 60 \
 scripts/release/with_timeout.py 300 \
   gh release download v1.0.0 \
     --repo holdtype/holdtype-swift \
-    --pattern 'HoldType-1.0.0.dmg'
-shasum -a 256 HoldType-1.0.0.dmg
-spctl --assess --type open --context context:primary-signature --verbose=4 HoldType-1.0.0.dmg
-scripts/release/verify_dmg_install.sh --dmg HoldType-1.0.0.dmg
+    --pattern 'HoldType.dmg'
+shasum -a 256 HoldType.dmg
+spctl --assess --type open --context context:primary-signature --verbose=4 HoldType.dmg
+scripts/release/verify_dmg_install.sh --dmg HoldType.dmg
 ```
 
 Open the DMG, drag `HoldType.app` into Applications, and launch it.
@@ -568,7 +569,7 @@ scripts/release/verify_homebrew_tap_release.py \
   --tap-repository holdtype/homebrew-tap \
   --expected-homebrew-tap holdtype/tap \
   --version 1.0.0 \
-  --sha256 <sha256-of-HoldType-1.0.0.dmg> \
+  --sha256 <sha256-of-HoldType.dmg> \
   --minimum-macos ">= :sonoma"
 brew tap holdtype/tap
 brew trust holdtype/tap

@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download for macOS</strong></a>
+  <a href="https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg"><strong>Download for macOS</strong></a>
   |
   <a href="#how-it-works">See how it works</a>
   |
@@ -185,8 +185,8 @@ voice-first workflow it is meant to support.
 
 ### GitHub Release
 
-1. Download `HoldType-<version>.dmg` from the
-   [latest GitHub Release](https://github.com/holdtype/holdtype-swift/releases/latest).
+1. Download [`HoldType.dmg`](https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg)
+   from the latest GitHub Release.
 2. Open the disk image and drag `HoldType.app` into Applications.
 3. Launch HoldType and grant the macOS permissions needed for microphone
    recording, the global shortcut, and active-app insertion.
@@ -208,7 +208,7 @@ This repository also contains the iPhone app and custom keyboard sources
 described below.
 
 <p align="center">
-  <a href="https://github.com/holdtype/holdtype-swift/releases/latest"><strong>Download HoldType for macOS</strong></a>
+  <a href="https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg"><strong>Download HoldType for macOS</strong></a>
   <br>
   <sub>Free app · No HoldType subscription · OpenAI API usage billed directly · macOS 14+</sub>
 </p>

@@ -101,7 +101,7 @@ def release_metadata(
         raise ValueError("manifest dmg.sha256 must be a 64-character hex digest")
 
     dmg_path = resolve_artifact_path(raw_dmg_path, release_dir)
-    expected_dmg_name = f"{APP_NAME}-{version}.dmg"
+    expected_dmg_name = f"{APP_NAME}.dmg"
     if raw_dmg_path != expected_dmg_name:
         if is_artifact_filename(raw_dmg_path):
             raise ValueError(f"manifest dmg.path must be {expected_dmg_name}, got {raw_dmg_path!r}")

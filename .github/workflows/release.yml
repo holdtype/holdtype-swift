@@ -193,6 +193,7 @@ jobs:
           appcast_args=(
             --release-dir "${{ steps.release-inputs.outputs.release_dir }}"
             --download-url-prefix "${{ steps.release-inputs.outputs.download_url_prefix }}"
+            --release-notes-url-prefix "${HOLDTYPE_UPDATE_FEED_URL%/appcast.xml}/release-notes/v${{ steps.release-inputs.outputs.version }}/"
             --ed-key-file "$SPARKLE_EDDSA_PRIVATE_KEY_FILE"
             --release-notes-file "${{ steps.release-notes.outputs.path }}"
           )
@@ -232,7 +233,7 @@ jobs:
           RELEASE_DIR: ${{ steps.release-inputs.outputs.release_dir }}
         run: |
           set -euo pipefail
-          dmg="$RELEASE_DIR/HoldType-$VERSION.dmg"
+          dmg="$RELEASE_DIR/HoldType.dmg"
           zip="$RELEASE_DIR/HoldType-$VERSION.zip"
           shasums="$RELEASE_DIR/SHA256SUMS.txt"
           manifest="$RELEASE_DIR/release-manifest.json"
@@ -363,7 +364,7 @@ jobs:
 
           branch="holdtype-${VERSION}"
 
-          dmg="$RELEASE_DIR/HoldType-$VERSION.dmg"
+          dmg="$RELEASE_DIR/HoldType.dmg"
           sha256="$(shasum -a 256 "$dmg" | awk '{print $1}')"
 
           git -C "$tap_dir" checkout -B "$branch"
@@ -422,7 +423,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dmg="$RELEASE_DIR/HoldType-$VERSION.dmg"
+          dmg="$RELEASE_DIR/HoldType.dmg"
           sha256="$(shasum -a 256 "$dmg" | awk '{print $1}')"
           bump_args=(
             --version "$VERSION"

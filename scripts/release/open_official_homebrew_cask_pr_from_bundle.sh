@@ -211,7 +211,7 @@ validate_repository_slug "--base-repository" "$BASE_REPOSITORY"
 validate_homebrew_macos_requirement "$MINIMUM_MACOS"
 
 EXPECTED_CASK_PATH="Casks/${CASK_TOKEN:0:1}/$CASK_TOKEN.rb"
-EXPECTED_DMG_URL="https://github.com/$REPOSITORY/releases/download/v$VERSION/$APP_NAME-$VERSION.dmg"
+EXPECTED_DMG_URL="https://github.com/$REPOSITORY/releases/download/v$VERSION/$APP_NAME.dmg"
 
 [ "$CASK_TOKEN_METADATA" = "$CASK_TOKEN" ] || die "metadata.cask_token must be $CASK_TOKEN"
 [ "$CASK_PATH_METADATA" = "$EXPECTED_CASK_PATH" ] || die "metadata.cask_path must be $EXPECTED_CASK_PATH"

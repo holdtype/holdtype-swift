@@ -101,9 +101,14 @@ jobs:
             "${page_url}?deployment=${GITHUB_SHA}" \
             --output "$published_index"
           grep -F 'data-site-locale="en"' "$published_index"
+          release_notes_file="public/release-notes/v${VERSION}/HoldType.md"
+          if [ ! -f "$release_notes_file" ]; then
+            release_notes_file="public/HoldType-${VERSION}.md"
+          fi
+          test -s "$release_notes_file"
           scripts/release/verify_published_release.py \
             --repository "$GITHUB_REPOSITORY" \
             --version "$VERSION" \
             --appcast-url "${page_url}appcast.xml" \
-            --release-notes-file "public/HoldType-${VERSION}.md" \
+            --release-notes-file "$release_notes_file" \
             --timeout 300

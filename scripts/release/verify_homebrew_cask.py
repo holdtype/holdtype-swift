@@ -90,7 +90,7 @@ def validate_cask_text(
 ) -> list[Check]:
     expected_url = (
         f"https://github.com/{repository}/releases/download/v#{{version}}/"
-        f"{APP_NAME}-#{{version}}.dmg"
+        f"{APP_NAME}.dmg"
     )
     expected_fragments = {
         "homebrew-cask:token": f'cask "{CASK_TOKEN}" do',

@@ -266,7 +266,7 @@ def rendered_official_cask_text(
   version "{version}"
   sha256 "{sha256}"
 
-  url "https://github.com/{repository}/releases/download/v#{{version}}/HoldType-#{{version}}.dmg"
+  url "https://github.com/{repository}/releases/download/v#{{version}}/HoldType.dmg"
   name "HoldType"
   desc "Native macOS menu bar dictation utility"
   homepage "https://github.com/{repository}"
@@ -509,7 +509,7 @@ class ReleaseScriptsTests(unittest.TestCase):
 cask "holdtype" do
   version "{{VERSION}}"
   sha256 "{{SHA256}}"
-  url "https://github.com/{{REPOSITORY}}/releases/download/v#{version}/HoldType-#{version}.dmg"
+  url "https://github.com/{{REPOSITORY}}/releases/download/v#{version}/HoldType.dmg"
   auto_updates true
   app "HoldType.app"
   uninstall quit: "app.holdtype.HoldType"
@@ -630,7 +630,7 @@ end
   <channel>
     <item>
       <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
-      <sparkle:releaseNotesLink>https://holdtype.github.io/holdtype-swift/HoldType-1.0.3.md</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://holdtype.github.io/holdtype-swift/release-notes/v1.0.3/HoldType.md</sparkle:releaseNotesLink>
     </item>
     <item>
       <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
@@ -677,7 +677,7 @@ end
                 self.assertEqual((output / "appcast.xml").read_text(), appcast.read_text())
                 self.assertEqual((output / "HoldType-1.0.2.md").read_text(), release_body)
                 self.assertEqual(
-                    (output / "HoldType-1.0.3.md").read_text(),
+                    (output / "release-notes" / "v1.0.3" / "HoldType.md").read_text(),
                     "# HoldType 1.0.3\n\nCurrent stable release.\n",
                 )
                 self.assertTrue((output / ".nojekyll").is_file())
@@ -779,6 +779,14 @@ end
         self.assertIn("workflow_dispatch:", pages_workflow)
         self.assertNotIn("\n  push:", pages_workflow)
         self.assertIn("--current-release-notes", release_workflow)
+        self.assertIn(
+            'release_notes_file="public/release-notes/v${VERSION}/HoldType.md"',
+            pages_workflow,
+        )
+        self.assertIn(
+            'release_notes_file="public/HoldType-${VERSION}.md"',
+            pages_workflow,
+        )
         self.assertIn('data-site-locale="en"', pages_workflow)
         self.assertIn('data-site-locale="en"', release_workflow)
         self.assertNotIn("Speak the whole thought.", pages_workflow)
@@ -1018,6 +1026,9 @@ end
             workflow.index("Prune unexpected GitHub Release assets"),
             workflow.index("Publish GitHub Release assets"),
         )
+        self.assertIn('dmg="$RELEASE_DIR/HoldType.dmg"', workflow)
+        self.assertNotIn('dmg="$RELEASE_DIR/HoldType-$VERSION.dmg"', workflow)
+        self.assertIn("--release-notes-url-prefix", workflow)
 
     def test_release_workflow_verifies_published_release(self) -> None:
         workflow = RELEASE_WORKFLOW.read_text()
@@ -1417,7 +1428,7 @@ jobs:
             release_root = temp_path / "release"
             release_dir = release_root / "v1.2.3"
             release_dir.mkdir(parents=True)
-            (release_dir / "HoldType-1.2.3.dmg").write_bytes(b"current dmg")
+            (release_dir / "HoldType.dmg").write_bytes(b"current dmg")
             (release_dir / "HoldType-9.9.9.dmg").write_bytes(b"stale dmg")
             (release_dir / "release-manifest.json").write_text(
                 json.dumps(
@@ -1430,7 +1441,7 @@ jobs:
                         "notarized": True,
                         "public_release": True,
                         "dmg": {
-                            "path": "HoldType-1.2.3.dmg",
+                            "path": "HoldType.dmg",
                             "sha256": "0" * 64,
                         },
                     }
@@ -1438,6 +1449,8 @@ jobs:
             )
             ed_key_path = temp_path / "sparkle_ed25519_key"
             ed_key_path.write_text("fake-key")
+            release_notes_path = temp_path / "release-notes.md"
+            release_notes_path.write_text("# HoldType 1.2.3\n\nRelease notes.\n")
             record_path = temp_path / "archives.txt"
             fake_generate_appcast = temp_path / "generate_appcast"
             fake_generate_appcast.write_text(
@@ -1451,7 +1464,7 @@ while [ "$#" -gt 0 ]; do
       out="$2"
       shift 2
       ;;
-    --ed-key-file|--download-url-prefix)
+    --ed-key-file|--download-url-prefix|--release-notes-url-prefix)
       shift 2
       ;;
     *)
@@ -1473,8 +1486,12 @@ printf '<rss />\\n' > "$out"
                     str(release_dir),
                     "--download-url-prefix",
                     "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/",
+                    "--release-notes-url-prefix",
+                    "https://holdtype.github.io/holdtype-swift/release-notes/v1.2.3/",
                     "--ed-key-file",
                     str(ed_key_path),
+                    "--release-notes-file",
+                    str(release_notes_path),
                 ],
                 cwd=ROOT,
                 env={
@@ -1492,7 +1509,8 @@ printf '<rss />\\n' > "$out"
             self.assertIn("appcast ready", result.stdout)
             self.assertEqual((release_dir / "appcast.xml").read_text(), "<rss />\n")
             archived_names = record_path.read_text().splitlines()
-            self.assertIn("HoldType-1.2.3.dmg", archived_names)
+            self.assertIn("HoldType.dmg", archived_names)
+            self.assertIn("HoldType.md", archived_names)
             self.assertNotIn("HoldType-9.9.9.dmg", archived_names)
 
     def test_render_homebrew_cask_template(self) -> None:
@@ -1527,7 +1545,7 @@ printf '<rss />\\n' > "$out"
                 rendered,
             )
             self.assertIn(
-                "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
+                "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType.dmg",
                 rendered,
             )
             self.assertIn("depends_on macos: :sonoma", rendered)
@@ -1827,7 +1845,7 @@ printf '<rss />\\n' > "$out"
 cask "holdtype" do
   version "1.2.3"
   sha256 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-  url "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg"
+  url "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType.dmg"
   app "HoldType.app"
 end
 """
@@ -1935,7 +1953,7 @@ end
                 rendered,
             )
             self.assertIn(
-                "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType-#{version}.dmg",
+                "https://github.com/holdtype/holdtype-swift/releases/download/v#{version}/HoldType.dmg",
                 rendered,
             )
             self.assertIn("depends_on macos: :sonoma", rendered)
@@ -2071,7 +2089,7 @@ end
             release_dir = Path(temp_dir) / "dist" / "release" / "v1.2.3"
             release_dir.mkdir(parents=True)
             output_dir = Path(temp_dir) / "homebrew-official-cask"
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"release dmg bytes")
             zip_path.write_bytes(b"release zip bytes")
@@ -2164,7 +2182,7 @@ end
             release_dir = Path(temp_dir) / "dist" / "release" / "v1.2.3"
             release_dir.mkdir(parents=True)
             output_dir = Path(temp_dir) / "homebrew-official-cask"
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"release dmg bytes")
             zip_path.write_bytes(b"release zip bytes")
@@ -2213,7 +2231,7 @@ end
             release_dir = Path(temp_dir) / "dist" / "preview" / "v1.2.3"
             release_dir.mkdir(parents=True)
             output_dir = Path(temp_dir) / "homebrew-official-cask"
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             dmg_path.write_bytes(b"preview dmg bytes")
             (release_dir / "release-manifest.json").write_text(
                 json.dumps(
@@ -2327,7 +2345,7 @@ end
                         "cask_path": "Casks/h/holdtype.rb",
                         "cask_token": "holdtype",
                         "dmg_sha256": dmg_sha,
-                        "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg",
+                        "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType.dmg",
                         "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
@@ -2461,7 +2479,7 @@ end
                         "cask_path": "Casks/h/holdtype.rb",
                         "cask_token": "holdtype",
                         "dmg_sha256": "ABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD",
-                        "dmg_url": "https://github.com/example/wrong/releases/download/v1.2.3/HoldType-1.2.3.dmg",
+                        "dmg_url": "https://github.com/example/wrong/releases/download/v1.2.3/HoldType.dmg",
                         "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
@@ -2508,7 +2526,7 @@ end
                         "cask_path": "Casks/h/holdtype.rb",
                         "cask_token": "holdtype",
                         "dmg_sha256": "ABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCDEFabcdefABCD",
-                        "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg",
+                        "dmg_url": "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType.dmg",
                         "minimum_macos": ">= :sonoma",
                         "repository": "holdtype/holdtype-swift",
                         "tag": "v1.2.3",
@@ -2865,7 +2883,7 @@ end
                 args,
             )
             self.assertIn(
-                "https://github.com/holdtype/holdtype-swift/releases/download/v4.1.0/HoldType-4.1.0.dmg",
+                "https://github.com/holdtype/holdtype-swift/releases/download/v4.1.0/HoldType.dmg",
                 args,
             )
             self.assertIn("--dry-run", args)
@@ -2886,7 +2904,7 @@ end
                 "--repository",
                 "holdtype/holdtype-swift",
                 "--url",
-                "http://github.com/holdtype/holdtype-swift/releases/download/v4.1.0/HoldType-4.1.0.dmg",
+                "http://github.com/holdtype/holdtype-swift/releases/download/v4.1.0/HoldType.dmg",
                 "--brew",
                 "/missing/brew",
             ],
@@ -2905,7 +2923,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "dist" / "release" / "v1.2.3"
             release_dir.mkdir(parents=True)
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"release dmg bytes")
             zip_path.write_bytes(b"release zip bytes")
@@ -2956,7 +2974,7 @@ end
 
             self.assertIn("[pass] manifest:kind: public-release", result.stdout)
             self.assertIn("[pass] manifest:public_release: true", result.stdout)
-            self.assertIn("[pass] manifest:dmg.path: HoldType-1.2.3.dmg", result.stdout)
+            self.assertIn("[pass] manifest:dmg.path: HoldType.dmg", result.stdout)
             self.assertIn("[pass] manifest:dmg.sha256", result.stdout)
             self.assertIn("[pass] manifest:zip.sha256", result.stdout)
 
@@ -2964,7 +2982,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "dist" / "release" / "v1.2.3"
             release_dir.mkdir(parents=True)
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"release dmg bytes")
             zip_path.write_bytes(b"release zip bytes")
@@ -3028,6 +3046,8 @@ end
             self.assertIn('"path": "$APP_ZIP_FILE"', script)
             self.assertIn("--require-relative-artifact-paths", script)
             self.assertIn('validate_build_number "$BUILD_NUMBER"', script)
+        self.assertIn('DMG_PATH="$RELEASE_DIR/$APP_NAME.dmg"', release_script)
+        self.assertIn('DMG_PATH="$PREVIEW_DIR/$APP_NAME.dmg"', preview_script)
         self.assertIn("--require-relative-artifact-paths", verify_script)
         self.assertIn('DMG_PATH="$RELEASE_DIR/$DMG_FILE"', verify_script)
         self.assertNotIn('find "$RELEASE_DIR" -maxdepth 1 -name "$APP_NAME-*.dmg"', verify_script)
@@ -3088,7 +3108,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             preview_dir = Path(temp_dir) / "dist" / "preview" / "v1.2.3"
             preview_dir.mkdir(parents=True)
-            dmg_path = preview_dir / "HoldType-1.2.3.dmg"
+            dmg_path = preview_dir / "HoldType.dmg"
             zip_path = preview_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"preview dmg bytes")
             zip_path.write_bytes(b"preview zip bytes")
@@ -3144,7 +3164,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "v1.2.3"
             release_dir.mkdir()
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"fake dmg bytes")
             zip_path.write_bytes(b"fake zip bytes")
@@ -3170,7 +3190,7 @@ end
             )
             appcast_url = (
                 "https://github.com/holdtype/holdtype-swift/releases/download/"
-                "v1.2.3/HoldType-1.2.3.dmg"
+                "v1.2.3/HoldType.dmg"
             )
             (release_dir / "appcast.xml").write_text(
                 f"""<?xml version="1.0" encoding="utf-8"?>
@@ -3226,7 +3246,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "v1.2.3"
             release_dir.mkdir()
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"fake dmg bytes")
             zip_path.write_bytes(b"fake zip bytes")
@@ -3252,7 +3272,7 @@ end
             )
             appcast_url = (
                 "https://github.com/holdtype/holdtype-swift/releases/download/"
-                "v1.2.3/HoldType-1.2.3.dmg"
+                "v1.2.3/HoldType.dmg"
             )
             (release_dir / "appcast.xml").write_text(
                 f"""<?xml version="1.0" encoding="utf-8"?>
@@ -3296,7 +3316,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "v1.2.3"
             release_dir.mkdir()
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"fake dmg bytes")
             zip_path.write_bytes(b"fake zip bytes")
@@ -3354,7 +3374,7 @@ end
         with tempfile.TemporaryDirectory() as temp_dir:
             release_dir = Path(temp_dir) / "v1.2.3"
             release_dir.mkdir()
-            dmg_path = release_dir / "HoldType-1.2.3.dmg"
+            dmg_path = release_dir / "HoldType.dmg"
             zip_path = release_dir / "HoldType-1.2.3.zip"
             dmg_path.write_bytes(b"fake dmg bytes")
             zip_path.write_bytes(b"fake zip bytes")
@@ -3380,7 +3400,7 @@ end
             )
             appcast_url = (
                 "https://github.com/holdtype/holdtype-swift/releases/download/"
-                "v1.2.3/HoldType-1.2.3.dmg"
+                "v1.2.3/HoldType.dmg"
             )
             (release_dir / "appcast.xml").write_text(
                 f"""<?xml version="1.0" encoding="utf-8"?>
@@ -3455,14 +3475,14 @@ end
         try:
             base_url = f"http://127.0.0.1:{server.server_port}"
             download_prefix = f"{base_url}/download/{tag}/"
-            dmg_url = f"{download_prefix}HoldType-{version}.dmg"
+            dmg_url = f"{download_prefix}HoldType.dmg"
             appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
       <sparkle:version>100</sparkle:version>
       <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
-      <sparkle:releaseNotesLink>{base_url}/pages/HoldType-{version}.md</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>{base_url}/pages/release-notes/v{version}/HoldType.md</sparkle:releaseNotesLink>
       <enclosure url="{dmg_url}"
                  sparkle:edSignature="fake-signature"
                  length="{len(dmg_bytes)}"
@@ -3479,7 +3499,7 @@ end
                 "tag": tag,
                 "notarized": True,
                 "public_release": True,
-                "dmg": {"path": f"HoldType-{version}.dmg", "sha256": dmg_sha},
+                "dmg": {"path": f"HoldType.dmg", "sha256": dmg_sha},
                 "zip": {"path": f"HoldType-{version}.zip", "sha256": zip_sha},
             }
             release = {
@@ -3490,7 +3510,7 @@ end
                 "body": notes_text,
                 "assets": [
                     {
-                        "name": f"HoldType-{version}.dmg",
+                        "name": f"HoldType.dmg",
                         "state": "uploaded",
                         "size": len(dmg_bytes),
                         "browser_download_url": dmg_url,
@@ -3524,7 +3544,7 @@ end
             routes[
                 "/repos/holdtype/holdtype-swift/releases/tags/v1.2.3"
             ] = (json.dumps(release).encode("utf-8"), "application/json")
-            routes[f"/download/{tag}/HoldType-{version}.dmg"] = (
+            routes[f"/download/{tag}/HoldType.dmg"] = (
                 dmg_bytes,
                 "application/octet-stream",
             )
@@ -3534,7 +3554,7 @@ end
             )
             routes[f"/download/{tag}/SHA256SUMS.txt"] = (
                 (
-                    f"{dmg_sha}  HoldType-{version}.dmg\n"
+                    f"{dmg_sha}  HoldType.dmg\n"
                     f"{zip_sha}  HoldType-{version}.zip\n"
                 ).encode("utf-8"),
                 "text/plain",
@@ -3545,7 +3565,7 @@ end
             )
             routes[f"/download/{tag}/appcast.xml"] = (appcast_xml.encode("utf-8"), "application/xml")
             routes["/pages/appcast.xml"] = (appcast_xml.encode("utf-8"), "application/xml")
-            routes[f"/pages/HoldType-{version}.md"] = (
+            routes[f"/pages/release-notes/v{version}/HoldType.md"] = (
                 notes_text.encode("utf-8"),
                 "text/markdown",
             )
@@ -3585,8 +3605,8 @@ end
         self.assertIn("[pass] github-release:tag", result.stdout)
         self.assertIn("[pass] github-release:draft", result.stdout)
         self.assertIn("[pass] github-release:prerelease", result.stdout)
-        self.assertIn("[pass] github-asset-state:HoldType-1.2.3.dmg", result.stdout)
-        self.assertIn("[pass] github-asset-size:HoldType-1.2.3.dmg", result.stdout)
+        self.assertIn("[pass] github-asset-state:HoldType.dmg", result.stdout)
+        self.assertIn("[pass] github-asset-size:HoldType.dmg", result.stdout)
         self.assertIn("[pass] release-notes:quality", result.stdout)
         self.assertIn("[pass] github-release:body", result.stdout)
         self.assertIn("[pass] manifest:kind", result.stdout)
@@ -3594,7 +3614,7 @@ end
         self.assertIn("[pass] manifest:public_release", result.stdout)
         self.assertIn("[pass] manifest:notarized", result.stdout)
         self.assertIn("[pass] manifest:dmg.sha256", result.stdout)
-        self.assertIn("[pass] sha256s:HoldType-1.2.3.dmg", result.stdout)
+        self.assertIn("[pass] sha256s:HoldType.dmg", result.stdout)
         self.assertIn("[pass] release-appcast:enclosure-url", result.stdout)
         self.assertIn("[pass] release-appcast:version", result.stdout)
         self.assertIn("[pass] release-appcast:shortVersionString", result.stdout)
@@ -3620,7 +3640,7 @@ end
         thread.start()
         try:
             base_url = f"http://127.0.0.1:{server.server_port}"
-            dmg_url = "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType-1.2.3.dmg"
+            dmg_url = "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/HoldType.dmg"
             appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -3664,7 +3684,7 @@ end
         module.subprocess.run = fake_run
         try:
             checks = module.check_downloaded_dmg_install(
-                dmg_path=Path("/tmp/HoldType-1.2.3.dmg"),
+                dmg_path=Path("/tmp/HoldType.dmg"),
                 timeout=12,
             )
         finally:
@@ -3737,7 +3757,7 @@ end
         try:
             base_url = f"http://127.0.0.1:{server.server_port}"
             download_prefix = f"{base_url}/download/{tag}/"
-            dmg_url = f"{download_prefix}HoldType-{version}.dmg"
+            dmg_url = f"{download_prefix}HoldType.dmg"
             release_appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -3764,7 +3784,7 @@ end
                 "tag": tag,
                 "notarized": True,
                 "public_release": True,
-                "dmg": {"path": f"HoldType-{version}.dmg", "sha256": dmg_sha},
+                "dmg": {"path": f"HoldType.dmg", "sha256": dmg_sha},
                 "zip": {"path": f"HoldType-{version}.zip", "sha256": zip_sha},
             }
             release = {
@@ -3775,7 +3795,7 @@ end
                 "body": "",
                 "assets": [
                     {
-                        "name": f"HoldType-{version}.dmg",
+                        "name": f"HoldType.dmg",
                         "state": "uploaded",
                         "size": len(dmg_bytes),
                         "browser_download_url": dmg_url,
@@ -3811,7 +3831,7 @@ end
             ] = (json.dumps(release).encode("utf-8"), "application/json")
             routes[f"/download/{tag}/SHA256SUMS.txt"] = (
                 (
-                    f"{dmg_sha}  HoldType-{version}.dmg\n"
+                    f"{dmg_sha}  HoldType.dmg\n"
                     f"{zip_sha}  HoldType-{version}.zip\n"
                 ).encode("utf-8"),
                 "text/plain",
@@ -3885,10 +3905,10 @@ end
         download_prefix = "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/"
         assets_payload = [
             {
-                "name": "HoldType-1.2.3.dmg",
+                "name": "HoldType.dmg",
                 "state": "starter",
                 "size": 0,
-                "browser_download_url": f"{download_prefix}HoldType-1.2.3.dmg",
+                "browser_download_url": f"{download_prefix}HoldType.dmg",
             },
         ]
         for name in ("HoldType-1.2.3.zip", "SHA256SUMS.txt", "appcast.xml", "release-manifest.json"):
@@ -3915,15 +3935,15 @@ end
         )
 
         statuses = {check.name: check.status for check in checks}
-        self.assertEqual(statuses["github-asset-state:HoldType-1.2.3.dmg"], "fail")
-        self.assertEqual(statuses["github-asset-size:HoldType-1.2.3.dmg"], "fail")
+        self.assertEqual(statuses["github-asset-state:HoldType.dmg"], "fail")
+        self.assertEqual(statuses["github-asset-size:HoldType.dmg"], "fail")
 
     def test_verify_published_release_rejects_unexpected_assets(self) -> None:
         module = load_published_release_module()
         download_prefix = "https://github.com/holdtype/holdtype-swift/releases/download/v1.2.3/"
         assets_payload = []
         for name in (
-            "HoldType-1.2.3.dmg",
+            "HoldType.dmg",
             "HoldType-1.2.3.zip",
             "SHA256SUMS.txt",
             "appcast.xml",
@@ -3937,6 +3957,14 @@ end
                     "browser_download_url": f"{download_prefix}{name}",
                 }
             )
+        assets_payload.append(
+            {
+                "name": "HoldType-1.2.3.dmg",
+                "state": "uploaded",
+                "size": 1,
+                "browser_download_url": f"{download_prefix}HoldType-1.2.3.dmg",
+            }
+        )
         assets_payload.append(
             {
                 "name": "HoldType-1.2.3-notary.zip",
@@ -3962,6 +3990,7 @@ end
         statuses = {check.name: check.status for check in checks}
         messages = {check.name: check.message for check in checks}
         self.assertEqual(statuses["github-assets:unexpected"], "fail")
+        self.assertIn("HoldType-1.2.3.dmg", messages["github-assets:unexpected"])
         self.assertIn("HoldType-1.2.3-notary.zip", messages["github-assets:unexpected"])
 
     def test_prune_github_release_assets_deletes_only_unexpected_assets_when_applied(self) -> None:
@@ -3977,8 +4006,9 @@ end
                     {
                         "tag_name": "v1.2.3",
                         "assets": [
-                            {"id": 101, "name": "HoldType-1.2.3.dmg"},
+                            {"id": 101, "name": "HoldType.dmg"},
                             {"id": 102, "name": "HoldType-1.2.3.zip"},
+                            {"id": 103, "name": "HoldType-1.2.3.dmg"},
                             {"id": 201, "name": "HoldType-1.2.3-notary.zip"},
                         ],
                     }
@@ -4028,11 +4058,15 @@ end
 
         self.assertEqual(
             delete_paths,
-            ["/repos/holdtype/holdtype-swift/releases/assets/201"],
+            [
+                "/repos/holdtype/holdtype-swift/releases/assets/103",
+                "/repos/holdtype/holdtype-swift/releases/assets/201",
+            ],
         )
         self.assertIn("[pass] github-assets:prune-unexpected", result.stdout)
+        self.assertIn("[pass] github-asset-prune:HoldType-1.2.3.dmg", result.stdout)
         self.assertIn("[pass] github-asset-prune:HoldType-1.2.3-notary.zip", result.stdout)
-        self.assertNotIn("github-asset-prune:HoldType-1.2.3.dmg", result.stdout)
+        self.assertNotIn("github-asset-prune:HoldType.dmg", result.stdout)
 
     def test_prune_github_release_assets_treats_missing_release_as_noop(self) -> None:
         delete_paths: list[str] = []
@@ -4114,7 +4148,7 @@ end
         try:
             base_url = f"http://127.0.0.1:{server.server_port}"
             download_prefix = f"{base_url}/download/{tag}/"
-            dmg_url = f"{download_prefix}HoldType-{version}.dmg"
+            dmg_url = f"{download_prefix}HoldType.dmg"
             appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
@@ -4137,7 +4171,7 @@ end
                 "body": "",
                 "assets": [
                     {
-                        "name": f"HoldType-{version}.dmg",
+                        "name": f"HoldType.dmg",
                         "state": "uploaded",
                         "size": len(dmg_bytes),
                         "browser_download_url": dmg_url,
@@ -4176,7 +4210,7 @@ end
                 "tag": tag,
                 "notarized": True,
                 "public_release": True,
-                "dmg": {"path": f"dist/release/{tag}/HoldType-{version}.dmg", "sha256": dmg_sha},
+                "dmg": {"path": f"dist/release/{tag}/HoldType.dmg", "sha256": dmg_sha},
                 "zip": {"path": f"dist/release/{tag}/HoldType-{version}.zip", "sha256": zip_sha},
             }
             routes[
@@ -4184,7 +4218,7 @@ end
             ] = (json.dumps(release).encode("utf-8"), "application/json")
             routes[f"/download/{tag}/SHA256SUMS.txt"] = (
                 (
-                    f"{dmg_sha}  dist/release/{tag}/HoldType-{version}.dmg\n"
+                    f"{dmg_sha}  dist/release/{tag}/HoldType.dmg\n"
                     f"{zip_sha}  dist/release/{tag}/HoldType-{version}.zip\n"
                 ).encode("utf-8"),
                 "text/plain",
@@ -4222,7 +4256,7 @@ end
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("[fail] manifest:dmg.path", result.stdout)
-        self.assertIn("[fail] sha256s-path:HoldType-1.2.3.dmg", result.stdout)
+        self.assertIn("[fail] sha256s-path:HoldType.dmg", result.stdout)
 
     def test_verify_published_release_rejects_preview_manifest(self) -> None:
         dmg_bytes = b"published dmg bytes"
@@ -4265,10 +4299,10 @@ end
                 "body": "",
                 "assets": [
                     {
-                        "name": f"HoldType-{version}.dmg",
+                        "name": f"HoldType.dmg",
                         "state": "uploaded",
                         "size": len(dmg_bytes),
-                        "browser_download_url": f"{download_prefix}HoldType-{version}.dmg",
+                        "browser_download_url": f"{download_prefix}HoldType.dmg",
                     },
                     {
                         "name": f"HoldType-{version}.zip",
@@ -4304,7 +4338,7 @@ end
                 "tag": tag,
                 "notarized": False,
                 "public_release": False,
-                "dmg": {"path": f"dist/preview/{tag}/HoldType-{version}.dmg", "sha256": dmg_sha},
+                "dmg": {"path": f"dist/preview/{tag}/HoldType.dmg", "sha256": dmg_sha},
                 "zip": {"path": f"dist/preview/{tag}/HoldType-{version}.zip", "sha256": zip_sha},
             }
             appcast_xml = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -4313,7 +4347,7 @@ end
     <item>
       <sparkle:version>100</sparkle:version>
       <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
-      <enclosure url="{download_prefix}HoldType-{version}.dmg"
+      <enclosure url="{download_prefix}HoldType.dmg"
                  sparkle:edSignature="fake-signature"
                  length="{len(dmg_bytes)}"
                  type="application/octet-stream" />
@@ -4326,7 +4360,7 @@ end
             ] = (json.dumps(release).encode("utf-8"), "application/json")
             routes[f"/download/{tag}/SHA256SUMS.txt"] = (
                 (
-                    f"{dmg_sha}  dist/preview/{tag}/HoldType-{version}.dmg\n"
+                    f"{dmg_sha}  dist/preview/{tag}/HoldType.dmg\n"
                     f"{zip_sha}  dist/preview/{tag}/HoldType-{version}.zip\n"
                 ).encode("utf-8"),
                 "text/plain",
@@ -5370,7 +5404,7 @@ end
             staging_dir.mkdir()
             (staging_dir / "HoldType.app").mkdir()
             (staging_dir / "Applications").symlink_to("/Applications")
-            dmg_path = temp_path / "HoldType-1.2.3.dmg"
+            dmg_path = temp_path / "HoldType.dmg"
 
             subprocess.run(
                 [
@@ -5413,7 +5447,7 @@ end
             with (app_dir / "Info.plist").open("wb") as handle:
                 plistlib.dump({"CFBundleName": "HoldType"}, handle)
             (staging_dir / "Applications").symlink_to("/Applications")
-            dmg_path = temp_path / "HoldType-1.2.3.dmg"
+            dmg_path = temp_path / "HoldType.dmg"
             install_dir = temp_path / "install"
 
             subprocess.run(
