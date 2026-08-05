@@ -327,6 +327,23 @@ class ReleaseScriptsTests(unittest.TestCase):
         self.assertEqual(settings["ENABLE_HARDENED_RUNTIME"], "YES")
         self.assertEqual(settings["MACOSX_DEPLOYMENT_TARGET"], "14.0")
 
+    def test_release_signing_preflight_rejects_platform_specific_overrides(self) -> None:
+        module = load_preflight_module()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            project_path = root / "HoldType.xcodeproj" / "project.pbxproj"
+            project_path.parent.mkdir()
+            project_path.write_text('"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";\n')
+
+            failed_checks = module.check_release_signing_overrides(root)
+            self.assertEqual(failed_checks[0].status, "fail")
+            self.assertIn("CODE_SIGN_IDENTITY", failed_checks[0].message)
+
+            project_path.write_text('CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";\n')
+            passed_checks = module.check_release_signing_overrides(root)
+            self.assertEqual(passed_checks[0].status, "pass")
+
     def test_pages_artifact_builder_contract_is_bounded_and_preflighted(self) -> None:
         preflight = load_preflight_module()
         pages_artifact = load_prepare_pages_artifact_module()

@@ -48,6 +48,10 @@ HOMEBREW_GITHUB_API_TOKEN_NAME = "HOMEBREW_GITHUB_API_TOKEN"
 HOMEBREW_MACOS_COMPARISON_PATTERN = re.compile(r"^(>=|>|<=|<|==) :[a-z][a-z0-9_]*$")
 EXPECTED_MACOS_DEPLOYMENT_TARGET = "14.0"
 EXPECTED_HOMEBREW_MINIMUM_MACOS = ">= :sonoma"
+RELEASE_SIGNING_OVERRIDE_SETTINGS = (
+    '"CODE_SIGN_IDENTITY[sdk=macosx*]"',
+    '"DEVELOPMENT_TEAM[sdk=macosx*]"',
+)
 
 REQUIRED_PATHS = (
     "Config/ExportOptions.DeveloperID.plist",
@@ -272,6 +276,31 @@ def check_xcode_release_settings(root: Path, timeout_seconds: int) -> list[Check
     else:
         checks.append(fail_check("xcode-settings:MACOSX_DEPLOYMENT_TARGET", "missing"))
     return checks
+
+
+def check_release_signing_overrides(root: Path) -> list[Check]:
+    project_path = root / "HoldType.xcodeproj/project.pbxproj"
+    if not project_path.exists():
+        return [fail_check("release-signing-overrides", f"missing {project_path}")]
+
+    project_text = project_path.read_text()
+    overrides = [
+        setting for setting in RELEASE_SIGNING_OVERRIDE_SETTINGS if setting in project_text
+    ]
+    if overrides:
+        return [
+            fail_check(
+                "release-signing-overrides",
+                "platform-specific signing settings override GitHub release inputs: "
+                + ", ".join(overrides),
+            )
+        ]
+    return [
+        pass_check(
+            "release-signing-overrides",
+            "GitHub release inputs control the macOS signing identity and team",
+        )
+    ]
 
 
 def check_homebrew_template(root: Path) -> list[Check]:
@@ -583,6 +612,7 @@ def collect_checks(
     checks.extend(check_info_plist(root))
     checks.extend(check_homebrew_template(root))
     checks.extend(check_release_workflow(root))
+    checks.extend(check_release_signing_overrides(root))
     checks.extend(check_secret_environment(require_secrets, environment))
     checks.extend(
         check_homebrew_tap_environment(
