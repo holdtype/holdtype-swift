@@ -239,8 +239,11 @@ This spec covers:
 - The Transcript History window title should identify the app as
   `HoldType: History`. The menu bar item and in-window heading may remain
   `Transcript History`.
-- The Transcript History window lists entries newest-first and may group them
-  by day.
+- The Transcript History window lists entries newest-first by each recording's
+  original creation time and may group them by that same time's day.
+- Retry, Transcribe Again, and later processing-state updates keep the same row
+  in its original chronological position and day group. A newer update time
+  must not move an existing recording ahead of recordings created after it.
 - Each history row shows the entry time and transcript text.
 - When Recording Cache is enabled, an accepted transcript row may offer Play for
   the completed recording that produced that row, but only while the app-owned

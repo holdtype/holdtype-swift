@@ -26,7 +26,7 @@ enum TranscriptHistoryRow: Identifiable {
         case .transcript(let entry):
             return entry.createdAt
         case .failed(let attempt):
-            return attempt.updatedAt
+            return attempt.createdAt
         }
     }
 }
