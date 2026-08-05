@@ -5,7 +5,7 @@
 //  Created by Codex on 6/21/26.
 //
 
-import AppKit
+import CoreGraphics
 import Foundation
 import HoldTypeDomain
 
