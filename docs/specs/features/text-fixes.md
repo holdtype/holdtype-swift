@@ -180,8 +180,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
 - Choosing `Manage Fixes…` closes any already-open Manage Fixes window and then
-  presents a fresh editor window in front of the user's other windows. Pending
-  custom-Fix edits retain the editor's normal autosave-before-close behavior.
+  presents a fresh editor window in front of the user's other windows. The
+  reopen sequence waits for the menu and prior editor to finish closing before
+  presenting the fresh window, so neither the first nor a repeated invocation
+  leaves the editor behind another window. Pending custom-Fix edits retain the
+  editor's normal autosave-before-close behavior.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its title
   remains static while users change the selected Fix. The title bar contains no
   Add control or explanatory text.

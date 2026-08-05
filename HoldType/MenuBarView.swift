@@ -122,19 +122,23 @@ struct MenuBarView: View {
     private func performUtilityAction(
         _ action: MenuBarPresentation.UtilityAction
     ) {
-        dismiss()
         switch action {
         case .editFixes:
             openFixesEditor()
         case .history:
+            dismiss()
             TranscriptHistoryWindowPresenter.shared.showAfterMenuDismissal()
         case .settings:
+            dismiss()
             SettingsWindowPresenter.shared.showAfterMenuDismissal()
         }
     }
 
     private func openFixesEditor() {
         FixesEditorWindowRequest.reopen(
+            dismissMenu: {
+                dismiss()
+            },
             dismissExistingEditor: {
                 dismissWindow(id: FixesEditorScene.identifier)
             },
@@ -194,33 +198,55 @@ struct MenuBarView: View {
 
 @MainActor
 enum FixesEditorWindowRequest {
-    static let delayBeforeOpening: Duration = .milliseconds(150)
+    static let menuDismissalDelay: Duration = .milliseconds(250)
+    static let editorCloseDelay: Duration = .milliseconds(350)
 
     static func reopen(
-        dismissExistingEditor: () -> Void,
+        dismissMenu: () -> Void,
+        dismissExistingEditor: @escaping () -> Void,
         openFreshEditor: @escaping @MainActor () -> Void
     ) {
         reopen(
+            dismissMenu: dismissMenu,
             dismissExistingEditor: dismissExistingEditor,
-            scheduleOpening: scheduleOpening,
+            scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
+            scheduleAfterEditorClose: scheduleAfterEditorClose,
             openFreshEditor: openFreshEditor
         )
     }
 
     static func reopen(
-        dismissExistingEditor: () -> Void,
-        scheduleOpening: (@escaping @MainActor () -> Void) -> Void,
+        dismissMenu: () -> Void,
+        dismissExistingEditor: @escaping () -> Void,
+        scheduleAfterMenuDismissal: @escaping (@escaping @MainActor () -> Void) -> Void,
+        scheduleAfterEditorClose: @escaping (@escaping @MainActor () -> Void) -> Void,
         openFreshEditor: @escaping @MainActor () -> Void
     ) {
-        dismissExistingEditor()
-        scheduleOpening(openFreshEditor)
+        dismissMenu()
+        scheduleAfterMenuDismissal {
+            dismissExistingEditor()
+            scheduleAfterEditorClose(openFreshEditor)
+        }
     }
 
-    private static func scheduleOpening(
+    private static func scheduleAfterMenuDismissal(
+        _ action: @escaping @MainActor () -> Void
+    ) {
+        schedule(after: menuDismissalDelay, action)
+    }
+
+    private static func scheduleAfterEditorClose(
+        _ action: @escaping @MainActor () -> Void
+    ) {
+        schedule(after: editorCloseDelay, action)
+    }
+
+    private static func schedule(
+        after delay: Duration,
         _ openFreshEditor: @escaping @MainActor () -> Void
     ) {
         Task { @MainActor in
-            try? await Task.sleep(for: delayBeforeOpening)
+            try? await Task.sleep(for: delay)
             openFreshEditor()
         }
     }

@@ -13,28 +13,55 @@ import Testing
 
 struct MenuBarPresentationTests {
 
-    @Test @MainActor func reopeningFixesEditorClosesBeforeItSchedulesFreshWindow() {
+    @Test @MainActor func reopeningFixesEditorWaitsForMenuAndPriorEditorToClose() {
         var events: [String] = []
-        var scheduledOpening: (@MainActor () -> Void)?
+        var afterMenuDismissal: (@MainActor () -> Void)?
+        var afterEditorClose: (@MainActor () -> Void)?
 
         FixesEditorWindowRequest.reopen(
-            dismissExistingEditor: {
-                events.append("dismiss")
+            dismissMenu: {
+                events.append("dismiss menu")
             },
-            scheduleOpening: { opening in
-                events.append("schedule")
-                scheduledOpening = opening
+            dismissExistingEditor: {
+                events.append("dismiss editor")
+            },
+            scheduleAfterMenuDismissal: { action in
+                events.append("schedule after menu")
+                afterMenuDismissal = action
+            },
+            scheduleAfterEditorClose: { action in
+                events.append("schedule after editor")
+                afterEditorClose = action
             },
             openFreshEditor: {
                 events.append("open")
             }
         )
 
-        #expect(events == ["dismiss", "schedule"])
+        #expect(events == ["dismiss menu", "schedule after menu"])
 
-        scheduledOpening?()
+        afterMenuDismissal?()
 
-        #expect(events == ["dismiss", "schedule", "open"])
+        #expect(
+            events == [
+                "dismiss menu",
+                "schedule after menu",
+                "dismiss editor",
+                "schedule after editor"
+            ]
+        )
+
+        afterEditorClose?()
+
+        #expect(
+            events == [
+                "dismiss menu",
+                "schedule after menu",
+                "dismiss editor",
+                "schedule after editor",
+                "open"
+            ]
+        )
     }
 
     @Test func idleMenuExposesMVPItems() {

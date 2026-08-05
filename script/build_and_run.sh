@@ -25,7 +25,11 @@ stop_running_app() {
     local parent_pid
     local parent_args
 
-    pids="$(/usr/bin/pgrep -x "$APP_NAME" || true)"
+    if [[ -z "$APP_BINARY" ]]; then
+        return
+    fi
+
+    pids="$(running_target_app_pids)"
     if [[ -z "$pids" ]]; then
         return
     fi
@@ -33,14 +37,14 @@ stop_running_app() {
     /bin/kill $pids >/dev/null 2>&1 || true
     sleep 1
 
-    pids="$(/usr/bin/pgrep -x "$APP_NAME" || true)"
+    pids="$(running_target_app_pids)"
     if [[ -n "$pids" ]]; then
         /bin/kill -9 $pids >/dev/null 2>&1 || true
     fi
 
     sleep 0.5
 
-    pids="$(/usr/bin/pgrep -x "$APP_NAME" || true)"
+    pids="$(running_target_app_pids)"
     while IFS= read -r pid; do
         if [[ -z "$pid" ]]; then
             continue
@@ -52,6 +56,18 @@ stop_running_app() {
             /bin/kill -9 "$parent_pid" >/dev/null 2>&1 || true
         fi
     done <<< "$pids"
+}
+
+running_target_app_pids() {
+    local pid
+    local process_args
+
+    while IFS= read -r pid; do
+        process_args="$(/bin/ps -p "$pid" -o args= || true)"
+        if [[ "$process_args" == *"$APP_BINARY"* ]]; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(/usr/bin/pgrep -x "$APP_NAME" || true)
 }
 
 make_xcodebuild_args() {
@@ -226,6 +242,7 @@ verify_running_app() {
     exit 1
 }
 
+resolve_build_paths
 stop_running_app
 build_app
 ensure_stable_adhoc_tcc_identity
