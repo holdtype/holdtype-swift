@@ -1527,14 +1527,8 @@ h3 {
 }
 
 .quick-fixes {
-  display: none;
-  padding: var(--section-space) 0;
+  padding-bottom: var(--section-space);
   background: #fff;
-}
-
-html[lang="en"] .quick-fixes,
-html[lang="ru"] .quick-fixes {
-  display: block;
 }
 
 .quick-fixes-intro {

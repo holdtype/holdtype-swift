@@ -250,19 +250,19 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
-    "galleryAria": "Quick Fixes screenshots",
+    "title": "أملِ النص، ثم أكمل تحريره في الحقل نفسه.",
+    "body1": "يشغّل Quick Fixes مطالبة على النص المحدد أو محتوى حقل النص الحالي، من دون لصقه في {brand.chatGPT} ثم نسخ النتيجة وإعادتها.",
+    "body2": "تُصحّح الإجراءات المدمجة النص أو تختصره أو تحسّنه أو تلخّصه أو تترجمه. ويمكن إضافة مطالبات مخصّصة للتنسيق وغيرها من التعديلات المتكررة.",
+    "galleryAria": "لقطات شاشة لميزة Quick Fixes",
     "popup": {
-      "caption": "The Quick Fixes menu opened with the global shortcut.",
-      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
-      "alt": "Quick Fixes menu with search and built-in text actions"
+      "caption": "قائمة Quick Fixes مفتوحة باختصار لوحة المفاتيح العام.",
+      "lightboxCaption": "قائمة Quick Fixes مفتوحة باختصار لوحة المفاتيح العام.",
+      "alt": "قائمة Quick Fixes مع البحث وإجراءات النص المدمجة"
     },
     "manage": {
-      "caption": "Built-in and custom fixes share one list.",
-      "lightboxCaption": "Built-in and custom fixes share one list.",
-      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+      "caption": "الإجراءات المدمجة والمخصّصة في قائمة واحدة.",
+      "lightboxCaption": "الإجراءات المدمجة والمخصّصة في قائمة واحدة.",
+      "alt": "نافذة Manage Fixes مع تحديد مطالبة Markdown مخصّصة"
     }
   },
   "mobile": {

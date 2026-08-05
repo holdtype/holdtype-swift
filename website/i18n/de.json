@@ -250,19 +250,19 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
-    "galleryAria": "Quick Fixes screenshots",
+    "title": "Text diktieren und im selben Feld fertigstellen.",
+    "body1": "Quick Fixes führt einen Prompt für markierten Text oder den Inhalt des aktuellen Textfelds aus – ohne ihn in {brand.chatGPT} einzufügen und das Ergebnis zurückzukopieren.",
+    "body2": "Integrierte Fixes korrigieren, kürzen, verbessern, fassen zusammen oder übersetzen. Eigene Prompts übernehmen Formatierungen und andere Bearbeitungen, die regelmäßig wiederkehren.",
+    "galleryAria": "Screenshots von Quick Fixes",
     "popup": {
-      "caption": "The Quick Fixes menu opened with the global shortcut.",
-      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
-      "alt": "Quick Fixes menu with search and built-in text actions"
+      "caption": "Das Quick-Fixes-Menü, geöffnet mit dem globalen Tastenkürzel.",
+      "lightboxCaption": "Das Quick-Fixes-Menü, geöffnet mit dem globalen Tastenkürzel.",
+      "alt": "Quick-Fixes-Menü mit Suche und integrierten Textaktionen"
     },
     "manage": {
-      "caption": "Built-in and custom fixes share one list.",
-      "lightboxCaption": "Built-in and custom fixes share one list.",
-      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+      "caption": "Integrierte und eigene Fixes stehen in einer gemeinsamen Liste.",
+      "lightboxCaption": "Integrierte und eigene Fixes stehen in einer gemeinsamen Liste.",
+      "alt": "Fenster „Manage Fixes“ mit ausgewähltem benutzerdefiniertem Markdown-Prompt"
     }
   },
   "mobile": {

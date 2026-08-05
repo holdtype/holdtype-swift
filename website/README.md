@@ -192,17 +192,14 @@ maximum, or typical day.
 3. Hold → speak → release → inserted workflow rail.
 4. Five-point `What "honest" means here` contract.
 5. Real-use-case band.
-6. Translation/vocabulary and Last Result recovery proof.
+6. Quick Fixes, translation/vocabulary, and Last Result recovery proof.
 7. OpenAI billing, the qualified 100-dictation usage example, and exact
    data-boundary explanation.
 8. Authentic first-person founder story and microphone photo.
 9. GitHub/Homebrew setup and a three-step API-key guide with an opt-in video.
-10. Quick Fixes with the global action menu and the built-in/custom fix editor.
-    The section is temporarily visible only on the English and Russian routes
-    while its copy is reviewed before the remaining translations are added.
-11. Lower-page iPhone source preview with authentic Simulator screens, an
+10. Lower-page iPhone source preview with authentic Simulator screens, an
     explicit work-in-progress status, and a source-build path through Xcode.
-12. Native FAQ disclosures, final macOS download CTA, and source-available
+11. Native FAQ disclosures, final macOS download CTA, and source-available
     footer.
 
 ## Asset provenance

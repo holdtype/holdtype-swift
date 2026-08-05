@@ -250,19 +250,19 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
-    "galleryAria": "Quick Fixes screenshots",
+    "title": "音声入力した文章を、同じ入力欄で仕上げる。",
+    "body1": "Quick Fixes は、選択したテキストまたは現在の入力欄の内容にプロンプトを実行します。{brand.chatGPT} に貼り付けて、結果を戻す必要はありません。",
+    "body2": "組み込みの Fix は、文章の修正、短縮、改善、要約、翻訳に対応します。書式設定など、繰り返し使う編集はカスタムプロンプトとして追加できます。",
+    "galleryAria": "Quick Fixes のスクリーンショット",
     "popup": {
-      "caption": "The Quick Fixes menu opened with the global shortcut.",
-      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
-      "alt": "Quick Fixes menu with search and built-in text actions"
+      "caption": "グローバルショートカットで開いた Quick Fixes メニュー。",
+      "lightboxCaption": "グローバルショートカットで開いた Quick Fixes メニュー。",
+      "alt": "検索と組み込みのテキスト操作が表示された Quick Fixes メニュー"
     },
     "manage": {
-      "caption": "Built-in and custom fixes share one list.",
-      "lightboxCaption": "Built-in and custom fixes share one list.",
-      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+      "caption": "組み込み Fix とカスタム Fix を同じ一覧で管理。",
+      "lightboxCaption": "組み込み Fix とカスタム Fix を同じ一覧で管理。",
+      "alt": "カスタム Markdown プロンプトが選択された Manage Fixes ウインドウ"
     }
   },
   "mobile": {

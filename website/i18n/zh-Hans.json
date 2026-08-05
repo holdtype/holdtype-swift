@@ -250,19 +250,19 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
-    "galleryAria": "Quick Fixes screenshots",
+    "title": "用语音输入文本，再在同一输入框中完成修改。",
+    "body1": "Quick Fixes 可对选中的文本或当前输入框中的内容运行提示词，无需将文本粘贴到 {brand.chatGPT}，再把结果复制回来。",
+    "body2": "内置操作可用于纠错、缩短、润色、总结或翻译。还可以为格式化及其他经常重复的编辑添加自定义提示词。",
+    "galleryAria": "Quick Fixes 截图",
     "popup": {
-      "caption": "The Quick Fixes menu opened with the global shortcut.",
-      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
-      "alt": "Quick Fixes menu with search and built-in text actions"
+      "caption": "通过全局快捷键打开的 Quick Fixes 菜单。",
+      "lightboxCaption": "通过全局快捷键打开的 Quick Fixes 菜单。",
+      "alt": "带搜索和内置文本操作的 Quick Fixes 菜单"
     },
     "manage": {
-      "caption": "Built-in and custom fixes share one list.",
-      "lightboxCaption": "Built-in and custom fixes share one list.",
-      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+      "caption": "内置 Fix 和自定义 Fix 集中在同一列表中。",
+      "lightboxCaption": "内置 Fix 和自定义 Fix 集中在同一列表中。",
+      "alt": "已选择自定义 Markdown 提示词的 Manage Fixes 窗口"
     }
   },
   "mobile": {

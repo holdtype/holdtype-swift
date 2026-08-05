@@ -250,19 +250,19 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
-    "galleryAria": "Quick Fixes screenshots",
+    "title": "음성으로 입력한 텍스트를 같은 입력란에서 마무리하세요.",
+    "body1": "Quick Fixes는 선택한 텍스트나 현재 입력란의 내용에 프롬프트를 실행합니다. {brand.chatGPT}에 붙여 넣고 결과를 다시 복사할 필요가 없습니다.",
+    "body2": "기본 Fix로 교정, 축약, 문장 개선, 요약, 번역을 할 수 있습니다. 서식 지정처럼 반복하는 편집 작업은 사용자 프롬프트로 추가할 수 있습니다.",
+    "galleryAria": "Quick Fixes 스크린샷",
     "popup": {
-      "caption": "The Quick Fixes menu opened with the global shortcut.",
-      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
-      "alt": "Quick Fixes menu with search and built-in text actions"
+      "caption": "전역 단축키로 연 Quick Fixes 메뉴.",
+      "lightboxCaption": "전역 단축키로 연 Quick Fixes 메뉴.",
+      "alt": "검색과 기본 텍스트 작업이 표시된 Quick Fixes 메뉴"
     },
     "manage": {
-      "caption": "Built-in and custom fixes share one list.",
-      "lightboxCaption": "Built-in and custom fixes share one list.",
-      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+      "caption": "기본 Fix와 사용자 Fix를 한 목록에서 관리합니다.",
+      "lightboxCaption": "기본 Fix와 사용자 Fix를 한 목록에서 관리합니다.",
+      "alt": "사용자 지정 Markdown 프롬프트가 선택된 Manage Fixes 창"
     }
   },
   "mobile": {

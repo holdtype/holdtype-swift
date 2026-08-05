@@ -250,9 +250,9 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "Run any prompt with a global shortcut.",
-    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
-    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
+    "title": "Dictate the text, then finish it in the same field.",
+    "body1": "Quick Fixes runs a prompt on selected text or the contents of the current text field—no pasting it into {brand.chatGPT} and copying the result back.",
+    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Add custom prompts for formatting and other edits you repeat.",
     "galleryAria": "Quick Fixes screenshots",
     "popup": {
       "caption": "The Quick Fixes menu opened with the global shortcut.",
