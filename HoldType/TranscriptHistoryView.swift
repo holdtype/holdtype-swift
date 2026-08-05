@@ -15,6 +15,7 @@ struct TranscriptHistoryView: View {
     @State private var appSettings: AppSettings
     @State private var actionStatusText: String?
     @State private var recordingCacheRevision = 0
+    @State private var isShowingClearConfirmation = false
 
     private let appSettingsStore: AppSettingsStore
     private let copyHistoryEntryAction: TranscriptHistoryClipboardCopyAction
@@ -86,6 +87,15 @@ struct TranscriptHistoryView: View {
         .onDisappear {
             AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
         }
+        .confirmationDialog(
+            "Clear history?",
+            isPresented: $isShowingClearConfirmation
+        ) {
+            Button("Clear History", role: .destructive, action: clearHistory)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(bulkClearSummary.confirmationMessage)
+        }
     }
 
     private var header: some View {
@@ -102,10 +112,10 @@ struct TranscriptHistoryView: View {
 
             Spacer()
 
-            Button("Clear Accepted History", role: .destructive) {
-                clearHistory()
+            Button("Clear History", role: .destructive) {
+                isShowingClearConfirmation = true
             }
-            .disabled(historyStore.entries.isEmpty)
+            .disabled(!bulkClearSummary.canClear)
         }
         .padding(20)
     }
@@ -203,6 +213,13 @@ struct TranscriptHistoryView: View {
         }
     }
 
+    private var bulkClearSummary: TranscriptHistoryBulkClearSummary {
+        TranscriptHistoryBulkClearSummary(
+            acceptedTranscriptCount: historyStore.entries.count,
+            savedRecordings: failureRecoveryStore.failedAttempts
+        )
+    }
+
     private var groupedRows: [TranscriptHistoryGroup] {
         let grouped = Dictionary(grouping: historyRows) { row in
             calendar.startOfDay(for: row.createdAt)
@@ -242,8 +259,32 @@ struct TranscriptHistoryView: View {
     }
 
     private func clearHistory() {
+        let summary = bulkClearSummary
         historyStore.clear()
-        actionStatusText = "Accepted transcript history cleared. Saved recordings were kept."
+        let savedRecordingResult = failureRecoveryStore.removeAllDeletableAttempts()
+        let clearedEntryCount = summary.acceptedTranscriptCount + savedRecordingResult.deletedCount
+        let clearedEntryNoun = clearedEntryCount == 1 ? "entry" : "entries"
+
+        var statusParts = [
+            "Cleared \(clearedEntryCount) history \(clearedEntryNoun)."
+        ]
+        if summary.processingSavedRecordingCount > 0 {
+            let processingNoun = summary.processingSavedRecordingCount == 1
+                ? "recording"
+                : "recordings"
+            statusParts.append(
+                "Kept \(summary.processingSavedRecordingCount) \(processingNoun) still processing."
+            )
+        }
+        if savedRecordingResult.keptCount > 0 {
+            let keptRecordingDescription = savedRecordingResult.keptCount == 1
+                ? "recording could"
+                : "recordings could"
+            statusParts.append(
+                "\(savedRecordingResult.keptCount) saved \(keptRecordingDescription) not be deleted."
+            )
+        }
+        actionStatusText = statusParts.joined(separator: " ")
     }
 
     private func copyToSystemClipboard(_ entry: TranscriptHistoryEntry) {

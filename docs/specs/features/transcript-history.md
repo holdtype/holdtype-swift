@@ -200,7 +200,13 @@ This spec covers:
   setting, does not update the Last Result recovery value, and does not
   trigger active-app insertion.
 - Each history row can delete only that row from current recovery history.
-- The history window provides a Clear History action.
+- The history window provides a destructive `Clear History` action. It is
+  enabled whenever the window contains an accepted transcript entry or a
+  deletable Saved Recording, even if there are no accepted transcript entries.
+- Before clearing, HoldType asks for confirmation and states that it will
+  remove accepted transcript entries plus the recovery audio and metadata for
+  deletable Saved Recordings. The confirmation identifies any active
+  Processing recordings that will be kept.
 - Deleting one history row removes only that row. It does not delete Keychain
   secrets, settings, normal recording cache state, cached recordings linked for
   local playback, Last Transcript current-session state, or other history rows.
@@ -209,10 +215,13 @@ This spec covers:
   both its recovery metadata and exact audio artifact were removed; if either
   operation fails, the saved row remains or is reconstructed and the failure
   is shown instead of a false success message.
-- Clearing accepted history removes only accepted session entries. It does not
-  delete Keychain secrets, settings, normal recording cache state, or Last
-  Transcript current-session state. Saved recording rows require their own
-  explicit Delete/Discard action.
+- Clearing History removes every accepted session entry and every deletable
+  Saved Recording shown in History. It does not delete Keychain secrets,
+  settings, normal recording-cache state, or Last Transcript current-session
+  state. A Processing row remains protected because its provider operation owns
+  the audio; clearing reports that it was kept. If a Saved Recording cannot be
+  deleted completely, its row remains or is reconstructed and the result
+  reports that it was kept rather than claiming a full clear.
 - Quitting the app clears accepted transcript entries. Unfinished saved
   recordings and their compact recovery metadata remain available after
   relaunch.
