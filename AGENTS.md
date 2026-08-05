@@ -163,6 +163,13 @@ non-negotiables:
 - put explicit timeouts on external services, media tools, uploads, downloads,
   and similar boundaries.
 
+## Existing Native Dialogs
+
+Do not migrate or replace working AppKit alerts, sheets, or confirmation dialogs
+(including Quit) with SwiftUI unless the user explicitly requests it. Use SwiftUI
+for new or substantially redesigned product UI; make targeted fixes in existing
+native dialog flows and preserve their focus, modality, and termination behavior.
+
 ## Context Budget And Reading Order
 
 Read the smallest file set that can safely answer the current request. Do not
