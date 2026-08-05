@@ -3,6 +3,7 @@ import SwiftUI
 
 struct FixesEditorCustomDetailView: View {
     @ObservedObject var model: FixesEditorModel
+    @FocusState.Binding var focusedField: FixesEditorView.FocusedField?
 
     var body: some View {
         Form {
@@ -22,6 +23,7 @@ struct FixesEditorCustomDetailView: View {
                     set: model.setSelectedTitle
                 )
             )
+            .focused($focusedField, equals: .title)
             .disabled(model.activity.isBusy)
             .accessibilityHint(
                 "Up to \(TextFixAction.maximumTitleCharacterCount) characters"
@@ -101,19 +103,27 @@ struct FixesEditorCustomDetailView: View {
 }
 
 #Preview("Custom Fix") {
-    let model = makeFixesEditorPreviewModel(
-        selectedActionID: TextFixCatalog.defaults.customActions[0].id
+    FixesEditorCustomDetailPreview(
+        model: makeFixesEditorPreviewModel(
+            selectedActionID: TextFixCatalog.defaults.customActions[0].id
+        )
     )
-    NavigationStack {
-        FixesEditorCustomDetailView(model: model)
-    }
-    .frame(width: 620, height: 620)
 }
 
 #Preview("New Fix Validation") {
-    let model = makeFixesEditorPreviewModel(addsNewFix: true)
-    NavigationStack {
-        FixesEditorCustomDetailView(model: model)
+    FixesEditorCustomDetailPreview(
+        model: makeFixesEditorPreviewModel(addsNewFix: true)
+    )
+}
+
+private struct FixesEditorCustomDetailPreview: View {
+    @FocusState private var focusedField: FixesEditorView.FocusedField?
+    let model: FixesEditorModel
+
+    var body: some View {
+        NavigationStack {
+            FixesEditorCustomDetailView(model: model, focusedField: $focusedField)
+        }
+        .frame(width: 620, height: 620)
     }
-    .frame(width: 620, height: 620)
 }

@@ -6,18 +6,40 @@ struct FixesEditorSidebarView: View {
     @State private var deletionAction: FixesEditorActionPresentation?
 
     var body: some View {
-        Group {
-            if model.catalog == nil {
-                unloadedContent
-            } else if model.visibleActions.isEmpty {
-                ContentUnavailableView(
-                    "No Matching Fixes",
-                    systemImage: "magnifyingglass",
-                    description: Text("Try another search.")
-                )
-            } else {
-                actionList
+        VStack(spacing: 0) {
+            Group {
+                if model.catalog == nil {
+                    unloadedContent
+                } else if model.visibleActions.isEmpty {
+                    ContentUnavailableView(
+                        "No Matching Fixes",
+                        systemImage: "magnifyingglass",
+                        description: Text("Try another search.")
+                    )
+                } else {
+                    actionList
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Button(action: model.addFix) {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add Fix")
+                .disabled(!model.canAddFix)
+
+                Button(action: requestDeletion) {
+                    Image(systemName: "minus")
+                }
+                .accessibilityLabel("Delete selected Fix")
+                .disabled(!model.canDeleteSelection)
+            }
+            .buttonStyle(.bordered)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .searchable(
             text: Binding(
@@ -124,6 +146,16 @@ struct FixesEditorSidebarView: View {
                 }
             }
         )
+    }
+
+    private func requestDeletion() {
+        guard let action = model.selectedActionPresentation,
+              !action.isBuiltIn
+        else {
+            return
+        }
+
+        deletionAction = action
     }
 }
 

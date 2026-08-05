@@ -66,6 +66,8 @@ struct HoldTypeApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        FixesEditorScene()
     }
 }
 

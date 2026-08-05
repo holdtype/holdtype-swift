@@ -58,8 +58,10 @@ struct FixesEditorModelMutationTests {
 
         #expect(model.selectedDraft?.id == "custom.test-polish")
         #expect(model.selectedDraft?.isNew == true)
-        #expect(model.selectedDraftValidation?.titleMessage == "Enter a title.")
+        #expect(model.selectedDraft?.title == "Untitled Fix")
+        #expect(model.selectedDraftValidation?.titleMessage == nil)
         #expect(model.selectedDraftValidation?.promptMessage == "Enter a prompt.")
+        #expect(model.titleFocusRequestID == 1)
 
         model.setSelectedTitle("Polish")
         model.setSelectedPrompt("Polish the text without changing its meaning.")

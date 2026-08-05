@@ -6,10 +6,8 @@ import Testing
 @MainActor
 struct FixesEditorPresentationTests {
     @Test func infoBannerExplainsFixesUsage() {
-        #expect(FixesEditorInfoBanner.instructions.contains("⌥J"))
-        #expect(FixesEditorInfoBanner.instructions.contains("Return"))
-        #expect(FixesEditorInfoBanner.instructions.contains("Escape"))
-        #expect(FixesEditorInfoBanner.instructions.contains("current text field"))
+        #expect(FixesEditorInfoBanner.copy.contains("selected text"))
+        #expect(FixesEditorInfoBanner.copy.contains("custom Fixes"))
     }
 
     @Test func finiteIconOptionsCoverEverySupportedToken() {

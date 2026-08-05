@@ -13,6 +13,7 @@ struct MenuBarView: View {
     private static let menuWidth: CGFloat = 420
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var dictationRuntime: DictationRuntime
 
     init(
@@ -123,11 +124,18 @@ struct MenuBarView: View {
         dismiss()
         switch action {
         case .editFixes:
-            FixesEditorWindowPresenter.shared.showAfterMenuDismissal()
+            openFixesEditor()
         case .history:
             TranscriptHistoryWindowPresenter.shared.showAfterMenuDismissal()
         case .settings:
             SettingsWindowPresenter.shared.showAfterMenuDismissal()
+        }
+    }
+
+    private func openFixesEditor() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            openWindow(id: FixesEditorScene.identifier)
         }
     }
 

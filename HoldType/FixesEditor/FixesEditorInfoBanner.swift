@@ -1,22 +1,16 @@
 import SwiftUI
 
 struct FixesEditorInfoBanner: View {
-    static let instructions =
-        "Fixes transform selected text, or the current text field when nothing is selected.\n"
-        + "Press ⌥J to open Fixes; use ↑/↓ to choose, Return to run, and Escape to close."
+    static let copy =
+        "Fixes transform selected text using a prompt. Create or edit custom Fixes here."
 
     var body: some View {
-        HStack(spacing: 0) {
-            Text(Self.instructions)
-                .font(.caption)
-                .multilineTextAlignment(.leading)
-                .lineLimit(2)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
+        Text(Self.copy)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel(Self.instructions)
+        .accessibilityLabel(Self.copy)
     }
 }
 

@@ -11,6 +11,7 @@ final class FixesEditorModel: ObservableObject {
     @Published private(set) var issue: FixesEditorIssue?
     @Published private(set) var selectedActionID: String?
     @Published private(set) var searchText = ""
+    @Published private(set) var titleFocusRequestID = 0
     @Published private var drafts: [String: FixesEditorDraft] = [:]
     @Published private var pendingActionIDs: [String] = []
 
@@ -100,6 +101,10 @@ final class FixesEditorModel: ObservableObject {
         return catalog?.action(id: selectedActionID)?.kind == .customPrompt
     }
 
+    var selectedActionPresentation: FixesEditorActionPresentation? {
+        allActionPresentations.first { $0.id == selectedActionID }
+    }
+
     var builtInActionPresentations: [FixesEditorActionPresentation] {
         allActionPresentations.filter(\.isBuiltIn)
     }
@@ -168,10 +173,11 @@ final class FixesEditorModel: ObservableObject {
             return
         }
 
-        drafts[id] = FixesEditorDraft(id: id)
+        drafts[id] = FixesEditorDraft(id: id, title: "Untitled Fix")
         pendingActionIDs.append(id)
         searchText = ""
         selectedActionID = id
+        titleFocusRequestID &+= 1
         issue = nil
     }
 

@@ -177,27 +177,35 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   an actionable `Fixes…` palette command. On macOS, immediate Fixes are invoked
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
-- The Fixes editor is a normal native window titled `Manage Fixes`. Its window
-  title remains static while users change the selected Fix. It provides search
-  and Add. A selected custom Fix provides title, prompt,
-  icon, and enabled state; changes save automatically 500 ms after the most
-  recent edit, and any pending change saves before the user selects another
-  Fix or closes the editor. The custom Fix row exposes Delete in its context
-  menu. The detail pane has no Save or Delete buttons. Users drag custom rows
-  to reorder them. A selected built-in Fix shows a lock-marked informational
-  block and one navigation-only settings button: Translate opens Translation
-  Settings, and Correct Text opens Text Correction Settings. Built-in Fixes
-  expose no editable fields, catalog-mutation actions, or other detail
-  sections. The editor does not show a separate Order section or move buttons
-  in the detail pane.
-- The Fixes editor shows one plain, two-line description in the title bar to
-  the right of the sidebar divider. It appears for every selection state,
-  including when no Fix is selected. The description explains that Fixes
-  transform selected text or the complete current text field, and summarizes
-  `⌥J`, arrow-key selection, Return, and Escape. It has no background, shadow,
-  border, title, icon, management guidance, or privacy note. Within its
-  title-bar area, the description is leading-aligned with a small left inset;
-  it does not shift the window title, Add button, or sidebar divider.
+- The Fixes editor is a normal native window titled `Manage Fixes`. Its title
+  remains static while users change the selected Fix. The title bar contains no
+  Add control or explanatory text.
+- The editor sidebar keeps Search at the top and adds a compact footer beneath
+  the list, separated by one divider. The footer contains standard compact `+`
+  and `−` controls: `+` remains visible while the list is filtered and creates
+  a custom Fix; `−` removes only the selected removable custom Fix and is
+  disabled when nothing removable is selected, including for built-in Fixes.
+  The custom Fix row may also expose Delete in its context menu.
+- Creating a Fix appends it to the custom catalog, clears any active search,
+  selects it, and opens its editor. The new Fix starts as `Untitled Fix`; its
+  Title field receives keyboard focus with the temporary title selected so the
+  person can type immediately. If deletion is irreversible, HoldType asks for
+  confirmation before removing the Fix.
+- A selected custom Fix provides title, prompt, icon, and enabled state;
+  changes save automatically 500 ms after the most recent edit, and any
+  pending change saves before the user selects another Fix or closes the
+  editor. The detail pane has no Save or Delete buttons. Users drag custom rows
+  to reorder them.
+- The right content pane starts with a small secondary explanation that Fixes
+  transform selected text using a prompt and that custom Fixes can be created
+  or edited there. The explanation is part of the content pane, not the title
+  bar or toolbar. With no selected Fix, the pane shows a concise empty state.
+  A selected built-in Fix shows a lock-marked informational block and one
+  navigation-only settings button: Translate opens Translation Settings, and
+  Correct Text opens Text Correction Settings. Built-in Fixes expose no
+  editable fields, catalog-mutation actions, or other detail sections. The
+  editor does not show a separate Order section or move buttons in the detail
+  pane.
 
 ## iOS Voice
 
