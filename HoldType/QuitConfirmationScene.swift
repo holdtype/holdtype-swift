@@ -118,76 +118,65 @@ struct QuitConfirmationScene: Scene {
 
     var body: some Scene {
         Window("Quit \(HoldTypeMenuBarIdentity.title)?", id: Self.identifier) {
-            QuitConfirmationWindowContent(coordinator: .shared)
+            QuitConfirmationAlertHost(coordinator: .shared)
         }
-        .defaultSize(width: 440, height: 190)
+        .defaultSize(width: 1, height: 1)
         .windowResizability(.contentSize)
     }
 }
 
-private struct QuitConfirmationWindowContent: View {
+private struct QuitConfirmationAlertHost: View {
     @ObservedObject var coordinator: QuitConfirmationCoordinator
     @Environment(\.dismiss) private var dismiss
+    @State private var presentation: QuitConfirmationCoordinator.Presentation?
+    @State private var isAlertPresented = false
 
     var body: some View {
-        Group {
-            if let presentation = coordinator.presentation {
-                QuitConfirmationDialog(
-                    presentation: presentation,
-                    onCancel: { resolve(.cancel) },
-                    onQuit: { resolve(.quit) }
-                )
-            } else {
-                Color.clear
-                    .frame(width: 1, height: 1)
+        Color.clear
+            .frame(width: 1, height: 1)
+            .alert(
+                presentation?.title ?? "Quit \(HoldTypeMenuBarIdentity.title)?",
+                isPresented: alertBinding
+            ) {
+                Button("Cancel", role: .cancel) {
+                    resolve(.cancel)
+                }
+                .keyboardShortcut(.defaultAction)
+
+                Button("Quit \(HoldTypeMenuBarIdentity.title)", role: .destructive) {
+                    resolve(.quit)
+                }
+            } message: {
+                Text(presentation?.informativeText ?? "")
             }
-        }
+            .onAppear(perform: synchronizePresentation)
+            .onChange(of: coordinator.presentation) { _, _ in
+                synchronizePresentation()
+            }
         .onDisappear {
             coordinator.cancelIfNeeded()
         }
+    }
+
+    private var alertBinding: Binding<Bool> {
+        Binding(
+            get: { isAlertPresented },
+            set: { isPresented in
+                isAlertPresented = isPresented
+                if !isPresented {
+                    resolve(.cancel)
+                }
+            }
+        )
+    }
+
+    private func synchronizePresentation() {
+        presentation = coordinator.presentation
+        isAlertPresented = presentation != nil
     }
 
     private func resolve(_ decision: QuitConfirmationDecision) {
         coordinator.resolve(decision)
         dismiss()
     }
-}
-
-private struct QuitConfirmationDialog: View {
-    let presentation: QuitConfirmationCoordinator.Presentation
-    let onCancel: () -> Void
-    let onQuit: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
-                .font(.headline)
-
-            Text(presentation.informativeText)
-                .fixedSize(horizontal: false, vertical: true)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Spacer()
-
-                Button("Cancel", action: onCancel)
-                    .keyboardShortcut(.cancelAction)
-
-                Button("Quit \(HoldTypeMenuBarIdentity.title)", role: .destructive, action: onQuit)
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(24)
-        .frame(width: 440)
-    }
-}
-
-#Preview("Quit confirmation") {
-    QuitConfirmationDialog(
-        presentation: .init(
-            informativeText: "HoldType will stop listening for dictation shortcuts and menu bar actions until you reopen it."
-        ),
-        onCancel: {},
-        onQuit: {}
-    )
 }

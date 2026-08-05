@@ -89,6 +89,14 @@ This spec covers:
   frontmost recovery prompt that explains the failure and offers only the
   applicable actions: Try Again, Open OpenAI Settings, Open Transcription
   Settings, or Dismiss.
+- Transient recovery and quit prompts retain the compact native macOS dialog
+  hierarchy used before the 2026-08-05 settings, Fixes, and History work: one
+  affirmative default action is visually prominent in the accent color, while
+  Dismiss or Cancel remains the subdued secondary action. They must not be
+  replaced by a separately styled content window with generic, equally weighted
+  buttons or exposed window chrome. This requirement applies to app-shell
+  prompts only; Settings, Fixes, and Transcript History retain their own
+  feature-specific surfaces.
 - The menu should also show one compact status line such as
   `Error: Timed out`, plus the same compact recovery actions when the user
   opens the menu after the prompt.

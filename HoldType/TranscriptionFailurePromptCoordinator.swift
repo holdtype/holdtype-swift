@@ -200,121 +200,159 @@ struct TranscriptionFailurePromptScene: Scene {
 
     var body: some Scene {
         Window("Transcription failed", id: Self.identifier) {
-            TranscriptionFailurePromptWindowContent(coordinator: .shared)
+            TranscriptionFailurePromptAlertHost(coordinator: .shared)
         }
-        .defaultSize(width: 460, height: 240)
+        .defaultSize(width: 1, height: 1)
         .windowResizability(.contentSize)
     }
 }
 
-private struct TranscriptionFailurePromptWindowContent: View {
+private struct TranscriptionFailurePromptAlertHost: View {
     @ObservedObject var coordinator: TranscriptionFailurePromptCoordinator
     @Environment(\.dismiss) private var dismiss
+    @State private var presentation: DictationFailurePresentation?
+    @State private var isRecoveryAlertPresented = false
+    @State private var isDuplicateRetryConfirmationPresented = false
+    @State private var isTransitioningToDuplicateRetryConfirmation = false
 
     var body: some View {
-        Group {
-            if let presentation = coordinator.presentation {
-                TranscriptionFailurePromptDialog(
-                    presentation: presentation,
-                    onResolve: resolve
-                )
-            } else {
-                Color.clear.frame(width: 1, height: 1)
-            }
+        ZStack {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .alert(
+                    presentation?.title ?? "Transcription failed",
+                    isPresented: recoveryAlertBinding
+                ) {
+                    recoveryActions
+                } message: {
+                    Text(recoveryMessage)
+                }
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .alert(
+                    "Transcribe this recording again?",
+                    isPresented: duplicateRetryConfirmationBinding
+                ) {
+                    Button("Transcribe Again") {
+                        guard let action = duplicateRetryAction else {
+                            return
+                        }
+                        resolve(action)
+                    }
+                    .keyboardShortcut(.defaultAction)
+
+                    Button("Cancel", role: .cancel) {
+                        isRecoveryAlertPresented = presentation != nil
+                    }
+                    .keyboardShortcut(.cancelAction)
+                } message: {
+                    Text(TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation)
+                }
+        }
+        .onAppear(perform: synchronizePresentation)
+        .onChange(of: coordinator.presentation) { _, _ in
+            synchronizePresentation()
         }
         .onDisappear {
             coordinator.dismissIfNeeded()
         }
     }
 
-    private func resolve(_ decision: TranscriptionFailurePromptDecision) {
-        coordinator.resolve(decision)
-        dismiss()
+    private var recoveryAlertBinding: Binding<Bool> {
+        Binding(
+            get: { isRecoveryAlertPresented },
+            set: { isPresented in
+                isRecoveryAlertPresented = isPresented
+                guard !isPresented, !isTransitioningToDuplicateRetryConfirmation else {
+                    return
+                }
+                resolve(.dismiss)
+            }
+        )
     }
-}
 
-private struct TranscriptionFailurePromptDialog: View {
-    let presentation: DictationFailurePresentation
-    let onResolve: (TranscriptionFailurePromptDecision) -> Void
-    @State private var isShowingDuplicateRetryConfirmation = false
+    private var duplicateRetryConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { isDuplicateRetryConfirmationPresented },
+            set: { isPresented in
+                isDuplicateRetryConfirmationPresented = isPresented
+                guard !isPresented, presentation != nil else {
+                    return
+                }
+                isRecoveryAlertPresented = true
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var recoveryActions: some View {
+        ForEach(actions, id: \.self) { action in
+            recoveryButton(for: action)
+        }
+    }
+
+    private var recoveryMessage: String {
+        guard let presentation else {
+            return ""
+        }
+
+        return TranscriptionFailurePromptCopy.informativeText(for: presentation)
+    }
 
     private var actions: [TranscriptionFailurePromptDecision] {
-        TranscriptionFailurePromptActions.actions(for: presentation)
+        guard let presentation else {
+            return [.dismiss]
+        }
+
+        return TranscriptionFailurePromptActions.actions(for: presentation)
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
-                .font(.headline)
-
-            Text(TranscriptionFailurePromptCopy.informativeText(for: presentation))
-                .fixedSize(horizontal: false, vertical: true)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Spacer()
-
-                ForEach(actions, id: \.self) { action in
-                    actionButton(for: action)
-                }
+    private var duplicateRetryAction: TranscriptionFailurePromptDecision? {
+        actions.first { action in
+            if case .transcribeAgain = action {
+                return true
             }
-        }
-        .padding(24)
-        .frame(width: 460)
-        .confirmationDialog(
-            "Transcribe this recording again?",
-            isPresented: $isShowingDuplicateRetryConfirmation
-        ) {
-            Button("Transcribe Again") {
-                if let action = actions.first(where: {
-                    if case .transcribeAgain = $0 { return true }
-                    return false
-                }) {
-                    onResolve(action)
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation)
+            return false
         }
     }
 
     @ViewBuilder
-    private func actionButton(for action: TranscriptionFailurePromptDecision) -> some View {
+    private func recoveryButton(for action: TranscriptionFailurePromptDecision) -> some View {
         switch action {
-        case .retry:
-            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
-                onResolve(action)
-            }
-            .keyboardShortcut(.defaultAction)
         case .dismiss:
-            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
-                onResolve(action)
+            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action), role: .cancel) {
+                resolve(action)
             }
             .keyboardShortcut(.cancelAction)
         case .transcribeAgain:
             Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
-                isShowingDuplicateRetryConfirmation = true
+                isTransitioningToDuplicateRetryConfirmation = true
+                isRecoveryAlertPresented = false
+                Task { @MainActor in
+                    await Task.yield()
+                    isTransitioningToDuplicateRetryConfirmation = false
+                    isDuplicateRetryConfirmationPresented = true
+                }
             }
-        case .openSettings:
+            .keyboardShortcut(.defaultAction)
+        default:
             Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
-                onResolve(action)
+                resolve(action)
             }
+            .keyboardShortcut(action == actions.first ? .defaultAction : .cancelAction)
         }
     }
-}
 
-#Preview("Ambiguous provider result") {
-    TranscriptionFailurePromptDialog(
-        presentation: DictationFailurePresentation(
-            title: FailedTranscriptionReason.providerOutcomeUncertain.title,
-            message: FailedTranscriptionReason.providerOutcomeUncertain.message,
-            failedAttemptID: UUID(),
-            requiresDuplicateRetryConfirmation: true,
-            showsRecoveryPrompt: true
-        ),
-        onResolve: { _ in }
-    )
+    private func synchronizePresentation() {
+        presentation = coordinator.presentation
+        isRecoveryAlertPresented = presentation != nil
+    }
+
+    private func resolve(_ decision: TranscriptionFailurePromptDecision) {
+        coordinator.resolve(decision)
+        dismiss()
+    }
 }
 
 private extension DictationStatus {
