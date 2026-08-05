@@ -74,11 +74,13 @@ struct HoldTypeApp: App {
 
         FixesEditorScene()
         TranscriptHistoryScene()
+        QuitConfirmationScene()
     }
 }
 
 private struct HoldTypeMenuBarLabel: View {
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
@@ -95,80 +97,9 @@ private struct HoldTypeMenuBarLabel: View {
             SettingsPresentationCoordinator.shared.install {
                 openSettings()
             }
-        }
-    }
-}
-
-@MainActor
-enum InputMonitoringPermissionLaunchRecovery {
-    static let requestEnvironmentKey = "HOLDTYPE_REQUEST_INPUT_MONITORING_ON_LAUNCH"
-    static let openSettingsEnvironmentKey = "HOLDTYPE_OPEN_INPUT_MONITORING_SETTINGS_ON_LAUNCH"
-    static let exitAfterRequestEnvironmentKey = "HOLDTYPE_EXIT_AFTER_INPUT_MONITORING_REQUEST"
-    static let requestDelayAfterActivation: DispatchTimeInterval = .milliseconds(500)
-
-    static func shouldRequest(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
-        environment[requestEnvironmentKey] == "1"
-    }
-
-    static func requestIfNeeded(
-        environment: [String: String] = ProcessInfo.processInfo.environment,
-        permissionService: InputMonitoringPermissionService = InputMonitoringPermissionService(),
-        activateApp: () -> Void = {
-            NSApplication.shared.setActivationPolicy(.regular)
-            NSApplication.shared.activate(ignoringOtherApps: true)
-        },
-        scheduleRequestAfterActivation: @escaping (@escaping @MainActor () -> Void) -> Void = { request in
-            DispatchQueue.main.asyncAfter(deadline: .now() + requestDelayAfterActivation) {
-                Task { @MainActor in
-                    request()
-                }
+            QuitConfirmationCoordinator.shared.install {
+                openWindow(id: QuitConfirmationScene.identifier)
             }
-        },
-        terminateProcess: @escaping () -> Void = {
-            Darwin.exit(0)
-        }
-    ) {
-        guard shouldRequest(environment: environment) else {
-            return
-        }
-
-        activateApp()
-        scheduleRequestAfterActivation {
-            let status = permissionService.requestPermission()
-            if status != .allowed || environment[openSettingsEnvironmentKey] == "1" {
-                permissionService.openInputMonitoringSettings()
-            }
-
-            if environment[exitAfterRequestEnvironmentKey] == "1" {
-                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
-                    terminateProcess()
-                }
-            }
-        }
-    }
-
-    static func launchFreshRequest(
-        bundleURL: URL = Bundle.main.bundleURL,
-        openSettings: Bool = true
-    ) -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = [
-            "-n",
-            bundleURL.path,
-            "--env",
-            "\(requestEnvironmentKey)=1",
-            "--env",
-            "\(openSettingsEnvironmentKey)=\(openSettings ? "1" : "0")",
-            "--env",
-            "\(exitAfterRequestEnvironmentKey)=1"
-        ]
-
-        do {
-            try process.run()
-            return true
-        } catch {
-            return false
         }
     }
 }
@@ -249,7 +180,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let dictationRuntime = DictationRuntime.shared
     private let fixesRuntime = FixesRuntime.shared
     private let floatingIndicatorCoordinator = FloatingIndicatorCoordinator.shared
-    private let quitConfirmationPresenter: any QuitConfirmationPresenting
+    private let quitConfirmationRequester: any QuitConfirmationRequesting
     private let transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)?
     private let launchEnvironment: [String: String]
     private let clearTranscriptHistoryOverride: (@MainActor () -> Void)?
@@ -260,14 +191,18 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let repairInterruptedRecordings: @MainActor () -> Void
     private let prepareForTermination: @MainActor () async -> Void
     private let replyToTerminationRequest: @MainActor (NSApplication, Bool) -> Void
+    private let requestTermination: @MainActor () -> Void
     private let terminationTimeoutNanoseconds: UInt64
     private var terminationPreparationTask: Task<Void, Never>?
     private var terminationDeadlineTask: Task<Void, Never>?
     private var isTerminationPreparationPending = false
     private var isTerminationPreparationComplete = false
+    private var isQuitConfirmationPending = false
+    private var hasConfirmedQuit = false
+    private var isRequestingQuitConfirmation = false
 
     override init() {
-        quitConfirmationPresenter = NativeQuitConfirmationPresenter()
+        quitConfirmationRequester = QuitConfirmationCoordinator.shared
         transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator(
             dictationRuntime: dictationRuntime
         )
@@ -290,11 +225,47 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         replyToTerminationRequest = { application, shouldTerminate in
             application.reply(toApplicationShouldTerminate: shouldTerminate)
         }
+        requestTermination = {
+            NSApplication.shared.terminate(nil)
+        }
         terminationTimeoutNanoseconds = 2_500_000_000
         super.init()
     }
 
     init(
+        quitConfirmationRequester: any QuitConfirmationRequesting,
+        transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
+        launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        clearTranscriptHistory: (@MainActor () -> Void)? = nil,
+        startRuntimeComponents: (@MainActor () -> Void)? = nil,
+        stopRuntimeComponents: (@MainActor () -> Void)? = nil,
+        scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
+        isUpdaterRelaunchInProgress: @escaping @MainActor () -> Bool = {
+            SoftwareUpdateRelaunchState.isUpdaterRelaunchInProgress
+        },
+        repairInterruptedRecordings: @escaping @MainActor () -> Void = {},
+        prepareForTermination: @escaping @MainActor () async -> Void = {},
+        replyToTerminationRequest: @escaping @MainActor (NSApplication, Bool) -> Void = { _, _ in },
+        requestTermination: @escaping @MainActor () -> Void = {},
+        terminationTimeoutNanoseconds: UInt64 = 2_500_000_000
+    ) {
+        self.quitConfirmationRequester = quitConfirmationRequester
+        self.transcriptionFailurePromptCoordinator = transcriptionFailurePromptCoordinator
+        self.launchEnvironment = launchEnvironment
+        clearTranscriptHistoryOverride = clearTranscriptHistory
+        startRuntimeComponentsOverride = startRuntimeComponents
+        stopRuntimeComponentsOverride = stopRuntimeComponents
+        self.scheduleProviderStartupMaintenance = scheduleProviderStartupMaintenance
+        self.isUpdaterRelaunchInProgress = isUpdaterRelaunchInProgress
+        self.repairInterruptedRecordings = repairInterruptedRecordings
+        self.prepareForTermination = prepareForTermination
+        self.replyToTerminationRequest = replyToTerminationRequest
+        self.requestTermination = requestTermination
+        self.terminationTimeoutNanoseconds = terminationTimeoutNanoseconds
+        super.init()
+    }
+
+    convenience init(
         quitConfirmationPresenter: any QuitConfirmationPresenting,
         transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
         launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
@@ -308,21 +279,26 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         repairInterruptedRecordings: @escaping @MainActor () -> Void = {},
         prepareForTermination: @escaping @MainActor () async -> Void = {},
         replyToTerminationRequest: @escaping @MainActor (NSApplication, Bool) -> Void = { _, _ in },
+        requestTermination: @escaping @MainActor () -> Void = {},
         terminationTimeoutNanoseconds: UInt64 = 2_500_000_000
     ) {
-        self.quitConfirmationPresenter = quitConfirmationPresenter
-        self.transcriptionFailurePromptCoordinator = transcriptionFailurePromptCoordinator
-        self.launchEnvironment = launchEnvironment
-        clearTranscriptHistoryOverride = clearTranscriptHistory
-        startRuntimeComponentsOverride = startRuntimeComponents
-        stopRuntimeComponentsOverride = stopRuntimeComponents
-        self.scheduleProviderStartupMaintenance = scheduleProviderStartupMaintenance
-        self.isUpdaterRelaunchInProgress = isUpdaterRelaunchInProgress
-        self.repairInterruptedRecordings = repairInterruptedRecordings
-        self.prepareForTermination = prepareForTermination
-        self.replyToTerminationRequest = replyToTerminationRequest
-        self.terminationTimeoutNanoseconds = terminationTimeoutNanoseconds
-        super.init()
+        self.init(
+            quitConfirmationRequester: LegacyQuitConfirmationRequester(
+                presenter: quitConfirmationPresenter
+            ),
+            transcriptionFailurePromptCoordinator: transcriptionFailurePromptCoordinator,
+            launchEnvironment: launchEnvironment,
+            clearTranscriptHistory: clearTranscriptHistory,
+            startRuntimeComponents: startRuntimeComponents,
+            stopRuntimeComponents: stopRuntimeComponents,
+            scheduleProviderStartupMaintenance: scheduleProviderStartupMaintenance,
+            isUpdaterRelaunchInProgress: isUpdaterRelaunchInProgress,
+            repairInterruptedRecordings: repairInterruptedRecordings,
+            prepareForTermination: prepareForTermination,
+            replyToTerminationRequest: replyToTerminationRequest,
+            requestTermination: requestTermination,
+            terminationTimeoutNanoseconds: terminationTimeoutNanoseconds
+        )
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -362,10 +338,14 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             return .terminateLater
         }
 
-        if !isUpdaterRelaunchInProgress(),
-           quitConfirmationPresenter.requestQuitConfirmation() == .cancel {
-            return .terminateCancel
+        if !isUpdaterRelaunchInProgress(), !hasConfirmedQuit {
+            let wasConfirmedSynchronously = requestQuitConfirmationIfNeeded()
+            if !wasConfirmedSynchronously {
+                return .terminateCancel
+            }
         }
+
+        hasConfirmedQuit = false
 
         beginTerminationPreparation(for: sender)
         return .terminateLater
@@ -416,6 +396,35 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func requestQuitConfirmationIfNeeded() -> Bool {
+        guard !isQuitConfirmationPending else {
+            return false
+        }
+
+        isQuitConfirmationPending = true
+        isRequestingQuitConfirmation = true
+        quitConfirmationRequester.requestQuitConfirmation { [weak self] decision in
+            guard let self else {
+                return
+            }
+
+            self.isQuitConfirmationPending = false
+            guard decision == .quit else {
+                return
+            }
+
+            self.hasConfirmedQuit = true
+            guard !self.isRequestingQuitConfirmation else {
+                return
+            }
+            Task { @MainActor [weak self] in
+                self?.requestTermination()
+            }
+        }
+        isRequestingQuitConfirmation = false
+        return hasConfirmedQuit
+    }
+
     private func completeTerminationPreparation(for application: NSApplication) {
         guard isTerminationPreparationPending else {
             return
@@ -432,85 +441,5 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
 
     private var isInputMonitoringRecoveryLaunch: Bool {
         InputMonitoringPermissionLaunchRecovery.shouldRequest(environment: launchEnvironment)
-    }
-}
-
-enum QuitConfirmationDecision: Equatable {
-    case cancel
-    case quit
-}
-
-enum QuitConfirmationCopy {
-    static func informativeText(launchAtLoginStatus: LaunchAtLoginStatus) -> String {
-        var text = """
-        \(HoldTypeMenuBarIdentity.title) will stop listening for dictation shortcuts and menu bar actions until you reopen it.
-        """
-
-        if !launchAtLoginStatus.isEnabled {
-            text += "\n\nRight Command dictation will not be available after restart until \(HoldTypeMenuBarIdentity.title) is opened again."
-        }
-
-        return text
-    }
-}
-
-@MainActor
-protocol QuitConfirmationPresenting {
-    func requestQuitConfirmation() -> QuitConfirmationDecision
-}
-
-@MainActor
-struct NativeQuitConfirmationPresenter: QuitConfirmationPresenting {
-    private let launchAtLoginStatusProvider: @MainActor () -> LaunchAtLoginStatus
-
-    init(
-        launchAtLoginStatusProvider: @escaping @MainActor () -> LaunchAtLoginStatus = {
-            LaunchAtLoginService().currentStatus()
-        }
-    ) {
-        self.launchAtLoginStatusProvider = launchAtLoginStatusProvider
-    }
-
-    func requestQuitConfirmation() -> QuitConfirmationDecision {
-        let shouldRestoreAccessoryAfterCancel = !hasVisibleAppWindow
-
-        AppWindowActivation.showRegularApp()
-
-        let launchAtLoginStatus = launchAtLoginStatusProvider()
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Quit \(HoldTypeMenuBarIdentity.title)?"
-        alert.informativeText = QuitConfirmationCopy.informativeText(
-            launchAtLoginStatus: launchAtLoginStatus
-        )
-        alert.addButton(withTitle: "Cancel")
-        alert.addButton(withTitle: "Quit \(HoldTypeMenuBarIdentity.title)")
-
-        bringAlertToFront(alert)
-        let decision: QuitConfirmationDecision = alert.runModal() == .alertSecondButtonReturn
-            ? .quit
-            : .cancel
-
-        if decision == .cancel, shouldRestoreAccessoryAfterCancel {
-            NSApplication.shared.setActivationPolicy(.accessory)
-        }
-
-        return decision
-    }
-
-    private func bringAlertToFront(_ alert: NSAlert) {
-        let alertWindow = alert.window
-        alertWindow.level = .modalPanel
-        alertWindow.collectionBehavior = alertWindow.collectionBehavior.union(.moveToActiveSpace)
-        alertWindow.makeKeyAndOrderFront(nil)
-        alertWindow.orderFrontRegardless()
-    }
-
-    private var hasVisibleAppWindow: Bool {
-        NSApplication.shared.windows.contains { window in
-            window.isVisible
-                && !window.isMiniaturized
-                && window.canBecomeKey
-        }
     }
 }
