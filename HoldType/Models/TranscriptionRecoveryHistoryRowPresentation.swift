@@ -5,6 +5,7 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
     let showsProgress: Bool
     let showsSettings: Bool
     let showsRetry: Bool
+    let showsDuplicateRetry: Bool
     let showsSaveRetry: Bool
     let saveRetryTitle: String
 
@@ -17,6 +18,7 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
             showsProgress = true
             showsSettings = false
             showsRetry = false
+            showsDuplicateRetry = false
             showsSaveRetry = false
             saveRetryTitle = "Retry Save"
         case .failed:
@@ -38,6 +40,7 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
             showsProgress = false
             showsSettings = attempt.reason.settingsTarget != nil
             showsRetry = attempt.canRetry
+            showsDuplicateRetry = attempt.requiresDuplicateRetryConfirmation
             showsSaveRetry = (
                 attempt.reason == .savedStatePersistenceFailed
                     && attempt.acceptedTranscriptText != nil
@@ -60,6 +63,7 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
             showsProgress = false
             showsSettings = false
             showsRetry = false
+            showsDuplicateRetry = false
             showsSaveRetry = false
             saveRetryTitle = "Retry Save"
         }

@@ -61,6 +61,7 @@ struct HoldTypeApp: App {
         SettingsScene()
         FixesEditorScene()
         TranscriptHistoryScene()
+        TranscriptionFailurePromptScene()
         QuitConfirmationScene()
     }
 }
@@ -86,6 +87,10 @@ private struct HoldTypeMenuBarLabel: View {
             }
             QuitConfirmationCoordinator.shared.install {
                 openWindow(id: QuitConfirmationScene.identifier)
+            }
+            TranscriptionFailurePromptCoordinator.shared.install {
+                AppWindowActivation.showRegularApp()
+                openWindow(id: TranscriptionFailurePromptScene.identifier)
             }
         }
     }
@@ -190,9 +195,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         quitConfirmationRequester = QuitConfirmationCoordinator.shared
-        transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator(
-            dictationRuntime: dictationRuntime
-        )
+        transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator.shared
         launchEnvironment = ProcessInfo.processInfo.environment
         clearTranscriptHistoryOverride = nil
         startRuntimeComponentsOverride = nil

@@ -139,7 +139,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw error
         }
     }
-
     func recordFailedAttempt(
         audioFileURL: URL,
         settings: AppSettings,
@@ -159,7 +158,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         try updateFailedAttempt(id: attempt.id, reason: reason)
         return failedAttempts.first { $0.id == attempt.id }
     }
-
     func retainEmergencyFallback(
         audioFileURL: URL,
         settings: AppSettings,
@@ -206,7 +204,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             .sorted { $0.updatedAt > $1.updatedAt }
         return attempt
     }
-
     func markSaved(
         id: FailedTranscriptionAttempt.ID,
         acceptedTranscriptText: String
@@ -312,7 +309,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw error
         }
     }
-
     func repairLocalRecovery(id: FailedTranscriptionAttempt.ID) throws {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
               failedAttempts[index].state == .failed else {
@@ -359,7 +355,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
     }
-
     func recordProviderAccepted(
         id: FailedTranscriptionAttempt.ID,
         acceptedTranscriptText: String
@@ -388,7 +383,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             try? persistSavedStateRepairMarker(failClosedAttempt)
         }
     }
-
     func markAcceptedHistoryCommitFailed(id: FailedTranscriptionAttempt.ID) {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
               failedAttempts[index].state != .saved,
@@ -410,7 +404,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         try? persist(failClosedAttempts)
         failedAttempts = failClosedAttempts
     }
-
     func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID) {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
               failedAttempts[index].state != .saved,
@@ -428,7 +421,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         try? persist(uncertainAttempts)
         failedAttempts = uncertainAttempts
     }
-
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
               failedAttempts[index].state == .processing
@@ -450,7 +442,26 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw error
         }
     }
+    func beginConfirmedDuplicateRetry(id: FailedTranscriptionAttempt.ID) throws {
+        guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
+              failedAttempts[index].requiresDuplicateRetryConfirmation,
+              !emergencyFallbackAttemptIDs.contains(id) else {
+            throw TranscriptionFailureRecoveryError.attemptUnavailable
+        }
 
+        do {
+            try persistProviderDispatchMarker(failedAttempts[index])
+            var retryingAttempts = failedAttempts
+            retryingAttempts[index].state = .processing
+            retryingAttempts[index].retryCount += 1
+            retryingAttempts[index].updatedAt = now()
+            retryingAttempts = retryingAttempts.sorted { $0.updatedAt > $1.updatedAt }
+            try persist(retryingAttempts)
+            failedAttempts = retryingAttempts
+        } catch {
+            throw TranscriptionFailureRecoveryError.attemptUnavailable
+        }
+    }
     func updateFailedAttempt(id: FailedTranscriptionAttempt.ID, reason: FailedTranscriptionReason) throws {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }) else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
@@ -505,7 +516,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         try? deleteProcessingCheckpointMarker(id: id)
         try? deleteProviderDispatchMarker(id: id)
     }
-
     @discardableResult
     func removeFailedAttempt(id: FailedTranscriptionAttempt.ID) throws -> Bool {
         guard let attempt = failedAttempts.first(where: { $0.id == id }) else {
@@ -555,7 +565,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         failedAttempts = retainedAttempts
         return true
     }
-
     private func validateNonemptyAudio(at fileURL: URL) throws {
         guard ArtifactFormat.regularNonemptyFile(
             at: fileURL,
@@ -564,7 +573,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.audioUnavailable
         }
     }
-
     private func copyAudioForRecovery(
         sourceURL: URL,
         id: UUID,
@@ -596,7 +604,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-
     private func copyEmergencyAttemptIntoRecovery(
         _ attempt: FailedTranscriptionAttempt
     ) throws -> FailedTranscriptionAttempt {
@@ -621,7 +628,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             acceptedTranscriptText: attempt.acceptedTranscriptText
         )
     }
-
     private func replaceAttemptsWithRetained(
         _ attempts: [FailedTranscriptionAttempt]
     ) throws {
@@ -687,7 +693,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             }
         )
     }
-
     private func persist(_ attempts: [FailedTranscriptionAttempt]) throws {
         do {
             try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
@@ -704,7 +709,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-
     private func persistSavedStateRepairMarker(
         _ attempt: FailedTranscriptionAttempt
     ) throws {
@@ -733,7 +737,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-
     private func persistProcessingCheckpointMarker(
         _ attempt: FailedTranscriptionAttempt
     ) throws {
@@ -761,7 +764,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-
     private func persistProviderDispatchMarker(
         _ attempt: FailedTranscriptionAttempt
     ) throws {
@@ -789,13 +791,11 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-
     private func deleteSavedStateRepairMarker(id: UUID) throws {
         try deleteSavedStateRepairMarker(
             ArtifactFormat.markerURL(.savedStateRepair, in: directoryURL, id: id)
         )
     }
-
     private func deleteSavedStateRepairMarker(_ markerURL: URL) throws {
         guard markerURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,

@@ -7,6 +7,7 @@ struct FailedTranscriptionHistoryRowView: View {
     let savedRecordingActionsEnabled: Bool
     let onPlayAudio: () -> Void
     let onRetry: () -> Void
+    let onDuplicateRetry: () -> Void
     let onRetrySave: () -> Void
     let onOpenSettings: (SettingsNavigationItem) -> Void
     let onDelete: () -> Void
@@ -81,6 +82,15 @@ struct FailedTranscriptionHistoryRowView: View {
                         Label("Retry", systemImage: "arrow.clockwise")
                     }
                     .help("Retry Transcription")
+                    .controlSize(.small)
+                    .disabled(!savedRecordingActionsEnabled)
+                }
+
+                if presentation.showsDuplicateRetry {
+                    Button(action: onDuplicateRetry) {
+                        Label("Transcribe Again", systemImage: "arrow.clockwise")
+                    }
+                    .help("Transcribe Again (may create a duplicate charge)")
                     .controlSize(.small)
                     .disabled(!savedRecordingActionsEnabled)
                 }
@@ -195,6 +205,7 @@ private enum FailedTranscriptionHistoryRowPreview {
         savedRecordingActionsEnabled: false,
         onPlayAudio: {},
         onRetry: {},
+        onDuplicateRetry: {},
         onRetrySave: {},
         onOpenSettings: { _ in },
         onDelete: {}
@@ -213,6 +224,7 @@ private enum FailedTranscriptionHistoryRowPreview {
         savedRecordingActionsEnabled: true,
         onPlayAudio: {},
         onRetry: {},
+        onDuplicateRetry: {},
         onRetrySave: {},
         onOpenSettings: { _ in },
         onDelete: {}
@@ -232,6 +244,7 @@ private enum FailedTranscriptionHistoryRowPreview {
         savedRecordingActionsEnabled: true,
         onPlayAudio: {},
         onRetry: {},
+        onDuplicateRetry: {},
         onRetrySave: {},
         onOpenSettings: { _ in },
         onDelete: {}

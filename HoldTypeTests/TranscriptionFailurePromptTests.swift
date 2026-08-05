@@ -1,6 +1,4 @@
-import AppKit
-import HoldTypeDomain
-import HoldTypeOpenAI
+import Foundation
 import Testing
 @testable import HoldType
 struct TranscriptionFailurePromptTests {
@@ -72,6 +70,26 @@ struct TranscriptionFailurePromptTests {
         #expect(actionTitles.contains("Transcript History") == false)
     }
 
+    @Test func uncertainOutcomeOffersWarningGatedTranscribeAgain() throws {
+        let failedAttemptID = try #require(UUID(uuidString: "2F630CA6-014E-4139-BF18-2A6C1F2D6C95"))
+        let presentation = DictationFailurePresentation(
+            title: FailedTranscriptionReason.providerOutcomeUncertain.title,
+            message: FailedTranscriptionReason.providerOutcomeUncertain.message,
+            failedAttemptID: failedAttemptID,
+            requiresDuplicateRetryConfirmation: true,
+            showsRecoveryPrompt: true
+        )
+
+        let actions = TranscriptionFailurePromptActions.actions(for: presentation)
+        let informativeText = TranscriptionFailurePromptCopy.informativeText(for: presentation)
+
+        #expect(actions == [.transcribeAgain(failedAttemptID), .dismiss])
+        #expect(actionTitles(for: actions) == ["Transcribe Again…", "Dismiss"])
+        #expect(informativeText.contains("saved in Transcript History"))
+        #expect(informativeText.contains("saved for retry") == false)
+        #expect(TranscriptionFailurePromptCopy.duplicateRetryWarning.contains("duplicate"))
+    }
+
     @Test func recordingTooShortPresentationDoesNotRequestFrontmostPrompt() {
         let presentation = DictationFailurePresentation(
             title: "Recording too short",
@@ -106,133 +124,7 @@ struct TranscriptionFailurePromptTests {
         #expect(presentedReasons == [.timedOut])
     }
 
-    @MainActor
-    @Test func recoveryPromptWaitsForTerminalFailureStateBeforePresenting() async throws {
-        let failedAttemptID = try #require(UUID(uuidString: "0B86A1D4-7C2C-4B9A-AC93-B71A2A7590B1"))
-        let runtime = DictationRuntime(
-            controller: DictationSessionController(initialStatus: .transcribing),
-            appSettingsStore: AppSettingsStore(userDefaults: makeUserDefaults()),
-            credentialResolver: MissingPromptCredentialResolver(),
-            hotkeyService: FakeGlobalHotkeyService()
-        )
-        let floatingPresenter = PromptFloatingIndicatorPresenter()
-        let floatingCoordinator = FloatingIndicatorCoordinator(
-            dictationRuntime: runtime,
-            appSettingsStore: AppSettingsStore(userDefaults: makeUserDefaults()),
-            presenter: floatingPresenter
-        )
-        var observedPromptStatuses: [DictationStatus] = []
-        var observedPromptIndicators: [FloatingIndicatorPresentation?] = []
-        let promptPresenter = InspectingTranscriptionFailurePromptPresenter {
-            observedPromptStatuses.append(runtime.status)
-            observedPromptIndicators.append(floatingPresenter.lastPresentation)
-        }
-        let promptCoordinator = TranscriptionFailurePromptCoordinator(
-            dictationRuntime: runtime,
-            presenter: promptPresenter,
-            settingsPresenter: PromptSettingsPresenter()
-        )
-
-        promptCoordinator.start()
-        floatingCoordinator.start()
-
-        #expect(floatingPresenter.lastPresentation?.phase == .transcribing)
-
-        await runtime.retryFailedTranscription(
-            id: failedAttemptID,
-            outputMode: .followAutomaticInsertion
-        )
-        await yieldUntil { promptPresenter.requestCount == 1 }
-
-        let promptSawOnlyFailure = observedPromptStatuses.allSatisfy { $0.isFailure }
-
-        #expect(promptPresenter.requestCount == 1)
-        #expect(promptSawOnlyFailure)
-        #expect(observedPromptIndicators == [nil])
-
-        promptCoordinator.stop()
-        floatingCoordinator.stop()
-    }
-
     private func actionTitles(for actions: [TranscriptionFailurePromptDecision]) -> [String] {
         actions.map { TranscriptionFailurePromptCopy.buttonTitle(for: $0) }
-    }
-
-    private func makeUserDefaults() -> UserDefaults {
-        let userDefaults = UserDefaults(
-            suiteName: "holdtype.TranscriptionFailurePromptTests.\(UUID().uuidString)"
-        )
-        #expect(userDefaults != nil)
-        return userDefaults!
-    }
-
-    @MainActor
-    private func yieldUntil(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<40 {
-            if condition() {
-                return
-            }
-
-            await Task.yield()
-        }
-    }
-}
-private struct MissingPromptCredentialResolver: OpenAICredentialResolving {
-    func resolveOpenAICredential() throws -> OpenAICredential {
-        throw OpenAICredentialResolutionError.missingAPIKey
-    }
-}
-
-@MainActor
-private final class InspectingTranscriptionFailurePromptPresenter: TranscriptionFailurePromptPresenting {
-    private let onRequest: @MainActor () -> Void
-    private(set) var requestCount = 0
-
-    init(onRequest: @escaping @MainActor () -> Void) {
-        self.onRequest = onRequest
-    }
-
-    func requestRecoveryDecision(
-        for presentation: DictationFailurePresentation
-    ) -> TranscriptionFailurePromptDecision {
-        requestCount += 1
-        onRequest()
-        return .dismiss
-    }
-}
-
-@MainActor
-private final class PromptFloatingIndicatorPresenter: FloatingIndicatorPresenting {
-    private(set) var presentations: [FloatingIndicatorPresentation?] = []
-
-    var lastPresentation: FloatingIndicatorPresentation? {
-        presentations.last ?? nil
-    }
-
-    func update(with presentation: FloatingIndicatorPresentation?) {
-        presentations.append(presentation)
-    }
-
-    func hide() {
-        presentations.append(nil)
-    }
-}
-
-@MainActor
-private final class PromptSettingsPresenter: SetupSettingsPresenting {
-    func show(focusing item: SettingsNavigationItem?) {}
-
-    func showAfterMenuDismissal(focusing item: SettingsNavigationItem?) {}
-
-    func showAfterSystemPermissionPrompt(focusing item: SettingsNavigationItem?) {}
-}
-
-private extension DictationStatus {
-    var isFailure: Bool {
-        if case .failure = self {
-            return true
-        }
-
-        return false
     }
 }

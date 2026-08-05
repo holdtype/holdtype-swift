@@ -236,6 +236,10 @@ enum FailedTranscriptionReason: Codable, Equatable {
         }
     }
 
+    var requiresDuplicateRetryConfirmation: Bool {
+        self == .providerOutcomeUncertain
+    }
+
     var shouldRecordFailedAttempt: Bool {
         switch self {
         case .missingAPIKey, .cancelled, .invalidRecording:
@@ -310,6 +314,10 @@ struct FailedTranscriptionAttempt: Equatable, Identifiable {
         state == .failed && reason.canRetry
     }
 
+    var requiresDuplicateRetryConfirmation: Bool {
+        state == .failed && reason.requiresDuplicateRetryConfirmation
+    }
+
     var canDelete: Bool {
         state != .processing
     }
@@ -340,6 +348,7 @@ protocol TranscriptionFailureRecoveryRecording: AnyObject {
     ) -> FailedTranscriptionAttempt?
     func markSaved(id: FailedTranscriptionAttempt.ID, acceptedTranscriptText: String) throws
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws
+    func beginConfirmedDuplicateRetry(id: FailedTranscriptionAttempt.ID) throws
     func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID)
     func recordProviderAccepted(
         id: FailedTranscriptionAttempt.ID,
@@ -398,6 +407,8 @@ extension TranscriptionFailureRecoveryRecording {
     }
 
     func sealProviderDispatch(id: FailedTranscriptionAttempt.ID) throws {}
+
+    func beginConfirmedDuplicateRetry(id: FailedTranscriptionAttempt.ID) throws {}
 
     func markProviderOutcomeUncertain(id: FailedTranscriptionAttempt.ID) {}
 

@@ -11,6 +11,7 @@ struct DictationFailurePresentation: Equatable {
     let failedAttemptID: FailedTranscriptionAttempt.ID?
     let settingsTarget: SettingsNavigationItem?
     let canRetry: Bool
+    let requiresDuplicateRetryConfirmation: Bool
     let showsRecoveryPrompt: Bool
 
     init(
@@ -19,6 +20,7 @@ struct DictationFailurePresentation: Equatable {
         failedAttemptID: FailedTranscriptionAttempt.ID? = nil,
         settingsTarget: SettingsNavigationItem? = nil,
         canRetry: Bool = false,
+        requiresDuplicateRetryConfirmation: Bool = false,
         showsRecoveryPrompt: Bool = false
     ) {
         self.title = title
@@ -26,6 +28,8 @@ struct DictationFailurePresentation: Equatable {
         self.failedAttemptID = failedAttemptID
         self.settingsTarget = settingsTarget
         self.canRetry = canRetry && failedAttemptID != nil
+        self.requiresDuplicateRetryConfirmation = requiresDuplicateRetryConfirmation
+            && failedAttemptID != nil
         self.showsRecoveryPrompt = showsRecoveryPrompt
     }
 }

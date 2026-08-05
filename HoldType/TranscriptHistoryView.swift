@@ -16,7 +16,7 @@ struct TranscriptHistoryView: View {
     @State private var actionStatusText: String?
     @State private var recordingCacheRevision = 0
     @State private var isShowingClearConfirmation = false
-
+    @State private var duplicateRetryAttempt: FailedTranscriptionAttempt?
     private let appSettingsStore: AppSettingsStore
     private let copyHistoryEntryAction: TranscriptHistoryClipboardCopyAction
     private let playHistoryAudioAction: TranscriptHistoryAudioPlaybackAction
@@ -53,18 +53,14 @@ struct TranscriptHistoryView: View {
         self.calendar = calendar
         _appSettings = State(initialValue: appSettingsStore.load())
     }
-
     var body: some View {
         VStack(spacing: 0) {
             header
-
             Divider()
-
             content
 
             if let actionStatusText {
                 Divider()
-
                 Text(actionStatusText)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -96,8 +92,23 @@ struct TranscriptHistoryView: View {
         } message: {
             Text(bulkClearSummary.confirmationMessage)
         }
+        .confirmationDialog(
+            "Transcribe this recording again?",
+            isPresented: duplicateRetryConfirmationIsPresented
+        ) {
+            Button("Transcribe Again") {
+                if let duplicateRetryAttempt {
+                    startConfirmedDuplicateRetry(duplicateRetryAttempt)
+                }
+                duplicateRetryAttempt = nil
+            }
+            Button("Cancel", role: .cancel) {
+                duplicateRetryAttempt = nil
+            }
+        } message: {
+            Text("The previous provider request may have completed. Sending this recording again can create a duplicate transcription request and charge.")
+        }
     }
-
     private var header: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
@@ -169,6 +180,9 @@ struct TranscriptHistoryView: View {
                                             },
                                             onRetry: {
                                                 retryAttempt(attempt)
+                                            },
+                                            onDuplicateRetry: {
+                                                duplicateRetryAttempt = attempt
                                             },
                                             onRetrySave: {
                                                 retrySavingAttempt(attempt)
@@ -347,6 +361,31 @@ struct TranscriptHistoryView: View {
             await MainActor.run {
                 actionStatusText = "Retry finished. Check the latest status in the menu."
             }
+        }
+    }
+
+    private var duplicateRetryConfirmationIsPresented: Binding<Bool> {
+        Binding(
+            get: { duplicateRetryAttempt != nil },
+            set: { isPresented in
+                if !isPresented {
+                    duplicateRetryAttempt = nil
+                }
+            }
+        )
+    }
+
+    private func startConfirmedDuplicateRetry(_ attempt: FailedTranscriptionAttempt) {
+        guard savedRecordingActionsEnabled,
+              attempt.requiresDuplicateRetryConfirmation else {
+            actionStatusText = attempt.reason.message
+            return
+        }
+
+        actionStatusText = "Transcribing saved recording again..."
+        Task {
+            await dictationRuntime.retryUncertainTranscription(id: attempt.id)
+            actionStatusText = "Transcription finished. Check the latest status in the menu."
         }
     }
 

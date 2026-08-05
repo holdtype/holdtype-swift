@@ -1,15 +1,9 @@
-//
-//  TranscriptionFailurePromptCoordinator.swift
-//  HoldType
-//
-//  Created by Codex on 7/8/26.
-//
-
-import AppKit
 import Combine
+import SwiftUI
 
-enum TranscriptionFailurePromptDecision: Equatable {
+enum TranscriptionFailurePromptDecision: Hashable {
     case retry(FailedTranscriptionAttempt.ID)
+    case transcribeAgain(FailedTranscriptionAttempt.ID)
     case openSettings(SettingsNavigationItem)
     case dismiss
 }
@@ -22,9 +16,12 @@ enum TranscriptionFailurePromptActions {
             actions.append(.openSettings(settingsTarget))
         }
 
-        if let failedAttemptID = presentation.failedAttemptID,
-           presentation.canRetry {
-            actions.append(.retry(failedAttemptID))
+        if let failedAttemptID = presentation.failedAttemptID {
+            if presentation.canRetry {
+                actions.append(.retry(failedAttemptID))
+            } else if presentation.requiresDuplicateRetryConfirmation {
+                actions.append(.transcribeAgain(failedAttemptID))
+            }
         }
 
         actions.append(.dismiss)
@@ -33,14 +30,20 @@ enum TranscriptionFailurePromptActions {
 }
 
 enum TranscriptionFailurePromptCopy {
+    static let duplicateRetryWarning = """
+    The provider may have completed the previous request. Sending this recording again can create a duplicate transcription request and charge.
+    """
+
     static func informativeText(for presentation: DictationFailurePresentation) -> String {
         let message = presentation.message.trimmingCharacters(in: .whitespacesAndNewlines)
         var paragraphs = [
             message.isEmpty ? "The recording was not transcribed." : message
         ]
 
-        if presentation.failedAttemptID != nil {
+        if presentation.canRetry {
             paragraphs.append("The recording was saved for retry.")
+        } else if presentation.requiresDuplicateRetryConfirmation {
+            paragraphs.append("The recording was saved in Transcript History.")
         }
 
         return paragraphs.joined(separator: "\n\n")
@@ -50,6 +53,8 @@ enum TranscriptionFailurePromptCopy {
         switch decision {
         case .retry:
             return "Try Again"
+        case .transcribeAgain:
+            return "Transcribe Again…"
         case .openSettings(let item):
             return settingsActionTitle(for: item)
         case .dismiss:
@@ -72,43 +77,33 @@ enum TranscriptionFailurePromptCopy {
 }
 
 @MainActor
-protocol TranscriptionFailurePromptPresenting {
-    func requestRecoveryDecision(
-        for presentation: DictationFailurePresentation
-    ) -> TranscriptionFailurePromptDecision
-}
-
-@MainActor
 protocol TranscriptionFailurePromptCoordinating: AnyObject {
     func start()
     func stop()
 }
 
 @MainActor
-final class TranscriptionFailurePromptCoordinator: TranscriptionFailurePromptCoordinating {
+final class TranscriptionFailurePromptCoordinator: ObservableObject, TranscriptionFailurePromptCoordinating {
+    static let shared = TranscriptionFailurePromptCoordinator()
+
+    @Published private(set) var presentation: DictationFailurePresentation?
+
     private let dictationRuntime: DictationRuntime
-    private let presenter: any TranscriptionFailurePromptPresenting
     private let settingsPresenter: any SetupSettingsPresenting
     private var failureStateCancellable: AnyCancellable?
     private var pendingPresentationTask: Task<Void, Never>?
-    private var isPresenting = false
-
-    convenience init(dictationRuntime: DictationRuntime) {
-        self.init(
-            dictationRuntime: dictationRuntime,
-            presenter: NativeTranscriptionFailurePromptPresenter(),
-            settingsPresenter: SettingsPresentationCoordinator.shared
-        )
-    }
+    private var openPromptWindow: (() -> Void)?
 
     init(
-        dictationRuntime: DictationRuntime,
-        presenter: any TranscriptionFailurePromptPresenting,
-        settingsPresenter: any SetupSettingsPresenting
+        dictationRuntime: DictationRuntime = .shared,
+        settingsPresenter: any SetupSettingsPresenting = SettingsPresentationCoordinator.shared
     ) {
         self.dictationRuntime = dictationRuntime
-        self.presenter = presenter
         self.settingsPresenter = settingsPresenter
+    }
+
+    func install(openPromptWindow: @escaping () -> Void) {
+        self.openPromptWindow = openPromptWindow
     }
 
     func start() {
@@ -135,52 +130,26 @@ final class TranscriptionFailurePromptCoordinator: TranscriptionFailurePromptCoo
         failureStateCancellable = nil
         pendingPresentationTask?.cancel()
         pendingPresentationTask = nil
-        isPresenting = false
+        presentation = nil
     }
 
-    private func schedulePresentationIfNeeded(
-        _ presentation: DictationFailurePresentation?,
-        status: DictationStatus
-    ) {
-        pendingPresentationTask?.cancel()
-        pendingPresentationTask = nil
-
-        guard let presentation,
-              presentation.showsRecoveryPrompt,
-              status.isTerminalFailure,
-              !isPresenting else {
+    func resolve(_ decision: TranscriptionFailurePromptDecision) {
+        guard presentation != nil else {
             return
         }
 
-        pendingPresentationTask = Task { @MainActor in
-            await Task.yield()
-            guard !Task.isCancelled,
-                  dictationRuntime.failurePresentation == presentation,
-                  dictationRuntime.status.isTerminalFailure else {
-                return
-            }
-
-            pendingPresentationTask = nil
-            present(presentation)
-        }
-    }
-
-    private func present(_ presentation: DictationFailurePresentation) {
-        guard !isPresenting else {
-            return
-        }
-
-        isPresenting = true
-        let decision = presenter.requestRecoveryDecision(for: presentation)
-        isPresenting = false
-        handle(decision)
-    }
-
-    private func handle(_ decision: TranscriptionFailurePromptDecision) {
+        presentation = nil
         switch decision {
         case .retry(let id):
             Task {
                 await dictationRuntime.retryFailedTranscription(
+                    id: id,
+                    outputMode: .followAutomaticInsertion
+                )
+            }
+        case .transcribeAgain(let id):
+            Task {
+                await dictationRuntime.retryUncertainTranscription(
                     id: id,
                     outputMode: .followAutomaticInsertion
                 )
@@ -191,77 +160,143 @@ final class TranscriptionFailurePromptCoordinator: TranscriptionFailurePromptCoo
             dictationRuntime.dismissFailurePresentation()
         }
     }
-}
 
-@MainActor
-struct NativeTranscriptionFailurePromptPresenter: TranscriptionFailurePromptPresenting {
-    func requestRecoveryDecision(
-        for presentation: DictationFailurePresentation
-    ) -> TranscriptionFailurePromptDecision {
-        let shouldRestoreAccessoryAfterPrompt = !hasVisibleAppWindow
-        let actions = TranscriptionFailurePromptActions.actions(for: presentation)
-
-        AppWindowActivation.showRegularApp()
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = presentation.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "Transcription failed"
-            : presentation.title
-        alert.informativeText = TranscriptionFailurePromptCopy.informativeText(for: presentation)
-
-        for action in actions {
-            alert.addButton(withTitle: TranscriptionFailurePromptCopy.buttonTitle(for: action))
-        }
-
-        bringAlertToFront(alert)
-        let response = alert.runModal()
-        let decision = decision(for: response, actions: actions)
-
-        if shouldRestoreAccessoryAfterPrompt, !decision.opensSettings {
-            AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: alert.window)
-        }
-
-        return decision
+    func dismissIfNeeded() {
+        resolve(.dismiss)
     }
 
-    private func decision(
-        for response: NSApplication.ModalResponse,
-        actions: [TranscriptionFailurePromptDecision]
-    ) -> TranscriptionFailurePromptDecision {
-        let buttonIndex = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
-        guard actions.indices.contains(buttonIndex) else {
-            return .dismiss
+    private func schedulePresentationIfNeeded(
+        _ failurePresentation: DictationFailurePresentation?,
+        status: DictationStatus
+    ) {
+        pendingPresentationTask?.cancel()
+        pendingPresentationTask = nil
+
+        guard let failurePresentation,
+              failurePresentation.showsRecoveryPrompt,
+              status.isTerminalFailure,
+              presentation == nil else {
+            return
         }
 
-        return actions[buttonIndex]
-    }
+        pendingPresentationTask = Task { @MainActor in
+            await Task.yield()
+            guard !Task.isCancelled,
+                  dictationRuntime.failurePresentation == failurePresentation,
+                  dictationRuntime.status.isTerminalFailure else {
+                return
+            }
 
-    private func bringAlertToFront(_ alert: NSAlert) {
-        let alertWindow = alert.window
-        alertWindow.level = .modalPanel
-        alertWindow.collectionBehavior = alertWindow.collectionBehavior.union(.moveToActiveSpace)
-        alertWindow.makeKeyAndOrderFront(nil)
-        alertWindow.orderFrontRegardless()
-    }
-
-    private var hasVisibleAppWindow: Bool {
-        NSApplication.shared.windows.contains { window in
-            window.isVisible
-                && !window.isMiniaturized
-                && window.canBecomeKey
+            pendingPresentationTask = nil
+            presentation = failurePresentation
+            openPromptWindow?()
         }
     }
 }
 
-private extension TranscriptionFailurePromptDecision {
-    var opensSettings: Bool {
-        if case .openSettings = self {
-            return true
-        }
+struct TranscriptionFailurePromptScene: Scene {
+    static let identifier = "holdtype.transcription-failure"
 
-        return false
+    var body: some Scene {
+        Window("Transcription failed", id: Self.identifier) {
+            TranscriptionFailurePromptWindowContent(coordinator: .shared)
+        }
+        .defaultSize(width: 460, height: 240)
+        .windowResizability(.contentSize)
     }
+}
+
+private struct TranscriptionFailurePromptWindowContent: View {
+    @ObservedObject var coordinator: TranscriptionFailurePromptCoordinator
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Group {
+            if let presentation = coordinator.presentation {
+                TranscriptionFailurePromptDialog(
+                    presentation: presentation,
+                    onResolve: resolve
+                )
+            } else {
+                Color.clear.frame(width: 1, height: 1)
+            }
+        }
+        .onDisappear {
+            coordinator.dismissIfNeeded()
+        }
+    }
+
+    private func resolve(_ decision: TranscriptionFailurePromptDecision) {
+        coordinator.resolve(decision)
+        dismiss()
+    }
+}
+
+private struct TranscriptionFailurePromptDialog: View {
+    let presentation: DictationFailurePresentation
+    let onResolve: (TranscriptionFailurePromptDecision) -> Void
+    @State private var isShowingDuplicateRetryConfirmation = false
+
+    private var actions: [TranscriptionFailurePromptDecision] {
+        TranscriptionFailurePromptActions.actions(for: presentation)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Label(presentation.title, systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+
+            Text(TranscriptionFailurePromptCopy.informativeText(for: presentation))
+                .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(.secondary)
+
+            HStack {
+                Spacer()
+
+                ForEach(actions, id: \.self) { action in
+                    Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
+                        if case .transcribeAgain = action {
+                            isShowingDuplicateRetryConfirmation = true
+                        } else {
+                            onResolve(action)
+                        }
+                    }
+                    .keyboardShortcut(action == .dismiss ? .cancelAction : .defaultAction)
+                }
+            }
+        }
+        .padding(24)
+        .frame(width: 460)
+        .confirmationDialog(
+            "Transcribe this recording again?",
+            isPresented: $isShowingDuplicateRetryConfirmation
+        ) {
+            Button("Transcribe Again") {
+                if let action = actions.first(where: {
+                    if case .transcribeAgain = $0 { return true }
+                    return false
+                }) {
+                    onResolve(action)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(TranscriptionFailurePromptCopy.duplicateRetryWarning)
+        }
+    }
+}
+
+#Preview("Ambiguous provider result") {
+    TranscriptionFailurePromptDialog(
+        presentation: DictationFailurePresentation(
+            title: FailedTranscriptionReason.providerOutcomeUncertain.title,
+            message: FailedTranscriptionReason.providerOutcomeUncertain.message,
+            failedAttemptID: UUID(),
+            requiresDuplicateRetryConfirmation: true,
+            showsRecoveryPrompt: true
+        ),
+        onResolve: { _ in }
+    )
 }
 
 private extension DictationStatus {

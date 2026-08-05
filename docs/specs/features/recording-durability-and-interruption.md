@@ -91,10 +91,12 @@ other cause preserves positive bytes under one durable owner.
   already requested Finish or the configured limit had already elapsed.
 - A provider-free Saved Recording offers Play, Transcribe, and Delete. Delete
   is explicit and affects only that attempt.
-- A provider failure keeps Play and Retry/Transcribe. Ambiguous provider
-  outcome remains non-retryable by default, but may offer an explicit
-  warning-gated `Transcribe Again` action that explains possible duplicate
-  billing.
+- A provider failure keeps Play and Retry/Transcribe. An ambiguous provider
+  outcome keeps ordinary Retry hidden, but offers an explicit warning-gated
+  `Transcribe Again…` action. The warning explains that the provider may have
+  completed the earlier request and that sending the recording again can create
+  a duplicate transcript request and charge. Only the user's confirmation may
+  start that new request.
 - Local finalization or persistence failure must become visible in the current
   process; recovery must not require an app restart merely to appear.
 - Accepted-History publication and audio cleanup form a recoverable

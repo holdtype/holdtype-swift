@@ -112,6 +112,17 @@ final class FakeTranscriptionFailureRecovery: TranscriptionFailureRecoveryRecord
         failedAttempts[index].updatedAt = Date()
     }
 
+    func beginConfirmedDuplicateRetry(id: FailedTranscriptionAttempt.ID) throws {
+        guard let index = failedAttempts.firstIndex(where: { $0.id == id }),
+              failedAttempts[index].requiresDuplicateRetryConfirmation else {
+            throw TranscriptionFailureRecoveryError.attemptUnavailable
+        }
+
+        failedAttempts[index].state = .processing
+        failedAttempts[index].retryCount += 1
+        failedAttempts[index].updatedAt = Date()
+    }
+
     func markAcceptedHistoryCommitFailed(id: FailedTranscriptionAttempt.ID) {
         guard let index = failedAttempts.firstIndex(where: { $0.id == id }) else {
             return

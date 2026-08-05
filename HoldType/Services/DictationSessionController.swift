@@ -8,42 +8,39 @@
 import Foundation
 import HoldTypeDomain
 import HoldTypeOpenAI
-
 protocol TranscriptOutputDelivering {
     func deliver(_ request: OutputDeliveryRequest) async throws -> TextInsertionResult
 }
-
 extension TextInsertionService: TranscriptOutputDelivering {}
-
 enum FailedTranscriptionRetryOutputMode: Equatable {
     case saveOnly
     case followAutomaticInsertion
 }
-
+enum FailedTranscriptionRetryAuthorization: Equatable {
+    case ordinary
+    case confirmedDuplicateSubmission
+}
 private struct PendingFailedTranscriptionRetry {
     let id: FailedTranscriptionAttempt.ID
     let credential: OpenAICredential?
     let outputMode: FailedTranscriptionRetryOutputMode
+    let authorization: FailedTranscriptionRetryAuthorization
 }
-
 private enum DeferredRecordingTerminalOutcome {
     case automatic(
         Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
     )
     case maximumDurationAwaitingArtifact
 }
-
 protocol RecordingStopTailSleeping {
     func sleep(seconds: TimeInterval) async throws
 }
-
 struct TaskRecordingStopTailSleeper: RecordingStopTailSleeping {
     func sleep(seconds: TimeInterval) async throws {
         let nanoseconds = UInt64(seconds * 1_000_000_000)
         try await Task.sleep(nanoseconds: nanoseconds)
     }
 }
-
 @MainActor
 final class DictationSessionController {
     static let savedRecordingActionsUnavailableMessage =
@@ -282,26 +279,24 @@ final class DictationSessionController {
     func retryFailedTranscription(
         id: FailedTranscriptionAttempt.ID,
         credential: OpenAICredential? = nil,
-        outputMode: FailedTranscriptionRetryOutputMode = .saveOnly
+        outputMode: FailedTranscriptionRetryOutputMode = .saveOnly,
+        authorization: FailedTranscriptionRetryAuthorization = .ordinary
     ) async {
         guard status.voiceWorkPhase != .listening else {
             outputStatusText = Self.savedRecordingActionsUnavailableMessage
             return
         }
-
         let retry = PendingFailedTranscriptionRetry(
             id: id,
             credential: credential,
-            outputMode: outputMode
+            outputMode: outputMode,
+            authorization: authorization
         )
-
         guard beginExclusiveAction() else {
             pendingFailedTranscriptionRetry = retry
             return
         }
-
         defer { completeExclusiveAction() }
-
         await performFailedTranscriptionRetry(retry)
     }
 
@@ -310,17 +305,18 @@ final class DictationSessionController {
             outputStatusText = TranscriptionFailureRecoveryError.attemptUnavailable.localizedDescription
             return
         }
-        guard attempt.canRetry else {
+        let mayRetry = attempt.canRetry
+            || (retry.authorization == .confirmedDuplicateSubmission
+                && attempt.requiresDuplicateRetryConfirmation)
+        guard mayRetry else {
             outputStatusText = attempt.state == .saved
                 ? "This saved recording is already transcribed."
                 : "This saved recording is not available for retry."
             return
         }
-
         outputStatusText = nil
         failurePresentation = nil
         var sessionID: Int?
-
         do {
             let credential = try resolvedCredential(providedCredential: retry.credential)
             sessionID = beginSession(intent: .standard)
@@ -334,7 +330,11 @@ final class DictationSessionController {
                 context: nil
             )
             activeRecoveryCheckpointID = attempt.id
-            try transcriptionFailureRecovery.sealProviderDispatch(id: attempt.id)
+            if retry.authorization == .confirmedDuplicateSubmission {
+                try transcriptionFailureRecovery.beginConfirmedDuplicateRetry(id: attempt.id)
+            } else {
+                try transcriptionFailureRecovery.sealProviderDispatch(id: attempt.id)
+            }
             activeProviderDispatchCheckpointID = attempt.id
             eventLogger.record(.transcriptionStarted)
             let rawTranscript = try await transcriptionService.transcribe(
@@ -345,7 +345,6 @@ final class DictationSessionController {
             guard let sessionID, isCurrentSession(sessionID) else {
                 return
             }
-
             let transcribedTranscript = try Self.acceptedTranscript(from: rawTranscript)
             transcriptionFailureRecovery.recordProviderAccepted(
                 id: attempt.id,
@@ -367,7 +366,6 @@ final class DictationSessionController {
             guard isCurrentSession(sessionID) else {
                 return
             }
-
             let acceptedTranscript = try Self.acceptedTranscript(from: correctedTranscriptText)
             let retainsMaximumDurationRecording =
                 attempt.completionKind == .maximumDuration
@@ -516,7 +514,8 @@ final class DictationSessionController {
             await retryFailedTranscription(
                 id: retry.id,
                 credential: retry.credential,
-                outputMode: retry.outputMode
+                outputMode: retry.outputMode,
+                authorization: retry.authorization
             )
         }
     }
@@ -1902,6 +1901,7 @@ final class DictationSessionController {
             failedAttemptID: failedAttempt?.id,
             settingsTarget: reason.settingsTarget,
             canRetry: reason.canRetry,
+            requiresDuplicateRetryConfirmation: reason.requiresDuplicateRetryConfirmation,
             showsRecoveryPrompt: showsRecoveryPrompt
         )
     }

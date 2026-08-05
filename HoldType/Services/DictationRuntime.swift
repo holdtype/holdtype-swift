@@ -255,6 +255,29 @@ final class DictationRuntime: ObservableObject {
         id: FailedTranscriptionAttempt.ID,
         outputMode: FailedTranscriptionRetryOutputMode = .saveOnly
     ) async {
+        await retryFailedTranscription(
+            id: id,
+            outputMode: outputMode,
+            authorization: .ordinary
+        )
+    }
+
+    func retryUncertainTranscription(
+        id: FailedTranscriptionAttempt.ID,
+        outputMode: FailedTranscriptionRetryOutputMode = .saveOnly
+    ) async {
+        await retryFailedTranscription(
+            id: id,
+            outputMode: outputMode,
+            authorization: .confirmedDuplicateSubmission
+        )
+    }
+
+    private func retryFailedTranscription(
+        id: FailedTranscriptionAttempt.ID,
+        outputMode: FailedTranscriptionRetryOutputMode,
+        authorization: FailedTranscriptionRetryAuthorization
+    ) async {
         // A live microphone capture owns the recorder. Provider work may
         // already be in flight, but the controller serializes and queues a
         // saved-recording retry behind that work.
@@ -269,7 +292,8 @@ final class DictationRuntime: ObservableObject {
             await controller.retryFailedTranscription(
                 id: id,
                 credential: credential,
-                outputMode: outputMode
+                outputMode: outputMode,
+                authorization: authorization
             )
             syncFromController()
         } catch {
@@ -304,6 +328,7 @@ final class DictationRuntime: ObservableObject {
             failedAttemptID: failedAttempt?.id,
             settingsTarget: reason.settingsTarget,
             canRetry: reason.canRetry,
+            requiresDuplicateRetryConfirmation: reason.requiresDuplicateRetryConfirmation,
             showsRecoveryPrompt: true
         )
     }

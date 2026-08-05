@@ -586,9 +586,12 @@ runtime request value still does not own its scratch-file lifecycle.
 - The MVP does not silently retry transcription requests.
 - The user may start a new recording after a timeout or provider failure.
 - The user may retry a recoverable failed attempt from Transcript History.
-  An outcome-uncertain post-dispatch attempt is deliberately not in that set;
-  a future explicit warning-gated `Transcribe Again` action may be added for
-  users who accept possible duplicate billing.
+  An outcome-uncertain post-dispatch attempt offers a separate, explicit
+  warning-gated `Transcribe Again…` action in the failure prompt, menu-bar
+  recovery actions, and Transcript History. It explains the possible duplicate
+  request and charge, and sends audio again only after confirmation. This is
+  never an automatic retry and does not make the ordinary Retry action
+  available.
 - Retrying a failed attempt is an explicit user action and counts as a new
   bounded OpenAI transcription request.
 - Retry reuses the retained source recording but builds a fresh scratch body
@@ -614,8 +617,9 @@ runtime request value still does not own its scratch-file lifecycle.
   network error. A network loss after dispatch keeps playable audio but blocks
   ordinary provider replay because the remote outcome is unknown.
 - Timeout before dispatch: fail the attempt with a timeout message and no
-  transcript update. Timeout after dispatch is outcome-uncertain and
-  non-retryable by default.
+  transcript update. Timeout after dispatch is outcome-uncertain: ordinary
+  Retry stays hidden, while `Transcribe Again…` requires an explicit warning
+  confirmation before a new provider request can start.
 - Rate limit: show that OpenAI rate limits were reached and ask the user to try
   later.
 - Provider unavailable or server error: show that OpenAI is unavailable and ask

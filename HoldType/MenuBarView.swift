@@ -15,6 +15,7 @@ struct MenuBarView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
     @StateObject private var dictationRuntime: DictationRuntime
+    @State private var duplicateRetryID: FailedTranscriptionAttempt.ID?
 
     init(
         dictationRuntime: DictationRuntime? = nil
@@ -83,6 +84,22 @@ struct MenuBarView: View {
         }
         .frame(width: Self.menuWidth)
         .padding(.vertical, 8)
+        .confirmationDialog(
+            "Transcribe this recording again?",
+            isPresented: duplicateRetryConfirmationIsPresented
+        ) {
+            Button("Transcribe Again") {
+                if let duplicateRetryID {
+                    retryUncertainTranscription(id: duplicateRetryID)
+                }
+                duplicateRetryID = nil
+            }
+            Button("Cancel", role: .cancel) {
+                duplicateRetryID = nil
+            }
+        } message: {
+            Text("The previous provider request may have completed. Sending this recording again can create a duplicate transcription request and charge.")
+        }
     }
 
     private var presentation: MenuBarPresentation {
@@ -167,6 +184,13 @@ struct MenuBarView: View {
             }
         }
 
+        if let failedAttemptID = failurePresentation?.failedAttemptID,
+           failurePresentation?.requiresDuplicateRetryConfirmation == true {
+            MenuBarActionButton(title: "Transcribe Again…") {
+                duplicateRetryID = failedAttemptID
+            }
+        }
+
         if let settingsTarget = failurePresentation?.settingsTarget {
             MenuBarActionButton(title: settingsActionTitle(for: settingsTarget)) {
                 openSettingsScene(focusing: settingsTarget)
@@ -183,6 +207,27 @@ struct MenuBarView: View {
         dismiss()
         Task {
             await dictationRuntime.retryFailedTranscription(
+                id: id,
+                outputMode: .followAutomaticInsertion
+            )
+        }
+    }
+
+    private var duplicateRetryConfirmationIsPresented: Binding<Bool> {
+        Binding(
+            get: { duplicateRetryID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    duplicateRetryID = nil
+                }
+            }
+        )
+    }
+
+    private func retryUncertainTranscription(id: FailedTranscriptionAttempt.ID) {
+        dismiss()
+        Task {
+            await dictationRuntime.retryUncertainTranscription(
                 id: id,
                 outputMode: .followAutomaticInsertion
             )
