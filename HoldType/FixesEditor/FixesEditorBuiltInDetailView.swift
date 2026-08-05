@@ -21,6 +21,14 @@ struct FixesEditorBuiltInDetailView: View {
                 }
                 .padding(.vertical, 4)
             }
+
+            Section {
+                Button(presentation.settingsButtonTitle) {
+                    SettingsWindowPresenter.shared.show(
+                        focusing: presentation.settingsNavigationItem
+                    )
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

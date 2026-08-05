@@ -60,7 +60,7 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
         )
         let editorWindow = NSWindow(contentViewController: hostingController)
         editorWindow.unbind(.title)
-        editorWindow.title = HoldTypeWindowTitle.titled("Manage Fixes")
+        editorWindow.title = "Manage Fixes"
         editorWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         editorWindow.addTitlebarAccessoryViewController(makeDescriptionAccessory())
         editorWindow.minSize = NSSize(width: 760, height: 520)

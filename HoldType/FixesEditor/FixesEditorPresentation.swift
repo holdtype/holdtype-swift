@@ -60,6 +60,18 @@ struct FixesEditorBuiltInPresentation: Equatable {
     let title: String
     let detail: String
     let systemImageName: String
+    let settingsNavigationItem: SettingsNavigationItem
+
+    var settingsButtonTitle: String {
+        switch settingsNavigationItem {
+        case .translation:
+            return "Open Translation Settings"
+        case .textCorrection:
+            return "Open Text Correction Settings"
+        default:
+            return "Open Settings"
+        }
+    }
 
     init?(action: TextFixAction) {
         switch action.kind {
@@ -67,10 +79,12 @@ struct FixesEditorBuiltInPresentation: Equatable {
             title = "Translate"
             detail =
                 "Uses your saved Translation route and model. Edit those values in Settings."
+            settingsNavigationItem = .translation
         case .fix:
             title = "Correct Text"
             detail =
                 "Uses your saved Writing & Correction model and prompt without changing automatic correction."
+            settingsNavigationItem = .textCorrection
         case .customPrompt:
             return nil
         }

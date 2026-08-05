@@ -30,10 +30,11 @@ struct FixesEditorSidebarView: View {
         .toolbar {
             ToolbarItem {
                 Button(action: model.addFix) {
-                    Label("Add Fix", systemImage: "plus")
+                    Image(systemName: "plus")
                 }
                 .disabled(!model.canAddFix)
                 .help("Add Fix")
+                .accessibilityLabel("Add Fix")
             }
         }
         .alert("Delete this Fix?", isPresented: deletionAlertIsPresented) {

@@ -19,7 +19,7 @@ struct FixesEditorWindowPresenterTests {
         let window = try #require(presenter.presentedWindow)
         defer { window.close() }
 
-        #expect(window.title == "HoldType: Manage Fixes")
+        #expect(window.title == "Manage Fixes")
         #expect(window.styleMask.contains(.titled))
         #expect(window.styleMask.contains(.closable))
         #expect(window.styleMask.contains(.miniaturizable))
@@ -46,7 +46,7 @@ struct FixesEditorWindowPresenterTests {
 
         window.contentViewController?.title = "Translate"
 
-        #expect(window.title == "HoldType: Manage Fixes")
+        #expect(window.title == "Manage Fixes")
     }
 
     @Test func repeatedShowReusesWindowAndCloseRestoresAccessoryState() throws {

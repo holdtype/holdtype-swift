@@ -52,6 +52,20 @@ struct FixesEditorPresentationTests {
         #expect(presentation?.title == "Correct Text")
     }
 
+    @Test func builtInActionsLinkToTheirSettingsSections() throws {
+        let translate = try #require(
+            FixesEditorBuiltInPresentation(action: TextFixCatalog.defaults.actions[0])
+        )
+        let correction = try #require(
+            FixesEditorBuiltInPresentation(action: TextFixCatalog.defaults.actions[1])
+        )
+
+        #expect(translate.settingsNavigationItem == .translation)
+        #expect(translate.settingsButtonTitle == "Open Translation Settings")
+        #expect(correction.settingsNavigationItem == .textCorrection)
+        #expect(correction.settingsButtonTitle == "Open Text Correction Settings")
+    }
+
     @Test func draftValidationUsesCharacterAndUTF8Limits() {
         let accepted = FixesEditorDraftValidation(
             title: String(

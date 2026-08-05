@@ -184,10 +184,12 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   recent edit, and any pending change saves before the user selects another
   Fix or closes the editor. The custom Fix row exposes Delete in its context
   menu. The detail pane has no Save or Delete buttons. Users drag custom rows
-  to reorder them. A selected built-in Fix shows only its lock-marked
-  informational block; it exposes no editable fields, action buttons, or
-  other detail sections. The editor does not show a separate Order section or
-  move buttons in the detail pane.
+  to reorder them. A selected built-in Fix shows a lock-marked informational
+  block and one navigation-only settings button: Translate opens Translation
+  Settings, and Correct Text opens Text Correction Settings. Built-in Fixes
+  expose no editable fields, catalog-mutation actions, or other detail
+  sections. The editor does not show a separate Order section or move buttons
+  in the detail pane.
 - The Fixes editor shows one plain, two-line description in the title bar to
   the right of the sidebar divider. It appears for every selection state,
   including when no Fix is selected. The description explains that Fixes
