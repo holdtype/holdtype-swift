@@ -981,8 +981,12 @@ h3 {
 
 .menu-shot-frame {
   overflow: hidden;
+  border: 1px solid rgb(60 60 67 / 0.26);
   border-radius: var(--radius-medium);
   background: #fff;
+  box-shadow:
+    0 16px 32px rgb(30 32 40 / 0.16),
+    0 3px 8px rgb(30 32 40 / 0.1);
 }
 
 .menu-shot img {
