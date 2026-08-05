@@ -56,7 +56,7 @@ final class DictationRuntime: ObservableObject {
         self.appSettingsStore = resolvedAppSettingsStore
         self.recordingSetupPreflight = recordingSetupPreflight ?? RecordingSetupPreflight()
         self.credentialResolver = credentialResolver ?? OpenAICredentialResolver()
-        self.settingsPresenter = settingsPresenter ?? SettingsWindowPresenter.shared
+        self.settingsPresenter = settingsPresenter ?? SettingsPresentationCoordinator.shared
         self.hotkeyService = resolvedHotkeyService
         self.transcriptClipboardStore = resolvedTranscriptClipboardStore
         self.pasteLastResultService = pasteLastResultService

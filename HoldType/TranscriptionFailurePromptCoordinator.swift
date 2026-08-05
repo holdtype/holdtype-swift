@@ -97,7 +97,7 @@ final class TranscriptionFailurePromptCoordinator: TranscriptionFailurePromptCoo
         self.init(
             dictationRuntime: dictationRuntime,
             presenter: NativeTranscriptionFailurePromptPresenter(),
-            settingsPresenter: SettingsWindowPresenter.shared
+            settingsPresenter: SettingsPresentationCoordinator.shared
         )
     }
 

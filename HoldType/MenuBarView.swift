@@ -5,7 +5,6 @@
 //  Created by Eugene Potapenko on 6/20/26.
 //
 
-import AppKit
 import HoldTypeDomain
 import SwiftUI
 
@@ -14,6 +13,7 @@ struct MenuBarView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @StateObject private var dictationRuntime: DictationRuntime
 
@@ -128,8 +128,7 @@ struct MenuBarView: View {
         case .history:
             openTranscriptHistory()
         case .settings:
-            dismiss()
-            SettingsWindowPresenter.shared.showAfterMenuDismissal()
+            openSettingsScene()
         }
     }
 
@@ -171,8 +170,7 @@ struct MenuBarView: View {
 
         if let settingsTarget = failurePresentation?.settingsTarget {
             MenuBarActionButton(title: settingsActionTitle(for: settingsTarget)) {
-                dismiss()
-                SettingsWindowPresenter.shared.showAfterMenuDismissal(focusing: settingsTarget)
+                openSettingsScene(focusing: settingsTarget)
             }
         }
 
@@ -203,6 +201,18 @@ struct MenuBarView: View {
         default:
             return "Open Settings"
         }
+    }
+
+    private func openSettingsScene(focusing item: SettingsNavigationItem? = nil) {
+        SettingsSceneRequest.openAfterMenuDismissal(
+            focusing: item,
+            dismissMenu: {
+                dismiss()
+            },
+            openSettings: {
+                openSettings()
+            }
+        )
     }
 }
 

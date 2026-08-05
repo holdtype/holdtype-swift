@@ -15,7 +15,7 @@ struct AppSetupController {
         self.init(
             setupStatusProvider: AppSetupStatusProvider(),
             settingsProvider: { AppSettingsStore().load() },
-            settingsPresenter: SettingsWindowPresenter.shared
+            settingsPresenter: SettingsPresentationCoordinator.shared
         )
     }
 

@@ -54,21 +54,48 @@ struct HoldTypeApp: App {
         MenuBarExtra {
             MenuBarView()
         } label: {
-            Group {
-                Image(HoldTypeMenuBarIdentity.iconAssetName)
-                    .renderingMode(.template)
-                    .accessibilityLabel(HoldTypeMenuBarIdentity.title)
-                    .help(HoldTypeMenuBarIdentity.helpText)
-
-                if let visibleTitle = HoldTypeMenuBarIdentity.visibleTitle {
-                    Text(visibleTitle)
-                }
-            }
+            HoldTypeMenuBarLabel()
         }
         .menuBarExtraStyle(.window)
 
+        Settings {
+            SettingsView(
+                navigation: SettingsPresentationCoordinator.shared.navigation,
+                hotkeyStatusProvider: {
+                    DictationRuntime.shared.refreshHotkeyRegistrationStatus()
+                    return DictationRuntime.shared.hotkeyRegistrationStatus
+                },
+                fixesHotkeyStatusProvider: {
+                    FixesRuntime.shared.hotkeyRegistrationStatus
+                }
+            )
+            .frame(minWidth: 720, minHeight: 480)
+        }
+
         FixesEditorScene()
         TranscriptHistoryScene()
+    }
+}
+
+private struct HoldTypeMenuBarLabel: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Group {
+            Image(HoldTypeMenuBarIdentity.iconAssetName)
+                .renderingMode(.template)
+                .accessibilityLabel(HoldTypeMenuBarIdentity.title)
+                .help(HoldTypeMenuBarIdentity.helpText)
+
+            if let visibleTitle = HoldTypeMenuBarIdentity.visibleTitle {
+                Text(visibleTitle)
+            }
+        }
+        .onAppear {
+            SettingsPresentationCoordinator.shared.install {
+                openSettings()
+            }
+        }
     }
 }
 

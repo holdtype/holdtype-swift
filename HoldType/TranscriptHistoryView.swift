@@ -35,7 +35,7 @@ struct TranscriptHistoryView: View {
             await DictationRuntime.shared.retryFailedTranscription(id: id)
         },
         openSettings: @escaping @MainActor (SettingsNavigationItem) -> Void = { item in
-            SettingsWindowPresenter.shared.show(focusing: item)
+            SettingsPresentationCoordinator.shared.show(focusing: item)
         },
         calendar: Calendar = .current
     ) {

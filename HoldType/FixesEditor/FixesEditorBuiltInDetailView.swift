@@ -2,6 +2,7 @@ import HoldTypeDomain
 import SwiftUI
 
 struct FixesEditorBuiltInDetailView: View {
+    @Environment(\.openSettings) private var openSettings
     let presentation: FixesEditorBuiltInPresentation
 
     var body: some View {
@@ -24,9 +25,10 @@ struct FixesEditorBuiltInDetailView: View {
 
             Section {
                 Button(presentation.settingsButtonTitle) {
-                    SettingsWindowPresenter.shared.show(
-                        focusing: presentation.settingsNavigationItem
+                    SettingsPresentationCoordinator.shared.navigation.focus(
+                        presentation.settingsNavigationItem
                     )
+                    openSettings()
                 }
             }
         }
