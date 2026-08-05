@@ -85,10 +85,13 @@ interaction changes, UI bug investigation, accessibility work, and runtime
 visual QA. It applies before inspecting UI implementation code or proposing a
 visual solution.
 
-- For macOS UI work, read and use `build-macos-apps:swiftui-patterns`. When
-  the task needs AppKit window, toolbar, titlebar, panel, responder-chain, or
-  other platform interop, also read and use `build-macos-apps:appkit-interop`.
-  Use `build-macos-apps:build-run-debug` for macOS build/run/debug work.
+- For macOS UI work, read and use `build-macos-apps:swiftui-patterns` and
+  implement the interface in SwiftUI only. Do not introduce, extend, or modify
+  AppKit-based UI code, including `NSWindow`, `NSHostingView`, titlebar
+  accessories, `NSToolbar`, `NSPanel`, or `NSViewRepresentable`. Do not use
+  `build-macos-apps:appkit-interop` as a workaround. If SwiftUI cannot express
+  the required result, stop and request an explicit product and architecture
+  decision instead of writing AppKit.
 - For iOS UI work, read and use `build-ios-apps:swiftui-ui-patterns`. When
   running or debugging the iOS interface, also use
   `build-ios-apps:ios-debugger-agent`; use the other Build iOS Apps skills when
@@ -98,6 +101,10 @@ visual solution.
   and verification guidance throughout the task.
 - Do not substitute generic UI intuition, ad-hoc AppKit/UIKit code, or a
   screenshot-only iteration for the applicable skill workflow.
+
+Existing AppKit UI is legacy implementation debt. It is not precedent for new
+or changed UI work. A migration of existing AppKit UI to SwiftUI requires its
+own approved plan and verification scope; until then, do not extend it.
 
 ## Repository Safety
 
