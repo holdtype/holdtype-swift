@@ -29,6 +29,7 @@ struct FixesEditorWindowPresenterTests {
         #expect(!window.isReleasedWhenClosed)
         #expect(window.tabbingMode == .disallowed)
         #expect(window.contentViewController is NSHostingController<FixesEditorView>)
+        #expect(window.toolbar == nil)
         #expect(window.titlebarAccessoryViewControllers.count == 1)
         #expect(activationCount == 1)
         #expect(restoredWindows.isEmpty)

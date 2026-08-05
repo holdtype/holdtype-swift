@@ -62,7 +62,9 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
         editorWindow.unbind(.title)
         editorWindow.title = "Manage Fixes"
         editorWindow.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        editorWindow.addTitlebarAccessoryViewController(makeDescriptionAccessory())
+        editorWindow.toolbar = makeTitlebarToolbar()
+        editorWindow.toolbarStyle = .unified
+        editorWindow.addTitlebarAccessoryViewController(makeTitlebarAccessory())
         editorWindow.minSize = NSSize(width: 760, height: 520)
         editorWindow.setContentSize(NSSize(width: 900, height: 620))
         editorWindow.center()
@@ -73,11 +75,18 @@ final class FixesEditorWindowPresenter: NSObject, NSWindowDelegate {
         return editorWindow
     }
 
-    private func makeDescriptionAccessory() -> NSTitlebarAccessoryViewController {
+    private func makeTitlebarAccessory() -> NSTitlebarAccessoryViewController {
         let accessory = NSTitlebarAccessoryViewController()
         accessory.layoutAttribute = .right
-        accessory.view = NSHostingView(rootView: FixesEditorInfoBanner())
-        accessory.view.frame = NSRect(x: 0, y: 0, width: 600, height: 38)
+        accessory.view = NSHostingView(rootView: FixesEditorTitlebarContent(model: model))
+        accessory.view.frame = NSRect(x: 0, y: 0, width: 600, height: 52)
         return accessory
+    }
+
+    private func makeTitlebarToolbar() -> NSToolbar {
+        let toolbar = NSToolbar(identifier: "HoldType.FixesEditor.Titlebar")
+        toolbar.displayMode = .iconOnly
+        toolbar.showsBaselineSeparator = false
+        return toolbar
     }
 }

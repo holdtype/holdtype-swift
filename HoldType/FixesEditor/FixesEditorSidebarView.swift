@@ -27,16 +27,6 @@ struct FixesEditorSidebarView: View {
             placement: .sidebar,
             prompt: "Search Fixes"
         )
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: model.addFix) {
-                    Image(systemName: "plus")
-                }
-                .disabled(!model.canAddFix)
-                .help("Add Fix")
-                .accessibilityLabel("Add Fix")
-            }
-        }
         .alert("Delete this Fix?", isPresented: deletionAlertIsPresented) {
             Button("Delete", role: .destructive) {
                 if let id = deletionAction?.id {
