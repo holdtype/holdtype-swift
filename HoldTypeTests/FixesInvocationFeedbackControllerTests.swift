@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import HoldType
 
@@ -22,6 +23,7 @@ struct FixesInvocationFeedbackControllerTests {
         #expect(panel.ignoresMouseEvents == false)
         #expect(panel.frame.width == FixesInvocationFeedbackView.contentWidth)
         #expect(panel.frame.height > 100)
+        #expect(panel.contentView is NSHostingView<FixesInvocationFeedbackView>)
         #expect(monitor.isMonitoring)
     }
 

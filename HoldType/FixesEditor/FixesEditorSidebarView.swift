@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct FixesEditorSidebarView: View {
+    static let footerControlSize = CGSize(width: 34, height: 28)
+
     @ObservedObject var model: FixesEditorModel
 
     @State private var deletionAction: FixesEditorActionPresentation?
@@ -26,18 +28,19 @@ struct FixesEditorSidebarView: View {
 
             HStack(spacing: 8) {
                 Button(action: model.addFix) {
-                    Image(systemName: "plus")
+                    footerControlLabel(systemImageName: "plus")
                 }
                 .accessibilityLabel("Add Fix")
                 .disabled(!model.canAddFix)
 
                 Button(action: requestDeletion) {
-                    Image(systemName: "minus")
+                    footerControlLabel(systemImageName: "minus")
                 }
                 .accessibilityLabel("Delete selected Fix")
                 .disabled(!model.canDeleteSelection)
             }
             .buttonStyle(.bordered)
+            .controlSize(.small)
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -156,6 +159,14 @@ struct FixesEditorSidebarView: View {
         }
 
         deletionAction = action
+    }
+
+    private func footerControlLabel(systemImageName: String) -> some View {
+        Image(systemName: systemImageName)
+            .frame(
+                width: Self.footerControlSize.width,
+                height: Self.footerControlSize.height
+            )
     }
 }
 

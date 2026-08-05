@@ -1,3 +1,4 @@
+import CoreGraphics
 import HoldTypeDomain
 import HoldTypePersistence
 import Testing
@@ -7,7 +8,16 @@ import Testing
 struct FixesEditorPresentationTests {
     @Test func infoBannerExplainsFixesUsage() {
         #expect(FixesEditorInfoBanner.copy.contains("selected text"))
-        #expect(FixesEditorInfoBanner.copy.contains("custom Fixes"))
+        #expect(FixesEditorInfoBanner.copy.contains("current text field"))
+        #expect(FixesEditorInfoBanner.copy.contains("⌥J"))
+        #expect(FixesEditorInfoBanner.copy.contains("Return"))
+        #expect(FixesEditorInfoBanner.copy.contains("Escape"))
+    }
+
+    @Test func editorFooterControlsHaveMatchingPhysicalSize() {
+        #expect(
+            FixesEditorSidebarView.footerControlSize == CGSize(width: 34, height: 28)
+        )
     }
 
     @Test func finiteIconOptionsCoverEverySupportedToken() {

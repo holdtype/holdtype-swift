@@ -1,5 +1,6 @@
 import AppKit
 import HoldTypeDomain
+import SwiftUI
 import Testing
 @testable import HoldType
 
@@ -26,6 +27,7 @@ struct FixesPalettePanelControllerTests {
         #expect(panel?.isOpaque == false)
         #expect(panel?.hidesOnDeactivate == false)
         #expect(panel?.isReleasedWhenClosed == false)
+        #expect(panel?.contentView is NSHostingView<FixesPaletteView>)
         #expect(monitor.isMonitoring)
     }
 

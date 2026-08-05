@@ -13,6 +13,30 @@ import Testing
 
 struct MenuBarPresentationTests {
 
+    @Test @MainActor func reopeningFixesEditorClosesBeforeItSchedulesFreshWindow() {
+        var events: [String] = []
+        var scheduledOpening: (@MainActor () -> Void)?
+
+        FixesEditorWindowRequest.reopen(
+            dismissExistingEditor: {
+                events.append("dismiss")
+            },
+            scheduleOpening: { opening in
+                events.append("schedule")
+                scheduledOpening = opening
+            },
+            openFreshEditor: {
+                events.append("open")
+            }
+        )
+
+        #expect(events == ["dismiss", "schedule"])
+
+        scheduledOpening?()
+
+        #expect(events == ["dismiss", "schedule", "open"])
+    }
+
     @Test func idleMenuExposesMVPItems() {
         let presentation = MenuBarPresentation(
             dictationStatus: .idle,

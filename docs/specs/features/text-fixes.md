@@ -133,14 +133,16 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   source limit), Fixes does not open a palette and shows the compact Fixes
   dialog described below.
 - A compact searchable palette opens centered in the visible area of the
-  display containing the active text target.
+  display containing the active text target. Its presentation shell preserves
+  the captured external target's focus and supports click-outside dismissal;
+  its visible content is implemented in SwiftUI.
 - The compact centered Fixes dialog has a clear title, fully readable
   explanatory text, and one `OK` button. It closes when the user chooses `OK`,
   presses Escape, clicks outside it, or after four seconds. It has no search,
   Fix rows, keyboard selection, or alert sound. It is shown only for a found
   but unusable text control before a Fix action is chosen. Failures after an
   action has started remain in the palette when retry or stale-target context
-  is useful.
+  is useful. Its visible content is implemented in SwiftUI.
 - The palette opens with up to five enabled Fix rows. It orders previously
   successful actions by most recent use, then fills remaining places from the
   stable catalog order so a new user has clear examples.
@@ -177,15 +179,19 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   an actionable `Fixes…` palette command. On macOS, immediate Fixes are invoked
   only with `Option+J`.
 - Opening a HoldType-owned editor never captures or changes an external target.
+- Choosing `Manage Fixes…` closes any already-open Manage Fixes window and then
+  presents a fresh editor window in front of the user's other windows. Pending
+  custom-Fix edits retain the editor's normal autosave-before-close behavior.
 - The Fixes editor is a normal native window titled `Manage Fixes`. Its title
   remains static while users change the selected Fix. The title bar contains no
   Add control or explanatory text.
 - The editor sidebar keeps Search at the top and adds a compact footer beneath
   the list, separated by one divider. The footer contains standard compact `+`
-  and `−` controls: `+` remains visible while the list is filtered and creates
-  a custom Fix; `−` removes only the selected removable custom Fix and is
-  disabled when nothing removable is selected, including for built-in Fixes.
-  The custom Fix row may also expose Delete in its context menu.
+  and `−` controls with identical physical dimensions: `+` remains visible
+  while the list is filtered and creates a custom Fix; `−` removes only the
+  selected removable custom Fix and is disabled when nothing removable is
+  selected, including for built-in Fixes. The custom Fix row may also expose
+  Delete in its context menu.
 - Creating a Fix appends it to the custom catalog, clears any active search,
   selects it, and opens its editor. The new Fix starts as `Untitled Fix`; its
   Title field receives keyboard focus with the temporary title selected so the
@@ -196,10 +202,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   pending change saves before the user selects another Fix or closes the
   editor. The detail pane has no Save or Delete buttons. Users drag custom rows
   to reorder them.
-- The right content pane starts with a small secondary explanation that Fixes
-  transform selected text using a prompt and that custom Fixes can be created
-  or edited there. The explanation is part of the content pane, not the title
-  bar or toolbar. With no selected Fix, the pane shows a concise empty state.
+- The right content pane starts with this small secondary help text, split over
+  two readable lines: “Fixes transform selected text, or the current text field
+  when nothing is selected.” and “Press ⌥J to open Fixes; use ↑/↓ to choose,
+  Return to run, and Escape to close.” It is part of the content pane, not the
+  title bar or toolbar. With no selected Fix, the pane shows a concise empty state.
   A selected built-in Fix shows a lock-marked informational block and one
   navigation-only settings button: Translate opens Translation Settings, and
   Correct Text opens Text Correction Settings. Built-in Fixes expose no

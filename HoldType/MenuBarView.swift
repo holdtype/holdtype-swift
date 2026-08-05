@@ -13,6 +13,7 @@ struct MenuBarView: View {
     private static let menuWidth: CGFloat = 420
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openWindow) private var openWindow
     @StateObject private var dictationRuntime: DictationRuntime
 
@@ -133,10 +134,14 @@ struct MenuBarView: View {
     }
 
     private func openFixesEditor() {
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(100))
-            openWindow(id: FixesEditorScene.identifier)
-        }
+        FixesEditorWindowRequest.reopen(
+            dismissExistingEditor: {
+                dismissWindow(id: FixesEditorScene.identifier)
+            },
+            openFreshEditor: {
+                openWindow(id: FixesEditorScene.identifier)
+            }
+        )
     }
 
     @ViewBuilder
@@ -183,6 +188,40 @@ struct MenuBarView: View {
             return "Open Translation Settings"
         default:
             return "Open Settings"
+        }
+    }
+}
+
+@MainActor
+enum FixesEditorWindowRequest {
+    static let delayBeforeOpening: Duration = .milliseconds(150)
+
+    static func reopen(
+        dismissExistingEditor: () -> Void,
+        openFreshEditor: @escaping @MainActor () -> Void
+    ) {
+        reopen(
+            dismissExistingEditor: dismissExistingEditor,
+            scheduleOpening: scheduleOpening,
+            openFreshEditor: openFreshEditor
+        )
+    }
+
+    static func reopen(
+        dismissExistingEditor: () -> Void,
+        scheduleOpening: (@escaping @MainActor () -> Void) -> Void,
+        openFreshEditor: @escaping @MainActor () -> Void
+    ) {
+        dismissExistingEditor()
+        scheduleOpening(openFreshEditor)
+    }
+
+    private static func scheduleOpening(
+        _ openFreshEditor: @escaping @MainActor () -> Void
+    ) {
+        Task { @MainActor in
+            try? await Task.sleep(for: delayBeforeOpening)
+            openFreshEditor()
         }
     }
 }

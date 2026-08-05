@@ -9,6 +9,8 @@ protocol FixesInvocationFeedbackPresenting: AnyObject {
 
 @MainActor
 final class FixesInvocationFeedbackController: FixesInvocationFeedbackPresenting {
+    // User-approved AppKit boundary: this type provides only the nonactivating
+    // presentation shell. FixesInvocationFeedbackView owns all visible content in SwiftUI.
     nonisolated static let defaultDisplayDuration: TimeInterval = 4
 
     private let displayDuration: TimeInterval

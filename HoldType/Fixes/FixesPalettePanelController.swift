@@ -42,6 +42,8 @@ protocol FixesPalettePanelPresenting: AnyObject {
 
 @MainActor
 final class FixesPalettePanelController: FixesPalettePanelPresenting {
+    // User-approved AppKit boundary: this type provides only the nonactivating
+    // presentation shell. FixesPaletteView owns all visible popup content in SwiftUI.
     nonisolated static let defaultPanelSize = CGSize(width: 360, height: 140)
 
     private let panelSize: CGSize

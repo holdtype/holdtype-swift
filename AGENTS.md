@@ -111,6 +111,16 @@ remove AppKit usage in scope and verify the resulting SwiftUI implementation.
 If a requested capability cannot be implemented in SwiftUI, stop and ask for
 direction; AppKit is not an available fallback.
 
+### Narrow Fixes popup exception
+
+The user approved one narrow exception on 2026-08-05 for the macOS Fixes
+palette and its unavailable-feedback dialog: their presentation shell may use
+an AppKit `NSPanel` only to preserve non-activating interaction with a captured
+external text target and global click-outside dismissal. Every visible popup
+view, its controls, layout, state, and feedback content must remain SwiftUI.
+This exception does not permit AppKit in Manage Fixes, editor content, or any
+other product surface.
+
 ## Repository Safety
 
 The user's global agent rules already define detailed database, object-storage,
