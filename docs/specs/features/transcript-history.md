@@ -129,12 +129,12 @@ This spec covers:
   cancellation after dispatch began is not a definitive retryable failure: the
   seal remains for the lifetime of the audio and the playable row becomes
   `Transcription outcome uncertain` with ordinary Retry hidden. That row offers
-  `Transcribe Again…`; it must show a confirmation explaining that the earlier
-  request may already have completed and that a new request can duplicate the
-  transcription and charge. Confirmation starts a fresh bounded request using
+  `Transcribe Again…`; it must show a confirmation that the saved recording
+  will be submitted for transcription again. Confirmation starts a fresh
+  bounded request using
   the retained audio and current safe settings. If any retryable transition
   cannot be persisted, the previous seal likewise remains and relaunch treats
-  the outcome as uncertain with the same warning-gated action.
+  the outcome as uncertain with the same confirmation-gated action.
 - After a non-empty provider transcription is accepted, HoldType checkpoints
   that raw text before downstream correction or translation. A downstream
   failure leaves a fail-closed row labelled `Raw transcription recovered —
@@ -156,8 +156,8 @@ This spec covers:
 - A failed attempt row may offer Retry. Retry sends the saved temporary audio
   through the current transcription settings and current API key. An
   outcome-uncertain row instead offers `Transcribe Again…`, which first asks
-  the user to confirm possible duplicate billing before sending the same audio
-  through those current settings and key.
+  the user to confirm that it will send the same audio through those current
+  settings and key.
 - Saved-recording Play, Retry, and Delete are unavailable while another
   dictation is recording or processing. The controller independently rejects a
   Retry that races with active recording, so recovery UI can never move the

@@ -70,7 +70,7 @@ struct TranscriptionFailurePromptTests {
         #expect(actionTitles.contains("Transcript History") == false)
     }
 
-    @Test func uncertainOutcomeOffersWarningGatedTranscribeAgain() throws {
+    @Test func uncertainOutcomeOffersConfirmationGatedTranscribeAgain() throws {
         let failedAttemptID = try #require(UUID(uuidString: "2F630CA6-014E-4139-BF18-2A6C1F2D6C95"))
         let presentation = DictationFailurePresentation(
             title: FailedTranscriptionReason.providerOutcomeUncertain.title,
@@ -87,7 +87,10 @@ struct TranscriptionFailurePromptTests {
         #expect(actionTitles(for: actions) == ["Transcribe Again…", "Dismiss"])
         #expect(informativeText.contains("saved in Transcript History"))
         #expect(informativeText.contains("saved for retry") == false)
-        #expect(TranscriptionFailurePromptCopy.duplicateRetryWarning.contains("duplicate"))
+        #expect(
+            TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation
+                == "This will submit the saved recording for transcription again."
+        )
     }
 
     @Test func recordingTooShortPresentationDoesNotRequestFrontmostPrompt() {

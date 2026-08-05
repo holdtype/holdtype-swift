@@ -30,9 +30,7 @@ enum TranscriptionFailurePromptActions {
 }
 
 enum TranscriptionFailurePromptCopy {
-    static let duplicateRetryWarning = """
-    The provider may have completed the previous request. Sending this recording again can create a duplicate transcription request and charge.
-    """
+    static let repeatTranscriptionConfirmation = "This will submit the saved recording for transcription again."
 
     static func informativeText(for presentation: DictationFailurePresentation) -> String {
         let message = presentation.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -274,7 +272,7 @@ private struct TranscriptionFailurePromptDialog: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(TranscriptionFailurePromptCopy.duplicateRetryWarning)
+            Text(TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation)
         }
     }
 

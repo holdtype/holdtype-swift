@@ -98,7 +98,7 @@ struct MenuBarView: View {
                 duplicateRetryID = nil
             }
         } message: {
-            Text("The previous provider request may have completed. Sending this recording again can create a duplicate transcription request and charge.")
+            Text(TranscriptionFailurePromptCopy.repeatTranscriptionConfirmation)
         }
     }
 

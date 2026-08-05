@@ -90,7 +90,7 @@ struct FailedTranscriptionHistoryRowView: View {
                     Button(action: onDuplicateRetry) {
                         Label("Transcribe Again", systemImage: "arrow.clockwise")
                     }
-                    .help("Transcribe Again (may create a duplicate charge)")
+                    .help("Transcribe Again")
                     .accessibilityLabel("Transcribe Again")
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)

@@ -92,10 +92,9 @@ other cause preserves positive bytes under one durable owner.
 - A provider-free Saved Recording offers Play, Transcribe, and Delete. Delete
   is explicit and affects only that attempt.
 - A provider failure keeps Play and Retry/Transcribe. An ambiguous provider
-  outcome keeps ordinary Retry hidden, but offers an explicit warning-gated
-  `Transcribe Again…` action. The warning explains that the provider may have
-  completed the earlier request and that sending the recording again can create
-  a duplicate transcript request and charge. Only the user's confirmation may
+  outcome keeps ordinary Retry hidden, but offers an explicit confirmation-gated
+  `Transcribe Again…` action. The confirmation states that the saved recording
+  will be submitted for transcription again. Only the user's confirmation may
   start that new request.
 - Local finalization or persistence failure must become visible in the current
   process; recovery must not require an app restart merely to appear.

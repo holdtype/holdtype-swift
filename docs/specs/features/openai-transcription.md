@@ -587,9 +587,9 @@ runtime request value still does not own its scratch-file lifecycle.
 - The user may start a new recording after a timeout or provider failure.
 - The user may retry a recoverable failed attempt from Transcript History.
   An outcome-uncertain post-dispatch attempt offers a separate, explicit
-  warning-gated `Transcribe Again…` action in the failure prompt, menu-bar
-  recovery actions, and Transcript History. It explains the possible duplicate
-  request and charge, and sends audio again only after confirmation. This is
+  confirmation-gated `Transcribe Again…` action in the failure prompt, menu-bar
+  recovery actions, and Transcript History. It states that the saved recording
+  will be submitted again, and sends audio only after confirmation. This is
   never an automatic retry and does not make the ordinary Retry action
   available.
 - Retrying a failed attempt is an explicit user action and counts as a new
@@ -618,7 +618,7 @@ runtime request value still does not own its scratch-file lifecycle.
   ordinary provider replay because the remote outcome is unknown.
 - Timeout before dispatch: fail the attempt with a timeout message and no
   transcript update. Timeout after dispatch is outcome-uncertain: ordinary
-  Retry stays hidden, while `Transcribe Again…` requires an explicit warning
+  Retry stays hidden, while `Transcribe Again…` requires an explicit
   confirmation before a new provider request can start.
 - Rate limit: show that OpenAI rate limits were reached and ask the user to try
   later.
