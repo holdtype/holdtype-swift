@@ -16,7 +16,11 @@ struct SettingsSidebarView: View {
                 .tag(item)
         }
         .listStyle(.sidebar)
-        .navigationTitle("Settings")
+        // Keep the same native source-list proportions as Manage Fixes. The
+        // Settings scene already supplies the window title for the selected
+        // section, so a sidebar-local title would only compete for toolbar
+        // space.
+        .navigationSplitViewColumnWidth(min: 230, ideal: 280, max: 360)
     }
 }
 
