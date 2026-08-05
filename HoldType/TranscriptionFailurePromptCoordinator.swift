@@ -102,6 +102,9 @@ final class TranscriptionFailurePromptCoordinator: ObservableObject, Transcripti
 
     func install(openPromptWindow: @escaping () -> Void) {
         self.openPromptWindow = openPromptWindow
+        if presentation != nil {
+            openPromptWindow()
+        }
     }
 
     func start() {
