@@ -1526,6 +1526,88 @@ h3 {
   line-height: 1.5;
 }
 
+.quick-fixes {
+  display: none;
+  padding: var(--section-space) 0;
+  background: #fff;
+}
+
+html[lang="en"] .quick-fixes,
+html[lang="ru"] .quick-fixes {
+  display: block;
+}
+
+.quick-fixes-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  align-items: end;
+  gap: clamp(48px, 8vw, 112px);
+}
+
+.quick-fixes-copy h2 {
+  max-width: 700px;
+  margin-bottom: 0;
+  font-size: clamp(2.25rem, 4.2vw, 3.75rem);
+}
+
+.quick-fixes-body p {
+  margin-bottom: 14px;
+  color: var(--text-soft);
+  font-size: 1.04rem;
+  line-height: 1.62;
+}
+
+.quick-fixes-body p:last-child {
+  margin-bottom: 0;
+}
+
+.quick-fixes-gallery {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.48fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 52px);
+  margin-top: clamp(44px, 6vw, 72px);
+}
+
+.quick-fixes-figure {
+  min-width: 0;
+  margin: 0;
+}
+
+.quick-fixes-popup {
+  width: min(100%, 430px);
+  justify-self: center;
+}
+
+.quick-fixes-manage {
+  justify-self: end;
+}
+
+.quick-fixes-link {
+  display: block;
+  color: inherit;
+}
+
+.quick-fixes-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-small);
+}
+
+.quick-fixes-link img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.quick-fixes-figure figcaption {
+  padding-inline: 4px;
+  margin-top: 10px;
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  line-height: 1.48;
+}
+
 .mobile-app {
   padding: var(--section-space) 0;
   background: #fff;
@@ -2233,6 +2315,28 @@ body.has-image-lightbox {
     max-width: 640px;
   }
 
+  .quick-fixes-intro,
+  .quick-fixes-gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quick-fixes-intro {
+    gap: 28px;
+  }
+
+  .quick-fixes-gallery {
+    gap: 42px;
+  }
+
+  .quick-fixes-popup {
+    width: min(72%, 430px);
+    justify-self: start;
+  }
+
+  .quick-fixes-manage {
+    justify-self: stretch;
+  }
+
   .mobile-app-intro {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
@@ -2500,6 +2604,15 @@ body.has-image-lightbox {
 
   .video-kicker {
     font-size: 0.62rem;
+  }
+
+  .quick-fixes-gallery {
+    gap: 34px;
+    margin-top: 38px;
+  }
+
+  .quick-fixes-popup {
+    width: min(88%, 430px);
   }
 
   .mobile-app-meta {

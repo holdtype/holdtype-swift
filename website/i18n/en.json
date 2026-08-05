@@ -248,6 +248,23 @@
       "fallbackIframeTitle": "{brand.youtube} tutorial"
     }
   },
+  "quickFixes": {
+    "label": "Quick Fixes",
+    "title": "Run any prompt with a global shortcut.",
+    "body1": "Quick Fixes opens with a global shortcut and applies to selected text or the contents of the current text field.",
+    "body2": "Built-in fixes correct, shorten, improve, summarize, or translate. Custom prompts can be added once and reused from the same menu.",
+    "galleryAria": "Quick Fixes screenshots",
+    "popup": {
+      "caption": "The Quick Fixes menu opened with the global shortcut.",
+      "lightboxCaption": "The Quick Fixes menu opened with the global shortcut.",
+      "alt": "Quick Fixes menu with search and built-in text actions"
+    },
+    "manage": {
+      "caption": "Built-in and custom fixes share one list.",
+      "lightboxCaption": "Built-in and custom fixes share one list.",
+      "alt": "Manage Fixes window with a custom Markdown prompt selected"
+    }
+  },
   "mobile": {
     "label": "Also on {brand.iPhone}",
     "title": "{brand.holdType} for {brand.iPhone} is already in the source.",

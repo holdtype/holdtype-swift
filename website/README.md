@@ -106,13 +106,13 @@ records at the registrar.
 
 ## Full-size screenshot behavior
 
-The Translation, Billing, and iPhone gallery screenshots use one shared in-page
-modal when JavaScript is available; captions do not duplicate the action with a
-text link. The screenshots show the standard pointer cursor and keep a native
-link to the original image as their no-JavaScript fallback. The modal keeps the
-original image inside the viewport, provides a visible Close control, closes
-with Escape or an outside click, locks background scrolling, and returns focus
-to the opening screenshot.
+The Translation, Billing, Quick Fixes, and iPhone gallery screenshots use one
+shared in-page modal when JavaScript is available; captions do not duplicate the
+action with a text link. The screenshots show the standard pointer cursor and
+keep a native link to the original image as their no-JavaScript fallback. The
+modal keeps the original image inside the viewport, provides a visible Close
+control, closes with Escape or an outside click, locks background scrolling,
+and returns focus to the opening screenshot.
 
 ## Design direction
 
@@ -197,9 +197,12 @@ maximum, or typical day.
    data-boundary explanation.
 8. Authentic first-person founder story and microphone photo.
 9. GitHub/Homebrew setup and a three-step API-key guide with an opt-in video.
-10. Lower-page iPhone source preview with authentic Simulator screens, an
+10. Quick Fixes with the global action menu and the built-in/custom fix editor.
+    The section is temporarily visible only on the English and Russian routes
+    while its copy is reviewed before the remaining translations are added.
+11. Lower-page iPhone source preview with authentic Simulator screens, an
     explicit work-in-progress status, and a source-build path through Xcode.
-11. Native FAQ disclosures, final macOS download CTA, and source-available
+12. Native FAQ disclosures, final macOS download CTA, and source-available
     footer.
 
 ## Asset provenance
@@ -221,6 +224,8 @@ Original repository assets are not modified.
 | `settings-billing.png` | `docs/readme-assets/settings-billing.png` | Proportionally resized to 1400 × 1066 |
 | `settings-billing-mobile.png` | `docs/readme-assets/settings-billing.png` | Truthful 1100 × 1000 focus crop of the main estimate panel |
 | `workflow-microphone.jpg` | `docs/readme-assets/workflow-microphone.jpg` | Copied unchanged |
+| `quick-fixes-popup.png` | User-provided HoldType capture, `fix-shadow.png` | Copied unchanged; transparent canvas and product-rendered shadow retained |
+| `quick-fixes-manage.png` | User-provided HoldType capture, `manage-fixes-shadow.png` | Copied unchanged; transparent canvas and product-rendered shadow retained |
 | `holdtype-ios-voice.png` | Fresh `HoldType-iOS` run in the iPhone 16 Pro Simulator on iOS 18.6 | Full 1206 × 2622 Simulator capture, copied unchanged |
 | `holdtype-ios-rules.png` | Fresh `HoldType-iOS` run in the iPhone 16 Pro Simulator on iOS 18.6 | Full 1206 × 2622 Simulator capture, copied unchanged |
 | `holdtype-ios-keyboard.png` | Real `HoldType Keyboard` shown inside the iPhone 16 Pro Simulator | Exact 1206 × 1132 crop of the keyboard surface; setup and permission instructions are excluded and the keyboard pixels are unchanged |

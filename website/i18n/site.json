@@ -311,6 +311,24 @@
         "data-lightbox-caption": "privacy.billing.lightboxCaption"
       }
     },
+    "quickFixesPopupScreenshot": {
+      "href": "assets/quick-fixes-popup.png",
+      "attrs": {
+        "data-lightbox-link": ""
+      },
+      "localizedAttrs": {
+        "data-lightbox-caption": "quickFixes.popup.lightboxCaption"
+      }
+    },
+    "quickFixesManageScreenshot": {
+      "href": "assets/quick-fixes-manage.png",
+      "attrs": {
+        "data-lightbox-link": ""
+      },
+      "localizedAttrs": {
+        "data-lightbox-caption": "quickFixes.manage.lightboxCaption"
+      }
+    },
     "mobileVoiceScreenshot": {
       "href": "assets/holdtype-ios-voice.png",
       "attrs": {
@@ -358,6 +376,8 @@
     "settingsBilling": "assets/settings-billing.png",
     "settingsBillingMobile": "assets/settings-billing-mobile.png",
     "workflowMicrophone": "assets/workflow-microphone.jpg",
+    "quickFixesPopup": "assets/quick-fixes-popup.png",
+    "quickFixesManage": "assets/quick-fixes-manage.png",
     "holdTypeIOSVoice": "assets/holdtype-ios-voice.png",
     "holdTypeIOSRules": "assets/holdtype-ios-rules.png",
     "holdTypeIOSKeyboard": "assets/holdtype-ios-keyboard.png",
