@@ -1,7 +1,7 @@
 # Swift Code Style And Project Rules
 
-Apply these rules to all Swift, SwiftUI, AppKit interop, and Xcode project
-changes in this repository.
+Apply these rules to all Swift, SwiftUI, and Xcode project changes in this
+repository.
 
 This document is an engineering contract, not a product spec. Product behavior
 still lives in `docs/specs/`.
@@ -144,8 +144,8 @@ work.
 Prefer a native macOS functional-core / imperative-shell shape:
 
 - SwiftUI views describe UI state and user actions.
-- AppKit, Accessibility, CoreGraphics, Keychain, AVFoundation, and URLSession
-  effects live behind focused services.
+- Accessibility, CoreGraphics, Keychain, AVFoundation, and URLSession effects
+  live behind focused services.
 - Pure state transitions, settings models, transcription settings, transcript
   records, and error mapping live in models or small helper types.
 - A central `AppState` or `DictationController` coordinates recording,
@@ -218,22 +218,18 @@ boundary.
 - Keep Settings views connected to explicit settings models, not scattered
   `UserDefaults` calls.
 
-## AppKit And System Interop
+## System Interop
 
-Use SwiftUI first for normal UI, but isolate AppKit interop where SwiftUI is not
-enough:
+All visible product interfaces and app lifecycle code must use SwiftUI. Do not import
+or rely on AppKit, `NSWindow`, `NSApplication`, `NSPanel`, `NSHostingView`, or
+`NSViewRepresentable`. The sole exception is the documented macOS Fixes palette
+and its unavailable-feedback dialog: their presentation shell may use `NSPanel`
+to preserve a captured external text target and global click-outside dismissal,
+while all visible content remains SwiftUI.
 
-- menu bar behavior may use `MenuBarExtra` or `NSStatusItem`;
-- floating recording indicators may use `NSPanel` with SwiftUI content;
-- HoldType Clipboard paste may use Accessibility-gated `CGEvent` text insertion;
-- permission checks may use AVFoundation, Accessibility APIs, and system
-  settings deep links;
-- Keychain access should stay in `KeychainService`;
-- global hotkeys should stay in `GlobalHotkeyService` or a focused hotkey
-  service for a separate app shortcut.
-
-Interop code should be narrow, testable where practical, and documented when it
-depends on platform quirks.
+Keep non-UI platform effects narrow and testable: Accessibility-gated `CGEvent`
+text insertion, AVFoundation permission checks, system-settings deep links,
+Keychain access, and global-hotkey registration belong in focused services.
 
 ## Concurrency And Timeouts
 
