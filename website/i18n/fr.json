@@ -9,7 +9,7 @@
     "skipToContent": "Aller au contenu",
     "brandHomeAria": "Accueil de {brand.holdType}",
     "primaryNavigationAria": "Navigation principale",
-    "downloadForMacOS": "Télécharger gratuitement pour {brand.macOS}"
+    "downloadForMacOS": "Télécharger pour {brand.macOS}"
   },
   "localeUi": {
     "switcherLabel": "Langue",
