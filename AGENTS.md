@@ -407,6 +407,13 @@ environment; do not raw-launch the app for automation when Keychain behavior is
 not the task. Agents must not enter the macOS login keychain password or click
 `Always Allow` during automated testing.
 
+After every UI test, Computer Use, or automated runtime QA pass, agents must
+close every HoldType process they launched before the final response. Track the
+run-owned PID or app path at launch, terminate only those run-owned instances,
+and verify that they have exited. Never leave a test or verification HoldType
+instance for the operator to close manually, and never terminate an instance
+that the current task did not launch.
+
 `script/build_and_run.sh --live-debug` is manual live-provider tooling only. Do
 not use it for automated verification, scheduled runs, UI tests, or Computer
 Use smoke unless the user explicitly asks for a live OpenAI debug session.
