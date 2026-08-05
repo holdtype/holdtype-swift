@@ -16,7 +16,7 @@ struct FixesEditorPresentationTests {
 
     @Test func editorFooterControlsHaveMatchingPhysicalSize() {
         #expect(
-            FixesEditorSidebarView.footerControlSize == CGSize(width: 34, height: 28)
+            FixesEditorSidebarView.footerControlSize == CGSize(width: 17, height: 14)
         )
     }
 

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FixesEditorSidebarView: View {
-    static let footerControlSize = CGSize(width: 34, height: 28)
+    static let footerControlSize = CGSize(width: 17, height: 14)
 
     @ObservedObject var model: FixesEditorModel
 
