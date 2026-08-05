@@ -117,19 +117,25 @@ narrowest available non-AppleScript fallback such as an app-provided UI test or
 a focused runtime test. This exception is not a reason to skip the linked
 plugin when it is available.
 
-## Full AppKit Prohibition
+## SwiftUI-First AppKit Boundary
 
-AppKit is prohibited in this repository. Product code must not import AppKit or
-use AppKit UI or lifecycle APIs, including `NSWindow`, `NSHostingView`,
-`NSToolbar`, `NSPanel`, `NSApplication`, `NSViewRepresentable`, or AppKit event
-and workspace APIs. All interface work is SwiftUI-only. Do not use
-`build-macos-apps:appkit-interop` under any circumstances.
+All visible product interfaces must be implemented in SwiftUI: windows, panels,
+menus, dialogs, controls, layouts, settings, and visible feedback. AppKit is
+not an alternative UI implementation path; existing AppKit code is not
+precedent for new UI work.
 
-Existing AppKit imports are non-compliant legacy code, not an exception or
-precedent. Do not extend, modify, or rely on them. Any migration work must
-remove AppKit usage in scope and verify the resulting SwiftUI implementation.
-If a requested capability cannot be implemented in SwiftUI, stop and ask for
-direction; AppKit is not an available fallback.
+AppKit may be used only as a narrow, isolated platform adapter when SwiftUI
+cannot preserve a required system-level behavior on the supported deployment
+targets without a demonstrated regression. Before adding or retaining such an
+adapter, the agent must verify the SwiftUI limitation, keep all visible content
+and interaction state in SwiftUI, document the exact necessity beside the code
+or in architecture documentation, and provide focused verification.
+
+Non-visual system adapters (for example clipboard, accessibility, global
+shortcut, permission, Finder/System Settings, or active-app integration) may
+use platform APIs only when required by the operating system and their purpose
+is explicit. Do not use `build-macos-apps:appkit-interop` to create ordinary UI
+surfaces or as a convenience fallback.
 
 ### Narrow Fixes popup exception
 
@@ -139,7 +145,7 @@ an AppKit `NSPanel` only to preserve non-activating interaction with a captured
 external text target and global click-outside dismissal. Every visible popup
 view, its controls, layout, state, and feedback content must remain SwiftUI.
 This exception does not permit AppKit in Manage Fixes, editor content, or any
-other product surface.
+other visible product surface.
 
 ## Repository Safety
 
