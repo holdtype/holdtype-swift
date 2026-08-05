@@ -78,6 +78,27 @@ automation workflows. Treat `docs/openwhispr_swiftui_codex_tz.md` as fallback
 source evidence for initial MVP behavior only when current specs do not settle
 the behavior.
 
+## Mandatory UI Skill Gate
+
+This gate applies to every interface task: UI design, layout, visual polish,
+interaction changes, UI bug investigation, accessibility work, and runtime
+visual QA. It applies before inspecting UI implementation code or proposing a
+visual solution.
+
+- For macOS UI work, read and use `build-macos-apps:swiftui-patterns`. When
+  the task needs AppKit window, toolbar, titlebar, panel, responder-chain, or
+  other platform interop, also read and use `build-macos-apps:appkit-interop`.
+  Use `build-macos-apps:build-run-debug` for macOS build/run/debug work.
+- For iOS UI work, read and use `build-ios-apps:swiftui-ui-patterns`. When
+  running or debugging the iOS interface, also use
+  `build-ios-apps:ios-debugger-agent`; use the other Build iOS Apps skills when
+  their specialized surface applies.
+- State in the first UI progress update which skill applies and why. Follow the
+  selected skill's desktop or mobile interaction, state-ownership, component,
+  and verification guidance throughout the task.
+- Do not substitute generic UI intuition, ad-hoc AppKit/UIKit code, or a
+  screenshot-only iteration for the applicable skill workflow.
+
 ## Repository Safety
 
 The user's global agent rules already define detailed database, object-storage,
