@@ -13,12 +13,7 @@
   },
   "localeUi": {
     "switcherLabel": "Язык",
-    "switcherAria": "Выбрать язык",
-    "suggestionAria": "Предложение сменить язык",
-    "suggestionMessage": "Эта страница доступна на русском языке.",
-    "suggestionAction": "Открыть страницу",
-    "suggestionDismiss": "Не сейчас",
-    "suggestionDismissAria": "Закрыть предложение сменить язык"
+    "switcherAria": "Выбрать язык"
   },
   "header": {
     "menuClosed": "Меню",

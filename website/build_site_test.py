@@ -170,8 +170,8 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertTrue(
                     all(link.get("aria-label") for link in probe.header_social_links)
                 )
-                self.assertEqual(len(probe.lightbox_links), 6)
-                self.assertEqual(probe.lightbox_link_image_count, 6)
+                self.assertEqual(len(probe.lightbox_links), 8)
+                self.assertEqual(probe.lightbox_link_image_count, 8)
                 self.assertEqual(
                     {link["href"] for link in probe.lightbox_links},
                     {
@@ -179,6 +179,8 @@ class BuildSiteTests(unittest.TestCase):
                         f"{asset_prefix}assets/holdtype-ios-rules.png",
                         f"{asset_prefix}assets/holdtype-ios-settings.png",
                         f"{asset_prefix}assets/holdtype-ios-voice.png",
+                        f"{asset_prefix}assets/quick-fixes-manage.png",
+                        f"{asset_prefix}assets/quick-fixes-popup.png",
                         f"{asset_prefix}assets/settings-billing.png",
                         f"{asset_prefix}assets/settings-translation.png",
                     },
@@ -211,7 +213,7 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertNotIn("data-token-ref", rendered)
                 self.assertNotIn("data-site-og-image", rendered)
                 self.assertNotIn("data-locale-config", rendered)
-                self.assertIn("data-language-suggestion-text", rendered)
+                self.assertNotIn("data-language-suggestion", rendered)
 
             root_html = rendered_pages["en"]
             russian_html = rendered_pages["ru"]
@@ -231,12 +233,11 @@ class BuildSiteTests(unittest.TestCase):
             self.assertFalse(config["isDefaultRoute"])
             self.assertEqual(len(config["locales"]), 10)
             self.assertEqual(config["assetPrefix"], "../assets/")
-            russian_suggestion = next(
+            russian_locale = next(
                 locale for locale in config["locales"] if locale["code"] == "ru"
             )
-            self.assertEqual(russian_suggestion["suggestionDismiss"], "Не сейчас")
-            self.assertTrue(russian_suggestion["suggestionDismissAria"])
-            self.assertTrue(russian_suggestion["suggestionAria"])
+            self.assertEqual(russian_locale["href"], "../ru/")
+            self.assertNotIn("dismissedSessionKey", config)
 
             sitemap_root = ET.fromstring((output / "sitemap.xml").read_text(encoding="utf-8"))
             namespaces = {

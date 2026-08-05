@@ -6,7 +6,6 @@ const defaultLocaleConfig = {
   isDefaultRoute: true,
   assetPrefix: "assets/",
   preferenceStorageKey: "holdtype.preferredLocale.v1",
-  dismissedSessionKey: "holdtype.localeSuggestionDismissed.v1",
   strings: {
     "header.menuClosed": "Menu",
     "header.menuOpen": "Close",
@@ -138,7 +137,6 @@ function browserStorage(name) {
 }
 
 const persistentLocaleStorage = browserStorage("localStorage");
-const localeSessionStorage = browserStorage("sessionStorage");
 
 const localeLinks = document.querySelectorAll("[data-locale-link]");
 
@@ -179,17 +177,6 @@ if (languageSelector) {
   });
 }
 
-const languageSuggestion = document.querySelector("[data-language-suggestion]");
-const languageSuggestionText = languageSuggestion?.querySelector(
-  "[data-language-suggestion-text]",
-);
-const languageSuggestionAction = languageSuggestion?.querySelector(
-  "[data-language-suggestion-action]",
-);
-const languageSuggestionDismiss = languageSuggestion?.querySelector(
-  "[data-language-suggestion-dismiss]",
-);
-
 function localeForPreference(preference) {
   if (!preference || !Array.isArray(localeConfig.locales)) return null;
   const normalized = preference.replaceAll("_", "-").toLowerCase();
@@ -206,7 +193,7 @@ function localeForPreference(preference) {
   );
 }
 
-function suggestedLocale() {
+function preferredLocale() {
   const savedLocale = readStorage(persistentLocaleStorage, localeConfig.preferenceStorageKey);
   if (savedLocale) {
     const savedMatch = localeForPreference(savedLocale);
@@ -223,46 +210,19 @@ function suggestedLocale() {
   return null;
 }
 
-function showLanguageSuggestion() {
-  if (
-    !languageSuggestion ||
-    !languageSuggestionText ||
-    !languageSuggestionAction ||
-    !languageSuggestionDismiss ||
-    !localeConfig.isDefaultRoute ||
-    readStorage(localeSessionStorage, localeConfig.dismissedSessionKey)
-  ) {
-    return;
-  }
+function routeRootToPreferredLocale() {
+  if (!localeConfig.isDefaultRoute) return;
 
-  const suggestion = suggestedLocale();
-  if (!suggestion || suggestion.code === localeConfig.defaultLocale) return;
+  const locale = preferredLocale();
+  if (!locale || locale.code === localeConfig.defaultLocale) return;
 
-  languageSuggestionText.textContent = suggestion.suggestionMessage;
-  languageSuggestionAction.textContent = suggestion.suggestionAction;
-  languageSuggestionAction.href = suggestion.href;
-  languageSuggestionAction.dataset.locale = suggestion.code;
-  languageSuggestionDismiss.textContent = suggestion.suggestionDismiss;
-  languageSuggestionDismiss.setAttribute("aria-label", suggestion.suggestionDismissAria);
-  languageSuggestion.setAttribute("aria-label", suggestion.suggestionAria);
-  languageSuggestion.lang = suggestion.code;
-  languageSuggestion.dir = suggestion.dir;
-  languageSuggestion.hidden = false;
+  const destination = new URL(locale.href, window.location.href);
+  destination.search = window.location.search;
+  destination.hash = window.location.hash;
+  window.location.replace(destination.href);
 }
 
-languageSuggestionAction?.addEventListener("click", () => {
-  const locale = languageSuggestionAction.dataset.locale;
-  if (locale) {
-    writeStorage(persistentLocaleStorage, localeConfig.preferenceStorageKey, locale);
-  }
-});
-
-languageSuggestionDismiss?.addEventListener("click", () => {
-  writeStorage(localeSessionStorage, localeConfig.dismissedSessionKey, "true");
-  languageSuggestion.hidden = true;
-});
-
-showLanguageSuggestion();
+routeRootToPreferredLocale();
 
 const demo = document.querySelector("[data-demo]");
 const demoIndicator = document.querySelector("[data-demo-indicator]");

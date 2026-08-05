@@ -13,12 +13,7 @@
   },
   "localeUi": {
     "switcherLabel": "Idioma",
-    "switcherAria": "Escolher idioma",
-    "suggestionAria": "Sugestão de idioma",
-    "suggestionMessage": "Esta página está disponível em português do Brasil.",
-    "suggestionAction": "Ver página",
-    "suggestionDismiss": "Agora não",
-    "suggestionDismissAria": "Dispensar sugestão de idioma"
+    "switcherAria": "Escolher idioma"
   },
   "header": {
     "menuClosed": "Menu",

@@ -46,13 +46,6 @@ RUNTIME_MESSAGE_KEYS = (
     "apiKeyGuide.video.fallbackIframeTitle",
     "lightbox.fallbackImageAlt",
 )
-SUGGESTION_MESSAGE_KEYS = (
-    "localeUi.suggestionMessage",
-    "localeUi.suggestionAction",
-    "localeUi.suggestionDismiss",
-    "localeUi.suggestionAria",
-    "localeUi.suggestionDismissAria",
-)
 VOID_ELEMENTS = {
     "area",
     "base",
@@ -346,27 +339,6 @@ def runtime_payload(
                 "nativeName": locale["nativeName"],
                 "dir": locale["dir"],
                 "browserMatches": locale["browserMatches"],
-                "suggestionMessage": expand_tokens(
-                    messages["localeUi.suggestionMessage"],
-                    tokens,
-                    key="localeUi.suggestionMessage",
-                ),
-                "suggestionAction": expand_tokens(
-                    messages["localeUi.suggestionAction"], tokens, key="localeUi.suggestionAction"
-                ),
-                "suggestionDismiss": expand_tokens(
-                    messages["localeUi.suggestionDismiss"],
-                    tokens,
-                    key="localeUi.suggestionDismiss",
-                ),
-                "suggestionAria": expand_tokens(
-                    messages["localeUi.suggestionAria"], tokens, key="localeUi.suggestionAria"
-                ),
-                "suggestionDismissAria": expand_tokens(
-                    messages["localeUi.suggestionDismissAria"],
-                    tokens,
-                    key="localeUi.suggestionDismissAria",
-                ),
             }
         )
     payload = {
@@ -375,7 +347,6 @@ def runtime_payload(
         "isDefaultRoute": current["code"] == "en",
         "assetPrefix": ("../" if current["path"] else "") + "assets/",
         "preferenceStorageKey": "holdtype.preferredLocale.v1",
-        "dismissedSessionKey": "holdtype.localeSuggestionDismissed.v1",
         "strings": strings,
         "locales": locale_options,
     }
@@ -917,7 +888,7 @@ def validate_catalogs(
             if placeholder_counter(value) != placeholder_counter(english[key]):
                 raise SiteBuildError(f"locale {code} placeholders differ from English for {key}")
 
-    required_runtime_keys = set(RUNTIME_MESSAGE_KEYS) | set(SUGGESTION_MESSAGE_KEYS)
+    required_runtime_keys = set(RUNTIME_MESSAGE_KEYS)
     missing_runtime = sorted(required_runtime_keys - expected_keys)
     if missing_runtime:
         raise SiteBuildError(f"English catalog is missing runtime keys: {missing_runtime}")
@@ -979,7 +950,7 @@ def render_locale_page(
         )
 
     catalog_keys = set(catalogs[locale["code"]])
-    runtime_only = set(RUNTIME_MESSAGE_KEYS) | set(SUGGESTION_MESSAGE_KEYS)
+    runtime_only = set(RUNTIME_MESSAGE_KEYS)
     unused = sorted(catalog_keys - parser.used_message_keys - runtime_only)
     if unused:
         raise SiteBuildError(f"locale catalog has unused page messages: {unused}")

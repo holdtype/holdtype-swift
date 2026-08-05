@@ -9,7 +9,7 @@ hosting.
 ## Scope
 
 - localized landing-page copy, interactive labels, and metadata;
-- stable locale routes, language switching, and language suggestions;
+- stable locale routes, language switching, and root-route language detection;
 - static-search metadata and right-to-left presentation;
 - DigitalOcean and GitHub Pages publication of the localized site.
 
@@ -48,10 +48,12 @@ is no separate `/en/` page.
   the supported routes. It remains usable when JavaScript is unavailable.
 - A directly opened locale URL is authoritative. Stored or browser preferences
   never redirect or replace a locale selected by its URL.
-- On `/`, the site may first consult a previously selected locale and then
-  `navigator.languages` to offer a supported non-English page. The offer is a
-  visible suggestion that requires a user action; the English root does not
-  redirect automatically on a first or later visit.
+- On `/`, JavaScript first resolves a supported explicitly selected locale from
+  local storage, then a supported language from `navigator.languages`. If the
+  resolved locale is non-English, the site immediately replaces the root route
+  with that locale's route. The redirect preserves query parameters and a URL
+  fragment. Browser-language detection alone is not persisted, so a later
+  computer-language change applies on a future root visit.
 - Following a language-selector link may save that explicit choice in
   `localStorage`. Storage is an enhancement, not a requirement for navigation.
 - Unsupported, unavailable, or ambiguous browser locales fall back to English
@@ -99,7 +101,7 @@ is no separate `/en/` page.
 - If `localStorage` is blocked, throws, or contains an unsupported value, the
   selector still navigates by link and browser-language matching may continue.
 - If `navigator.languages` is absent, empty, or contains no supported locale,
-  the root remains English without showing a broken suggestion.
+  the root remains English without a language prompt.
 - If a translation is incomplete or its required metadata is missing, the
   localized artifact fails validation instead of publishing a mixed-language
   page.
@@ -125,9 +127,10 @@ is no separate `/en/` page.
   localized metadata, canonical and reciprocal `hreflang` links, sitemap
   entries, Arabic direction, the shared social-image URL, its exact PNG
   dimensions, and large-card metadata.
-- Browser QA verifies direct-route precedence, root-only suggestions, browser
-  locale matching, explicit-choice persistence, keyboard-accessible switching,
-  and storage-failure fallback.
+- Browser QA verifies direct-route precedence, root-only automatic routing,
+  browser-locale matching, explicit-choice persistence, preservation of query
+  parameters and fragments, keyboard-accessible switching, and storage-failure
+  fallback.
 - No-JavaScript QA verifies readable content, working download and setup links,
   and ordinary language-selector navigation on every locale route.
 - Responsive visual QA covers long German text, CJK wrapping, Arabic RTL, and

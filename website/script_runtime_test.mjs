@@ -11,14 +11,18 @@ const locales = [
   { code: "zh-Hans", browserMatches: ["zh-hans", "zh-cn", "zh-sg"] },
 ].map((locale) => ({
   ...locale,
-  href: "/",
+  href: locale.code === "en" ? "/" : `/${locale.code.toLowerCase()}/`,
   nativeName: locale.code,
   dir: "ltr",
-  suggestionMessage: locale.code,
-  suggestionAction: locale.code,
 }));
 
-function resolveSuggestion({ savedLocale = null, browserLanguages = [], storageThrows = false }) {
+function resolveRedirect({
+  savedLocale = null,
+  browserLanguages = [],
+  storageThrows = false,
+  isDefaultRoute = true,
+  locationHref = "https://holdtype.app/?campaign=summer#faq",
+}) {
   const storage = {
     getItem() {
       if (storageThrows) throw new Error("blocked storage");
@@ -27,9 +31,9 @@ function resolveSuggestion({ savedLocale = null, browserLanguages = [], storageT
     setItem() {},
   };
   const localeConfig = {
-    currentLocale: "en",
+    currentLocale: isDefaultRoute ? "en" : "ru",
     defaultLocale: "en",
-    isDefaultRoute: true,
+    isDefaultRoute,
     strings: {},
     locales,
   };
@@ -46,10 +50,18 @@ function resolveSuggestion({ savedLocale = null, browserLanguages = [], storageT
     },
     addEventListener() {},
   };
+  let redirect = null;
+  const initialLocation = new URL(locationHref);
   const window = {
     localStorage: storage,
-    sessionStorage: storage,
-    location: { hash: "" },
+    location: {
+      href: initialLocation.href,
+      search: initialLocation.search,
+      hash: initialLocation.hash,
+      replace(destination) {
+        redirect = destination;
+      },
+    },
     matchMedia() {
       return { matches: false, addEventListener() {} };
     },
@@ -64,33 +76,43 @@ function resolveSuggestion({ savedLocale = null, browserLanguages = [], storageT
     URL,
   });
   new vm.Script(source, { filename: "script.js" }).runInContext(context);
-  return context.suggestedLocale();
+  return redirect;
 }
 
 assert.equal(
-  resolveSuggestion({ savedLocale: "unsupported-value", browserLanguages: ["de-DE"] })?.code,
-  "de",
-  "an invalid stored locale must fall through to browser-language matching",
+  resolveRedirect({ savedLocale: "unsupported-value", browserLanguages: ["de-DE"] }),
+  "https://holdtype.app/de/?campaign=summer#faq",
+  "an invalid stored locale must fall through to browser-language routing",
 );
 assert.equal(
-  resolveSuggestion({ savedLocale: "ru", browserLanguages: ["de-DE"] })?.code,
-  "ru",
-  "a supported explicit choice must take precedence",
+  resolveRedirect({ savedLocale: "ru", browserLanguages: ["de-DE"] }),
+  "https://holdtype.app/ru/?campaign=summer#faq",
+  "a supported explicit choice must take precedence and preserve the URL state",
 );
 assert.equal(
-  resolveSuggestion({ browserLanguages: ["zh-TW"] }),
+  resolveRedirect({ browserLanguages: ["zh-TW"] }),
   null,
-  "Traditional Chinese must not silently map to Simplified Chinese",
+  "Traditional Chinese must not silently route to Simplified Chinese",
 );
 assert.equal(
-  resolveSuggestion({ browserLanguages: ["zh-CN"] })?.code,
-  "zh-Hans",
-  "Simplified Chinese regional variants must match zh-Hans",
+  resolveRedirect({ browserLanguages: ["zh-CN"] }),
+  "https://holdtype.app/zh-hans/?campaign=summer#faq",
+  "Simplified Chinese regional variants must route to zh-Hans",
 );
 assert.equal(
-  resolveSuggestion({ browserLanguages: ["de-DE"], storageThrows: true })?.code,
-  "de",
-  "blocked storage must not disable browser-language matching",
+  resolveRedirect({ browserLanguages: ["de-DE"], storageThrows: true }),
+  "https://holdtype.app/de/?campaign=summer#faq",
+  "blocked storage must not disable browser-language routing",
+);
+assert.equal(
+  resolveRedirect({ savedLocale: "en", browserLanguages: ["ru-RU"] }),
+  null,
+  "an explicit English choice must leave the user on the root route",
+);
+assert.equal(
+  resolveRedirect({ savedLocale: "de", browserLanguages: ["ru-RU"], isDefaultRoute: false }),
+  null,
+  "a direct locale route must never be replaced by a stored or browser preference",
 );
 
 console.log("Locale runtime tests passed.");

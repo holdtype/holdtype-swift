@@ -13,12 +13,7 @@
   },
   "localeUi": {
     "switcherLabel": "언어",
-    "switcherAria": "언어 선택",
-    "suggestionAria": "언어 제안",
-    "suggestionMessage": "이 페이지는 한국어로도 제공됩니다.",
-    "suggestionAction": "페이지 보기",
-    "suggestionDismiss": "나중에",
-    "suggestionDismissAria": "언어 제안 닫기"
+    "switcherAria": "언어 선택"
   },
   "header": {
     "menuClosed": "메뉴",

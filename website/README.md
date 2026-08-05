@@ -20,8 +20,8 @@ The critical page content, navigation anchors, screenshots, FAQ content, and
 download links remain available when JavaScript is disabled. JavaScript is used
 only for progressive enhancements: mobile navigation, the labelled illustrative
 hero sequence, the Homebrew Copy button, the opt-in video player, and the
-full-size screenshot lightbox, the language menu, and the optional root-page
-locale suggestion. Each localized URL contains its complete translated content
+full-size screenshot lightbox, the language menu, and root-page locale routing.
+Each localized URL contains its complete translated content
 in generated HTML, so JavaScript is not required to read or navigate the site.
 
 ## Localization
@@ -31,11 +31,11 @@ The public routes are `/` (English and `x-default`), `/es/`, `/de/`, `/fr/`,
 a canonical URL plus reciprocal `hreflang` links; `sitemap.xml` lists the same
 route set. Arabic is generated with `dir="rtl"`.
 
-The URL is authoritative. On `/` only, JavaScript may offer a non-blocking
-language suggestion based on an explicit saved choice or `navigator.languages`.
-It never silently redirects and does not use IP geolocation, browser location
-permission, cookies, or a DigitalOcean-specific geo service. An explicit choice
-is stored locally in the browser and can always be changed from the header.
+The URL is authoritative. On `/` only, JavaScript first uses an explicit saved
+choice and otherwise `navigator.languages` to route to a supported non-English
+locale. It does not use IP geolocation, browser location permission, cookies,
+or a DigitalOcean-specific geo service. Only an explicit selector choice is
+stored locally in the browser and it can always be changed from the header.
 
 Edit shared facts and trusted links in `i18n/site.json`, locale metadata in
 `i18n/locales.json`, and copy in the corresponding locale catalog. The builder
@@ -96,7 +96,7 @@ records at the registrar.
 
 - `index.html` — semantic page template with localization markers.
 - `styles.css` — responsive visual system and reduced-motion behavior.
-- `script.js` — language choice/suggestion plus the mobile menu, hero
+- `script.js` — language choice/routing plus the mobile menu, hero
   illustration, Copy, opt-in video, and image lightbox interactions.
 - `build_site.py` — deterministic static-site generator and catalog validator.
 - `build_site_test.py` — focused generator, route, SEO, RTL, and safety tests.

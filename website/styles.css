@@ -362,58 +362,6 @@ h3 {
   font-weight: 680;
 }
 
-.language-suggestion {
-  width: var(--container);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
-  margin: 18px auto 0;
-  border: 1px solid #dfe2f6;
-  border-radius: 12px;
-  background: #f7f8ff;
-  color: var(--text-soft);
-  font-size: 0.9rem;
-}
-
-.language-suggestion[hidden] {
-  display: none;
-}
-
-.language-suggestion p {
-  flex: 1;
-}
-
-.language-suggestion a,
-.language-suggestion button {
-  min-height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font: inherit;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.language-suggestion a {
-  background: var(--accent);
-  color: #fff;
-  text-decoration: none;
-}
-
-.language-suggestion button {
-  border: 0;
-  background: transparent;
-  color: var(--text-soft);
-  cursor: pointer;
-}
-
-.language-suggestion button:hover {
-  color: var(--text);
-}
-
 .button {
   min-height: 50px;
   display: inline-flex;
@@ -2389,15 +2337,6 @@ body.has-image-lightbox {
     grid-template-columns: 1fr;
     max-height: min(62vh, 430px);
     overflow-y: auto;
-  }
-
-  .language-suggestion {
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-
-  .language-suggestion p {
-    flex-basis: 100%;
   }
 
   .hero {
