@@ -28,6 +28,7 @@ struct FixesEditorView: View {
         .task {
             await model.loadIfNeeded()
         }
+        .toolbar(removing: .sidebarToggle)
         .navigationTitle("Manage Fixes")
         .frame(minWidth: 760, minHeight: 520)
         .accessibilityElement(children: .contain)

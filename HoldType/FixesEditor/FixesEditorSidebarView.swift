@@ -28,7 +28,7 @@ struct FixesEditorSidebarView: View {
             prompt: "Search Fixes"
         )
         .toolbar {
-            ToolbarItem {
+            ToolbarItem(placement: .primaryAction) {
                 Button(action: model.addFix) {
                     Image(systemName: "plus")
                 }
