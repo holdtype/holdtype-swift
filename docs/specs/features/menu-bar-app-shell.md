@@ -114,9 +114,9 @@ This spec covers:
 - When quit is requested from the menu bar popover, the popover should dismiss
   before termination is requested, and the confirmation dialog should appear as
   the frontmost key prompt instead of opening behind other app windows.
-- If launch at login is not enabled or still needs approval, quit confirmation
-  should remind the user that `Right Command` dictation will be unavailable
-  until HoldType is opened again.
+- Quit confirmation contains only the direct question and its actions. It must
+  not add explanatory text about shortcuts, menu-bar actions, launch at login,
+  or Right Command availability.
 - Updater-initiated relaunches should not show the quit confirmation. Detailed
   update behavior is defined in `features/software-updates.md`.
 - Canceling the quit confirmation should keep HoldType running, including its

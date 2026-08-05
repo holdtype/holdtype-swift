@@ -5,9 +5,7 @@ import Testing
 @MainActor
 struct QuitConfirmationHandshakeTests {
     @Test func coordinatorOpensConfirmationWindowBeforeWaitingForDecision() {
-        let coordinator = QuitConfirmationCoordinator(
-            launchAtLoginStatusProvider: { .disabled }
-        )
+        let coordinator = QuitConfirmationCoordinator()
         var windowRequestCount = 0
         var resolvedDecision: QuitConfirmationDecision?
 

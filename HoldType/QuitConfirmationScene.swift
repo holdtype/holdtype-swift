@@ -6,20 +6,6 @@ enum QuitConfirmationDecision: Equatable {
     case quit
 }
 
-enum QuitConfirmationCopy {
-    static func informativeText(launchAtLoginStatus: LaunchAtLoginStatus) -> String {
-        var text = """
-        \(HoldTypeMenuBarIdentity.title) will stop listening for dictation shortcuts and menu bar actions until you reopen it.
-        """
-
-        if !launchAtLoginStatus.isEnabled {
-            text += "\n\nRight Command dictation will not be available after restart until \(HoldTypeMenuBarIdentity.title) is opened again."
-        }
-
-        return text
-    }
-}
-
 @MainActor
 protocol QuitConfirmationRequesting: AnyObject {
     func requestQuitConfirmation(
@@ -55,15 +41,6 @@ final class QuitConfirmationCoordinator: ObservableObject, QuitConfirmationReque
 
     private var openConfirmationWindow: (() -> Void)?
     private var completion: (@MainActor (QuitConfirmationDecision) -> Void)?
-    private let launchAtLoginStatusProvider: @MainActor () -> LaunchAtLoginStatus
-
-    init(
-        launchAtLoginStatusProvider: @escaping @MainActor () -> LaunchAtLoginStatus = {
-            LaunchAtLoginService().currentStatus()
-        }
-    ) {
-        self.launchAtLoginStatusProvider = launchAtLoginStatusProvider
-    }
 
     func install(openConfirmationWindow: @escaping () -> Void) {
         self.openConfirmationWindow = openConfirmationWindow
@@ -81,11 +58,7 @@ final class QuitConfirmationCoordinator: ObservableObject, QuitConfirmationReque
         }
 
         self.completion = completion
-        presentation = Presentation(
-            informativeText: QuitConfirmationCopy.informativeText(
-                launchAtLoginStatus: launchAtLoginStatusProvider()
-            )
-        )
+        presentation = Presentation()
         openConfirmationWindow()
     }
 
@@ -109,7 +82,6 @@ extension QuitConfirmationCoordinator {
     struct Presentation: Equatable, Identifiable {
         let id = UUID()
         let title = "Quit \(HoldTypeMenuBarIdentity.title)?"
-        let informativeText: String
     }
 }
 
@@ -147,8 +119,6 @@ private struct QuitConfirmationAlertHost: View {
                     resolve(.quit)
                 }
                 .keyboardShortcut(.defaultAction)
-            } message: {
-                Text(presentation?.informativeText ?? "")
             }
             .onAppear(perform: synchronizePresentation)
             .onChange(of: coordinator.presentation) { _, _ in

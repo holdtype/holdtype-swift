@@ -1,21 +1,15 @@
 import AppKit
-import HoldTypeOpenAI
 import Testing
 @testable import HoldType
 struct QuitConfirmationTests {
 
-    @Test func quitCopyWarnsWhenLaunchAtLoginIsNotEnabled() {
-        let informativeText = QuitConfirmationCopy.informativeText(launchAtLoginStatus: .disabled)
+    @MainActor
+    @Test func quitPromptUsesOnlyTheDirectQuestion() {
+        let coordinator = QuitConfirmationCoordinator()
+        coordinator.install {}
+        coordinator.requestQuitConfirmation { _ in }
 
-        #expect(informativeText.contains("will stop listening"))
-        #expect(informativeText.contains("will not be available after restart"))
-    }
-
-    @Test func quitCopyDoesNotAddRestartWarningWhenLaunchAtLoginIsEnabled() {
-        let informativeText = QuitConfirmationCopy.informativeText(launchAtLoginStatus: .enabled)
-
-        #expect(informativeText.contains("will stop listening"))
-        #expect(informativeText.contains("will not be available after restart") == false)
+        #expect(coordinator.presentation?.title == "Quit HoldType?")
     }
 
     @MainActor
