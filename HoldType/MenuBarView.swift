@@ -126,8 +126,7 @@ struct MenuBarView: View {
         case .editFixes:
             openFixesEditor()
         case .history:
-            dismiss()
-            TranscriptHistoryWindowPresenter.shared.showAfterMenuDismissal()
+            openTranscriptHistory()
         case .settings:
             dismiss()
             SettingsWindowPresenter.shared.showAfterMenuDismissal()
@@ -144,6 +143,17 @@ struct MenuBarView: View {
             },
             openFreshEditor: {
                 openWindow(id: FixesEditorScene.identifier)
+            }
+        )
+    }
+
+    private func openTranscriptHistory() {
+        TranscriptHistoryWindowRequest.openAfterMenuDismissal(
+            dismissMenu: {
+                dismiss()
+            },
+            openHistory: {
+                openWindow(id: TranscriptHistoryScene.identifier)
             }
         )
     }
