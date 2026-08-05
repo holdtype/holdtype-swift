@@ -13,7 +13,6 @@ struct MenuBarView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @StateObject private var dictationRuntime: DictationRuntime
 
@@ -210,7 +209,7 @@ struct MenuBarView: View {
                 dismiss()
             },
             openSettings: {
-                openSettings()
+                openWindow(id: SettingsScene.identifier)
             }
         )
     }

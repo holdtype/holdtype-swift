@@ -58,20 +58,7 @@ struct HoldTypeApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Settings {
-            SettingsView(
-                navigation: SettingsPresentationCoordinator.shared.navigation,
-                hotkeyStatusProvider: {
-                    DictationRuntime.shared.refreshHotkeyRegistrationStatus()
-                    return DictationRuntime.shared.hotkeyRegistrationStatus
-                },
-                fixesHotkeyStatusProvider: {
-                    FixesRuntime.shared.hotkeyRegistrationStatus
-                }
-            )
-            .frame(minWidth: 720, minHeight: 480)
-        }
-
+        SettingsScene()
         FixesEditorScene()
         TranscriptHistoryScene()
         QuitConfirmationScene()
@@ -79,7 +66,6 @@ struct HoldTypeApp: App {
 }
 
 private struct HoldTypeMenuBarLabel: View {
-    @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -95,7 +81,7 @@ private struct HoldTypeMenuBarLabel: View {
         }
         .onAppear {
             SettingsPresentationCoordinator.shared.install {
-                openSettings()
+                openWindow(id: SettingsScene.identifier)
             }
             QuitConfirmationCoordinator.shared.install {
                 openWindow(id: QuitConfirmationScene.identifier)
