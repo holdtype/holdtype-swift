@@ -86,12 +86,7 @@ visual QA. It applies before inspecting UI implementation code or proposing a
 visual solution.
 
 - For macOS UI work, read and use `build-macos-apps:swiftui-patterns` and
-  implement the interface in SwiftUI only. Do not introduce, extend, or modify
-  AppKit-based UI code, including `NSWindow`, `NSHostingView`, titlebar
-  accessories, `NSToolbar`, `NSPanel`, or `NSViewRepresentable`. Do not use
-  `build-macos-apps:appkit-interop` as a workaround. If SwiftUI cannot express
-  the required result, stop and request an explicit product and architecture
-  decision instead of writing AppKit.
+  implement the interface in SwiftUI only.
 - For iOS UI work, read and use `build-ios-apps:swiftui-ui-patterns`. When
   running or debugging the iOS interface, also use
   `build-ios-apps:ios-debugger-agent`; use the other Build iOS Apps skills when
@@ -102,9 +97,19 @@ visual solution.
 - Do not substitute generic UI intuition, ad-hoc AppKit/UIKit code, or a
   screenshot-only iteration for the applicable skill workflow.
 
-Existing AppKit UI is legacy implementation debt. It is not precedent for new
-or changed UI work. A migration of existing AppKit UI to SwiftUI requires its
-own approved plan and verification scope; until then, do not extend it.
+## Full AppKit Prohibition
+
+AppKit is prohibited in this repository. Product code must not import AppKit or
+use AppKit UI or lifecycle APIs, including `NSWindow`, `NSHostingView`,
+`NSToolbar`, `NSPanel`, `NSApplication`, `NSViewRepresentable`, or AppKit event
+and workspace APIs. All interface work is SwiftUI-only. Do not use
+`build-macos-apps:appkit-interop` under any circumstances.
+
+Existing AppKit imports are non-compliant legacy code, not an exception or
+precedent. Do not extend, modify, or rely on them. Any migration work must
+remove AppKit usage in scope and verify the resulting SwiftUI implementation.
+If a requested capability cannot be implemented in SwiftUI, stop and ask for
+direction; AppKit is not an available fallback.
 
 ## Repository Safety
 
