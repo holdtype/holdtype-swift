@@ -16,7 +16,7 @@ APP_BINARY=""
 INFO_PLIST=""
 
 usage() {
-    printf 'usage: %s [run|--debug|--logs|--telemetry|--verify|--verify-timeout-prompt|--verify-invalid-api-key-prompt|--live-debug|--reset-accessibility|--reset-input-monitoring]\n' "$0" >&2
+    printf 'usage: %s [run|--debug|--logs|--telemetry|--verify|--verify-timeout-prompt|--verify-uncertain-prompt|--verify-invalid-api-key-prompt|--live-debug|--reset-accessibility|--reset-input-monitoring]\n' "$0" >&2
 }
 
 stop_running_app() {
@@ -270,6 +270,10 @@ case "$MODE" in
         ;;
     --verify-timeout-prompt|verify-timeout-prompt)
         open_app_for_transcription_failure_prompt_verification timeout
+        verify_running_app
+        ;;
+    --verify-uncertain-prompt|verify-uncertain-prompt)
+        open_app_for_transcription_failure_prompt_verification uncertain
         verify_running_app
         ;;
     --verify-invalid-api-key-prompt|verify-invalid-api-key-prompt)

@@ -117,6 +117,7 @@ struct TranscriptionFailurePromptTests {
 
         #expect(DebugTranscriptionFailurePromptLaunch.reason(from: "invalid-api-key") == .invalidAPIKey)
         #expect(DebugTranscriptionFailurePromptLaunch.reason(from: "network") == .networkUnavailable)
+        #expect(DebugTranscriptionFailurePromptLaunch.reason(from: "uncertain") == .providerOutcomeUncertain)
         #expect(presentedReasons.isEmpty)
 
         scheduledPresentation?()

@@ -254,14 +254,7 @@ private struct TranscriptionFailurePromptDialog: View {
                 Spacer()
 
                 ForEach(actions, id: \.self) { action in
-                    Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
-                        if case .transcribeAgain = action {
-                            isShowingDuplicateRetryConfirmation = true
-                        } else {
-                            onResolve(action)
-                        }
-                    }
-                    .keyboardShortcut(action == .dismiss ? .cancelAction : .defaultAction)
+                    actionButton(for: action)
                 }
             }
         }
@@ -282,6 +275,30 @@ private struct TranscriptionFailurePromptDialog: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(TranscriptionFailurePromptCopy.duplicateRetryWarning)
+        }
+    }
+
+    @ViewBuilder
+    private func actionButton(for action: TranscriptionFailurePromptDecision) -> some View {
+        switch action {
+        case .retry:
+            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
+                onResolve(action)
+            }
+            .keyboardShortcut(.defaultAction)
+        case .dismiss:
+            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
+                onResolve(action)
+            }
+            .keyboardShortcut(.cancelAction)
+        case .transcribeAgain:
+            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
+                isShowingDuplicateRetryConfirmation = true
+            }
+        case .openSettings:
+            Button(TranscriptionFailurePromptCopy.buttonTitle(for: action)) {
+                onResolve(action)
+            }
         }
     }
 }

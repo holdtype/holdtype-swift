@@ -155,6 +155,8 @@ enum DebugTranscriptionFailurePromptLaunch {
             return .networkUnavailable
         case "network-failure", "network_failure":
             return .networkFailure
+        case "uncertain", "provider-outcome-uncertain", "provider_outcome_uncertain":
+            return .providerOutcomeUncertain
         case "invalid-api-key", "invalid_api_key", "api-key", "api_key":
             return .invalidAPIKey
         case "transcription-settings", "settings", "bad-request", "bad_request":

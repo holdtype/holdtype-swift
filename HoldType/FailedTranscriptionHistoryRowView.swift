@@ -91,6 +91,9 @@ struct FailedTranscriptionHistoryRowView: View {
                         Label("Transcribe Again", systemImage: "arrow.clockwise")
                     }
                     .help("Transcribe Again (may create a duplicate charge)")
+                    .accessibilityLabel("Transcribe Again")
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
                     .controlSize(.small)
                     .disabled(!savedRecordingActionsEnabled)
                 }
