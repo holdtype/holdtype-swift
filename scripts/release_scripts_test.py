@@ -1051,11 +1051,11 @@ end
         self.assertIn("--draft=false", workflow)
         self.assertIn("--prerelease=false", workflow)
 
-    def test_release_workflow_uses_macos_14_runtime_test_gate(self) -> None:
+    def test_release_workflow_leaves_tests_to_the_local_developer_gate(self) -> None:
         workflow = RELEASE_WORKFLOW.read_text()
 
-        self.assertIn('minimum_version="14.0"', workflow)
-        self.assertNotIn('minimum_version="26.5"', workflow)
+        self.assertNotIn("- name: Run tests", workflow)
+        self.assertNotIn('minimum_version="14.0"', workflow)
 
     def test_release_workflow_reuses_existing_appcast(self) -> None:
         workflow = RELEASE_WORKFLOW.read_text()
