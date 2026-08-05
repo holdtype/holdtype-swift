@@ -26,7 +26,7 @@
     "howItWorks": "사용 방법",
     "features": "기능",
     "privacy": "개인정보 보호",
-    "faq": "자주 묻는 질문"
+    "faq": "{term.faq}"
   },
   "hero": {
     "title": "가장 솔직한 Wispr Flow ‘클론’.",

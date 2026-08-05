@@ -26,7 +26,7 @@
     "howItWorks": "使い方",
     "features": "機能",
     "privacy": "プライバシー",
-    "faq": "よくある質問"
+    "faq": "{term.faq}"
   },
   "hero": {
     "title": "最も正直な Wispr Flow「クローン」。",

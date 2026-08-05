@@ -26,7 +26,7 @@
     "howItWorks": "آلية العمل",
     "features": "الميزات",
     "privacy": "الخصوصية",
-    "faq": "الأسئلة الشائعة"
+    "faq": "{term.faq}"
   },
   "hero": {
     "title": "أصدق «نسخة» من Wispr Flow.",
