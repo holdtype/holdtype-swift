@@ -5,11 +5,9 @@ struct QuitConfirmationTests {
 
     @MainActor
     @Test func quitPromptUsesOnlyTheDirectQuestion() {
-        let coordinator = QuitConfirmationCoordinator()
-        coordinator.install {}
-        coordinator.requestQuitConfirmation { _ in }
-
-        #expect(coordinator.presentation?.title == "Quit HoldType?")
+        #expect(QuitConfirmationCopy.title == "Quit HoldType?")
+        #expect(QuitConfirmationCopy.cancelButtonTitle == "Cancel")
+        #expect(QuitConfirmationCopy.quitButtonTitle == "Quit HoldType")
     }
 
     @MainActor
@@ -39,14 +37,14 @@ struct QuitConfirmationTests {
     @Test func applicationDelegateUsesInjectedQuitConfirmationPresenter() async {
         let presenter = FakeQuitConfirmationPresenter(decision: .cancel)
         var prepareCount = 0
-        var terminationReplies: [Bool] = []
+        var terminationRequestCount = 0
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: presenter,
             prepareForTermination: {
                 prepareCount += 1
             },
-            replyToTerminationRequest: { _, shouldTerminate in
-                terminationReplies.append(shouldTerminate)
+            requestTermination: {
+                terminationRequestCount += 1
             }
         )
 
@@ -56,11 +54,10 @@ struct QuitConfirmationTests {
 
         presenter.decision = .quit
 
-        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateCancel)
         #expect(presenter.requestCount == 2)
-        await yieldUntil { terminationReplies == [true] }
+        await yieldUntil { terminationRequestCount == 1 }
         #expect(prepareCount == 1)
-        #expect(terminationReplies == [true])
         #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
         #expect(presenter.requestCount == 2)
     }
@@ -69,21 +66,21 @@ struct QuitConfirmationTests {
     @Test func applicationDelegateSkipsQuitConfirmationForUpdaterRelaunch() async {
         let presenter = FakeQuitConfirmationPresenter(decision: .cancel)
         var prepareCount = 0
-        var terminationReplies: [Bool] = []
+        var terminationRequestCount = 0
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: presenter,
             isUpdaterRelaunchInProgress: { true },
             prepareForTermination: {
                 prepareCount += 1
             },
-            replyToTerminationRequest: { _, shouldTerminate in
-                terminationReplies.append(shouldTerminate)
+            requestTermination: {
+                terminationRequestCount += 1
             }
         )
 
-        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateCancel)
         #expect(presenter.requestCount == 0)
-        await yieldUntil { terminationReplies == [true] }
+        await yieldUntil { terminationRequestCount == 1 }
         #expect(prepareCount == 1)
         #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
     }
@@ -91,24 +88,24 @@ struct QuitConfirmationTests {
     @MainActor
     @Test func applicationDelegateBoundsTerminationPreparation() async {
         var prepareStarted = false
-        var terminationReplies: [Bool] = []
+        var terminationRequestCount = 0
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
             prepareForTermination: {
                 prepareStarted = true
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
             },
-            replyToTerminationRequest: { _, shouldTerminate in
-                terminationReplies.append(shouldTerminate)
+            requestTermination: {
+                terminationRequestCount += 1
             },
             terminationTimeoutNanoseconds: 1_000_000
         )
 
-        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateLater)
-        await yieldUntil { terminationReplies == [true] }
+        #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateCancel)
+        await yieldUntil { terminationRequestCount == 1 }
 
         #expect(prepareStarted)
-        #expect(terminationReplies == [true])
+        #expect(terminationRequestCount == 1)
         #expect(delegate.applicationShouldTerminate(NSApplication.shared) == .terminateNow)
     }
 

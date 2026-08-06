@@ -62,7 +62,6 @@ struct HoldTypeApp: App {
         FixesEditorScene()
         TranscriptHistoryScene()
         TranscriptionFailurePromptScene()
-        QuitConfirmationScene()
     }
 }
 
@@ -84,10 +83,6 @@ private struct HoldTypeMenuBarLabel: View {
             SettingsPresentationCoordinator.shared.install {
                 AppWindowActivation.showRegularApp()
                 openWindow(id: SettingsScene.identifier)
-            }
-            QuitConfirmationCoordinator.shared.install {
-                AppWindowActivation.showRegularApp()
-                openWindow(id: QuitConfirmationScene.identifier)
             }
             TranscriptionFailurePromptCoordinator.shared.install {
                 AppWindowActivation.showRegularApp()
@@ -184,7 +179,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let isUpdaterRelaunchInProgress: @MainActor () -> Bool
     private let repairInterruptedRecordings: @MainActor () -> Void
     private let prepareForTermination: @MainActor () async -> Void
-    private let replyToTerminationRequest: @MainActor (NSApplication, Bool) -> Void
     private let requestTermination: @MainActor () -> Void
     private let terminationTimeoutNanoseconds: UInt64
     private var terminationPreparationTask: Task<Void, Never>?
@@ -192,11 +186,11 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private var isTerminationPreparationPending = false
     private var isTerminationPreparationComplete = false
     private var isQuitConfirmationPending = false
-    private var hasConfirmedQuit = false
-    private var isRequestingQuitConfirmation = false
 
     override init() {
-        quitConfirmationRequester = QuitConfirmationCoordinator.shared
+        quitConfirmationRequester = LegacyQuitConfirmationRequester(
+            presenter: NativeQuitConfirmationPresenter()
+        )
         transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator.shared
         launchEnvironment = ProcessInfo.processInfo.environment
         startRuntimeComponentsOverride = nil
@@ -212,9 +206,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         }
         prepareForTermination = {
             await DictationRuntime.shared.prepareForTermination()
-        }
-        replyToTerminationRequest = { application, shouldTerminate in
-            application.reply(toApplicationShouldTerminate: shouldTerminate)
         }
         requestTermination = {
             NSApplication.shared.terminate(nil)
@@ -235,7 +226,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         },
         repairInterruptedRecordings: @escaping @MainActor () -> Void = {},
         prepareForTermination: @escaping @MainActor () async -> Void = {},
-        replyToTerminationRequest: @escaping @MainActor (NSApplication, Bool) -> Void = { _, _ in },
         requestTermination: @escaping @MainActor () -> Void = {},
         terminationTimeoutNanoseconds: UInt64 = 2_500_000_000
     ) {
@@ -248,7 +238,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         self.isUpdaterRelaunchInProgress = isUpdaterRelaunchInProgress
         self.repairInterruptedRecordings = repairInterruptedRecordings
         self.prepareForTermination = prepareForTermination
-        self.replyToTerminationRequest = replyToTerminationRequest
         self.requestTermination = requestTermination
         self.terminationTimeoutNanoseconds = terminationTimeoutNanoseconds
         super.init()
@@ -266,7 +255,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         },
         repairInterruptedRecordings: @escaping @MainActor () -> Void = {},
         prepareForTermination: @escaping @MainActor () async -> Void = {},
-        replyToTerminationRequest: @escaping @MainActor (NSApplication, Bool) -> Void = { _, _ in },
         requestTermination: @escaping @MainActor () -> Void = {},
         terminationTimeoutNanoseconds: UInt64 = 2_500_000_000
     ) {
@@ -282,7 +270,6 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             isUpdaterRelaunchInProgress: isUpdaterRelaunchInProgress,
             repairInterruptedRecordings: repairInterruptedRecordings,
             prepareForTermination: prepareForTermination,
-            replyToTerminationRequest: replyToTerminationRequest,
             requestTermination: requestTermination,
             terminationTimeoutNanoseconds: terminationTimeoutNanoseconds
         )
@@ -322,20 +309,16 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
         if isTerminationPreparationPending {
-            return .terminateLater
+            return .terminateCancel
         }
 
-        if !isUpdaterRelaunchInProgress(), !hasConfirmedQuit {
-            let wasConfirmedSynchronously = requestQuitConfirmationIfNeeded()
-            if !wasConfirmedSynchronously {
-                return .terminateCancel
-            }
+        if isUpdaterRelaunchInProgress() {
+            beginTerminationPreparation()
+        } else {
+            requestQuitConfirmationIfNeeded()
         }
 
-        hasConfirmedQuit = false
-
-        beginTerminationPreparation(for: sender)
-        return .terminateLater
+        return .terminateCancel
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -355,17 +338,21 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         transcriptionFailurePromptCoordinator?.stop()
     }
 
-    private func beginTerminationPreparation(for application: NSApplication) {
+    private func beginTerminationPreparation() {
+        guard !isTerminationPreparationPending, !isTerminationPreparationComplete else {
+            return
+        }
+
         isTerminationPreparationPending = true
-        terminationPreparationTask = Task { @MainActor [weak self, weak application] in
-            guard let self, let application else {
+        terminationPreparationTask = Task { @MainActor [weak self] in
+            guard let self else {
                 return
             }
             await self.prepareForTermination()
-            self.completeTerminationPreparation(for: application)
+            self.completeTerminationPreparation()
         }
-        terminationDeadlineTask = Task { @MainActor [weak self, weak application] in
-            guard let self, let application else {
+        terminationDeadlineTask = Task { @MainActor [weak self] in
+            guard let self else {
                 return
             }
             do {
@@ -373,17 +360,16 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             } catch {
                 return
             }
-            self.completeTerminationPreparation(for: application)
+            self.completeTerminationPreparation()
         }
     }
 
-    private func requestQuitConfirmationIfNeeded() -> Bool {
+    private func requestQuitConfirmationIfNeeded() {
         guard !isQuitConfirmationPending else {
-            return false
+            return
         }
 
         isQuitConfirmationPending = true
-        isRequestingQuitConfirmation = true
         quitConfirmationRequester.requestQuitConfirmation { [weak self] decision in
             guard let self else {
                 return
@@ -394,19 +380,11 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
-            self.hasConfirmedQuit = true
-            guard !self.isRequestingQuitConfirmation else {
-                return
-            }
-            Task { @MainActor [weak self] in
-                self?.requestTermination()
-            }
+            self.beginTerminationPreparation()
         }
-        isRequestingQuitConfirmation = false
-        return hasConfirmedQuit
     }
 
-    private func completeTerminationPreparation(for application: NSApplication) {
+    private func completeTerminationPreparation() {
         guard isTerminationPreparationPending else {
             return
         }
@@ -417,7 +395,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         terminationDeadlineTask?.cancel()
         terminationPreparationTask = nil
         terminationDeadlineTask = nil
-        replyToTerminationRequest(application, true)
+        requestTermination()
     }
 
     private var isInputMonitoringRecoveryLaunch: Bool {

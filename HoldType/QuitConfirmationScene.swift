@@ -1,9 +1,14 @@
-import Combine
-import SwiftUI
+import AppKit
 
 enum QuitConfirmationDecision: Equatable {
     case cancel
     case quit
+}
+
+enum QuitConfirmationCopy {
+    static let title = "Quit \(HoldTypeMenuBarIdentity.title)?"
+    static let cancelButtonTitle = "Cancel"
+    static let quitButtonTitle = "Quit \(HoldTypeMenuBarIdentity.title)"
 }
 
 @MainActor
@@ -33,121 +38,51 @@ final class LegacyQuitConfirmationRequester: QuitConfirmationRequesting {
     }
 }
 
+/// A narrow system-dialog adapter for app termination confirmation.
+///
+/// The SwiftUI alert host used in 1.0.9 required a one-point hidden window. On macOS that
+/// window can enter a recursive constraints pass while termination is being cancelled,
+/// leaving the process inert or raising an AppKit layout exception. `NSAlert.runModal()`
+/// keeps this existing native dialog independent of SwiftUI scene teardown; all subsequent
+/// recording finalization still runs through `HoldTypeAppDelegate` after the modal returns.
 @MainActor
-final class QuitConfirmationCoordinator: ObservableObject, QuitConfirmationRequesting {
-    static let shared = QuitConfirmationCoordinator()
+struct NativeQuitConfirmationPresenter: QuitConfirmationPresenting {
+    func requestQuitConfirmation() -> QuitConfirmationDecision {
+        let shouldRestoreAccessoryAfterCancel = !hasVisibleAppWindow
 
-    @Published private(set) var presentation: Presentation?
+        AppWindowActivation.showRegularApp()
 
-    private var openConfirmationWindow: (() -> Void)?
-    private var completion: (@MainActor (QuitConfirmationDecision) -> Void)?
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = QuitConfirmationCopy.title
+        alert.addButton(withTitle: QuitConfirmationCopy.cancelButtonTitle)
+        alert.addButton(withTitle: QuitConfirmationCopy.quitButtonTitle)
 
-    func install(openConfirmationWindow: @escaping () -> Void) {
-        self.openConfirmationWindow = openConfirmationWindow
-    }
+        bringAlertToFront(alert)
+        let decision: QuitConfirmationDecision = alert.runModal() == .alertSecondButtonReturn
+            ? .quit
+            : .cancel
 
-    func requestQuitConfirmation(
-        completion: @escaping @MainActor (QuitConfirmationDecision) -> Void
-    ) {
-        guard presentation == nil else {
-            return
-        }
-        guard let openConfirmationWindow else {
-            completion(.cancel)
-            return
+        if decision == .cancel, shouldRestoreAccessoryAfterCancel {
+            NSApplication.shared.setActivationPolicy(.accessory)
         }
 
-        self.completion = completion
-        presentation = Presentation()
-        openConfirmationWindow()
+        return decision
     }
 
-    func resolve(_ decision: QuitConfirmationDecision) {
-        guard presentation != nil else {
-            return
+    private func bringAlertToFront(_ alert: NSAlert) {
+        let alertWindow = alert.window
+        alertWindow.level = .modalPanel
+        alertWindow.collectionBehavior = alertWindow.collectionBehavior.union(.moveToActiveSpace)
+        alertWindow.makeKeyAndOrderFront(nil)
+        alertWindow.orderFrontRegardless()
+    }
+
+    private var hasVisibleAppWindow: Bool {
+        NSApplication.shared.windows.contains { window in
+            window.isVisible
+                && !window.isMiniaturized
+                && window.canBecomeKey
         }
-
-        presentation = nil
-        let completion = self.completion
-        self.completion = nil
-        completion?(decision)
-    }
-
-    func cancelIfNeeded() {
-        resolve(.cancel)
-    }
-}
-
-extension QuitConfirmationCoordinator {
-    struct Presentation: Equatable, Identifiable {
-        let id = UUID()
-        let title = "Quit \(HoldTypeMenuBarIdentity.title)?"
-    }
-}
-
-struct QuitConfirmationScene: Scene {
-    static let identifier = "holdtype.quit-confirmation"
-
-    var body: some Scene {
-        Window("Quit \(HoldTypeMenuBarIdentity.title)?", id: Self.identifier) {
-            QuitConfirmationAlertHost(coordinator: .shared)
-        }
-        .defaultSize(width: 1, height: 1)
-        .windowResizability(.contentSize)
-    }
-}
-
-private struct QuitConfirmationAlertHost: View {
-    @ObservedObject var coordinator: QuitConfirmationCoordinator
-    @Environment(\.dismiss) private var dismiss
-    @State private var presentation: QuitConfirmationCoordinator.Presentation?
-    @State private var isAlertPresented = false
-
-    var body: some View {
-        Color.clear
-            .frame(width: 1, height: 1)
-            .alert(
-                presentation?.title ?? "Quit \(HoldTypeMenuBarIdentity.title)?",
-                isPresented: alertBinding
-            ) {
-                Button("Cancel", role: .cancel) {
-                    resolve(.cancel)
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Button("Quit \(HoldTypeMenuBarIdentity.title)") {
-                    resolve(.quit)
-                }
-                .keyboardShortcut(.defaultAction)
-            }
-            .onAppear(perform: synchronizePresentation)
-            .onChange(of: coordinator.presentation) { _, _ in
-                synchronizePresentation()
-            }
-        .onDisappear {
-            coordinator.cancelIfNeeded()
-        }
-    }
-
-    private var alertBinding: Binding<Bool> {
-        Binding(
-            get: { isAlertPresented },
-            set: { isPresented in
-                isAlertPresented = isPresented
-                if !isPresented {
-                    resolve(.cancel)
-                }
-            }
-        )
-    }
-
-    private func synchronizePresentation() {
-        presentation = coordinator.presentation
-        isAlertPresented = presentation != nil
-    }
-
-    private func resolve(_ decision: QuitConfirmationDecision) {
-        coordinator.resolve(decision)
-        dismiss()
     }
 }
