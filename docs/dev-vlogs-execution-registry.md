@@ -67,7 +67,8 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | accepted_with_residual | `2486b56`, repair `69b2d16`; receipts below | Internal bookmark/capacity/promotion/cleanup evidence accepted; external/media runtime remains. |
 | `DV-P0B-STORAGE-W01-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-W01@2486b56` | read-only | rejected | recorded below | Return exact safety/claim repairs to original owner; external/runtime work remains blocked. |
 | `DV-P0B-STORAGE-W01-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | repair `69b2d16` | read-only | accepted_with_residual | recorded below | Controlled external/runtime evidence may be packetized separately. |
-| `DV-P0B-CAPTURE-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted capture/storage W01 repairs | one redacted capture-R01 QA run; raw media in exact temporary run root only | running | — | Controlled hardware preflight and one 10-second internal smoke per available camera class; no sync/drift or long-duration claim. |
+| `DV-P0B-CAPTURE-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted capture/storage W01 repairs | one redacted capture-R01 QA run; raw media in exact temporary run root only | accepted_with_residual | `f698fcb`; receipts below | All camera classes terminal not_available; preflight only, no capture/media claim. |
+| `DV-P0B-CAPTURE-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R01@f698fcb` | read-only | accepted_with_residual | recorded below | Retry capture only when an explicit camera uniqueID enumerates. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -92,9 +93,11 @@ They are not yet an Active implementation epoch.
 - Accepted storage evidence is limited to fake/internal APFS bookmark,
   capacity, exclusive-promotion, redaction, and cleanup mechanics. External
   drives, true-stale/remount, interruption, and representative media remain.
-- Running packet: serialized `DV-P0B-CAPTURE-R01` hardware preflight and short
-  internal-destination smoke. Storage external/runtime work waits for its
-  terminal cleanup receipt.
+- Capture runtime preflight `f698fcb` is accepted_with_residual. Built-in and
+  USB are unavailable; the connected iPhone did not enumerate as Continuity
+  Camera. No capture, TCC, media, or quantitative claim exists.
+- A bounded capture retry waits for an explicit camera uniqueID. Independent
+  storage external/runtime evidence may proceed serially after this cleanup.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -406,6 +409,56 @@ threshold evidence remain.
 next_dependency: Separately controlled external/runtime storage evidence.
 runtime_or_visual_handoff: none
 reviewed_commit: 69b2d163a696b4a13fab3e58475ad3065b57269f
+```
+
+### `DV-P0B-CAPTURE-R01`
+
+```text
+packet_id: DV-P0B-CAPTURE-R01
+status: done
+
+outcome: Bounded Debug/signing/internal-capacity preflight found zero built-in,
+USB, Continuity, or other external cameras. No capture started.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; accepted capture and
+storage harness repairs; finite R01 packet.
+changed_paths: Twelve redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-r01/; commit f698fcb.
+checks_run: Debug build; signing/Release isolation; bounded bundled enumeration;
+capacity; JSON/CSV/redaction/path checks; cleanup audit.
+scope_check: Evidence-only; no source, TCC, UI, provider, Keychain, iOS,
+external-storage, or protected-owner change.
+deviations: Initial detached idle guard exited early; enumeration repeated once
+under a verified same-shell guard.
+residual: No camera uniqueID; functional capture/media/TCC and all quantitative
+evidence remain unqualified.
+next_dependency: DV-P0B-CAPTURE-R01-REVIEW
+runtime_or_visual_handoff: none
+commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
+```
+
+### `DV-P0B-CAPTURE-R01-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Evidence supports terminal not_available classification for built-in,
+USB, and Continuity cells; it makes no functional capture or media claim.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E02/E04/E06/E08; exact R01
+evidence and accepted harness authority.
+changed_paths: none
+checks_run: Exact commit and twelve-blob audit; JSON/CSV parsing; redaction and
+media scans; cleanup/process/caffeinate zero-residue snapshot.
+scope_check: Clean; no source, spec, project, TCC, UI, Keychain, provider,
+external storage, or protected-owner change.
+deviations: Initial guard deviation was disclosed and corrected by guarded
+repeat.
+residual: Only enumeration/signing preflight is accepted. E02 functional media
+and E06 measurements wait for an explicit camera identity.
+next_dependency: Controlled retry after camera hardware enumerates.
+runtime_or_visual_handoff: none
+reviewed_commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
 ```
 
 ## Rejected Receipts
