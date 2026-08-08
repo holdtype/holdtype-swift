@@ -1,58 +1,6 @@
 import Darwin
 import Foundation
 
-protocol DevVlogsStorageCapacityProviding {
-    func usefulCapacity(at destinationURL: URL) throws -> Int64?
-}
-
-protocol DevVlogsStorageDestinationStateProviding {
-    func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState
-}
-
-struct DevVlogsStorageDestinationState: Equatable {
-    let isAvailable: Bool
-    let isLocal: Bool
-    let isReadOnly: Bool
-}
-
-enum DevVlogsStorageSkipReason: String, Equatable {
-    case unavailable
-    case nonlocal
-    case readOnly = "read_only"
-    case capacityUnknown = "capacity_unknown"
-    case insufficientCapacity = "insufficient_capacity"
-}
-
-enum DevVlogsStoragePreflightResult: Equatable {
-    case proceed(usefulCapacity: Int64, suppliedReserve: Int64)
-    case skip(DevVlogsStorageSkipReason)
-}
-
-struct DevVlogsStoragePreflight {
-    let capacityProvider: any DevVlogsStorageCapacityProviding
-    let destinationStateProvider: any DevVlogsStorageDestinationStateProviding
-
-    func evaluate(destinationURL: URL, suppliedReserve: Int64) throws -> DevVlogsStoragePreflightResult {
-        let state = try destinationStateProvider.state(at: destinationURL)
-        guard state.isAvailable else { return .skip(.unavailable) }
-        guard state.isLocal else { return .skip(.nonlocal) }
-        guard !state.isReadOnly else { return .skip(.readOnly) }
-        guard let capacity = try capacityProvider.usefulCapacity(at: destinationURL) else {
-            return .skip(.capacityUnknown)
-        }
-        guard capacity >= suppliedReserve else { return .skip(.insufficientCapacity) }
-        return .proceed(usefulCapacity: capacity, suppliedReserve: suppliedReserve)
-    }
-}
-
-struct DevVlogsURLStorageCapacityProvider: DevVlogsStorageCapacityProviding {
-    func usefulCapacity(at destinationURL: URL) throws -> Int64? {
-        try destinationURL.resourceValues(
-            forKeys: [.volumeAvailableCapacityForImportantUsageKey]
-        ).volumeAvailableCapacityForImportantUsage
-    }
-}
-
 struct DevVlogsURLStorageDestinationStateProvider: DevVlogsStorageDestinationStateProviding {
     func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState {
         let values = try destinationURL.resourceValues(forKeys: [
@@ -67,17 +15,12 @@ struct DevVlogsURLStorageDestinationStateProvider: DevVlogsStorageDestinationSta
         )
     }
 }
-
-struct DevVlogsOrdinaryBookmarkResolution {
-    let url: URL
-    let isStale: Bool
-}
+struct DevVlogsOrdinaryBookmarkResolution { let url: URL; let isStale: Bool }
 
 enum DevVlogsOrdinaryBookmark {
     static func create(for url: URL) throws -> Data {
         try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
-
     static func resolve(_ data: Data) throws -> DevVlogsOrdinaryBookmarkResolution {
         var isStale = false
         let url = try URL(
@@ -89,51 +32,103 @@ enum DevVlogsOrdinaryBookmark {
         return DevVlogsOrdinaryBookmarkResolution(url: url, isStale: isStale)
     }
 }
+enum DevVlogsStorageDestinationClass: String, CaseIterable {
+    case externalSSD = "external-ssd"; case externalHDD = "external-hdd"
+}
+enum DevVlogsStorageFilesystemClass: String, CaseIterable { case apfs, hfs, exfat }
+
+struct DevVlogsExternalStorageAuthorization {
+    let volumeRootURL: URL; let destinationClass: DevVlogsStorageDestinationClass
+    let filesystemClass: DevVlogsStorageFilesystemClass
+}
+
+struct DevVlogsExternalStorageRuntimeConfiguration {
+    static let enableKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE",
+               rootKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_VOLUME_ROOT",
+               destinationKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_DESTINATION_CLASS",
+               filesystemKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_FILESYSTEM_CLASS",
+               caseKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_CASE_ID",
+               runKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_RUN_ID"
+    let authorization: DevVlogsExternalStorageAuthorization
+    let caseID: String
+    let runID: UUID
+    static func load(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) throws -> Self? {
+        let keys = [enableKey, rootKey, destinationKey, filesystemKey, caseKey, runKey]
+        let supplied = keys.filter { environment[$0] != nil }
+        guard !supplied.isEmpty else { return nil }
+        guard supplied.count == keys.count,
+              environment[enableKey] == "execute",
+              let root = environment[rootKey], root.hasPrefix("/"),
+              URL(fileURLWithPath: root).standardizedFileURL.path == root,
+              let destinationValue = environment[destinationKey],
+              let destination = DevVlogsStorageDestinationClass(rawValue: destinationValue),
+              let filesystemValue = environment[filesystemKey],
+              let filesystem = DevVlogsStorageFilesystemClass(rawValue: filesystemValue),
+              let caseID = environment[caseKey], (1...64).contains(caseID.count),
+              caseID.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }),
+              let runValue = environment[runKey], let runID = UUID(uuidString: runValue),
+              runValue == runID.uuidString.lowercased() else {
+            throw DevVlogsStorageHarnessError.invalidRuntimeConfiguration
+        }
+        return Self(
+            authorization: .init(
+                volumeRootURL: URL(fileURLWithPath: root, isDirectory: true),
+                destinationClass: destination,
+                filesystemClass: filesystem
+            ),
+            caseID: caseID,
+            runID: runID
+        )
+    }
+}
+
+enum DevVlogsStorageBaseAuthority {
+    case internalDefault
+    case nestedAttackFixture(URL)
+    case simulatedExternalFixture(URL)
+    case explicitlyAuthorizedExternal(DevVlogsExternalStorageAuthorization)
+}
 
 enum DevVlogsStorageHarnessError: Error, Equatable {
-    case rootAlreadyExists
-    case outOfScope
-    case symbolicLink
-    case notDirectory
-    case identityMismatch
-    case markerMissing
-    case markerMismatch
-    case itemExists
-    case exclusiveRenameUnsupported
-    case crossVolume
+    case rootAlreadyExists, outOfScope, symbolicLink, notDirectory, identityMismatch
+    case markerMissing, markerMismatch, itemExists, exclusiveRenameUnsupported, crossVolume
+    case invalidExternalAuthorization, invalidRuntimeConfiguration, prefixAlreadyExists
+    case writeLimitExceeded, unexpectedContent
     case ioFailure(Int32)
 }
 
 final class DevVlogsStorageRunRoot {
     static let prefixName = "HoldType-DevVlogs-Phase0B"
+    static let externalPrefixName = ".HoldTypeDevVlogsPhase0B"
     static let markerName = ".holdtype-phase0b-owner"
-
+    static let prefixMarkerName = ".holdtype-phase0b-prefix-owner"
+    static let maximumWriteBytes = 64 * 1024
     let runID: UUID
     let rootURL: URL
-
     private let fileManager: FileManager
     private let temporaryDirectoryURL: URL
+    private let activePrefixName: String
+    private let ownsPrefix: Bool
     private let prefixURL: URL
     private let temporaryPathComponentIdentities: [DevVlogsStoragePathComponentIdentity]
     private let temporaryDirectoryIdentity: DevVlogsStorageFileIdentity
     private let prefixIdentity: DevVlogsStorageFileIdentity
     private let rootIdentity: DevVlogsStorageFileIdentity
-
+    private let prefixMarkerIdentity: DevVlogsStorageFileIdentity?
+    private var rootMarkerIdentity: DevVlogsStorageFileIdentity
     init(
         runID: UUID,
         fileManager: FileManager = .default,
-        temporaryDirectoryURL suppliedTemporaryDirectoryURL: URL? = nil
+        authority: DevVlogsStorageBaseAuthority = .internalDefault
     ) throws {
         self.runID = runID
         self.fileManager = fileManager
-        if let suppliedTemporaryDirectoryURL {
-            try Self.validateFixtureTemporaryDirectory(
-                suppliedTemporaryDirectoryURL,
-                fileManager: fileManager
-            )
-        }
-        temporaryDirectoryURL = (suppliedTemporaryDirectoryURL ?? fileManager.temporaryDirectory)
-            .standardizedFileURL
+        let base = try Self.resolveBase(authority, fileManager: fileManager)
+        temporaryDirectoryURL = base.url
+        activePrefixName = base.prefixName
+        ownsPrefix = base.ownsPrefix
         // macOS may expose its physical temporary directory through the system-owned /var symlink.
         // Pin every component's lstat identity; the temporary leaf, prefix, and run root must be directories.
         temporaryPathComponentIdentities = try Self.capturePathComponentIdentities(
@@ -141,24 +136,35 @@ final class DevVlogsStorageRunRoot {
         )
         temporaryDirectoryIdentity = try Self.directoryIdentity(at: temporaryDirectoryURL)
         prefixURL = temporaryDirectoryURL
-            .appendingPathComponent(Self.prefixName, isDirectory: true)
+            .appendingPathComponent(activePrefixName, isDirectory: true)
         try Self.rejectSymbolicLink(at: prefixURL, ifPresent: true)
-        try fileManager.createDirectory(at: prefixURL, withIntermediateDirectories: true)
-        prefixIdentity = try Self.directoryIdentity(at: prefixURL)
-
-        rootURL = prefixURL.appendingPathComponent(runID.uuidString.lowercased(), isDirectory: true)
-        guard !fileManager.fileExists(atPath: rootURL.path) else {
-            throw DevVlogsStorageHarnessError.rootAlreadyExists
+        if ownsPrefix {
+            guard mkdir(prefixURL.path, 0o700) == 0 else {
+                if errno == EEXIST { throw DevVlogsStorageHarnessError.prefixAlreadyExists }
+                throw DevVlogsStorageHarnessError.ioFailure(errno)
+            }
+        } else {
+            try fileManager.createDirectory(at: prefixURL, withIntermediateDirectories: true)
         }
-        try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: false)
+        prefixIdentity = try Self.directoryIdentity(at: prefixURL)
+        if ownsPrefix {
+            let markerURL = prefixURL.appendingPathComponent(Self.prefixMarkerName)
+            try Self.writeExclusively(Data(runID.uuidString.lowercased().utf8), to: markerURL)
+            prefixMarkerIdentity = try Self.fileIdentity(at: markerURL)
+        } else {
+            prefixMarkerIdentity = nil
+        }
+        rootURL = prefixURL.appendingPathComponent(runID.uuidString.lowercased(), isDirectory: true)
+        guard mkdir(rootURL.path, 0o700) == 0 else {
+            if errno == EEXIST { throw DevVlogsStorageHarnessError.rootAlreadyExists }
+            throw DevVlogsStorageHarnessError.ioFailure(errno)
+        }
         rootIdentity = try Self.directoryIdentity(at: rootURL)
-        try Data(runID.uuidString.lowercased().utf8).write(
-            to: rootURL.appendingPathComponent(Self.markerName),
-            options: .atomic
-        )
+        let rootMarkerURL = rootURL.appendingPathComponent(Self.markerName)
+        try Self.writeExclusively(Data(runID.uuidString.lowercased().utf8), to: rootMarkerURL)
+        rootMarkerIdentity = try Self.fileIdentity(at: rootMarkerURL)
         try validateOwnership()
     }
-
     func ownedURL(relativePath: String) throws -> URL {
         try validateOwnership()
         guard Self.isSafeRelativePath(relativePath) else {
@@ -171,8 +177,10 @@ final class DevVlogsStorageRunRoot {
         try rejectExistingSymbolicLinkComponents(to: candidate)
         return candidate
     }
-
     func writeSynchronously(_ data: Data, relativePath: String) throws -> URL {
+        guard data.count <= Self.maximumWriteBytes else {
+            throw DevVlogsStorageHarnessError.writeLimitExceeded
+        }
         let fileURL = try ownedURL(relativePath: relativePath)
         try fileManager.createDirectory(
             at: fileURL.deletingLastPathComponent(),
@@ -196,7 +204,6 @@ final class DevVlogsStorageRunRoot {
         guard fsync(descriptor) == 0 else { throw DevVlogsStorageHarnessError.ioFailure(errno) }
         return fileURL
     }
-
     func promoteExclusively(fragmentRelativePath: String, finalRelativePath: String) throws -> URL {
         let fragmentURL = try ownedURL(relativePath: fragmentRelativePath)
         let finalURL = try ownedURL(relativePath: finalRelativePath)
@@ -205,7 +212,6 @@ final class DevVlogsStorageRunRoot {
             withIntermediateDirectories: true
         )
         try rejectExistingSymbolicLinkComponents(to: finalURL)
-
         let sourceVolume = try fragmentURL.resourceValues(forKeys: [.volumeIdentifierKey])
         let targetVolume = try finalURL.deletingLastPathComponent().resourceValues(
             forKeys: [.volumeIdentifierKey, .volumeSupportsExclusiveRenamingKey]
@@ -222,10 +228,9 @@ final class DevVlogsStorageRunRoot {
         }
         return finalURL
     }
-
     func validateOwnership() throws {
         let expectedPrefixURL = temporaryDirectoryURL
-            .appendingPathComponent(Self.prefixName, isDirectory: true)
+            .appendingPathComponent(activePrefixName, isDirectory: true)
             .standardizedFileURL
         let expectedRootURL = expectedPrefixURL
             .appendingPathComponent(runID.uuidString.lowercased(), isDirectory: true)
@@ -234,27 +239,72 @@ final class DevVlogsStorageRunRoot {
               rootURL.standardizedFileURL.path == expectedRootURL.path else {
             throw DevVlogsStorageHarnessError.outOfScope
         }
-        try Self.validatePathComponentIdentities(temporaryPathComponentIdentities)
-        guard try Self.directoryIdentity(at: temporaryDirectoryURL) == temporaryDirectoryIdentity,
-              try Self.directoryIdentity(at: prefixURL) == prefixIdentity,
-              try Self.directoryIdentity(at: rootURL) == rootIdentity else {
-            throw DevVlogsStorageHarnessError.identityMismatch
+        try validateContainerIdentity()
+        if let prefixMarkerIdentity {
+            let markerURL = prefixURL.appendingPathComponent(Self.prefixMarkerName)
+            guard try Self.fileIdentity(at: markerURL) == prefixMarkerIdentity,
+                  (try? String(contentsOf: markerURL, encoding: .utf8)) ==
+                    runID.uuidString.lowercased() else {
+                throw DevVlogsStorageHarnessError.markerMismatch
+            }
         }
         let markerURL = rootURL.appendingPathComponent(Self.markerName)
-        guard fileManager.fileExists(atPath: markerURL.path) else {
-            throw DevVlogsStorageHarnessError.markerMissing
-        }
-        try Self.rejectSymbolicLink(at: markerURL, ifPresent: false)
-        guard (try? String(contentsOf: markerURL, encoding: .utf8)) == runID.uuidString.lowercased() else {
+        guard fileManager.fileExists(atPath: markerURL.path) else { throw DevVlogsStorageHarnessError.markerMissing }
+        guard try Self.fileIdentity(at: markerURL) == rootMarkerIdentity,
+              (try? String(contentsOf: markerURL, encoding: .utf8)) == runID.uuidString.lowercased() else {
             throw DevVlogsStorageHarnessError.markerMismatch
         }
     }
-
-    func cleanup() throws {
+    @discardableResult
+    func cleanup() throws -> DevVlogsStorageCleanupClassification {
         try validateOwnership()
+        if ownsPrefix {
+            let expected = Set([Self.prefixMarkerName, runID.uuidString.lowercased()])
+            let actual = Set(try fileManager.contentsOfDirectory(atPath: prefixURL.path))
+            guard actual == expected else { throw DevVlogsStorageHarnessError.unexpectedContent }
+        }
         try fileManager.removeItem(at: rootURL)
+        guard ownsPrefix else { return .complete }
+        guard try Self.directoryIdentity(at: temporaryDirectoryURL) == temporaryDirectoryIdentity,
+              try Self.directoryIdentity(at: prefixURL) == prefixIdentity,
+              let prefixMarkerIdentity,
+              try Self.fileIdentity(at: prefixURL.appendingPathComponent(Self.prefixMarkerName)) ==
+                prefixMarkerIdentity else {
+            throw DevVlogsStorageHarnessError.identityMismatch
+        }
+        let remaining = try fileManager.contentsOfDirectory(atPath: prefixURL.path)
+        guard remaining == [Self.prefixMarkerName] else {
+            throw DevVlogsStorageHarnessError.unexpectedContent
+        }
+        guard unlink(prefixURL.appendingPathComponent(Self.prefixMarkerName).path) == 0,
+              rmdir(prefixURL.path) == 0 else {
+            throw DevVlogsStorageHarnessError.ioFailure(errno)
+        }
+        return .complete
     }
-
+    func cleanupClassification() -> DevVlogsStorageCleanupClassification {
+        (try? cleanup()) ?? .pendingReconnect
+    }
+    func restoreMissingMarkerForInternalTestTeardown() throws {
+        guard !ownsPrefix else { throw DevVlogsStorageHarnessError.outOfScope }
+        try validateContainerIdentity()
+        let markerURL = rootURL.appendingPathComponent(Self.markerName)
+        guard !fileManager.fileExists(atPath: markerURL.path) else {
+            throw DevVlogsStorageHarnessError.markerMismatch
+        }
+        try Self.writeExclusively(Data(runID.uuidString.lowercased().utf8), to: markerURL)
+        rootMarkerIdentity = try Self.fileIdentity(at: markerURL)
+    }
+    private func validateContainerIdentity() throws {
+        try Self.validatePathComponentIdentities(temporaryPathComponentIdentities)
+        guard try Self.directoryIdentity(at: temporaryDirectoryURL) == temporaryDirectoryIdentity,
+              try Self.directoryIdentity(at: prefixURL) == prefixIdentity,
+              try Self.directoryIdentity(at: rootURL) == rootIdentity,
+              prefixIdentity.device == temporaryDirectoryIdentity.device,
+              rootIdentity.device == temporaryDirectoryIdentity.device else {
+            throw DevVlogsStorageHarnessError.identityMismatch
+        }
+    }
     private func rejectExistingSymbolicLinkComponents(to candidate: URL) throws {
         var current = rootURL
         let relative = candidate.path.dropFirst(rootURL.path.count + 1)
@@ -263,7 +313,6 @@ final class DevVlogsStorageRunRoot {
             try Self.rejectSymbolicLink(at: current, ifPresent: true)
         }
     }
-
     private static func rejectSymbolicLink(at url: URL, ifPresent: Bool) throws {
         var metadata = stat()
         if lstat(url.path, &metadata) != 0 {
@@ -274,7 +323,6 @@ final class DevVlogsStorageRunRoot {
             throw DevVlogsStorageHarnessError.symbolicLink
         }
     }
-
     private static func directoryIdentity(at url: URL) throws -> DevVlogsStorageFileIdentity {
         let identity = try fileIdentity(at: url)
         guard identity.fileType != S_IFLNK else {
@@ -285,7 +333,6 @@ final class DevVlogsStorageRunRoot {
         }
         return identity
     }
-
     private static func fileIdentity(at url: URL) throws -> DevVlogsStorageFileIdentity {
         var metadata = stat()
         guard lstat(url.path, &metadata) == 0 else {
@@ -298,7 +345,20 @@ final class DevVlogsStorageRunRoot {
             fileType: fileType
         )
     }
-
+    private static func writeExclusively(_ data: Data, to url: URL) throws {
+        let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
+        guard descriptor >= 0 else { throw DevVlogsStorageHarnessError.ioFailure(errno) }
+        defer { close(descriptor) }
+        try data.withUnsafeBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let count = write(descriptor, bytes.baseAddress?.advanced(by: offset), bytes.count - offset)
+                guard count > 0 else { throw DevVlogsStorageHarnessError.ioFailure(errno) }
+                offset += count
+            }
+        }
+        guard fsync(descriptor) == 0 else { throw DevVlogsStorageHarnessError.ioFailure(errno) }
+    }
     private static func capturePathComponentIdentities(
         through directoryURL: URL
     ) throws -> [DevVlogsStoragePathComponentIdentity] {
@@ -319,7 +379,6 @@ final class DevVlogsStorageRunRoot {
         }
         return identities
     }
-
     private static func validatePathComponentIdentities(
         _ identities: [DevVlogsStoragePathComponentIdentity]
     ) throws {
@@ -329,7 +388,55 @@ final class DevVlogsStorageRunRoot {
             }
         }
     }
-
+    private static func resolveBase(
+        _ authority: DevVlogsStorageBaseAuthority,
+        fileManager: FileManager
+    ) throws -> (url: URL, prefixName: String, ownsPrefix: Bool) {
+        switch authority {
+        case .internalDefault:
+            return (fileManager.temporaryDirectory.standardizedFileURL, prefixName, false)
+        case let .nestedAttackFixture(url):
+            try validateFixtureTemporaryDirectory(url, fileManager: fileManager)
+            return (url.standardizedFileURL, prefixName, false)
+        case let .simulatedExternalFixture(url):
+            try validateFixtureTemporaryDirectory(url, fileManager: fileManager)
+            return (url.standardizedFileURL, externalPrefixName, true)
+        case let .explicitlyAuthorizedExternal(authorization):
+            try validateExternalVolumeRoot(authorization, fileManager: fileManager)
+            return (authorization.volumeRootURL.standardizedFileURL, externalPrefixName, true)
+        }
+    }
+    private static func validateExternalVolumeRoot(
+        _ authorization: DevVlogsExternalStorageAuthorization,
+        fileManager: FileManager
+    ) throws {
+        let rootURL = authorization.volumeRootURL.standardizedFileURL
+        let identities = try capturePathComponentIdentities(through: rootURL)
+        guard rootURL.isFileURL,
+              rootURL.path.hasPrefix("/"),
+              identities.allSatisfy({ $0.identity.fileType != S_IFLNK }) else {
+            throw DevVlogsStorageHarnessError.invalidExternalAuthorization
+        }
+        let rootIdentity = try directoryIdentity(at: rootURL)
+        let internalIdentity = try directoryIdentity(at: fileManager.temporaryDirectory)
+        var fileSystem = statfs()
+        guard rootIdentity.device != internalIdentity.device,
+              statfs(rootURL.path, &fileSystem) == 0,
+              fileSystemString(fileSystem.f_mntonname) == rootURL.path,
+              fileSystemString(fileSystem.f_fstypename) == authorization.filesystemClass.rawValue else {
+            throw DevVlogsStorageHarnessError.invalidExternalAuthorization
+        }
+        let state = try DevVlogsURLStorageDestinationStateProvider().state(at: rootURL)
+        guard state.isAvailable, state.isLocal, !state.isReadOnly else {
+            throw DevVlogsStorageHarnessError.invalidExternalAuthorization
+        }
+        _ = authorization.destinationClass
+    }
+    private static func fileSystemString<T>(_ tuple: T) -> String {
+        withUnsafeBytes(of: tuple) { bytes in
+            String(cString: bytes.baseAddress!.assumingMemoryBound(to: CChar.self))
+        }
+    }
     private static func validateFixtureTemporaryDirectory(
         _ fixtureURL: URL,
         fileManager: FileManager
@@ -348,7 +455,6 @@ final class DevVlogsStorageRunRoot {
               String(components[0]) == outerRunID.uuidString.lowercased() else {
             throw DevVlogsStorageHarnessError.outOfScope
         }
-
         _ = try directoryIdentity(at: defaultPrefixURL)
         var currentURL = defaultPrefixURL.appendingPathComponent(
             outerRunID.uuidString.lowercased(),
@@ -366,85 +472,22 @@ final class DevVlogsStorageRunRoot {
             _ = try directoryIdentity(at: currentURL)
         }
     }
-
     private static func isSafeRelativePath(_ path: String) -> Bool {
         !path.isEmpty && !path.hasPrefix("/") && path.split(separator: "/").allSatisfy {
             $0 != "." && $0 != ".."
         }
     }
-
     private static func equalVolumeIDs(_ lhs: Any?, _ rhs: Any?) -> Bool {
         guard let lhs = lhs as? NSObject, let rhs = rhs as? NSObject else { return false }
         return lhs.isEqual(rhs)
     }
 }
-
 private struct DevVlogsStorageFileIdentity: Equatable {
     let device: dev_t
     let inode: ino_t
     let fileType: mode_t
 }
-
 private struct DevVlogsStoragePathComponentIdentity {
     let url: URL
     let identity: DevVlogsStorageFileIdentity
-}
-
-enum DevVlogsStorageMediaValidation: String, Equatable {
-    case playable
-    case unvalidated
-    case unusable
-}
-
-enum DevVlogsStorageClipClassification: String, Equatable {
-    case ready
-    case incomplete
-    case failed
-}
-
-enum DevVlogsStorageCleanupClassification: String, Equatable {
-    case complete
-    case pendingReconnect = "pending_reconnect"
-}
-
-struct DevVlogsStorageTerminalState: Equatable {
-    let clip: DevVlogsStorageClipClassification
-    let cleanup: DevVlogsStorageCleanupClassification
-
-    static func classify(
-        byteCount: Int64?,
-        validation: DevVlogsStorageMediaValidation,
-        destinationAvailable: Bool
-    ) -> Self {
-        let clip: DevVlogsStorageClipClassification
-        if (byteCount ?? 0) <= 0 || validation == .unusable {
-            clip = .failed
-        } else if validation == .playable {
-            clip = .ready
-        } else {
-            clip = .incomplete
-        }
-        return Self(
-            clip: clip,
-            cleanup: destinationAvailable ? .complete : .pendingReconnect
-        )
-    }
-}
-
-struct DevVlogsStorageEvidenceRecord: Codable, Equatable {
-    let runID: String
-    let caseID: String
-    let attemptID: String
-    let destinationClass: String
-    let filesystemClass: String
-    let relativePathClass: String
-    let byteCount: Int64
-    let bookmarkWasStale: Bool
-    let result: String
-
-    func encoded() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(self)
-    }
 }
