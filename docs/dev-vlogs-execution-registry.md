@@ -125,8 +125,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E05` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R05-REVIEW` | read-only exact Debug entry/auth/launch/script/process evidence | accepted_with_residual | receipt below | Exact creator is unrecoverable; script-only marker-bound multi-process supervision is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-W05` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E05` | exact permission script, authorization script-structure tests, W01 summary | accepted_with_residual | `b071056`; receipt below | Marker-bound multi-process supervision accepted; genuine permission runtime remains. |
 | `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W05@b071056` | read-only exact three-path repair commit | accepted_with_residual | receipt below | One bounded diagnostic permission-only runtime is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W05-REVIEW` | one redacted capture-auth-R06 QA run; no media | running | — | Invoke permission route once; retain sanitized process topology; no capture. |
-| `DV-P0B-CAMERA-AUTH-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-R06` | read-only exact evidence commit | queued | — | No capture retry before accepted authorization and process evidence. |
+| `DV-P0B-CAMERA-AUTH-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W05-REVIEW` | one redacted capture-auth-R06 QA run; no media | accepted_evidence / functional_fail | `a7f47a9`; receipt below | One direct process exited naturally; activation timed out before authorization. |
+| `DV-P0B-CAMERA-AUTH-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R06@a7f47a9` | read-only exact seven-file evidence commit | running | — | Classify clean topology and repeated activation timeout; no capture retry. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -205,7 +205,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   script-only, run-marker-bound multi-process supervision design. Repair
   `b071056` is in independent review after 17/17 supervisor fakes and 59/59
   Phase 0B tests passed and independent review accepted the repair. One
-  diagnostic permission-only runtime is running; capture remains blocked. The
+  diagnostic permission-only runtime retained one direct marker-owned process,
+  zero additional identities, and clean natural exit, but again timed out at
+  activation_requested before authorization. Evidence review is running;
+  capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1945,6 +1948,43 @@ but never signals uncertainty or reports false success.
 next_dependency: One bounded permission-only runtime and evidence review.
 runtime_or_visual_handoff: Permission route only; no capture or microphone.
 reviewed_commit: b07105647dce52de4f2a1659d60839bf79a36178
+```
+
+### `DV-P0B-CAMERA-AUTH-R06`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R06
+status: failed
+
+outcome: Exactly one accepted W05 same-signed Debug permission route closed
+before authorization status or requestAccess; no retry or capture.
+category: camera_authorization_activation_timed_out
+furthest_stage: activation_requested
+prompt_action: none; the route closed before safe exact-app attachment, and the
+protected installed HoldType surface was not operated.
+topology: One proven direct marker-owned identity with sanitized script-sibling
+topology; zero additional or uncertain identities; no retained root.
+process_disposition: Direct child exited naturally and was reaped; quiet rescan
+passed; every proven identity exited before script success; no TERM/KILL.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/E08; accepted W05 and
+review.
+changed_paths: Seven redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-auth-r06/; commit a7f47a9.
+checks_run: Mandatory/spec/Computer Use gate; accepted ancestry/config/signing;
+structured-data and exact-count checks; topology/redaction/media/path/diff;
+post-commit process/root/guard/protected-path audits.
+cleanup_receipt: Run root and guard removed; run-owned processes zero;
+pre-existing HoldType and protected storage preserved.
+scope_check: Evidence-only; no source, specification, configuration, signing,
+TCC, System Settings, camera, microphone, media, product, provider, Keychain,
+external storage, or iOS change.
+deviations: Exact Debug UI attachment was unavailable before terminal; no
+generic-app fallback.
+residual: Environment/signing activation failure; authorization not reached.
+The R05 additional-process defect did not reproduce under W05 supervision.
+next_dependency: DV-P0B-CAMERA-AUTH-R06-REVIEW
+runtime_or_visual_handoff: none
+commit: a7f47a96661c60c7e00a092cc2220bc9e2298c52
 ```
 
 ## Rejected Receipts
