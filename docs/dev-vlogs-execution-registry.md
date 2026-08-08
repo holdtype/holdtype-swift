@@ -94,8 +94,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | accepted_with_residual | receipt below | Passthrough-preserving Debug repair is feasible; realized hardware compatibility remains evidence-needed. |
 | `DV-P0B-CAPTURE-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-E03` | exact Debug camera/finalizer/probe/preservation/launch/event, focused tests, W01 summary | accepted_with_residual | `f7ff6bf`; receipt below | Native-source Debug repair accepted; real device/media evidence remains. |
 | `DV-P0B-CAPTURE-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W02@f7ff6bf` | read-only exact 13-path commit | accepted_with_residual | receipt below | Controlled DV-DRAFT-4 hardware/runtime evidence is dependency-ready. |
-| `DV-P0B-CAPTURE-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-W02-REVIEW` | one redacted capture-R05 QA run; raw media in exact internal temporary run root only | review / functional_fail | `11cb9a2`; receipt below | Explicit Continuity selection passed; camera permission gate failed before camera start. |
-| `DV-P0B-CAPTURE-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R05@11cb9a2` | read-only exact eight-file evidence commit | running | — | Validate permission classification, evidence integrity, scope, and cleanup before any TCC action. |
+| `DV-P0B-CAPTURE-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-W02-REVIEW` | one redacted capture-R05 QA run; raw media in exact internal temporary run root only | accepted_evidence / functional_fail | `11cb9a2`; receipt below | Explicit Continuity selection passed; camera permission remained notDetermined before camera start. |
+| `DV-P0B-CAPTURE-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R05@11cb9a2` | read-only exact eight-file evidence commit | accepted_with_residual | receipt below | Same signed Debug identity needs one genuine bounded Camera request before capture retry. |
+| `DV-P0B-CAMERA-AUTH-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R05-REVIEW` | exact Debug launch/event permission seam, focused tests, existing spike script, W01 summary | running | — | Add explicit evidence-only requestAccess mode; no capture, TCC action, product permission behavior, or runtime. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -148,7 +149,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   Debug-only `DV-P0B-CAPTURE-W02@f7ff6bf` repair is accepted_with_residual
   after independent review. `DV-P0B-CAPTURE-R05@11cb9a2` selected one
   Continuity Camera but failed at `camera_permission_required` before camera
-  start; independent evidence review is running. The
+  start. Independent review accepted the evidence and found no Debug defect;
+  an explicit Debug-only permission-request seam is now running. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1023,6 +1025,41 @@ ordinary Camera authorization surface during the run.
 next_dependency: DV-P0B-CAPTURE-R05-REVIEW
 runtime_or_visual_handoff: No Computer Use action because no prompt appeared.
 commit: 11cb9a253896e98c2c5c29f6df82ce48dafd0fb0
+```
+
+### `DV-P0B-CAPTURE-R05-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R05-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell: fail — camera_permission_required
+
+outcome: Evidence truthfully establishes one explicitly selected Continuity
+Camera, one functional permission-gated attempt, zero camera starts, and zero
+Ready clips. No Debug-harness defect is implicated.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B protocol and plan; accepted
+E03/W02/R01/R02 evidence; current registry.
+reviewed_commit_and_parent: 11cb9a253896e98c2c5c29f6df82ce48dafd0fb0;
+c298cdc23af686e014fef8059857914a4df99fd4.
+changed_paths_reviewed: Exactly eight redacted capture-R05 files; no reviewer
+changes.
+checks_run: Exact commit/path/blob audit; structured-data and semantic checks;
+redaction/media/digest scans; accepted category provenance; process, guard,
+run-root, protected-path, and current-blob audits.
+classification_review: Explicit selection/no fallback passed. AVCaptureDevice
+authorization was notDetermined and mapped correctly to the closed permission
+category. Functional result remains fail with environment/signing residual.
+cleanup_review: Sound; no media/digest, run root, process, guard, or protected-
+path residue; pre-existing HoldType preserved; no external I/O.
+scope_check: Evidence-only; protected product and TCC state unchanged.
+deviations: Redirected-TMPDIR pre-functional failure was separate from the one
+functional attempt; terminal monotonic time was unavailable and not claimed.
+residual: The same signed Debug identity lacks an ordinary Camera authorization
+decision; all media and quantitative evidence remain unavailable/evidence_only.
+next_dependency: One bounded genuine AVCaptureDevice.requestAccess action for
+the same signed Debug identity, then a separately authorized Continuity retry.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
