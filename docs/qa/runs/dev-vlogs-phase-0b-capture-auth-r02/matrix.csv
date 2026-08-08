@@ -1,0 +1,2 @@
+case_id,settings_surface,holdtype_row_present,initial_switch_state,switch_action_count,permission_state,functional_result,residual_class,authentication_prompt,capture_activity,cleanup_result
+camera-switch,System Settings Camera,no,unavailable,0,holdtype_row_absent,not_available,environment or signing residual,no,not_run,pass

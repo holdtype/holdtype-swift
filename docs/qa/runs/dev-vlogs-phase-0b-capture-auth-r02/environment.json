@@ -1,0 +1,36 @@
+{
+  "packet_id": "DV-P0B-CAMERA-AUTH-R02",
+  "captured_at_utc": "2026-08-08T18:43:16Z",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "product_commit": "04134352f932381268afff74a55e4b86e5906640",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "identity_basis": "accepted_same_signed_holdtype_identity",
+  "computer_use": {
+    "skill_used": true,
+    "system_settings_preexisting": false,
+    "camera_privacy_pane_opened": true,
+    "holdtype_row_present": false,
+    "holdtype_switch_action_count": 0,
+    "unrelated_switch_action_count": 0,
+    "authentication_prompt_observed": false,
+    "screenshot_retained": false
+  },
+  "protected_runtime": {
+    "request_access_invoked": false,
+    "camera_enumeration_performed": false,
+    "camera_capture_performed": false,
+    "microphone_owner_constructed": false,
+    "media_activity_performed": false,
+    "tccutil_invoked": false,
+    "direct_tcc_database_operation": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "identity_and_liveness_verified": true,
+    "stopped": true
+  }
+}

@@ -1,0 +1,3 @@
+case_id,artifact_class,path_class,bytes,sha256,probe_result,recovery_classification,cleanup_status
+camera-switch,screenshot,none,0,,not_created,not_retained,pass
+camera-switch,media,none,0,,not_applicable,not_created,pass

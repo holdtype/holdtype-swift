@@ -1,0 +1,3 @@
+{"action":"camera_privacy_pane","case_id":"camera-switch","evidence_source":"computer_use_accessibility","result":"opened","run_id":"capture-auth-r02"}
+{"action":"holdtype_camera_row","case_id":"camera-switch","category":"holdtype_row_absent","evidence_source":"computer_use_accessibility","result":"not_available","run_id":"capture-auth-r02"}
+{"action":"settings_terminal","case_id":"camera-switch","category":"holdtype_row_absent","evidence_source":"computer_use_accessibility","result":"closed_without_change","run_id":"capture-auth-r02"}
