@@ -98,8 +98,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R05@11cb9a2` | read-only exact eight-file evidence commit | accepted_with_residual | receipt below | Same signed Debug identity needs one genuine bounded Camera request before capture retry. |
 | `DV-P0B-CAMERA-AUTH-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R05-REVIEW` | exact Debug launch/event permission seam, focused tests, existing spike script, W01 summary | accepted_with_residual | `5b3ed20`; receipt below | Same-identity bounded requestAccess seam accepted; genuine prompt remains. |
 | `DV-P0B-CAMERA-AUTH-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W01@5b3ed20` | read-only exact six-path commit | accepted_with_residual | receipt below | One bounded signed Debug permission invocation is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W01-REVIEW` | one redacted capture-auth-R01 QA run; no media | review / authorization_timeout | `4f0efb5`; receipt below | One genuine request timed out; no prompt action, TCC change, capture, or retry. |
-| `DV-P0B-CAMERA-AUTH-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R01@4f0efb5` | read-only exact seven-file evidence commit | running | — | Validate timeout evidence and determine exact next permission dependency. |
+| `DV-P0B-CAMERA-AUTH-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W01-REVIEW` | one redacted capture-auth-R01 QA run; no media | rejected | `4f0efb5`; receipt below | Runtime facts accepted provisionally, but summary overclaims unchanged TCC state. |
+| `DV-P0B-CAMERA-AUTH-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R01@4f0efb5` | read-only exact seven-file evidence commit | rejected | recorded below | Summary-only truthfulness repair required before permission action. |
+| `DV-P0B-CAMERA-AUTH-R01-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected AUTH-R01 review | exact capture-auth-R01 summary only | running | — | Remove unsupported unchanged-TCC claims; no runtime or other evidence change. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -155,7 +156,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   start. Independent review accepted the evidence and found no Debug defect;
   Debug-only permission seam `5b3ed20` is accepted. One bounded genuine
   same-identity Camera authorization request timed out without an actionable
-  prompt; independent evidence review is running. The
+  prompt. Evidence facts and cleanup passed review, but one summary-only TCC
+  truthfulness repair is running before acceptance. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1176,6 +1178,41 @@ commit: 4f0efb557ab4502b16bac8881e731319c6ff16ad
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-R01-REVIEW` of `4f0efb5`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R01-REVIEW
+status: done
+verdict: reject
+authorization_cell: fail — camera_authorization_timed_out
+
+outcome: Runtime evidence supports one genuine same-signed request and one
+terminal timeout, but summary.md contradicts its unknown final authorization
+state by claiming TCC was otherwise unmodified and its database unchanged.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted R05
+and authorization W01 evidence; exact AUTH-R01 commit.
+reviewed_commit_and_parent: 4f0efb557ab4502b16bac8881e731319c6ff16ad;
+00c7d5222dd9d63111cb3cdc65d2a512e9f934d4.
+changed_paths_reviewed: Exactly seven redacted evidence files; no reviewer
+changes.
+checks_run: Exact diff/path/blob; structured data and semantic counts;
+category provenance; redaction/media/path scans; process, guard, root, and
+protected-path snapshot.
+classification_review: One request and terminal timeout with zero retries,
+capture, mic, media, or product owners is supported. Prompt, final TCC state,
+and quantitative results remain unknown. No Debug defect is implicated.
+cleanup_review: Sound; zero run-owned residue and pre-existing HoldType
+preserved.
+scope_check: Exact evidence scope; rejection is claim truthfulness only.
+deviations: Watcher glob miss and Computer Use timeout are disclosed and do
+not invalidate operator-terminal provenance.
+residual: Final Camera authorization/TCC state remains unknown.
+next_dependency: Original evidence owner repairs only capture-auth-R01
+summary.md to say no reset/direct database operation occurred while system-
+managed state after requestAccess remains unknown; then repeat review.
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-STORAGE-W02-REVIEW` of `e6b3a13`
 
