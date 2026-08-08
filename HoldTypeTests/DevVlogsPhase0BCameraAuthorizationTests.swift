@@ -210,7 +210,8 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
                 environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
                 activation: DevVlogsPhase0BApplicationActivation(
                     setRegularPolicy: { trace.append("policy"); return true },
-                    requestActivation: { trace.append("activate"); return true },
+                    requestProcessActivation: { trace.append("process_activate"); return true },
+                    requestApplicationActivation: { trace.append("app_activate") },
                     isActive: { trace.append("active"); return true },
                     sleep: { _ in },
                     confirmationAttempts: 1
@@ -223,17 +224,40 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             )
         }
         await access.awaitRequest()
-        #expect(trace.snapshot == ["route", "make", "policy", "activate", "active", "status", "request"])
+        #expect(trace.snapshot == [
+            "route", "make", "policy", "process_activate", "app_activate", "active", "status", "request",
+        ])
         access.complete(granted: true, status: .authorized)
         #expect(await task.value == .init(outcome: .granted, furthestStage: .requestAccessStarted))
         #expect(access.requestCount == 1)
     }
 
     @Test func activationFailuresHaveClosedCategoriesAndExactStages() async {
+        let rejectionTrace = CameraAuthorizationRouteTrace()
+        let rejectionAccess = CameraAuthorizationAccess(
+            status: .notDetermined,
+            onStatus: { rejectionTrace.append("status") },
+            onRequest: { rejectionTrace.append("request") }
+        )
+        let rejectionEvents = CameraAuthorizationEvents()
+        let rejected = await makeHarness(access: rejectionAccess, events: rejectionEvents).run(
+            activation: DevVlogsPhase0BApplicationActivation(
+                setRegularPolicy: { true },
+                requestProcessActivation: { rejectionTrace.append("process_activate"); return false },
+                requestApplicationActivation: { rejectionTrace.append("app_activate") },
+                isActive: { rejectionTrace.append("active"); return true },
+                sleep: { _ in }, confirmationAttempts: 1
+            )
+        )
+        #expect(rejected == .init(outcome: .activationRejected, furthestStage: .activationRequested))
+        #expect(rejectionTrace.snapshot == ["process_activate"])
+        #expect(rejectionAccess.requestCount == 0)
+        #expect(rejectionEvents.values.map(\.action) == ["camera_authorization", "camera_authorization_terminal"])
+        #expect(rejectionEvents.values.last?.category == .cameraAuthorizationActivationRejected)
+
         let cases: [(DevVlogsPhase0BApplicationActivation, DevVlogsPhase0BCameraAuthorizationOutcome,
                      DevVlogsPhase0BCameraAuthorizationStage)] = [
             (activation(policy: false), .activationPolicyFailed, .routeStarted),
-            (activation(request: false), .activationRejected, .activationRequested),
             (activation(active: false), .activationTimedOut, .activationRequested),
             (activation(active: false, cancellation: true), .activationCancelled, .activationRequested),
         ]
@@ -300,7 +324,7 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         #expect(source.contains("AVCaptureDevice.requestAccess(for: .video"))
         #expect(source.contains("setActivationPolicy(.regular)"))
         #expect(source.contains("NSRunningApplication.current.activate(options: [])"))
-        #expect(source.contains("application.activate()"))
+        #expect(source.contains("NSApplication.shared.activate()"))
         #expect(source.contains("NSApplication.shared.isActive"))
         #expect(!source.contains("camera_authorization_unknown"))
         for forbidden in ["AVCaptureSession", "AVCaptureDeviceInput", "startCapture(",
@@ -339,7 +363,8 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
     ) -> DevVlogsPhase0BApplicationActivation {
         DevVlogsPhase0BApplicationActivation(
             setRegularPolicy: { policy },
-            requestActivation: { request },
+            requestProcessActivation: { request },
+            requestApplicationActivation: {},
             isActive: { active },
             sleep: { _ in if cancellation { throw CancellationError() } },
             confirmationAttempts: 1
@@ -351,7 +376,8 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
     ) -> DevVlogsPhase0BApplicationActivation {
         DevVlogsPhase0BApplicationActivation(
             setRegularPolicy: { trace.append("policy"); return true },
-            requestActivation: { trace.append("activate"); return true },
+            requestProcessActivation: { trace.append("process_activate"); return true },
+            requestApplicationActivation: { trace.append("app_activate") },
             isActive: { trace.append("active"); return true },
             sleep: { _ in },
             confirmationAttempts: 1

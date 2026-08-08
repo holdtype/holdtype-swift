@@ -54,19 +54,16 @@ private enum DevVlogsPhase0BApplicationActivationOutcome {
 struct DevVlogsPhase0BApplicationActivation {
     typealias Sleep = @MainActor @Sendable (Duration) async throws -> Void
     let setRegularPolicy: () -> Bool
-    let requestActivation: () -> Bool
+    let requestProcessActivation: () -> Bool
+    let requestApplicationActivation: () -> Void
     let isActive: () -> Bool
     let sleep: Sleep
     let confirmationAttempts: Int
 
     static let live = Self(
         setRegularPolicy: { NSApplication.shared.setActivationPolicy(.regular) },
-        requestActivation: {
-            let application = NSApplication.shared
-            let accepted = NSRunningApplication.current.activate(options: [])
-            application.activate()
-            return accepted
-        },
+        requestProcessActivation: { NSRunningApplication.current.activate(options: []) },
+        requestApplicationActivation: { NSApplication.shared.activate() },
         isActive: { NSApplication.shared.isActive },
         sleep: { try await Task.sleep(for: $0) },
         confirmationAttempts: 100
@@ -80,7 +77,8 @@ struct DevVlogsPhase0BApplicationActivation {
         stage(.regularPolicySet)
         guard !Task.isCancelled else { return .cancelled }
         stage(.activationRequested)
-        guard requestActivation() else { return .requestRejected }
+        guard requestProcessActivation() else { return .requestRejected }
+        requestApplicationActivation()
         for _ in 0 ..< confirmationAttempts {
             guard !Task.isCancelled else { return .cancelled }
             if isActive() {
