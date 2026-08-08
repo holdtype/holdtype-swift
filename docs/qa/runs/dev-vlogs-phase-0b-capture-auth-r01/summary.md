@@ -20,11 +20,14 @@ Computer Use inspected the existing installed HoldType surface, then its one
 bounded attach to the exact signed Debug authorization identity timed out. No
 ordinary Camera prompt could be established through that surface, so no Allow
 or other UI action was performed. The request was not retried, System Settings
-was not opened, and TCC was not reset or otherwise modified by this packet.
+was not opened, and this packet performed no `tccutil` reset or direct TCC
+database operation.
 
 Authorization result: `timeout`. Residual class: `environment or signing
-residual`. The final Camera authorization state remains unknown because the
-accepted request callback did not close within its operational deadline.
+residual`. The final Camera authorization state and any system-managed TCC
+state after the genuine `requestAccess` call remain unknown because the
+accepted request callback did not close within its operational deadline and
+prompt visibility was unavailable.
 
 ## Isolation
 
@@ -50,6 +53,8 @@ was produced or retained.
 ## Scope
 
 This run changed no source, specification, project setting, bundle identity,
-signing configuration, entitlement, TCC database, product UI, capture owner,
-provider/Keychain state, external storage, or iOS behavior. It makes only the
-closed one-request authorization-timeout and cleanup claims above.
+signing configuration, entitlement, product UI, capture owner,
+provider/Keychain state, external storage, or iOS behavior. No direct TCC
+database operation or `tccutil` reset was performed; system-managed TCC state
+remains unknown. This run makes only the closed one-request
+authorization-timeout and cleanup claims above.
