@@ -136,6 +136,70 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         )
     }
 
+    @Test func explicitRouteActivatesBeforeAuthorizationStatusAndRequest() async {
+        let trace = CameraAuthorizationRouteTrace()
+        let access = CameraAuthorizationAccess(
+            status: .notDetermined,
+            onStatus: { trace.append("status") },
+            onRequest: { trace.append("request") }
+        )
+        let task = Task { @MainActor in
+            await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+                environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
+                activation: DevVlogsPhase0BApplicationActivation(
+                    setRegularPolicy: { trace.append("policy"); return true },
+                    activate: { trace.append("activate"); return true }
+                ),
+                authorize: {
+                    await DevVlogsPhase0BCameraAuthorizationRequest(access: access).run()
+                }
+            )
+        }
+        await access.awaitRequest()
+        #expect(trace.snapshot == ["policy", "activate", "status", "request"])
+        access.complete(granted: true, status: .authorized)
+        #expect(await task.value == .granted)
+        #expect(access.requestCount == 1)
+    }
+
+    @Test func activationFailureFailsClosedBeforeAuthorization() async {
+        for (policyResult, activationResult, expectedTrace) in [
+            (false, true, ["policy"]),
+            (true, false, ["policy", "activate"]),
+        ] {
+            let trace = CameraAuthorizationRouteTrace()
+            let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+                environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
+                activation: DevVlogsPhase0BApplicationActivation(
+                    setRegularPolicy: { trace.append("policy"); return policyResult },
+                    activate: { trace.append("activate"); return activationResult }
+                ),
+                authorize: { trace.append("authorization"); return .granted }
+            )
+            #expect(outcome == .unknown)
+            #expect(trace.snapshot == expectedTrace)
+        }
+    }
+
+    @Test func normalAndHardwareRoutesNeverActivateForAuthorization() async {
+        for environment in [
+            [:],
+            [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"],
+        ] {
+            let trace = CameraAuthorizationRouteTrace()
+            let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+                environment: environment,
+                activation: DevVlogsPhase0BApplicationActivation(
+                    setRegularPolicy: { trace.append("policy"); return true },
+                    activate: { trace.append("activate"); return true }
+                ),
+                authorize: { trace.append("authorization"); return .granted }
+            )
+            #expect(outcome == nil)
+            #expect(trace.snapshot.isEmpty)
+        }
+    }
+
     @Test func launchRoutePrecedesCaptureConstructionAndAuthorizationOwnerIsNarrow() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let launch = try String(
@@ -144,9 +208,18 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             ),
             encoding: .utf8
         )
-        let branch = try #require(launch.range(of: "if DevVlogsPhase0BCameraAuthorizationConfiguration"))
+        let branch = try #require(launch.range(
+            of: "if let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome"
+        ))
         let capture = try #require(launch.range(of: "let outcome: DevVlogsPhase0BHarnessOutcome"))
         #expect(branch.lowerBound < capture.lowerBound)
+        #expect(launch.contains("setActivationPolicy(.regular)"))
+        #expect(launch.contains("NSRunningApplication.current.activate(options: [])"))
+        #expect(launch.contains("application.activate()"))
+        #expect(launch.contains("application.isActive"))
+        for forbidden in ["NSWindow(", "SettingsScene(", "FixesEditorScene(", "TranscriptHistoryScene("] {
+            #expect(!launch.contains(forbidden))
+        }
         let source = try String(
             contentsOf: root.appendingPathComponent(
                 "HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BCameraAuthorization.swift"
@@ -195,15 +268,27 @@ private final class CameraAuthorizationAccess: DevVlogsPhase0BCameraAuthorizatio
     private let lock = NSLock()
     private var status: DevVlogsPhase0BCameraAuthorizationStatus
     private var completion: (@Sendable (Bool) -> Void)?
+    private let onStatus: @Sendable () -> Void
+    private let onRequest: @Sendable () -> Void
     private(set) var requestCount = 0
 
-    init(status: DevVlogsPhase0BCameraAuthorizationStatus) { self.status = status }
+    init(
+        status: DevVlogsPhase0BCameraAuthorizationStatus,
+        onStatus: @escaping @Sendable () -> Void = {},
+        onRequest: @escaping @Sendable () -> Void = {}
+    ) {
+        self.status = status
+        self.onStatus = onStatus
+        self.onRequest = onRequest
+    }
 
     func authorizationStatus() -> DevVlogsPhase0BCameraAuthorizationStatus {
-        lock.withLock { status }
+        onStatus()
+        return lock.withLock { status }
     }
 
     func requestAccess(completion: @escaping @Sendable (Bool) -> Void) {
+        onRequest()
         lock.withLock {
             requestCount += 1
             self.completion = completion
@@ -230,5 +315,13 @@ private final class CameraAuthorizationAccess: DevVlogsPhase0BCameraAuthorizatio
 
 @MainActor private final class CameraAuthorizationEvents {
     var values: [DevVlogsPhase0BEvent] = []
+}
+
+private final class CameraAuthorizationRouteTrace: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    var snapshot: [String] { lock.withLock { values } }
+    func append(_ value: String) { lock.withLock { values.append(value) } }
 }
 #endif

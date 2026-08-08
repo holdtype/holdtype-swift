@@ -16,7 +16,13 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   scenes; the ungated path remains the ordinary app composition.
 - A separate explicit `--request-camera-permission` script command reuses that
   same early-isolated signed Debug app identity without constructing the
-  capture/audio/media harness. Its injected authorization owner calls the
+  capture/audio/media harness. Only this route first changes the same process
+  to the regular activation policy, requests activation, and boundedly waits
+  for the app to become active before evaluating Camera authorization. Failure
+  to set the policy or activate returns the existing closed unknown result and
+  never calls the authorization owner. The route creates no HoldType window,
+  scene, or visible content; normal Debug and hardware-capture routes do not
+  activate. Its injected authorization owner calls the
   genuine video `requestAccess` API exactly once only from a not-determined
   status, waits under an independent 120-second operational bound, and emits
   one closed redacted granted, already-authorized, denied, restricted, timeout,
@@ -78,7 +84,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 53 logical tests include 8 authorization-mode tests covering every status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
+| Focused macOS fake tests | Pass; 56 logical tests include 11 authorization-mode tests covering activation-policy/activation/status/request ordering, fail-closed activation, zero activation for normal and hardware routes, every authorization status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
@@ -100,6 +106,7 @@ camera-start failure. It makes a future separately authorized run diagnostic.
 Real camera/microphone/TCC, Continuity Camera, device-busy/disconnect, codec,
 playability, timing, sync/drift, and quantitative evidence remain deferred to a
 separately authorized controlled hardware run. The shipping shared-audio lease
-is not implemented by this Debug spike. One separately authorized runtime step
-must invoke the explicit Camera-request command with the same signed Debug
-identity before any capture retry can claim a prompt or authorization result.
+is not implemented by this Debug spike. One separately authorized runtime and
+review step must invoke the repaired explicit Camera-request command with the
+same signed Debug identity before any capture retry can claim a prompt or
+authorization result.

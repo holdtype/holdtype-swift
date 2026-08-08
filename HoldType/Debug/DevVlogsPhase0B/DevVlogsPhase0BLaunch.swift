@@ -62,12 +62,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
 }
 struct DevVlogsPhase0BRunPaths: Equatable {
     let runID: String
-    let runDirectory: URL
-    let mediaDirectory: URL
-    let eventLogURL: URL
-    let audioURL: URL
-    let videoURL: URL
-    let finalURL: URL
+    let runDirectory, mediaDirectory, eventLogURL, audioURL, videoURL, finalURL: URL
     static func prepare(
         configuration: DevVlogsPhase0BConfiguration,
         fileManager: FileManager = .default,
@@ -94,8 +89,7 @@ struct DevVlogsPhase0BRunPaths: Equatable {
     }
 }
 enum DevVlogsPhase0BHarnessOutcome: Equatable {
-    case ready(DevVlogsPhase0BMediaProbeResult)
-    case failed(DevVlogsPhase0BHarnessFailure)
+    case ready(DevVlogsPhase0BMediaProbeResult), failed(DevVlogsPhase0BHarnessFailure)
 }
 @MainActor
 final class DevVlogsPhase0BHarness {
@@ -307,19 +301,31 @@ final class DevVlogsPhase0BHarness {
             metrics: metrics,
             videoEvidence: videoEvidence
         )
-        do {
-            try eventLog.record(event)
-            return true
-        } catch {
-            return false
-        }
+        do { try eventLog.record(event); return true } catch { return false }
     }
 }
 @MainActor
+struct DevVlogsPhase0BApplicationActivation {
+    let setRegularPolicy: () -> Bool
+    let activate: () async -> Bool
+    static let live = Self(
+        setRegularPolicy: { NSApplication.shared.setActivationPolicy(.regular) },
+        activate: {
+            let application = NSApplication.shared
+            guard NSRunningApplication.current.activate(options: []) else { return false }
+            application.activate()
+            for _ in 0 ..< 100 {
+                if application.isActive { return true }
+                do { try await Task.sleep(for: .milliseconds(50)) } catch { return false }
+            }
+            return application.isActive
+        }
+    )
+    func run() async -> Bool { guard setRegularPolicy() else { return false }; return await activate() }
+}
+@MainActor
 enum DevVlogsPhase0BLaunch {
-    static func shouldIsolate(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> Bool {
+    static func shouldIsolate(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         DevVlogsPhase0BConfiguration.shouldIsolate(environment: environment)
             || DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(environment: environment)
     }
@@ -328,11 +334,17 @@ enum DevVlogsPhase0BLaunch {
         startNormalApplication: () -> Void,
         startHarnessApplication: () -> Void
     ) {
-        if shouldIsolate(environment: environment) {
-            startHarnessApplication()
-        } else {
-            startNormalApplication()
-        }
+        shouldIsolate(environment: environment) ? startHarnessApplication() : startNormalApplication()
+    }
+    static func cameraAuthorizationOutcome(
+        environment: [String: String],
+        activation: DevVlogsPhase0BApplicationActivation,
+        authorize: () async -> DevVlogsPhase0BCameraAuthorizationOutcome
+    ) async -> DevVlogsPhase0BCameraAuthorizationOutcome? {
+        guard DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(environment: environment)
+        else { return nil }
+        guard await activation.run() else { return .unknown }
+        return await authorize()
     }
     static func makeHarness(environment: [String: String]) throws -> DevVlogsPhase0BHarness {
         guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
@@ -351,12 +363,8 @@ enum DevVlogsPhase0BLaunch {
         )
     }
 }
-enum DevVlogsPhase0BTerminationOutcome: Equatable {
-    case cleanupCompleted, cleanupTimedOut
-}
-enum DevVlogsPhase0BTerminationState: Equatable {
-    case active, harnessCompleted, cleanupPending, terminal
-}
+enum DevVlogsPhase0BTerminationOutcome: Equatable { case cleanupCompleted, cleanupTimedOut }
+enum DevVlogsPhase0BTerminationState: Equatable { case active, harnessCompleted, cleanupPending, terminal }
 @MainActor
 final class DevVlogsPhase0BTerminationCoordinator {
     typealias Sleep = @MainActor (Duration) async throws -> Void
@@ -368,17 +376,13 @@ final class DevVlogsPhase0BTerminationCoordinator {
     private var completionTask: Task<Void, Never>?
     private(set) var state = DevVlogsPhase0BTerminationState.active
     private(set) var outcome: DevVlogsPhase0BTerminationOutcome?
-    init(
-        timeout: Duration,
-        sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
-    ) {
+    init(timeout: Duration, sleep: @escaping Sleep = { try await Task.sleep(for: $0) }) {
         self.timeout = timeout
         self.sleep = sleep
     }
     func harnessDidComplete() -> Bool {
         guard state == .active else { return false }
-        state = .harnessCompleted
-        return true
+        state = .harnessCompleted; return true
     }
     func begin(
         cancelActive: () -> Void,
@@ -442,20 +446,20 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
         timeout: .seconds(35)
     )
     private var harnessTask: Task<Void, Never>?
-    override init() {
-        environment = ProcessInfo.processInfo.environment
-        super.init()
-    }
+    override init() { environment = ProcessInfo.processInfo.environment; super.init() }
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let launchEnvironment = environment
         harnessTask = Task { @MainActor [weak self] in
-            if DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(
-                environment: launchEnvironment
+            if let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+                environment: launchEnvironment,
+                activation: .live,
+                authorize: {
+                    await (try? DevVlogsPhase0BCameraAuthorizationHarness.make(
+                        environment: launchEnvironment
+                    ).run()) ?? .unknown
+                }
             ) {
-                let outcome = await (try? DevVlogsPhase0BCameraAuthorizationHarness.make(
-                    environment: launchEnvironment
-                ).run()) ?? .unknown
                 self?.completeAuthorization(outcome)
                 return
             }
@@ -469,17 +473,13 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private func completeAuthorization(_ outcome: DevVlogsPhase0BCameraAuthorizationOutcome) {
-        complete(line: DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: outcome))
-    }
+        complete(line: DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: outcome)) }
     private func completeHarness(_ outcome: DevVlogsPhase0BHarnessOutcome) {
-        complete(line: DevVlogsPhase0BOperatorSummary.line(for: outcome))
-    }
+        complete(line: DevVlogsPhase0BOperatorSummary.line(for: outcome)) }
     private func complete(line: String) {
         print(line)
         harnessTask = nil
-        if terminationCoordinator.harnessDidComplete() {
-            NSApplication.shared.terminate(nil)
-        }
+        if terminationCoordinator.harnessDidComplete() { NSApplication.shared.terminate(nil) }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let activeTask = harnessTask
