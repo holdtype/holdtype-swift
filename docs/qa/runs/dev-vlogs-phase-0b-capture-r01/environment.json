@@ -1,0 +1,49 @@
+{
+  "packet_id": "DV-P0B-CAPTURE-R01",
+  "captured_at_utc": "2026-08-08T13:45:01Z",
+  "contract_revision": "DV-DRAFT-3@ed108fa",
+  "product_commit": "3e0f9d89cc894aafa0114c407f632f0235836241",
+  "capture_harness_commit": "ff70155aa0559678487eacb67bc16a62ce199b75",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "destination_class": "internal_temporary",
+  "file_system": "APFS",
+  "useful_capacity_bytes_observed": 72384307264,
+  "useful_capacity_disposition": "evidence_only",
+  "debug_build": {
+    "build_result": "pass",
+    "isolated_info_plist": true,
+    "camera_purpose_string_present": true,
+    "microphone_purpose_string_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true,
+    "sanitized_keychain_environment_required": true
+  },
+  "release_isolation": {
+    "ordinary_info_plist_selected": true,
+    "ordinary_entitlements_selected": true,
+    "release_build_or_launch_performed": false
+  },
+  "tcc": {
+    "camera_harness_status": "not_exercised_no_enumerated_device",
+    "microphone_harness_status": "not_exercised_no_capture",
+    "prompt_observed": false,
+    "tcc_reset_performed": false
+  },
+  "camera_enumeration": {
+    "built_in_count": 0,
+    "usb_count": 0,
+    "continuity_count": 0,
+    "other_external_count": 0,
+    "identity_basis": "AVCaptureDevice deviceType, isContinuityCamera, and transportType",
+    "private_identity_retained": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "final_enumeration_liveness_verified_before_and_after": true,
+    "stopped": true
+  }
+}

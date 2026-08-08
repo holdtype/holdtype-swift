@@ -1,0 +1,9 @@
+{
+  "case_id": "continuity-10s",
+  "result": "not_available",
+  "residual_class": "environment or signing residual",
+  "probe_performed": false,
+  "asset_playable": null,
+  "video_track": null,
+  "audio_track": null
+}

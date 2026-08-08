@@ -1,0 +1,9 @@
+{
+  "case_id": "built-in-10s",
+  "result": "not_available",
+  "residual_class": "hardware unavailable",
+  "probe_performed": false,
+  "asset_playable": null,
+  "video_track": null,
+  "audio_track": null
+}

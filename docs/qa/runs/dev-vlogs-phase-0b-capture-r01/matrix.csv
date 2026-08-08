@@ -1,0 +1,4 @@
+case_id,camera_class,connection_class,destination_class,planned_duration_seconds,functional_result,residual_class,capture_started,terminal_clip_count,explicit_selection_result,one_audio_owner_result,mux_probe_result,cleanup_result
+built-in-10s,built_in,built_in,internal_temporary,10,not_available,hardware unavailable,no,0,not_exercised,not_exercised,not_exercised,pass
+usb-10s,usb,usb,internal_temporary,10,not_available,hardware unavailable,no,0,not_exercised,not_exercised,not_exercised,pass
+continuity-10s,continuity,continuity_camera,internal_temporary,10,not_available,environment or signing residual,no,0,not_exercised,not_exercised,not_exercised,pass
