@@ -61,7 +61,7 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-E01` | `/root/dv_p0b_capture_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only capture/source/platform evidence | accepted_with_residual | recorded below | Debug-only capture spike feasible; shipping audio lease remains Phase 0C work. |
 | `DV-P0B-STORAGE-E01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only storage/source/platform/environment evidence | accepted_with_residual | recorded below | Test-only storage spike feasible; physical disconnect/read-only cells remain environment residuals. |
 | `DV-P0B-E01-REVIEW` | `/root/dv_p0b_e01_review` | `DV-DRAFT-3@ed108fa` | both E01 maps | read-only | accepted_with_residual | recorded below | Writable capture/storage packets must be serialized and keep distinct QA run roots. |
-| `DV-P0B-CAPTURE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths assigned later | queued | — | Implement/build/fake-verify isolated E02 harness; no runtime camera claim yet. |
+| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | running | — | Implement/build/fake-verify isolated E02 harness; no runtime camera claim yet. |
 | `DV-P0B-STORAGE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted capture artifact contract or explicit independent subset | exact storage test paths assigned later | queued | — | Implement marker/capacity/bookmark/promotion harness; serialize with capture build/runtime. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
@@ -77,7 +77,7 @@ They are not yet an Active implementation epoch.
 
 - Accepted E01 evidence supports bounded Debug-only capture and test-only
   storage spikes without a shipping dependency.
-- Current dependency-ready packet: serialized `DV-P0B-CAPTURE-W01`.
+- Running packet: serialized `DV-P0B-CAPTURE-W01`.
 - `DV-P0B-STORAGE-W01` remains queued behind the capture artifact contract or
   an explicitly bounded independent subset. Shared build/runtime activity is
   serialized.
