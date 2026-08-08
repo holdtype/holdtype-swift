@@ -10,7 +10,7 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             (.authorized, .alreadyAuthorized),
             (.denied, .denied),
             (.restricted, .restricted),
-            (.unknown, .unknown),
+            (.unknown, .statusUnknown),
         ]
         for (status, expected) in cases {
             let access = CameraAuthorizationAccess(status: status)
@@ -25,11 +25,22 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             (.restricted, .cameraAuthorizationRestricted),
             (.timedOut, .cameraAuthorizationTimedOut),
             (.cancelled, .cameraAuthorizationCancelled),
-            (.unknown, .cameraAuthorizationUnknown),
+            (.statusUnknown, .cameraAuthorizationStatusUnknown),
+            (.activationPolicyFailed, .cameraAuthorizationActivationPolicyFailed),
+            (.activationRejected, .cameraAuthorizationActivationRejected),
+            (.activationTimedOut, .cameraAuthorizationActivationTimedOut),
+            (.activationCancelled, .cameraAuthorizationActivationCancelled),
+            (.harnessUnavailable, .cameraAuthorizationHarnessUnavailable),
+            (.alreadyCompleted, .alreadyRun),
         ]
         for (outcome, category) in categories {
             #expect(outcome.category == category)
-            #expect(DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: outcome).contains(category.rawValue))
+            let terminal = DevVlogsPhase0BCameraAuthorizationTerminal(
+                outcome: outcome,
+                furthestStage: .routeStarted
+            )
+            #expect(DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: terminal)
+                .contains(category.rawValue))
         }
     }
 
@@ -41,12 +52,19 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             (false, .unknown, .denied),
         ] as [(Bool, DevVlogsPhase0BCameraAuthorizationStatus, DevVlogsPhase0BCameraAuthorizationOutcome)] {
             let access = CameraAuthorizationAccess(status: .notDetermined)
-            let task = Task { await DevVlogsPhase0BCameraAuthorizationRequest(access: access).run() }
+            let trace = CameraAuthorizationRouteTrace()
+            let task = Task {
+                await DevVlogsPhase0BCameraAuthorizationRequest(access: access).run {
+                    trace.append($0.rawValue)
+                }
+            }
             await access.awaitRequest()
+            #expect(trace.snapshot == ["authorization_status_inspected", "request_access_started"])
             access.complete(granted: granted, status: callbackStatus)
             access.complete(granted: !granted, status: .unknown)
             #expect(await task.value == expected)
             #expect(access.requestCount == 1)
+            #expect(trace.snapshot == ["authorization_status_inspected", "request_access_started"])
         }
     }
 
@@ -57,20 +75,23 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             timeout: .milliseconds(1),
             sleep: { _ in }
         )
-        #expect(await request.run() == .timedOut)
+        let trace = CameraAuthorizationRouteTrace()
+        #expect(await request.run { trace.append($0.rawValue) } == .timedOut)
         #expect(access.requestCount == 1)
         access.complete(granted: true, status: .authorized)
         await Task.yield()
         #expect(access.requestCount == 1)
+        #expect(trace.snapshot == ["authorization_status_inspected", "request_access_started"])
     }
 
     @Test func cancellationReturnsAndLateCallbackIsIgnored() async {
         let access = CameraAuthorizationAccess(status: .notDetermined)
+        let trace = CameraAuthorizationRouteTrace()
         let task = Task {
             await DevVlogsPhase0BCameraAuthorizationRequest(
                 access: access,
                 timeout: .seconds(120)
-            ).run()
+            ).run { trace.append($0.rawValue) }
         }
         await access.awaitRequest()
         task.cancel()
@@ -78,6 +99,7 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         access.complete(granted: true, status: .authorized)
         await Task.yield()
         #expect(access.requestCount == 1)
+        #expect(trace.snapshot == ["authorization_status_inspected", "request_access_started"])
     }
 
     @Test func harnessEmitsOneRedactedTerminalAndCannotRunTwice() async {
@@ -94,17 +116,57 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             eventLog: DevVlogsPhase0BInMemoryEventLog { events.values.append($0) },
             monotonicClock: { 12 }
         )
-        #expect(await harness.run() == .alreadyAuthorized)
-        #expect(await harness.run() == .unknown)
+        let terminalResult = await harness.run(activation: successfulActivation())
+        #expect(terminalResult == .init(
+            outcome: .alreadyAuthorized,
+            furthestStage: .authorizationStatusInspected
+        ))
+        #expect(await harness.run(activation: successfulActivation()).outcome == .alreadyCompleted)
         #expect(events.values.map(\.result) == [.started, .ready])
         let terminal = events.values.filter { $0.action == "camera_authorization_terminal" }
         #expect(terminal.count == 1)
         #expect(terminal.first?.category == .cameraAuthorizationAlreadyAuthorized)
+        #expect(terminal.first?.furthestStage == .authorizationStatusInspected)
         let encoded = try? JSONEncoder().encode(terminal.first)
         let text = encoded.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        #expect(text.contains("furthest_stage"))
+        #expect(text.contains("authorization_status_inspected"))
         #expect(!text.contains("/tmp/fake"))
         #expect(!text.contains("NSError"))
         #expect(!text.contains("userInfo"))
+    }
+
+    @Test func unknownStatusIsPostActivationAndNeverRequestsAccess() async {
+        let access = CameraAuthorizationAccess(status: .unknown)
+        let events = CameraAuthorizationEvents()
+        let terminal = await makeHarness(access: access, events: events).run(
+            activation: successfulActivation()
+        )
+        #expect(terminal == .init(
+            outcome: .statusUnknown,
+            furthestStage: .authorizationStatusInspected
+        ))
+        #expect(access.requestCount == 0)
+        #expect(events.values.map(\.furthestStage) == [.routeStarted, .authorizationStatusInspected])
+        #expect(events.values.last?.category == .cameraAuthorizationStatusUnknown)
+    }
+
+    @Test func cancelledHarnessTerminalKeepsRequestStageAndIgnoresLateCallback() async {
+        let access = CameraAuthorizationAccess(status: .notDetermined)
+        let events = CameraAuthorizationEvents()
+        let harness = makeHarness(access: access, events: events)
+        let task = Task { await harness.run(activation: successfulActivation()) }
+        await access.awaitRequest()
+        task.cancel()
+        #expect(await task.value == .init(
+            outcome: .cancelled,
+            furthestStage: .requestAccessStarted
+        ))
+        access.complete(granted: true, status: .authorized)
+        await Task.yield()
+        #expect(events.values.filter { $0.action == "camera_authorization_terminal" }.count == 1)
+        #expect(events.values.last?.furthestStage == .requestAccessStarted)
+        #expect(events.values.last?.category == .cameraAuthorizationCancelled)
     }
 
     @Test func configurationRequiresExplicitSanitizedTemporaryMode() {
@@ -144,58 +206,71 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             onRequest: { trace.append("request") }
         )
         let task = Task { @MainActor in
-            await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+            await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
                 environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
                 activation: DevVlogsPhase0BApplicationActivation(
                     setRegularPolicy: { trace.append("policy"); return true },
-                    activate: { trace.append("activate"); return true }
+                    requestActivation: { trace.append("activate"); return true },
+                    isActive: { trace.append("active"); return true },
+                    sleep: { _ in },
+                    confirmationAttempts: 1
                 ),
-                authorize: {
-                    await DevVlogsPhase0BCameraAuthorizationRequest(access: access).run()
+                routeStarted: { trace.append("route") },
+                makeHarness: {
+                    trace.append("make")
+                    return makeHarness(access: access)
                 }
             )
         }
         await access.awaitRequest()
-        #expect(trace.snapshot == ["policy", "activate", "status", "request"])
+        #expect(trace.snapshot == ["route", "make", "policy", "activate", "active", "status", "request"])
         access.complete(granted: true, status: .authorized)
-        #expect(await task.value == .granted)
+        #expect(await task.value == .init(outcome: .granted, furthestStage: .requestAccessStarted))
         #expect(access.requestCount == 1)
     }
 
-    @Test func activationFailureFailsClosedBeforeAuthorization() async {
-        for (policyResult, activationResult, expectedTrace) in [
-            (false, true, ["policy"]),
-            (true, false, ["policy", "activate"]),
-        ] {
-            let trace = CameraAuthorizationRouteTrace()
-            let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
-                environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
-                activation: DevVlogsPhase0BApplicationActivation(
-                    setRegularPolicy: { trace.append("policy"); return policyResult },
-                    activate: { trace.append("activate"); return activationResult }
-                ),
-                authorize: { trace.append("authorization"); return .granted }
-            )
-            #expect(outcome == .unknown)
-            #expect(trace.snapshot == expectedTrace)
+    @Test func activationFailuresHaveClosedCategoriesAndExactStages() async {
+        let cases: [(DevVlogsPhase0BApplicationActivation, DevVlogsPhase0BCameraAuthorizationOutcome,
+                     DevVlogsPhase0BCameraAuthorizationStage)] = [
+            (activation(policy: false), .activationPolicyFailed, .routeStarted),
+            (activation(request: false), .activationRejected, .activationRequested),
+            (activation(active: false), .activationTimedOut, .activationRequested),
+            (activation(active: false, cancellation: true), .activationCancelled, .activationRequested),
+        ]
+        for (activation, expectedOutcome, expectedStage) in cases {
+            let access = CameraAuthorizationAccess(status: .notDetermined)
+            let events = CameraAuthorizationEvents()
+            let terminal = await makeHarness(access: access, events: events).run(activation: activation)
+            #expect(terminal == .init(outcome: expectedOutcome, furthestStage: expectedStage))
+            #expect(access.requestCount == 0)
+            #expect(events.values.map(\.action) == ["camera_authorization", "camera_authorization_terminal"])
+            #expect(events.values.last?.category == expectedOutcome.category)
+            #expect(events.values.last?.furthestStage == expectedStage)
         }
     }
 
-    @Test func normalAndHardwareRoutesNeverActivateForAuthorization() async {
-        for environment in [
-            [:],
-            [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"],
-        ] {
+    @Test func harnessUnavailableFailsBeforeActivationOrAuthorization() async {
+        let trace = CameraAuthorizationRouteTrace()
+        let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
+            environment: authorizationEnvironment(runRoot: "/tmp/phase0b-auth/run"),
+            activation: tracedActivation(trace),
+            routeStarted: { trace.append("route") },
+            makeHarness: { trace.append("make"); throw CameraAuthorizationHarnessError.unavailable }
+        )
+        #expect(terminal == .init(outcome: .harnessUnavailable, furthestStage: .routeStarted))
+        #expect(trace.snapshot == ["route", "make"])
+    }
+
+    @Test func normalAndHardwareRoutesNeverStartAuthorization() async {
+        for environment in [[:], [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"]] {
             let trace = CameraAuthorizationRouteTrace()
-            let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+            let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
                 environment: environment,
-                activation: DevVlogsPhase0BApplicationActivation(
-                    setRegularPolicy: { trace.append("policy"); return true },
-                    activate: { trace.append("activate"); return true }
-                ),
-                authorize: { trace.append("authorization"); return .granted }
+                activation: tracedActivation(trace),
+                routeStarted: { trace.append("route") },
+                makeHarness: { trace.append("make"); throw CameraAuthorizationHarnessError.unavailable }
             )
-            #expect(outcome == nil)
+            #expect(terminal == nil)
             #expect(trace.snapshot.isEmpty)
         }
     }
@@ -209,14 +284,10 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             encoding: .utf8
         )
         let branch = try #require(launch.range(
-            of: "if let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome"
+            of: "if let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal"
         ))
         let capture = try #require(launch.range(of: "let outcome: DevVlogsPhase0BHarnessOutcome"))
         #expect(branch.lowerBound < capture.lowerBound)
-        #expect(launch.contains("setActivationPolicy(.regular)"))
-        #expect(launch.contains("NSRunningApplication.current.activate(options: [])"))
-        #expect(launch.contains("application.activate()"))
-        #expect(launch.contains("application.isActive"))
         for forbidden in ["NSWindow(", "SettingsScene(", "FixesEditorScene(", "TranscriptHistoryScene("] {
             #expect(!launch.contains(forbidden))
         }
@@ -227,6 +298,11 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
             encoding: .utf8
         )
         #expect(source.contains("AVCaptureDevice.requestAccess(for: .video"))
+        #expect(source.contains("setActivationPolicy(.regular)"))
+        #expect(source.contains("NSRunningApplication.current.activate(options: [])"))
+        #expect(source.contains("application.activate()"))
+        #expect(source.contains("NSApplication.shared.isActive"))
+        #expect(!source.contains("camera_authorization_unknown"))
         for forbidden in ["AVCaptureSession", "AVCaptureDeviceInput", "startCapture(",
                           "AudioRecorder", "MediaFinalizer", "MediaProbe", "VideoPreservation",
                           "DictationRuntime", "KeychainService", "SettingsScene"] {
@@ -251,6 +327,54 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         }
     }
 
+    private func successfulActivation() -> DevVlogsPhase0BApplicationActivation {
+        activation()
+    }
+
+    private func activation(
+        policy: Bool = true,
+        request: Bool = true,
+        active: Bool = true,
+        cancellation: Bool = false
+    ) -> DevVlogsPhase0BApplicationActivation {
+        DevVlogsPhase0BApplicationActivation(
+            setRegularPolicy: { policy },
+            requestActivation: { request },
+            isActive: { active },
+            sleep: { _ in if cancellation { throw CancellationError() } },
+            confirmationAttempts: 1
+        )
+    }
+
+    private func tracedActivation(
+        _ trace: CameraAuthorizationRouteTrace
+    ) -> DevVlogsPhase0BApplicationActivation {
+        DevVlogsPhase0BApplicationActivation(
+            setRegularPolicy: { trace.append("policy"); return true },
+            requestActivation: { trace.append("activate"); return true },
+            isActive: { trace.append("active"); return true },
+            sleep: { _ in },
+            confirmationAttempts: 1
+        )
+    }
+
+    private func makeHarness(
+        access: CameraAuthorizationAccess,
+        events: CameraAuthorizationEvents? = nil
+    ) -> DevVlogsPhase0BCameraAuthorizationHarness {
+        let events = events ?? CameraAuthorizationEvents()
+        return DevVlogsPhase0BCameraAuthorizationHarness(
+            configuration: .init(
+                runRoot: URL(fileURLWithPath: "/tmp/fake", isDirectory: true),
+                caseID: "camera-authorization"
+            ),
+            runID: "run-1",
+            request: DevVlogsPhase0BCameraAuthorizationRequest(access: access),
+            eventLog: DevVlogsPhase0BInMemoryEventLog { events.values.append($0) },
+            monotonicClock: { 12 }
+        )
+    }
+
     private func authorizationEnvironment(runRoot: String) -> [String: String] {
         [
             DevVlogsPhase0BCameraAuthorizationConfiguration.enabledEnvironmentKey: "1",
@@ -262,6 +386,8 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         ]
     }
 }
+
+private enum CameraAuthorizationHarnessError: Error { case unavailable }
 
 private final class CameraAuthorizationAccess: DevVlogsPhase0BCameraAuthorizationAccessing,
     @unchecked Sendable {

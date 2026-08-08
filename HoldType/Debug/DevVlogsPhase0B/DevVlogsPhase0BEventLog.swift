@@ -26,7 +26,12 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case cameraAuthorizationRestricted = "camera_authorization_restricted"
     case cameraAuthorizationTimedOut = "camera_authorization_timed_out"
     case cameraAuthorizationCancelled = "camera_authorization_cancelled"
-    case cameraAuthorizationUnknown = "camera_authorization_unknown"
+    case cameraAuthorizationActivationPolicyFailed = "camera_authorization_activation_policy_failed"
+    case cameraAuthorizationActivationRejected = "camera_authorization_activation_rejected"
+    case cameraAuthorizationActivationTimedOut = "camera_authorization_activation_timed_out"
+    case cameraAuthorizationActivationCancelled = "camera_authorization_activation_cancelled"
+    case cameraAuthorizationHarnessUnavailable = "camera_authorization_harness_unavailable"
+    case cameraAuthorizationStatusUnknown = "camera_authorization_status_unknown"
     case cameraPermissionRequired = "camera_permission_required"
     case cameraPermissionDenied = "camera_permission_denied"
     case cameraSelectionDisconnected = "camera_selection_disconnected"
@@ -51,6 +56,20 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case videoPreservationFailed = "video_preservation_failed"
     case eventLog = "event_log"
     case alreadyRun = "already_run"
+}
+
+enum DevVlogsPhase0BCameraAuthorizationStage: String, Codable, Equatable, CaseIterable {
+    case routeStarted = "route_started"
+    case regularPolicySet = "regular_policy_set"
+    case activationRequested = "activation_requested"
+    case activeStateConfirmed = "active_state_confirmed"
+    case authorizationHarnessEntered = "authorization_harness_entered"
+    case authorizationStatusInspected = "authorization_status_inspected"
+    case requestAccessStarted = "request_access_started"
+
+    var rank: Int {
+        Self.allCases.firstIndex(of: self) ?? 0
+    }
 }
 
 enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
@@ -201,10 +220,17 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
     let action: String
     let result: DevVlogsPhase0BResult
     let category: DevVlogsPhase0BFailureCategory?
+    let furthestStage: DevVlogsPhase0BCameraAuthorizationStage?
     let deviceClass: DevVlogsPhase0BDeviceClass?
     let redactedDeviceLabel: String?
     let metrics: [DevVlogsPhase0BMetric]
     let videoEvidence: DevVlogsPhase0BVideoEvidence?
+
+    private enum CodingKeys: String, CodingKey {
+        case runID, caseID, attemptID, monotonicMilliseconds, action, result, category
+        case furthestStage = "furthest_stage"
+        case deviceClass, redactedDeviceLabel, metrics, videoEvidence
+    }
 
     init(
         runID: String,
@@ -214,6 +240,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         action: String,
         result: DevVlogsPhase0BResult,
         category: DevVlogsPhase0BFailureCategory? = nil,
+        furthestStage: DevVlogsPhase0BCameraAuthorizationStage? = nil,
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
         metrics: [DevVlogsPhase0BMetric] = [],
@@ -226,6 +253,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         self.action = action
         self.result = result
         self.category = category
+        self.furthestStage = furthestStage
         self.deviceClass = deviceClass
         self.redactedDeviceLabel = redactedDeviceLabel
         self.metrics = metrics

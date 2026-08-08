@@ -305,25 +305,6 @@ final class DevVlogsPhase0BHarness {
     }
 }
 @MainActor
-struct DevVlogsPhase0BApplicationActivation {
-    let setRegularPolicy: () -> Bool
-    let activate: () async -> Bool
-    static let live = Self(
-        setRegularPolicy: { NSApplication.shared.setActivationPolicy(.regular) },
-        activate: {
-            let application = NSApplication.shared
-            guard NSRunningApplication.current.activate(options: []) else { return false }
-            application.activate()
-            for _ in 0 ..< 100 {
-                if application.isActive { return true }
-                do { try await Task.sleep(for: .milliseconds(50)) } catch { return false }
-            }
-            return application.isActive
-        }
-    )
-    func run() async -> Bool { guard setRegularPolicy() else { return false }; return await activate() }
-}
-@MainActor
 enum DevVlogsPhase0BLaunch {
     static func shouldIsolate(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         DevVlogsPhase0BConfiguration.shouldIsolate(environment: environment)
@@ -336,15 +317,19 @@ enum DevVlogsPhase0BLaunch {
     ) {
         shouldIsolate(environment: environment) ? startHarnessApplication() : startNormalApplication()
     }
-    static func cameraAuthorizationOutcome(
+    static func cameraAuthorizationTerminal(
         environment: [String: String],
         activation: DevVlogsPhase0BApplicationActivation,
-        authorize: () async -> DevVlogsPhase0BCameraAuthorizationOutcome
-    ) async -> DevVlogsPhase0BCameraAuthorizationOutcome? {
+        routeStarted: () -> Void,
+        makeHarness: () throws -> DevVlogsPhase0BCameraAuthorizationHarness
+    ) async -> DevVlogsPhase0BCameraAuthorizationTerminal? {
         guard DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(environment: environment)
         else { return nil }
-        guard await activation.run() else { return .unknown }
-        return await authorize()
+        routeStarted()
+        guard let harness = try? makeHarness() else {
+            return .init(outcome: .harnessUnavailable, furthestStage: .routeStarted)
+        }
+        return await harness.run(activation: activation)
     }
     static func makeHarness(environment: [String: String]) throws -> DevVlogsPhase0BHarness {
         guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
@@ -451,16 +436,19 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let launchEnvironment = environment
         harnessTask = Task { @MainActor [weak self] in
-            if let outcome = await DevVlogsPhase0BLaunch.cameraAuthorizationOutcome(
+            if let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
                 environment: launchEnvironment,
                 activation: .live,
-                authorize: {
-                    await (try? DevVlogsPhase0BCameraAuthorizationHarness.make(
+                routeStarted: {
+                    print(DevVlogsPhase0BCameraAuthorizationOperatorSummary.routeStartedLine)
+                },
+                makeHarness: {
+                    try DevVlogsPhase0BCameraAuthorizationHarness.make(
                         environment: launchEnvironment
-                    ).run()) ?? .unknown
+                    )
                 }
             ) {
-                self?.completeAuthorization(outcome)
+                self?.completeAuthorization(terminal)
                 return
             }
             let outcome: DevVlogsPhase0BHarnessOutcome
@@ -472,8 +460,8 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             self?.completeHarness(outcome)
         }
     }
-    private func completeAuthorization(_ outcome: DevVlogsPhase0BCameraAuthorizationOutcome) {
-        complete(line: DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: outcome)) }
+    private func completeAuthorization(_ terminal: DevVlogsPhase0BCameraAuthorizationTerminal) {
+        complete(line: DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: terminal)) }
     private func completeHarness(_ outcome: DevVlogsPhase0BHarnessOutcome) {
         complete(line: DevVlogsPhase0BOperatorSummary.line(for: outcome)) }
     private func complete(line: String) {

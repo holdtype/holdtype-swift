@@ -19,16 +19,22 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   capture/audio/media harness. Only this route first changes the same process
   to the regular activation policy, requests activation, and boundedly waits
   for the app to become active before evaluating Camera authorization. Failure
-  to set the policy or activate returns the existing closed unknown result and
-  never calls the authorization owner. The route creates no HoldType window,
-  scene, or visible content; normal Debug and hardware-capture routes do not
-  activate. Its injected authorization owner calls the
+  to set the policy, request activation, confirm active state, or construct the
+  authorization harness now returns a distinct closed redacted result and
+  never inspects Camera status or calls `requestAccess`. The one terminal event
+  reports only the furthest completed closed stage: route start, regular policy,
+  activation request, active confirmation, harness entry, status inspection,
+  or request start. Unknown AVFoundation status is distinct from all pre-harness
+  failures. The route creates no HoldType window, scene, or visible content;
+  normal Debug and hardware-capture routes do not activate. Its injected
+  authorization owner calls the
   genuine video `requestAccess` API exactly once only from a not-determined
   status, waits under an independent 120-second operational bound, and emits
   one closed redacted granted, already-authorized, denied, restricted, timeout,
-  cancelled, or unknown terminal category. Fake tests cover callback absence,
-  cancellation, and ignored late callbacks. This command was not run here and
-  no Camera authorization prompt or decision is claimed.
+  cancelled, or post-activation unknown-status terminal category. Fake tests
+  cover callback absence, cancellation, ignored late callbacks, exact-one
+  start/terminal evidence, and monotonic stage reporting. This command was not
+  run here and no Camera authorization prompt or decision is claimed.
 - The harness creates one unique run directory under a caller-provided safe
   temporary root, starts the existing audio-recorder service with a prepared
   run-owned `.m4a`, and never enters normal dictation, provider, output,
@@ -84,7 +90,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 56 logical tests include 11 authorization-mode tests covering activation-policy/activation/status/request ordering, fail-closed activation, zero activation for normal and hardware routes, every authorization status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
+| Focused macOS fake tests | Pass; 59 logical tests include 14 authorization-mode tests covering closed policy/rejection/active-timeout/activation-cancel/harness/status outcomes, exact furthest stages, activation/status/request ordering, zero authorization work for normal and hardware routes, every authorization status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one start/terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
@@ -100,6 +106,8 @@ exclusive `--request-camera-permission` command. Neither mode was executed.
 
 This classifier repair does not infer or retroactively relabel the raw R02
 camera-start failure. It makes a future separately authorized run diagnostic.
+The AUTH-R03 unknown evidence also remains unchanged; only a future separately
+authorized permission run can produce the new closed stage evidence.
 
 ## Residual
 
