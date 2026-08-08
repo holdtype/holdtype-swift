@@ -1,0 +1,2 @@
+case_id,camera_class,connection_class,destination_class,planned_duration_seconds,hardware_availability,functional_result,residual_class,explicit_selection_result,capture_started,terminal_attempt_count,terminal_clip_count,one_audio_owner_result,mux_probe_result,cleanup_result
+continuity-10s,continuity,continuity_camera,internal_temporary,10,available,fail,debug-spike defect,pass,no,1,0,started_once_camera_gate_failed,not_exercised,pass

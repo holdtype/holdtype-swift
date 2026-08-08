@@ -1,0 +1,2 @@
+{"action":"attempt","attempt_id":"attempt-1","case_id":"continuity-10s","device_class":null,"metrics":[],"monotonic_milliseconds":75992968,"redacted_device_label":null,"result":"started","run_id":"capture-r02","selected_camera_class":"continuity"}
+{"action":"attempt_terminal_camera_start","attempt_id":"attempt-1","case_id":"continuity-10s","device_class":null,"metrics":[],"monotonic_milliseconds":75993164,"redacted_device_label":null,"result":"failed","run_id":"capture-r02","selected_camera_class":"continuity"}

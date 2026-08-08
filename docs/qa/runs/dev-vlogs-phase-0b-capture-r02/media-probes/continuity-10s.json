@@ -1,0 +1,16 @@
+{
+  "case_id": "continuity-10s",
+  "functional_result": "fail",
+  "residual_class": "debug-spike defect",
+  "candidate_probe_performed": false,
+  "candidate_asset_created": false,
+  "asset_playable": null,
+  "video_track": null,
+  "audio_track": null,
+  "cancelled_temporary_audio": {
+    "bytes": 28,
+    "probe_exit": 1,
+    "stream_count": 0,
+    "playable": false
+  }
+}

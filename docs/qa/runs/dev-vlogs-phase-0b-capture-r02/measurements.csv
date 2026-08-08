@@ -1,0 +1,2 @@
+case_id,camera_class,functional_result,attempt_to_terminal_ms,request_to_audio_start_ms,camera_request_to_first_frame_ms,user_action_to_first_frame_ms,actual_duration_seconds,width,height,nominal_fps,video_codec,audio_codec,asset_playable,raw_video_bytes,dictation_audio_bytes,finalized_clip_bytes,bytes_per_recorded_second,finalization_time_ms,sync_offset_ms,end_drift_ms,measurement_disposition
+continuity-10s,continuity,fail,196,,,,,,,,,,,0,28,0,,,,,evidence_only

@@ -1,0 +1,40 @@
+{
+  "packet_id": "DV-P0B-CAPTURE-R02",
+  "captured_at_utc": "2026-08-08T14:04:40Z",
+  "contract_revision": "DV-DRAFT-3@ed108fa",
+  "product_commit": "7597f3ae1dc255ee8f92cd137f0538283ba55bef",
+  "capture_harness_commit": "ff70155aa0559678487eacb67bc16a62ce199b75",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "destination_class": "internal_temporary",
+  "file_system": "APFS",
+  "useful_capacity_bytes_observed": 72511873088,
+  "useful_capacity_disposition": "evidence_only",
+  "debug_build": {
+    "build_result": "pass",
+    "sanitized_keychain_environment": true,
+    "provider_request_performed": false
+  },
+  "camera_enumeration": {
+    "continuity_count": 1,
+    "continuity_candidate_capable_count": 1,
+    "stable_identity_present": true,
+    "explicit_identity_selected": true,
+    "private_identity_retained": false,
+    "fallback_used": false
+  },
+  "tcc": {
+    "prompt_observed": false,
+    "computer_use_attachment_result": "timeout_no_surface",
+    "underlying_camera_start_authorization_status": "not_emitted_by_harness",
+    "tcc_reset_performed": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "liveness_verified_through_runtime_and_evidence_collection": true,
+    "stopped": true
+  }
+}
