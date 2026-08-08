@@ -1,0 +1,66 @@
+{
+  "packet_id": "DV-P0B-CAMERA-AUTH-R06",
+  "captured_at_utc": "2026-08-08T22:06:27Z",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "product_commit": "c538ed1e84a53fbd5ee9e71fce2c5dad82f5b10c",
+  "supervisor_commit": "b07105647dce52de4f2a1659d60839bf79a36178",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "debug_identity": {
+    "bundle_identity_class": "accepted_holdtype_debug_identity",
+    "signing_class": "apple_development",
+    "camera_purpose_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true,
+    "accepted_blobs_unchanged": true,
+    "private_signing_identity_retained": false
+  },
+  "runtime": {
+    "permission_route_invocation_count": 1,
+    "route_start_count": 1,
+    "terminal_result_count": 1,
+    "authorization_result": "not_reached",
+    "terminal_category": "camera_authorization_activation_timed_out",
+    "furthest_stage": "activation_requested",
+    "request_access_reached": false,
+    "prompt_observed": false,
+    "computer_use_click_count": 0,
+    "system_settings_opened": false
+  },
+  "process_topology": {
+    "proven_identity_count": 1,
+    "direct_identity_count": 1,
+    "additional_identity_count": 0,
+    "observed_topology_classes": [
+      "script-sibling"
+    ],
+    "direct_child_exited_naturally": true,
+    "direct_child_reaped": true,
+    "all_proven_identities_exited_before_success": true,
+    "quiet_rescan_completed": true,
+    "term_fallback_used": false,
+    "kill_fallback_used": false,
+    "uncertain_same_binary_candidate_detected": false,
+    "unmarked_candidate_caused_fail_closed": false,
+    "run_root_retained": false,
+    "run_owned_processes_remaining": 0
+  },
+  "protected_runtime": {
+    "provider_request_performed": false,
+    "keychain_ui_allowed": false,
+    "camera_enumeration_performed": false,
+    "camera_capture_performed": false,
+    "microphone_owner_constructed": false,
+    "media_activity_performed": false,
+    "tccutil_invoked": false,
+    "direct_tcc_database_operation": false
+  },
+  "idle_guard": {
+    "command_class": "scoped_idle_guard",
+    "identity_and_liveness_verified": true,
+    "stopped": true
+  }
+}

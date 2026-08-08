@@ -1,0 +1,2 @@
+case_id,authorization_result,furthest_stage,activation_latency_ms,prompt_latency_ms,request_duration_ms,measurement_disposition
+camera-authorization-marker-supervised,not_reached,activation_requested,,,,evidence_only
