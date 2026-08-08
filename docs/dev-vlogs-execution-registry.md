@@ -71,7 +71,8 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R01@f698fcb` | read-only | accepted_with_residual | recorded below | Retry capture only when an explicit camera uniqueID enumerates. |
 | `DV-P0B-CAPTURE-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted R01 preflight; user reports iPhone connected/prepared | one redacted capture-R02 QA run; raw media in exact temporary run root only | accepted_evidence / functional_fail | `0e21972`; receipts below | Repair typed camera-start evidence and bounded termination before retry. |
 | `DV-P0B-CAPTURE-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R02@0e21972` | read-only | accepted_with_residual | recorded below | Evidence is sound; functional cell remains fail/debug-spike defect. |
-| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | running | — | Preserve typed camera-start category and make failure termination exit bounded/exact-once. |
+| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | running (repair 1) | `8b0b263`; rejected review recorded below | Lifecycle/script accepted; repair domain/context-aware platform camera classification and tests. |
+| `DV-P0B-CAPTURE-R03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R03@8b0b263` | read-only | rejected | recorded below | Return classifier-only repair to original owner; no hardware/storage dispatch. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | dependency-ready / serialized | — | Wait for capture R03 commit/review to avoid concurrent build/Git ownership. |
@@ -110,9 +111,9 @@ They are not yet an Active implementation epoch.
 - `DV-P0B-CAPTURE-R02@0e21972` evidence is accepted but its functional cell is
   fail/debug-spike defect. Typed camera-start category and bounded termination
   repair is the next serialized writable packet; no hardware retry precedes it.
-- Running packet: `DV-P0B-CAPTURE-R03` Debug-only repair. `DV-P0B-STORAGE-W02`
-  is dependency-ready but serialized behind R03 commit/review to avoid shared
-  build and Git ownership.
+- Running packet: classifier-only repair cycle 1 for `DV-P0B-CAPTURE-R03`.
+  Independent review accepted lifecycle and script repairs but rejected raw
+  platform camera classification. `DV-P0B-STORAGE-W02` remains serialized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -627,4 +628,29 @@ next_dependency: Original storage owner repairs the same three paths, adds a
 redirected-prefix survival test, corrects the claim, then repeats review.
 runtime_or_visual_handoff: none
 reviewed_commit: 2486b56c02130abd905824a0b50da95118a4b81c
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW` of `8b0b263`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW
+status: done
+verdict: reject
+
+outcome: Termination self-dependency and script supervision are closed, but
+raw platform camera-start classification remains false or collapsed.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted R02 evidence/review;
+R03 commit and Apple SDK AVError authority.
+changed_paths: none
+checks_run: Exact eight-path diff; 14-case category and raw-error review; SDK
+codes; termination/script probes; 26 tests; Debug/Release isolation.
+scope_check: Clean; no hardware, TCC, product, storage, or protected-owner run.
+deviations: none
+residual: Authorization AVError codes collapse to recording failure; pre-start
+disconnect is labeled during-capture; numeric codes lack AVFoundation domain
+checking; tests do not cover raw classifier/domain/context.
+next_dependency: Original R03 owner repairs camera classifier/tests/summary,
+then repeat review before hardware or storage dispatch.
+runtime_or_visual_handoff: none
+reviewed_commit: 8b0b2635832c5f5b52f3191c96a2828d90680498
 ```
