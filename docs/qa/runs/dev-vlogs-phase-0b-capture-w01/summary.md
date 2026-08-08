@@ -42,8 +42,12 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   the authoritative framework error domain, recognizes the two current SDK
   authorization codes plus the supported busy/disconnect codes, and separates
   a disconnect before start/first-frame evidence from a steady-capture
-  interruption. Foreign-domain numeric collisions and unknown codes produce
-  only the generic camera-unknown category. Evidence remains limited to run/
+  interruption. Start succeeds only after movie-recording and first-frame
+  evidence arrive, in either order. The first typed observer or delegate error
+  remains authoritative across pending start, steady cleanup, later stop, and
+  the single terminal event; late callbacks cannot replace it. Foreign-domain
+  numeric collisions and unknown codes produce only the generic camera-unknown
+  category. Evidence remains limited to run/
   case/attempt IDs, monotonic time, category/action/result enums, redacted
   device class/label, and numeric metrics; raw codes/domains, platform errors,
   paths, device identities, and private descriptions are not serialized.
@@ -53,7 +57,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 29 tests cover pre-composition launch routing, harness-only scene structure, typed and raw domain/context camera-category mapping, authorization/busy/disconnect SDK codes, foreign-domain collisions, malicious private error material, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
+| Focused macOS fake tests | Pass; 34 tests cover pre-composition launch routing, harness-only scene structure, typed and raw domain/context camera-category mapping, pre-continuation observer failure, both recording/first-frame start orders, no-first-frame timeout, typed steady-stop terminal propagation, authorization/busy/disconnect SDK codes, foreign-domain collisions, malicious private error material, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |

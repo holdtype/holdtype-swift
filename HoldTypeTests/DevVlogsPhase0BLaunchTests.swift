@@ -81,6 +81,29 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(fixture.events.events.last?.category == .cameraSelectionBusy)
     }
 
+    @Test func steadyCameraFailuresReachOneTypedTerminalAndCleanup() async {
+        let expected: [(DevVlogsPhase0BCameraCaptureError, DevVlogsPhase0BFailureCategory)] = [
+            (.disconnectedDuringCapture, .cameraInterruptionDisconnected),
+            (.runtimeFailure, .cameraSessionRuntimeFailure),
+        ]
+
+        for (failure, category) in expected {
+            let fixture = makeFixture(stopFailure: failure)
+            let outcome = await fixture.harness.run()
+
+            #expect(outcome == .failed(.cameraStart(category)))
+            #expect(DevVlogsPhase0BOperatorSummary.line(for: outcome).contains(category.rawValue))
+            #expect(fixture.camera.stopCount == 1)
+            #expect(fixture.camera.cleanupCount == 1)
+            #expect(fixture.audio.stopCount == 1)
+            #expect(fixture.audio.cancelCount == 1)
+            #expect(fixture.finalizer.callCount == 0)
+            #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
+            #expect(fixture.events.events.last?.category == category)
+            #expect(fixture.events.events.last?.category != .captureStop)
+        }
+    }
+
     @Test func cameraStartFailureUsesNaturalExitWithoutSelfCleanup() async {
         let fixture = makeFixture(cameraFailure: .permissionDenied)
         let outcome = await fixture.harness.run()
@@ -280,7 +303,8 @@ struct DevVlogsPhase0BLaunchTests {
     }
 
     private func makeFixture(
-        cameraFailure: DevVlogsPhase0BCameraCaptureError? = nil
+        cameraFailure: DevVlogsPhase0BCameraCaptureError? = nil,
+        stopFailure: DevVlogsPhase0BCameraCaptureError? = nil
     ) -> HarnessFixture {
         let root = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
         let configuration = DevVlogsPhase0BConfiguration(
@@ -299,7 +323,7 @@ struct DevVlogsPhase0BLaunchTests {
             finalURL: root.appendingPathComponent("final.mp4")
         )
         let audio = Phase0BAudioRecorder()
-        let camera = Phase0BCamera(failure: cameraFailure, videoURL: paths.videoURL)
+        let camera = Phase0BCamera(failure: cameraFailure, stopFailure: stopFailure, videoURL: paths.videoURL)
         let finalizer = Phase0BFinalizer()
         let probe = Phase0BProbe()
         let events = Phase0BEvents()
@@ -356,13 +380,19 @@ struct DevVlogsPhase0BLaunchTests {
 
 @MainActor private final class Phase0BCamera: DevVlogsPhase0BCameraCapturing {
     let failure: DevVlogsPhase0BCameraCaptureError?
+    let stopFailure: DevVlogsPhase0BCameraCaptureError?
     let videoURL: URL
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var cleanupCount = 0
 
-    init(failure: DevVlogsPhase0BCameraCaptureError?, videoURL: URL) {
+    init(
+        failure: DevVlogsPhase0BCameraCaptureError?,
+        stopFailure: DevVlogsPhase0BCameraCaptureError?,
+        videoURL: URL
+    ) {
         self.failure = failure
+        self.stopFailure = stopFailure
         self.videoURL = videoURL
     }
     func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws
@@ -381,6 +411,7 @@ struct DevVlogsPhase0BLaunchTests {
     }
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact {
         stopCount += 1
+        if let stopFailure { throw stopFailure }
         return .init(
             fileURL: videoURL,
             requestMonotonicTime: 12,

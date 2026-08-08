@@ -66,24 +66,6 @@ struct DevVlogsPhase0BCameraCaptureTests {
             AVError.deviceNotConnected.rawValue,
         ]
 
-        #expect(
-            DevVlogsPhase0BCameraFailureContext.resolve(
-                startPending: true,
-                firstFrameObserved: true
-            ) == .starting
-        )
-        #expect(
-            DevVlogsPhase0BCameraFailureContext.resolve(
-                startPending: false,
-                firstFrameObserved: false
-            ) == .starting
-        )
-        let steadyContext = DevVlogsPhase0BCameraFailureContext.resolve(
-            startPending: false,
-            firstFrameObserved: true
-        )
-        #expect(steadyContext == .steadyCapture)
-
         for code in disconnectCodes {
             let error = NSError(domain: AVFoundationErrorDomain, code: code)
             #expect(
@@ -95,10 +77,76 @@ struct DevVlogsPhase0BCameraCaptureTests {
             #expect(
                 DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
                     error,
-                    context: steadyContext
+                    context: .steadyCapture
                 ) == .disconnectedDuringCapture
             )
         }
+    }
+
+    @Test func observerFailuresBeforeRecordingCallbacksRemainFirstAndTerminal() {
+        let disconnect = DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
+            NSError(domain: AVFoundationErrorDomain, code: AVError.deviceNotConnected.rawValue),
+            context: .starting
+        )
+        let runtime = DevVlogsPhase0BCameraCapture.classifyRuntimeNotification(
+            Notification(name: AVCaptureSession.runtimeErrorNotification),
+            context: .starting
+        )
+        let failures: [DevVlogsPhase0BCameraCaptureError] = [
+            disconnect, runtime,
+        ]
+
+        for failure in failures {
+            var evidence = DevVlogsPhase0BCameraStartEvidence()
+            evidence.fail(failure)
+            evidence.fail(.recordingFailed)
+            evidence.recordingDidStart(at: 2)
+            evidence.firstFrameDidArrive(at: 3, presentationTime: 0)
+            #expect(evidence.resolution == .failed(failure))
+        }
+        #expect(disconnect == .deviceUnavailableDuringStart)
+        #expect(runtime == .runtimeFailure)
+    }
+
+    @Test func movieStartThenDisconnectBeforeFirstFrameFailsWithStartCategory() {
+        var evidence = DevVlogsPhase0BCameraStartEvidence()
+        evidence.recordingDidStart(at: 2)
+        evidence.fail(.deviceUnavailableDuringStart)
+        evidence.firstFrameDidArrive(at: 3, presentationTime: 0)
+
+        #expect(evidence.resolution == .failed(.deviceUnavailableDuringStart))
+        #expect(evidence.recordingStartTime == 2)
+        #expect(evidence.firstFrameTime == nil)
+    }
+
+    @Test func recordingAndFirstFrameInEitherOrderResolveStartExactlyOnce() {
+        var recordingFirst = DevVlogsPhase0BCameraStartEvidence()
+        recordingFirst.recordingDidStart(at: 2)
+        #expect(recordingFirst.resolution == .pending)
+        recordingFirst.firstFrameDidArrive(at: 3, presentationTime: 0.1)
+        recordingFirst.fail(.deviceUnavailableDuringStart)
+
+        var frameFirst = DevVlogsPhase0BCameraStartEvidence()
+        frameFirst.firstFrameDidArrive(at: 3, presentationTime: 0.1)
+        #expect(frameFirst.resolution == .pending)
+        frameFirst.recordingDidStart(at: 2)
+        frameFirst.recordingDidStart(at: 4)
+
+        #expect(recordingFirst.resolution == .ready)
+        #expect(frameFirst.resolution == .ready)
+        #expect(frameFirst.recordingStartTime == 2)
+        #expect(frameFirst.firstFrameTime == 3)
+    }
+
+    @Test func noFirstFrameTimeoutIsDistinctFromPreRecordingTimeout() {
+        var beforeRecording = DevVlogsPhase0BCameraStartEvidence()
+        beforeRecording.timeout()
+        #expect(beforeRecording.resolution == .failed(.setupTimedOut))
+
+        var afterRecording = DevVlogsPhase0BCameraStartEvidence()
+        afterRecording.recordingDidStart(at: 2)
+        afterRecording.timeout()
+        #expect(afterRecording.resolution == .failed(.firstFrameUnavailable))
     }
 
     @Test func foreignDomainCollisionsAndUnknownCodesRemainUnknown() {

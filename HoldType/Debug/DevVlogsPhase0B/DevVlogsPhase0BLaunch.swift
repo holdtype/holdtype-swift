@@ -194,7 +194,9 @@ final class DevVlogsPhase0BHarness {
         } catch {
             await cameraCapture.cancelCapture()
             audioRecorder.cancelRecording()
-            return fail(.captureStop, attemptID: attemptID)
+            let failure = (error as? DevVlogsPhase0BCameraCaptureError)
+                .map { DevVlogsPhase0BHarnessFailure.cameraStart($0.redactedCategory) } ?? .captureStop
+            return fail(failure, attemptID: attemptID)
         }
 
         do {

@@ -2,29 +2,20 @@
 @preconcurrency import AVFoundation
 import CoreMedia
 import Foundation
-
 struct DevVlogsPhase0BCameraCaptureRequest {
-    let deviceUniqueID: String
-    let outputFileURL: URL
+    let deviceUniqueID: String, outputFileURL: URL
     let setupTimeout: Duration
 }
-
 struct DevVlogsPhase0BCameraCaptureStart: Equatable {
-    let requestMonotonicTime: TimeInterval
-    let recordingStartMonotonicTime: TimeInterval
-    let deviceClass: DevVlogsPhase0BDeviceClass
-    let redactedDeviceLabel: String
+    let requestMonotonicTime: TimeInterval, recordingStartMonotonicTime: TimeInterval
+    let deviceClass: DevVlogsPhase0BDeviceClass, redactedDeviceLabel: String
 }
-
 struct DevVlogsPhase0BCameraCaptureArtifact: Equatable {
     let fileURL: URL
-    let requestMonotonicTime: TimeInterval
-    let recordingStartMonotonicTime: TimeInterval
-    let firstFrameMonotonicTime: TimeInterval?
-    let firstFramePresentationTime: TimeInterval?
+    let requestMonotonicTime: TimeInterval, recordingStartMonotonicTime: TimeInterval
+    let firstFrameMonotonicTime: TimeInterval?, firstFramePresentationTime: TimeInterval?
     let recordingStopMonotonicTime: TimeInterval
 }
-
 enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
     case permissionRequired, permissionDenied
     case preferredDeviceDisconnected, deviceUnavailableDuringStart, preferredDeviceBusy
@@ -33,15 +24,36 @@ enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
     case setupTimedOut, firstFrameUnavailable, recordingFailed
     case disconnectedDuringCapture, runtimeFailure, unknownPlatformFailure, notCapturing
 }
-
-enum DevVlogsPhase0BCameraFailureContext: Equatable {
-    case starting, steadyCapture
-
-    static func resolve(startPending: Bool, firstFrameObserved: Bool) -> Self {
-        startPending || !firstFrameObserved ? .starting : .steadyCapture
+enum DevVlogsPhase0BCameraFailureContext: Equatable { case starting, steadyCapture }
+struct DevVlogsPhase0BCameraStartEvidence: Equatable {
+    enum Resolution: Equatable { case pending, ready, failed(DevVlogsPhase0BCameraCaptureError) }
+    private(set) var recordingStartTime: TimeInterval?
+    private(set) var firstFrameTime: TimeInterval?
+    private(set) var firstFramePresentationTime: TimeInterval?
+    private(set) var resolution = Resolution.pending
+    var failure: DevVlogsPhase0BCameraCaptureError? {
+        if case .failed(let error) = resolution { error } else { nil }
+    }
+    mutating func recordingDidStart(at time: TimeInterval) {
+        guard resolution == .pending, recordingStartTime == nil else { return }
+        recordingStartTime = time
+        resolveIfReady()
+    }
+    mutating func firstFrameDidArrive(at time: TimeInterval, presentationTime: TimeInterval?) {
+        guard resolution == .pending, firstFrameTime == nil else { return }
+        firstFrameTime = time
+        firstFramePresentationTime = presentationTime
+        resolveIfReady()
+    }
+    mutating func fail(_ error: DevVlogsPhase0BCameraCaptureError) {
+        guard resolution == .pending else { return }
+        resolution = .failed(error)
+    }
+    mutating func timeout() { fail(recordingStartTime == nil ? .setupTimedOut : .firstFrameUnavailable) }
+    private mutating func resolveIfReady() {
+        if recordingStartTime != nil, firstFrameTime != nil { resolution = .ready }
     }
 }
-
 extension DevVlogsPhase0BCameraCaptureError {
     static func classifyPlatformError(
         _ error: Error,
@@ -67,14 +79,11 @@ extension DevVlogsPhase0BCameraCaptureError {
         }
     }
 }
-
 protocol DevVlogsPhase0BCameraCapturing: AnyObject {
-    func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws
-        -> DevVlogsPhase0BCameraCaptureStart
+    func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws -> DevVlogsPhase0BCameraCaptureStart
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact
     func cancelCapture() async
 }
-
 @MainActor
 final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturing {
     private enum State { case idle, starting, capturing, stopping, terminal }
@@ -87,9 +96,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private var state = State.idle
     private var request: DevVlogsPhase0BCameraCaptureRequest?
     private var requestTime: TimeInterval?
-    private var recordingStartTime: TimeInterval?
-    private var firstFrameTime: TimeInterval?
-    private var firstFramePresentationTime: TimeInterval?
+    private var startEvidence = DevVlogsPhase0BCameraStartEvidence()
     private var deviceClass = DevVlogsPhase0BDeviceClass.unknown
     private var redactedDeviceLabel = "camera"
     private var startContinuation: CheckedContinuation<Void, Error>?
@@ -103,14 +110,12 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private var originalMaximumFrameDuration: CMTime?
     private var observers: [NSObjectProtocol] = []
     private var failureContext: DevVlogsPhase0BCameraFailureContext {
-        .resolve(startPending: startContinuation != nil, firstFrameObserved: firstFrameTime != nil)
+        state == .capturing || state == .stopping ? .steadyCapture : .starting
     }
-
     init(monotonicClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.monotonicClock = monotonicClock
         super.init()
     }
-
     func startCapture(
         _ request: DevVlogsPhase0BCameraCaptureRequest
     ) async throws -> DevVlogsPhase0BCameraCaptureStart {
@@ -126,26 +131,25 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             try await awaitMovieStart(timeout: request.setupTimeout) {
                 self.movieOutput.startRecording(to: request.outputFileURL, recordingDelegate: self)
             }
-            state = .capturing
-            steadyFailureTerminator.arm()
             return DevVlogsPhase0BCameraCaptureStart(
                 requestMonotonicTime: requestTime ?? monotonicClock(),
-                recordingStartMonotonicTime: recordingStartTime ?? monotonicClock(),
+                recordingStartMonotonicTime: startEvidence.recordingStartTime ?? monotonicClock(),
                 deviceClass: deviceClass,
                 redactedDeviceLabel: redactedDeviceLabel
             )
         } catch {
             try? await finishSession(timeout: request.setupTimeout)
             state = .terminal
+            if let failure = startEvidence.failure { throw failure }
             throw DevVlogsPhase0BCameraCaptureError.classifyPlatformError(error, context: .starting)
         }
     }
-
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact {
         if let failure = await steadyFailureTerminator.waitForFailure() {
             throw failure
         }
-        guard state == .capturing, let request, let requestTime, let recordingStartTime else {
+        guard state == .capturing, let request, let requestTime,
+              let recordingStartTime = startEvidence.recordingStartTime else {
             throw DevVlogsPhase0BCameraCaptureError.notCapturing
         }
         state = .stopping
@@ -161,13 +165,12 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 }
                 movieOutput.stopRecording()
             }
-            guard firstFrameTime != nil else { throw DevVlogsPhase0BCameraCaptureError.firstFrameUnavailable }
             let artifact = DevVlogsPhase0BCameraCaptureArtifact(
                 fileURL: request.outputFileURL,
                 requestMonotonicTime: requestTime,
                 recordingStartMonotonicTime: recordingStartTime,
-                firstFrameMonotonicTime: firstFrameTime,
-                firstFramePresentationTime: firstFramePresentationTime,
+                firstFrameMonotonicTime: startEvidence.firstFrameTime,
+                firstFramePresentationTime: startEvidence.firstFramePresentationTime,
                 recordingStopMonotonicTime: monotonicClock()
             )
             try await finishSession(timeout: request.setupTimeout)
@@ -182,7 +185,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             )
         }
     }
-
     func cancelCapture() async {
         if await steadyFailureTerminator.waitForFailure() != nil {
             state = .terminal
@@ -197,7 +199,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         try? await finishSession(timeout: request?.setupTimeout ?? .seconds(30))
         state = .terminal
     }
-
     private func selectedDevice(uniqueID: String) throws -> AVCaptureDevice {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: break
@@ -219,7 +220,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         redactedDeviceLabel = "\(deviceClass.rawValue)_camera"
         return device
     }
-
     private func configureSession(device: AVCaptureDevice) throws {
         try configureCandidateFrameRate(device: device)
         session.beginConfiguration()
@@ -265,16 +265,15 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private func awaitMovieStart(timeout: Duration, begin: () -> Void) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             startContinuation = continuation
+            if resumeStartFromEvidence() { return }
             startTimeoutTask = Task { @MainActor [weak self] in
                 do { try await Task.sleep(for: timeout) } catch { return }
-                self?.resumeStart(
-                    throwing: DevVlogsPhase0BCameraCaptureError.setupTimedOut
-                )
+                self?.startEvidence.timeout()
+                self?.resumeStartFromEvidence()
             }
             begin()
         }
     }
-
     private func installObservers(device: AVCaptureDevice) {
         let center = NotificationCenter.default
         observers = [
@@ -292,14 +291,15 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 [weak self] notification in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    self.failActiveCapture(with: self.classify(notification, context: self.failureContext))
+                    self.failActiveCapture(with: Self.classifyRuntimeNotification(notification, context: self.failureContext))
                 }
             },
         ]
     }
     private func failActiveCapture(with error: DevVlogsPhase0BCameraCaptureError) {
-        if startContinuation != nil {
-            resumeStart(throwing: error)
+        if state == .starting {
+            startEvidence.fail(error)
+            resumeStartFromEvidence()
             return
         }
         if stopContinuation != nil {
@@ -353,6 +353,19 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         startTimeoutTask = nil
         error.map { continuation.resume(throwing: $0) } ?? continuation.resume()
     }
+    @discardableResult
+    private func resumeStartFromEvidence() -> Bool {
+        guard let continuation = startContinuation else { return false }
+        switch startEvidence.resolution {
+        case .pending: return false
+        case .ready:
+            state = .capturing
+            steadyFailureTerminator.arm()
+            resumeStart()
+        case .failed(let error): resumeStart(throwing: error)
+        }
+        return true
+    }
     private func resumeStop(throwing error: Error? = nil) {
         guard let continuation = stopContinuation else { return }
         stopContinuation = nil
@@ -403,7 +416,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         originalMinimumFrameDuration = nil
         originalMaximumFrameDuration = nil
     }
-    private func classify(
+    static func classifyRuntimeNotification(
         _ notification: Notification,
         context: DevVlogsPhase0BCameraFailureContext
     ) -> DevVlogsPhase0BCameraCaptureError {
@@ -419,23 +432,14 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         return .unknown
     }
 }
-
 @MainActor
 final class DevVlogsPhase0BSteadyCaptureTerminator {
-    enum Phase: Equatable {
-        case idle, active, terminating, terminal
-    }
+    enum Phase: Equatable { case idle, active, terminating, terminal }
     private(set) var phase = Phase.idle
     private var failure: DevVlogsPhase0BCameraCaptureError?
     private var cleanupTask: Task<Void, Never>?
-    func arm() {
-        guard phase == .idle else { return }
-        phase = .active
-    }
-    func disarm() {
-        guard phase == .active else { return }
-        phase = .terminal
-    }
+    func arm() { if phase == .idle { phase = .active } }
+    func disarm() { if phase == .active { phase = .terminal } }
     @discardableResult
     func terminate(
         with failure: DevVlogsPhase0BCameraCaptureError,
@@ -450,10 +454,7 @@ final class DevVlogsPhase0BSteadyCaptureTerminator {
         }
         return true
     }
-    func waitForFailure() async -> DevVlogsPhase0BCameraCaptureError? {
-        await cleanupTask?.value
-        return failure
-    }
+    func waitForFailure() async -> DevVlogsPhase0BCameraCaptureError? { await cleanupTask?.value; return failure }
 }
 extension DevVlogsPhase0BCameraCapture: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(
@@ -461,8 +462,8 @@ extension DevVlogsPhase0BCameraCapture: AVCaptureFileOutputRecordingDelegate {
         didStartRecordingTo fileURL: URL,
         from connections: [AVCaptureConnection]
     ) {
-        recordingStartTime = monotonicClock()
-        resumeStart()
+        startEvidence.recordingDidStart(at: monotonicClock())
+        resumeStartFromEvidence()
     }
     func fileOutput(
         _ output: AVCaptureFileOutput,
@@ -471,7 +472,7 @@ extension DevVlogsPhase0BCameraCapture: AVCaptureFileOutputRecordingDelegate {
         error: Error?
     ) {
         guard let error else {
-            resumeStop()
+            if state == .starting { failActiveCapture(with: .recordingFailed) } else { resumeStop() }
             return
         }
         failActiveCapture(
@@ -488,12 +489,11 @@ extension DevVlogsPhase0BCameraCapture: AVCaptureVideoDataOutputSampleBufferDele
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        guard firstFrameTime == nil, CMSampleBufferDataIsReady(sampleBuffer) else { return }
-        firstFrameTime = monotonicClock()
+        guard startEvidence.firstFrameTime == nil, CMSampleBufferDataIsReady(sampleBuffer) else { return }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        if timestamp.isValid, timestamp.isNumeric {
-            firstFramePresentationTime = timestamp.seconds
-        }
+        let presentationTime = timestamp.isValid && timestamp.isNumeric ? timestamp.seconds : nil
+        startEvidence.firstFrameDidArrive(at: monotonicClock(), presentationTime: presentationTime)
+        resumeStartFromEvidence()
     }
 }
 #endif
