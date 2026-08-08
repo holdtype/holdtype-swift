@@ -67,12 +67,72 @@ struct DevVlogsPhase0BLaunchTests {
 
     @Test func cameraFailureCancelsOnlyRunOwnedAudioAndSkipsMux() async {
         let fixture = makeFixture(cameraFailure: .preferredDeviceBusy)
-        #expect(await fixture.harness.run() == .failed(.cameraStart))
+        #expect(
+            await fixture.harness.run() == .failed(.cameraStart(.cameraSelectionBusy))
+        )
         #expect(fixture.audio.startCount == 1)
         #expect(fixture.audio.stopCount == 0)
         #expect(fixture.audio.cancelCount == 1)
+        #expect(fixture.camera.cleanupCount == 1)
         #expect(fixture.finalizer.callCount == 0)
         #expect(fixture.probe.callCount == 0)
+        #expect(fixture.events.events.count == 2)
+        #expect(fixture.events.events.last?.action == "attempt_terminal")
+        #expect(fixture.events.events.last?.category == .cameraSelectionBusy)
+    }
+
+    @Test func cameraStartFailureUsesNaturalExitWithoutSelfCleanup() async {
+        let fixture = makeFixture(cameraFailure: .permissionDenied)
+        let outcome = await fixture.harness.run()
+        let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(35))
+        var normalExitRequests = 0
+        var externalCancelCount = 0
+        var externalCleanupCount = 0
+
+        #expect(outcome == .failed(.cameraStart(.cameraPermissionDenied)))
+        #expect(
+            DevVlogsPhase0BOperatorSummary.line(for: outcome) ==
+                "dev_vlogs_phase_0b result=failed category=camera_permission_denied"
+        )
+        if coordinator.harnessDidComplete() { normalExitRequests += 1 }
+        let reply = coordinator.begin(
+            cancelActive: { externalCancelCount += 1 },
+            cleanup: { externalCleanupCount += 1 },
+            completion: { _ in Issue.record("Natural completion must not reply asynchronously") }
+        )
+
+        #expect(reply == .terminateNow)
+        #expect(normalExitRequests == 1)
+        #expect(externalCancelCount == 0)
+        #expect(externalCleanupCount == 0)
+        #expect(fixture.audio.cancelCount == 1)
+        #expect(fixture.camera.cleanupCount == 1)
+        #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
+        #expect(fixture.events.events.last?.category == .cameraPermissionDenied)
+        #expect(!coordinator.harnessDidComplete())
+    }
+
+    @Test func naturalCompletionClearsTaskBeforeRequestingTermination() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BLaunch.swift"
+            ),
+            encoding: .utf8
+        )
+        let completionStart = try #require(source.range(of: "private func completeHarness"))
+        let completionTail = source[completionStart.lowerBound...]
+        let completionEnd = try #require(completionTail.range(of: "func applicationShouldTerminate"))
+        let completion = completionTail[..<completionEnd.lowerBound]
+        let clear = try #require(completion.range(of: "harnessTask = nil"))
+        let transition = try #require(completion.range(of: "terminationCoordinator.harnessDidComplete()"))
+        let terminate = try #require(completion.range(of: "NSApplication.shared.terminate(nil)"))
+
+        #expect(clear.lowerBound < transition.lowerBound)
+        #expect(transition.lowerBound < terminate.lowerBound)
+        #expect(!completion.contains("harnessTask.value"))
     }
 
     @Test func applicationRouterConstructsOnlyTheSelectedComposition() {
@@ -124,10 +184,12 @@ struct DevVlogsPhase0BLaunchTests {
     @Test func terminationReturnsLaterUntilCleanupCompletes() async {
         let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(1))
         var reply = NSApplication.TerminateReply.terminateNow
+        var cancelCount = 0
         var cleanupCount = 0
 
         let outcome = await withCheckedContinuation { continuation in
             reply = coordinator.begin(
+                cancelActive: { cancelCount += 1 },
                 cleanup: { cleanupCount += 1 },
                 completion: { continuation.resume(returning: $0) }
             )
@@ -135,8 +197,11 @@ struct DevVlogsPhase0BLaunchTests {
 
         #expect(reply == .terminateLater)
         #expect(outcome == .cleanupCompleted)
+        #expect(cancelCount == 1)
         #expect(cleanupCount == 1)
         #expect(coordinator.outcome == .cleanupCompleted)
+        #expect(coordinator.state == .terminal)
+        #expect(!coordinator.harnessDidComplete())
     }
 
     @Test func terminationTimeoutIsBoundedAndLateCleanupIsHarmless() async {
@@ -146,10 +211,12 @@ struct DevVlogsPhase0BLaunchTests {
         )
         var cleanupContinuation: CheckedContinuation<Void, Never>?
         var completionCount = 0
+        var cancelCount = 0
         var reply = NSApplication.TerminateReply.terminateNow
 
         let outcome = await withCheckedContinuation { continuation in
             reply = coordinator.begin(
+                cancelActive: { cancelCount += 1 },
                 cleanup: {
                     await withCheckedContinuation { cleanupContinuation = $0 }
                 },
@@ -163,11 +230,40 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(reply == .terminateLater)
         #expect(outcome == .cleanupTimedOut)
         #expect(completionCount == 1)
+        #expect(cancelCount == 1)
         #expect(cleanupContinuation != nil)
         cleanupContinuation?.resume()
         await Task.yield()
         #expect(completionCount == 1)
         #expect(coordinator.outcome == .cleanupTimedOut)
+        #expect(!coordinator.harnessDidComplete())
+        #expect(
+            coordinator.begin(
+                cancelActive: { cancelCount += 1 },
+                cleanup: {},
+                completion: { _ in completionCount += 1 }
+            ) == .terminateNow
+        )
+        #expect(cancelCount == 1)
+        #expect(completionCount == 1)
+    }
+
+    @Test func scriptUsesPlannedBoundAndExactRunOwnedSupervisorCleanup() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0b_spike.sh"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("hardware_timeout_seconds=$(( capture_duration + 300 ))"))
+        #expect(!source.contains("capture_duration + 360"))
+        #expect(source.contains("capture_supervisor_pid=$!"))
+        #expect(source.contains("terminate_capture_supervisor"))
+        #expect(source.contains("kill -TERM \"$child_pid\""))
+        #expect(source.contains("kill -KILL \"$child_pid\""))
+        #expect(!source.contains("killall"))
     }
 
     private func makeEnvironment(runRoot: String) -> [String: String] {
@@ -263,6 +359,7 @@ struct DevVlogsPhase0BLaunchTests {
     let videoURL: URL
     private(set) var startCount = 0
     private(set) var stopCount = 0
+    private(set) var cleanupCount = 0
 
     init(failure: DevVlogsPhase0BCameraCaptureError?, videoURL: URL) {
         self.failure = failure
@@ -271,7 +368,10 @@ struct DevVlogsPhase0BLaunchTests {
     func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws
         -> DevVlogsPhase0BCameraCaptureStart {
         startCount += 1
-        if let failure { throw failure }
+        if let failure {
+            cleanupCount += 1
+            throw failure
+        }
         return .init(
             requestMonotonicTime: 12,
             recordingStartMonotonicTime: 12.1,
@@ -290,7 +390,7 @@ struct DevVlogsPhase0BLaunchTests {
             recordingStopMonotonicTime: 22
         )
     }
-    func cancelCapture() async {}
+    func cancelCapture() async { cleanupCount += 1 }
 }
 
 @MainActor private final class Phase0BFinalizer: DevVlogsPhase0BMediaFinalizing {

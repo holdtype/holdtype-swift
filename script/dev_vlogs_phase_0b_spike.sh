@@ -10,6 +10,8 @@ build_timeout_seconds=600
 camera_id=""
 capture_duration=10
 case_id="capture"
+timeout_executable=""
+capture_supervisor_pid=""
 
 usage() {
     print -r -- "usage: $program_name [--help|--build-only|--hardware --camera-id ID [--duration SECONDS] [--case-id ID]]"
@@ -19,14 +21,7 @@ usage() {
 }
 
 timeout_command() {
-    if command -v timeout >/dev/null 2>&1; then
-        command timeout "$@"
-    elif command -v gtimeout >/dev/null 2>&1; then
-        command gtimeout "$@"
-    else
-        print -u2 -r -- "error: a bounded timeout command is required"
-        return 127
-    fi
+    "$timeout_executable" "$@"
 }
 
 case "$mode" in
@@ -64,7 +59,7 @@ case "$mode" in
             esac
         done
         [[ -n "$camera_id" ]] || { print -u2 -r -- "error: --hardware requires --camera-id"; exit 64; }
-        [[ "$capture_duration" == <1-900> ]] || {
+        [[ "$capture_duration" =~ '^[1-9][0-9]{0,2}$' ]] && (( capture_duration <= 900 )) || {
             print -u2 -r -- "error: duration must be a whole number from 1 through 900"
             exit 64
         }
@@ -80,11 +75,39 @@ case "$mode" in
         ;;
 esac
 
+if command -v timeout >/dev/null 2>&1; then
+    timeout_executable=$(command -v timeout)
+elif command -v gtimeout >/dev/null 2>&1; then
+    timeout_executable=$(command -v gtimeout)
+else
+    print -u2 -r -- "error: a bounded timeout command is required"
+    exit 127
+fi
+
 run_root=$(mktemp -d "${TMPDIR%/}/holdtype-dv-p0b.XXXXXX")
 resolved_temp_root=${TMPDIR:A}
 resolved_run_root=${run_root:A}
 
+terminate_capture_supervisor() {
+    local child_pid="$capture_supervisor_pid"
+    [[ "$child_pid" == <-> ]] || return 0
+    if kill -0 "$child_pid" 2>/dev/null; then
+        kill -TERM "$child_pid" 2>/dev/null || true
+        local checks_remaining=50
+        while kill -0 "$child_pid" 2>/dev/null && (( checks_remaining > 0 )); do
+            sleep 0.1
+            checks_remaining=$(( checks_remaining - 1 ))
+        done
+        if kill -0 "$child_pid" 2>/dev/null; then
+            kill -KILL "$child_pid" 2>/dev/null || true
+        fi
+    fi
+    wait "$child_pid" 2>/dev/null || true
+    capture_supervisor_pid=""
+}
+
 cleanup() {
+    terminate_capture_supervisor
     if [[ "$resolved_run_root" != "$resolved_temp_root"/holdtype-dv-p0b.* ]]; then
         print -u2 -r -- "cleanup refused: run root did not match the exact temporary prefix"
         return 1
@@ -93,7 +116,9 @@ cleanup() {
         rm -rf -- "$resolved_run_root"
     fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 cd "$repository_root"
 timeout_command "$build_timeout_seconds" xcodebuild \
@@ -119,14 +144,22 @@ full_product_name=$(print -r -- "$build_settings" | awk -F ' = ' '/^[[:space:]]*
 app_binary="$target_build_directory/$full_product_name/Contents/MacOS/HoldType"
 [[ -x "$app_binary" ]] || { print -u2 -r -- "error: Debug app binary is unavailable"; exit 1; }
 
-hardware_timeout_seconds=$(( capture_duration + 360 ))
-HOLDTYPE_AUTOMATION=1 \
-HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip \
-HOLDTYPE_DEV_VLOGS_PHASE_0B=1 \
-HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT="$resolved_run_root" \
-HOLDTYPE_DEV_VLOGS_PHASE_0B_CAMERA_ID="$camera_id" \
-HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION="$capture_duration" \
-HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID="$case_id" \
-timeout_command "$hardware_timeout_seconds" "$app_binary"
+hardware_timeout_seconds=$(( capture_duration + 300 ))
+"$timeout_executable" --signal=TERM --kill-after=5s "$hardware_timeout_seconds" env \
+    HOLDTYPE_AUTOMATION=1 \
+    HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B=1 \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT="$resolved_run_root" \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B_CAMERA_ID="$camera_id" \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION="$capture_duration" \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID="$case_id" \
+    "$app_binary" &
+capture_supervisor_pid=$!
+set +e
+wait "$capture_supervisor_pid"
+capture_status=$?
+set -e
+capture_supervisor_pid=""
+(( capture_status == 0 )) || exit "$capture_status"
 
 print -r -- "hardware_run=terminal raw_media_cleanup=scheduled"

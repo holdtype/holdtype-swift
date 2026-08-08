@@ -31,25 +31,31 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   The media probe requires one playable, decoded-sample-backed video track and
   one audio track, candidate dimensions/rate/codecs, positive durations, and
   finite timestamp bounds.
-- App termination uses `terminateLater` while the harness receives a bounded
-  opportunity to clean up camera/audio ownership and write its terminal log;
-  an injected timeout has an explicit redacted classification.
-- JSONL evidence is limited to run/case/attempt IDs, monotonic time, compact
-  actions/results, redacted device class/label, and numeric metrics.
+- A naturally completed harness clears its task before requesting termination,
+  so success and camera-start failure exit without cancelling or awaiting the
+  completing task itself. An external quit during active work uses
+  `terminateLater` while camera/audio cleanup and terminal logging receive a
+  bounded opportunity; completion, timeout, and late callbacks reply exactly
+  once in injected tests.
+- Camera errors retain one closed redacted category through the terminal JSONL
+  event and compact operator summary. Evidence remains limited to run/case/
+  attempt IDs, monotonic time, category/action/result enums, redacted device
+  class/label, and numeric metrics; platform errors, paths, device identities,
+  and private descriptions are not serialized.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
-| Swift structure gate | Pass; all new Swift files remain below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; pre-composition launch routing, harness-only scene structure, bounded terminate-later cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction covered. |
+| Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
+| Focused macOS fake tests | Pass; 26 tests cover pre-composition launch routing, harness-only scene structure, typed camera-category mapping, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help, missing-camera-ID rejection, bounded build-only execution, cleanup guard, and timeout-wrapped hardware build-settings inspection passed structurally; hardware mode was not run. |
+| Script checks | Shell syntax, help, invalid/overflowing duration and missing-camera-ID rejection, bounded build-only execution, timeout-wrapped hardware build-settings inspection, exact run-owned supervisor cleanup, and planned-duration-plus-300-second outer bound passed structurally; hardware mode was not run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`

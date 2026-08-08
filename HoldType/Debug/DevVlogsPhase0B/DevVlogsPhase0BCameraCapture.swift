@@ -30,7 +30,7 @@ enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
     case preferredDeviceDisconnected, preferredDeviceBusy
     case unsupportedCandidatePreset, videoInputUnavailable
     case movieOutputUnavailable, sampleOutputUnavailable
-    case setupTimedOut, recordingFailed
+    case setupTimedOut, firstFrameUnavailable, recordingFailed
     case disconnectedDuringCapture, runtimeFailure, notCapturing
 }
 
@@ -131,6 +131,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 }
                 movieOutput.stopRecording()
             }
+            guard firstFrameTime != nil else { throw DevVlogsPhase0BCameraCaptureError.firstFrameUnavailable }
             let artifact = DevVlogsPhase0BCameraCaptureArtifact(
                 fileURL: request.outputFileURL,
                 requestMonotonicTime: requestTime,

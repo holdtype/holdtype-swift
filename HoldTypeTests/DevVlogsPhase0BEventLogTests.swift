@@ -22,7 +22,8 @@ struct DevVlogsPhase0BEventLogTests {
                 attemptID: "attempt-1",
                 monotonicMilliseconds: 1_250,
                 action: "attempt_terminal",
-                result: .ready,
+                result: .failed,
+                category: .cameraSelectionBusy,
                 deviceClass: .continuity,
                 redactedDeviceLabel: "continuity_camera",
                 metrics: [
@@ -34,6 +35,7 @@ struct DevVlogsPhase0BEventLogTests {
         let payload = try String(contentsOf: fileURL, encoding: .utf8)
         #expect(payload.hasSuffix("\n"))
         #expect(payload.contains("continuity_camera"))
+        #expect(payload.contains("camera_selection_busy"))
         #expect(!payload.contains(directory.path))
         #expect(!payload.contains("sensitive-device-id"))
         #expect(!payload.contains("NSError"))

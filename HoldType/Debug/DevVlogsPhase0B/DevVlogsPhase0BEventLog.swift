@@ -17,6 +17,86 @@ enum DevVlogsPhase0BDeviceClass: String, Codable, Equatable {
     case unknown
 }
 
+enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
+    case invalidConfiguration = "invalid_configuration"
+    case audioStart = "audio_start"
+    case cameraPermissionRequired = "camera_permission_required"
+    case cameraPermissionDenied = "camera_permission_denied"
+    case cameraSelectionDisconnected = "camera_selection_disconnected"
+    case cameraSelectionBusy = "camera_selection_busy"
+    case cameraConfigurationPreset = "camera_configuration_preset"
+    case cameraConfigurationVideoInput = "camera_configuration_video_input"
+    case cameraConfigurationMovieOutput = "camera_configuration_movie_output"
+    case cameraConfigurationSampleOutput = "camera_configuration_sample_output"
+    case cameraStartTimedOut = "camera_start_timed_out"
+    case cameraFirstFrameUnavailable = "camera_first_frame_unavailable"
+    case cameraRecordingFailed = "camera_recording_failed"
+    case cameraInterruptionDisconnected = "camera_interruption_disconnected"
+    case cameraSessionRuntimeFailure = "camera_session_runtime_failure"
+    case cameraSessionNotCapturing = "camera_session_not_capturing"
+    case cameraUnknown = "camera_unknown"
+    case captureStop = "capture_stop"
+    case finalization
+    case probe
+    case eventLog = "event_log"
+    case alreadyRun = "already_run"
+}
+
+enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
+    case invalidConfiguration, audioStart
+    case cameraStart(DevVlogsPhase0BFailureCategory)
+    case captureStop, finalization, probe, eventLog, alreadyRun
+
+    var category: DevVlogsPhase0BFailureCategory {
+        switch self {
+        case .invalidConfiguration: .invalidConfiguration
+        case .audioStart: .audioStart
+        case .cameraStart(let category): category
+        case .captureStop: .captureStop
+        case .finalization: .finalization
+        case .probe: .probe
+        case .eventLog: .eventLog
+        case .alreadyRun: .alreadyRun
+        }
+    }
+}
+
+enum DevVlogsPhase0BOperatorSummary {
+    static func line(for outcome: DevVlogsPhase0BHarnessOutcome) -> String {
+        switch outcome {
+        case .ready:
+            "dev_vlogs_phase_0b result=ready"
+        case .failed(let failure):
+            "dev_vlogs_phase_0b result=failed category=\(failure.category.rawValue)"
+        }
+    }
+}
+
+extension DevVlogsPhase0BCameraCaptureError {
+    var redactedCategory: DevVlogsPhase0BFailureCategory {
+        switch self {
+        case .permissionRequired: .cameraPermissionRequired
+        case .permissionDenied: .cameraPermissionDenied
+        case .preferredDeviceDisconnected: .cameraSelectionDisconnected
+        case .preferredDeviceBusy: .cameraSelectionBusy
+        case .unsupportedCandidatePreset: .cameraConfigurationPreset
+        case .videoInputUnavailable: .cameraConfigurationVideoInput
+        case .movieOutputUnavailable: .cameraConfigurationMovieOutput
+        case .sampleOutputUnavailable: .cameraConfigurationSampleOutput
+        case .setupTimedOut: .cameraStartTimedOut
+        case .firstFrameUnavailable: .cameraFirstFrameUnavailable
+        case .recordingFailed: .cameraRecordingFailed
+        case .disconnectedDuringCapture: .cameraInterruptionDisconnected
+        case .runtimeFailure: .cameraSessionRuntimeFailure
+        case .notCapturing: .cameraSessionNotCapturing
+        }
+    }
+
+    static func redactedCategory(for error: Error) -> DevVlogsPhase0BFailureCategory {
+        (error as? Self)?.redactedCategory ?? .cameraUnknown
+    }
+}
+
 struct DevVlogsPhase0BMetric: Codable, Equatable {
     let name: String
     let value: Double
@@ -31,6 +111,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
     let monotonicMilliseconds: Int64
     let action: String
     let result: DevVlogsPhase0BResult
+    let category: DevVlogsPhase0BFailureCategory?
     let deviceClass: DevVlogsPhase0BDeviceClass?
     let redactedDeviceLabel: String?
     let metrics: [DevVlogsPhase0BMetric]
@@ -42,6 +123,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         monotonicMilliseconds: Int64,
         action: String,
         result: DevVlogsPhase0BResult,
+        category: DevVlogsPhase0BFailureCategory? = nil,
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
         metrics: [DevVlogsPhase0BMetric] = []
@@ -52,6 +134,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         self.monotonicMilliseconds = monotonicMilliseconds
         self.action = action
         self.result = result
+        self.category = category
         self.deviceClass = deviceClass
         self.redactedDeviceLabel = redactedDeviceLabel
         self.metrics = metrics

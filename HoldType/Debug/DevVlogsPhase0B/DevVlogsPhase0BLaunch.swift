@@ -102,17 +102,6 @@ struct DevVlogsPhase0BRunPaths: Equatable {
     }
 }
 
-enum DevVlogsPhase0BHarnessFailure: String, Error, Equatable {
-    case invalidConfiguration = "invalid_configuration"
-    case audioStart = "audio_start"
-    case cameraStart = "camera_start"
-    case captureStop = "capture_stop"
-    case finalization = "finalization"
-    case probe = "probe"
-    case eventLog = "event_log"
-    case alreadyRun = "already_run"
-}
-
 enum DevVlogsPhase0BHarnessOutcome: Equatable {
     case ready(DevVlogsPhase0BMediaProbeResult)
     case failed(DevVlogsPhase0BHarnessFailure)
@@ -182,7 +171,10 @@ final class DevVlogsPhase0BHarness {
             )
         } catch {
             audioRecorder.cancelRecording()
-            return fail(.cameraStart, attemptID: attemptID)
+            return fail(
+                .cameraStart(DevVlogsPhase0BCameraCaptureError.redactedCategory(for: error)),
+                attemptID: attemptID
+            )
         }
 
         do {
@@ -246,9 +238,10 @@ final class DevVlogsPhase0BHarness {
         result: DevVlogsPhase0BResult = .failed
     ) -> DevVlogsPhase0BHarnessOutcome {
         guard record(
-            action: "attempt_terminal_\(failure.rawValue)",
+            action: "attempt_terminal",
             result: result,
-            attemptID: attemptID
+            attemptID: attemptID,
+            category: failure.category
         ) else {
             return .failed(.eventLog)
         }
@@ -259,6 +252,7 @@ final class DevVlogsPhase0BHarness {
         action: String,
         result: DevVlogsPhase0BResult,
         attemptID: String,
+        category: DevVlogsPhase0BFailureCategory? = nil,
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
         metrics: [DevVlogsPhase0BMetric] = []
@@ -270,6 +264,7 @@ final class DevVlogsPhase0BHarness {
             monotonicMilliseconds: Int64(monotonicClock() * 1_000),
             action: action,
             result: result,
+            category: category,
             deviceClass: deviceClass,
             redactedDeviceLabel: redactedDeviceLabel,
             metrics: metrics
@@ -352,8 +347,11 @@ enum DevVlogsPhase0BLaunch {
 }
 
 enum DevVlogsPhase0BTerminationOutcome: Equatable {
-    case cleanupCompleted
-    case cleanupTimedOut
+    case cleanupCompleted, cleanupTimedOut
+}
+
+enum DevVlogsPhase0BTerminationState: Equatable {
+    case active, harnessCompleted, cleanupPending, terminal
 }
 
 @MainActor
@@ -363,8 +361,10 @@ final class DevVlogsPhase0BTerminationCoordinator {
     private let timeout: Duration
     private let sleep: Sleep
     private var raceContinuation: CheckedContinuation<DevVlogsPhase0BTerminationOutcome, Never>?
-    private var cleanupTask: Task<Void, Never>?
+    private var cleanupWorker: Task<Void, Never>?
     private var timeoutTask: Task<Void, Never>?
+    private var completionTask: Task<Void, Never>?
+    private(set) var state = DevVlogsPhase0BTerminationState.active
     private(set) var outcome: DevVlogsPhase0BTerminationOutcome?
 
     init(
@@ -375,14 +375,30 @@ final class DevVlogsPhase0BTerminationCoordinator {
         self.sleep = sleep
     }
 
+    func harnessDidComplete() -> Bool {
+        guard state == .active else { return false }
+        state = .harnessCompleted
+        return true
+    }
+
     func begin(
+        cancelActive: () -> Void,
         cleanup: @escaping @MainActor () async -> Void,
         completion: @escaping @MainActor (DevVlogsPhase0BTerminationOutcome) -> Void
     ) -> NSApplication.TerminateReply {
-        guard cleanupTask == nil, outcome == nil else {
+        switch state {
+        case .harnessCompleted:
+            state = .terminal
+            return .terminateNow
+        case .cleanupPending:
             return .terminateLater
+        case .terminal:
+            return .terminateNow
+        case .active:
+            state = .cleanupPending
         }
-        cleanupTask = Task { @MainActor [weak self] in
+        cancelActive()
+        completionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             let outcome = await self.raceCleanup(cleanup)
             completion(outcome)
@@ -395,7 +411,7 @@ final class DevVlogsPhase0BTerminationCoordinator {
     ) async -> DevVlogsPhase0BTerminationOutcome {
         await withCheckedContinuation { continuation in
             raceContinuation = continuation
-            cleanupTask = Task { @MainActor [weak self] in
+            cleanupWorker = Task { @MainActor [weak self] in
                 await cleanup()
                 self?.finish(.cleanupCompleted)
             }
@@ -411,12 +427,13 @@ final class DevVlogsPhase0BTerminationCoordinator {
     }
 
     private func finish(_ outcome: DevVlogsPhase0BTerminationOutcome) {
-        guard let continuation = raceContinuation else { return }
+        guard state == .cleanupPending, let continuation = raceContinuation else { return }
         raceContinuation = nil
+        state = .terminal
         self.outcome = outcome
-        cleanupTask?.cancel()
+        cleanupWorker?.cancel()
         timeoutTask?.cancel()
-        cleanupTask = nil
+        cleanupWorker = nil
         timeoutTask = nil
         continuation.resume(returning: outcome)
     }
@@ -437,27 +454,32 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.prohibited)
-        harnessTask = Task { @MainActor in
-            if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: environment) {
-                switch await harness.run() {
-                case .ready:
-                    print("dev_vlogs_phase_0b result=ready")
-                case .failed(let failure):
-                    print("dev_vlogs_phase_0b result=failed category=\(failure.rawValue)")
-                }
+        let launchEnvironment = environment
+        harnessTask = Task { @MainActor [weak self] in
+            let outcome: DevVlogsPhase0BHarnessOutcome
+            if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: launchEnvironment) {
+                outcome = await harness.run()
             } else {
-                print("dev_vlogs_phase_0b result=failed category=invalid_configuration")
+                outcome = .failed(.invalidConfiguration)
             }
+            self?.completeHarness(outcome)
+        }
+    }
+
+    private func completeHarness(_ outcome: DevVlogsPhase0BHarnessOutcome) {
+        print(DevVlogsPhase0BOperatorSummary.line(for: outcome))
+        harnessTask = nil
+        if terminationCoordinator.harnessDidComplete() {
             NSApplication.shared.terminate(nil)
         }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        harnessTask?.cancel()
+        let activeTask = harnessTask
         return terminationCoordinator.begin(
-            cleanup: { [weak self] in
-                guard let harnessTask = self?.harnessTask else { return }
-                await harnessTask.value
+            cancelActive: { activeTask?.cancel() },
+            cleanup: {
+                await activeTask?.value
             },
             completion: { outcome in
                 if outcome == .cleanupTimedOut {
@@ -466,10 +488,6 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
                 NSApplication.shared.reply(toApplicationShouldTerminate: true)
             }
         )
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        harnessTask?.cancel()
     }
 }
 #endif
