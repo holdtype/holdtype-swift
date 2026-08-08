@@ -2,7 +2,15 @@
 
 Status: Draft discovery; not implementation authority.
 
-Contract revision: `DV-DRAFT-1`.
+Contract revision: `DV-DRAFT-2`.
+
+Revision note: `DV-DRAFT-2` records the user-approved Settings-like
+multi-section structure for the separate Dev Vlogs window and keeps its visible
+content SwiftUI-only. It also distinguishes genuine macOS permission status
+from the feature's own enablement and storage-access health.
+
+Implementation planning:
+[`docs/dev-vlogs-implementation-plan.md`](../../dev-vlogs-implementation-plan.md).
 
 Change mode: `discover`.
 
@@ -317,13 +325,20 @@ draft contract.
 - `DV-UI-4`: The menu bar popover remains compact. It may show a small camera
   capture or degraded-state indicator but does not expose camera, destination,
   or app-rule controls.
-- `DV-UI-5`: The first window information architecture is:
-  1. status and primary action;
-  2. today's clips and storage summary;
-  3. day/app browser and review;
-  4. build/export history;
-  5. setup for camera, destination, and app scope.
-- `DV-UI-6`: Camera preview, video player, controls, layout, state, and visible
+- `DV-UI-5`: The window uses the same broad information-architecture pattern
+  as Settings: a stable sidebar for several Dev Vlogs sections and one detail
+  pane. It remains a separate feature window with its own navigation and state
+  ownership rather than becoming a Settings section.
+- `DV-UI-6`: The initial section set should cover overview/readiness, capture,
+  applications, storage, clip library, builds, and permissions. Publication
+  appears only when that delivery phase exists. Exact labels, order, and the
+  default section remain open design decisions.
+- `DV-UI-7`: The Dev Vlogs Permissions section reports only genuine macOS
+  permissions relevant to this feature, initially Camera and the existing
+  Microphone status it shares with dictation. Feature enablement remains in the
+  feature overview or capture section. Destination availability and bookmark
+  health are storage access states, not macOS permissions.
+- `DV-UI-8`: Camera preview, video player, controls, layout, state, and visible
   feedback are SwiftUI. Platform APIs remain narrow non-visual adapters.
 
 ## Product invariants
