@@ -69,8 +69,12 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-STORAGE-W01-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | repair `69b2d16` | read-only | accepted_with_residual | recorded below | Controlled external/runtime evidence may be packetized separately. |
 | `DV-P0B-CAPTURE-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted capture/storage W01 repairs | one redacted capture-R01 QA run; raw media in exact temporary run root only | accepted_with_residual | `f698fcb`; receipts below | All camera classes terminal not_available; preflight only, no capture/media claim. |
 | `DV-P0B-CAPTURE-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R01@f698fcb` | read-only | accepted_with_residual | recorded below | Retry capture only when an explicit camera uniqueID enumerates. |
-| `DV-P0B-CAPTURE-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted R01 preflight; user reports iPhone connected/prepared | one redacted capture-R02 QA run; raw media in exact temporary run root only | review | `0e21972`; pending review receipt below | Continuity enumerated, but camera start failed and termination overran; no retry before review/repair. |
-| `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | review | pending review receipt below | Existing harness is internal-only; proposed three-path test seam awaits independent review. |
+| `DV-P0B-CAPTURE-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted R01 preflight; user reports iPhone connected/prepared | one redacted capture-R02 QA run; raw media in exact temporary run root only | accepted_evidence / functional_fail | `0e21972`; receipts below | Repair typed camera-start evidence and bounded termination before retry. |
+| `DV-P0B-CAPTURE-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R02@0e21972` | read-only | accepted_with_residual | recorded below | Evidence is sound; functional cell remains fail/debug-spike defect. |
+| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | running | — | Preserve typed camera-start category and make failure termination exit bounded/exact-once. |
+| `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
+| `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
+| `DV-P0B-STORAGE-W02` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | dependency-ready / serialized | — | Wait for capture R03 commit/review to avoid concurrent build/Git ownership. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -100,11 +104,15 @@ They are not yet an Active implementation epoch.
   Camera. No capture, TCC, media, or quantitative claim exists.
 - A bounded capture retry waits for an explicit camera uniqueID. Independent
   storage external/runtime evidence may proceed serially after this cleanup.
-- `DV-P0B-STORAGE-E02` completed a read-only map: the accepted harness is
-  internal-only and a proposed three-path external test seam awaits review.
-- `DV-P0B-CAPTURE-R02@0e21972` awaits evidence review. Continuity enumeration
-  succeeded, camera start failed before first frame, and termination exceeded
-  its accepted cleanup bound. No hardware retry is allowed before repair.
+- `DV-P0B-STORAGE-E02` is accepted_with_residual: the current harness is
+  internal-only, and a two-test-file plus one-wrapper seam is dependency-ready.
+  External writes still require exact mount-root authorization after review.
+- `DV-P0B-CAPTURE-R02@0e21972` evidence is accepted but its functional cell is
+  fail/debug-spike defect. Typed camera-start category and bounded termination
+  repair is the next serialized writable packet; no hardware retry precedes it.
+- Running packet: `DV-P0B-CAPTURE-R03` Debug-only repair. `DV-P0B-STORAGE-W02`
+  is dependency-ready but serialized behind R03 commit/review to avoid shared
+  build and Git ownership.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -468,7 +476,7 @@ runtime_or_visual_handoff: none
 reviewed_commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
 ```
 
-## Completed Pending Review
+## Reviewed Runtime And Seam Evidence
 
 ### `DV-P0B-CAPTURE-R02`
 
@@ -513,6 +521,56 @@ deviations: none
 residual: External actual I/O, representative media, unplug/remount, and
 read-only media remain; each runtime mount root needs explicit authorization.
 next_dependency: DV-P0B-STORAGE-E02-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R02-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R02-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell: fail
+
+outcome: Evidence truthfully establishes one explicitly selected Continuity
+attempt failing during camera start, followed by a termination-cleanup overrun.
+Evidence acceptance does not accept capture functionality.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted harness; R02 evidence.
+changed_paths: none
+checks_run: Exact eight-file commit/blob audit; structured-data consistency;
+redaction/media scans; chronology; narrow harness mapping; zero-residue snapshot.
+scope_check: Clean; no source, TCC, UI, Keychain, provider, external storage,
+or protected-owner mutation.
+deviations: Exact run-owned TERM and bounded failed Computer Use attachment are
+preserved in the evidence.
+residual: Camera-start error category and TCC state remain unknown; termination
+is not runtime-safe after this failure; no media gate passed.
+next_dependency: Original Debug harness owner repairs category and termination,
+then independent review precedes another Continuity retry.
+runtime_or_visual_handoff: none
+reviewed_commit: 0e21972071d76eff1dd53a67a0b397d7bc32518e
+```
+
+### `DV-P0B-STORAGE-E02-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-E02-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Proposed external-storage seam is necessary, minimal, and feasible;
+it authorizes no external write or success by itself.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted storage harness; current
+test scheme/project/distribution evidence.
+changed_paths: none
+checks_run: Harness/test authority review; scheme and synchronized-membership;
+unsandboxed test-host settings; wrapper patterns; structure/diff hygiene.
+scope_check: Read-only; no external write, app, project, entitlement, dependency,
+or product-source change.
+deviations: none
+residual: Seam implementation/review, exact-root authorization, actual SSD/HDD
+I/O, read-only/remount/interruption/media/numeric evidence remain.
+next_dependency: DV-P0B-STORAGE-W02 after the serialized capture repair.
 runtime_or_visual_handoff: none
 ```
 
