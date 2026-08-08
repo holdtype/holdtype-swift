@@ -344,7 +344,7 @@ terminate_supervisor() {
 }
 
 stop_caffeinate() {
-    local pid="$caffeinate_pid" checks=$termination_checks
+    local pid="$caffeinate_pid" checks=$termination_checks current
     [[ "$pid" == <-> ]] || return 0
     if ! kill -0 "$pid" 2>/dev/null; then
         reap_verified_exited_pid "$pid" || return 1
@@ -354,7 +354,11 @@ stop_caffeinate() {
     [[ "$(process_identity "$pid")" == "$caffeinate_identity" ]] || return 1
     kill -TERM "$pid" 2>/dev/null || true
     if ! wait_for_pid_exit "$pid" "$checks"; then
-        kill -KILL "$pid" 2>/dev/null || true
+        if kill -0 "$pid" 2>/dev/null; then
+            current=$(process_identity "$pid") || return 1
+            [[ "$current" == "$caffeinate_identity" ]] || return 1
+            emit_pid_signal KILL "$pid" || true
+        fi
         wait_for_pid_exit "$pid" "$termination_checks" || return 1
     fi
     reap_verified_exited_pid "$pid" || return 1
