@@ -1,0 +1,2 @@
+{"action":"permission_route","case_id":"camera-authorization-repaired","evidence_source":"accepted_operator_summary","furthest_stage":"route_started","result":"started","run_id":"capture-auth-r04"}
+{"action":"permission_route_terminal","case_id":"camera-authorization-repaired","category":"camera_authorization_activation_rejected","evidence_source":"accepted_operator_summary","furthest_stage":"activation_requested","result":"failed","run_id":"capture-auth-r04"}
