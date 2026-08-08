@@ -89,7 +89,8 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | running | — | Implement fake/internal-verify explicit external-base authority seam; no external write/media/threshold behavior. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | `e6b3a13`; receipt below | Test-only seam and fake/internal evidence complete; no external write. Independent review running. |
+| `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | running | — | Review exact-root authority, wrapper bounds, cleanup safety, claims, and scope before runtime authorization. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -131,9 +132,10 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- Running independently: `DV-P0B-STORAGE-W02`. Its explicit-base authority,
-  marker, no-overwrite, and cleanup mechanics use no media preset, byte-rate,
-  or threshold clause and are revalidated as unaffected by the quality delta.
+- `DV-P0B-STORAGE-W02@e6b3a13` completed its explicit-base authority, marker,
+  no-overwrite, cleanup, and bounded-wrapper seam with fake/internal evidence
+  only. Independent review is running. These mechanics use no media preset,
+  byte-rate, or threshold clause and remain unaffected by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -641,6 +643,38 @@ residual: Seam implementation/review, exact-root authorization, actual SSD/HDD
 I/O, read-only/remount/interruption/media/numeric evidence remain.
 next_dependency: DV-P0B-STORAGE-W02 after the serialized capture repair.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-W02`
+
+```text
+packet_id: DV-P0B-STORAGE-W02
+status: done
+
+outcome: Implemented a fail-closed test-only explicit external-root authority
+seam and bounded runtime wrapper. Fake/internal evidence covers closed
+configuration, exact root/device/inode/marker validation, a 64 KiB cap,
+exclusive promotion, collision preservation, and pending cleanup. No external
+runtime I/O occurred.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+accepted E02 map and review.
+changed_paths: Two storage test files and one test-only wrapper; commit e6b3a13.
+reused_owners: Accepted W01 bookmark, RENAME_EXCL, ancestry/marker, redaction,
+cleanup, capacity, and classification owners; no shipping owner.
+checks_run: 24 unique focused XCTest cells; structure; bounded Debug build;
+wrapper syntax/help and nine fail-closed negative cases; exact-path, mode,
+protected-owner, redaction, residue, and process audits.
+scope_check: Exact three-path test/tooling scope; no product, project,
+entitlement, plist, settings, protected storage, UI, media, hardware,
+external-volume, or dependency change.
+deviations: Seven tiny internal /tmp outputs from an early negative command and
+four empty marker-owned failed-test roots were precisely validated and removed;
+no user or external content was touched. Final residue and process counts zero.
+residual: Actual SSD/HDD I/O, exact authorized roots, genuine read-only media,
+unplug/reconnect/remount, representative media, and true bookmark stale remain.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: e6b3a13f046a6e0ac703643c87ee869e222ead6f
 ```
 
 ## Rejected Receipts
