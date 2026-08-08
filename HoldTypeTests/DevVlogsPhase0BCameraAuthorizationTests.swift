@@ -321,15 +321,27 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         )
         #expect(source.contains("--request-camera-permission"))
         #expect(source.contains("permission_timeout_seconds=420"))
-        #expect(source.contains("permission_cleanup_reserve_seconds=11"))
-        #expect(source.contains("permission_terminal_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))"))
+        #expect(source.contains("permission_deadline=$(( SECONDS + permission_timeout_seconds ))"))
+        #expect(source.contains("capture_permission_baseline"))
+        #expect(source.contains("discover_permission_candidate_pids"))
+        #expect(source.contains("lsof -t -- \"$app_binary\""))
+        #expect(source.contains("permission_marker_matches"))
+        #expect(source.contains("ps -E -ww"))
+        #expect(source.contains("HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT=$resolved_run_root"))
+        #expect(source.contains("permission_registry_pids"))
+        #expect(source.contains("permission_quiet_rescan"))
+        #expect(source.contains("permission_identity_matches_index"))
+        #expect(source.contains("signal_permission_processes TERM"))
+        for topology in ["descendant", "script-sibling", "external-parent", "reparented-unknown"] {
+            #expect(source.contains(topology))
+        }
         #expect(source.contains("HOLDTYPE_DEV_VLOGS_PHASE_0B_REQUEST_CAMERA_PERMISSION=1"))
         #expect(source.contains("-u OPENAI_API_KEY"))
         #expect(source.contains("HOME=\"$sanitized_home\""))
         #expect(source.contains("permission_app_pid=$!"))
-        #expect(source.contains("permission_identity_matches"))
         #expect(source.contains("permission_terminal_observed"))
-        for forbidden in ["tccutil", "open x-apple.systempreferences", "osascript", "killall", "pkill"] {
+        for forbidden in ["permission_cleanup_reserve_seconds", "permission_terminal_deadline", "tccutil",
+                          "open x-apple.systempreferences", "osascript", "killall", "pkill", "pgrep"] {
             #expect(!source.contains(forbidden))
         }
     }
