@@ -43,12 +43,20 @@ The user accepted `DV-D01` through `DV-D13` on 2026-08-08. They are integrated
 in `DV-DRAFT-3@ed108fa` and independently accepted for discovery/evidence work.
 They are not yet an Active implementation epoch.
 
+On 2026-08-08 the user superseded the fixed 720p/30 source-quality part of
+`DV-D05`: HoldType must preserve the camera/macOS-negotiated source without an
+app-imposed resolution/FPS downgrade or extra source-video recompression. The
+exact Build fallback when passthrough is impossible remains a pending material
+decision. Affected capture/runtime packets are stale until `DV-DRAFT-4` records
+and independently reviews the new rule.
+
 ## Contract Epoch
 
 | Epoch | Authority | Status | Notes |
 | --- | --- | --- | --- |
 | `DV-DRAFT-2@8081c10` | Earlier discovery draft | superseded | Replaced after the accepted decisions were integrated and reviewed. |
 | `DV-DRAFT-3@ed108fa` | Decision-complete discovery draft plus Phase 0B protocol | current | Non-UI evidence packets may run; product implementation remains gated. |
+| `DV-DRAFT-4` | Future native-source-quality revision | pending | Must supersede fixed 720p/30 source clauses and revalidate affected capture/media packets before runtime. |
 | `DV-ACTIVE-1` | Future reconciled Dev Vlogs and adjacent active specs | pending | Required before Phase 1 product implementation. |
 
 ## Packet Registry
@@ -71,13 +79,17 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R01@f698fcb` | read-only | accepted_with_residual | recorded below | Retry capture only when an explicit camera uniqueID enumerates. |
 | `DV-P0B-CAPTURE-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted R01 preflight; user reports iPhone connected/prepared | one redacted capture-R02 QA run; raw media in exact temporary run root only | accepted_evidence / functional_fail | `0e21972`; receipts below | Repair typed camera-start evidence and bounded termination before retry. |
 | `DV-P0B-CAPTURE-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R02@0e21972` | read-only | accepted_with_residual | recorded below | Evidence is sound; functional cell remains fail/debug-spike defect. |
-| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | running (repair 3) | `8b0b263`, `1276283`, `ba058f8`; rejected reviews below | Early/start routes accepted; preserve concrete steady-stop context before terminal mutation and test. |
+| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | accepted_with_residual | base `8b0b263`; repairs `1276283`, `ba058f8`, `f141be6`; receipts below | Typed category and bounded termination accepted; real hardware/media remains. |
 | `DV-P0B-CAPTURE-R03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R03@8b0b263` | read-only | rejected | recorded below | Return classifier-only repair to original owner; no hardware/storage dispatch. |
 | `DV-P0B-CAPTURE-R03-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | classifier repair `1276283` | read-only | rejected | recorded below | Return propagation-only repair to original owner; accepted lifecycle/script blobs remain protected. |
 | `DV-P0B-CAPTURE-R03-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | propagation repair `ba058f8` | read-only | rejected | recorded below | Return explicit-stop context ordering/test repair; no hardware/storage dispatch. |
+| `DV-P0B-CAPTURE-R03-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | stop-context repair `f141be6` | read-only | accepted_with_residual | recorded below | One controlled Continuity retry is dependency-ready. |
+| `DV-P0B-CAPTURE-R04` | unassigned | stale `DV-DRAFT-3@ed108fa` quality clauses | accepted `DV-P0B-CAPTURE-R03-REVIEW-R3` | one redacted capture-R04 QA run; raw media in exact temp root only | retired before dispatch | — | User superseded fixed 720p/30 source quality; redefine only after DV-DRAFT-4 review. |
+| `DV-P0A-QUALITY-SPEC` | unassigned | proposed `DV-DRAFT-4` | user native-source decision plus Build-fallback answer | Dev Vlogs spec; Phase 0B protocol; governing plan only | queued / user decision | — | Replace fixed source downgrade/recompression rules and reframe media measurements; no implementation. |
+| `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | dependency-ready / serialized | — | Wait for capture R03 commit/review to avoid concurrent build/Git ownership. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | running | — | Implement fake/internal-verify explicit external-base authority seam; no external write/media/threshold behavior. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -113,10 +125,15 @@ They are not yet an Active implementation epoch.
 - `DV-P0B-CAPTURE-R02@0e21972` evidence is accepted but its functional cell is
   fail/debug-spike defect. Typed camera-start category and bounded termination
   repair is the next serialized writable packet; no hardware retry precedes it.
-- Running packet: explicit-stop ordering repair cycle 3 for
-  `DV-P0B-CAPTURE-R03`. Early observer retention, first-frame start gate,
-  domain/code mapping, lifecycle, and script are accepted. Storage W02 remains
-  serialized until this concrete route is accepted.
+- Repaired capture packet through `f141be6` is accepted_with_residual. The
+  rejected intermediate reviews remain recorded below.
+- No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
+  dispatch when the user superseded the fixed 720p/30 source-quality rule.
+- Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
+  capture/media harness against the new epoch.
+- Running independently: `DV-P0B-STORAGE-W02`. Its explicit-base authority,
+  marker, no-overwrite, and cleanup mechanics use no media preset, byte-rate,
+  or threshold clause and are revalidated as unaffected by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -478,6 +495,54 @@ and E06 measurements wait for an explicit camera identity.
 next_dependency: Controlled retry after camera hardware enumerates.
 runtime_or_visual_handoff: none
 reviewed_commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
+```
+
+### `DV-P0B-CAPTURE-R03`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03
+status: done
+
+outcome: Debug harness now preserves closed redacted camera categories through
+actual start/first-frame/observer/stop routes and exits boundedly without
+self-await. Script bounds hardware mode at duration plus 300 seconds and cleans
+only exact run-owned children.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted R02 failure evidence;
+bounded R03 repairs and reviews.
+changed_paths: Authorized Debug camera/launch/event, focused tests, script, and
+W01 summary across commits 8b0b263, 1276283, ba058f8, and f141be6.
+checks_run: Structure; final 35-test Phase 0B suite; Debug build-only; bounded
+Release build; Debug/Release isolation; script and redaction/path audits.
+scope_check: Debug/test/evidence only; no product, TCC, UI, storage, iOS,
+provider, Keychain, dependency, or Release camera behavior.
+deviations: Three rejected intermediate reviews drove bounded repairs by the
+original owner.
+residual: Hardware/media/codec/timing/resource evidence and shipping audio
+lease remain.
+next_dependency: DV-P0B-CAPTURE-R03-REVIEW-R3
+runtime_or_visual_handoff: none
+accepted_repair_commit: f141be6da26ffc04a20f5fcbcb92ee614afd84f8
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW-R3
+status: done
+verdict: accept_with_residual
+
+outcome: Explicit-stop context repair closes the final known propagation
+defect; concrete service test covers disconnect/runtime, cleanup, and duplicate.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; R02/R03 reviews; repair f141be6.
+changed_paths: none
+checks_run: Exact three-path diff; concrete route trace; 12 camera and 35 full
+tests; structure; Debug/Release isolation; accepted-owner comparison.
+scope_check: Clean; no hardware, TCC, storage, product, or protected-owner run.
+deviations: none
+residual: Real device/media measurements and shipping audio lease remain.
+next_dependency: One separately authorized Continuity runtime retry.
+runtime_or_visual_handoff: none
+reviewed_commit: f141be6da26ffc04a20f5fcbcb92ee614afd84f8
 ```
 
 ## Reviewed Runtime And Seam Evidence
