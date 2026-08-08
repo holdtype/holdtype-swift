@@ -20,6 +20,13 @@ enum DevVlogsPhase0BDeviceClass: String, Codable, Equatable {
 enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case invalidConfiguration = "invalid_configuration"
     case audioStart = "audio_start"
+    case cameraAuthorizationGranted = "camera_authorization_granted"
+    case cameraAuthorizationAlreadyAuthorized = "camera_authorization_already_authorized"
+    case cameraAuthorizationDenied = "camera_authorization_denied"
+    case cameraAuthorizationRestricted = "camera_authorization_restricted"
+    case cameraAuthorizationTimedOut = "camera_authorization_timed_out"
+    case cameraAuthorizationCancelled = "camera_authorization_cancelled"
+    case cameraAuthorizationUnknown = "camera_authorization_unknown"
     case cameraPermissionRequired = "camera_permission_required"
     case cameraPermissionDenied = "camera_permission_denied"
     case cameraSelectionDisconnected = "camera_selection_disconnected"

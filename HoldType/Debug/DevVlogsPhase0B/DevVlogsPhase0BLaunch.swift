@@ -321,6 +321,7 @@ enum DevVlogsPhase0BLaunch {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         DevVlogsPhase0BConfiguration.shouldIsolate(environment: environment)
+            || DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(environment: environment)
     }
     static func startApplication(
         environment: [String: String],
@@ -449,6 +450,15 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let launchEnvironment = environment
         harnessTask = Task { @MainActor [weak self] in
+            if DevVlogsPhase0BCameraAuthorizationConfiguration.shouldRequest(
+                environment: launchEnvironment
+            ) {
+                let outcome = await (try? DevVlogsPhase0BCameraAuthorizationHarness.make(
+                    environment: launchEnvironment
+                ).run()) ?? .unknown
+                self?.completeAuthorization(outcome)
+                return
+            }
             let outcome: DevVlogsPhase0BHarnessOutcome
             if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: launchEnvironment) {
                 outcome = await harness.run()
@@ -458,8 +468,14 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             self?.completeHarness(outcome)
         }
     }
+    private func completeAuthorization(_ outcome: DevVlogsPhase0BCameraAuthorizationOutcome) {
+        complete(line: DevVlogsPhase0BCameraAuthorizationOperatorSummary.line(for: outcome))
+    }
     private func completeHarness(_ outcome: DevVlogsPhase0BHarnessOutcome) {
-        print(DevVlogsPhase0BOperatorSummary.line(for: outcome))
+        complete(line: DevVlogsPhase0BOperatorSummary.line(for: outcome))
+    }
+    private func complete(line: String) {
+        print(line)
         harnessTask = nil
         if terminationCoordinator.harnessDidComplete() {
             NSApplication.shared.terminate(nil)

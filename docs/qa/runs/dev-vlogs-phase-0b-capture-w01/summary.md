@@ -14,6 +14,15 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   The gated path therefore constructs neither the ordinary app delegate and
   its eager runtimes nor product Settings, Fixes, History, or failure-prompt
   scenes; the ungated path remains the ordinary app composition.
+- A separate explicit `--request-camera-permission` script command reuses that
+  same early-isolated signed Debug app identity without constructing the
+  capture/audio/media harness. Its injected authorization owner calls the
+  genuine video `requestAccess` API exactly once only from a not-determined
+  status, waits under an independent 120-second operational bound, and emits
+  one closed redacted granted, already-authorized, denied, restricted, timeout,
+  cancelled, or unknown terminal category. Fake tests cover callback absence,
+  cancellation, and ignored late callbacks. This command was not run here and
+  no Camera authorization prompt or decision is claimed.
 - The harness creates one unique run directory under a caller-provided safe
   temporary root, starts the existing audio-recorder service with a prepared
   run-owned `.m4a`, and never enters normal dictation, provider, output,
@@ -69,18 +78,19 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 45 logical tests cover the existing launch isolation and R03 lifecycle/error regressions plus source-negotiation structure, QuickTime passthrough and transform preservation, full-track alignment, camera-only/final track cardinality, decoded playability, realized HEVC/H.264 and variable-cadence observations, exact stored-sample preservation and mismatch cases, bounded cancellation/late-callback behavior, one audio owner, Ready suppression on every new failure, and redacted evidence. |
+| Focused macOS fake tests | Pass; 53 logical tests include 8 authorization-mode tests covering every status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help, invalid/overflowing duration and missing-camera-ID rejection, bounded build-only execution, timeout-wrapped hardware build-settings inspection, exact run-owned supervisor cleanup, and planned-duration-plus-300-second outer bound passed structurally; hardware mode was not run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, exact run-owned supervisor cleanup, planned-duration-plus-300-second hardware bound, and the separate sanitized 120-plus-300-second Camera-request bound passed structurally; neither hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`
-mode with a camera ID. That mode was not executed.
+mode with a camera ID, and Camera authorization only through the mutually
+exclusive `--request-camera-permission` command. Neither mode was executed.
 
 This classifier repair does not infer or retroactively relabel the raw R02
 camera-start failure. It makes a future separately authorized run diagnostic.
@@ -90,4 +100,6 @@ camera-start failure. It makes a future separately authorized run diagnostic.
 Real camera/microphone/TCC, Continuity Camera, device-busy/disconnect, codec,
 playability, timing, sync/drift, and quantitative evidence remain deferred to a
 separately authorized controlled hardware run. The shipping shared-audio lease
-is not implemented by this Debug spike.
+is not implemented by this Debug spike. One separately authorized runtime step
+must invoke the explicit Camera-request command with the same signed Debug
+identity before any capture retry can claim a prompt or authorization result.

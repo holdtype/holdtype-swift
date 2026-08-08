@@ -10,13 +10,15 @@ build_timeout_seconds=600
 camera_id=""
 capture_duration=10
 case_id="capture"
+permission_timeout_seconds=$(( 120 + 300 ))
 timeout_executable=""
 capture_supervisor_pid=""
 
 usage() {
-    print -r -- "usage: $program_name [--help|--build-only|--hardware --camera-id ID [--duration SECONDS] [--case-id ID]]"
+    print -r -- "usage: $program_name [--help|--build-only|--request-camera-permission|--hardware --camera-id ID [--duration SECONDS] [--case-id ID]]"
     print -r -- ""
     print -r -- "--build-only  compile the Debug harness without launching camera or microphone"
+    print -r -- "--request-camera-permission  explicitly request Camera access without starting capture"
     print -r -- "--hardware    explicit future hardware mode; never implied by another option"
 }
 
@@ -26,11 +28,21 @@ timeout_command() {
 
 case "$mode" in
     --help|-h|help)
+        (( $# == 0 )) || shift
+        (( $# == 0 )) || { print -u2 -r -- "error: help accepts no additional arguments"; exit 64; }
         usage
         exit 0
         ;;
     --build-only)
         shift
+        (( $# == 0 )) || { print -u2 -r -- "error: --build-only accepts no additional arguments"; exit 64; }
+        ;;
+    --request-camera-permission)
+        shift
+        (( $# == 0 )) || {
+            print -u2 -r -- "error: --request-camera-permission accepts no additional arguments"
+            exit 64
+        }
         ;;
     --hardware)
         shift
@@ -143,6 +155,30 @@ target_build_directory=$(print -r -- "$build_settings" | awk -F ' = ' '/^[[:spac
 full_product_name=$(print -r -- "$build_settings" | awk -F ' = ' '/^[[:space:]]*FULL_PRODUCT_NAME = / { print $2; exit }')
 app_binary="$target_build_directory/$full_product_name/Contents/MacOS/HoldType"
 [[ -x "$app_binary" ]] || { print -u2 -r -- "error: Debug app binary is unavailable"; exit 1; }
+
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    sanitized_home="$resolved_run_root/home"
+    mkdir -p -- "$sanitized_home"
+    "$timeout_executable" --signal=TERM --kill-after=5s "$permission_timeout_seconds" env \
+        -u OPENAI_API_KEY \
+        -u HOLDTYPE_DEBUG_API_KEY_FILE \
+        HOME="$sanitized_home" \
+        HOLDTYPE_AUTOMATION=1 \
+        HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip \
+        HOLDTYPE_DEV_VLOGS_PHASE_0B_REQUEST_CAMERA_PERMISSION=1 \
+        HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT="$resolved_run_root" \
+        HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID="camera-authorization" \
+        "$app_binary" &
+    capture_supervisor_pid=$!
+    set +e
+    wait "$capture_supervisor_pid"
+    capture_status=$?
+    set -e
+    capture_supervisor_pid=""
+    (( capture_status == 0 )) || exit "$capture_status"
+    print -r -- "camera_permission_request=terminal capture=not_run microphone=not_run"
+    exit 0
+fi
 
 hardware_timeout_seconds=$(( capture_duration + 300 ))
 "$timeout_executable" --signal=TERM --kill-after=5s "$hardware_timeout_seconds" env \
