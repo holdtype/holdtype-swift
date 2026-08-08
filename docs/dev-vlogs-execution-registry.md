@@ -47,8 +47,10 @@ On 2026-08-08 the user superseded the fixed 720p/30 source-quality part of
 `DV-D05`: HoldType must preserve the camera/macOS-negotiated source without an
 app-imposed resolution/FPS downgrade or extra source-video recompression. The
 exact Build fallback when passthrough is impossible remains a pending material
-decision. Affected capture/runtime packets are stale until `DV-DRAFT-4` records
-and independently reviews the new rule.
+decision, but it does not block a source-only contract delta. Affected
+capture/runtime packets are stale until `DV-DRAFT-4` records and independently
+reviews the new source rule. Native 1080p or another negotiated format is not a
+new HoldType preset or control; HoldType simply does not downsample it.
 
 ## Contract Epoch
 
@@ -56,7 +58,7 @@ and independently reviews the new rule.
 | --- | --- | --- | --- |
 | `DV-DRAFT-2@8081c10` | Earlier discovery draft | superseded | Replaced after the accepted decisions were integrated and reviewed. |
 | `DV-DRAFT-3@ed108fa` | Decision-complete discovery draft plus Phase 0B protocol | current | Non-UI evidence packets may run; product implementation remains gated. |
-| `DV-DRAFT-4` | Future native-source-quality revision | pending | Must supersede fixed 720p/30 source clauses and revalidate affected capture/media packets before runtime. |
+| `DV-DRAFT-4` | Future native-source-quality revision | running | Source-only delta may proceed while final Build fallback remains explicitly pending. Must revalidate affected capture/media packets before runtime. |
 | `DV-ACTIVE-1` | Future reconciled Dev Vlogs and adjacent active specs | pending | Required before Phase 1 product implementation. |
 
 ## Packet Registry
@@ -85,8 +87,9 @@ and independently reviews the new rule.
 | `DV-P0B-CAPTURE-R03-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | propagation repair `ba058f8` | read-only | rejected | recorded below | Return explicit-stop context ordering/test repair; no hardware/storage dispatch. |
 | `DV-P0B-CAPTURE-R03-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | stop-context repair `f141be6` | read-only | accepted_with_residual | recorded below | One controlled Continuity retry is dependency-ready. |
 | `DV-P0B-CAPTURE-R04` | unassigned | stale `DV-DRAFT-3@ed108fa` quality clauses | accepted `DV-P0B-CAPTURE-R03-REVIEW-R3` | one redacted capture-R04 QA run; raw media in exact temp root only | retired before dispatch | — | User superseded fixed 720p/30 source quality; redefine only after DV-DRAFT-4 review. |
-| `DV-P0A-QUALITY-SPEC` | unassigned | proposed `DV-DRAFT-4` | user native-source decision plus Build-fallback answer | Dev Vlogs spec; Phase 0B protocol; governing plan only | queued / user decision | — | Replace fixed source downgrade/recompression rules and reframe media measurements; no implementation. |
-| `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
+| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | proposed `DV-DRAFT-4` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | running | — | Replace fixed source downgrade/recompression rules, split unresolved Build fallback, and reframe media measurements; no implementation. |
+| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta, Build-fork isolation, and stale-packet review. |
+| `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -134,8 +137,9 @@ and independently reviews the new rule.
   rejected intermediate reviews remain recorded below.
 - No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
-- Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
-  capture/media harness against the new epoch.
+- Next authority packet: produce and review a source-only `DV-DRAFT-4`, then
+  revalidate the capture/media harness against the new epoch. The final Build
+  fallback remains a separate user decision and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
   Actual external runtime still requires explicit authorization of each exact
