@@ -109,8 +109,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | corrected `DV-P0B-CAMERA-AUTH-W02@f35ac7f3659` | read-only exact three-path commit | accepted_with_residual | receipt below | One bounded same-signed active permission runtime is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-R03` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1` | one redacted capture-auth-R03 QA run; no media | accepted_evidence / functional_fail | `744f313`; receipt below | One closed unknown accepted; category/stage diagnosis is a Debug-spike defect. |
 | `DV-P0B-CAMERA-AUTH-R03-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R03@744f313` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Repair closed stage categories before any permission retry. |
-| `DV-P0B-CAMERA-AUTH-W03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R03-REVIEW` | exact Debug launch/auth/event, authorization tests, W01 summary | review | `1ae703f`; receipt below | Closed stage/category repair complete; no runtime, script, or product change. |
-| `DV-P0B-CAMERA-AUTH-W03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W03@1ae703f` | read-only exact five-path commit | running | — | Review stage provenance, exact-one diagnostics, bounds, isolation, and Release. |
+| `DV-P0B-CAMERA-AUTH-W03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R03-REVIEW` | exact Debug launch/auth/event, authorization tests, W01 summary | rejected | `1ae703f`; receipt below | Diagnostic core passes, but rejection path can issue a second activation and misclassify. |
+| `DV-P0B-CAMERA-AUTH-W03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W03@1ae703f` | read-only exact five-path commit | rejected | recorded below | Repair activation rejection and behavioral coverage before runtime. |
+| `DV-P0B-CAMERA-AUTH-W03-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W03 review | exact CameraAuthorization source/test; summary only if claim changes | running | — | Rejected first activation must suppress second activation and authorization. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -172,8 +173,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   action occurred. Three-path Debug activation repair `f35ac7f` is accepted
   after corrected-SHA review. One active same-signed permission runtime
   returned closed unknown before a prompt. Evidence is accepted, but stage
-  collapse is a Debug-spike defect; five-path diagnostic repair `1ae703f` is
-  in independent review and capture remains blocked. The
+  collapse is a Debug-spike defect. Diagnostic repair `1ae703f` was rejected
+  for one activation-order regression; the original owner is repairing it and
+  capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1483,6 +1485,35 @@ commit: 1ae703fa0a4ced0cea0b73ef8ffeee85adb2ac13
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-W03-REVIEW` of `1ae703f`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W03-REVIEW
+status: done
+verdict: reject
+
+outcome: Diagnostic categories, monotonic frozen stages, exact-one request,
+termination, Debug isolation, and Release isolation pass, but one activation-
+rejection route regresses W02 and can emit a false category.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/W02/R03 reviews; exact W03 commit.
+reviewed_commit_and_parent: 1ae703fa0a4ced0cea0b73ef8ffeee85adb2ac13;
+d7ff6861a9c3e8cc4924460420550e4b361ed7ca.
+paths: Exactly five authorized paths.
+checks: Exact diff/path/blob; structure; 14/14 auth and 59/59 full tests; signed
+Debug build-only; bounded Release/isolation; redaction/owner/process/root.
+findings: Live requestActivation calls NSApplication.shared.activate even when
+NSRunningApplication.current.activate returned false, then reports rejection
+without proving active state. Injected Boolean tests miss the second-call
+behavior. Other categories/stages and protected routes are closed.
+scope: Exact Debug/test/evidence scope; no protected or Release change.
+deviations: none material
+residual: Permission/capture runtime remains blocked.
+next_dependency: Original owner guards the second activation behind first-call
+success, adds behavioral platform-call coverage, and repeats review.
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-CAMERA-AUTH-W02-REVIEW` — incorrect artifact authority
 
