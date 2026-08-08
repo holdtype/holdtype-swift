@@ -113,8 +113,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W03@1ae703f` | read-only exact five-path commit | rejected | recorded below | Repair activation rejection and behavioral coverage before runtime. |
 | `DV-P0B-CAMERA-AUTH-W03-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W03 review | exact CameraAuthorization source/test; summary only if claim changes | accepted_with_residual | `0e9f032`; receipt below | First activation rejection suppresses all later activation/authorization. |
 | `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `0e9f032` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded repaired permission runtime is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-R04` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | one redacted capture-auth-R04 QA run; no media | review / activation_rejected | `baafcb9`; receipt below | Activation rejected before authorization; one Debug process required exact TERM. |
-| `DV-P0B-CAMERA-AUTH-R04-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R04@baafcb9` | read-only exact seven-file evidence commit | running | — | Validate activation result, cleanup lifetime, and exact platform dependency. |
+| `DV-P0B-CAMERA-AUTH-R04` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | one redacted capture-auth-R04 QA run; no media | accepted_evidence / functional_fail | `baafcb9`; receipt below | Activation semantics and natural cleanup are Debug-spike defects. |
+| `DV-P0B-CAMERA-AUTH-R04-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R04@baafcb9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Read-only activation/termination exploration required before repair. |
+| `DV-P0B-CAMERA-AUTH-E04` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R04-REVIEW` | read-only exact activation/termination/script/SDK evidence | running | — | Map one NSApplication activation path and exact natural-exit/supervisor repair. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -179,7 +180,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   collapse is a Debug-spike defect. Diagnostic repair `1ae703f` was rejected
   for one activation-order regression; repair `0e9f032` is accepted. One
   repaired permission-only runtime proved activation rejection before
-  authorization; evidence review is running and capture remains blocked. The
+  authorization. Review accepted the facts and identified activation semantics
+  plus natural cleanup defects; a bounded read-only repair map is running and
+  capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1579,6 +1582,38 @@ review classification. No capture authority.
 next_dependency: DV-P0B-CAMERA-AUTH-R04-REVIEW
 runtime_or_visual_handoff: none
 commit: baafcb9d46ba8b33a1830ffcd0d7b38eacf4d4e6
+```
+
+### `DV-P0B-CAMERA-AUTH-R04-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R04-REVIEW
+status: done
+verdict: accept_with_residual
+authorization_cell: fail — activation-semantics and natural-cleanup defects
+
+outcome: Evidence truthfully proves immediate process-activation false and no
+authorization, but environment/signing is rejected: Boolean semantics and a
+surviving post-terminal Debug process are Debug-spike defects.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; accepted W03 repair/review; exact
+R04 evidence; installed AppKit SDK headers.
+reviewed_commit_and_parent: baafcb9d46ba8b33a1830ffcd0d7b38eacf4d4e6;
+75ecba85a1a234babf9b98e216c09b7f2d53cbe3.
+paths: Exactly seven redacted evidence files.
+checks: Exact diff/path/blob; structured semantics; source termination and
+activation trace; SDK headers; Computer Use; redaction/media/path/residue.
+classification: NSRunningApplication Boolean reports only whether that request
+was sent, not overall activation. Use NSApplication.activate once and bounded
+isActive observation. Post-terminal process survival violates accepted natural
+termination/supervision ownership.
+cleanup: External exact TERM was safe and residue is zero, but does not close
+the natural-exit defect.
+scope: Evidence-only; protected owners unchanged.
+deviations: Computer Use could not attach; one run-owned Debug PID required TERM.
+residual: Permission unknown; no request or capture authority.
+next_dependency: Read-only activation/termination/script/SDK exploration, then
+bounded repair and independent review.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
