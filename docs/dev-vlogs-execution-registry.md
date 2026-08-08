@@ -129,8 +129,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R06@a7f47a9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Clean topology accepted; activation remains a platform dependency before authorization. |
 | `DV-P0B-CAMERA-AUTH-E06` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R06-REVIEW` | read-only exact activation/LaunchServices/source/script/SDK evidence | accepted_with_residual | receipt below | Exact-URL NSWorkspace design accepted with review corrections. |
 | `DV-P0B-CAMERA-AUTH-E06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-E06` | read-only exact map/API/ownership review | accepted_with_residual | receipt below | Corrected 12-path Debug repair is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-W06` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E06-REVIEW` | exact 12 Debug helper/script/auth/handshake/launch/termination/event/test/summary paths | review | `169e895`; receipt below | LaunchServices handshake implemented and fake-verified; independent review required. |
-| `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | running | — | Recheck helper, identity proof, handshake, lifecycle, deadlines, and isolation. |
+| `DV-P0B-CAMERA-AUTH-W06` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E06-REVIEW` | exact 12 Debug helper/script/auth/handshake/launch/termination/event/test/summary paths | rejected | `169e895`; receipt below | Architecture/build isolation pass; runtime path/parser/deadline/cancellation guarantees fail. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | rejected | receipt below | Seven-path focused repair required before runtime. |
+| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | running | — | Repair actual parser, one deadline, descriptor-stable result, pre-stage cancellation, behavioral coverage. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -218,8 +219,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   through a bounded non-requesting helper plus target ownership acknowledgment.
   Independent design review accepted a corrected 12-path Debug-only envelope:
   no explicit helper signing, stronger atomic handshake, and structure-safe
-  source extraction. Repair `169e895` passed 19/19 focused and 63/63 full Phase
-  0B tests and is in independent review; capture remains blocked. The
+  source extraction. Repair `169e895` compiled and passed tests but review
+  rejected its real parser, deadline, result-file, cancellation, and behavioral
+  coverage guarantees. Seven-path focused repair is running; capture remains
+  blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2161,6 +2164,44 @@ runtime evidence; no permission or hardware mode invoked.
 next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW
 runtime_or_visual_handoff: none
 commit: 169e89562f237484337ab4fed31b12cc0c8040e4
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW
+status: done
+verdict: reject
+
+outcome: Helper and Release/product isolation compile and test, but the
+permission route aborts before identity proof and required deadline,
+result-handoff, cancellation, and behavioral guarantees are not met.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted E06 design, W05
+supervision, and R03 lifecycle; repository rules.
+reviewed_commit_and_parent: 169e89562f237484337ab4fed31b12cc0c8040e4;
+75b75248eddf7965687bf7a026939a341999aade.
+changed_paths: none
+checks_run: Exact 12-path commit; structure/diff; helper self-test; 19/19
+focused and 63/63 full tests; syntax/help/negatives/build-only; signed Debug;
+bounded Release/isolation; hardware-tail hash; process/root cleanup.
+findings: Script stores category/process_digest but reads unset
+launch_category/returned_process_digest under set -u; helper compilation is
+outside the claimed 420-second deadline; helper result publication plus
+multi-pass path-based plutil parsing lacks descriptor-stable strict schema and
+immutability; cancellation is checked after isActive/authorizationStatus;
+tests do not traverse real result parsing and summary overclaims these points.
+closed: Exact URL/config/imports/no explicit signing; target acknowledgment
+reader; categories/stages/termination extraction; normal/hardware/Release
+isolation; hardware tail.
+scope_check: Exact Debug evidence/tooling; protected owners unchanged; no
+runtime/TCC/camera/microphone/media action.
+deviations: Accepted W05 matrix not rerun because real route aborts first.
+residual: LaunchServices foreground, Camera prompt/TCC, and hardware remain
+unproven.
+next_dependency: Seven-path parser/deadline/result/cancellation/test/summary
+repair and independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 169e89562f237484337ab4fed31b12cc0c8040e4
 ```
 
 ## Rejected Receipts
