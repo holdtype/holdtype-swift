@@ -3,34 +3,44 @@ import AppKit
 import Darwin
 import Foundation
 
-private struct Arguments {
+private struct RunContext {
+    static let resultName = "camera-authorization-launch.json"
+    let runRoot: String
+    let token: String
+
+    static func parse(environment: [String: String]) -> Self? {
+        guard let root = environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT"],
+              root.hasPrefix("/"),
+              let token = environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_LAUNCH_TOKEN"],
+              token.count == 64, token.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
+        return Self(runRoot: root, token: token.lowercased())
+    }
+}
+
+private struct LaunchArguments {
     let appURL: URL
     let executableURL: URL
     let bundleIdentifier: String
-    let resultURL: URL
-    let token: String
     let timeoutSeconds: Double
 
-    static func parse(_ values: [String], environment: [String: String]) -> Self? {
+    static func parse(_ values: [String]) -> Self? {
         var fields: [String: String] = [:]
         var index = 1
         while index + 1 < values.count {
+            guard fields[values[index]] == nil else { return nil }
             fields[values[index]] = values[index + 1]
             index += 2
         }
         guard index == values.count,
+              Set(fields.keys) == ["--app-url", "--executable-url", "--bundle-id", "--timeout"],
               let app = fields["--app-url"], let executable = fields["--executable-url"],
-              let identifier = fields["--bundle-id"], let result = fields["--result"],
-              let token = environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_LAUNCH_TOKEN"], token.count == 64,
-              token.allSatisfy({ $0.isASCII && $0.isHexDigit }),
+              let identifier = fields["--bundle-id"],
               let rawTimeout = fields["--timeout"], let timeout = Double(rawTimeout),
               timeout.isFinite, timeout > 0, timeout <= 120 else { return nil }
         return Self(
             appURL: URL(fileURLWithPath: app).standardizedFileURL.resolvingSymlinksInPath(),
             executableURL: URL(fileURLWithPath: executable).standardizedFileURL.resolvingSymlinksInPath(),
             bundleIdentifier: identifier,
-            resultURL: URL(fileURLWithPath: result).standardizedFileURL,
-            token: token.lowercased(),
             timeoutSeconds: timeout
         )
     }
@@ -136,6 +146,128 @@ private struct Result: Codable {
     }
 }
 
+private struct VerifiedResult {
+    let category: String
+    let bundleURLMatches: Bool
+    let executableURLMatches: Bool
+    let bundleIdentifierMatches: Bool
+    let digestMatches: Bool
+
+    var normalized: String {
+        "category=\(category) bundle=\(bundleURLMatches) executable=\(executableURLMatches) "
+            + "identifier=\(bundleIdentifierMatches) digest=\(digestMatches)"
+    }
+}
+
+private struct ResultStore {
+    let context: RunContext
+
+    func publish(_ result: Result) -> Bool {
+        guard let data = try? JSONEncoder().encode(result), (1 ... 1_024).contains(data.count),
+              let rootFD = openRoot() else { return false }
+        defer { Darwin.close(rootFD) }
+        let temporary = ".launcher-result-\(UUID().uuidString)"
+        var fileFD = Darwin.openat(
+            rootFD, temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600
+        )
+        guard fileFD >= 0 else { return false }
+        var completed = false
+        defer {
+            if fileFD >= 0 { Darwin.close(fileFD) }
+            if !completed { Darwin.unlinkat(rootFD, temporary, 0) }
+        }
+        guard fchmod(fileFD, 0o600) == 0, writeAll(data, to: fileFD), fsync(fileFD) == 0,
+              Darwin.close(fileFD) == 0 else { return false }
+        fileFD = -1
+        completed = Darwin.linkat(rootFD, temporary, rootFD, RunContext.resultName, 0) == 0
+        _ = Darwin.unlinkat(rootFD, temporary, 0)
+        return completed
+    }
+
+    func verify(
+        expectedPID: pid_t,
+        afterOpen: ((Int32) -> Void)? = nil
+    ) -> VerifiedResult? {
+        guard let rootFD = openRoot() else { return nil }
+        defer { Darwin.close(rootFD) }
+        let fileFD = Darwin.openat(rootFD, RunContext.resultName, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fileFD >= 0 else { return nil }
+        defer { Darwin.close(fileFD) }
+        var metadata = stat()
+        guard fstat(fileFD, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_uid == getuid(), metadata.st_mode & 0o777 == 0o600,
+              metadata.st_nlink == 1, (1 ... 1_024).contains(metadata.st_size) else { return nil }
+        afterOpen?(rootFD)
+        guard let data = readExactly(count: Int(metadata.st_size), from: fileFD),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              Set(object.keys) == ["version", "category", "bundle_url_matches",
+                                   "executable_url_matches", "bundle_identifier_matches",
+                                   "launch_monotonic_ms", "process_digest"],
+              object["version"] as? Int == 1,
+              let category = object["category"] as? String,
+              ["launched", "identity_mismatch", "launch_rejected",
+               "launch_timed_out", "launch_cancelled"].contains(category),
+              let bundle = object["bundle_url_matches"] as? Bool,
+              let executable = object["executable_url_matches"] as? Bool,
+              let identifier = object["bundle_identifier_matches"] as? Bool,
+              let launchTime = object["launch_monotonic_ms"] as? Int64, launchTime >= 0 else { return nil }
+        let expectedDigest = digest(token: context.token, pid: expectedPID)
+        let processDigest = object["process_digest"] as? String
+        let digestMatches = processDigest == expectedDigest
+        if category == "launched" {
+            guard bundle, executable, identifier, digestMatches else { return nil }
+        } else if let processDigest {
+            guard processDigest.count == 64,
+                  processDigest.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
+        }
+        return VerifiedResult(
+            category: category, bundleURLMatches: bundle, executableURLMatches: executable,
+            bundleIdentifierMatches: identifier, digestMatches: digestMatches
+        )
+    }
+
+    private func openRoot() -> Int32? {
+        let descriptor = Darwin.open(context.runRoot, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else { return nil }
+        var metadata = stat()
+        guard fstat(descriptor, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFDIR,
+              metadata.st_uid == getuid(), metadata.st_mode & 0o777 == 0o700 else {
+            Darwin.close(descriptor)
+            return nil
+        }
+        return descriptor
+    }
+
+    private func writeAll(_ data: Data, to descriptor: Int32) -> Bool {
+        data.withUnsafeBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let count = Darwin.write(descriptor, bytes.baseAddress?.advanced(by: offset), bytes.count - offset)
+                guard count > 0 else { return false }
+                offset += count
+            }
+            return true
+        }
+    }
+
+    private func readExactly(count: Int, from descriptor: Int32) -> Data? {
+        var data = Data(count: count)
+        let complete = data.withUnsafeMutableBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let amount = Darwin.read(descriptor, bytes.baseAddress?.advanced(by: offset), bytes.count - offset)
+                guard amount > 0 else { return false }
+                offset += amount
+            }
+            var extra: UInt8 = 0
+            return Darwin.read(descriptor, &extra, 1) == 0
+        }
+        return complete ? data : nil
+    }
+}
+
 @main
 private enum LauncherMain {
     static func main() async {
@@ -144,10 +276,16 @@ private enum LauncherMain {
             exit(await runSelfTests() ? 0 : 1)
         }
 #endif
-        guard let arguments = Arguments.parse(
-            CommandLine.arguments,
-            environment: ProcessInfo.processInfo.environment
-        ) else { exit(64) }
+        let environment = ProcessInfo.processInfo.environment
+        guard let context = RunContext.parse(environment: environment) else { exit(64) }
+        if CommandLine.arguments == [CommandLine.arguments[0], "--verify-result"] {
+            guard let rawPID = environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_EXPECTED_PID"],
+                  let pid = pid_t(rawPID), pid > 0,
+                  let verified = ResultStore(context: context).verify(expectedPID: pid) else { exit(65) }
+            print(verified.normalized)
+            exit(0)
+        }
+        guard let arguments = LaunchArguments.parse(CommandLine.arguments) else { exit(64) }
         let configuration = makeConfiguration()
         let started = Int64(ProcessInfo.processInfo.systemUptime * 1_000)
         let outcome = await LaunchGate().wait(timeoutSeconds: arguments.timeoutSeconds) { completion in
@@ -158,8 +296,8 @@ private enum LauncherMain {
                 completion(application.map(RunningApplicationIdentity.init))
             }
         }
-        let result = makeResult(outcome: outcome, arguments: arguments, started: started)
-        guard publish(result, to: arguments.resultURL) else { exit(74) }
+        let result = makeResult(outcome: outcome, arguments: arguments, context: context, started: started)
+        guard ResultStore(context: context).publish(result) else { exit(74) }
         exit(result.category == "launched" ? 0 : 1)
     }
 
@@ -179,7 +317,12 @@ private enum LauncherMain {
         return configuration
     }
 
-    private static func makeResult(outcome: LaunchOutcome, arguments: Arguments, started: Int64) -> Result {
+    private static func makeResult(
+        outcome: LaunchOutcome,
+        arguments: LaunchArguments,
+        context: RunContext,
+        started: Int64
+    ) -> Result {
         switch outcome {
         case .success(let identity):
             let bundleMatch = canonical(identity.bundleURL) == arguments.appURL
@@ -192,7 +335,7 @@ private enum LauncherMain {
                 executableURLMatches: executableMatch,
                 bundleIdentifierMatches: identifierMatch,
                 launchMonotonicMilliseconds: started,
-                processDigest: digest(token: arguments.token, pid: identity.processIdentifier)
+                processDigest: digest(token: context.token, pid: identity.processIdentifier)
             )
         case .rejected:
             return failure("launch_rejected", started)
@@ -227,34 +370,17 @@ private enum LauncherMain {
                launchMonotonicMilliseconds: started, processDigest: nil)
     }
 
-    private static func publish(_ result: Result, to destination: URL) -> Bool {
-        guard let data = try? JSONEncoder().encode(result), data.count <= 1_024 else { return false }
-        let temporary = destination.deletingLastPathComponent().appendingPathComponent(
-            ".launcher-result-\(UUID().uuidString)"
-        )
-        let descriptor = Darwin.open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
-        guard descriptor >= 0 else { return false }
-        let wrote = data.withUnsafeBytes { Darwin.write(descriptor, $0.baseAddress, $0.count) }
-        let synced = fsync(descriptor) == 0
-        Darwin.close(descriptor)
-        guard wrote == data.count, synced,
-              Darwin.link(temporary.path, destination.path) == 0 else {
-            Darwin.unlink(temporary.path)
-            return false
-        }
-        Darwin.unlink(temporary.path)
-        return true
-    }
-
 #if DEV_VLOGS_PHASE_0B_LAUNCHER_TESTING
     private static func runSelfTests() async -> Bool {
         let token = String(repeating: "a", count: 64)
         let values = ["launcher", "--app-url", "/tmp/HoldType.app", "--executable-url",
                       "/tmp/HoldType.app/Contents/MacOS/HoldType", "--bundle-id", "com.holdtype.app",
-                      "--result", "/tmp/result.json", "--timeout", "1"]
+                      "--timeout", "1"]
         let environment = ["HOME": "/tmp/home", "PRIVATE_SECRET": "forbidden",
+                           "HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT": "/tmp/run",
                            "HOLDTYPE_DEV_VLOGS_PHASE_0B_LAUNCH_TOKEN": token]
-        guard let arguments = Arguments.parse(values, environment: environment) else { return false }
+        guard let arguments = LaunchArguments.parse(values),
+              let context = RunContext.parse(environment: environment) else { return false }
         let configuration = makeConfiguration(environment: environment)
         guard configuration.activates, configuration.createsNewApplicationInstance,
               !configuration.addsToRecentItems, !configuration.promptsUserIfNeeded,
@@ -273,7 +399,8 @@ private enum LauncherMain {
             callback(nil)
         }
         guard case .success = success,
-              makeResult(outcome: success, arguments: arguments, started: 1).category == "launched",
+              makeResult(outcome: success, arguments: arguments, context: context, started: 1).category ==
+                "launched",
               digest(token: token, pid: 42) ==
                 "ba7b37304e3cb9f89a69f30ebdb57fcaff24f01516546bfb59c6f7bb63c1dbf1" else {
             return false
@@ -295,6 +422,20 @@ private enum LauncherMain {
         }
         cancellationTask.cancel()
         guard case .cancelled = await cancellationTask.value else { return false }
+        let root = NSTemporaryDirectory() + "holdtype-launcher-selftest-\(UUID().uuidString)"
+        guard mkdir(root, 0o700) == 0 else { return false }
+        defer { Darwin.unlink(root + "/" + RunContext.resultName); rmdir(root) }
+        let store = ResultStore(context: .init(runRoot: root, token: token))
+        let valid = makeResult(outcome: success, arguments: arguments, context: context, started: 1)
+        guard store.publish(valid), !store.publish(valid),
+              store.verify(expectedPID: 42)?.normalized ==
+                "category=launched bundle=true executable=true identifier=true digest=true" else { return false }
+        guard Darwin.unlink(root + "/" + RunContext.resultName) == 0, store.publish(valid) else { return false }
+        let snapshot = store.verify(expectedPID: 42) { rootFD in
+            _ = Darwin.unlinkat(rootFD, RunContext.resultName, 0)
+            _ = store.publish(failure("launch_rejected", 1))
+        }
+        guard snapshot?.category == "launched" else { return false }
         return true
     }
 #endif

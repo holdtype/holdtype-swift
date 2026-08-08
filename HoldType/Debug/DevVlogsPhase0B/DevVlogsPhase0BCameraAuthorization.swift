@@ -66,6 +66,7 @@ struct DevVlogsPhase0BActiveStateConfirmation {
     )
 
     fileprivate func run() async -> DevVlogsPhase0BCameraAuthorizationOutcome? {
+        guard !Task.isCancelled else { return .activationCancelled }
         if isActive() {
             return nil
         }
@@ -108,26 +109,37 @@ struct DevVlogsPhase0BAppleCameraAuthorizationAccess: DevVlogsPhase0BCameraAutho
 
 final class DevVlogsPhase0BCameraAuthorizationRequest: @unchecked Sendable {
     typealias Sleep = @Sendable (Duration) async throws -> Void
+    typealias Checkpoint = @Sendable () async -> Void
     static let operationalTimeout = Duration.seconds(120)
 
     private let access: any DevVlogsPhase0BCameraAuthorizationAccessing
     private let timeout: Duration
     private let sleep: Sleep
+    private let beforeStatus: Checkpoint
+    private let beforeRequest: Checkpoint
 
     init(
         access: any DevVlogsPhase0BCameraAuthorizationAccessing,
         timeout: Duration = operationalTimeout,
-        sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
+        sleep: @escaping Sleep = { try await Task.sleep(for: $0) },
+        beforeStatus: @escaping Checkpoint = {},
+        beforeRequest: @escaping Checkpoint = {}
     ) {
         self.access = access
         self.timeout = timeout
         self.sleep = sleep
+        self.beforeStatus = beforeStatus
+        self.beforeRequest = beforeRequest
     }
 
     func run(
         stage: @escaping @Sendable (DevVlogsPhase0BCameraAuthorizationStage) -> Void = { _ in }
     ) async -> DevVlogsPhase0BCameraAuthorizationOutcome {
+        guard !Task.isCancelled else { return .cancelled }
+        await beforeStatus()
+        guard !Task.isCancelled else { return .cancelled }
         let status = access.authorizationStatus()
+        guard !Task.isCancelled else { return .cancelled }
         stage(.authorizationStatusInspected)
         switch status {
         case .authorized: return .alreadyAuthorized
@@ -136,6 +148,7 @@ final class DevVlogsPhase0BCameraAuthorizationRequest: @unchecked Sendable {
         case .unknown: return .statusUnknown
         case .notDetermined: break
         }
+        await beforeRequest()
         guard !Task.isCancelled else { return .cancelled }
 
         let gate = DevVlogsPhase0BAuthorizationContinuationGate()
@@ -155,9 +168,14 @@ final class DevVlogsPhase0BCameraAuthorizationRequest: @unchecked Sendable {
                     gate.finish(.timedOut)
                 }
                 gate.installTimeoutTask(timeoutTask)
+                guard !Task.isCancelled else {
+                    gate.finish(.cancelled)
+                    return
+                }
+                guard gate.beginRequest() else { return }
                 stage(.requestAccessStarted)
                 access.requestAccess { [access] granted in
-                    gate.finish(Self.callbackOutcome(granted: granted, status: access.authorizationStatus()))
+                    gate.finishCallback(granted: granted, status: access.authorizationStatus)
                 }
             }
         } onCancel: {
@@ -165,13 +183,6 @@ final class DevVlogsPhase0BCameraAuthorizationRequest: @unchecked Sendable {
         }
     }
 
-    private static func callbackOutcome(
-        granted: Bool,
-        status: DevVlogsPhase0BCameraAuthorizationStatus
-    ) -> DevVlogsPhase0BCameraAuthorizationOutcome {
-        guard !granted else { return .granted }
-        return status == .restricted ? .restricted : .denied
-    }
 }
 
 nonisolated private final class DevVlogsPhase0BAuthorizationContinuationGate: @unchecked Sendable {
@@ -179,6 +190,7 @@ nonisolated private final class DevVlogsPhase0BAuthorizationContinuationGate: @u
     private var continuation: CheckedContinuation<DevVlogsPhase0BCameraAuthorizationOutcome, Never>?
     private var pendingOutcome: DevVlogsPhase0BCameraAuthorizationOutcome?
     private var timeoutTask: Task<Void, Never>?
+    private var requestHasBegun = false
 
     func install(
         _ continuation: CheckedContinuation<DevVlogsPhase0BCameraAuthorizationOutcome, Never>
@@ -205,11 +217,47 @@ nonisolated private final class DevVlogsPhase0BAuthorizationContinuationGate: @u
         }
     }
 
+    func beginRequest() -> Bool {
+        lock.withLock {
+            guard case nil = pendingOutcome, !requestHasBegun else { return false }
+            requestHasBegun = true
+            return true
+        }
+    }
+
     func finish(_ outcome: DevVlogsPhase0BCameraAuthorizationOutcome) {
         lock.lock()
         guard case nil = pendingOutcome else {
             lock.unlock()
             return
+        }
+        pendingOutcome = outcome
+        let continuation = continuation
+        self.continuation = nil
+        let timeoutTask = timeoutTask
+        self.timeoutTask = nil
+        lock.unlock()
+        timeoutTask?.cancel()
+        continuation?.resume(returning: outcome)
+    }
+
+    func finishCallback(
+        granted: Bool,
+        status: @Sendable () -> DevVlogsPhase0BCameraAuthorizationStatus
+    ) {
+        lock.lock()
+        guard case nil = pendingOutcome else {
+            lock.unlock()
+            return
+        }
+        let outcome: DevVlogsPhase0BCameraAuthorizationOutcome
+        if granted {
+            outcome = .granted
+        } else {
+            switch status() {
+            case .restricted: outcome = .restricted
+            default: outcome = .denied
+            }
         }
         pendingOutcome = outcome
         let continuation = continuation
@@ -300,16 +348,23 @@ final class DevVlogsPhase0BCameraAuthorizationHarness {
             category: nil,
             furthestStage: .regularPolicySet
         )
-        switch await handshake.waitForAcknowledgment() {
+        guard !Task.isCancelled else { return finish(.acknowledgmentCancelled, stages, attemptID) }
+        let acknowledgment = await handshake.waitForAcknowledgment()
+        guard !Task.isCancelled else { return finish(.acknowledgmentCancelled, stages, attemptID) }
+        switch acknowledgment {
         case .invalid: return finish(.acknowledgmentInvalid, stages, attemptID)
         case .timedOut: return finish(.acknowledgmentTimedOut, stages, attemptID)
         case .cancelled: return finish(.acknowledgmentCancelled, stages, attemptID)
         case .acknowledged: stages.advance(to: .launchIdentityAcknowledged)
         }
-        if let failure = await activeConfirmation.run() {
+        guard !Task.isCancelled else { return finish(.activationCancelled, stages, attemptID) }
+        let activeFailure = await activeConfirmation.run()
+        guard !Task.isCancelled else { return finish(.activationCancelled, stages, attemptID) }
+        if let failure = activeFailure {
             return finish(failure, stages, attemptID)
         }
         stages.advance(to: .activeStateConfirmed)
+        guard !Task.isCancelled else { return finish(.activationCancelled, stages, attemptID) }
         stages.advance(to: .authorizationHarnessEntered)
         let outcome = await request.run { stages.advance(to: $0) }
         return finish(outcome, stages, attemptID)

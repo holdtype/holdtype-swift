@@ -41,8 +41,10 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         await cancelled.awaitRequest()
         cancelledTask.cancel()
         #expect(await cancelledTask.value == .cancelled)
+        let statusCount = cancelled.statusCount
         cancelled.complete(granted: true, status: .authorized)
         #expect(cancelled.requestCount == 1)
+        #expect(cancelled.statusCount == statusCount)
     }
 
     @Test func configurationRequiresTokenSanitizationAndTemporaryRoot() {
@@ -146,6 +148,84 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         #expect(events.values.filter { $0.action == "camera_authorization_terminal" }.count == 1)
     }
 
+    @Test func cancellationPrecedesActiveStatusAndRequestObservations() async {
+        let beforeActive = AuthorizationAccess(status: .authorized)
+        let beforeActiveEvents = Events()
+        var activeChecks = 0
+        let cancelled = Task { @MainActor in
+            await makeHarness(access: beforeActive, events: beforeActiveEvents).run(
+                handshake: FakeHandshake { .acknowledged },
+                activeConfirmation: .init(
+                    isActive: { activeChecks += 1; return true }, sleep: { _ in }, confirmationAttempts: 1
+                )
+            )
+        }
+        cancelled.cancel()
+        #expect(await cancelled.value.outcome == .acknowledgmentCancelled)
+        #expect(activeChecks == 0)
+        #expect(beforeActive.statusCount == 0)
+        #expect(terminalCount(beforeActiveEvents) == 1)
+
+        let afterAckGate = AsyncCheckpoint()
+        let afterAckAccess = AuthorizationAccess(status: .authorized)
+        let afterAckEvents = Events()
+        let afterAck = Task { @MainActor in
+            await makeHarness(access: afterAckAccess, events: afterAckEvents).run(
+                handshake: FakeHandshake { await afterAckGate.pause(); return .acknowledged },
+                activeConfirmation: activeConfirmation(true)
+            )
+        }
+        await afterAckGate.awaitArrival()
+        afterAck.cancel()
+        afterAckGate.release()
+        #expect(await afterAck.value == .init(
+            outcome: .acknowledgmentCancelled, furthestStage: .regularPolicySet
+        ))
+        #expect(afterAckAccess.statusCount == 0)
+        #expect(terminalCount(afterAckEvents) == 1)
+
+        let statusGate = AsyncCheckpoint()
+        let beforeStatusAccess = AuthorizationAccess(status: .authorized)
+        let beforeStatusEvents = Events()
+        let beforeStatus = Task { @MainActor in
+            await makeHarness(
+                request: .init(access: beforeStatusAccess, beforeStatus: { await statusGate.pause() }),
+                events: beforeStatusEvents
+            ).run(
+                handshake: FakeHandshake { .acknowledged },
+                activeConfirmation: activeConfirmation(true)
+            )
+        }
+        await statusGate.awaitArrival()
+        beforeStatus.cancel()
+        statusGate.release()
+        #expect(await beforeStatus.value.outcome == .cancelled)
+        #expect(beforeStatusAccess.statusCount == 0)
+        #expect(beforeStatusAccess.requestCount == 0)
+        #expect(beforeStatusEvents.values.last?.furthestStage == .authorizationHarnessEntered)
+        #expect(terminalCount(beforeStatusEvents) == 1)
+
+        let requestGate = AsyncCheckpoint()
+        let beforeRequestAccess = AuthorizationAccess(status: .notDetermined)
+        let beforeRequestEvents = Events()
+        let beforeRequest = Task { @MainActor in
+            await makeHarness(request: .init(
+                access: beforeRequestAccess, beforeRequest: { await requestGate.pause() }
+            ), events: beforeRequestEvents).run(
+                handshake: FakeHandshake { .acknowledged },
+                activeConfirmation: activeConfirmation(true)
+            )
+        }
+        await requestGate.awaitArrival()
+        beforeRequest.cancel()
+        requestGate.release()
+        #expect(await beforeRequest.value.outcome == .cancelled)
+        #expect(beforeRequestAccess.statusCount == 1)
+        #expect(beforeRequestAccess.requestCount == 0)
+        #expect(beforeRequestEvents.values.last?.furthestStage == .authorizationStatusInspected)
+        #expect(terminalCount(beforeRequestEvents) == 1)
+    }
+
     @Test func launchRouteRejectsInvalidPolicyBeforeHarness() async {
         var made = false
         let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
@@ -178,15 +258,36 @@ struct DevVlogsPhase0BCameraAuthorizationTests {
         )
     }
 
+    private func makeHarness(
+        request: DevVlogsPhase0BCameraAuthorizationRequest,
+        events: Events? = nil
+    ) -> DevVlogsPhase0BCameraAuthorizationHarness {
+        let events = events ?? Events()
+        return DevVlogsPhase0BCameraAuthorizationHarness(
+            configuration: .init(
+                runRoot: URL(fileURLWithPath: "/tmp/fake", isDirectory: true),
+                caseID: "camera-authorization",
+                launchToken: String(repeating: "a", count: 64)
+            ),
+            runID: "run-1", request: request,
+            eventLog: DevVlogsPhase0BInMemoryEventLog { events.values.append($0) },
+            monotonicClock: { 12 }
+        )
+    }
+
     private func activeConfirmation(_ active: Bool) -> DevVlogsPhase0BActiveStateConfirmation {
         .init(isActive: { active }, sleep: { _ in }, confirmationAttempts: 1)
+    }
+
+    private func terminalCount(_ events: Events) -> Int {
+        events.values.filter { $0.action == "camera_authorization_terminal" }.count
     }
 }
 
 private struct FakeHandshake: DevVlogsPhase0BCameraAuthorizationAcknowledging {
-    let result: @Sendable () -> DevVlogsPhase0BCameraAuthorizationAcknowledgmentOutcome
+    let result: @Sendable () async -> DevVlogsPhase0BCameraAuthorizationAcknowledgmentOutcome
     func waitForAcknowledgment() async -> DevVlogsPhase0BCameraAuthorizationAcknowledgmentOutcome {
-        result()
+        await result()
     }
 }
 
@@ -242,6 +343,31 @@ private final class Trace: @unchecked Sendable {
     private var storage: [String] = []
     var values: [String] { lock.withLock { storage } }
     func append(_ value: String) { lock.withLock { storage.append(value) } }
+}
+
+private final class AsyncCheckpoint: @unchecked Sendable {
+    private let lock = NSLock()
+    private var arrived = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func pause() async {
+        await withCheckedContinuation { continuation in
+            lock.withLock {
+                arrived = true
+                self.continuation = continuation
+            }
+        }
+    }
+
+    func awaitArrival() async {
+        for _ in 0 ..< 100 where lock.withLock({ !arrived }) { await Task.yield() }
+        #expect(lock.withLock { arrived })
+    }
+
+    func release() {
+        let pending = lock.withLock { let value = self.continuation; self.continuation = nil; return value }
+        pending?.resume()
+    }
 }
 
 private func authorizationEnvironment(runRoot: String) -> [String: String] {

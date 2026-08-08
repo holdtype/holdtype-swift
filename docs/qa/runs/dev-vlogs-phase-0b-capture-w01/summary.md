@@ -21,8 +21,11 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   asks LaunchServices to open the exact canonical Debug app URL as a new active
   instance. The script accepts only a matching returned bundle URL, executable
   URL, bundle identifier, token-bound process digest, and W05 marker/executable/
-  inode/start/command identity. It then publishes one exclusive atomic
-  acknowledgment. The target sets regular activation policy during
+  inode/start/command identity. The helper publishes its strict fixed-schema
+  result without replacement through one verified run-root descriptor; the
+  script consumes one no-follow descriptor snapshot through that same helper,
+  accepts only normalized closed fields, and then publishes one exclusive
+  atomic acknowledgment. The target sets regular activation policy during
   `applicationWillFinishLaunching`, but makes no target-side activation request
   and cannot inspect Camera status until its no-follow, owner/mode/type/size-
   checked acknowledgment matches its own token-bound process digest and
@@ -37,8 +40,9 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   status, waits under an independent 120-second operational bound, and emits
   one closed redacted granted, already-authorized, denied, restricted, timeout,
   cancelled, or post-activation unknown-status terminal category. Fake tests
-  cover callback absence, cancellation, ignored late callbacks, exact-one
-  start/terminal evidence, and monotonic stage reporting. This command was not
+  cover callback absence, cancellation before every active/status/request
+  observation, ignored late callbacks without a post-terminal status read,
+  exact-one start/terminal evidence, and monotonic stage reporting. This command was not
   run here and no Camera authorization prompt or decision is claimed.
 - The harness creates one unique run directory under a caller-provided safe
   temporary root, starts the existing audio-recorder service with a prepared
@@ -98,14 +102,14 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 63 logical tests include 19 authorization/helper/handshake/lifecycle/event tests covering exact LaunchServices configuration, helper success/rejection/timeout/cancellation/late-callback exact-once behavior, no-follow acknowledgment safety, policy/acknowledgment/active/status/request ordering, every authorization status, timeout/cancellation, exact-one terminal evidence, early launch routing, and normal/hardware owner isolation. The remaining 44 preserve accepted launch, deferred natural termination and external-quit races, R03 lifecycle/errors, native-source, passthrough, probe, preservation, one-audio-owner, Ready gating, and redaction. |
+| Focused macOS fake tests | Pass; 66 logical tests include 22 authorization/helper/handshake/lifecycle/event tests covering exact LaunchServices configuration, descriptor-relative result publication, strict one-snapshot schema and identity validation, the executable script parser/acknowledgment route, helper success/rejection/timeout/cancellation/late-callback exact-once behavior, no-follow acknowledgment safety, cancellation-before-observation, policy/acknowledgment/active/status/request ordering, every authorization status, exact-one terminal evidence, early launch routing, and normal/hardware owner isolation. The remaining 44 preserve accepted launch, deferred natural termination and external-quit races, R03 lifecycle/errors, native-source, passthrough, probe, preservation, one-audio-owner, Ready gating, and redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration plus success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision retains one absolute monotonic 420-second deadline, exact-binary baseline, W05 multi-process marker registry, fresh identity-safe signaling, and quiet rescan. Launch result and acknowledgment publication are exclusive and atomic; the secret token is environment-only, is never logged, and is scrubbed with result/ack artifacts. Only the direct helper child is waited/reaped; LaunchServices app processes remain registry-owned non-children. The hardware tail is byte-identical to `b071056` and `48c0d5c`. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision uses one absolute monotonic 420-second deadline established before helper compilation and retained through parsing, acknowledgment, process supervision, signaling, reap, and cleanup; it preserves the exact-binary baseline, W05 multi-process marker registry, fresh identity-safe signaling, and quiet rescan. Executable valid/extra-key/wrong-digest parser fakes prove acknowledgment occurs only after strict normalized validation. The token exists transiently in the sanitized launch environment, helper memory, and exclusive acknowledgment artifact; the result stores only its digest. Neither token nor raw result enters argv or logs, and token/result/acknowledgment artifacts are scrubbed on every terminal or uncertainty path. Only the direct helper child is waited/reaped; LaunchServices app processes remain registry-owned non-children. The hardware tail is byte-identical to `169e895`, `b071056`, and `48c0d5c`. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`
