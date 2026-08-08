@@ -58,8 +58,11 @@ They are not yet an Active implementation epoch.
 | `DV-G0-REGISTRY` | `/root` | `DV-DRAFT-2@8081c10` | none | registry; plan registry link | accepted | recorded below | Dispatch `DV-P0A-SPEC`. |
 | `DV-P0A-SPEC` | `/root/dv_p0a_spec` | `DV-DRAFT-2@8081c10` | `DV-G0-REGISTRY` | Dev Vlogs spec; Phase 0B protocol | accepted | `ed108fa` | Decision-complete `DV-DRAFT-3` produced. |
 | `DV-P0A-REVIEW` | `/root/dv_p0a_review` | `DV-DRAFT-3@ed108fa` | `DV-P0A-SPEC` | read-only | accepted_with_residual | recorded below | Phase 0B quantitative evidence and UI skill remain expected residuals. |
-| `DV-P0B-CAPTURE` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | bounded spike/evidence paths assigned later | queued | — | Prove one-audio-owner capture, mux, latency, sync, drift, fragments, and interruption behavior. |
-| `DV-P0B-STORAGE` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | bounded spike/evidence paths assigned later | queued | — | Prove bookmark, destination, capacity, and external-drive behavior. |
+| `DV-P0B-CAPTURE-E01` | `/root/dv_p0b_capture_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only capture/source/platform evidence | accepted_with_residual | recorded below | Debug-only capture spike feasible; shipping audio lease remains Phase 0C work. |
+| `DV-P0B-STORAGE-E01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only storage/source/platform/environment evidence | accepted_with_residual | recorded below | Test-only storage spike feasible; physical disconnect/read-only cells remain environment residuals. |
+| `DV-P0B-E01-REVIEW` | `/root/dv_p0b_e01_review` | `DV-DRAFT-3@ed108fa` | both E01 maps | read-only | accepted_with_residual | recorded below | Writable capture/storage packets must be serialized and keep distinct QA run roots. |
+| `DV-P0B-CAPTURE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths assigned later | queued | — | Implement/build/fake-verify isolated E02 harness; no runtime camera claim yet. |
+| `DV-P0B-STORAGE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted capture artifact contract or explicit independent subset | exact storage test paths assigned later | queued | — | Implement marker/capacity/bookmark/promotion harness; serialize with capture build/runtime. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -72,9 +75,12 @@ They are not yet an Active implementation epoch.
 
 ## Current Coordination State
 
-- Current dependency-ready packets: `DV-P0B-CAPTURE` and
-  `DV-P0B-STORAGE`. Their writable ownership must be made disjoint before
-  dispatch.
+- Accepted E01 evidence supports bounded Debug-only capture and test-only
+  storage spikes without a shipping dependency.
+- Current dependency-ready packet: serialized `DV-P0B-CAPTURE-W01`.
+- `DV-P0B-STORAGE-W01` remains queued behind the capture artifact contract or
+  an explicitly bounded independent subset. Shared build/runtime activity is
+  serialized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -192,5 +198,93 @@ deviations: none
 residual: Phase 0B capture/storage evidence remains required; UI remains
 skill-gated.
 next_dependency: DV-P0B-CAPTURE and DV-P0B-STORAGE
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-E01`
+
+```text
+packet_id: DV-P0B-CAPTURE-E01
+status: done
+
+outcome: Apple-native Debug-only camera/audio/mux spike is feasible with one
+existing microphone owner and no shipping dependency.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; active microphone,
+durability, and privacy contracts; exact recorder/controller/project source;
+official Apple AVFoundation/CoreMedia documentation.
+changed_paths: none
+reused_owners: AVFoundationAudioRecorderService, AudioRecorderEngine,
+RecordingCaptureJournal, and existing exact-once artifact finalization.
+checks_run: Read-only source, project, SDK-header, and official-platform review.
+scope_check: Capture feasibility only; no storage, UI, or product change.
+deviations: none
+residual: Shipping shared-audio lease is not implemented or authorized;
+camera/TCC/signing/device/codec/latency/sync/fragment evidence remains.
+next_dependency: DV-P0B-E01-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-E01`
+
+```text
+packet_id: DV-P0B-STORAGE-E01
+status: done
+
+outcome: Apple-native test-only destination/bookmark/capacity/promotion spike
+is feasible with a separate Dev Vlogs owner.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; active storage/privacy/
+durability/distribution contracts; exact storage owners; official Apple APIs.
+changed_paths: none
+reused_owners: Existing app distribution and file-system platform boundaries;
+protected Cache, History, and recovery owners remain separate.
+checks_run: Read-only source/project/platform review and redacted disk inventory.
+scope_check: Storage feasibility only; no write, mount, unmount, or user-data
+mutation.
+deviations: none
+residual: Real bookmark/remount/capacity/promotion/interruption evidence and
+physical disconnect/read-only-media cells remain.
+next_dependency: DV-P0B-E01-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E01-REVIEW`
+
+```text
+packet_id: DV-P0B-E01-REVIEW
+status: done
+
+outcome: capture accept_with_residual; storage accept_with_residual
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; governing plan/registry;
+exact source/project ownership; official Apple documentation.
+changed_paths: none
+reused_owners: Existing recorder/journal and protected storage owners.
+checks_run: Pinned-contract comparison; lifecycle/startup/project/storage/API
+inspection; read-only environment classification.
+scope_check: Clean; explorers made no changes.
+deviations: none
+residual: Capture shipping lease and runtime evidence remain; storage real
+filesystem/interruption evidence remains; quantitative data is evidence-only.
+next_dependency: Repair stale plan references, checkpoint receipts, then
+DV-P0B-CAPTURE-W01 followed by serialized storage work.
+runtime_or_visual_handoff: none
+```
+
+### `DV-REGISTRY-E01-UPDATE-REVIEW`
+
+```text
+packet_id: DV-REGISTRY-E01-UPDATE-REVIEW
+status: done
+
+outcome: accept
+authority_used: Accepted capture/storage E01 maps and E01 review; governing
+plan, registry, and DV-DRAFT-3@ed108fa.
+changed_paths: none
+reused_owners: Persistent-goal registry and governing plan.
+checks_run: Exact coordination diff review and diff hygiene.
+scope_check: E01 residuals, serialized writable order, UI skill gate, and Phase
+5 exclusion are coherent.
+deviations: none
+residual: Capture W01 is dependency-ready; storage and UI remain gated.
+next_dependency: DV-P0B-CAPTURE-W01
 runtime_or_visual_handoff: none
 ```

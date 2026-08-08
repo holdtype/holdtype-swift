@@ -60,7 +60,7 @@ ambient recorder, or a second failure dependency for dictation.
   dictation exact-once behavior, adding hidden capture, moving feature toggles
   into Permissions, or changing iOS.
 - Material user decisions: Section 11.
-- Current contract revision: `DV-DRAFT-2`.
+- Current contract revision: `DV-DRAFT-3`.
 - Required review and QA: contract review before implementation; focused media
   and persistence tests per phase; real macOS UI and device/storage QA before
   release claims.
@@ -282,8 +282,9 @@ code edit.
 
 Required spec work:
 
-1. Advance Dev Vlogs beyond `DV-DRAFT-2`, record the accepted decisions and
-   spike evidence, add acceptance scenario IDs, and mark the contract Active.
+1. Advance Dev Vlogs beyond `DV-DRAFT-3` to the proposed `DV-ACTIVE-1`, record
+   the accepted spike evidence, add acceptance scenario IDs, and mark the
+   contract Active.
 2. Amend `privacy-and-permissions.md` with optional Camera permission and one
    explicit local Dev Vlogs archive exception; preserve normal audio-retention
    defaults.
