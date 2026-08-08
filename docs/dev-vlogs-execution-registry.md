@@ -104,7 +104,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | repair `308a191` | read-only exact one-path repair commit | accepted_with_residual | receipt below | Enable and verify HoldType Camera switch before capture retry. |
 | `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | accepted_with_residual | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
 | `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Same-identity activation-before-request seam is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R02-REVIEW` | exact Debug Launch, authorization tests, W01 summary | running | — | Activate only explicit permission mode before requestAccess; no runtime or product change. |
+| `DV-P0B-CAMERA-AUTH-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R02-REVIEW` | exact Debug Launch, authorization tests, W01 summary | review | `f35ac7f`; receipt below | Auth-only activation repair complete; no runtime or product change. |
+| `DV-P0B-CAMERA-AUTH-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W02@f35ac7f` | read-only exact three-path commit | running | — | Review activation ordering, isolation, fail-closed behavior, and Release separation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -163,8 +164,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   prompt. Evidence facts and cleanup passed review, but one summary-only TCC
   truthfulness repair `308a191` is accepted. A bounded Computer Use action is
   accepted after finding the HoldType Camera row absent; no switch or TCC
-  action occurred. A three-path Debug activation-before-request repair is
-  running. The
+  action occurred. Three-path Debug activation repair `f35ac7f` is in
+  independent review. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1303,6 +1304,40 @@ residual: Authorization remains unknown; no manual switch or capture retry.
 next_dependency: Debug-only activation-before-request repair limited to Launch,
 authorization tests, and W01 summary, then review and one permission runtime.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W02`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W02
+status: done
+
+outcome: Explicit Debug Camera-authorization mode makes the same signed process
+regular/active and boundedly confirms activation before the existing
+authorization harness. Activation failure returns closed unknown without an
+authorization call; normal Debug and hardware routes remain unchanged.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/R01/R02 reviews and R03 lifecycle.
+changed_paths: Debug Launch, authorization tests, and W01 summary; commit
+f35ac7f.
+reused_owners: Early Debug route/isolation, signed app identity, authorization
+owner/categories/120s bound, R03 termination, script, Debug plist/entitlements.
+checks_run: Structure; 11/11 authorization and 56/56 full Phase 0B tests;
+signed Debug build-only; bounded unsigned Release; Debug/Release settings and
+artifact isolation; route, redaction, path, diff, process, and residue audits.
+behavior_verified: Auth-only policy then activation then status/request order;
+both activation failures prevent authorization; normal/hardware routes do not
+activate or authorize; existing authorization cases preserved.
+scope_check: Exact three Debug/test/evidence paths; no script, project, plist,
+entitlement, product, capture, audio, media, storage, UI, iOS, or Release
+semantic change; no TCC/runtime/Computer Use.
+deviations: Initial test helper/token issues were repaired before green suites;
+existing unrelated Release warnings remain.
+residual: Genuine same-identity permission runtime and review remain; no
+prompt, grant, row, capture, media, or TCC-state claim.
+next_dependency: DV-P0B-CAMERA-AUTH-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: f35ac7f0c269f538ac230c966a519994524498d1
 ```
 
 ## Rejected Receipts
