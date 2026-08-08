@@ -116,8 +116,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R04` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | one redacted capture-auth-R04 QA run; no media | accepted_evidence / functional_fail | `baafcb9`; receipt below | Activation semantics and natural cleanup are Debug-spike defects. |
 | `DV-P0B-CAMERA-AUTH-R04-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R04@baafcb9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Read-only activation/termination exploration required before repair. |
 | `DV-P0B-CAMERA-AUTH-E04` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R04-REVIEW` | read-only exact activation/termination/script/SDK evidence | accepted_with_residual | receipt below | One NSApplication activation plus deferred terminate and direct-PID supervision supported. |
-| `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | review | `b2a2abf`; receipt below | One-shot activation, deferred termination, direct-PID supervision complete. |
-| `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | running | — | Review activation, natural exit, direct-PID supervision, and Release isolation. |
+| `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | rejected | `b2a2abf`; receipt below | Activation/termination pass; 420-second permission bound is not globally enforced. |
+| `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | rejected | recorded below | Enforce one absolute post-launch deadline and add slow-identity fake. |
+| `DV-P0B-CAMERA-AUTH-W04-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W04 review | permission script and W01 summary only | running | — | Bound identity, terminal, exit, TERM/KILL, and reap inside one 420-second deadline. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -184,7 +185,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   repaired permission-only runtime proved activation rejection before
   authorization. Review accepted the facts and identified activation semantics
   plus natural cleanup defects. Read-only E04 accepted a bounded six-path
-  repair; implementation `b2a2abf` is in independent review and capture remains
+  repair. W04 activation/termination passed review, but its permission script
+  missed a global deadline; a script-only repair is running and capture remains
   blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
@@ -1682,6 +1684,35 @@ commit: b2a2abfe6e466d32b9b43b6bb43f629a03966101
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-W04-REVIEW` of `b2a2abf`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04-REVIEW
+status: done
+verdict: reject
+
+outcome: Activation, deferred termination, and direct-PID supervision pass,
+but permission supervision does not enforce its claimed total 420-second bound.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; E04; exact W04 commit.
+reviewed_commit_and_parent: b2a2abfe6e466d32b9b43b6bb43f629a03966101;
+088ce2ddcf59f3a894aa46f3a1d8d832ea90c770.
+paths: Six authorized W04 paths.
+checks: Exact scope; structure; 59 tests; script help/negatives and independent
+natural/stuck/mismatch/trap fakes; Debug build-only; Release/isolation;
+redaction/owner/process/root.
+findings: Terminal reserve counts 11 seconds, but natural wait, two four-probe
+identity reads, TERM/KILL waits, and reap can take up to 27 seconds; identity
+capture itself is not bounded by the deadline. No enclosing 420-second bound.
+Activation, termination ordering, identity-safe signaling, no broad kill,
+hardware preservation, and Release isolation are closed.
+scope_check: Exact Debug/test/script/evidence scope; no runtime/TCC/product.
+deviations: Reviewer fake canonicalized /tmp to /private/tmp and reran green.
+residual: Permission runtime remains blocked.
+next_dependency: Script/summary repair with one absolute deadline and slow-
+identity behavioral fake; repeat review.
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-CAMERA-AUTH-W03-REVIEW` of `1ae703f`
 
