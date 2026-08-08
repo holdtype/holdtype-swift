@@ -92,7 +92,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | accepted_with_residual | recorded below | Revalidate affected capture/media packets; Build remains gated. |
 | `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
 | `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | accepted_with_residual | receipt below | Passthrough-preserving Debug repair is feasible; realized hardware compatibility remains evidence-needed. |
-| `DV-P0B-CAPTURE-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-E03` | exact Debug camera/finalizer/probe/preservation/launch/event, focused tests, W01 summary | running | — | Remove fixed source overrides/encode, add passthrough and encoded-sample preservation proof; no runtime or Build behavior. |
+| `DV-P0B-CAPTURE-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-E03` | exact Debug camera/finalizer/probe/preservation/launch/event, focused tests, W01 summary | review | `f7ff6bf`; receipt below | Native-source Debug repair complete; independent review running. No runtime or Build behavior. |
+| `DV-P0B-CAPTURE-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W02@f7ff6bf` | read-only exact 13-path commit | running | — | Review no-override capture, passthrough, preservation proof, lifecycle, and Release isolation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -142,8 +143,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Source-only `DV-DRAFT-4@2f3266a` is accepted_with_residual for evidence work.
   `DV-P0B-CAPTURE-E03` accepted a bounded Apple-native repair design. The
-  Debug-only `DV-P0B-CAPTURE-W02` repair is running; the final Build fallback
-  remains separate and does not block source evidence.
+  Debug-only `DV-P0B-CAPTURE-W02@f7ff6bf` repair is in independent review; the
+  final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
   Actual external runtime still requires explicit authorization of each exact
@@ -914,6 +915,35 @@ sample preservation, orientation, VFR, timing, resource, and byte-rate evidence
 remain hardware-dependent. DV-BUILD-6 remains separate.
 next_dependency: DV-P0B-CAPTURE-W02 Debug-only native-source repair.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W02`
+
+```text
+packet_id: DV-P0B-CAPTURE-W02
+status: done
+
+outcome: Debug-only native-source repair leaves format, frame-rate, and codec
+negotiation to macOS; finalization is QuickTime passthrough-only with full
+tracks and preferred-transform preservation; camera/final probes and stored-
+sample preservation gate Ready.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B protocol and plan;
+accepted E03 and W01/R03 owners.
+changed_paths: Thirteen exact Debug source, test, and evidence paths; commit
+f7ff6bf.
+reused_owners: Existing video-only capture, one run-owned microphone, R03
+lifecycle, event, termination, and run-root owners.
+checks_run: Structure; 45/45 focused tests; Debug build-only; bounded unsigned
+Release; Debug/Release settings and artifact isolation; stale-token,
+redaction, path, diff, and residue audits.
+scope_check: Debug, test, and evidence only; no product, script, project,
+plist, entitlement, spec, registry, UI, storage, iOS, Build, or runtime change.
+deviations: none
+residual: Real device, codec, passthrough, Continuity Camera, TCC, and
+quantitative evidence remain.
+next_dependency: DV-P0B-CAPTURE-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: f7ff6bfd445dee1857514d21b5898ab85e59cb66
 ```
 
 ## Rejected Receipts
