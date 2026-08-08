@@ -1,18 +1,20 @@
 # Dev Vlogs
 
-Status: Draft discovery; not implementation authority.
+Status: Decision-complete Draft for Phase 0B evidence; not implementation
+authority.
 
-Contract revision: `DV-DRAFT-2`.
+Contract revision: `DV-DRAFT-3`.
 
-Revision note: `DV-DRAFT-2` records the user-approved Settings-like
-multi-section structure for the separate Dev Vlogs window and keeps its visible
-content SwiftUI-only. It also distinguishes genuine macOS permission status
-from the feature's own enablement and storage-access health.
+Revision note: `DV-DRAFT-3` records the user's accepted `DV-D01` through
+`DV-D13` decisions and pins the evidence still required before activation. It
+does not authorize product implementation; Phase 0B feasibility and measurement
+evidence plus Phase 0C reconciliation remain mandatory.
 
 Implementation planning:
 [`docs/dev-vlogs-implementation-plan.md`](../../dev-vlogs-implementation-plan.md).
 
-Change mode: `discover`.
+Change mode: scoped `evolve` for accepted Draft decisions; delivery remains
+discovery-only until a later Active revision.
 
 ## Goal
 
@@ -66,6 +68,38 @@ implementation, an accepted evolution must add one narrowly named Dev Vlogs
 archive exception while preserving all existing dictation-cache defaults and
 cleanup behavior.
 
+### Contract Delta
+
+- Change ID: `DV-DELTA-DRAFT-3-D01-D13`.
+- Change mode: scoped `evolve` inside the Dev Vlogs Draft.
+- Authorized by: user acceptance of `DV-D01` through `DV-D13` on 2026-08-08.
+- Domain and clause IDs: `DV-PRODUCT-1`–`DV-PRODUCT-2`, `DV-UI-6`,
+  `DV-APP-1`–`DV-APP-5`,
+  `DV-CAPTURE-3`–`DV-CAPTURE-4`, `DV-CAPTURE-9`–`DV-CAPTURE-11`,
+  `DV-STORAGE-8`–`DV-STORAGE-10`, `DV-BUILD-2`,
+  `DV-BUILD-6`–`DV-BUILD-9`, and `DV-SHARE-1`–`DV-SHARE-3`.
+- Previous behavior: these points were recommendations or unresolved product
+  decisions in `DV-DRAFT-2`.
+- New behavior: the V1 decisions are accepted Draft behavior; only the
+  explicitly evidence-dependent feasibility and numeric-threshold questions
+  remain open.
+- Evidence basis: the accepted user decision set, the implementation plan's
+  Section 11 decision brief, and the Phase 0B protocol at
+  [`docs/qa/dev-vlogs-phase-0b-feasibility-and-measurement-protocol.md`](../../qa/dev-vlogs-phase-0b-feasibility-and-measurement-protocol.md).
+- Compatibility classification: additive Draft evolution; no shipped behavior,
+  adjacent Active contract, or release baseline changes.
+- Adjacent domains checked: dictation, transcription and output, History,
+  Recording Cache, shared Settings, Permissions, Keychain, diagnostics,
+  updates, unrelated menu behavior, iOS, and website/marketing remain
+  protected.
+- QA and design impact: Phase 0B collects feasibility and measurement evidence;
+  UI prototype work remains blocked until `build-macos-apps:swiftui-patterns`
+  is available. No UI is designed by this delta.
+- Specification paths changed: this Draft only; the separate Phase 0B protocol
+  is evidence guidance, not product authority.
+- Independent review: pending `DV-P0A-REVIEW`.
+- New contract revision: `DV-DRAFT-3`.
+
 ## Scope
 
 - a feature that is off by default;
@@ -94,6 +128,10 @@ cleanup behavior.
 
 ## Working product vocabulary
 
+- `DV-PRODUCT-1`: The final V1 user-facing feature name is `Dev Vlogs`.
+- `DV-PRODUCT-2`: V1 exposes its commands only through the HoldType app. It
+  does not define or ship a CLI or automation API.
+
 - **Trigger app**: the external app associated with the dictation start action.
   It is identified by bundle identifier and a display-name snapshot.
 - **Vlog clip**: one immutable local source video created from one eligible
@@ -106,7 +144,10 @@ cleanup behavior.
 - **Publication attempt**: a future destination-specific upload or post that
   references one completed export.
 
-## Provisional user-visible behavior
+## Accepted Draft behavior
+
+The clauses below record accepted V1 intent but remain Draft evidence until
+Phase 0B completes and Phase 0C reconciles the affected Active contracts.
 
 ### Enablement and setup
 
@@ -129,11 +170,10 @@ cleanup behavior.
 
 ### App eligibility
 
-- `DV-APP-1`: The recommended initial scope is `Only selected apps`, with an
-  empty list until the user adds at least one app.
-- `DV-APP-2`: The alternative scope is `All apps except excluded apps` and
-  requires a separate explicit selection because it has broader privacy
-  consequences.
+- `DV-APP-1`: The V1 recommended and default scope is `Only selected apps`,
+  with an empty list until the user adds at least one app.
+- `DV-APP-2`: `All apps except excluded apps` is a secondary mode and requires
+  a separate explicit selection because it has broader privacy consequences.
 - `DV-APP-3`: App rules use bundle identifiers as durable identity. Display
   names and icons are presentation metadata only.
 - `DV-APP-4`: The trigger app is captured before a HoldType-owned popover or
@@ -172,6 +212,13 @@ cleanup behavior.
 - `DV-CAPTURE-9`: The source clip does not contain transcript text, nearby
   context, prompts, API credentials, or provider responses in the first
   release.
+- `DV-CAPTURE-10`: The V1 source-preset candidate is fixed 1280x720 at 30
+  frames per second with H.264 video and AAC audio. It becomes accepted source
+  quality only if Phase 0B measurements support it and Phase 0C records that
+  evidence; this Draft does not predetermine the measurement result.
+- `DV-CAPTURE-11`: V1 mirrors only the live preview. Stored source video keeps
+  the camera's physically correct orientation. Build-time mirroring is
+  deferred.
 
 ### Camera selection and reconnection
 
@@ -188,6 +235,11 @@ cleanup behavior.
   recoverable explanation.
 - `DV-CAMERA-6`: A future explicit fallback-camera setting may be added, but it
   is not part of the initial contract.
+- `DV-CAMERA-7`: Any live preview feasibility work must wait until
+  `build-macos-apps:swiftui-patterns` is available. The preview, controls,
+  overlays, state, and feedback remain SwiftUI; a platform rendering adapter
+  may be considered only after the required evidence demonstrates a SwiftUI
+  limitation on supported macOS targets.
 
 ### Destination and storage
 
@@ -209,12 +261,15 @@ cleanup behavior.
   marks the result Ready, Incomplete, or Failed truthfully. Dictation continues.
 - `DV-STORAGE-7`: Active and finalizing vlog assets are protected from Dev
   Vlogs delete, cleanup, and build commands.
-- `DV-STORAGE-8`: The initial release does not delete vlog clips
+- `DV-STORAGE-8`: V1 does not delete vlog clips
   automatically. It shows size by day and app, warns before space is exhausted,
   and requires explicit deletion.
-- `DV-STORAGE-9`: Low-space thresholds remain an open product decision. The
-  contract must distinguish warning capacity from the hard point at which a
-  new vlog branch is skipped.
+- `DV-STORAGE-9`: Numeric low-space warning and hard-stop thresholds are
+  derived from Phase 0B produced-byte-rate and finalization-overhead evidence.
+  They must not be guessed or fixed before that evidence is reconciled.
+- `DV-STORAGE-10`: The hard stop must reserve at least one maximum-duration
+  attempt at the accepted source preset plus measured finalization overhead.
+  Warning capacity remains distinct from that hard stop.
 
 ### Folder organization
 
@@ -279,28 +334,34 @@ draft contract.
 - `DV-BUILD-1`: A build is always user-initiated in the initial release.
 - `DV-BUILD-2`: `Build Today's Vlog…` starts with all Ready, non-excluded clips
   for the selected day in chronological order. The user can narrow the app
-  scope and clip selection before confirming.
+  scope, change clip selection, and reorder selected clips before confirming.
 - `DV-BUILD-3`: A build recipe is saved before rendering and identifies its
   ordered source clip IDs and export preset.
 - `DV-BUILD-4`: Rendering writes a new output. It does not overwrite source
   clips or an earlier successful export.
 - `DV-BUILD-5`: A failed or cancelled build leaves source clips unchanged and
   may be retried from its existing recipe.
-- `DV-BUILD-6`: The first export preset should target broadly compatible
-  H.264 video with AAC audio. The provisional first canvas is 1280x720 at 30
-  frames per second.
-- `DV-BUILD-7`: Square, portrait, captions, title cards, transitions, silence
-  trimming, and automatic highlights are later presets, not prerequisites for
-  the first local build.
+- `DV-BUILD-6`: The V1 export candidate is 1280x720 at 30 frames per second
+  with H.264 video and AAC audio, contingent on Phase 0B evidence and Phase 0C
+  acceptance alongside the source-preset decision.
+- `DV-BUILD-7`: V1 provides selection and reorder, but no trim or timeline.
+  Square, portrait, captions, title cards, transitions, silence trimming, and
+  automatic highlights are deferred.
 - `DV-BUILD-8`: Every media/export operation has a bounded timeout or
   cancellable progress boundary. A retry reuses valid completed artifacts.
+- `DV-BUILD-9`: V1 build and export commands are app commands only. V1 does not
+  define or ship a CLI or automation API.
 
-### Publication
+### Export, Share, and deferred publication
 
-- `DV-PUBLISH-1`: Publication is a separate layer after a successful export.
-  A build can succeed even when no publication destination is configured.
-- `DV-PUBLISH-2`: The first useful release may stop at Export, Reveal in
-  Finder, and the system Share surface rather than requiring direct social APIs.
+- `DV-SHARE-1`: The V1 delivery boundary is Export, Reveal in Finder, and the
+  macOS Share surface. No direct publication destination is part of V1 or the
+  current persistent goal.
+- `DV-SHARE-2`: A build succeeds independently of publication configuration;
+  V1 has no publication account setup or publication attempt state.
+- `DV-SHARE-3`: Completed exports are the only future input to direct
+  publication adapters. No publication behavior may be added to capture,
+  source-clip, or build ownership.
 - `DV-PUBLISH-3`: A future direct destination keeps credentials in Keychain,
   validates current platform limits, and uses resumable or chunked upload when
   the provider supports it.
@@ -313,6 +374,9 @@ draft contract.
 - `DV-PUBLISH-6`: Publication status never changes source clip or export
   ownership.
 
+The `DV-PUBLISH-*` clauses are deferred discovery notes, not V1 behavior or
+authority to begin publication work.
+
 ### Dev Vlogs window and menu entry
 
 - `DV-UI-1`: The menu bar utility group gains one item: `Dev Vlogs…`.
@@ -320,8 +384,8 @@ draft contract.
   `HoldType: Dev Vlogs`; the feature is not inserted as another dense Settings
   sidebar section.
 - `DV-UI-3`: The window owns enablement, setup, capture health, destination,
-  app rules, day/app browsing, storage summary, builds, and publication
-  readiness.
+  app rules, day/app browsing, storage summary, and builds. Publication
+  readiness may appear only in a separately authorized deferred delivery.
 - `DV-UI-4`: The menu bar popover remains compact. It may show a small camera
   capture or degraded-state indicator but does not expose camera, destination,
   or app-rule controls.
@@ -329,10 +393,9 @@ draft contract.
   as Settings: a stable sidebar for several Dev Vlogs sections and one detail
   pane. It remains a separate feature window with its own navigation and state
   ownership rather than becoming a Settings section.
-- `DV-UI-6`: The initial section set should cover overview/readiness, capture,
-  applications, storage, clip library, builds, and permissions. Publication
-  appears only when that delivery phase exists. Exact labels, order, and the
-  default section remain open design decisions.
+- `DV-UI-6`: The V1 sidebar order is Overview, Capture, Applications, Storage,
+  Library, Builds, Permissions. Overview is the default section. Publishing is
+  absent until a separately authorized deferred delivery exists.
 - `DV-UI-7`: The Dev Vlogs Permissions section reports only genuine macOS
   permissions relevant to this feature, initially Camera and the existing
   Microphone status it shares with dictation. Feature enablement remains in the
@@ -354,10 +417,14 @@ draft contract.
   fallback.
 - Vlog source files stay separate from Recording Cache, Transcript History,
   and provider-retry audio.
+- V1 stores no transcript text beside vlog clips.
+- V1 mirrors preview only; stored source orientation remains physically
+  correct.
 - Default logs contain no video, audio, transcripts, paths, app content,
   prompts, credentials, or provider payloads.
 - Build is non-destructive; clip deletion is explicit.
-- Publication is explicit and never automatic by default.
+- V1 commands are app-only and stop at Export, Reveal in Finder, and macOS
+  Share; direct publication remains deferred.
 - All visible UI is SwiftUI.
 
 ## Required contract reconciliation before implementation
@@ -381,8 +448,10 @@ revision reconciles the following active contracts:
   an analogous but separate durability contract; it must not become a second
   owner inside Transcript History.
 
-The later reconciliation also needs a semantic contract revision beyond
-`DV-DRAFT-1`, an acceptance map, and runtime evidence from the Phase 0 spike.
+Phase 0C must advance this contract beyond `DV-DRAFT-3`, record the Phase 0B
+evidence, reconcile the protected Active contracts above, add the final
+acceptance map, and explicitly mark a new revision Active. Until then, this
+Draft cannot authorize implementation.
 
 ## Failure and recovery policy
 
@@ -517,7 +586,7 @@ owners. This permits:
 - changing a platform adapter without changing clip storage;
 - handling ambiguous uploads without duplicate public posts.
 
-## Provisional media and storage budget
+## Candidate media and storage budget
 
 For a 720p H.264 source at roughly 2-5 Mbps plus 128 Kbps AAC audio, the
 calculated storage range is approximately:
@@ -527,9 +596,11 @@ calculated storage range is approximately:
 - 0.5-1.2 GB for thirty one-minute clips in a day;
 - 0.25-0.58 GB for one maximum 15-minute attempt.
 
-These are planning estimates, not measured HoldType results. A capture spike
-must measure real files from the built-in camera, a common USB webcam, and
-Continuity Camera before quality, warning, and hard-stop thresholds are fixed.
+These are planning estimates, not measured HoldType results. Phase 0B must
+measure real files from the built-in camera, a USB camera when available, and
+connected iPhone Continuity Camera before source quality, warning, and
+hard-stop thresholds are accepted. No planning estimate in this section is a
+numeric product threshold.
 
 The 720p H.264/AAC direction is a pragmatic first default because Apple's
 1280x720 export preset produces H.264 with AAC, and X recommends 720p H.264
@@ -615,14 +686,16 @@ prototype rather than copying an established end-to-end pattern.
 
 ### Phase 0: contract and feasibility
 
-- settle the open product decisions below;
+- measure the evidence-dependent questions that remain after `DV-D01` through
+  `DV-D13`;
 - measure camera start latency and audio/video drift;
 - verify one-audio-owner capture and muxing;
 - test internal and external destinations, unplug, low-space, sleep, quit, and
   camera-disconnect behavior;
 - measure actual storage and CPU impact at candidate presets;
-- produce a SwiftUI information-architecture prototype for the separate
-  window.
+- use the bounded Phase 0B protocol linked by this Draft;
+- keep UI preview feasibility and prototype activity blocked until
+  `build-macos-apps:swiftui-patterns` is available.
 
 ### Phase 1: local clip MVP
 
@@ -652,63 +725,70 @@ prototype rather than copying an established end-to-end pattern.
 
 ### Needs deeper research
 
-- whether the feature should ever preserve transcript text for captions;
-- whether app changes during a long dictation should terminate only the vlog
-  branch;
+- measured camera preparation/start latency and the numeric V1 product budget;
+- measured audio/video offset and drift across short, typical, and
+  maximum-duration captures;
+- actual byte rate and finalization overhead needed to derive the low-space
+  warning and hard-stop thresholds;
+- whether measured 720p/30 H.264/AAC results support accepting the fixed V1
+  candidate;
 - the right preview/indicator balance during frequent short captures;
 - real Continuity Camera and multi-camera device identity behavior;
-- social-platform presets, account tiers, upload limits, and authentication at
-  implementation time;
-- whether advanced users need a CLI/automation surface in addition to the app
-  command model.
+- the SwiftUI-first preview path on supported macOS targets after the required
+  UI skill is available.
 
-## Verification mapping for a future implementation
+## Acceptance and evidence mapping
 
-- Enablement: fresh install off, explicit enable, explicit disable, no capture
-  from passive window opening.
-- App policy: selected app, excluded app, unknown app, app rename, duplicate
-  display names, HoldType window focus, and menu-started dictation.
-- Camera: permission states, stable selection, USB disconnect/reconnect, busy
-  device, Continuity Camera disappearance, and no silent fallback.
-- Destination: default Movies location, external folder, rename/remount, stale
-  bookmark, read-only folder, low space, and unplug during capture.
-- Capture: exact one clip per eligible dictation, shared audio correctness,
-  bounded camera start, drift, user stop, duration limit, discard, quit, crash,
-  and dictation success under every vlog failure.
-- Storage: correct day/app hierarchy, stable IDs, truthful sizes, active-file
-  protection, explicit deletion, and index reconstruction.
-- Build: deterministic order, excluded clips, cancellation, retry, missing
-  source, no overwrite, playable H.264/AAC export, and unchanged sources.
-- Publication: explicit confirmation, credential isolation, bounded upload,
-  provider processing, retryable failure, and outcome-uncertain duplicate
-  protection.
-- Runtime UI: a future visible/interaction change requires Computer Use QA with
-  the repository's sanitized launch and cleanup rules.
+These stable IDs frame later implementation acceptance. Phase 0B evidence is
+governed by the linked protocol; passing a Phase 0B gate does not activate this
+Draft.
 
-## Unknowns requiring confirmation
+| Acceptance ID | Required behavior | Phase 0B evidence |
+| --- | --- | --- |
+| `DV-ACC-ENABLE-1` | Fresh installs stay Off; enable/disable is explicit; passive window opening never captures. | Not exercised by the debug-only spike. |
+| `DV-ACC-APP-1` | Selected/default, excluded, unknown, renamed, duplicate-name, HoldType-focus, and menu-start trigger cases preserve bundle-ID policy and the start-time snapshot. | `DV-P0B-E01`; later product QA required. |
+| `DV-ACC-CAMERA-1` | Preferred-device identity, no silent fallback, busy/disconnect/reconnect, and Continuity Camera behavior are truthful. | `DV-P0B-E01`, `DV-P0B-E02`, `DV-P0B-E04`. |
+| `DV-ACC-CAPTURE-1` | One microphone owner produces at most one playable audio/video clip for an eligible attempt; every vlog failure leaves dictation usable. | `DV-P0B-E02`, `DV-P0B-E04`, `DV-P0B-E07`. |
+| `DV-ACC-MEDIA-1` | Candidate quality, preparation, sync/drift, resource use, byte rate, and finalization overhead are measured before numeric product thresholds are accepted. | `DV-P0B-E06`. |
+| `DV-ACC-STORAGE-1` | Internal/external destination handling, useful capacity, no silent fallback, unplug/interruption, and truthful recovery are demonstrated. | `DV-P0B-E03`, `DV-P0B-E04`. |
+| `DV-ACC-LIBRARY-1` | Day/app hierarchy, stable IDs, truthful sizes, active-file protection, explicit Delete, and index reconstruction work without transcript persistence. | Later product QA required. |
+| `DV-ACC-BUILD-1` | Selection/reorder, deterministic output, cancel/retry, missing-source handling, no overwrite, playable output, and unchanged sources are demonstrated. | Capture/mux feasibility only in `DV-P0B-E02`; later build QA required. |
+| `DV-ACC-SHARE-1` | V1 exposes Export, Reveal in Finder, and macOS Share only; no direct adapter or publication state exists. | Later product QA required. |
+| `DV-ACC-UI-1` | Overview opens first; delivered sections follow the accepted order; all visible UI is SwiftUI. | `DV-P0B-E05` remains blocked until the required skill is available. |
 
-These are real product decisions, not implementation questions:
+## Resolved decisions and evidence-dependent unknowns
 
-1. Is `Only selected apps` the correct default after the global feature is
-   enabled, or should setup offer `All apps except exclusions` with equal
-   prominence?
-2. Should an actual switch from an eligible external app to an ineligible app
-   during a long dictation stop the vlog branch, or is trigger-app-at-start the
-   complete policy?
-3. Is the same dictation microphone always the vlog audio source for V1, or
-   must a camera's built-in microphone be selectable?
-4. Is 720p/30 H.264 the correct source default, with 1080p deferred?
-5. Should the camera image be mirrored in the stored source, only in preview,
-   or only as a build setting?
-6. What low-space warning and hard-stop thresholds are acceptable?
-7. Should source clips have no automatic retention forever, or should an
-   explicit max-days/max-size policy be part of the first release?
-8. Does the first build need only chronological concatenation, or must it also
-   support reorder and trim?
-9. Should V1 store accepted transcript text beside a clip for captions/search,
-   or keep vlog media strictly separate from transcript persistence?
-10. Is `Dev Vlogs` the final user-facing name?
-11. Is a CLI command an actual product requirement, or are app commands such as
-    `Build Today's Vlog…` sufficient initially?
-12. Which publication destination should be first after local export is proven:
-    X, YouTube, Mastodon, or only the macOS Share surface?
+The user resolved every V1 product choice in the decision brief on 2026-08-08:
+
+| Decision | Accepted Draft result |
+| --- | --- |
+| `DV-D01` | Overview first; Overview, Capture, Applications, Storage, Library, Builds, Permissions; Publishing absent until deferred delivery. |
+| `DV-D02` | Selected apps is recommended/default; all-apps-with-exclusions is secondary. |
+| `DV-D03` | Trigger app is frozen at start; later focus changes do not stop or move the clip. |
+| `DV-D04` | The dictation microphone is the only V1 audio source. |
+| `DV-D05` | Fixed 720p/30 H.264/AAC is the V1 candidate, contingent on Phase 0 evidence. |
+| `DV-D06` | Mirror preview only; source remains physically correct; build-time mirroring is deferred. |
+| `DV-D07` | Numeric low-space thresholds come from measured byte rate and overhead; the hard stop reserves at least one maximum-duration attempt plus finalization overhead. |
+| `DV-D08` | V1 has no automatic retention or deletion. |
+| `DV-D09` | Build supports selection and reorder, with no trim or timeline. |
+| `DV-D10` | V1 persists no transcript text beside clips. |
+| `DV-D11` | V1 uses app commands only, with no CLI. |
+| `DV-D12` | V1 delivery stops at Export, Reveal in Finder, and macOS Share. |
+| `DV-D13` | The final V1 name is `Dev Vlogs`. |
+
+No unresolved product-choice question remains from `DV-D01` through
+`DV-D13`. The remaining unknowns are evidence-dependent:
+
+- `DV-EU-1`: measured camera preparation/start latency and the numeric V1
+  product budget derived from it;
+- `DV-EU-2`: measured initial audio/video offset and maximum drift over short,
+  typical, and maximum-duration attempts;
+- `DV-EU-3`: measured produced byte rate and finalization overhead used to set
+  numeric warning and hard-stop capacity;
+- `DV-EU-4`: whether the controlled hardware/storage matrix supports accepting
+  fixed 720p/30 H.264/AAC for V1;
+- `DV-EU-5`: the supported SwiftUI-first preview path, pending availability of
+  `build-macos-apps:swiftui-patterns` and bounded feasibility evidence.
+
+Phase 0B records these results without inventing thresholds. Phase 0C must
+classify and reconcile them before any Active implementation revision.
