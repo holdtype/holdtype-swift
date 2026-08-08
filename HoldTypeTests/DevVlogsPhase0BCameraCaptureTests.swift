@@ -149,6 +149,48 @@ struct DevVlogsPhase0BCameraCaptureTests {
         #expect(afterRecording.resolution == .failed(.firstFrameUnavailable))
     }
 
+    @Test func concreteStopPreservesSteadyFailureThroughTerminalCleanup() async {
+        let failures: [DevVlogsPhase0BCameraCaptureError] = [
+            .disconnectedDuringCapture,
+            .runtimeFailure,
+        ]
+
+        for failure in failures {
+            let capture = DevVlogsPhase0BCameraCapture(monotonicClock: { 12 })
+            capture.armSteadyCaptureForTesting(
+                .init(
+                    deviceUniqueID: "not-observed-or-logged",
+                    outputFileURL: URL(fileURLWithPath: "/tmp/phase0b-concrete-stop.mov"),
+                    setupTimeout: .seconds(1)
+                )
+            )
+            let stopTask = Task { @MainActor in try await capture.stopCapture() }
+            var yields = 0
+            while !capture.stopIsPending, yields < 20 {
+                yields += 1
+                await Task.yield()
+            }
+            #expect(capture.stopIsPending)
+
+            capture.failActiveCapture(with: failure)
+            do {
+                _ = try await stopTask.value
+                Issue.record("Concrete stop should preserve its steady failure")
+            } catch let received as DevVlogsPhase0BCameraCaptureError {
+                #expect(received == failure)
+            } catch {
+                Issue.record("Concrete stop returned an unexpected error type")
+            }
+
+            #expect(capture.sessionCleanupCount == 1)
+            #expect(capture.isTerminal)
+            #expect(!capture.stopIsPending)
+            capture.failActiveCapture(with: .deviceUnavailableDuringStart)
+            #expect(capture.sessionCleanupCount == 1)
+            #expect(capture.isTerminal)
+        }
+    }
+
     @Test func foreignDomainCollisionsAndUnknownCodesRemainUnknown() {
         let recognizedCodes = [
             AVError.applicationIsNotAuthorized.rawValue,

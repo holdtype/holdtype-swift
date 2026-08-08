@@ -27,8 +27,7 @@ enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
 enum DevVlogsPhase0BCameraFailureContext: Equatable { case starting, steadyCapture }
 struct DevVlogsPhase0BCameraStartEvidence: Equatable {
     enum Resolution: Equatable { case pending, ready, failed(DevVlogsPhase0BCameraCaptureError) }
-    private(set) var recordingStartTime: TimeInterval?
-    private(set) var firstFrameTime: TimeInterval?
+    private(set) var recordingStartTime: TimeInterval?, firstFrameTime: TimeInterval?
     private(set) var firstFramePresentationTime: TimeInterval?
     private(set) var resolution = Resolution.pending
     var failure: DevVlogsPhase0BCameraCaptureError? {
@@ -87,35 +86,26 @@ protocol DevVlogsPhase0BCameraCapturing: AnyObject {
 @MainActor
 final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturing {
     private enum State { case idle, starting, capturing, stopping, terminal }
-    private let session = AVCaptureSession()
-    private let movieOutput = AVCaptureMovieFileOutput()
-    private let sampleOutput = AVCaptureVideoDataOutput()
-    private let sampleQueue = DispatchQueue.main
+    private let session = AVCaptureSession(), movieOutput = AVCaptureMovieFileOutput()
+    private let sampleOutput = AVCaptureVideoDataOutput(), sampleQueue = DispatchQueue.main
     private let sessionQueue = DispatchQueue(label: "app.holdtype.phase0b.camera-session")
     private let monotonicClock: () -> TimeInterval
     private var state = State.idle
-    private var request: DevVlogsPhase0BCameraCaptureRequest?
-    private var requestTime: TimeInterval?
+    private var request: DevVlogsPhase0BCameraCaptureRequest?, requestTime: TimeInterval?
     private var startEvidence = DevVlogsPhase0BCameraStartEvidence()
-    private var deviceClass = DevVlogsPhase0BDeviceClass.unknown
-    private var redactedDeviceLabel = "camera"
-    private var startContinuation: CheckedContinuation<Void, Error>?
-    private var stopContinuation: CheckedContinuation<Void, Error>?
-    private var startTimeoutTask: Task<Void, Never>?
-    private var stopTimeoutTask: Task<Void, Never>?
+    private var deviceClass = DevVlogsPhase0BDeviceClass.unknown, redactedDeviceLabel = "camera"
+    private var startContinuation: CheckedContinuation<Void, Error>?, stopContinuation: CheckedContinuation<Void, Error>?
+    private var startTimeoutTask: Task<Void, Never>?, stopTimeoutTask: Task<Void, Never>?
     private let steadyFailureTerminator = DevVlogsPhase0BSteadyCaptureTerminator()
     private weak var configuredDevice: AVCaptureDevice?
     private var originalFormat: AVCaptureDevice.Format?
-    private var originalMinimumFrameDuration: CMTime?
-    private var originalMaximumFrameDuration: CMTime?
+    private var originalMinimumFrameDuration: CMTime?, originalMaximumFrameDuration: CMTime?
     private var observers: [NSObjectProtocol] = []
-    private var failureContext: DevVlogsPhase0BCameraFailureContext {
-        state == .capturing || state == .stopping ? .steadyCapture : .starting
-    }
-    init(monotonicClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
-        self.monotonicClock = monotonicClock
-        super.init()
-    }
+    private(set) var sessionCleanupCount = 0
+    var stopIsPending: Bool { stopContinuation != nil }
+    var isTerminal: Bool { state == .terminal }
+    private var failureContext: DevVlogsPhase0BCameraFailureContext { state == .capturing || state == .stopping ? .steadyCapture : .starting }
+    init(monotonicClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) { self.monotonicClock = monotonicClock; super.init() }
     func startCapture(
         _ request: DevVlogsPhase0BCameraCaptureRequest
     ) async throws -> DevVlogsPhase0BCameraCaptureStart {
@@ -177,13 +167,22 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             state = .terminal
             return artifact
         } catch {
-            try? await finishSession(timeout: request.setupTimeout)
-            state = .terminal
-            throw DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
+            let failure = DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
                 error,
                 context: failureContext
             )
+            try? await finishSession(timeout: request.setupTimeout)
+            state = .terminal
+            throw failure
         }
+    }
+    func armSteadyCaptureForTesting(_ request: DevVlogsPhase0BCameraCaptureRequest) {
+        state = .capturing; self.request = request
+        let time = monotonicClock()
+        requestTime = time
+        startEvidence.recordingDidStart(at: time)
+        startEvidence.firstFrameDidArrive(at: time, presentationTime: nil)
+        steadyFailureTerminator.arm()
     }
     func cancelCapture() async {
         if await steadyFailureTerminator.waitForFailure() != nil {
@@ -296,7 +295,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             },
         ]
     }
-    private func failActiveCapture(with error: DevVlogsPhase0BCameraCaptureError) {
+    func failActiveCapture(with error: DevVlogsPhase0BCameraCaptureError) {
         if state == .starting {
             startEvidence.fail(error)
             resumeStartFromEvidence()
@@ -320,6 +319,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         state = .stopping
     }
     private func finishSession(timeout: Duration) async throws {
+        sessionCleanupCount += 1
         observers.forEach(NotificationCenter.default.removeObserver)
         observers.removeAll()
         sampleOutput.setSampleBufferDelegate(nil, queue: nil)
