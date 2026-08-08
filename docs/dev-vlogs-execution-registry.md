@@ -89,8 +89,8 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | `e6b3a13`; receipt below | Test-only seam and fake/internal evidence complete; no external write. Independent review running. |
-| `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | running | — | Review exact-root authority, wrapper bounds, cleanup safety, claims, and scope before runtime authorization. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | rejected | `e6b3a13`; receipt below | Repair suite-side broad-root/class validation and fully bounded wrapper probes/process cleanup. No external runtime. |
+| `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -132,10 +132,11 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- `DV-P0B-STORAGE-W02@e6b3a13` completed its explicit-base authority, marker,
-  no-overwrite, cleanup, and bounded-wrapper seam with fake/internal evidence
-  only. Independent review is running. These mechanics use no media preset,
-  byte-rate, or threshold clause and remain unaffected by the quality delta.
+- `DV-P0B-STORAGE-W02@e6b3a13` passed its fake/internal checks but independent
+  review rejected suite-side broad-root/class validation and incomplete wrapper
+  timeout/process bounds. Repair is limited to the same three test/tooling
+  paths; no external runtime may run first. The packet remains unaffected by
+  the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -678,6 +679,36 @@ commit: e6b3a13f046a6e0ac703643c87ee869e222ead6f
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-STORAGE-W02-REVIEW` of `e6b3a13`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW
+status: done
+verdict: reject
+
+outcome: Exact scope, internal mechanics, focused tests, and residue checks
+pass, but the external runtime seam is not independently fail-closed or fully
+bounded. External runtime remains forbidden before repair and repeat review.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+accepted W01/E02 evidence; W02 packet and receipt.
+changed_paths: none
+checks_run: Exact commit/parent/three-path/mode/blob audit; diff and structure;
+24 focused cells; Debug build; wrapper syntax/help and nine negatives; collision,
+64 KiB, redirected-prefix, protected-owner, redaction, process, and residue
+audits. No external I/O.
+scope_check: Commit scope otherwise clean; no product, project, entitlement,
+settings, protected storage, media, UI, hardware, dependency, or quality change.
+deviations: none
+residual: Direct environment-backed XCTest can bypass wrapper-only broad-root
+and SSD/HDD checks because suite validation accepts `/` syntactically and
+discards destinationClass. External diskutil/df probes, caffeinate wait, and
+captured-descendant exit verification are not fully bounded.
+next_dependency: Original owner repairs the same three paths and repeats review;
+no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: e6b3a13f046a6e0ac703643c87ee869e222ead6f
+```
 
 ### `DV-P0B-CAPTURE-W01-REVIEW` of `9d9efec`
 
