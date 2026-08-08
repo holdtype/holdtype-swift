@@ -89,11 +89,11 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`; receipts below | Wrapper identity-completeness repair complete; repeat review running. No external runtime. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | rejected | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`; receipts below | Repair fresh caffeinate identity validation immediately before KILL. No external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `986af6c` | read-only exact three-path repair commit | rejected | recorded below | Return exact three remaining findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
-| `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | running | — | Recheck atomic identity capture, exact pre-signal set/identity validation, and trap status propagation. |
+| `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -135,10 +135,10 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- `DV-P0B-STORAGE-W02` wrapper repair `d0c9ce5` makes identity capture atomic,
-  preserves bounded probe status through EXIT traps, and requires exact
-  member-set plus identity revalidation before group signaling. Repeat review
-  is running. No external runtime may run before acceptance; the packet remains
+- `DV-P0B-STORAGE-W02` wrapper repair `d0c9ce5` closed supervisor-group
+  identity capture and signaling. Repeat review found one remaining PID-reuse
+  gap: caffeinate identity is not freshly revalidated immediately before KILL.
+  No external runtime may run before repair acceptance; the packet remains
   unaffected by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
@@ -861,6 +861,35 @@ next_dependency: Original owner repairs only the wrapper, adds a deterministic
 partial-identity fixture, and repeats review; no external runtime first.
 runtime_or_visual_handoff: none
 reviewed_commit: 767edd9eb717f2a5324a79a3aa37dc3086657427
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW-R3` of `d0c9ce5`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW-R3
+status: done
+verdict: reject
+
+outcome: Supervisor-group identity capture and signaling are closed, but the
+caffeinate escalation path can KILL a recycled or unrelated PID and report
+cleanup success.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+accepted W01/E02 evidence and prior W02 reviews.
+changed_paths: none
+checks_run: Exact wrapper-only repair audit; syntax/help; nine negatives;
+atomic identity, member-set, probe status, EXIT-trap, lifecycle, caffeinate,
+reap, structural, redaction, protected-owner, path, residue, and process
+checks. No external I/O.
+scope_check: Clean wrapper-only repair; no Swift, protected, or quality change.
+deviations: none
+residual: `stop_caffeinate` validates identity before TERM but not freshly
+before KILL. Deterministic direct and EXIT-trap PID-recycle fixtures reproduce
+TERM then KILL to the changed identity. Actual external/runtime residuals
+remain.
+next_dependency: Original owner repairs only the wrapper and repeats review;
+no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: d0c9ce529f8b43234575ce9db2e51a0b007bb484
 ```
 
 ### `DV-P0B-CAPTURE-W01-REVIEW` of `9d9efec`
