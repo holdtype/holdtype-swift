@@ -122,7 +122,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `48c0d5c` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded same-signed permission-only runtime is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | one redacted capture-auth-R05 QA run; no media | accepted_evidence / functional_fail | `4101f74`; receipt below | Activation timed out before authorization; a second same-launch Debug process required exact cleanup TERM. |
 | `DV-P0B-CAMERA-AUTH-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R05@4101f74` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Evidence accepted; additional same-launch process is a Debug-spike defect. |
-| `DV-P0B-CAMERA-AUTH-E05` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R05-REVIEW` | read-only exact Debug entry/auth/launch/script/process evidence | running | — | Identify the second-process creation/ownership path and minimal repair; no runtime. |
+| `DV-P0B-CAMERA-AUTH-E05` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R05-REVIEW` | read-only exact Debug entry/auth/launch/script/process evidence | accepted_with_residual | receipt below | Exact creator is unrecoverable; script-only marker-bound multi-process supervision is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-W05` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E05` | exact permission script, authorization script-structure tests, W01 summary | running | — | Implement marker-bound multi-process supervision; hardware path must remain byte-identical. |
+| `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-W05` | read-only exact repair commit | queued | — | No permission retry before accepted repair review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -196,8 +198,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   authorization status or requestAccess. Its direct app PID exited naturally,
   but a second same-launch Debug process required exact cleanup TERM. Review
   accepted the runtime facts and classified that additional lifetime as a
-  Debug-spike launch/supervision defect. Read-only ownership exploration is
-  running; permission and capture remain blocked. The
+  Debug-spike launch/supervision defect. Read-only ownership exploration found
+  the exact creator unrecoverable from retained evidence and accepted a
+  script-only, run-marker-bound multi-process supervision design. Its writable
+  repair is running; permission and capture remain blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1825,6 +1829,43 @@ next_dependency: Bounded read-only launch/process-ownership exploration, then
 the smallest proven repair and independent review.
 runtime_or_visual_handoff: none
 reviewed_commit: 4101f7439cae82dd630c746d802ea2cc62179176
+```
+
+### `DV-P0B-CAMERA-AUTH-E05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E05
+status: done
+
+outcome: The exact creator of the second R05 process is not recoverable from
+retained evidence. A script-only fail-closed multi-process ownership repair can
+capture the missing topology and supervise every proven run-owned process.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+W04/W04-R1 and R05 evidence/review; repository Swift/tooling rules; installed
+ps and lsof documentation.
+changed_paths: none
+evidence_inspected: Exact Debug app entry, authorization, launch, permission
+script, focused tests, W01 summary, all R05 files, and narrow Git history.
+process_ownership: Permission mode launches one direct env-exec child; build
+work finishes before launch; inspected Swift contains no explicit process or
+relaunch path. Current scalar supervision loses visibility after its direct
+child exits. R05 retained no second PID, PPID, command, start time, or marker.
+minimal_repair: Script baselines the exact Debug executable, proves new
+run-owned identities with exact executable/start/command plus the unique run-
+root environment marker, supervises all proven identities under one deadline,
+signals only after fresh proof, fails without signaling uncertainty, and keeps
+the hardware block byte-identical. Update only the stale script-structure test
+and W01 summary with the fake matrix.
+checks_run: Read-only source/history/man-page and diff-hygiene inspection; no
+build, test, launch, signal, camera, microphone, or runtime action.
+scope_check: Debug permission launch/process ownership only; no product,
+configuration, TCC, capture, media, storage, UI, iOS, Build, or publication.
+deviations: none
+residual: A reparented process may keep creator unknown even when marker proves
+run ownership; an unmarked same-binary process must remain unsignaled and make
+the run inconclusive.
+next_dependency: Script/test/summary repair and independent review.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
