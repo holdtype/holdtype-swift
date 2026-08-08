@@ -64,8 +64,9 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | accepted_with_residual | `9d9efec`, repair `ff70155`; receipts below | Debug/fake/build feasibility accepted; real hardware/media evidence and shipping audio lease remain. |
 | `DV-P0B-CAPTURE-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-W01@9d9efec` | read-only | rejected | recorded below | Return exact four blockers to the original owner; runtime/storage remain blocked. |
 | `DV-P0B-CAPTURE-W01-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | repair `ff70155` | read-only | accepted_with_residual | recorded below | Storage is dependency-ready; hardware remains a separate controlled runtime gate. |
-| `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | running (repair 1) | `2486b56`; rejected review recorded below | Repair cleanup-prefix symlink validation and stale-bookmark claim; repeat independent review. |
+| `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | accepted_with_residual | `2486b56`, repair `69b2d16`; receipts below | Internal bookmark/capacity/promotion/cleanup evidence accepted; external/media runtime remains. |
 | `DV-P0B-STORAGE-W01-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-W01@2486b56` | read-only | rejected | recorded below | Return exact safety/claim repairs to original owner; external/runtime work remains blocked. |
+| `DV-P0B-STORAGE-W01-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | repair `69b2d16` | read-only | accepted_with_residual | recorded below | Controlled external/runtime evidence may be packetized separately. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -85,11 +86,11 @@ They are not yet an Active implementation epoch.
 - Accepted evidence is limited to Debug/fake/build feasibility. It does not
   establish camera/TCC/device/media measurements, E07 dictation non-regression,
   or the shipping shared-audio lease.
-- Running packet: repair cycle 1 for `DV-P0B-STORAGE-W01`.
-- Independent review rejected `2486b56`: cleanup did not revalidate the required
-  temp-prefix component against symlink substitution immediately before
-  recursive deletion, and the stale-bookmark summary claim exceeded the test.
-  External-drive, interruption, and representative-media runtime remain gated.
+- Repaired storage packet `69b2d16` is accepted_with_residual after independent
+  review. The original `2486b56` rejection remains recorded below.
+- Accepted storage evidence is limited to fake/internal APFS bookmark,
+  capacity, exclusive-promotion, redaction, and cleanup mechanics. External
+  drives, true-stale/remount, interruption, and representative media remain.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -349,6 +350,58 @@ remain outside this acceptance.
 next_dependency: DV-P0B-STORAGE-W01 or separately controlled hardware runtime.
 runtime_or_visual_handoff: none
 reviewed_commit: ff70155aa0559678487eacb67bc16a62ce199b75
+```
+
+### `DV-P0B-STORAGE-W01`
+
+```text
+packet_id: DV-P0B-STORAGE-W01
+status: done
+
+outcome: Test-only storage harness verifies marker-owned roots, ordinary
+bookmark rename-following, injected capacity/destination states, synchronized
+writes, APFS exclusive no-overwrite promotion, truthful partial classification,
+redaction, and exact cleanup. Repair 69b2d16 hardens cleanup ancestry identity.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E03/E08; accepted E01 map;
+bounded W01 and R1 packets.
+changed_paths: Two storage test files and one redacted QA summary; commits
+2486b56 and 69b2d16.
+reused_owners: Internal FileManager temporary directory and ordinary unsandboxed
+Foundation bookmarks only; no protected storage owner.
+checks_run: Structure; 19 focused tests; redirected-prefix survival; bounded
+Debug build; diff/path and zero-residue/process audits.
+scope_check: Internal marker-owned temp roots only; no product source, project,
+entitlement, UserDefaults, external volume, user archive, media, UI, or hardware.
+deviations: Initial commit was rejected and repaired by the original owner.
+residual: True-stale/external bookmark recovery, SSD/HDD, read-only/remount/
+disconnect, representative media, and numeric Phase 0C inputs remain.
+next_dependency: DV-P0B-STORAGE-W01-REVIEW-R1
+runtime_or_visual_handoff: none
+accepted_repair_commit: 69b2d163a696b4a13fab3e58475ad3065b57269f
+```
+
+### `DV-P0B-STORAGE-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W01-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Cleanup prefix/root identity and stale-claim repairs close both prior
+findings; internal XCTest/storage feasibility is accepted.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E03/E08; original packet; rejected
+review; repair 69b2d16.
+changed_paths: none
+checks_run: Exact three-path diff; ancestry/prefix/root/attack-fixture review;
+structure; 19 cases; bounded Debug build; zero-residue and process audit.
+scope_check: Clean; no product, external-volume, app, hardware, UI, provider,
+Keychain, or representative-media access.
+deviations: none
+residual: External/read-only/remount/interruption/bookmark/media and numeric
+threshold evidence remain.
+next_dependency: Separately controlled external/runtime storage evidence.
+runtime_or_visual_handoff: none
+reviewed_commit: 69b2d163a696b4a13fab3e58475ad3065b57269f
 ```
 
 ## Rejected Receipts
