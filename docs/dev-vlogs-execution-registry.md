@@ -61,7 +61,8 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-E01` | `/root/dv_p0b_capture_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only capture/source/platform evidence | accepted_with_residual | recorded below | Debug-only capture spike feasible; shipping audio lease remains Phase 0C work. |
 | `DV-P0B-STORAGE-E01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only storage/source/platform/environment evidence | accepted_with_residual | recorded below | Test-only storage spike feasible; physical disconnect/read-only cells remain environment residuals. |
 | `DV-P0B-E01-REVIEW` | `/root/dv_p0b_e01_review` | `DV-DRAFT-3@ed108fa` | both E01 maps | read-only | accepted_with_residual | recorded below | Writable capture/storage packets must be serialized and keep distinct QA run roots. |
-| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | running | — | Implement/build/fake-verify isolated E02 harness; no runtime camera claim yet. |
+| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | running (repair 1) | `9d9efec`; rejected review recorded below | Repair startup isolation, terminal cleanup, and bounded waits; repeat independent review before runtime/storage. |
+| `DV-P0B-CAPTURE-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-W01@9d9efec` | read-only | rejected | recorded below | Return exact four blockers to the original owner; runtime/storage remain blocked. |
 | `DV-P0B-STORAGE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted capture artifact contract or explicit independent subset | exact storage test paths assigned later | queued | — | Implement marker/capacity/bookmark/promotion harness; serialize with capture build/runtime. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
@@ -77,7 +78,11 @@ They are not yet an Active implementation epoch.
 
 - Accepted E01 evidence supports bounded Debug-only capture and test-only
   storage spikes without a shipping dependency.
-- Running packet: serialized `DV-P0B-CAPTURE-W01`.
+- Running packet: serialized repair cycle 1 for `DV-P0B-CAPTURE-W01`.
+- Independent review rejected `9d9efec`: ordinary product scenes still composed
+  under the harness gate; steady-state camera errors could be nonterminal;
+  termination did not await cleanup; export and one script probe were not fully
+  bounded. Release isolation and path scope passed.
 - `DV-P0B-STORAGE-W01` remains queued behind the capture artifact contract or
   an explicitly bounded independent subset. Shared build/runtime activity is
   serialized.
@@ -85,8 +90,8 @@ They are not yet an Active implementation epoch.
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
-- External-drive availability is not yet established; record it when the
-  storage runtime matrix becomes dependency-ready.
+- E01 observed writable external SSD and HDD classes. Exact authorized scratch
+  bases and runtime availability remain pending for the storage packet.
 - `build-macos-apps:swiftui-patterns` was unavailable during planning; do not
   dispatch UI design or implementation until resolved.
 - Direct publication is outside the goal and must never be dispatched.
@@ -287,4 +292,33 @@ deviations: none
 residual: Capture W01 is dependency-ready; storage and UI remain gated.
 next_dependency: DV-P0B-CAPTURE-W01
 runtime_or_visual_handoff: none
+```
+
+## Rejected Receipts
+
+### `DV-P0B-CAPTURE-W01-REVIEW` of `9d9efec`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01-REVIEW
+status: done
+verdict: reject
+
+outcome: The Debug harness builds and passes focused fake tests, but mandatory
+startup-isolation, terminal-cleanup, and bounded-operation safeguards fail.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; original W01 packet;
+exact commit and protected adjacent contracts.
+changed_paths: none
+checks_run: Exact 15-path diff; structure; 13 fake tests; Debug and Release
+builds; build-setting and built-artifact isolation; script checks; final audit.
+scope_check: Path scope and Release isolation pass; no hardware/TCC/UI/provider
+runtime occurred.
+deviations: none
+residual: Product scenes still compose under the harness gate; steady-state
+camera failures may not terminate and clean up; quit does not await cleanup;
+the export timeout and one hardware-script build-settings probe are not fully
+bounded. All real hardware/media evidence and the shipping lease remain open.
+next_dependency: Original capture owner repairs the exact findings, then a new
+independent review runs before storage or hardware runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: 9d9efecc36e6337790a2f80e2571d3118e4bc404
 ```
