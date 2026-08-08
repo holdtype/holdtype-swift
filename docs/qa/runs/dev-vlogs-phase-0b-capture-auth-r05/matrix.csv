@@ -1,0 +1,2 @@
+case_id,mode,route_count,start_count,terminal_count,authorization_result,terminal_category,furthest_stage,functional_result,residual_class,request_access_reached,prompt_observed,prompt_action,direct_pid_natural_exit,supervisor_fallback,additional_process_cleanup,capture,microphone,media,cleanup_result
+camera-authorization-supervised,request_camera_permission,1,1,1,not_reached,camera_authorization_activation_timed_out,activation_requested,fail,environment or signing residual,no,no,none,yes,none,exact_term,not_run,not_run,not_run,pass_after_additional_process_term

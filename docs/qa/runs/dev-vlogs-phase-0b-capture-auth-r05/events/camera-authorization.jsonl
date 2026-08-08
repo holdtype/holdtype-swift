@@ -1,0 +1,2 @@
+{"action":"permission_route","case_id":"camera-authorization-supervised","evidence_source":"accepted_operator_summary","furthest_stage":"route_started","result":"started","run_id":"capture-auth-r05"}
+{"action":"permission_route_terminal","case_id":"camera-authorization-supervised","category":"camera_authorization_activation_timed_out","evidence_source":"accepted_operator_summary","furthest_stage":"activation_requested","result":"timed_out","run_id":"capture-auth-r05"}

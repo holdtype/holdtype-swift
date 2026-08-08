@@ -1,0 +1,56 @@
+{
+  "packet_id": "DV-P0B-CAMERA-AUTH-R05",
+  "captured_at_utc": "2026-08-08T21:06:27Z",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "product_commit": "781d8c4161aa8acbd8a5c99e9f9c8d0c0624f0da",
+  "supervisor_repair_commit": "48c0d5cd34e9b208ade6b1ae61498fa8f77ee254",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "debug_identity": {
+    "bundle_identity_class": "accepted_holdtype_debug_identity",
+    "signing_class": "apple_development",
+    "camera_purpose_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true,
+    "supervisor_blobs_unchanged": true,
+    "private_signing_identity_retained": false
+  },
+  "runtime": {
+    "permission_route_invocation_count": 1,
+    "route_start_count": 1,
+    "terminal_result_count": 1,
+    "authorization_result": "not_reached",
+    "terminal_category": "camera_authorization_activation_timed_out",
+    "furthest_stage": "activation_requested",
+    "request_access_reached": false,
+    "prompt_observed": false,
+    "computer_use_click_count": 0,
+    "system_settings_opened": false
+  },
+  "supervision": {
+    "direct_app_pid_natural_exit": true,
+    "supervisor_term_fallback_used": false,
+    "supervisor_kill_fallback_used": false,
+    "additional_run_owned_debug_process_observed": true,
+    "additional_process_cleanup_term_used": true,
+    "run_owned_processes_remaining": 0
+  },
+  "protected_runtime": {
+    "provider_request_performed": false,
+    "keychain_ui_allowed": false,
+    "camera_enumeration_performed": false,
+    "camera_capture_performed": false,
+    "microphone_owner_constructed": false,
+    "media_activity_performed": false,
+    "tccutil_invoked": false,
+    "direct_tcc_database_operation": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "identity_and_liveness_verified": true,
+    "stopped": true
+  }
+}
