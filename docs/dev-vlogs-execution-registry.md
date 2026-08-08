@@ -116,7 +116,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R04` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | one redacted capture-auth-R04 QA run; no media | accepted_evidence / functional_fail | `baafcb9`; receipt below | Activation semantics and natural cleanup are Debug-spike defects. |
 | `DV-P0B-CAMERA-AUTH-R04-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R04@baafcb9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Read-only activation/termination exploration required before repair. |
 | `DV-P0B-CAMERA-AUTH-E04` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R04-REVIEW` | read-only exact activation/termination/script/SDK evidence | accepted_with_residual | receipt below | One NSApplication activation plus deferred terminate and direct-PID supervision supported. |
-| `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | running | — | Repair activation semantics, next-turn termination, and exact app-PID supervision. |
+| `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | review | `b2a2abf`; receipt below | One-shot activation, deferred termination, direct-PID supervision complete. |
+| `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | running | — | Review activation, natural exit, direct-PID supervision, and Release isolation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -183,7 +184,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   repaired permission-only runtime proved activation rejection before
   authorization. Review accepted the facts and identified activation semantics
   plus natural cleanup defects. Read-only E04 accepted a bounded six-path
-  repair; implementation is running and capture remains blocked. The
+  repair; implementation `b2a2abf` is in independent review and capture remains
+  blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1645,6 +1647,38 @@ residual: Real natural exit and Camera permission remain evidence-needed.
 next_dependency: Six-path W04 repair, independent review, then one permission
 runtime.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W04`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04
+status: done
+
+outcome: Repaired authorization to one NSApplication activation with bounded
+isActive, deferred natural termination one main turn, and direct signed-app-PID
+supervision/reap under one 420-second permission bound.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted R04
+review and E04 evidence.
+changed_paths: Authorization and Launch source/tests, permission script, W01
+summary; commit b2a2abf.
+reused_owners: W03 categories/stages/request bridge, R03 termination, same
+Debug identity/configuration, unchanged hardware supervisor.
+checks_run: Structure; 59 logical tests; signed Debug build-only; bounded
+Release/isolation; script syntax/help/negatives and natural/stuck/mismatch/trap
+supervisor fakes; diff/redaction/path/process/root audits.
+behavior_verified: One activate then bounded active observation; normal/hardware
+no auth; terminal/task-clear/completed then deferred terminate; external-quit
+race; direct PID identity, terminal observation, natural reap or exact bounded
+TERM/KILL failure. Hardware path unchanged.
+scope_check: Exact six Debug/test/script/evidence paths; no product, capture,
+mic, media, TCC/runtime UI, configuration/signing, Release, storage, iOS,
+Build, publication, or dependency change.
+deviations: Non-authoritative fake path spelling was canonicalized and rerun.
+residual: Genuine permission and natural-exit runtime remain.
+next_dependency: DV-P0B-CAMERA-AUTH-W04-REVIEW
+runtime_or_visual_handoff: none
+commit: b2a2abfe6e466d32b9b43b6bb43f629a03966101
 ```
 
 ## Rejected Receipts
