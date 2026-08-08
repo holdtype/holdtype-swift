@@ -1,0 +1,4 @@
+case_id,artifact_class,path_class,bytes,sha256,media_probe_result,recovery_classification,cleanup_status
+continuity-10s,temporary_audio,run_owned_internal_temporary,,,not_probed,cancelled_after_camera_permission_gate,pass
+continuity-10s,camera_video,run_owned_internal_temporary,0,,not_created,not_created,pass
+continuity-10s,final_clip,run_owned_internal_temporary,0,,not_created,not_created,pass

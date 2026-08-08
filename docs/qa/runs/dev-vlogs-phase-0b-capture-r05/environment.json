@@ -1,0 +1,48 @@
+{
+  "packet_id": "DV-P0B-CAPTURE-R05",
+  "captured_at_utc": "2026-08-08T17:55:55Z",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "product_commit": "c298cdc23af686e014fef8059857914a4df99fd4",
+  "capture_harness_commit": "f7ff6bfd445dee1857514d21b5898ab85e59cb66",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "destination_class": "internal_temporary",
+  "file_system": "APFS",
+  "useful_capacity_bytes_observed": 38513061888,
+  "useful_capacity_disposition": "evidence_only",
+  "debug_build": {
+    "build_result": "pass",
+    "purpose_and_entitlement_basis": "accepted_debug_harness_and_current_signed_debug_artifact",
+    "sanitized_keychain_environment": true,
+    "provider_request_performed": false
+  },
+  "release_isolation": {
+    "basis": "accepted_w02_review_and_unchanged_current_blobs",
+    "release_build_or_launch_performed": false
+  },
+  "camera_enumeration": {
+    "built_in_count": 0,
+    "usb_count": 0,
+    "continuity_count": 1,
+    "selected_camera_class": "continuity",
+    "selected_connection_class": "continuity_camera",
+    "stable_identity_present": true,
+    "explicit_identity_selected": true,
+    "private_identity_retained": false,
+    "fallback_used": false
+  },
+  "tcc": {
+    "harness_category": "camera_permission_required",
+    "prompt_observed": false,
+    "computer_use_invoked": false,
+    "tcc_reset_performed": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "identity_and_liveness_verified": true,
+    "stopped": true
+  }
+}

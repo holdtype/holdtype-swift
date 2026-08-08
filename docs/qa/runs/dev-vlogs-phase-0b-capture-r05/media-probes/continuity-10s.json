@@ -1,0 +1,28 @@
+{
+  "case_id": "continuity-10s",
+  "functional_result": "fail",
+  "residual_class": "environment or signing residual",
+  "camera_only": {
+    "created": false,
+    "probe_performed": false,
+    "video_track_count": null,
+    "audio_track_count": null,
+    "playable": null
+  },
+  "finalized_source": {
+    "created": false,
+    "probe_performed": false,
+    "video_track_count": null,
+    "audio_track_count": null,
+    "playable": null,
+    "passthrough_result": "not_exercised"
+  },
+  "video_preservation": {
+    "method": "stored_sample_exact_v1",
+    "result": "not_exercised",
+    "preferred_transform_result": "not_exercised",
+    "sample_count": null,
+    "encoded_byte_count": null
+  },
+  "raw_media_retained": false
+}
