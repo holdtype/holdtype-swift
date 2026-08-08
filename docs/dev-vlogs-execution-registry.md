@@ -131,8 +131,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-E06` | read-only exact map/API/ownership review | accepted_with_residual | receipt below | Corrected 12-path Debug repair is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-W06` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E06-REVIEW` | exact 12 Debug helper/script/auth/handshake/launch/termination/event/test/summary paths | rejected | `169e895`; receipt below | Architecture/build isolation pass; runtime path/parser/deadline/cancellation guarantees fail. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | rejected | receipt below | Seven-path focused repair required before runtime. |
-| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | review | `daac571`; receipt below | Six changed paths close the five findings; one authorized lifecycle-test path remained unchanged. |
-| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | running | — | Recheck actual parser, descriptor stability, deadline, cancellation, claims, isolation. |
+| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | rejected | `daac571`; receipt below | Original five findings closed; cleanup deadline and test-hook isolation remain. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | rejected | receipt below | Three-path cleanup/hook-isolation repair required. |
+| `DV-P0B-CAMERA-AUTH-W06-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R1 review | permission script, LaunchServices tests, W01 summary only | running | — | Bound/verify EXIT cleanup and isolate parser test hook from protected modes. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -223,7 +224,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   source extraction. Repair `169e895` compiled and passed tests but review
   rejected its real parser, deadline, result-file, cancellation, and behavioral
   coverage guarantees. Focused repair `daac571` passes 20/20 focused and 66/66
-  full Phase 0B tests and is in repeat review; capture remains blocked. The
+  full Phase 0B tests but repeat review found cleanup outside the global
+  deadline and a test hook affecting build-only/hardware modes. Three-path R2
+  repair is running; capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2237,6 +2240,42 @@ remain runtime evidence.
 next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R1
 runtime_or_visual_handoff: none
 commit: daac5718750492f069b04369b98ca7852e2f389e
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: R1 closes parser, descriptor-stable result, and cancellation defects,
+but permission EXIT cleanup is outside the deadline and the parser test hook
+changes protected build-only/hardware behavior.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact W06 reject and R1.
+reviewed_commit_and_parent: daac5718750492f069b04369b98ca7852e2f389e;
+368cd3a8e4465c4c8a7ad5a94fdad7a46fdede53.
+changed_paths: none
+checks_run: Exact six-path repair; actual parser valid/extra-key/wrong-digest;
+helper invalid/immutability matrix; 20/20 focused and 66/66 full Phase 0B;
+syntax/help/negatives/build-only; Debug/Release isolation; hardware/function
+hashes; process/root/worktree audit.
+closed: Initialized production parser; one immutable O_NOFOLLOW strict-schema
+snapshot; cancellation before active/status/request; genuine production parser
+tests; helper/process/Release/hardware preservation.
+findings: EXIT trap uses raw untimed rm operations outside the deadline and does
+not verify deletion before uncertainty retention. SCRIPT_RESULT_TEST is checked
+before mode isolation and changes build-only/hardware behavior; negative test is
+missing. Summary overclaims cleanup and isolation.
+scope_check: Exact Debug evidence/tooling; protected product/configuration/TCC/
+camera/microphone/media/storage/UI/iOS/Build/publication unchanged.
+deviations: W05 matrix not reconstructed because ownership functions remain
+byte-identical.
+residual: LaunchServices foreground, Camera prompt/TCC, and hardware unproven.
+next_dependency: Three-path bounded cleanup and hook-isolation repair, then
+repeat review.
+runtime_or_visual_handoff: none
+reviewed_commit: daac5718750492f069b04369b98ca7852e2f389e
 ```
 
 ## Rejected Receipts
