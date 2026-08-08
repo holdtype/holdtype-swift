@@ -385,10 +385,11 @@ final class DevVlogsStorageRunRoot {
             return (authorization.volumeRootURL.standardizedFileURL, externalPrefixName, true)
         }
     }
-    private static func validateExternalVolumeRoot(
-        _ authorization: DevVlogsExternalStorageAuthorization, fileManager: FileManager
-    ) throws {
+    private static func validateExternalVolumeRoot(_ authorization: DevVlogsExternalStorageAuthorization,
+        fileManager: FileManager) throws {
         let rootURL = authorization.volumeRootURL.standardizedFileURL
+        let homePath = fileManager.homeDirectoryForCurrentUser.standardizedFileURL.path
+        guard rootURL.path != "/", rootURL.path != homePath, !homePath.hasPrefix(rootURL.path + "/") else { throw DevVlogsStorageHarnessError.invalidExternalAuthorization }
         let identities = try capturePathComponentIdentities(through: rootURL)
         let rootIdentity = try directoryIdentity(at: rootURL); let internalIdentity = try directoryIdentity(at: fileManager.temporaryDirectory)
         var fileSystem = statfs()
@@ -428,11 +429,12 @@ final class DevVlogsStorageRunRoot {
         )
         try validateExternalAuthorization(authorization, evidence: evidence)
     }
-    static func validateExternalAuthorization(
-        _ authorization: DevVlogsExternalStorageAuthorization, evidence: DevVlogsExternalVolumeEvidence
-    ) throws {
+    static func validateExternalAuthorization(_ authorization: DevVlogsExternalStorageAuthorization,
+        evidence: DevVlogsExternalVolumeEvidence,
+        homeDirectoryURL: URL = FileManager.default.homeDirectoryForCurrentUser) throws {
         let root = authorization.volumeRootURL.standardizedFileURL
-        guard root.isFileURL, root.path.hasPrefix("/"), root.path != "/",
+        let home = homeDirectoryURL.standardizedFileURL.path
+        guard root.isFileURL, root.path.hasPrefix("/"), root.path != "/", root.path != home, !home.hasPrefix(root.path + "/"),
               evidence.mountRootURL.standardizedFileURL == root,
               evidence.isPhysicalExternal, evidence.isLocal, evidence.isWritable,
               !evidence.containsSymbolicLink,
@@ -441,9 +443,7 @@ final class DevVlogsStorageRunRoot {
             throw DevVlogsStorageHarnessError.invalidExternalAuthorization
         }
     }
-    private static func fileSystemString<T>(_ tuple: T) -> String {
-        withUnsafeBytes(of: tuple) { String(cString: $0.baseAddress!.assumingMemoryBound(to: CChar.self)) }
-    }
+    private static func fileSystemString<T>(_ tuple: T) -> String { withUnsafeBytes(of: tuple) { String(cString: $0.baseAddress!.assumingMemoryBound(to: CChar.self)) } }
     private static func validateFixtureTemporaryDirectory(
         _ fixtureURL: URL,
         fileManager: FileManager

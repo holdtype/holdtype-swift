@@ -338,22 +338,22 @@ struct DevVlogsStorageFeasibilityTests {
         let root = URL(fileURLWithPath: "/Volumes/redacted-fixture", isDirectory: true)
         let authorization = DevVlogsExternalStorageAuthorization(volumeRootURL: root,
             destinationClass: .externalSSD, filesystemClass: .apfs)
-        func evidence(mount: URL = root, destination: DevVlogsStorageDestinationClass? = .externalSSD,
-            filesystem: DevVlogsStorageFilesystemClass? = .apfs, external: Bool = true,
-            symlink: Bool = false) -> DevVlogsExternalVolumeEvidence {
+        func evidence(mount: URL = root, destination: DevVlogsStorageDestinationClass? = .externalSSD, filesystem: DevVlogsStorageFilesystemClass? = .apfs,
+            external: Bool = true, local: Bool = true,
+            writable: Bool = true, symlink: Bool = false) -> DevVlogsExternalVolumeEvidence {
             .init(mountRootURL: mount, destinationClass: destination, filesystemClass: filesystem,
-                  isPhysicalExternal: external, isLocal: true, isWritable: true,
-                  containsSymbolicLink: symlink)
+                  isPhysicalExternal: external, isLocal: local, isWritable: writable, containsSymbolicLink: symlink)
         }
         try DevVlogsStorageRunRoot.validateExternalAuthorization(authorization, evidence: evidence())
-        func reject(_ candidateEvidence: DevVlogsExternalVolumeEvidence,
-                    authorization candidate: DevVlogsExternalStorageAuthorization = authorization) {
+        func reject(_ candidateEvidence: DevVlogsExternalVolumeEvidence, authorization candidate: DevVlogsExternalStorageAuthorization = authorization) {
             #expect(throws: DevVlogsStorageHarnessError.invalidExternalAuthorization) { try DevVlogsStorageRunRoot.validateExternalAuthorization(candidate, evidence: candidateEvidence) }
         }
         reject(evidence(mount: URL(fileURLWithPath: "/")), authorization: .init(volumeRootURL:
-            URL(fileURLWithPath: "/"), destinationClass: .externalSSD, filesystemClass: .apfs))
+            URL(fileURLWithPath: "/"), destinationClass: .externalSSD, filesystemClass: .apfs)); let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        for broad in [home, home.deletingLastPathComponent()] { reject(evidence(mount: broad),
+            authorization: .init(volumeRootURL: broad, destinationClass: .externalSSD, filesystemClass: .apfs)) }
         reject(evidence(external: false)); reject(evidence(destination: .externalHDD))
-        reject(evidence(destination: nil)); reject(evidence(filesystem: .exfat))
+        reject(evidence(destination: nil)); reject(evidence(filesystem: .exfat)); reject(evidence(filesystem: nil)); reject(evidence(local: false)); reject(evidence(writable: false))
         reject(evidence(mount: URL(fileURLWithPath: "/Volumes/alias"))); reject(evidence(symlink: true))
     }
     @Test func simulatedExternalAuthorityCapsWritesAndRemovesItsExactPrefix() throws {
