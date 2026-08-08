@@ -89,9 +89,10 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | rejected | base `e6b3a13`; repair `986af6c`; receipts below | Repair broad/home-root policy, probe-status handling, whole-wrapper metadata bounds, and missing fake negatives. No external runtime. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | base `e6b3a13`; repairs `986af6c`, `767edd9`; receipts below | REVIEW-R1 findings repaired; repeat review running. No external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `986af6c` | read-only exact three-path repair commit | rejected | recorded below | Return exact three remaining findings to original owner; repeat review before external runtime. |
+| `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | running | — | Recheck probe uncertainty, whole-preflight bound, broad-root policy, and negative matrix. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -133,11 +134,11 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- `DV-P0B-STORAGE-W02` repair `986af6c` improved physical-root/media-class
-  validation and bounded cleanup, but repeat review rejected broad/home-root
-  policy, probe-uncertainty handling, complete external-metadata bounds, and
-  missing negative coverage. No external runtime may run before acceptance;
-  the packet remains unaffected by the quality delta.
+- `DV-P0B-STORAGE-W02` repair `767edd9` adds fail-closed probe-status handling,
+  one bounded external-preflight subprocess, categorical broad/home-root
+  rejection, and the missing fake negative matrix. Repeat review is running.
+  No external runtime may run before acceptance; the packet remains unaffected
+  by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -708,6 +709,37 @@ authorized external runtime packet.
 next_dependency: DV-P0B-STORAGE-W02-REVIEW-R1
 runtime_or_visual_handoff: none
 commit: 986af6ca85147c8236075b30d5fef200f73dec74
+```
+
+### `DV-P0B-STORAGE-W02-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R2
+status: done
+
+outcome: Probe status 1 alone means empty; timeout/error remain uncertain.
+External metadata runs inside one 15-second watchdog subprocess. Harness and
+wrapper categorically reject root, home, and home ancestors; injected evidence
+tests cover the accepted and negative authority matrix.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+REVIEW-R1 reject recorded at 4d63fb8.
+changed_paths: Same two storage test files and one test-only wrapper; repair
+commit 767edd9.
+reused_owners: Accepted W01/W02 identity, marker, bookmark, promotion,
+redaction, capacity, and cleanup owners.
+checks_run: Structure; 25 focused invocations; wrapper syntax/help and six
+argument negatives; four probe-status, two preflight-failure, and four process
+cleanup fixtures; bounded Debug build; diff, path, mode, redaction,
+protected-owner, process, and residue audits.
+scope_check: Exact three-path test/tooling repair; zero external-volume I/O and
+no product, project, entitlement, spec, registry, QA artifact, media, settings,
+UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains for a separately authorized
+runtime packet.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: 767edd9eb717f2a5324a79a3aa37dc3086657427
 ```
 
 ## Rejected Receipts
