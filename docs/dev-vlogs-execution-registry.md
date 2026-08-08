@@ -102,7 +102,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R01@4f0efb5` | read-only exact seven-file evidence commit | rejected | recorded below | Summary-only truthfulness repair required before permission action. |
 | `DV-P0B-CAMERA-AUTH-R01-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected AUTH-R01 review | exact capture-auth-R01 summary only | accepted_with_residual | `308a191`; receipt below | Summary contradiction repaired; permission state remains unknown. |
 | `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | repair `308a191` | read-only exact one-path repair commit | accepted_with_residual | receipt below | Enable and verify HoldType Camera switch before capture retry. |
-| `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | running | — | Computer Use inspects/enables HoldType Camera only; no request retry or capture. |
+| `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | review / row_absent | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
+| `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | running | — | Validate row-absence evidence and define a same-identity registration action. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -160,7 +161,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   same-identity Camera authorization request timed out without an actionable
   prompt. Evidence facts and cleanup passed review, but one summary-only TCC
   truthfulness repair `308a191` is accepted. A bounded Computer Use action is
-  inspecting/enabling the exact HoldType Camera switch before capture. The
+  in review after finding the HoldType Camera row absent; no switch or TCC
+  action occurred. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1233,6 +1235,39 @@ Security > Camera and verify On; if absent, stop. No reset or blind retry.
 next_dependency: Verify the switch On, then separately authorize Continuity
 capture without another blind permission request.
 runtime_or_visual_handoff: Exact Camera settings action only.
+```
+
+### `DV-P0B-CAMERA-AUTH-R02`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R02
+status: done
+permission_state: holdtype_row_absent
+
+outcome: Computer Use opened System Settings > Privacy & Security > Camera and
+found no HoldType row, so no switch existed and no setting changed.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/cleanup boundary;
+accepted AUTH-R01 repair/review.
+changed_paths: Seven redacted capture-auth-R02 evidence files; commit 36445d2.
+computer_use_actions: Opened System Settings, navigated to Camera privacy,
+inspected HoldType row presence, and closed the packet-opened window. No switch,
+unrelated-row, or authentication action.
+verification: HoldType row absent; On/Off and authorization state unavailable;
+no screenshot retained.
+checks_run: Structured evidence and counts; unrelated-name/private-token/media/
+MIME/screenshot scans; exact path/diff; process/root/guard/protected audits.
+cleanup_receipt: Packet-opened window closed; exact lingering System Settings
+PID identity-validated and TERM-cleaned; scoped guard stopped; pre-existing
+HoldType and protected paths preserved.
+scope_check: Evidence-only; no requestAccess, camera, mic, media, TCC reset/DB,
+source, project, signing, product, provider, Keychain, external, or iOS action.
+deviations: System Settings required exact run-owned TERM after UI quit left it
+resident.
+residual: Row absence establishes neither grant nor denial and exposes no
+operator switch.
+next_dependency: DV-P0B-CAMERA-AUTH-R02-REVIEW
+runtime_or_visual_handoff: Exact Camera pane only; no screenshot or capture.
+commit: 36445d2fb0a9fd6ad9bc7b95831c4fa867596481
 ```
 
 ## Rejected Receipts
