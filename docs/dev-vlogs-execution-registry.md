@@ -120,8 +120,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | rejected | recorded below | Enforce one absolute post-launch deadline and add slow-identity fake. |
 | `DV-P0B-CAMERA-AUTH-W04-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W04 review | permission script and W01 summary only | accepted_with_residual | `48c0d5c`; receipt below | One absolute deadline bounds all permission supervision; genuine permission runtime remains. |
 | `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `48c0d5c` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded same-signed permission-only runtime is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | one redacted capture-auth-R05 QA run; no media | running | — | Invoke the accepted permission route exactly once; review evidence before capture. |
-| `DV-P0B-CAMERA-AUTH-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-R05` | read-only exact evidence commit | queued | — | No capture retry before accepted permission evidence. |
+| `DV-P0B-CAMERA-AUTH-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | one redacted capture-auth-R05 QA run; no media | accepted_evidence / functional_fail | `4101f74`; receipt below | Activation timed out before authorization; a second same-launch Debug process required exact cleanup TERM. |
+| `DV-P0B-CAMERA-AUTH-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R05@4101f74` | read-only exact seven-file evidence commit | running | — | Classify activation residual and additional-process lifetime; no capture retry. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -191,7 +191,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   repair. W04 activation/termination passed review, and script repair
   `48c0d5c` is accepted after proving one absolute deadline across permission
   supervision and identity-safe cleanup. One same-signed permission-only
-  runtime is running; capture remains blocked until its evidence is reviewed. The
+  runtime ended at `camera_authorization_activation_timed_out` before
+  authorization status or requestAccess. Its direct app PID exited naturally,
+  but a second same-launch Debug process required exact cleanup TERM; evidence
+  review is running and capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1740,6 +1743,43 @@ next_dependency: One bounded permission-only runtime, followed by evidence
 review before any capture retry.
 runtime_or_visual_handoff: Permission runtime only; no capture or microphone.
 reviewed_commit: 48c0d5cd34e9b208ade6b1ae61498fa8f77ee254
+```
+
+### `DV-P0B-CAMERA-AUTH-R05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R05
+status: failed
+
+outcome: Exactly one accepted same-signed Debug permission route closed before
+authorization status or requestAccess; no retry, capture, or microphone run.
+category: camera_authorization_activation_timed_out
+furthest_stage: activation_requested
+prompt_action: Computer Use could not attach to the exact Debug bundle in its
+bounded attempt; no genuine Camera prompt was seen and no click occurred.
+natural_exit_vs_fallback: The supervised direct app PID exited naturally within
+the global deadline and needed no supervisor signal. A distinct same-launch
+Debug process outlived script exit and required one freshly identity-validated
+exact TERM cleanup.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission and cleanup boundaries;
+accepted W04-R1 repair/review.
+changed_paths: Seven redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-auth-r05/; commit 4101f74.
+checks_run: Accepted ancestry/config/signing; exact route/start/terminal counts;
+structured-data, redaction, media-absence, scope, diff, process, root, guard,
+and protected-path audits.
+cleanup_receipt: Guard and all run-owned Debug processes/roots removed;
+pre-existing HoldType preserved; protected paths unchanged.
+scope_check: Evidence-only; no source, specification, configuration, signing,
+TCC, System Settings, camera, microphone, media, product, provider, Keychain,
+external-storage, or iOS change.
+deviations: Computer Use attachment unavailable; one additional same-launch
+Debug process required exact bounded cleanup TERM.
+residual: Environment/signing residual at activation_requested; independent
+review must classify the additional-process lifetime as evidence or defect.
+next_dependency: DV-P0B-CAMERA-AUTH-R05-REVIEW
+runtime_or_visual_handoff: none
+commit: 4101f7439cae82dd630c746d802ea2cc62179176
 ```
 
 ## Rejected Receipts
