@@ -27,11 +27,45 @@ struct DevVlogsPhase0BCameraCaptureArtifact: Equatable {
 
 enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
     case permissionRequired, permissionDenied
-    case preferredDeviceDisconnected, preferredDeviceBusy
+    case preferredDeviceDisconnected, deviceUnavailableDuringStart, preferredDeviceBusy
     case unsupportedCandidatePreset, videoInputUnavailable
     case movieOutputUnavailable, sampleOutputUnavailable
     case setupTimedOut, firstFrameUnavailable, recordingFailed
-    case disconnectedDuringCapture, runtimeFailure, notCapturing
+    case disconnectedDuringCapture, runtimeFailure, unknownPlatformFailure, notCapturing
+}
+
+enum DevVlogsPhase0BCameraFailureContext: Equatable {
+    case starting, steadyCapture
+
+    static func resolve(startPending: Bool, firstFrameObserved: Bool) -> Self {
+        startPending || !firstFrameObserved ? .starting : .steadyCapture
+    }
+}
+
+extension DevVlogsPhase0BCameraCaptureError {
+    static func classifyPlatformError(
+        _ error: Error,
+        context: DevVlogsPhase0BCameraFailureContext
+    ) -> Self {
+        if let captureError = error as? Self {
+            if context == .starting, captureError == .disconnectedDuringCapture { return .deviceUnavailableDuringStart }
+            return captureError
+        }
+        let platformError = error as NSError
+        guard platformError.domain == AVFoundationErrorDomain else { return .unknownPlatformFailure }
+        switch platformError.code {
+        case AVError.applicationIsNotAuthorized.rawValue,
+             AVError.applicationIsNotAuthorizedToUseDevice.rawValue:
+            return .permissionDenied
+        case AVError.deviceWasDisconnected.rawValue, AVError.deviceNotConnected.rawValue:
+            return context == .starting ? .deviceUnavailableDuringStart : .disconnectedDuringCapture
+        case AVError.deviceInUseByAnotherApplication.rawValue,
+             AVError.deviceAlreadyUsedByAnotherSession.rawValue,
+             AVError.deviceLockedForConfigurationByAnotherProcess.rawValue:
+            return .preferredDeviceBusy
+        default: return .unknownPlatformFailure
+        }
+    }
 }
 
 protocol DevVlogsPhase0BCameraCapturing: AnyObject {
@@ -43,10 +77,7 @@ protocol DevVlogsPhase0BCameraCapturing: AnyObject {
 
 @MainActor
 final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturing {
-    private enum State {
-        case idle, starting, capturing, stopping, terminal
-    }
-
+    private enum State { case idle, starting, capturing, stopping, terminal }
     private let session = AVCaptureSession()
     private let movieOutput = AVCaptureMovieFileOutput()
     private let sampleOutput = AVCaptureVideoDataOutput()
@@ -71,6 +102,9 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private var originalMinimumFrameDuration: CMTime?
     private var originalMaximumFrameDuration: CMTime?
     private var observers: [NSObjectProtocol] = []
+    private var failureContext: DevVlogsPhase0BCameraFailureContext {
+        .resolve(startPending: startContinuation != nil, firstFrameObserved: firstFrameTime != nil)
+    }
 
     init(monotonicClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.monotonicClock = monotonicClock
@@ -80,13 +114,10 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     func startCapture(
         _ request: DevVlogsPhase0BCameraCaptureRequest
     ) async throws -> DevVlogsPhase0BCameraCaptureStart {
-        guard state == .idle else {
-            throw DevVlogsPhase0BCameraCaptureError.recordingFailed
-        }
+        guard state == .idle else { throw DevVlogsPhase0BCameraCaptureError.recordingFailed }
         state = .starting
         self.request = request
         requestTime = monotonicClock()
-
         do {
             let device = try selectedDevice(uniqueID: request.deviceUniqueID)
             try configureSession(device: device)
@@ -106,7 +137,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         } catch {
             try? await finishSession(timeout: request.setupTimeout)
             state = .terminal
-            throw classify(error)
+            throw DevVlogsPhase0BCameraCaptureError.classifyPlatformError(error, context: .starting)
         }
     }
 
@@ -119,7 +150,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         }
         state = .stopping
         steadyFailureTerminator.disarm()
-
         do {
             try await withCheckedThrowingContinuation { continuation in
                 stopContinuation = continuation
@@ -146,7 +176,10 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         } catch {
             try? await finishSession(timeout: request.setupTimeout)
             state = .terminal
-            throw classify(error)
+            throw DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
+                error,
+                context: failureContext
+            )
         }
     }
 
@@ -167,16 +200,11 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
 
     private func selectedDevice(uniqueID: String) throws -> AVCaptureDevice {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            break
-        case .notDetermined:
-            throw DevVlogsPhase0BCameraCaptureError.permissionRequired
-        case .denied, .restricted:
-            throw DevVlogsPhase0BCameraCaptureError.permissionDenied
-        @unknown default:
-            throw DevVlogsPhase0BCameraCaptureError.permissionDenied
+        case .authorized: break
+        case .notDetermined: throw DevVlogsPhase0BCameraCaptureError.permissionRequired
+        case .denied, .restricted: throw DevVlogsPhase0BCameraCaptureError.permissionDenied
+        @unknown default: throw DevVlogsPhase0BCameraCaptureError.permissionDenied
         }
-
         let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera, .external, .continuityCamera],
             mediaType: .video,
@@ -185,12 +213,8 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         guard let device = discovery.devices.first(where: { $0.uniqueID == uniqueID }) else {
             throw DevVlogsPhase0BCameraCaptureError.preferredDeviceDisconnected
         }
-        guard device.isConnected else {
-            throw DevVlogsPhase0BCameraCaptureError.preferredDeviceDisconnected
-        }
-        guard !device.isInUseByAnotherApplication else {
-            throw DevVlogsPhase0BCameraCaptureError.preferredDeviceBusy
-        }
+        guard device.isConnected else { throw DevVlogsPhase0BCameraCaptureError.preferredDeviceDisconnected }
+        guard !device.isInUseByAnotherApplication else { throw DevVlogsPhase0BCameraCaptureError.preferredDeviceBusy }
         deviceClass = Self.deviceClass(for: device)
         redactedDeviceLabel = "\(deviceClass.rawValue)_camera"
         return device
@@ -204,25 +228,17 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             throw DevVlogsPhase0BCameraCaptureError.unsupportedCandidatePreset
         }
         session.sessionPreset = .hd1280x720
-
         let input = try AVCaptureDeviceInput(device: device)
-        guard session.canAddInput(input) else {
-            throw DevVlogsPhase0BCameraCaptureError.videoInputUnavailable
-        }
+        guard session.canAddInput(input) else { throw DevVlogsPhase0BCameraCaptureError.videoInputUnavailable }
         session.addInput(input)
         movieOutput.movieFragmentInterval = CMTime(seconds: 10, preferredTimescale: 600)
-        guard session.canAddOutput(movieOutput) else {
-            throw DevVlogsPhase0BCameraCaptureError.movieOutputUnavailable
-        }
+        guard session.canAddOutput(movieOutput) else { throw DevVlogsPhase0BCameraCaptureError.movieOutputUnavailable }
         session.addOutput(movieOutput)
         sampleOutput.alwaysDiscardsLateVideoFrames = true
         sampleOutput.setSampleBufferDelegate(self, queue: sampleQueue)
-        guard session.canAddOutput(sampleOutput) else {
-            throw DevVlogsPhase0BCameraCaptureError.sampleOutputUnavailable
-        }
+        guard session.canAddOutput(sampleOutput) else { throw DevVlogsPhase0BCameraCaptureError.sampleOutputUnavailable }
         session.addOutput(sampleOutput)
     }
-
     private func startSession(timeout: Duration) async throws {
         let session = self.session
         let sessionQueue = self.sessionQueue
@@ -246,7 +262,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             gate.installTimeoutTask(timeoutTask)
         }
     }
-
     private func awaitMovieStart(timeout: Duration, begin: () -> Void) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             startContinuation = continuation
@@ -266,19 +281,22 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             center.addObserver(forName: AVCaptureDevice.wasDisconnectedNotification, object: device, queue: .main) {
                 [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.failActiveCapture(with: .disconnectedDuringCapture)
+                    guard let self else { return }
+                    let failure: DevVlogsPhase0BCameraCaptureError = self.failureContext == .starting
+                        ? .deviceUnavailableDuringStart
+                        : .disconnectedDuringCapture
+                    self.failActiveCapture(with: failure)
                 }
             },
             center.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) {
                 [weak self] notification in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    self.failActiveCapture(with: self.classify(notification))
+                    self.failActiveCapture(with: self.classify(notification, context: self.failureContext))
                 }
             },
         ]
     }
-
     private func failActiveCapture(with error: DevVlogsPhase0BCameraCaptureError) {
         if startContinuation != nil {
             resumeStart(throwing: error)
@@ -301,7 +319,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         guard claimed else { return }
         state = .stopping
     }
-
     private func finishSession(timeout: Duration) async throws {
         observers.forEach(NotificationCenter.default.removeObserver)
         observers.removeAll()
@@ -309,7 +326,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         defer { restoreDeviceConfiguration() }
         try await stopSession(timeout: timeout)
     }
-
     private func stopSession(timeout: Duration) async throws {
         let session = self.session
         let sessionQueue = self.sessionQueue
@@ -330,7 +346,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
             gate.installTimeoutTask(timeoutTask)
         }
     }
-
     private func resumeStart(throwing error: Error? = nil) {
         guard let continuation = startContinuation else { return }
         startContinuation = nil
@@ -338,7 +353,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         startTimeoutTask = nil
         error.map { continuation.resume(throwing: $0) } ?? continuation.resume()
     }
-
     private func resumeStop(throwing error: Error? = nil) {
         guard let continuation = stopContinuation else { return }
         stopContinuation = nil
@@ -346,7 +360,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         stopTimeoutTask = nil
         error.map { continuation.resume(throwing: $0) } ?? continuation.resume()
     }
-
     private func configureCandidateFrameRate(device: AVCaptureDevice) throws {
         let dimensions = CMVideoDimensions(width: 1_280, height: 720)
         guard let format = device.formats.first(where: { format in
@@ -370,7 +383,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         device.activeVideoMinFrameDuration = frameDuration
         device.activeVideoMaxFrameDuration = frameDuration
     }
-
     private func restoreDeviceConfiguration() {
         guard let device = configuredDevice, let originalFormat else { return }
         do {
@@ -391,29 +403,15 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         originalMinimumFrameDuration = nil
         originalMaximumFrameDuration = nil
     }
-
-    private func classify(_ error: Error) -> DevVlogsPhase0BCameraCaptureError {
-        if let captureError = error as? DevVlogsPhase0BCameraCaptureError { return captureError }
-        let nsError = error as NSError
-        switch nsError.code {
-        case AVError.deviceWasDisconnected.rawValue, AVError.deviceNotConnected.rawValue:
-            return .disconnectedDuringCapture
-        case AVError.deviceInUseByAnotherApplication.rawValue,
-             AVError.deviceAlreadyUsedByAnotherSession.rawValue,
-             AVError.deviceLockedForConfigurationByAnotherProcess.rawValue:
-            return .preferredDeviceBusy
-        default:
-            return .recordingFailed
-        }
-    }
-
-    private func classify(_ notification: Notification) -> DevVlogsPhase0BCameraCaptureError {
+    private func classify(
+        _ notification: Notification,
+        context: DevVlogsPhase0BCameraFailureContext
+    ) -> DevVlogsPhase0BCameraCaptureError {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? Error else {
             return .runtimeFailure
         }
-        return classify(error)
+        return DevVlogsPhase0BCameraCaptureError.classifyPlatformError(error, context: context)
     }
-
     private static func deviceClass(for device: AVCaptureDevice) -> DevVlogsPhase0BDeviceClass {
         if device.isContinuityCamera { return .continuity }
         if device.deviceType == .external { return .external }
@@ -427,21 +425,17 @@ final class DevVlogsPhase0BSteadyCaptureTerminator {
     enum Phase: Equatable {
         case idle, active, terminating, terminal
     }
-
     private(set) var phase = Phase.idle
     private var failure: DevVlogsPhase0BCameraCaptureError?
     private var cleanupTask: Task<Void, Never>?
-
     func arm() {
         guard phase == .idle else { return }
         phase = .active
     }
-
     func disarm() {
         guard phase == .active else { return }
         phase = .terminal
     }
-
     @discardableResult
     func terminate(
         with failure: DevVlogsPhase0BCameraCaptureError,
@@ -456,13 +450,11 @@ final class DevVlogsPhase0BSteadyCaptureTerminator {
         }
         return true
     }
-
     func waitForFailure() async -> DevVlogsPhase0BCameraCaptureError? {
         await cleanupTask?.value
         return failure
     }
 }
-
 extension DevVlogsPhase0BCameraCapture: AVCaptureFileOutputRecordingDelegate {
     func fileOutput(
         _ output: AVCaptureFileOutput,
@@ -472,17 +464,24 @@ extension DevVlogsPhase0BCameraCapture: AVCaptureFileOutputRecordingDelegate {
         recordingStartTime = monotonicClock()
         resumeStart()
     }
-
     func fileOutput(
         _ output: AVCaptureFileOutput,
         didFinishRecordingTo outputFileURL: URL,
         from connections: [AVCaptureConnection],
         error: Error?
     ) {
-        if let error { resumeStop(throwing: error) } else { resumeStop() }
+        guard let error else {
+            resumeStop()
+            return
+        }
+        failActiveCapture(
+            with: DevVlogsPhase0BCameraCaptureError.classifyPlatformError(
+                error,
+                context: failureContext
+            )
+        )
     }
 }
-
 extension DevVlogsPhase0BCameraCapture: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(
         _ output: AVCaptureOutput,

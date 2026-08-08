@@ -38,17 +38,22 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   bounded opportunity; completion, timeout, and late callbacks reply exactly
   once in injected tests.
 - Camera errors retain one closed redacted category through the terminal JSONL
-  event and compact operator summary. Evidence remains limited to run/case/
-  attempt IDs, monotonic time, category/action/result enums, redacted device
-  class/label, and numeric metrics; platform errors, paths, device identities,
-  and private descriptions are not serialized.
+  event and compact operator summary. Raw AVFoundation classification requires
+  the authoritative framework error domain, recognizes the two current SDK
+  authorization codes plus the supported busy/disconnect codes, and separates
+  a disconnect before start/first-frame evidence from a steady-capture
+  interruption. Foreign-domain numeric collisions and unknown codes produce
+  only the generic camera-unknown category. Evidence remains limited to run/
+  case/attempt IDs, monotonic time, category/action/result enums, redacted
+  device class/label, and numeric metrics; raw codes/domains, platform errors,
+  paths, device identities, and private descriptions are not serialized.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 26 tests cover pre-composition launch routing, harness-only scene structure, typed camera-category mapping, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
+| Focused macOS fake tests | Pass; 29 tests cover pre-composition launch routing, harness-only scene structure, typed and raw domain/context camera-category mapping, authorization/busy/disconnect SDK codes, foreign-domain collisions, malicious private error material, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
@@ -60,6 +65,9 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 
 The script accepts hardware execution only through the explicit `--hardware`
 mode with a camera ID. That mode was not executed.
+
+This classifier repair does not infer or retroactively relabel the raw R02
+camera-start failure. It makes a future separately authorized run diagnostic.
 
 ## Residual
 

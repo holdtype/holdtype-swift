@@ -23,6 +23,7 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case cameraPermissionRequired = "camera_permission_required"
     case cameraPermissionDenied = "camera_permission_denied"
     case cameraSelectionDisconnected = "camera_selection_disconnected"
+    case cameraStartDeviceUnavailable = "camera_start_device_unavailable"
     case cameraSelectionBusy = "camera_selection_busy"
     case cameraConfigurationPreset = "camera_configuration_preset"
     case cameraConfigurationVideoInput = "camera_configuration_video_input"
@@ -78,6 +79,7 @@ extension DevVlogsPhase0BCameraCaptureError {
         case .permissionRequired: .cameraPermissionRequired
         case .permissionDenied: .cameraPermissionDenied
         case .preferredDeviceDisconnected: .cameraSelectionDisconnected
+        case .deviceUnavailableDuringStart: .cameraStartDeviceUnavailable
         case .preferredDeviceBusy: .cameraSelectionBusy
         case .unsupportedCandidatePreset: .cameraConfigurationPreset
         case .videoInputUnavailable: .cameraConfigurationVideoInput
@@ -88,6 +90,7 @@ extension DevVlogsPhase0BCameraCaptureError {
         case .recordingFailed: .cameraRecordingFailed
         case .disconnectedDuringCapture: .cameraInterruptionDisconnected
         case .runtimeFailure: .cameraSessionRuntimeFailure
+        case .unknownPlatformFailure: .cameraUnknown
         case .notCapturing: .cameraSessionNotCapturing
         }
     }
