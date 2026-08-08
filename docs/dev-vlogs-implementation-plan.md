@@ -5,7 +5,7 @@ Status: planning only; implementation is not authorized.
 Date: 2026-08-08
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-DRAFT-2`.
+`DV-DRAFT-3`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
