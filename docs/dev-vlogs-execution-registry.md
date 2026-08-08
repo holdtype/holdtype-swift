@@ -61,9 +61,10 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-E01` | `/root/dv_p0b_capture_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only capture/source/platform evidence | accepted_with_residual | recorded below | Debug-only capture spike feasible; shipping audio lease remains Phase 0C work. |
 | `DV-P0B-STORAGE-E01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only storage/source/platform/environment evidence | accepted_with_residual | recorded below | Test-only storage spike feasible; physical disconnect/read-only cells remain environment residuals. |
 | `DV-P0B-E01-REVIEW` | `/root/dv_p0b_e01_review` | `DV-DRAFT-3@ed108fa` | both E01 maps | read-only | accepted_with_residual | recorded below | Writable capture/storage packets must be serialized and keep distinct QA run roots. |
-| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | running (repair 1) | `9d9efec`; rejected review recorded below | Repair startup isolation, terminal cleanup, and bounded waits; repeat independent review before runtime/storage. |
+| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | accepted_with_residual | `9d9efec`, repair `ff70155`; receipts below | Debug/fake/build feasibility accepted; real hardware/media evidence and shipping audio lease remain. |
 | `DV-P0B-CAPTURE-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-W01@9d9efec` | read-only | rejected | recorded below | Return exact four blockers to the original owner; runtime/storage remain blocked. |
-| `DV-P0B-STORAGE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted capture artifact contract or explicit independent subset | exact storage test paths assigned later | queued | — | Implement marker/capacity/bookmark/promotion harness; serialize with capture build/runtime. |
+| `DV-P0B-CAPTURE-W01-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | repair `ff70155` | read-only | accepted_with_residual | recorded below | Storage is dependency-ready; hardware remains a separate controlled runtime gate. |
+| `DV-P0B-STORAGE-W01` | unassigned | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | exact storage test paths assigned next | dependency-ready | — | Implement marker/capacity/bookmark/promotion harness; serialize build/runtime activity. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -78,14 +79,13 @@ They are not yet an Active implementation epoch.
 
 - Accepted E01 evidence supports bounded Debug-only capture and test-only
   storage spikes without a shipping dependency.
-- Running packet: serialized repair cycle 1 for `DV-P0B-CAPTURE-W01`.
-- Independent review rejected `9d9efec`: ordinary product scenes still composed
-  under the harness gate; steady-state camera errors could be nonterminal;
-  termination did not await cleanup; export and one script probe were not fully
-  bounded. Release isolation and path scope passed.
-- `DV-P0B-STORAGE-W01` remains queued behind the capture artifact contract or
-  an explicitly bounded independent subset. Shared build/runtime activity is
-  serialized.
+- Repaired capture packet `ff70155` is accepted_with_residual after independent
+  review. The original `9d9efec` rejection remains recorded below.
+- Accepted evidence is limited to Debug/fake/build feasibility. It does not
+  establish camera/TCC/device/media measurements, E07 dictation non-regression,
+  or the shipping shared-audio lease.
+- `DV-P0B-STORAGE-W01` is dependency-ready after the accepted capture artifact
+  contract. Shared build/runtime activity remains serialized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -292,6 +292,59 @@ deviations: none
 residual: Capture W01 is dependency-ready; storage and UI remain gated.
 next_dependency: DV-P0B-CAPTURE-W01
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W01`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01
+status: done
+
+outcome: Built and fake-verified the isolated Debug-only camera/audio/mux
+harness; repair ff70155 closed all four findings from the rejected base.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; accepted E01 evidence;
+bounded W01 and R1 packets.
+changed_paths: Fifteen original authorized paths plus nine path-bounded repair
+changes; commits 9d9efec and ff70155.
+reused_owners: Existing AVFoundationAudioRecorderService and AudioRecorderEngine;
+no shipping shared-audio lease.
+checks_run: Structure; 21 focused fake tests; Debug build-only; bounded Release
+compile; Debug/Release settings and artifact isolation; script checks; path audit.
+scope_check: Debug-only harness and exact integration paths; protected product
+owners, Release camera declarations, UI, iOS, dependencies, and publication
+unchanged.
+deviations: Initial commit was rejected and repaired by the original owner.
+residual: Real camera/microphone/TCC/Continuity, device/media/codec/timing/
+resource evidence, E07, and the shipping shared-audio lease remain.
+next_dependency: DV-P0B-CAPTURE-W01-REVIEW-R1
+runtime_or_visual_handoff: none
+accepted_repair_commit: ff70155aa0559678487eacb67bc16a62ce199b75
+```
+
+### `DV-P0B-CAPTURE-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Repair closes harness-only scene routing, steady-error exact-once
+cleanup, bounded terminate-later cleanup, and callback-independent export/script
+timeouts. Debug/fake/build feasibility is accepted.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; original W01 packet;
+rejected review; repair ff70155; protected adjacent contracts.
+changed_paths: none
+checks_run: Exact nine-path diff; structure; 21 focused tests; bounded Release
+build; Debug/Release settings and artifacts; Debug guards; one-mic/no-fallback
+scan; script and QA-claim audit.
+scope_check: Clean; Release retains original plist/entitlements and contains no
+Dev Vlogs symbols. No app, hardware, TCC, UI, provider, Keychain, or storage run.
+deviations: none
+residual: Hardware/runtime/media measurements, E07, and shipping audio lease
+remain outside this acceptance.
+next_dependency: DV-P0B-STORAGE-W01 or separately controlled hardware runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: ff70155aa0559678487eacb67bc16a62ce199b75
 ```
 
 ## Rejected Receipts
