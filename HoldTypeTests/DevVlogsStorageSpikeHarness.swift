@@ -1,6 +1,7 @@
 import Darwin
+import DiskArbitration
 import Foundation
-
+import IOKit
 struct DevVlogsURLStorageDestinationStateProvider: DevVlogsStorageDestinationStateProviding {
     func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState {
         let values = try destinationURL.resourceValues(forKeys: [
@@ -16,7 +17,6 @@ struct DevVlogsURLStorageDestinationStateProvider: DevVlogsStorageDestinationSta
     }
 }
 struct DevVlogsOrdinaryBookmarkResolution { let url: URL; let isStale: Bool }
-
 enum DevVlogsOrdinaryBookmark {
     static func create(for url: URL) throws -> Data {
         try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
@@ -36,12 +36,13 @@ enum DevVlogsStorageDestinationClass: String, CaseIterable {
     case externalSSD = "external-ssd"; case externalHDD = "external-hdd"
 }
 enum DevVlogsStorageFilesystemClass: String, CaseIterable { case apfs, hfs, exfat }
-
 struct DevVlogsExternalStorageAuthorization {
-    let volumeRootURL: URL; let destinationClass: DevVlogsStorageDestinationClass
-    let filesystemClass: DevVlogsStorageFilesystemClass
+    let volumeRootURL: URL; let destinationClass: DevVlogsStorageDestinationClass; let filesystemClass: DevVlogsStorageFilesystemClass
 }
-
+struct DevVlogsExternalVolumeEvidence {
+    let mountRootURL: URL; let destinationClass: DevVlogsStorageDestinationClass?
+    let filesystemClass: DevVlogsStorageFilesystemClass?; let isPhysicalExternal: Bool, isLocal: Bool, isWritable: Bool, containsSymbolicLink: Bool
+}
 struct DevVlogsExternalStorageRuntimeConfiguration {
     static let enableKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE",
                rootKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_VOLUME_ROOT",
@@ -52,15 +53,13 @@ struct DevVlogsExternalStorageRuntimeConfiguration {
     let authorization: DevVlogsExternalStorageAuthorization
     let caseID: String
     let runID: UUID
-    static func load(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) throws -> Self? {
+    static func load(environment: [String: String] = ProcessInfo.processInfo.environment) throws -> Self? {
         let keys = [enableKey, rootKey, destinationKey, filesystemKey, caseKey, runKey]
         let supplied = keys.filter { environment[$0] != nil }
         guard !supplied.isEmpty else { return nil }
         guard supplied.count == keys.count,
               environment[enableKey] == "execute",
-              let root = environment[rootKey], root.hasPrefix("/"),
+              let root = environment[rootKey], root.hasPrefix("/"), root != "/",
               URL(fileURLWithPath: root).standardizedFileURL.path == root,
               let destinationValue = environment[destinationKey],
               let destination = DevVlogsStorageDestinationClass(rawValue: destinationValue),
@@ -72,25 +71,16 @@ struct DevVlogsExternalStorageRuntimeConfiguration {
               runValue == runID.uuidString.lowercased() else {
             throw DevVlogsStorageHarnessError.invalidRuntimeConfiguration
         }
-        return Self(
-            authorization: .init(
-                volumeRootURL: URL(fileURLWithPath: root, isDirectory: true),
-                destinationClass: destination,
-                filesystemClass: filesystem
-            ),
-            caseID: caseID,
-            runID: runID
-        )
+        return Self(authorization: .init(
+            volumeRootURL: URL(fileURLWithPath: root, isDirectory: true),
+            destinationClass: destination, filesystemClass: filesystem
+        ), caseID: caseID, runID: runID)
     }
 }
-
 enum DevVlogsStorageBaseAuthority {
-    case internalDefault
-    case nestedAttackFixture(URL)
-    case simulatedExternalFixture(URL)
+    case internalDefault, nestedAttackFixture(URL), simulatedExternalFixture(URL)
     case explicitlyAuthorizedExternal(DevVlogsExternalStorageAuthorization)
 }
-
 enum DevVlogsStorageHarnessError: Error, Equatable {
     case rootAlreadyExists, outOfScope, symbolicLink, notDirectory, identityMismatch
     case markerMissing, markerMismatch, itemExists, exclusiveRenameUnsupported, crossVolume
@@ -98,7 +88,6 @@ enum DevVlogsStorageHarnessError: Error, Equatable {
     case writeLimitExceeded, unexpectedContent
     case ioFailure(Int32)
 }
-
 final class DevVlogsStorageRunRoot {
     static let prefixName = "HoldType-DevVlogs-Phase0B"
     static let externalPrefixName = ".HoldTypeDevVlogsPhase0B"
@@ -107,22 +96,16 @@ final class DevVlogsStorageRunRoot {
     static let maximumWriteBytes = 64 * 1024
     let runID: UUID
     let rootURL: URL
-    private let fileManager: FileManager
-    private let temporaryDirectoryURL: URL
-    private let activePrefixName: String
-    private let ownsPrefix: Bool
+    private let fileManager: FileManager, temporaryDirectoryURL: URL
+    private let activePrefixName: String, ownsPrefix: Bool
     private let prefixURL: URL
     private let temporaryPathComponentIdentities: [DevVlogsStoragePathComponentIdentity]
     private let temporaryDirectoryIdentity: DevVlogsStorageFileIdentity
-    private let prefixIdentity: DevVlogsStorageFileIdentity
-    private let rootIdentity: DevVlogsStorageFileIdentity
+    private let prefixIdentity: DevVlogsStorageFileIdentity, rootIdentity: DevVlogsStorageFileIdentity
     private let prefixMarkerIdentity: DevVlogsStorageFileIdentity?
     private var rootMarkerIdentity: DevVlogsStorageFileIdentity
-    init(
-        runID: UUID,
-        fileManager: FileManager = .default,
-        authority: DevVlogsStorageBaseAuthority = .internalDefault
-    ) throws {
+    init(runID: UUID, fileManager: FileManager = .default,
+         authority: DevVlogsStorageBaseAuthority = .internalDefault) throws {
         self.runID = runID
         self.fileManager = fileManager
         let base = try Self.resolveBase(authority, fileManager: fileManager)
@@ -131,12 +114,9 @@ final class DevVlogsStorageRunRoot {
         ownsPrefix = base.ownsPrefix
         // macOS may expose its physical temporary directory through the system-owned /var symlink.
         // Pin every component's lstat identity; the temporary leaf, prefix, and run root must be directories.
-        temporaryPathComponentIdentities = try Self.capturePathComponentIdentities(
-            through: temporaryDirectoryURL
-        )
+        temporaryPathComponentIdentities = try Self.capturePathComponentIdentities(through: temporaryDirectoryURL)
         temporaryDirectoryIdentity = try Self.directoryIdentity(at: temporaryDirectoryURL)
-        prefixURL = temporaryDirectoryURL
-            .appendingPathComponent(activePrefixName, isDirectory: true)
+        prefixURL = temporaryDirectoryURL.appendingPathComponent(activePrefixName, isDirectory: true)
         try Self.rejectSymbolicLink(at: prefixURL, ifPresent: true)
         if ownsPrefix {
             guard mkdir(prefixURL.path, 0o700) == 0 else {
@@ -232,9 +212,8 @@ final class DevVlogsStorageRunRoot {
         let expectedPrefixURL = temporaryDirectoryURL
             .appendingPathComponent(activePrefixName, isDirectory: true)
             .standardizedFileURL
-        let expectedRootURL = expectedPrefixURL
-            .appendingPathComponent(runID.uuidString.lowercased(), isDirectory: true)
-            .standardizedFileURL
+        let expectedRootURL = expectedPrefixURL.appendingPathComponent(
+            runID.uuidString.lowercased(), isDirectory: true).standardizedFileURL
         guard prefixURL.standardizedFileURL.path == expectedPrefixURL.path,
               rootURL.standardizedFileURL.path == expectedRootURL.path else {
             throw DevVlogsStorageHarnessError.outOfScope
@@ -407,35 +386,63 @@ final class DevVlogsStorageRunRoot {
         }
     }
     private static func validateExternalVolumeRoot(
-        _ authorization: DevVlogsExternalStorageAuthorization,
-        fileManager: FileManager
+        _ authorization: DevVlogsExternalStorageAuthorization, fileManager: FileManager
     ) throws {
         let rootURL = authorization.volumeRootURL.standardizedFileURL
         let identities = try capturePathComponentIdentities(through: rootURL)
-        guard rootURL.isFileURL,
-              rootURL.path.hasPrefix("/"),
-              identities.allSatisfy({ $0.identity.fileType != S_IFLNK }) else {
-            throw DevVlogsStorageHarnessError.invalidExternalAuthorization
-        }
-        let rootIdentity = try directoryIdentity(at: rootURL)
-        let internalIdentity = try directoryIdentity(at: fileManager.temporaryDirectory)
+        let rootIdentity = try directoryIdentity(at: rootURL); let internalIdentity = try directoryIdentity(at: fileManager.temporaryDirectory)
         var fileSystem = statfs()
-        guard rootIdentity.device != internalIdentity.device,
-              statfs(rootURL.path, &fileSystem) == 0,
-              fileSystemString(fileSystem.f_mntonname) == rootURL.path,
-              fileSystemString(fileSystem.f_fstypename) == authorization.filesystemClass.rawValue else {
+        guard rootIdentity.device != internalIdentity.device, statfs(rootURL.path, &fileSystem) == 0 else {
             throw DevVlogsStorageHarnessError.invalidExternalAuthorization
         }
         let state = try DevVlogsURLStorageDestinationStateProvider().state(at: rootURL)
-        guard state.isAvailable, state.isLocal, !state.isReadOnly else {
+        guard let session = DASessionCreate(kCFAllocatorDefault),
+              let disk = DADiskCreateFromVolumePath(kCFAllocatorDefault, session, rootURL as CFURL),
+              let description = DADiskCopyDescription(disk) as? [CFString: Any],
+              let mountRoot = description[kDADiskDescriptionVolumePathKey] as? URL,
+              let isInternal = description[kDADiskDescriptionDeviceInternalKey] as? Bool,
+              let mediaWritable = description[kDADiskDescriptionMediaWritableKey] as? Bool,
+              let bsdNamePointer = DADiskGetBSDName(disk) else {
             throw DevVlogsStorageHarnessError.invalidExternalAuthorization
         }
-        _ = authorization.destinationClass
+        let bsdName = String(cString: bsdNamePointer)
+        let service = IOServiceGetMatchingService(kIOMainPortDefault,
+            IOBSDNameMatching(kIOMainPortDefault, 0, bsdName))
+        guard service != IO_OBJECT_NULL else { throw DevVlogsStorageHarnessError.invalidExternalAuthorization }
+        defer { IOObjectRelease(service) }
+        let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+        let characteristics = IORegistryEntrySearchCFProperty(
+            service, kIOServicePlane, "Device Characteristics" as CFString, kCFAllocatorDefault, options
+        ) as? [String: Any]
+        let protocolCharacteristics = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
+            "Protocol Characteristics" as CFString, kCFAllocatorDefault, options) as? [String: Any]
+        let evidence = DevVlogsExternalVolumeEvidence(
+            mountRootURL: mountRoot,
+            destinationClass: (characteristics?["Solid State"] as? Bool).map { $0 ? DevVlogsStorageDestinationClass.externalSSD : .externalHDD },
+            filesystemClass: DevVlogsStorageFilesystemClass(rawValue:
+                fileSystemString(fileSystem.f_fstypename).lowercased()),
+            isPhysicalExternal: !isInternal && (protocolCharacteristics?["Physical Interconnect Location"] as? String) == "External",
+            isLocal: state.isLocal,
+            isWritable: state.isAvailable && !state.isReadOnly && mediaWritable,
+            containsSymbolicLink: identities.contains { $0.identity.fileType == S_IFLNK }
+        )
+        try validateExternalAuthorization(authorization, evidence: evidence)
+    }
+    static func validateExternalAuthorization(
+        _ authorization: DevVlogsExternalStorageAuthorization, evidence: DevVlogsExternalVolumeEvidence
+    ) throws {
+        let root = authorization.volumeRootURL.standardizedFileURL
+        guard root.isFileURL, root.path.hasPrefix("/"), root.path != "/",
+              evidence.mountRootURL.standardizedFileURL == root,
+              evidence.isPhysicalExternal, evidence.isLocal, evidence.isWritable,
+              !evidence.containsSymbolicLink,
+              evidence.destinationClass == authorization.destinationClass,
+              evidence.filesystemClass == authorization.filesystemClass else {
+            throw DevVlogsStorageHarnessError.invalidExternalAuthorization
+        }
     }
     private static func fileSystemString<T>(_ tuple: T) -> String {
-        withUnsafeBytes(of: tuple) { bytes in
-            String(cString: bytes.baseAddress!.assumingMemoryBound(to: CChar.self))
-        }
+        withUnsafeBytes(of: tuple) { String(cString: $0.baseAddress!.assumingMemoryBound(to: CChar.self)) }
     }
     private static func validateFixtureTemporaryDirectory(
         _ fixtureURL: URL,

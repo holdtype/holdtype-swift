@@ -1,7 +1,6 @@
 import Darwin
 import Foundation
 import Testing
-
 protocol DevVlogsStorageCapacityProviding { func usefulCapacity(at destinationURL: URL) throws -> Int64? }
 protocol DevVlogsStorageDestinationStateProviding { func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState }
 struct DevVlogsStorageDestinationState: Equatable { let isAvailable: Bool, isLocal: Bool, isReadOnly: Bool }
@@ -128,9 +127,7 @@ struct DevVlogsStorageFeasibilityTests {
         let savedPrefix = fixtureBase.appendingPathComponent("saved-prefix", isDirectory: true)
         let redirectedPrefix = fixtureBase.appendingPathComponent("redirected-prefix", isDirectory: true)
         let redirectedRoot = redirectedPrefix.appendingPathComponent(
-            redirectedRun.runID.uuidString.lowercased(),
-            isDirectory: true
-        )
+            redirectedRun.runID.uuidString.lowercased(), isDirectory: true)
         let unrelated = fixtureBase.appendingPathComponent("unrelated-sentinel")
         try Data("unrelated".utf8).write(to: unrelated, options: .atomic)
         var prefixWasMoved = false
@@ -148,15 +145,11 @@ struct DevVlogsStorageFeasibilityTests {
         try FileManager.default.createDirectory(at: redirectedRoot, withIntermediateDirectories: true)
         let redirectedMarker = redirectedRoot.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
         try Data(redirectedRun.runID.uuidString.lowercased().utf8).write(
-            to: redirectedMarker,
-            options: .atomic
-        )
+            to: redirectedMarker, options: .atomic)
         let redirectedContent = redirectedRoot.appendingPathComponent("must-survive")
         try Data("redirected-content".utf8).write(to: redirectedContent, options: .atomic)
-        try FileManager.default.createSymbolicLink(
-            at: requiredPrefix,
-            withDestinationURL: redirectedPrefix
-        )
+        try FileManager.default.createSymbolicLink(at: requiredPrefix,
+            withDestinationURL: redirectedPrefix)
         #expect(throws: DevVlogsStorageHarnessError.symbolicLink) {
             try redirectedRun.cleanup()
         }
@@ -212,12 +205,8 @@ struct DevVlogsStorageFeasibilityTests {
     @Test func actualLocalResourceHintsAreAvailableWithoutChoosingAReserve() throws {
         let root = try makeRoot()
         defer { cleanupIfOwned(root) }
-        let state = try DevVlogsURLStorageDestinationStateProvider().state(at: root.rootURL)
-        let capacity = try DevVlogsURLStorageCapacityProvider().usefulCapacity(at: root.rootURL)
-        #expect(state.isAvailable)
-        #expect(state.isLocal)
-        #expect(!state.isReadOnly)
-        #expect((capacity ?? 0) > 0)
+        let state = try DevVlogsURLStorageDestinationStateProvider().state(at: root.rootURL); let capacity = try DevVlogsURLStorageCapacityProvider().usefulCapacity(at: root.rootURL)
+        #expect(state.isAvailable); #expect(state.isLocal); #expect(!state.isReadOnly); #expect((capacity ?? 0) > 0)
     }
     @Test func synchronizedWritePromotesExclusivelyOnTheSameVolume() throws {
         let root = try makeRoot()
@@ -326,8 +315,7 @@ struct DevVlogsStorageFeasibilityTests {
         #expect(try DevVlogsExternalStorageRuntimeConfiguration.load(environment: [:]) == nil)
         let runID = UUID()
         let valid = externalEnvironment(runID: runID)
-        let loaded = try DevVlogsExternalStorageRuntimeConfiguration.load(environment: valid)
-        let configuration = try #require(loaded)
+        let loaded = try DevVlogsExternalStorageRuntimeConfiguration.load(environment: valid); let configuration = try #require(loaded)
         #expect(configuration.runID == runID)
         #expect(configuration.caseID == "mechanics_case")
         #expect(configuration.authorization.destinationClass == .externalSSD)
@@ -339,11 +327,34 @@ struct DevVlogsStorageFeasibilityTests {
             valid.merging([DevVlogsExternalStorageRuntimeConfiguration.filesystemKey: "unknown"]) { _, new in new },
             valid.merging([DevVlogsExternalStorageRuntimeConfiguration.caseKey: "bad case"]) { _, new in new },
             valid.merging([DevVlogsExternalStorageRuntimeConfiguration.runKey: runID.uuidString]) { _, new in new },
+            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.rootKey: "/"]) { _, new in new },
         ] {
             #expect(throws: DevVlogsStorageHarnessError.invalidRuntimeConfiguration) {
                 _ = try DevVlogsExternalStorageRuntimeConfiguration.load(environment: invalid)
             }
         }
+    }
+    @Test func externalAuthorityEvidenceIsClosedAndFailClosedWithoutExternalIO() throws {
+        let root = URL(fileURLWithPath: "/Volumes/redacted-fixture", isDirectory: true)
+        let authorization = DevVlogsExternalStorageAuthorization(volumeRootURL: root,
+            destinationClass: .externalSSD, filesystemClass: .apfs)
+        func evidence(mount: URL = root, destination: DevVlogsStorageDestinationClass? = .externalSSD,
+            filesystem: DevVlogsStorageFilesystemClass? = .apfs, external: Bool = true,
+            symlink: Bool = false) -> DevVlogsExternalVolumeEvidence {
+            .init(mountRootURL: mount, destinationClass: destination, filesystemClass: filesystem,
+                  isPhysicalExternal: external, isLocal: true, isWritable: true,
+                  containsSymbolicLink: symlink)
+        }
+        try DevVlogsStorageRunRoot.validateExternalAuthorization(authorization, evidence: evidence())
+        func reject(_ candidateEvidence: DevVlogsExternalVolumeEvidence,
+                    authorization candidate: DevVlogsExternalStorageAuthorization = authorization) {
+            #expect(throws: DevVlogsStorageHarnessError.invalidExternalAuthorization) { try DevVlogsStorageRunRoot.validateExternalAuthorization(candidate, evidence: candidateEvidence) }
+        }
+        reject(evidence(mount: URL(fileURLWithPath: "/")), authorization: .init(volumeRootURL:
+            URL(fileURLWithPath: "/"), destinationClass: .externalSSD, filesystemClass: .apfs))
+        reject(evidence(external: false)); reject(evidence(destination: .externalHDD))
+        reject(evidence(destination: nil)); reject(evidence(filesystem: .exfat))
+        reject(evidence(mount: URL(fileURLWithPath: "/Volumes/alias"))); reject(evidence(symlink: true))
     }
     @Test func simulatedExternalAuthorityCapsWritesAndRemovesItsExactPrefix() throws {
         let outer = try makeRoot()
@@ -381,37 +392,36 @@ struct DevVlogsStorageFeasibilityTests {
         try FileManager.default.removeItem(at: unexpected)
         #expect(try root.cleanup() == .complete)
     }
-    @Test func actualExternalAuthorityRejectsInternalBaseBeforeScratchCreation() throws {
+    @Test func actualExternalAuthorityRejectsInternalOrSymlinkBaseBeforeScratchCreation() throws {
         let internalBase = FileManager.default.temporaryDirectory.standardizedFileURL
         let prefix = internalBase.appendingPathComponent(DevVlogsStorageRunRoot.externalPrefixName)
         let existed = FileManager.default.fileExists(atPath: prefix.path)
         #expect(throws: DevVlogsStorageHarnessError.invalidExternalAuthorization) {
-            _ = try DevVlogsStorageRunRoot(
-                runID: UUID(),
-                authority: .explicitlyAuthorizedExternal(.init(
-                    volumeRootURL: internalBase,
-                    destinationClass: .externalSSD,
-                    filesystemClass: .apfs
-                ))
-            )
+            _ = try DevVlogsStorageRunRoot(runID: UUID(), authority: .explicitlyAuthorizedExternal(
+                .init(volumeRootURL: internalBase, destinationClass: .externalSSD,
+                      filesystemClass: .apfs)))
         }
         #expect(FileManager.default.fileExists(atPath: prefix.path) == existed)
+        let outer = try makeRoot(); defer { cleanupIfOwned(outer) }
+        let target = try outer.ownedURL(relativePath: "external-target")
+        let alias = try outer.ownedURL(relativePath: "external-alias")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: target)
+        #expect(throws: DevVlogsStorageHarnessError.symbolicLink) {
+            _ = try DevVlogsStorageRunRoot(runID: UUID(), authority: .explicitlyAuthorizedExternal(
+                .init(volumeRootURL: alias, destinationClass: .externalSSD, filesystemClass: .apfs)))
+        }
     }
-    private func makeRoot() throws -> DevVlogsStorageRunRoot {
-        try DevVlogsStorageRunRoot(runID: UUID())
-    }
+    private func makeRoot() throws -> DevVlogsStorageRunRoot { try DevVlogsStorageRunRoot(runID: UUID()) }
     private func cleanupIfOwned(_ root: DevVlogsStorageRunRoot) {
-        guard FileManager.default.fileExists(atPath: root.rootURL.path) else { return }
-        _ = try? root.cleanup()
+        if FileManager.default.fileExists(atPath: root.rootURL.path) { _ = try? root.cleanup() }
     }
     private func restoreMarkerAndCleanup(_ root: DevVlogsStorageRunRoot) {
         guard FileManager.default.fileExists(atPath: root.rootURL.path) else { return }
         let marker = root.rootURL.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
         if FileManager.default.fileExists(atPath: marker.path) {
             try? Data(root.runID.uuidString.lowercased().utf8).write(to: marker)
-        } else {
-            try? root.restoreMissingMarkerForInternalTestTeardown()
-        }
+        } else { try? root.restoreMissingMarkerForInternalTestTeardown() }
         _ = try? root.cleanup()
     }
     private func externalEnvironment(runID: UUID) -> [String: String] {
@@ -426,8 +436,7 @@ struct DevVlogsStorageFeasibilityTests {
     }
     private func unlinkSymbolicLinkIfPresent(at url: URL) {
         var metadata = stat()
-        guard lstat(url.path, &metadata) == 0,
-              (metadata.st_mode & S_IFMT) == S_IFLNK else { return }
+        guard lstat(url.path, &metadata) == 0, (metadata.st_mode & S_IFMT) == S_IFLNK else { return }
         _ = unlink(url.path)
     }
 }
@@ -436,31 +445,22 @@ struct DevVlogsExternalStorageRuntimeTests {
     @Test func explicitExternalRootRunsBoundedMechanicsOnlyWhenEnabled() throws {
         guard let configuration = try DevVlogsExternalStorageRuntimeConfiguration.load() else { return }
         do {
-            let root = try DevVlogsStorageRunRoot(
-                runID: configuration.runID,
-                authority: .explicitlyAuthorizedExternal(configuration.authorization)
-            )
-            defer {
-                let cleanup = root.cleanupClassification()
-                print("case=\(configuration.caseID) cleanup=\(cleanup.rawValue)")
-                #expect(cleanup == .complete)
-            }
+            let root = try DevVlogsStorageRunRoot(runID: configuration.runID,
+                authority: .explicitlyAuthorizedExternal(configuration.authorization))
+            defer { let cleanup = root.cleanupClassification()
+                print("case=\(configuration.caseID) cleanup=\(cleanup.rawValue)"); #expect(cleanup == .complete) }
             let capacity = try DevVlogsURLStorageCapacityProvider().usefulCapacity(at: root.rootURL)
             #expect((capacity ?? 0) > 0)
             let bytes = Data("external-mechanics-fixture".utf8)
             _ = try root.writeSynchronously(bytes, relativePath: "active/attempt.partial")
-            let final = try root.promoteExclusively(
-                fragmentRelativePath: "active/attempt.partial",
-                finalRelativePath: "final/attempt.fixture"
-            )
+            let final = try root.promoteExclusively(fragmentRelativePath: "active/attempt.partial",
+                finalRelativePath: "final/attempt.fixture")
             #expect(try Data(contentsOf: final) == bytes)
             _ = try root.writeSynchronously(Data("existing".utf8), relativePath: "final/collision.fixture")
             _ = try root.writeSynchronously(Data("candidate".utf8), relativePath: "active/collision.partial")
             #expect(throws: DevVlogsStorageHarnessError.itemExists) {
-                _ = try root.promoteExclusively(
-                    fragmentRelativePath: "active/collision.partial",
-                    finalRelativePath: "final/collision.fixture"
-                )
+                _ = try root.promoteExclusively(fragmentRelativePath: "active/collision.partial",
+                    finalRelativePath: "final/collision.fixture")
             }
             #expect(try Data(contentsOf: root.ownedURL(relativePath: "final/collision.fixture")) == Data("existing".utf8))
             #expect(try Data(contentsOf: root.ownedURL(relativePath: "active/collision.partial")) == Data("candidate".utf8))
