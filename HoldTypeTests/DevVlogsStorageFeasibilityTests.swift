@@ -59,7 +59,70 @@ struct DevVlogsStorageFeasibilityTests {
         try second.validateOwnership()
     }
 
-    @Test func ordinaryBookmarkResolvesAndTracksRunOwnedRenameWhenSupported() throws {
+    @Test func cleanupRejectsRedirectedPrefixAndPreservesRedirectedContent() throws {
+        let unrelatedRoot = try makeRoot()
+        defer { cleanupIfOwned(unrelatedRoot) }
+        let outerRoot = try makeRoot()
+        defer { cleanupIfOwned(outerRoot) }
+        let fixtureBase = try outerRoot.ownedURL(relativePath: "redirected-prefix-fixture")
+        try FileManager.default.createDirectory(at: fixtureBase, withIntermediateDirectories: false)
+
+        let redirectedRun = try DevVlogsStorageRunRoot(
+            runID: UUID(),
+            temporaryDirectoryURL: fixtureBase
+        )
+        let requiredPrefix = redirectedRun.rootURL.deletingLastPathComponent()
+        let savedPrefix = fixtureBase.appendingPathComponent("saved-prefix", isDirectory: true)
+        let redirectedPrefix = fixtureBase.appendingPathComponent("redirected-prefix", isDirectory: true)
+        let redirectedRoot = redirectedPrefix.appendingPathComponent(
+            redirectedRun.runID.uuidString.lowercased(),
+            isDirectory: true
+        )
+        let unrelated = fixtureBase.appendingPathComponent("unrelated-sentinel")
+        try Data("unrelated".utf8).write(to: unrelated, options: .atomic)
+
+        var prefixWasMoved = false
+        defer {
+            unlinkSymbolicLinkIfPresent(at: requiredPrefix)
+            if prefixWasMoved,
+               !FileManager.default.fileExists(atPath: requiredPrefix.path),
+               FileManager.default.fileExists(atPath: savedPrefix.path) {
+                try? FileManager.default.moveItem(at: savedPrefix, to: requiredPrefix)
+            }
+            cleanupIfOwned(redirectedRun)
+        }
+
+        try FileManager.default.moveItem(at: requiredPrefix, to: savedPrefix)
+        prefixWasMoved = true
+        try FileManager.default.createDirectory(at: redirectedRoot, withIntermediateDirectories: true)
+        let redirectedMarker = redirectedRoot.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
+        try Data(redirectedRun.runID.uuidString.lowercased().utf8).write(
+            to: redirectedMarker,
+            options: .atomic
+        )
+        let redirectedContent = redirectedRoot.appendingPathComponent("must-survive")
+        try Data("redirected-content".utf8).write(to: redirectedContent, options: .atomic)
+        try FileManager.default.createSymbolicLink(
+            at: requiredPrefix,
+            withDestinationURL: redirectedPrefix
+        )
+
+        #expect(throws: DevVlogsStorageHarnessError.symbolicLink) {
+            try redirectedRun.cleanup()
+        }
+        #expect(try Data(contentsOf: redirectedContent) == Data("redirected-content".utf8))
+        #expect(try Data(contentsOf: unrelated) == Data("unrelated".utf8))
+
+        unlinkSymbolicLinkIfPresent(at: requiredPrefix)
+        try FileManager.default.moveItem(at: savedPrefix, to: requiredPrefix)
+        prefixWasMoved = false
+        try redirectedRun.cleanup()
+        try outerRoot.cleanup()
+        #expect(FileManager.default.fileExists(atPath: unrelatedRoot.rootURL.path))
+        try unrelatedRoot.validateOwnership()
+    }
+
+    @Test func ordinaryBookmarkFollowsRunOwnedRenameAndReportsStaleFlag() throws {
         let root = try makeRoot()
         defer { cleanupIfOwned(root) }
         let source = try root.ownedURL(relativePath: "bookmark-source")
@@ -70,7 +133,22 @@ struct DevVlogsStorageFeasibilityTests {
 
         let resolution = try DevVlogsOrdinaryBookmark.resolve(bookmark)
         #expect(resolution.url.standardizedFileURL == renamed.standardizedFileURL)
-        #expect(resolution.isStale || resolution.url == renamed)
+        let report = DevVlogsStorageEvidenceRecord(
+            runID: "bookmark-run",
+            caseID: "rename-following",
+            attemptID: "bookmark-attempt",
+            destinationClass: "internal",
+            filesystemClass: "apfs",
+            relativePathClass: "renamed_folder",
+            byteCount: 0,
+            bookmarkWasStale: resolution.isStale,
+            result: "resolved"
+        )
+        let decodedReport = try JSONDecoder().decode(
+            DevVlogsStorageEvidenceRecord.self,
+            from: report.encoded()
+        )
+        #expect(decodedReport.bookmarkWasStale == resolution.isStale)
     }
 
     @Test(arguments: capacityCases)
@@ -223,6 +301,13 @@ struct DevVlogsStorageFeasibilityTests {
         let marker = root.rootURL.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
         try? Data(root.runID.uuidString.lowercased().utf8).write(to: marker, options: .atomic)
         try? root.cleanup()
+    }
+
+    private func unlinkSymbolicLinkIfPresent(at url: URL) {
+        var metadata = stat()
+        guard lstat(url.path, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFLNK else { return }
+        _ = unlink(url.path)
     }
 }
 

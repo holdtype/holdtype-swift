@@ -19,8 +19,9 @@ entitlements, the Xcode project, remote storage, or user media.
 
 - ordinary unsandboxed bookmark creation and resolution with no security scope,
   UI, or mounting option;
-- run-owned UUID marker validation, exact-prefix enforcement, symlink rejection,
-  and marker-gated cleanup;
+- run-owned UUID marker validation, captured temporary-directory/prefix/run-root
+  device-and-inode identity, exact-prefix enforcement, no-follow component
+  validation, symlink rejection, and marker-gated cleanup;
 - injected destination and useful-capacity classification, including unavailable,
   nonlocal, read-only, unknown capacity, below reserve, exact reserve, and
   sufficient capacity;
@@ -47,18 +48,20 @@ entitlements, the Xcode project, remote storage, or user media.
 
 ## Verification receipt
 
-- `DevVlogsStorageFeasibilityTests`: 18 focused cases passed on the internal
+- `DevVlogsStorageFeasibilityTests`: 19 focused cases passed on the internal
   macOS test destination. The ordinary bookmark followed a run-owned folder
-  rename, and the stale-result path was exercised without security-scoped
-  access.
+  rename and its stale flag was returned and carried into the redacted report.
+  This run did not establish a true stale result or stale-bookmark refresh.
 - Internal temporary storage reported local, writable, useful-capacity hints.
   Synchronous exclusive create/write completed inside the marker-owned root.
 - The current APFS temporary volume reported exclusive-rename support.
   `renamex_np(..., RENAME_EXCL)` promoted on the same volume, and its collision
   case preserved the existing final and candidate fragment unchanged.
-- Marker match/mismatch/missing, exact prefix, symlink rejection, cleanup
-  isolation, out-of-root rejection, injected destination/capacity states,
-  interruption classification, and evidence redaction passed.
+- Marker match/mismatch/missing, exact prefix and captured directory identity,
+  below-root symlink rejection, redirected-prefix rejection with redirected
+  content and unrelated neighboring run survival, cleanup isolation,
+  out-of-root rejection, injected destination/capacity states, interruption
+  classification, and evidence redaction passed.
 - `python3 scripts/check_swift_structure.py`: passed.
 - Bounded macOS Debug build: passed.
 - Repository diff hygiene and exact three-path staged audit: passed before the
