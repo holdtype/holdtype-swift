@@ -168,13 +168,29 @@ group_members() {
 }
 
 read_group_state() {
-    local pgid="$1" output exit_code member
+    local pgid="$1" probe_result status_line output exit_code member observed
     group_state="uncertain"; group_member_pids=()
-    set +e; output=$(group_members "$pgid"); exit_code=$?; set -e
+    probe_result=$(
+        set +e
+        group_members "$pgid"
+        exit_code=$?
+        print -r -- "__holdtype_group_probe_status=$exit_code"
+    )
+    status_line="${probe_result##*$'\n'}"
+    [[ "$status_line" == __holdtype_group_probe_status=<-> ]] || return 70
+    exit_code="${status_line##*=}"
+    if [[ "$probe_result" == *$'\n'* ]]; then
+        output="${probe_result%$'\n'*}"
+    else
+        output=""
+    fi
     if (( exit_code == 1 )); then group_state="empty"; return 0; fi
     (( exit_code == 0 )) || return "$exit_code"
     for member in "${(@f)output}"; do
         [[ "$member" == <-> ]] || return 70
+        for observed in "${group_member_pids[@]}"; do
+            [[ "$observed" != "$member" ]] || return 70
+        done
         group_member_pids+=("$member")
     done
     (( ${#group_member_pids} > 0 )) || return 70
@@ -182,16 +198,94 @@ read_group_state() {
 }
 
 capture_group_identities() {
-    local pgid="$1" member identity
+    local pgid="$1" member identity captured
+    local -a captured_identities=()
     supervisor_member_identities=()
-    read_group_state "$pgid" || return 1
-    [[ "$group_state" == members ]] || return 1
+    read_group_state "$pgid" || return 70
+    [[ "$group_state" == members ]] || return 70
     for member in "${group_member_pids[@]}"; do
-        identity=$(process_identity "$member") || continue
-        [[ "$identity" == "$member|$pgid "* ]] || return 1
-        supervisor_member_identities+=("$identity")
+        for captured in "${captured_identities[@]}"; do
+            [[ "${captured%%|*}" != "$member" ]] || return 70
+        done
+        identity=$(process_identity "$member") || return 70
+        [[ "$identity" == "$member|$pgid "* ]] || return 70
+        captured_identities+=("$identity")
     done
-    (( ${#supervisor_member_identities} > 0 ))
+    (( ${#captured_identities} == ${#group_member_pids} &&
+       ${#captured_identities} > 0 )) || return 70
+    supervisor_member_identities=("${captured_identities[@]}")
+}
+
+captured_identity_for_pid() {
+    local pid="$1" captured match=""
+    for captured in "${supervisor_member_identities[@]}"; do
+        if [[ "${captured%%|*}" == "$pid" ]]; then
+            [[ -z "$match" ]] || return 70
+            match="$captured"
+        fi
+    done
+    [[ -n "$match" ]] || return 70
+    print -r -- "$match"
+}
+
+revalidate_captured_group() {
+    local pgid="$1" member captured current
+    (( ${#supervisor_member_identities} > 0 )) || return 70
+    read_group_state "$pgid" || return 70
+    [[ "$group_state" == members ]] || return 70
+    (( ${#group_member_pids} == ${#supervisor_member_identities} )) || return 70
+    for member in "${group_member_pids[@]}"; do
+        captured=$(captured_identity_for_pid "$member") || return 70
+        [[ "$captured" == "$member|$pgid "* ]] || return 70
+        current=$(process_identity "$member") || return 70
+        [[ "$current" == "$captured" ]] || return 70
+    done
+}
+
+emit_group_signal() {
+    local signal="$1" pgid="$2"
+    kill "-$signal" -- -"$pgid" 2>/dev/null
+}
+
+signal_validated_group() {
+    local signal="$1" pgid="$2"
+    revalidate_captured_group "$pgid" || return 70
+    emit_group_signal "$signal" "$pgid"
+}
+
+emit_pid_signal() {
+    local signal="$1" pid="$2"
+    kill "-$signal" "$pid" 2>/dev/null
+}
+
+signal_remaining_captured_members() {
+    local signal="$1" pgid="$2" member captured current
+    local leader_present=false
+    read_group_state "$pgid" || return 70
+    [[ "$group_state" == empty ]] && return 0
+    [[ "$group_state" == members ]] || return 70
+
+    # A group-wide signal is no longer safe after TERM may have changed membership.
+    # Prove every remaining PID is one of the captured identities before signaling any.
+    for member in "${group_member_pids[@]}"; do
+        [[ "$member" != "$pgid" ]] || leader_present=true
+        captured=$(captured_identity_for_pid "$member") || return 70
+        current=$(process_identity "$member") || return 70
+        [[ "$current" == "$captured" && "$current" == "$member|$pgid "* ]] || return 70
+    done
+    for member in "${group_member_pids[@]}"; do
+        [[ "$member" != "$pgid" ]] || continue
+        captured=$(captured_identity_for_pid "$member") || return 70
+        current=$(process_identity "$member") || return 70
+        [[ "$current" == "$captured" ]] || return 70
+        emit_pid_signal "$signal" "$member" || true
+    done
+    if [[ "$leader_present" == true ]]; then
+        captured=$(captured_identity_for_pid "$pgid") || return 70
+        current=$(process_identity "$pgid") || return 70
+        [[ "$current" == "$captured" ]] || return 70
+        emit_pid_signal "$signal" "$pgid" || true
+    fi
 }
 
 wait_for_group_empty() {
@@ -235,14 +329,14 @@ terminate_supervisor() {
         return 0
     fi
     capture_group_identities "$pgid" || return 1
-    kill -TERM -- -"$pgid" 2>/dev/null || true
+    signal_validated_group TERM "$pgid" || return 1
     local group_wait
     if wait_for_group_empty "$pgid" "$termination_checks"; then
         group_wait=0
     else
         group_wait=$?
         (( group_wait == 1 )) || return 1
-        kill -KILL -- -"$pgid" 2>/dev/null || true
+        signal_remaining_captured_members KILL "$pgid" || return 1
         wait_for_group_empty "$pgid" "$termination_checks" || return 1
     fi
     reap_verified_exited_pid "$pid" || return 1
