@@ -16,20 +16,23 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   scenes; the ungated path remains the ordinary app composition.
 - A separate explicit `--request-camera-permission` script command reuses that
   same early-isolated signed Debug app identity without constructing the
-  capture/audio/media harness. Only this route first changes the same process
-  to the regular activation policy, calls `NSApplication.activate` exactly
-  once, and observes `isActive` immediately and under a bounded 100-by-50ms
-  confirmation loop before evaluating Camera authorization. Policy failure,
-  active-state timeout or cancellation, or harness construction failure returns
-  a distinct closed redacted result and never inspects Camera status or calls
-  `requestAccess`; the historical activation-rejected category remains
-  decode-only and has no live producer. The one terminal event
-  reports only the furthest completed closed stage: route start, regular policy,
-  activation request, active confirmation, harness entry, status inspection,
-  or request start. Unknown AVFoundation status is distinct from all pre-harness
-  failures. The route creates no HoldType window, scene, or visible content;
-  normal Debug and hardware-capture routes do not activate. Its injected
-  authorization owner calls the
+  capture/audio/media harness. A standalone AppKit/Foundation helper, compiled
+  into the mode-0700 run root without an explicit signing step or AVFoundation,
+  asks LaunchServices to open the exact canonical Debug app URL as a new active
+  instance. The script accepts only a matching returned bundle URL, executable
+  URL, bundle identifier, token-bound process digest, and W05 marker/executable/
+  inode/start/command identity. It then publishes one exclusive atomic
+  acknowledgment. The target sets regular activation policy during
+  `applicationWillFinishLaunching`, but makes no target-side activation request
+  and cannot inspect Camera status until its no-follow, owner/mode/type/size-
+  checked acknowledgment matches its own token-bound process digest and
+  `NSApplication.isActive` is true. Invalid, timed-out, and cancelled
+  acknowledgments are distinct closed redacted results. The one terminal event
+  reports the furthest completed closed stage, including
+  `launch_identity_acknowledged`; unknown AVFoundation status remains distinct
+  from every pre-harness failure. The route creates no HoldType window, scene,
+  or visible content; normal Debug and hardware-capture routes do not activate.
+  Its injected authorization owner calls the
   genuine video `requestAccess` API exactly once only from a not-determined
   status, waits under an independent 120-second operational bound, and emits
   one closed redacted granted, already-authorized, denied, restricted, timeout,
@@ -95,14 +98,14 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 59 logical tests include 14 authorization-mode tests covering live policy/active-timeout/activation-cancel/harness/status outcomes, historical closed-category decoding, exact furthest stages, one activation followed by separately sequenced active observations, activation/status/request ordering, zero authorization work for normal and hardware routes, every authorization status, exact-one request, callback outcomes, timeout/cancellation/late-callback safety, exact-one terminal evidence, early launch routing, and owner isolation. The remaining 45 preserve accepted launch, deferred natural termination and external-quit races, R03 lifecycle/errors, native-source, passthrough, probe, preservation, one-audio-owner, Ready gating, and redaction. |
+| Focused macOS fake tests | Pass; 63 logical tests include 19 authorization/helper/handshake/lifecycle/event tests covering exact LaunchServices configuration, helper success/rejection/timeout/cancellation/late-callback exact-once behavior, no-follow acknowledgment safety, policy/acknowledgment/active/status/request ordering, every authorization status, timeout/cancellation, exact-one terminal evidence, early launch routing, and normal/hardware owner isolation. The remaining 44 preserve accepted launch, deferred natural termination and external-quit races, R03 lifecycle/errors, native-source, passthrough, probe, preservation, one-audio-owner, Ready gating, and redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. Camera-request supervision uses one absolute monotonic 420-second deadline and now baselines the exact Debug executable before launch, then registers every post-baseline process proven by executable inode/path, full command, start identity, and the exact run-root environment marker. Permission-mode fakes proved direct natural exit/reap; marked additional-process natural exit and exact TERM/KILL fallback; pre-existing exact-binary and different-executable survival; unmarked and identity-changed no-signal failure; late-process quiet-rescan discovery; descendant, script-sibling, external-parent, and reparented-unknown classification; cancellation traps; and deadline-expired/slow-probe no-signal behavior. Only the direct shell child is waited/reaped. Root preservation on uncertainty and exact test-owned cleanup were verified. The hardware tail is byte-identical to `48c0d5c`. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration plus success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision retains one absolute monotonic 420-second deadline, exact-binary baseline, W05 multi-process marker registry, fresh identity-safe signaling, and quiet rescan. Launch result and acknowledgment publication are exclusive and atomic; the secret token is environment-only, is never logged, and is scrubbed with result/ack artifacts. Only the direct helper child is waited/reaped; LaunchServices app processes remain registry-owned non-children. The hardware tail is byte-identical to `b071056` and `48c0d5c`. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`
@@ -120,6 +123,6 @@ Real camera/microphone/TCC, Continuity Camera, device-busy/disconnect, codec,
 playability, timing, sync/drift, and quantitative evidence remain deferred to a
 separately authorized controlled hardware run. The shipping shared-audio lease
 is not implemented by this Debug spike. One separately authorized runtime and
-review step must invoke the repaired explicit Camera-request command with the
-same signed Debug identity before any capture retry can claim a prompt or
-authorization result.
+review step must invoke the repaired exact-URL LaunchServices Camera-request
+command with the same signed Debug identity before any capture retry can claim
+foreground activation, a prompt, or an authorization result.

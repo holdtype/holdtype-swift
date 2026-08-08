@@ -55,5 +55,33 @@ struct DevVlogsPhase0BEventLogTests {
         #expect(!payload.contains("NSError"))
         #expect(!payload.contains("userInfo"))
     }
+
+    @Test func acknowledgmentCategoriesAndStageRemainClosedAndRedacted() throws {
+        let categories: [DevVlogsPhase0BFailureCategory] = [
+            .cameraAuthorizationAcknowledgmentInvalid,
+            .cameraAuthorizationAcknowledgmentTimedOut,
+            .cameraAuthorizationAcknowledgmentCancelled,
+        ]
+        #expect(categories.map(\.rawValue) == [
+            "camera_authorization_acknowledgment_invalid",
+            "camera_authorization_acknowledgment_timed_out",
+            "camera_authorization_acknowledgment_cancelled",
+        ])
+        #expect(DevVlogsPhase0BCameraAuthorizationStage.launchIdentityAcknowledged.rank >
+            DevVlogsPhase0BCameraAuthorizationStage.regularPolicySet.rank)
+        #expect(DevVlogsPhase0BCameraAuthorizationStage.launchIdentityAcknowledged.rank <
+            DevVlogsPhase0BCameraAuthorizationStage.activeStateConfirmed.rank)
+        let encoded = try JSONEncoder().encode(DevVlogsPhase0BEvent(
+            runID: "run", caseID: "case", attemptID: "attempt",
+            monotonicMilliseconds: 1, action: "camera_authorization_terminal",
+            result: .failed, category: .cameraAuthorizationAcknowledgmentInvalid,
+            furthestStage: .launchIdentityAcknowledged
+        ))
+        let payload = String(decoding: encoded, as: UTF8.self)
+        #expect(payload.contains("launch_identity_acknowledged"))
+        for forbidden in ["/tmp/", "token", "pid", "NSError", "userInfo"] {
+            #expect(!payload.contains(forbidden))
+        }
+    }
 }
 #endif

@@ -10,6 +10,7 @@ enum DevVlogsPhase0BCameraAuthorizationStatus: Equatable {
 enum DevVlogsPhase0BCameraAuthorizationOutcome: Equatable {
     case granted, alreadyAuthorized, denied, restricted, timedOut, cancelled, statusUnknown
     case activationPolicyFailed, activationRejected, activationTimedOut, activationCancelled
+    case acknowledgmentInvalid, acknowledgmentTimedOut, acknowledgmentCancelled
     case harnessUnavailable, alreadyCompleted
 
     var category: DevVlogsPhase0BFailureCategory {
@@ -25,6 +26,9 @@ enum DevVlogsPhase0BCameraAuthorizationOutcome: Equatable {
         case .activationRejected: .cameraAuthorizationActivationRejected
         case .activationTimedOut: .cameraAuthorizationActivationTimedOut
         case .activationCancelled: .cameraAuthorizationActivationCancelled
+        case .acknowledgmentInvalid: .cameraAuthorizationAcknowledgmentInvalid
+        case .acknowledgmentTimedOut: .cameraAuthorizationAcknowledgmentTimedOut
+        case .acknowledgmentCancelled: .cameraAuthorizationAcknowledgmentCancelled
         case .harnessUnavailable: .cameraAuthorizationHarnessUnavailable
         case .alreadyCompleted: .alreadyRun
         }
@@ -34,9 +38,11 @@ enum DevVlogsPhase0BCameraAuthorizationOutcome: Equatable {
         switch self {
         case .granted, .alreadyAuthorized: .ready
         case .timedOut, .activationTimedOut: .timedOut
-        case .cancelled, .activationCancelled: .cancelled
+        case .cancelled, .activationCancelled, .acknowledgmentCancelled: .cancelled
+        case .acknowledgmentTimedOut: .timedOut
         case .denied, .restricted, .statusUnknown, .activationPolicyFailed,
-             .activationRejected, .harnessUnavailable, .alreadyCompleted: .failed
+             .activationRejected, .acknowledgmentInvalid, .harnessUnavailable,
+             .alreadyCompleted: .failed
         }
     }
 }
@@ -46,56 +52,36 @@ struct DevVlogsPhase0BCameraAuthorizationTerminal: Equatable {
     let furthestStage: DevVlogsPhase0BCameraAuthorizationStage
 }
 
-private enum DevVlogsPhase0BApplicationActivationOutcome {
-    case active, policyFailed, requestRejected, confirmationTimedOut, cancelled
-}
-
 @MainActor
-struct DevVlogsPhase0BApplicationActivation {
+struct DevVlogsPhase0BActiveStateConfirmation {
     typealias Sleep = @MainActor @Sendable (Duration) async throws -> Void
-    let setRegularPolicy: () -> Bool
-    let activateApplication: () -> Void
     let isActive: () -> Bool
     let sleep: Sleep
     let confirmationAttempts: Int
 
     static let live = Self(
-        setRegularPolicy: { NSApplication.shared.setActivationPolicy(.regular) },
-        activateApplication: { NSApplication.shared.activate() },
         isActive: { NSApplication.shared.isActive },
         sleep: { try await Task.sleep(for: $0) },
         confirmationAttempts: 100
     )
 
-    fileprivate func run(
-        stage: (DevVlogsPhase0BCameraAuthorizationStage) -> Void
-    ) async -> DevVlogsPhase0BApplicationActivationOutcome {
-        guard !Task.isCancelled else { return .cancelled }
-        guard setRegularPolicy() else { return .policyFailed }
-        stage(.regularPolicySet)
-        guard !Task.isCancelled else { return .cancelled }
-        stage(.activationRequested)
-        activateApplication()
+    fileprivate func run() async -> DevVlogsPhase0BCameraAuthorizationOutcome? {
         if isActive() {
-            stage(.activeStateConfirmed)
-            return .active
+            return nil
         }
         for _ in 0 ..< confirmationAttempts {
-            guard !Task.isCancelled else { return .cancelled }
+            guard !Task.isCancelled else { return .activationCancelled }
             do {
                 try await sleep(.milliseconds(50))
             } catch is CancellationError {
-                return .cancelled
+                return .activationCancelled
             } catch {
-                return .confirmationTimedOut
+                return .activationTimedOut
             }
-            guard !Task.isCancelled else { return .cancelled }
-            if isActive() {
-                stage(.activeStateConfirmed)
-                return .active
-            }
+            guard !Task.isCancelled else { return .activationCancelled }
+            if isActive() { return nil }
         }
-        return .confirmationTimedOut
+        return .activationTimedOut
     }
 }
 
@@ -238,8 +224,10 @@ nonisolated private final class DevVlogsPhase0BAuthorizationContinuationGate: @u
 
 struct DevVlogsPhase0BCameraAuthorizationConfiguration: Equatable {
     static let enabledEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_REQUEST_CAMERA_PERMISSION"
+    static let launchTokenEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_LAUNCH_TOKEN"
     let runRoot: URL
     let caseID: String
+    let launchToken: String
 
     static func shouldRequest(environment: [String: String]) -> Bool {
         environment[enabledEnvironmentKey] == "1"
@@ -253,14 +241,16 @@ struct DevVlogsPhase0BCameraAuthorizationConfiguration: Equatable {
               environment[KeychainInteractionPolicy.automationEnvironmentKey] == "1",
               environment[KeychainInteractionPolicy.authenticationUIEnvironmentKey] ==
                 KeychainInteractionPolicy.skipAuthenticationUIValue,
-              let rawRoot = environment[DevVlogsPhase0BConfiguration.runRootEnvironmentKey]
+              let rawRoot = environment[DevVlogsPhase0BConfiguration.runRootEnvironmentKey],
+              let launchToken = environment[launchTokenEnvironmentKey],
+              launchToken.count == 64,
+              launchToken.allSatisfy({ $0.isHexDigit && $0.isASCII })
         else { return nil }
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
-            .resolvingSymlinksInPath()
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let caseID = environment[DevVlogsPhase0BConfiguration.caseIDEnvironmentKey] ?? "camera-authorization"
         guard runRoot.path.hasPrefix(safeRoot.path + "/"), isSafeIdentifier(caseID) else { return nil }
-        return Self(runRoot: runRoot, caseID: caseID)
+        return Self(runRoot: runRoot, caseID: caseID, launchToken: launchToken.lowercased())
     }
 
     private static func isSafeIdentifier(_ value: String) -> Bool {
@@ -294,29 +284,32 @@ final class DevVlogsPhase0BCameraAuthorizationHarness {
     }
 
     func run(
-        activation: DevVlogsPhase0BApplicationActivation
+        handshake: any DevVlogsPhase0BCameraAuthorizationAcknowledging,
+        activeConfirmation: DevVlogsPhase0BActiveStateConfirmation
     ) async -> DevVlogsPhase0BCameraAuthorizationTerminal {
         guard !hasRun else {
             return .init(outcome: .alreadyCompleted, furthestStage: .routeStarted)
         }
         hasRun = true
         let attemptID = UUID().uuidString.lowercased()
-        let stages = DevVlogsPhase0BCameraAuthorizationStageTracker()
+        let stages = DevVlogsPhase0BCameraAuthorizationStageTracker(initial: .regularPolicySet)
         record(
             action: "camera_authorization",
             result: .started,
             attemptID: attemptID,
             category: nil,
-            furthestStage: .routeStarted
+            furthestStage: .regularPolicySet
         )
-        let activationOutcome = await activation.run { stages.advance(to: $0) }
-        switch activationOutcome {
-        case .policyFailed: return finish(.activationPolicyFailed, stages, attemptID)
-        case .requestRejected: return finish(.activationRejected, stages, attemptID)
-        case .confirmationTimedOut: return finish(.activationTimedOut, stages, attemptID)
-        case .cancelled: return finish(.activationCancelled, stages, attemptID)
-        case .active: break
+        switch await handshake.waitForAcknowledgment() {
+        case .invalid: return finish(.acknowledgmentInvalid, stages, attemptID)
+        case .timedOut: return finish(.acknowledgmentTimedOut, stages, attemptID)
+        case .cancelled: return finish(.acknowledgmentCancelled, stages, attemptID)
+        case .acknowledged: stages.advance(to: .launchIdentityAcknowledged)
         }
+        if let failure = await activeConfirmation.run() {
+            return finish(failure, stages, attemptID)
+        }
+        stages.advance(to: .activeStateConfirmed)
         stages.advance(to: .authorizationHarnessEntered)
         let outcome = await request.run { stages.advance(to: $0) }
         return finish(outcome, stages, attemptID)
@@ -395,8 +388,10 @@ enum DevVlogsPhase0BCameraAuthorizationOperatorSummary {
 
 private final class DevVlogsPhase0BCameraAuthorizationStageTracker: @unchecked Sendable {
     private let lock = NSLock()
-    private var stage = DevVlogsPhase0BCameraAuthorizationStage.routeStarted
+    private var stage: DevVlogsPhase0BCameraAuthorizationStage
     private var isTerminal = false
+
+    init(initial: DevVlogsPhase0BCameraAuthorizationStage = .routeStarted) { stage = initial }
 
     func advance(to next: DevVlogsPhase0BCameraAuthorizationStage) {
         lock.withLock {
