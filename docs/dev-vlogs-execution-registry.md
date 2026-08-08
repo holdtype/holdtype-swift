@@ -131,7 +131,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-E06` | read-only exact map/API/ownership review | accepted_with_residual | receipt below | Corrected 12-path Debug repair is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-W06` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E06-REVIEW` | exact 12 Debug helper/script/auth/handshake/launch/termination/event/test/summary paths | rejected | `169e895`; receipt below | Architecture/build isolation pass; runtime path/parser/deadline/cancellation guarantees fail. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | rejected | receipt below | Seven-path focused repair required before runtime. |
-| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | running | — | Repair actual parser, one deadline, descriptor-stable result, pre-stage cancellation, behavioral coverage. |
+| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | review | `daac571`; receipt below | Six changed paths close the five findings; one authorized lifecycle-test path remained unchanged. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | running | — | Recheck actual parser, descriptor stability, deadline, cancellation, claims, isolation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -221,8 +222,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   no explicit helper signing, stronger atomic handshake, and structure-safe
   source extraction. Repair `169e895` compiled and passed tests but review
   rejected its real parser, deadline, result-file, cancellation, and behavioral
-  coverage guarantees. Seven-path focused repair is running; capture remains
-  blocked. The
+  coverage guarantees. Focused repair `daac571` passes 20/20 focused and 66/66
+  full Phase 0B tests and is in repeat review; capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2202,6 +2203,40 @@ next_dependency: Seven-path parser/deadline/result/cancellation/test/summary
 repair and independent review.
 runtime_or_visual_handoff: none
 reviewed_commit: 169e89562f237484337ab4fed31b12cc0c8040e4
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R1
+status: done
+
+outcome: Repaired strict helper-result parsing, descriptor-stable publication
+and verification, single 420-second deadline coverage, cancellation ordering,
+and behavioral evidence.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact W06 rejection.
+changed_paths: CameraAuthorization; LaunchServices and authorization tests;
+standalone helper; permission script; W01 summary. Six paths in commit daac571;
+the authorized lifecycle-test path required no change.
+checks_run: Structure; 20/20 focused, 66/66 full Phase 0B, and 7/7 final
+LaunchServices tests; actual valid/extra-key/wrong-digest parser fakes; helper
+self-test; syntax/help/negatives/build-only; signed Debug; bounded unsigned
+Release; settings/artifact isolation; hardware tail and W05 function hashes;
+diff/redaction/path/process/root audits.
+findings_closed: Normalized initialized parser fields; one deadline begins
+before compile; directory-relative exact-schema immutable descriptor snapshot;
+cancellation before active/status/request; executable verifier/parser/digest/
+ack tests; truthful summary wording.
+scope_check: Exact Debug evidence/tooling repair; no product, project, plist,
+entitlement, TCC, runtime, camera, microphone, media, storage, UI, iOS, Build,
+or publication change.
+deviations: Accepted W05 supervisor functions were proven hash-identical rather
+than reconstructing the prior ad-hoc multi-process runner.
+residual: LaunchServices foreground behavior, Camera prompt/TCC, and hardware
+remain runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: daac5718750492f069b04369b98ca7852e2f389e
 ```
 
 ## Rejected Receipts
