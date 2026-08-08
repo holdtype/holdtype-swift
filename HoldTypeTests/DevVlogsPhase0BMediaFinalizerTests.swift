@@ -1,4 +1,5 @@
 #if DEBUG
+import CoreMedia
 import Foundation
 import Testing
 @testable import HoldType
@@ -14,6 +15,7 @@ struct DevVlogsPhase0BMediaFinalizerTests {
 
         #expect(result.audioInsertionOffset == 0)
         #expect(result.videoInsertionOffset == 0.25)
+        #expect(result.videoSampleTimestampOffset == CMTime(seconds: 0.25, preferredTimescale: 60_000))
         #expect(exporter.requests.count == 1)
         #expect(exporter.requests.first?.timeout == .seconds(300))
     }
@@ -27,13 +29,37 @@ struct DevVlogsPhase0BMediaFinalizerTests {
     }
 
     @Test func exporterFailureRemainsTruthfulAndDoesNotRetry() async {
-        let exporter = Phase0BExporter(error: .exportTimedOut)
+        let exporter = Phase0BExporter(error: .passthroughIncompatible)
         let finalizer = DevVlogsPhase0BMediaFinalizer(exporter: exporter)
 
-        await #expect(throws: DevVlogsPhase0BMediaFinalizerError.exportTimedOut) {
+        await #expect(throws: DevVlogsPhase0BMediaFinalizerError.passthroughIncompatible) {
             try await finalizer.finalize(makeRequest(audioStart: 1, videoStart: 1))
         }
         #expect(exporter.requests.count == 1)
+    }
+
+    @Test func sourceUsesOnlyTransformPreservingQuickTimePassthrough() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent(
+                "HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BMediaFinalizer.swift"
+            ),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("AVAssetExportPresetPassthrough"))
+        #expect(source.contains("outputType = AVFileType.mov"))
+        #expect(source.contains("compositionVideo.preferredTransform"))
+        #expect(source.contains("videoTrack.load(.preferredTransform)"))
+        #expect(source.contains("insertTimeRange(\n                videoRange"))
+        #expect(source.contains("insertTimeRange(\n                audioRange"))
+        #expect(!source.contains("AVAssetExportPreset1280x720"))
+        #expect(!source.contains("videoComposition"))
+        #expect(!source.contains("intersection("))
+        #expect(!source.contains("CMTimeRangeGetIntersection"))
+        #expect(!source.contains("renderSize"))
+        #expect(!source.contains("setScaleRamp"))
+        #expect(!source.contains("CGAffineTransform(scale"))
     }
 
     @Test func missingExportCallbackTimesOutWithoutBlockingAndLateCallbackIsHarmless() async {
@@ -89,7 +115,7 @@ struct DevVlogsPhase0BMediaFinalizerTests {
         DevVlogsPhase0BMediaFinalizationRequest(
             videoFileURL: URL(fileURLWithPath: "/tmp/run/video.mov"),
             audioFileURL: URL(fileURLWithPath: "/tmp/run/audio.m4a"),
-            outputFileURL: URL(fileURLWithPath: "/tmp/run/candidate.mp4"),
+            outputFileURL: URL(fileURLWithPath: "/tmp/run/candidate.mov"),
             alignment: .init(
                 audioCaptureStartMonotonicTime: audioStart,
                 videoCaptureStartMonotonicTime: videoStart
@@ -131,9 +157,10 @@ private final class Phase0BExporter: DevVlogsPhase0BMediaExporting {
         self.error = error
     }
 
-    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws {
+    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws -> CMTime {
         requests.append(request)
         if let error { throw error }
+        return CMTime(seconds: request.alignment.videoInsertionOffset, preferredTimescale: 60_000)
     }
 }
 #endif

@@ -25,7 +25,6 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case cameraSelectionDisconnected = "camera_selection_disconnected"
     case cameraStartDeviceUnavailable = "camera_start_device_unavailable"
     case cameraSelectionBusy = "camera_selection_busy"
-    case cameraConfigurationPreset = "camera_configuration_preset"
     case cameraConfigurationVideoInput = "camera_configuration_video_input"
     case cameraConfigurationMovieOutput = "camera_configuration_movie_output"
     case cameraConfigurationSampleOutput = "camera_configuration_sample_output"
@@ -37,8 +36,12 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case cameraSessionNotCapturing = "camera_session_not_capturing"
     case cameraUnknown = "camera_unknown"
     case captureStop = "capture_stop"
+    case cameraProbe = "camera_probe"
+    case passthroughIncompatible = "passthrough_incompatible"
+    case passthroughExportFailed = "passthrough_export_failed"
     case finalization
-    case probe
+    case finalProbe = "final_probe"
+    case videoPreservationFailed = "video_preservation_failed"
     case eventLog = "event_log"
     case alreadyRun = "already_run"
 }
@@ -46,7 +49,8 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
 enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
     case invalidConfiguration, audioStart
     case cameraStart(DevVlogsPhase0BFailureCategory)
-    case captureStop, finalization, probe, eventLog, alreadyRun
+    case captureStop, cameraProbe, passthroughIncompatible, passthroughExportFailed
+    case finalization, finalProbe, videoPreservationFailed, eventLog, alreadyRun
 
     var category: DevVlogsPhase0BFailureCategory {
         switch self {
@@ -54,8 +58,12 @@ enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
         case .audioStart: .audioStart
         case .cameraStart(let category): category
         case .captureStop: .captureStop
+        case .cameraProbe: .cameraProbe
+        case .passthroughIncompatible: .passthroughIncompatible
+        case .passthroughExportFailed: .passthroughExportFailed
         case .finalization: .finalization
-        case .probe: .probe
+        case .finalProbe: .finalProbe
+        case .videoPreservationFailed: .videoPreservationFailed
         case .eventLog: .eventLog
         case .alreadyRun: .alreadyRun
         }
@@ -81,7 +89,6 @@ extension DevVlogsPhase0BCameraCaptureError {
         case .preferredDeviceDisconnected: .cameraSelectionDisconnected
         case .deviceUnavailableDuringStart: .cameraStartDeviceUnavailable
         case .preferredDeviceBusy: .cameraSelectionBusy
-        case .unsupportedCandidatePreset: .cameraConfigurationPreset
         case .videoInputUnavailable: .cameraConfigurationVideoInput
         case .movieOutputUnavailable: .cameraConfigurationMovieOutput
         case .sampleOutputUnavailable: .cameraConfigurationSampleOutput
@@ -107,6 +114,78 @@ struct DevVlogsPhase0BMetric: Codable, Equatable {
     let disposition: String
 }
 
+extension DevVlogsPhase0BMetric {
+    static func captureEvidence(
+        camera: DevVlogsPhase0BCameraCaptureArtifact,
+        cameraProbe: DevVlogsPhase0BMediaProbeResult,
+        finalProbe: DevVlogsPhase0BMediaProbeResult,
+        preservation: DevVlogsPhase0BVideoPreservationResult
+    ) -> [Self] {
+        var values: [Self] = [
+            .init(name: "camera_video_duration", value: cameraProbe.video.durationSeconds,
+                  unit: "s", disposition: "evidence_only"),
+            .init(name: "final_video_duration", value: finalProbe.video.durationSeconds,
+                  unit: "s", disposition: "evidence_only"),
+            .init(name: "preserved_sample_count", value: Double(preservation.sampleCount),
+                  unit: "samples", disposition: "functional"),
+            .init(name: "preserved_encoded_bytes", value: Double(preservation.encodedByteCount),
+                  unit: "bytes", disposition: "functional"),
+        ]
+        append("camera_request_to_first_frame", camera.firstFrameMonotonicTime.map {
+            ($0 - camera.requestMonotonicTime) * 1_000
+        }, "ms", to: &values)
+        appendTrack("camera", cameraProbe.video, to: &values)
+        appendTrack("final", finalProbe.video, to: &values)
+        append("audio_duration", finalProbe.audio?.durationSeconds, "s", to: &values)
+        if let audio = finalProbe.audio { appendTrack("audio", audio, to: &values) }
+        return values
+    }
+
+    private static func appendTrack(
+        _ prefix: String,
+        _ track: DevVlogsPhase0BMediaTrackProbe,
+        to values: inout [Self]
+    ) {
+        append("\(prefix)_width", track.naturalDimensions.map { Double($0.width) }, "px", to: &values)
+        append("\(prefix)_height", track.naturalDimensions.map { Double($0.height) }, "px", to: &values)
+        append("\(prefix)_display_width", track.displayDimensions.map { Double($0.width) }, "px", to: &values)
+        append("\(prefix)_display_height", track.displayDimensions.map { Double($0.height) }, "px", to: &values)
+        append("\(prefix)_nominal_fps", track.nominalFrameRate.map(Double.init), "fps", to: &values)
+        append("\(prefix)_derived_fps", track.derivedFrameRate, "fps", to: &values)
+        append("\(prefix)_start_timestamp", track.startTimestampSeconds, "s", to: &values)
+        append("\(prefix)_end_timestamp", track.endTimestampSeconds, "s", to: &values)
+        append("\(prefix)_estimated_data_rate", Double(track.estimatedDataRate), "bps", to: &values)
+        if let transform = track.preferredTransform {
+            append("\(prefix)_transform_a", Double(transform.a), "coefficient", to: &values)
+            append("\(prefix)_transform_b", Double(transform.b), "coefficient", to: &values)
+            append("\(prefix)_transform_c", Double(transform.c), "coefficient", to: &values)
+            append("\(prefix)_transform_d", Double(transform.d), "coefficient", to: &values)
+        }
+    }
+
+    private static func append(
+        _ name: String,
+        _ value: Double?,
+        _ unit: String,
+        to values: inout [Self]
+    ) {
+        guard let value, value.isFinite else { return }
+        values.append(.init(name: name, value: value, unit: unit, disposition: "evidence_only"))
+    }
+}
+
+struct DevVlogsPhase0BVideoEvidence: Codable, Equatable {
+    let cameraMediaSubtype: String
+    let finalizedMediaSubtype: String
+    let finalizedAudioMediaSubtype: String?
+    let cameraFormat: String
+    let finalizedFormat: String
+    let preservationMethod: String
+    let preservedSampleCount: Int
+    let preservedEncodedByteCount: Int64
+    let matched: Bool
+}
+
 struct DevVlogsPhase0BEvent: Codable, Equatable {
     let runID: String
     let caseID: String
@@ -118,6 +197,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
     let deviceClass: DevVlogsPhase0BDeviceClass?
     let redactedDeviceLabel: String?
     let metrics: [DevVlogsPhase0BMetric]
+    let videoEvidence: DevVlogsPhase0BVideoEvidence?
 
     init(
         runID: String,
@@ -129,7 +209,8 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         category: DevVlogsPhase0BFailureCategory? = nil,
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
-        metrics: [DevVlogsPhase0BMetric] = []
+        metrics: [DevVlogsPhase0BMetric] = [],
+        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil
     ) {
         self.runID = runID
         self.caseID = caseID
@@ -141,6 +222,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         self.deviceClass = deviceClass
         self.redactedDeviceLabel = redactedDeviceLabel
         self.metrics = metrics
+        self.videoEvidence = videoEvidence
     }
 }
 

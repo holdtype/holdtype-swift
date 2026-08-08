@@ -19,7 +19,7 @@ struct DevVlogsPhase0BCameraCaptureArtifact: Equatable {
 enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
     case permissionRequired, permissionDenied
     case preferredDeviceDisconnected, deviceUnavailableDuringStart, preferredDeviceBusy
-    case unsupportedCandidatePreset, videoInputUnavailable
+    case videoInputUnavailable
     case movieOutputUnavailable, sampleOutputUnavailable
     case setupTimedOut, firstFrameUnavailable, recordingFailed
     case disconnectedDuringCapture, runtimeFailure, unknownPlatformFailure, notCapturing
@@ -97,9 +97,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private var startContinuation: CheckedContinuation<Void, Error>?, stopContinuation: CheckedContinuation<Void, Error>?
     private var startTimeoutTask: Task<Void, Never>?, stopTimeoutTask: Task<Void, Never>?
     private let steadyFailureTerminator = DevVlogsPhase0BSteadyCaptureTerminator()
-    private weak var configuredDevice: AVCaptureDevice?
-    private var originalFormat: AVCaptureDevice.Format?
-    private var originalMinimumFrameDuration: CMTime?, originalMaximumFrameDuration: CMTime?
     private var observers: [NSObjectProtocol] = []
     private(set) var sessionCleanupCount = 0
     var stopIsPending: Bool { stopContinuation != nil }
@@ -220,13 +217,8 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         return device
     }
     private func configureSession(device: AVCaptureDevice) throws {
-        try configureCandidateFrameRate(device: device)
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        guard session.canSetSessionPreset(.hd1280x720) else {
-            throw DevVlogsPhase0BCameraCaptureError.unsupportedCandidatePreset
-        }
-        session.sessionPreset = .hd1280x720
         let input = try AVCaptureDeviceInput(device: device)
         guard session.canAddInput(input) else { throw DevVlogsPhase0BCameraCaptureError.videoInputUnavailable }
         session.addInput(input)
@@ -323,7 +315,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         observers.forEach(NotificationCenter.default.removeObserver)
         observers.removeAll()
         sampleOutput.setSampleBufferDelegate(nil, queue: nil)
-        defer { restoreDeviceConfiguration() }
         try await stopSession(timeout: timeout)
     }
     private func stopSession(timeout: Duration) async throws {
@@ -372,49 +363,6 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
         stopTimeoutTask?.cancel()
         stopTimeoutTask = nil
         error.map { continuation.resume(throwing: $0) } ?? continuation.resume()
-    }
-    private func configureCandidateFrameRate(device: AVCaptureDevice) throws {
-        let dimensions = CMVideoDimensions(width: 1_280, height: 720)
-        guard let format = device.formats.first(where: { format in
-            let formatDimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-            return formatDimensions.width == dimensions.width
-                && formatDimensions.height == dimensions.height
-                && format.videoSupportedFrameRateRanges.contains { range in
-                    range.minFrameRate <= 30 && range.maxFrameRate >= 30
-                }
-        }) else {
-            throw DevVlogsPhase0BCameraCaptureError.unsupportedCandidatePreset
-        }
-        try device.lockForConfiguration()
-        defer { device.unlockForConfiguration() }
-        configuredDevice = device
-        originalFormat = device.activeFormat
-        originalMinimumFrameDuration = device.activeVideoMinFrameDuration
-        originalMaximumFrameDuration = device.activeVideoMaxFrameDuration
-        device.activeFormat = format
-        let frameDuration = CMTime(value: 1, timescale: 30)
-        device.activeVideoMinFrameDuration = frameDuration
-        device.activeVideoMaxFrameDuration = frameDuration
-    }
-    private func restoreDeviceConfiguration() {
-        guard let device = configuredDevice, let originalFormat else { return }
-        do {
-            try device.lockForConfiguration()
-            device.activeFormat = originalFormat
-            if let originalMinimumFrameDuration {
-                device.activeVideoMinFrameDuration = originalMinimumFrameDuration
-            }
-            if let originalMaximumFrameDuration {
-                device.activeVideoMaxFrameDuration = originalMaximumFrameDuration
-            }
-            device.unlockForConfiguration()
-        } catch {
-            // Debug evidence records terminal media truth; restoration failure is not retried here.
-        }
-        configuredDevice = nil
-        self.originalFormat = nil
-        originalMinimumFrameDuration = nil
-        originalMaximumFrameDuration = nil
     }
     static func classifyRuntimeNotification(
         _ notification: Notification,

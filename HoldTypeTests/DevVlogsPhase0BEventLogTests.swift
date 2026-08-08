@@ -28,7 +28,18 @@ struct DevVlogsPhase0BEventLogTests {
                 redactedDeviceLabel: "continuity_camera",
                 metrics: [
                     .init(name: "video_duration", value: 10, unit: "s", disposition: "evidence_only"),
-                ]
+                ],
+                videoEvidence: .init(
+                    cameraMediaSubtype: "hvc1",
+                    finalizedMediaSubtype: "hvc1",
+                    finalizedAudioMediaSubtype: "aac ",
+                    cameraFormat: "hvc1:1920x1080:descriptions_1",
+                    finalizedFormat: "hvc1:1920x1080:descriptions_1",
+                    preservationMethod: "stored_sample_exact_v1",
+                    preservedSampleCount: 600,
+                    preservedEncodedByteCount: 4_000_000,
+                    matched: true
+                )
             )
         )
 
@@ -36,6 +47,9 @@ struct DevVlogsPhase0BEventLogTests {
         #expect(payload.hasSuffix("\n"))
         #expect(payload.contains("continuity_camera"))
         #expect(payload.contains("camera_selection_busy"))
+        #expect(payload.contains("stored_sample_exact_v1"))
+        #expect(payload.contains("hvc1"))
+        #expect(!payload.contains("digest"))
         #expect(!payload.contains(directory.path))
         #expect(!payload.contains("sensitive-device-id"))
         #expect(!payload.contains("NSError"))

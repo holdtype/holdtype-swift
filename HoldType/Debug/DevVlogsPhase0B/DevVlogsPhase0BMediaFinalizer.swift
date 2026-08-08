@@ -32,15 +32,16 @@ struct DevVlogsPhase0BMediaFinalization: Equatable {
     let outputFileURL: URL
     let audioInsertionOffset: TimeInterval
     let videoInsertionOffset: TimeInterval
+    let videoSampleTimestampOffset: CMTime
 }
 
 enum DevVlogsPhase0BMediaFinalizerError: Error, Equatable {
     case missingVideoTrack
     case missingAudioTrack
     case compositionTrackUnavailable
-    case candidatePresetUnavailable
+    case passthroughIncompatible
     case outputAlreadyExists
-    case exportFailed
+    case passthroughExportFailed
     case exportCancelled
     case exportTimedOut
 }
@@ -52,7 +53,7 @@ protocol DevVlogsPhase0BMediaFinalizing {
 }
 
 protocol DevVlogsPhase0BMediaExporting {
-    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws
+    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws -> CMTime
 }
 
 struct DevVlogsPhase0BMediaFinalizer: DevVlogsPhase0BMediaFinalizing {
@@ -65,17 +66,18 @@ struct DevVlogsPhase0BMediaFinalizer: DevVlogsPhase0BMediaFinalizing {
     func finalize(
         _ request: DevVlogsPhase0BMediaFinalizationRequest
     ) async throws -> DevVlogsPhase0BMediaFinalization {
-        try await exporter.export(request)
+        let videoSampleTimestampOffset = try await exporter.export(request)
         return DevVlogsPhase0BMediaFinalization(
             outputFileURL: request.outputFileURL,
             audioInsertionOffset: request.alignment.audioInsertionOffset,
-            videoInsertionOffset: request.alignment.videoInsertionOffset
+            videoInsertionOffset: request.alignment.videoInsertionOffset,
+            videoSampleTimestampOffset: videoSampleTimestampOffset
         )
     }
 }
 
 struct DevVlogsPhase0BAppleMediaExporter: DevVlogsPhase0BMediaExporting {
-    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws {
+    func export(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws -> CMTime {
         guard !FileManager.default.fileExists(atPath: request.outputFileURL.path) else {
             throw DevVlogsPhase0BMediaFinalizerError.outputAlreadyExists
         }
@@ -102,33 +104,46 @@ struct DevVlogsPhase0BAppleMediaExporter: DevVlogsPhase0BMediaExporting {
 
         let videoRange = try await videoTrack.load(.timeRange)
         let audioRange = try await audioTrack.load(.timeRange)
-        try compositionVideo.insertTimeRange(
-            videoRange,
-            of: videoTrack,
-            at: Self.time(seconds: request.alignment.videoInsertionOffset)
-        )
-        try compositionAudio.insertTimeRange(
-            audioRange,
-            of: audioTrack,
-            at: Self.time(seconds: request.alignment.audioInsertionOffset)
-        )
+        guard videoRange.start.isValid, videoRange.start.isNumeric else {
+            throw DevVlogsPhase0BMediaFinalizerError.passthroughExportFailed
+        }
+        do {
+            try compositionVideo.insertTimeRange(
+                videoRange,
+                of: videoTrack,
+                at: Self.time(seconds: request.alignment.videoInsertionOffset)
+            )
+            try compositionAudio.insertTimeRange(
+                audioRange,
+                of: audioTrack,
+                at: Self.time(seconds: request.alignment.audioInsertionOffset)
+            )
+            compositionVideo.preferredTransform = try await videoTrack.load(.preferredTransform)
+        } catch {
+            throw DevVlogsPhase0BMediaFinalizerError.passthroughExportFailed
+        }
 
+        let outputType = AVFileType.mov
         let isCompatible = await AVAssetExportSession.compatibility(
-            ofExportPreset: AVAssetExportPreset1280x720,
+            ofExportPreset: AVAssetExportPresetPassthrough,
             with: composition,
-            outputFileType: .mp4
+            outputFileType: outputType
         )
         guard isCompatible,
               let exportSession = AVAssetExportSession(
                   asset: composition,
-                  presetName: AVAssetExportPreset1280x720
-              ), exportSession.supportedFileTypes.contains(.mp4) else {
-            throw DevVlogsPhase0BMediaFinalizerError.candidatePresetUnavailable
+                  presetName: AVAssetExportPresetPassthrough
+              ), exportSession.supportedFileTypes.contains(outputType) else {
+            throw DevVlogsPhase0BMediaFinalizerError.passthroughIncompatible
         }
         exportSession.outputURL = request.outputFileURL
-        exportSession.outputFileType = .mp4
+        exportSession.outputFileType = outputType
         exportSession.shouldOptimizeForNetworkUse = false
         try await export(exportSession, timeout: request.timeout)
+        return CMTimeSubtract(
+            Self.time(seconds: request.alignment.videoInsertionOffset),
+            videoRange.start
+        )
     }
 
     private func export(_ exportSession: AVAssetExportSession, timeout: Duration) async throws {
@@ -143,7 +158,7 @@ struct DevVlogsPhase0BAppleMediaExporter: DevVlogsPhase0BMediaExporting {
                     case .cancelled:
                         result = .failure(.exportCancelled)
                     default:
-                        result = .failure(.exportFailed)
+                        result = .failure(.passthroughExportFailed)
                     }
                     completion(result)
                 }

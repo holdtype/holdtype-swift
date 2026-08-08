@@ -1,21 +1,19 @@
 #if DEBUG
 import AppKit
+import CoreMedia
 import Foundation
 import HoldTypeDomain
 import Testing
 @testable import HoldType
-
 @MainActor
 struct DevVlogsPhase0BLaunchTests {
     @Test func gateDefaultsOffAndMalformedEnabledRunStillIsolates() {
         #expect(!DevVlogsPhase0BConfiguration.shouldIsolate(environment: [:]))
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: [:]) == nil)
-
         let malformed = [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"]
         #expect(DevVlogsPhase0BConfiguration.shouldIsolate(environment: malformed))
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: malformed) == nil)
     }
-
     @Test func configurationRequiresSanitizationAndTemporaryRunRoot() throws {
         let temporaryRoot = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
         var environment = makeEnvironment(runRoot: "/tmp/phase0b-tests/run")
@@ -25,7 +23,6 @@ struct DevVlogsPhase0BLaunchTests {
                 temporaryRoot: temporaryRoot
             ) != nil
         )
-
         environment[KeychainInteractionPolicy.automationEnvironmentKey] = "true"
         #expect(
             DevVlogsPhase0BConfiguration.resolve(
@@ -33,7 +30,6 @@ struct DevVlogsPhase0BLaunchTests {
                 temporaryRoot: temporaryRoot
             ) == nil
         )
-
         environment = makeEnvironment(runRoot: "/Users/example/archive")
         #expect(
             DevVlogsPhase0BConfiguration.resolve(
@@ -42,11 +38,9 @@ struct DevVlogsPhase0BLaunchTests {
             ) == nil
         )
     }
-
     @Test func successfulFakeRunUsesOneAudioOwnerAndFinalizesExactlyOnce() async throws {
         let fixture = makeFixture()
         let outcome = await fixture.harness.run()
-
         guard case .ready = outcome else {
             Issue.record("Expected fake media to become ready")
             return
@@ -58,13 +52,13 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(fixture.camera.startCount == 1)
         #expect(fixture.camera.stopCount == 1)
         #expect(fixture.finalizer.callCount == 1)
-        #expect(fixture.probe.callCount == 1)
+        #expect(fixture.probe.expectations == [.cameraOnly, .finalized])
+        #expect(fixture.preservation.callCount == 1)
         #expect(fixture.events.events.map(\.result) == [.started, .ready])
-
         #expect(await fixture.harness.run() == .failed(.alreadyRun))
         #expect(fixture.finalizer.callCount == 1)
+        #expect(fixture.preservation.callCount == 1)
     }
-
     @Test func cameraFailureCancelsOnlyRunOwnedAudioAndSkipsMux() async {
         let fixture = makeFixture(cameraFailure: .preferredDeviceBusy)
         #expect(
@@ -76,21 +70,19 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(fixture.camera.cleanupCount == 1)
         #expect(fixture.finalizer.callCount == 0)
         #expect(fixture.probe.callCount == 0)
+        #expect(fixture.preservation.callCount == 0)
         #expect(fixture.events.events.count == 2)
         #expect(fixture.events.events.last?.action == "attempt_terminal")
         #expect(fixture.events.events.last?.category == .cameraSelectionBusy)
     }
-
     @Test func steadyCameraFailuresReachOneTypedTerminalAndCleanup() async {
         let expected: [(DevVlogsPhase0BCameraCaptureError, DevVlogsPhase0BFailureCategory)] = [
             (.disconnectedDuringCapture, .cameraInterruptionDisconnected),
             (.runtimeFailure, .cameraSessionRuntimeFailure),
         ]
-
         for (failure, category) in expected {
             let fixture = makeFixture(stopFailure: failure)
             let outcome = await fixture.harness.run()
-
             #expect(outcome == .failed(.cameraStart(category)))
             #expect(DevVlogsPhase0BOperatorSummary.line(for: outcome).contains(category.rawValue))
             #expect(fixture.camera.stopCount == 1)
@@ -98,12 +90,30 @@ struct DevVlogsPhase0BLaunchTests {
             #expect(fixture.audio.stopCount == 1)
             #expect(fixture.audio.cancelCount == 1)
             #expect(fixture.finalizer.callCount == 0)
+            #expect(fixture.preservation.callCount == 0)
             #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
             #expect(fixture.events.events.last?.category == category)
             #expect(fixture.events.events.last?.category != .captureStop)
         }
     }
-
+    @Test func passthroughAndPreservationFailuresNeverBecomeReady() async {
+        let cases: [(HarnessFixture, DevVlogsPhase0BHarnessFailure)] = [
+            (makeFixture(finalizerFailure: .passthroughIncompatible), .passthroughIncompatible),
+            (makeFixture(finalizerFailure: .passthroughExportFailed), .passthroughExportFailed),
+            (makeFixture(preservationFailure: .encodedPayloadMismatch), .videoPreservationFailed),
+        ]
+        for (fixture, expected) in cases {
+            let outcome = await fixture.harness.run()
+            #expect(outcome == .failed(expected))
+            #expect(DevVlogsPhase0BOperatorSummary.line(for: outcome).contains(expected.category.rawValue))
+            #expect(fixture.events.events.filter { $0.result == .ready }.isEmpty)
+            #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
+        }
+        #expect(cases[0].0.probe.expectations == [.cameraOnly])
+        #expect(cases[1].0.probe.expectations == [.cameraOnly])
+        #expect(cases[2].0.probe.expectations == [.cameraOnly, .finalized])
+        #expect(cases[2].0.preservation.callCount == 1)
+    }
     @Test func cameraStartFailureUsesNaturalExitWithoutSelfCleanup() async {
         let fixture = makeFixture(cameraFailure: .permissionDenied)
         let outcome = await fixture.harness.run()
@@ -111,7 +121,6 @@ struct DevVlogsPhase0BLaunchTests {
         var normalExitRequests = 0
         var externalCancelCount = 0
         var externalCleanupCount = 0
-
         #expect(outcome == .failed(.cameraStart(.cameraPermissionDenied)))
         #expect(
             DevVlogsPhase0BOperatorSummary.line(for: outcome) ==
@@ -123,7 +132,6 @@ struct DevVlogsPhase0BLaunchTests {
             cleanup: { externalCleanupCount += 1 },
             completion: { _ in Issue.record("Natural completion must not reply asynchronously") }
         )
-
         #expect(reply == .terminateNow)
         #expect(normalExitRequests == 1)
         #expect(externalCancelCount == 0)
@@ -134,7 +142,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(fixture.events.events.last?.category == .cameraPermissionDenied)
         #expect(!coordinator.harnessDidComplete())
     }
-
     @Test func naturalCompletionClearsTaskBeforeRequestingTermination() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -152,16 +159,13 @@ struct DevVlogsPhase0BLaunchTests {
         let clear = try #require(completion.range(of: "harnessTask = nil"))
         let transition = try #require(completion.range(of: "terminationCoordinator.harnessDidComplete()"))
         let terminate = try #require(completion.range(of: "NSApplication.shared.terminate(nil)"))
-
         #expect(clear.lowerBound < transition.lowerBound)
         #expect(transition.lowerBound < terminate.lowerBound)
         #expect(!completion.contains("harnessTask.value"))
     }
-
     @Test func applicationRouterConstructsOnlyTheSelectedComposition() {
         var normalStarts = 0
         var harnessStarts = 0
-
         DevVlogsPhase0BLaunch.startApplication(
             environment: [:],
             startNormalApplication: { normalStarts += 1 },
@@ -169,7 +173,6 @@ struct DevVlogsPhase0BLaunchTests {
         )
         #expect(normalStarts == 1)
         #expect(harnessStarts == 0)
-
         DevVlogsPhase0BLaunch.startApplication(
             environment: [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"],
             startNormalApplication: { normalStarts += 1 },
@@ -178,7 +181,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(normalStarts == 1)
         #expect(harnessStarts == 1)
     }
-
     @Test func harnessCompositionContainsNoProductScenesAndNormalCompositionRemainsIntact() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -192,7 +194,6 @@ struct DevVlogsPhase0BLaunchTests {
         let harnessTail = source[harnessStart.lowerBound...]
         let harnessEnd = try #require(harnessTail.range(of: "#endif"))
         let harnessComposition = harnessTail[..<harnessEnd.lowerBound]
-
         #expect(harnessComposition.contains("MenuBarExtra"))
         #expect(!harnessComposition.contains("SettingsScene"))
         #expect(!harnessComposition.contains("FixesEditorScene"))
@@ -203,13 +204,11 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(source[..<harnessStart.lowerBound].contains("TranscriptHistoryScene()"))
         #expect(source[..<harnessStart.lowerBound].contains("TranscriptionFailurePromptScene()"))
     }
-
     @Test func terminationReturnsLaterUntilCleanupCompletes() async {
         let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(1))
         var reply = NSApplication.TerminateReply.terminateNow
         var cancelCount = 0
         var cleanupCount = 0
-
         let outcome = await withCheckedContinuation { continuation in
             reply = coordinator.begin(
                 cancelActive: { cancelCount += 1 },
@@ -217,7 +216,6 @@ struct DevVlogsPhase0BLaunchTests {
                 completion: { continuation.resume(returning: $0) }
             )
         }
-
         #expect(reply == .terminateLater)
         #expect(outcome == .cleanupCompleted)
         #expect(cancelCount == 1)
@@ -226,7 +224,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(coordinator.state == .terminal)
         #expect(!coordinator.harnessDidComplete())
     }
-
     @Test func terminationTimeoutIsBoundedAndLateCleanupIsHarmless() async {
         let coordinator = DevVlogsPhase0BTerminationCoordinator(
             timeout: .seconds(1),
@@ -236,7 +233,6 @@ struct DevVlogsPhase0BLaunchTests {
         var completionCount = 0
         var cancelCount = 0
         var reply = NSApplication.TerminateReply.terminateNow
-
         let outcome = await withCheckedContinuation { continuation in
             reply = coordinator.begin(
                 cancelActive: { cancelCount += 1 },
@@ -249,7 +245,6 @@ struct DevVlogsPhase0BLaunchTests {
                 }
             )
         }
-
         #expect(reply == .terminateLater)
         #expect(outcome == .cleanupTimedOut)
         #expect(completionCount == 1)
@@ -270,7 +265,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(cancelCount == 1)
         #expect(completionCount == 1)
     }
-
     @Test func scriptUsesPlannedBoundAndExactRunOwnedSupervisorCleanup() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -279,7 +273,6 @@ struct DevVlogsPhase0BLaunchTests {
             contentsOf: repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0b_spike.sh"),
             encoding: .utf8
         )
-
         #expect(source.contains("hardware_timeout_seconds=$(( capture_duration + 300 ))"))
         #expect(!source.contains("capture_duration + 360"))
         #expect(source.contains("capture_supervisor_pid=$!"))
@@ -288,7 +281,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(source.contains("kill -KILL \"$child_pid\""))
         #expect(!source.contains("killall"))
     }
-
     private func makeEnvironment(runRoot: String) -> [String: String] {
         [
             DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1",
@@ -301,10 +293,11 @@ struct DevVlogsPhase0BLaunchTests {
                 KeychainInteractionPolicy.skipAuthenticationUIValue,
         ]
     }
-
     private func makeFixture(
         cameraFailure: DevVlogsPhase0BCameraCaptureError? = nil,
-        stopFailure: DevVlogsPhase0BCameraCaptureError? = nil
+        stopFailure: DevVlogsPhase0BCameraCaptureError? = nil,
+        finalizerFailure: DevVlogsPhase0BMediaFinalizerError? = nil,
+        preservationFailure: DevVlogsPhase0BVideoPreservationError? = nil
     ) -> HarnessFixture {
         let root = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
         let configuration = DevVlogsPhase0BConfiguration(
@@ -320,12 +313,13 @@ struct DevVlogsPhase0BLaunchTests {
             eventLogURL: root.appendingPathComponent("events.jsonl"),
             audioURL: root.appendingPathComponent("audio.m4a"),
             videoURL: root.appendingPathComponent("video.mov"),
-            finalURL: root.appendingPathComponent("final.mp4")
+            finalURL: root.appendingPathComponent("final.mov")
         )
         let audio = Phase0BAudioRecorder()
         let camera = Phase0BCamera(failure: cameraFailure, stopFailure: stopFailure, videoURL: paths.videoURL)
-        let finalizer = Phase0BFinalizer()
+        let finalizer = Phase0BFinalizer(error: finalizerFailure)
         let probe = Phase0BProbe()
+        let preservation = Phase0BPreservation(error: preservationFailure)
         let events = Phase0BEvents()
         let harness = DevVlogsPhase0BHarness(
             configuration: configuration,
@@ -334,6 +328,7 @@ struct DevVlogsPhase0BLaunchTests {
             cameraCapture: camera,
             finalizer: finalizer,
             probe: probe,
+            preservation: preservation,
             eventLog: DevVlogsPhase0BInMemoryEventLog { events.events.append($0) },
             monotonicClock: { 12 },
             sleep: { _ in }
@@ -345,11 +340,11 @@ struct DevVlogsPhase0BLaunchTests {
             camera: camera,
             finalizer: finalizer,
             probe: probe,
+            preservation: preservation,
             events: events
         )
     }
 }
-
 @MainActor private final class Phase0BAudioRecorder: AudioRecorderService {
     var currentStatus = AudioRecorderStatus.idle
     var lastFinalizationReachedMaximumDuration = false
@@ -358,7 +353,6 @@ struct DevVlogsPhase0BLaunchTests {
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
     private(set) var preparedURL: URL?
-
     func startRecording(maximumDuration: TimeInterval) async throws {}
     func startRecording(maximumDuration: TimeInterval, outputFileURL: URL?) async throws {
         startCount += 1
@@ -377,7 +371,6 @@ struct DevVlogsPhase0BLaunchTests {
     }
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?) {}
 }
-
 @MainActor private final class Phase0BCamera: DevVlogsPhase0BCameraCapturing {
     let failure: DevVlogsPhase0BCameraCaptureError?
     let stopFailure: DevVlogsPhase0BCameraCaptureError?
@@ -385,7 +378,6 @@ struct DevVlogsPhase0BLaunchTests {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var cleanupCount = 0
-
     init(
         failure: DevVlogsPhase0BCameraCaptureError?,
         stopFailure: DevVlogsPhase0BCameraCaptureError?,
@@ -423,28 +415,47 @@ struct DevVlogsPhase0BLaunchTests {
     }
     func cancelCapture() async { cleanupCount += 1 }
 }
-
 @MainActor private final class Phase0BFinalizer: DevVlogsPhase0BMediaFinalizing {
+    let error: DevVlogsPhase0BMediaFinalizerError?
     private(set) var callCount = 0
+    init(error: DevVlogsPhase0BMediaFinalizerError? = nil) { self.error = error }
     func finalize(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws
         -> DevVlogsPhase0BMediaFinalization {
         callCount += 1
-        return .init(outputFileURL: request.outputFileURL, audioInsertionOffset: 0, videoInsertionOffset: 0.1)
+        if let error { throw error }
+        return .init(
+            outputFileURL: request.outputFileURL,
+            audioInsertionOffset: 0,
+            videoInsertionOffset: 0.1,
+            videoSampleTimestampOffset: CMTime(seconds: 0.1, preferredTimescale: 60_000)
+        )
     }
 }
-
 @MainActor private final class Phase0BProbe: DevVlogsPhase0BMediaProbing {
-    private(set) var callCount = 0
-    func probe(fileURL: URL) async throws -> DevVlogsPhase0BMediaProbeResult {
-        callCount += 1
-        return phase0BValidProbeResult()
+    private(set) var expectations: [DevVlogsPhase0BMediaProbeExpectation] = []
+    var callCount: Int { expectations.count }
+    func probe(
+        fileURL: URL,
+        expectation: DevVlogsPhase0BMediaProbeExpectation
+    ) async throws -> DevVlogsPhase0BMediaProbeResult {
+        expectations.append(expectation)
+        return phase0BValidProbeResult(audio: expectation == .finalized)
     }
 }
-
+@MainActor private final class Phase0BPreservation: DevVlogsPhase0BVideoPreserving {
+    let error: DevVlogsPhase0BVideoPreservationError?
+    private(set) var callCount = 0
+    init(error: DevVlogsPhase0BVideoPreservationError? = nil) { self.error = error }
+    func compare(_ request: DevVlogsPhase0BVideoPreservationRequest) async throws
+        -> DevVlogsPhase0BVideoPreservationResult {
+        callCount += 1
+        if let error { throw error }
+        return .init(sampleCount: 300, encodedByteCount: 1_000_000, mediaSubtype: "avc1")
+    }
+}
 @MainActor private final class Phase0BEvents {
     var events: [DevVlogsPhase0BEvent] = []
 }
-
 @MainActor private struct HarnessFixture {
     let harness: DevVlogsPhase0BHarness
     let paths: DevVlogsPhase0BRunPaths
@@ -452,21 +463,28 @@ struct DevVlogsPhase0BLaunchTests {
     let camera: Phase0BCamera
     let finalizer: Phase0BFinalizer
     let probe: Phase0BProbe
+    let preservation: Phase0BPreservation
     let events: Phase0BEvents
 }
-
-private func phase0BValidProbeResult() -> DevVlogsPhase0BMediaProbeResult {
-    DevVlogsPhase0BMediaProbeResult(
+private func phase0BValidProbeResult(audio: Bool) -> DevVlogsPhase0BMediaProbeResult {
+    let video = DevVlogsPhase0BMediaTrackProbe(
+        codec: "avc1", formatDescription: "avc1:1280x720:descriptions_1",
+        durationSeconds: 10, startTimestampSeconds: 0, endTimestampSeconds: 10,
+        naturalDimensions: CGSize(width: 1_280, height: 720),
+        displayDimensions: CGSize(width: 1_280, height: 720), nominalFrameRate: 30,
+        derivedFrameRate: 30, estimatedDataRate: 2_000_000,
+        preferredTransform: .identity, playable: true
+    )
+    return DevVlogsPhase0BMediaProbeResult(
         assetPlayable: true,
-        video: .init(
-            codec: "avc1", durationSeconds: 10, startTimestampSeconds: 0,
-            dimensions: CGSize(width: 1_280, height: 720), nominalFrameRate: 30,
-            estimatedDataRate: 2_000_000, playable: true
-        ),
-        audio: .init(
-            codec: "aac ", durationSeconds: 10, startTimestampSeconds: 0,
-            dimensions: nil, nominalFrameRate: nil, estimatedDataRate: 128_000, playable: true
-        )
+        video: video,
+        audio: audio ? .init(
+            codec: "aac ", formatDescription: "aac:audio:descriptions_1",
+            durationSeconds: 10, startTimestampSeconds: 0, endTimestampSeconds: 10,
+            naturalDimensions: nil, displayDimensions: nil, nominalFrameRate: nil,
+            derivedFrameRate: nil, estimatedDataRate: 128_000,
+            preferredTransform: nil, playable: true
+        ) : nil
     )
 }
 #endif

@@ -19,18 +19,28 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   run-owned `.m4a`, and never enters normal dictation, provider, output,
   History, Recovery, or Recording Cache ownership.
 - Camera capture selects one explicit stable device ID, adds video input only,
-  uses capability-checked movie and sample outputs, records monotonic and
-  available sample timing, sets a ten-second movie fragment interval, and has
-  bounded exact-once setup and terminal paths. Injected steady-capture runtime
-  and disconnect failures stop capture, restore configuration, and complete
-  once even when no start or stop continuation is pending.
-- Native composition/export aligns the camera and audio artifacts from
-  monotonic capture markers without claiming an audio first-sample timestamp.
-  Export callback/timeout arbitration resumes the caller after cancellation
-  even when an injected exporter never invokes its completion callback.
-  The media probe requires one playable, decoded-sample-backed video track and
-  one audio track, candidate dimensions/rate/codecs, positive durations, and
-  finite timestamp bounds.
+  uses capability-checked movie and sample outputs, and leaves format, codec,
+  dimensions, and cadence negotiation to macOS under the default `.high`
+  session behavior. It records monotonic and available sample timing, sets a
+  ten-second movie fragment interval, and has bounded exact-once setup and
+  terminal paths. Injected steady-capture runtime and disconnect failures stop
+  capture and complete once even when no start or stop continuation is pending.
+- Native composition aligns the complete camera and audio tracks from
+  monotonic capture markers without claiming an audio first-sample timestamp,
+  preserves the source video transform, and exports only with compatible
+  QuickTime passthrough. Passthrough incompatibility and export failure are
+  distinct terminal results; there is no fallback video encode. Export
+  callback/timeout arbitration resumes the caller after cancellation even when
+  an injected exporter never invokes its completion callback.
+- Separate bounded probes require the camera artifact to contain one playable,
+  decoded-sample-backed video track and zero audio tracks, and the final
+  artifact to contain one playable video and one playable audio track. They
+  report realized codec, dimensions, transform, cadence, durations, and finite
+  timestamp bounds without a fixed format whitelist. Ready additionally
+  requires a bounded stored-format sample comparison proving equal format and
+  transform metadata, ordered encoded payload and sample boundaries, count,
+  bytes, duration, and PTS/DTS under exactly one expected insertion offset. No
+  raw samples or digest leave the run directory.
 - A naturally completed harness clears its task before requesting termination,
   so success and camera-start failure exit without cancelling or awaiting the
   completing task itself. An external quit during active work uses
@@ -59,7 +69,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 35 tests cover pre-composition launch routing, harness-only scene structure, typed and raw domain/context camera-category mapping, pre-continuation observer failure, both recording/first-frame start orders, no-first-frame timeout, concrete explicit-stop context preservation, typed steady-stop terminal propagation, authorization/busy/disconnect SDK codes, foreign-domain collisions, malicious private error material, natural completion without self-await, bounded external-quit cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction. |
+| Focused macOS fake tests | Pass; 45 logical tests cover the existing launch isolation and R03 lifecycle/error regressions plus source-negotiation structure, QuickTime passthrough and transform preservation, full-track alignment, camera-only/final track cardinality, decoded playability, realized HEVC/H.264 and variable-cadence observations, exact stored-sample preservation and mismatch cases, bounded cancellation/late-callback behavior, one audio owner, Ready suppression on every new failure, and redacted evidence. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |

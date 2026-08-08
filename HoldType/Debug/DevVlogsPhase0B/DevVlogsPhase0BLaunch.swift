@@ -2,7 +2,6 @@
 import AppKit
 import Foundation
 import HoldTypeDomain
-
 struct DevVlogsPhase0BConfiguration: Equatable {
     static let enabledEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B"
     static let runRootEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT"
@@ -11,16 +10,13 @@ struct DevVlogsPhase0BConfiguration: Equatable {
     static let caseIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID"
     static let defaultDuration: TimeInterval = 10
     static let maximumDuration: TimeInterval = 900
-
     let runRoot: URL
     let cameraUniqueID: String
     let duration: TimeInterval
     let caseID: String
-
     static func shouldIsolate(environment: [String: String]) -> Bool {
         environment[enabledEnvironmentKey] == "1"
     }
-
     static func resolve(
         environment: [String: String],
         temporaryRoot: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -36,7 +32,6 @@ struct DevVlogsPhase0BConfiguration: Equatable {
               !rawCameraID.isEmpty else {
             return nil
         }
-
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
@@ -59,14 +54,12 @@ struct DevVlogsPhase0BConfiguration: Equatable {
             caseID: caseID
         )
     }
-
     private static func isSafeIdentifier(_ value: String) -> Bool {
         !value.isEmpty && value.count <= 64 && value.allSatisfy {
             $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_")
         }
     }
 }
-
 struct DevVlogsPhase0BRunPaths: Equatable {
     let runID: String
     let runDirectory: URL
@@ -75,7 +68,6 @@ struct DevVlogsPhase0BRunPaths: Equatable {
     let audioURL: URL
     let videoURL: URL
     let finalURL: URL
-
     static func prepare(
         configuration: DevVlogsPhase0BConfiguration,
         fileManager: FileManager = .default,
@@ -97,16 +89,14 @@ struct DevVlogsPhase0BRunPaths: Equatable {
             eventLogURL: evidenceDirectory.appendingPathComponent("events.jsonl"),
             audioURL: mediaDirectory.appendingPathComponent("audio.m4a"),
             videoURL: mediaDirectory.appendingPathComponent("video.mov"),
-            finalURL: mediaDirectory.appendingPathComponent("candidate.mp4")
+            finalURL: mediaDirectory.appendingPathComponent("candidate.mov")
         )
     }
 }
-
 enum DevVlogsPhase0BHarnessOutcome: Equatable {
     case ready(DevVlogsPhase0BMediaProbeResult)
     case failed(DevVlogsPhase0BHarnessFailure)
 }
-
 @MainActor
 final class DevVlogsPhase0BHarness {
     private let configuration: DevVlogsPhase0BConfiguration
@@ -115,11 +105,11 @@ final class DevVlogsPhase0BHarness {
     private let cameraCapture: any DevVlogsPhase0BCameraCapturing
     private let finalizer: any DevVlogsPhase0BMediaFinalizing
     private let probe: any DevVlogsPhase0BMediaProbing
+    private let preservation: any DevVlogsPhase0BVideoPreserving
     private let eventLog: any DevVlogsPhase0BEventLogging
     private let monotonicClock: () -> TimeInterval
     private let sleep: (Duration) async throws -> Void
     private var hasRun = false
-
     init(
         configuration: DevVlogsPhase0BConfiguration,
         paths: DevVlogsPhase0BRunPaths,
@@ -127,6 +117,7 @@ final class DevVlogsPhase0BHarness {
         cameraCapture: any DevVlogsPhase0BCameraCapturing,
         finalizer: any DevVlogsPhase0BMediaFinalizing,
         probe: any DevVlogsPhase0BMediaProbing,
+        preservation: any DevVlogsPhase0BVideoPreserving,
         eventLog: any DevVlogsPhase0BEventLogging,
         monotonicClock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         sleep: @escaping (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
@@ -137,11 +128,11 @@ final class DevVlogsPhase0BHarness {
         self.cameraCapture = cameraCapture
         self.finalizer = finalizer
         self.probe = probe
+        self.preservation = preservation
         self.eventLog = eventLog
         self.monotonicClock = monotonicClock
         self.sleep = sleep
     }
-
     func run() async -> DevVlogsPhase0BHarnessOutcome {
         guard !hasRun else { return .failed(.alreadyRun) }
         hasRun = true
@@ -150,7 +141,6 @@ final class DevVlogsPhase0BHarness {
             return .failed(.eventLog)
         }
         let audioStartTime = monotonicClock()
-
         do {
             try await audioRecorder.startRecording(
                 maximumDuration: configuration.duration,
@@ -159,7 +149,6 @@ final class DevVlogsPhase0BHarness {
         } catch {
             return fail(.audioStart, attemptID: attemptID)
         }
-
         let cameraStart: DevVlogsPhase0BCameraCaptureStart
         do {
             cameraStart = try await cameraCapture.startCapture(
@@ -176,7 +165,6 @@ final class DevVlogsPhase0BHarness {
                 attemptID: attemptID
             )
         }
-
         do {
             try await sleep(.seconds(configuration.duration))
         } catch {
@@ -184,7 +172,6 @@ final class DevVlogsPhase0BHarness {
             audioRecorder.cancelRecording()
             return fail(.captureStop, attemptID: attemptID, result: .cancelled)
         }
-
         let cameraArtifact: DevVlogsPhase0BCameraCaptureArtifact
         let audioArtifact: AudioRecordingArtifact
         do {
@@ -198,9 +185,18 @@ final class DevVlogsPhase0BHarness {
                 .map { DevVlogsPhase0BHarnessFailure.cameraStart($0.redactedCategory) } ?? .captureStop
             return fail(failure, attemptID: attemptID)
         }
-
+        let cameraProbe: DevVlogsPhase0BMediaProbeResult
         do {
-            _ = try await finalizer.finalize(
+            cameraProbe = try await probe.probe(
+                fileURL: cameraArtifact.fileURL,
+                expectation: .cameraOnly
+            )
+        } catch {
+            return fail(.cameraProbe, attemptID: attemptID)
+        }
+        let finalization: DevVlogsPhase0BMediaFinalization
+        do {
+            finalization = try await finalizer.finalize(
                 DevVlogsPhase0BMediaFinalizationRequest(
                     videoFileURL: cameraArtifact.fileURL,
                     audioFileURL: audioArtifact.fileURL,
@@ -212,28 +208,67 @@ final class DevVlogsPhase0BHarness {
                     timeout: .seconds(300)
                 )
             )
+        } catch let error as DevVlogsPhase0BMediaFinalizerError {
+            switch error {
+            case .passthroughIncompatible:
+                return fail(.passthroughIncompatible, attemptID: attemptID)
+            case .passthroughExportFailed:
+                return fail(.passthroughExportFailed, attemptID: attemptID)
+            default:
+                return fail(.finalization, attemptID: attemptID)
+            }
         } catch {
             return fail(.finalization, attemptID: attemptID)
         }
-
+        let finalProbe: DevVlogsPhase0BMediaProbeResult
         do {
-            let result = try await probe.probe(fileURL: paths.finalURL)
+            finalProbe = try await probe.probe(fileURL: paths.finalURL, expectation: .finalized)
+        } catch {
+            return fail(.finalProbe, attemptID: attemptID)
+        }
+        let preservationResult: DevVlogsPhase0BVideoPreservationResult
+        do {
+            preservationResult = try await preservation.compare(
+                DevVlogsPhase0BVideoPreservationRequest(
+                    cameraFileURL: cameraArtifact.fileURL,
+                    finalizedFileURL: finalization.outputFileURL,
+                    expectedInsertionOffset: finalization.videoSampleTimestampOffset,
+                    timeout: .seconds(300)
+                )
+            )
+        } catch {
+            return fail(.videoPreservationFailed, attemptID: attemptID)
+        }
+        do {
             guard record(
                 action: "attempt_terminal",
                 result: .ready,
                 attemptID: attemptID,
                 deviceClass: cameraStart.deviceClass,
                 redactedDeviceLabel: cameraStart.redactedDeviceLabel,
-                metrics: metrics(camera: cameraArtifact, probe: result)
+                metrics: DevVlogsPhase0BMetric.captureEvidence(
+                    camera: cameraArtifact,
+                    cameraProbe: cameraProbe,
+                    finalProbe: finalProbe,
+                    preservation: preservationResult
+                ),
+                videoEvidence: DevVlogsPhase0BVideoEvidence(
+                    cameraMediaSubtype: cameraProbe.video.codec,
+                    finalizedMediaSubtype: finalProbe.video.codec,
+                    finalizedAudioMediaSubtype: finalProbe.audio?.codec,
+                    cameraFormat: cameraProbe.video.formatDescription,
+                    finalizedFormat: finalProbe.video.formatDescription,
+                    preservationMethod: DevVlogsPhase0BVideoPreservationResult.method,
+                    preservedSampleCount: preservationResult.sampleCount,
+                    preservedEncodedByteCount: preservationResult.encodedByteCount,
+                    matched: true
+                )
             ) else {
                 return .failed(.eventLog)
             }
-            return .ready(result)
-        } catch {
-            return fail(.probe, attemptID: attemptID)
+            return .ready(finalProbe)
         }
     }
-
     private func fail(
         _ failure: DevVlogsPhase0BHarnessFailure,
         attemptID: String,
@@ -249,7 +284,6 @@ final class DevVlogsPhase0BHarness {
         }
         return .failed(failure)
     }
-
     private func record(
         action: String,
         result: DevVlogsPhase0BResult,
@@ -257,7 +291,8 @@ final class DevVlogsPhase0BHarness {
         category: DevVlogsPhase0BFailureCategory? = nil,
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
-        metrics: [DevVlogsPhase0BMetric] = []
+        metrics: [DevVlogsPhase0BMetric] = [],
+        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil
     ) -> Bool {
         let event = DevVlogsPhase0BEvent(
             runID: paths.runID,
@@ -269,7 +304,8 @@ final class DevVlogsPhase0BHarness {
             category: category,
             deviceClass: deviceClass,
             redactedDeviceLabel: redactedDeviceLabel,
-            metrics: metrics
+            metrics: metrics,
+            videoEvidence: videoEvidence
         )
         do {
             try eventLog.record(event)
@@ -278,39 +314,7 @@ final class DevVlogsPhase0BHarness {
             return false
         }
     }
-
-    private func metrics(
-        camera: DevVlogsPhase0BCameraCaptureArtifact,
-        probe: DevVlogsPhase0BMediaProbeResult
-    ) -> [DevVlogsPhase0BMetric] {
-        let firstFrameLatency = camera.firstFrameMonotonicTime.map {
-            ($0 - camera.requestMonotonicTime) * 1_000
-        }
-        return [
-            firstFrameLatency.map {
-                DevVlogsPhase0BMetric(
-                    name: "camera_request_to_first_frame",
-                    value: $0,
-                    unit: "ms",
-                    disposition: "evidence_only"
-                )
-            },
-            DevVlogsPhase0BMetric(
-                name: "video_duration",
-                value: probe.video.durationSeconds,
-                unit: "s",
-                disposition: "evidence_only"
-            ),
-            DevVlogsPhase0BMetric(
-                name: "audio_duration",
-                value: probe.audio.durationSeconds,
-                unit: "s",
-                disposition: "evidence_only"
-            ),
-        ].compactMap { $0 }
-    }
 }
-
 @MainActor
 enum DevVlogsPhase0BLaunch {
     static func shouldIsolate(
@@ -318,7 +322,6 @@ enum DevVlogsPhase0BLaunch {
     ) -> Bool {
         DevVlogsPhase0BConfiguration.shouldIsolate(environment: environment)
     }
-
     static func startApplication(
         environment: [String: String],
         startNormalApplication: () -> Void,
@@ -330,7 +333,6 @@ enum DevVlogsPhase0BLaunch {
             startNormalApplication()
         }
     }
-
     static func makeHarness(environment: [String: String]) throws -> DevVlogsPhase0BHarness {
         guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
             throw DevVlogsPhase0BHarnessFailure.invalidConfiguration
@@ -343,23 +345,20 @@ enum DevVlogsPhase0BLaunch {
             cameraCapture: DevVlogsPhase0BCameraCapture(),
             finalizer: DevVlogsPhase0BMediaFinalizer(),
             probe: DevVlogsPhase0BMediaProbe(),
+            preservation: DevVlogsPhase0BVideoPreservation(),
             eventLog: DevVlogsPhase0BJSONLEventLog(fileURL: paths.eventLogURL)
         )
     }
 }
-
 enum DevVlogsPhase0BTerminationOutcome: Equatable {
     case cleanupCompleted, cleanupTimedOut
 }
-
 enum DevVlogsPhase0BTerminationState: Equatable {
     case active, harnessCompleted, cleanupPending, terminal
 }
-
 @MainActor
 final class DevVlogsPhase0BTerminationCoordinator {
     typealias Sleep = @MainActor (Duration) async throws -> Void
-
     private let timeout: Duration
     private let sleep: Sleep
     private var raceContinuation: CheckedContinuation<DevVlogsPhase0BTerminationOutcome, Never>?
@@ -368,7 +367,6 @@ final class DevVlogsPhase0BTerminationCoordinator {
     private var completionTask: Task<Void, Never>?
     private(set) var state = DevVlogsPhase0BTerminationState.active
     private(set) var outcome: DevVlogsPhase0BTerminationOutcome?
-
     init(
         timeout: Duration,
         sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
@@ -376,13 +374,11 @@ final class DevVlogsPhase0BTerminationCoordinator {
         self.timeout = timeout
         self.sleep = sleep
     }
-
     func harnessDidComplete() -> Bool {
         guard state == .active else { return false }
         state = .harnessCompleted
         return true
     }
-
     func begin(
         cancelActive: () -> Void,
         cleanup: @escaping @MainActor () async -> Void,
@@ -407,7 +403,6 @@ final class DevVlogsPhase0BTerminationCoordinator {
         }
         return .terminateLater
     }
-
     private func raceCleanup(
         _ cleanup: @escaping @MainActor () async -> Void
     ) async -> DevVlogsPhase0BTerminationOutcome {
@@ -427,7 +422,6 @@ final class DevVlogsPhase0BTerminationCoordinator {
             }
         }
     }
-
     private func finish(_ outcome: DevVlogsPhase0BTerminationOutcome) {
         guard state == .cleanupPending, let continuation = raceContinuation else { return }
         raceContinuation = nil
@@ -440,7 +434,6 @@ final class DevVlogsPhase0BTerminationCoordinator {
         continuation.resume(returning: outcome)
     }
 }
-
 @MainActor
 final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
     private let environment: [String: String]
@@ -448,12 +441,10 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
         timeout: .seconds(35)
     )
     private var harnessTask: Task<Void, Never>?
-
     override init() {
         environment = ProcessInfo.processInfo.environment
         super.init()
     }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let launchEnvironment = environment
@@ -467,7 +458,6 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             self?.completeHarness(outcome)
         }
     }
-
     private func completeHarness(_ outcome: DevVlogsPhase0BHarnessOutcome) {
         print(DevVlogsPhase0BOperatorSummary.line(for: outcome))
         harnessTask = nil
@@ -475,7 +465,6 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             NSApplication.shared.terminate(nil)
         }
     }
-
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let activeTask = harnessTask
         return terminationCoordinator.begin(

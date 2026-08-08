@@ -21,7 +21,6 @@ struct DevVlogsPhase0BCameraCaptureTests {
             (.preferredDeviceDisconnected, .cameraSelectionDisconnected),
             (.deviceUnavailableDuringStart, .cameraStartDeviceUnavailable),
             (.preferredDeviceBusy, .cameraSelectionBusy),
-            (.unsupportedCandidatePreset, .cameraConfigurationPreset),
             (.videoInputUnavailable, .cameraConfigurationVideoInput),
             (.movieOutputUnavailable, .cameraConfigurationMovieOutput),
             (.sampleOutputUnavailable, .cameraConfigurationSampleOutput),
@@ -38,6 +37,19 @@ struct DevVlogsPhase0BCameraCaptureTests {
             #expect(error.redactedCategory == category)
         }
         #expect(Set(expected.map { $0.1.rawValue }).count == expected.count)
+    }
+
+    @Test func cameraSourceLeavesFormatFrameRateAndCodecNegotiationToMacOS() throws {
+        let source = try ownedSource("DevVlogsPhase0BCameraCapture.swift")
+        let forbidden = [
+            "session.sessionPreset =", "activeFormat =", "activeVideoMinFrameDuration =",
+            "activeVideoMaxFrameDuration =", "hd1280x720", "AVVideoCodecKey",
+            "inputPriority", "configureCandidateFrameRate",
+        ]
+        for token in forbidden { #expect(!source.contains(token)) }
+        #expect(source.contains("movieFragmentInterval"))
+        #expect(source.contains("CMTime(seconds: 10"))
+        #expect(source.contains("AVCaptureDeviceInput(device: device)"))
     }
 
     @Test func rawAVFoundationAuthorizationAndBusyCodesMapByDomainAndCode() {
@@ -271,6 +283,14 @@ struct DevVlogsPhase0BCameraCaptureTests {
         #expect(!terminator.terminate(with: failure) { cleanupCount += 1 })
         #expect(await terminator.waitForFailure() == failure)
         #expect(cleanupCount == 1)
+    }
+
+    private func ownedSource(_ name: String) throws -> String {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        return try String(
+            contentsOf: root.appendingPathComponent("HoldType/Debug/DevVlogsPhase0B/\(name)"),
+            encoding: .utf8
+        )
     }
 }
 #endif
