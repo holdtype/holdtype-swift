@@ -123,8 +123,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | one redacted capture-auth-R05 QA run; no media | accepted_evidence / functional_fail | `4101f74`; receipt below | Activation timed out before authorization; a second same-launch Debug process required exact cleanup TERM. |
 | `DV-P0B-CAMERA-AUTH-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R05@4101f74` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Evidence accepted; additional same-launch process is a Debug-spike defect. |
 | `DV-P0B-CAMERA-AUTH-E05` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R05-REVIEW` | read-only exact Debug entry/auth/launch/script/process evidence | accepted_with_residual | receipt below | Exact creator is unrecoverable; script-only marker-bound multi-process supervision is dependency-ready. |
-| `DV-P0B-CAMERA-AUTH-W05` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E05` | exact permission script, authorization script-structure tests, W01 summary | running | — | Implement marker-bound multi-process supervision; hardware path must remain byte-identical. |
-| `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-W05` | read-only exact repair commit | queued | — | No permission retry before accepted repair review. |
+| `DV-P0B-CAMERA-AUTH-W05` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E05` | exact permission script, authorization script-structure tests, W01 summary | review | `b071056`; receipt below | Marker-bound multi-process supervision implemented and fake-verified. |
+| `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W05@b071056` | read-only exact three-path repair commit | running | — | Recheck ownership proof, no-signal uncertainty, deadline, hardware preservation, and claims. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -200,8 +200,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   accepted the runtime facts and classified that additional lifetime as a
   Debug-spike launch/supervision defect. Read-only ownership exploration found
   the exact creator unrecoverable from retained evidence and accepted a
-  script-only, run-marker-bound multi-process supervision design. Its writable
-  repair is running; permission and capture remain blocked. The
+  script-only, run-marker-bound multi-process supervision design. Repair
+  `b071056` is in independent review after 17/17 supervisor fakes and 59/59
+  Phase 0B tests passed; permission and capture remain blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1866,6 +1867,40 @@ run ownership; an unmarked same-binary process must remain unsignaled and make
 the run inconclusive.
 next_dependency: Script/test/summary repair and independent review.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W05
+status: done
+
+outcome: Implemented marker-bound multi-process permission supervision with
+exact executable identity, ownership registry, quiet rescan, and identity-safe
+cleanup under one absolute deadline.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted E05 evidence.
+changed_paths: Permission spike script, authorization script-structure tests,
+and W01 summary; commit b071056.
+reused_owners: Accepted W04 deadline, direct-child reap ownership, sanitized
+permission launch, and hardware supervisor.
+checks_run: Structure; 14/14 authorization and 59/59 full Phase 0B tests;
+17/17 deterministic supervisor fakes; signed Debug build-only; bounded unsigned
+Release; Debug/Release settings and artifact isolation; syntax/help/negatives;
+redaction, diff, path, process, and residue audits.
+behavior_verified: Baseline protection; marked additional-process discovery;
+natural exit; truthful TERM/KILL fallback failure; unmarked/mismatched
+no-signal behavior; late quiet-rescan discovery; topology; traps; one deadline.
+hardware_tail_proof: Byte-identical to 48c0d5c.
+scope_check: Exact three-path Debug test/tooling/evidence repair; no product
+source, TCC, permission runtime, camera, microphone, media, hardware, storage,
+UI, iOS, Build, or publication action.
+deviations: One commit invocation used incorrect option ordering and made no
+change; corrected invocation succeeded.
+residual: Genuine same-identity permission runtime remains blocked pending
+independent review.
+next_dependency: DV-P0B-CAMERA-AUTH-W05-REVIEW
+runtime_or_visual_handoff: none
+commit: b07105647dce52de4f2a1659d60839bf79a36178
 ```
 
 ## Rejected Receipts
