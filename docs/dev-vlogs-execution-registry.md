@@ -96,8 +96,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W02@f7ff6bf` | read-only exact 13-path commit | accepted_with_residual | receipt below | Controlled DV-DRAFT-4 hardware/runtime evidence is dependency-ready. |
 | `DV-P0B-CAPTURE-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-W02-REVIEW` | one redacted capture-R05 QA run; raw media in exact internal temporary run root only | accepted_evidence / functional_fail | `11cb9a2`; receipt below | Explicit Continuity selection passed; camera permission remained notDetermined before camera start. |
 | `DV-P0B-CAPTURE-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R05@11cb9a2` | read-only exact eight-file evidence commit | accepted_with_residual | receipt below | Same signed Debug identity needs one genuine bounded Camera request before capture retry. |
-| `DV-P0B-CAMERA-AUTH-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R05-REVIEW` | exact Debug launch/event permission seam, focused tests, existing spike script, W01 summary | review | `5b3ed20`; receipt below | Explicit same-identity requestAccess mode complete; no runtime/TCC action yet. |
-| `DV-P0B-CAMERA-AUTH-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W01@5b3ed20` | read-only exact six-path commit | running | — | Review isolation, exact-one bounded authorization, script safety, and Release separation. |
+| `DV-P0B-CAMERA-AUTH-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R05-REVIEW` | exact Debug launch/event permission seam, focused tests, existing spike script, W01 summary | accepted_with_residual | `5b3ed20`; receipt below | Same-identity bounded requestAccess seam accepted; genuine prompt remains. |
+| `DV-P0B-CAMERA-AUTH-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W01@5b3ed20` | read-only exact six-path commit | accepted_with_residual | receipt below | One bounded signed Debug permission invocation is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W01-REVIEW` | one redacted capture-auth-R01 QA run; no media | running | — | Invoke requestAccess once for same signed Debug identity; ordinary prompt only, no capture. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -151,7 +152,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   after independent review. `DV-P0B-CAPTURE-R05@11cb9a2` selected one
   Continuity Camera but failed at `camera_permission_required` before camera
   start. Independent review accepted the evidence and found no Debug defect;
-  Debug-only permission seam `5b3ed20` is now in independent review. The
+  Debug-only permission seam `5b3ed20` is accepted. One bounded genuine
+  same-identity Camera authorization request is running. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1096,6 +1098,41 @@ is not retroactively relabeled and all camera/media evidence remains open.
 next_dependency: DV-P0B-CAMERA-AUTH-W01-REVIEW
 runtime_or_visual_handoff: none
 commit: 5b3ed205a4e1669379accda43811755c09b5a2b6
+```
+
+### `DV-P0B-CAMERA-AUTH-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: The same-signed-identity Debug Camera authorization seam is accepted
+as early-isolated, exact-once, bounded, redacted, and free of capture, audio,
+media, or product-owner construction.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+E03/W01/R03/W02/R05 evidence; exact authorization packet and receipt.
+reviewed_commit_and_parent: 5b3ed205a4e1669379accda43811755c09b5a2b6;
+ca1f117e33139f1e28bec45c7ba7e933c777c798.
+changed_paths_reviewed: Exactly six authorized paths; no reviewer changes.
+checks_run: Exact diff/path/mode/blob and structure; 8/8 authorization and
+53/53 full Phase 0B tests; script syntax/help/negatives/build-only; bounded
+Release; Debug/Release settings and artifact isolation; owner, redaction,
+process, temp-root, and worktree audits.
+findings_closed_or_open: Explicit routing and signed identity; notDetermined-
+only exact request; all closed statuses; independent callback timeout/cancel;
+exact-one redacted terminal; no forbidden owners; script and Release isolation.
+No repair remains.
+scope_check: Debug/test/script/evidence only; product, project, plist,
+entitlement, signing, bundle, Release, UI, storage, iOS, Build, and publication
+unchanged.
+deviations: Fake tests used ad-hoc signing under sanitized HOME; repository
+build-only retained the established Apple Development identity.
+residual: Genuine Camera prompt/decision and all capture/media/quantitative
+evidence remain open; R05 remains unchanged.
+next_dependency: One bounded same-signed-identity permission invocation, then
+evidence review before capture retry.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
