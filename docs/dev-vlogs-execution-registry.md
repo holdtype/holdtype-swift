@@ -9,7 +9,7 @@ Started: 2026-08-08
 Governing plan: [`docs/dev-vlogs-implementation-plan.md`](dev-vlogs-implementation-plan.md)
 
 Pinned contract: [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md),
-revision `DV-DRAFT-3`, checkpoint `ed108fa`.
+revision `DV-DRAFT-4`, checkpoint `2f3266a`.
 
 ## Restart Gate
 
@@ -39,9 +39,10 @@ fallback, or broaden scope.
 
 ## Accepted Decisions
 
-The user accepted `DV-D01` through `DV-D13` on 2026-08-08. They are integrated
-in `DV-DRAFT-3@ed108fa` and independently accepted for discovery/evidence work.
-They are not yet an Active implementation epoch.
+The user accepted `DV-D01` through `DV-D13` on 2026-08-08. Their original
+Draft integration is `DV-DRAFT-3@ed108fa`; the later native-source decision is
+integrated and independently accepted in `DV-DRAFT-4@2f3266a`. The contract is
+still Draft evidence, not an Active product implementation epoch.
 
 On 2026-08-08 the user superseded the fixed 720p/30 source-quality part of
 `DV-D05`: HoldType must preserve the camera/macOS-negotiated source without an
@@ -57,8 +58,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | Epoch | Authority | Status | Notes |
 | --- | --- | --- | --- |
 | `DV-DRAFT-2@8081c10` | Earlier discovery draft | superseded | Replaced after the accepted decisions were integrated and reviewed. |
-| `DV-DRAFT-3@ed108fa` | Prior decision-complete discovery draft plus Phase 0B protocol | superseded pending review | Source-quality clauses replaced by proposed DV-DRAFT-4; unaffected accepted evidence remains recorded. |
-| `DV-DRAFT-4@2f3266a` | Proposed native-source-quality revision | review | Source-only delta complete; final Build fallback remains explicitly pending. Affected capture/media packets wait for review. |
+| `DV-DRAFT-3@ed108fa` | Prior decision-complete discovery draft plus Phase 0B protocol | superseded | Source-quality clauses replaced by accepted DV-DRAFT-4; unaffected accepted evidence remains recorded. |
+| `DV-DRAFT-4@2f3266a` | Native-source-quality Draft revision | current | Accepted for source evidence; final Build fallback remains explicitly pending. Product implementation is still unauthorized. |
 | `DV-ACTIVE-1` | Future reconciled Dev Vlogs and adjacent active specs | pending | Required before Phase 1 product implementation. |
 
 ## Packet Registry
@@ -87,9 +88,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-R03-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | propagation repair `ba058f8` | read-only | rejected | recorded below | Return explicit-stop context ordering/test repair; no hardware/storage dispatch. |
 | `DV-P0B-CAPTURE-R03-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | stop-context repair `f141be6` | read-only | accepted_with_residual | recorded below | One controlled Continuity retry is dependency-ready. |
 | `DV-P0B-CAPTURE-R04` | unassigned | stale `DV-DRAFT-3@ed108fa` quality clauses | accepted `DV-P0B-CAPTURE-R03-REVIEW-R3` | one redacted capture-R04 QA run; raw media in exact temp root only | retired before dispatch | — | User superseded fixed 720p/30 source quality; redefine only after DV-DRAFT-4 review. |
-| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | proposed `DV-DRAFT-4@2f3266a` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | review | `2f3266a`; receipt below | Source-only delta complete; independent review running. |
-| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | proposed `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | running | — | Independent contract-delta, Build-fork isolation, and stale-packet review. |
+| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | accepted_with_residual | `2f3266a`; receipt below | Source delta accepted; Build fallback remains separate. |
+| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | accepted_with_residual | recorded below | Revalidate affected capture/media packets; Build remains gated. |
 | `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
+| `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | running | — | Map stale fixed-source assumptions and minimal passthrough-preserving repair before runtime. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -137,9 +139,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   rejected intermediate reviews remain recorded below.
 - No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
-- Proposed source-only `DV-DRAFT-4@2f3266a` is in independent review. After
-  acceptance, revalidate the capture/media harness against the new epoch. The
-  final Build fallback remains separate and does not block source evidence.
+- Source-only `DV-DRAFT-4@2f3266a` is accepted_with_residual for evidence work.
+  `DV-P0B-CAPTURE-E03` is revalidating the Debug harness against native-source
+  passthrough before a new implementation or runtime packet. The final Build
+  fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
   Actual external runtime still requires explicit authorization of each exact
@@ -859,6 +862,32 @@ required before capture/media packet revalidation.
 next_dependency: DV-P0A-QUALITY-REVIEW
 runtime_or_visual_handoff: none
 commit: 2f3266a
+```
+
+### `DV-P0A-QUALITY-REVIEW`
+
+```text
+packet_id: DV-P0A-QUALITY-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: DV-DRAFT-4 coherently preserves camera/macOS-negotiated source
+dimensions and frame rate without a HoldType selector, downsample, or extra
+source-video encode; native negotiated 1080p is not a promised preset or RAW.
+Source finalization fails truthfully when proven passthrough is unavailable.
+authority_used: Explicit user native-source decision; DV-DRAFT-3@ed108fa;
+product-truth governance; exact DV-DRAFT-4 three-path commit.
+changed_paths: none
+checks_run: Exact parent/path/blob and diff review; stale-term, clause,
+revision, link, and plan/protocol/spec consistency checks.
+scope_check: Draft-only source evolution; protected domains, UI skill gate,
+publication exclusion, and product implementation gate unchanged.
+deviations: none
+residual: DV-BUILD-6 remains a user decision between one final
+no-downscale/no-nominal-FPS-reduction encode and failing an incompatible Build.
+next_dependency: Revalidate affected capture/media packets against DV-DRAFT-4.
+runtime_or_visual_handoff: none
+reviewed_commit: 2f3266a12643251f890f5347dc9f1ca09d47516d
 ```
 
 ## Rejected Receipts
