@@ -89,10 +89,11 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | rejected | base `e6b3a13`; repairs `986af6c`, `767edd9`; receipts below | Repair fail-closed complete member-identity capture/revalidation in wrapper only. No external runtime. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`; receipts below | Wrapper identity-completeness repair complete; repeat review running. No external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `986af6c` | read-only exact three-path repair commit | rejected | recorded below | Return exact three remaining findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
+| `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | running | — | Recheck atomic identity capture, exact pre-signal set/identity validation, and trap status propagation. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -134,11 +135,11 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- `DV-P0B-STORAGE-W02` repair `767edd9` closed probe status, external-preflight,
-  broad-root, and negative-matrix findings. Repeat review found one wrapper-only
-  gap: incomplete process-group identity capture can still precede group
-  signaling. No external runtime may run before repair acceptance; the packet
-  remains unaffected by the quality delta.
+- `DV-P0B-STORAGE-W02` wrapper repair `d0c9ce5` makes identity capture atomic,
+  preserves bounded probe status through EXIT traps, and requires exact
+  member-set plus identity revalidation before group signaling. Repeat review
+  is running. No external runtime may run before acceptance; the packet remains
+  unaffected by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -740,6 +741,35 @@ runtime packet.
 next_dependency: DV-P0B-STORAGE-W02-REVIEW-R2
 runtime_or_visual_handoff: none
 commit: 767edd9eb717f2a5324a79a3aa37dc3086657427
+```
+
+### `DV-P0B-STORAGE-W02-R3`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R3
+status: done
+
+outcome: Wrapper process-group identities are captured atomically, bounded
+probe status survives EXIT traps, and exact member-set plus every identity is
+revalidated immediately before the sole group-signal path. Uncertainty emits
+no group signal; escalation uses revalidated exact PIDs.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+prior W02 repairs and REVIEW-R2 reject recorded at 88336d9.
+changed_paths: Test-only external-storage wrapper only; repair commit d0c9ce5.
+reused_owners: Existing explicit opt-in, preflight and process bounds,
+no-auto-selection, exact scratch, redaction, and W01/W02 Swift owners.
+checks_run: Syntax/help; nine argument negatives; seven identity-set no-signal,
+one partial-identity no-signal, five group-probe status, two preflight-failure,
+and five lifecycle cells; 29 shell matrix cells total; structural, diff, path,
+mode, redaction, protected-owner, process, and residue audits.
+scope_check: Exact one-wrapper-path repair; zero external-volume I/O and no
+enabled external invocation, diskutil/df, Swift, product, project, spec,
+registry, media, hardware, UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains separately authorized.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R3
+runtime_or_visual_handoff: none
+commit: d0c9ce529f8b43234575ce9db2e51a0b007bb484
 ```
 
 ## Rejected Receipts
