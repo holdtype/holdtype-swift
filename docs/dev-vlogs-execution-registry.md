@@ -57,8 +57,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | Epoch | Authority | Status | Notes |
 | --- | --- | --- | --- |
 | `DV-DRAFT-2@8081c10` | Earlier discovery draft | superseded | Replaced after the accepted decisions were integrated and reviewed. |
-| `DV-DRAFT-3@ed108fa` | Decision-complete discovery draft plus Phase 0B protocol | current | Non-UI evidence packets may run; product implementation remains gated. |
-| `DV-DRAFT-4` | Future native-source-quality revision | running | Source-only delta may proceed while final Build fallback remains explicitly pending. Must revalidate affected capture/media packets before runtime. |
+| `DV-DRAFT-3@ed108fa` | Prior decision-complete discovery draft plus Phase 0B protocol | superseded pending review | Source-quality clauses replaced by proposed DV-DRAFT-4; unaffected accepted evidence remains recorded. |
+| `DV-DRAFT-4@2f3266a` | Proposed native-source-quality revision | review | Source-only delta complete; final Build fallback remains explicitly pending. Affected capture/media packets wait for review. |
 | `DV-ACTIVE-1` | Future reconciled Dev Vlogs and adjacent active specs | pending | Required before Phase 1 product implementation. |
 
 ## Packet Registry
@@ -87,8 +87,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-R03-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | propagation repair `ba058f8` | read-only | rejected | recorded below | Return explicit-stop context ordering/test repair; no hardware/storage dispatch. |
 | `DV-P0B-CAPTURE-R03-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | stop-context repair `f141be6` | read-only | accepted_with_residual | recorded below | One controlled Continuity retry is dependency-ready. |
 | `DV-P0B-CAPTURE-R04` | unassigned | stale `DV-DRAFT-3@ed108fa` quality clauses | accepted `DV-P0B-CAPTURE-R03-REVIEW-R3` | one redacted capture-R04 QA run; raw media in exact temp root only | retired before dispatch | — | User superseded fixed 720p/30 source quality; redefine only after DV-DRAFT-4 review. |
-| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | proposed `DV-DRAFT-4` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | running | — | Replace fixed source downgrade/recompression rules, split unresolved Build fallback, and reframe media measurements; no implementation. |
-| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta, Build-fork isolation, and stale-packet review. |
+| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | proposed `DV-DRAFT-4@2f3266a` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | review | `2f3266a`; receipt below | Source-only delta complete; independent review running. |
+| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | proposed `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | running | — | Independent contract-delta, Build-fork isolation, and stale-packet review. |
 | `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
@@ -137,9 +137,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   rejected intermediate reviews remain recorded below.
 - No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
-- Next authority packet: produce and review a source-only `DV-DRAFT-4`, then
-  revalidate the capture/media harness against the new epoch. The final Build
-  fallback remains a separate user decision and does not block source evidence.
+- Proposed source-only `DV-DRAFT-4@2f3266a` is in independent review. After
+  acceptance, revalidate the capture/media harness against the new epoch. The
+  final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
   Actual external runtime still requires explicit authorization of each exact
@@ -831,6 +831,34 @@ quantitative evidence remain separately authorized.
 next_dependency: Separately authorize an exact-root external runtime packet.
 runtime_or_visual_handoff: none
 reviewed_commit: a50026aa53d93c0808ac84259f05759073434fdb
+```
+
+### `DV-P0A-QUALITY-SPEC`
+
+```text
+packet_id: DV-P0A-QUALITY-SPEC
+status: done
+
+outcome: Proposed DV-DRAFT-4 preserves camera/macOS-negotiated source video
+without HoldType downsampling or additional source-video encoding, requires a
+proven passthrough source-finalization path, removes capture-quality controls,
+reframes capacity evidence, and isolates the unresolved Build fallback.
+authority_used: Explicit user native-source decision; prior DV-DRAFT-3;
+governing plan, protocol, registry, and product-truth governance.
+changed_paths: Dev Vlogs spec, Phase 0B protocol, and implementation plan;
+commit 2f3266a.
+reused_owners: Existing Draft, QA protocol, and plan; protected product owners
+unchanged.
+checks_run: Exact three-path and cached diff inspection; diff hygiene; revision,
+clause, link, and stale-term searches; post-commit path audit.
+scope_check: Documentation-only source-quality evolution; no code, runtime,
+Build fallback choice, adjacent contract, UI, iOS, or publication change.
+deviations: none
+residual: DV-BUILD-6 remains a user decision; independent DV-DRAFT-4 review is
+required before capture/media packet revalidation.
+next_dependency: DV-P0A-QUALITY-REVIEW
+runtime_or_visual_handoff: none
+commit: 2f3266a
 ```
 
 ## Rejected Receipts
