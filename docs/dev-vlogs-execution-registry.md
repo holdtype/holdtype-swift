@@ -118,7 +118,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E04` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R04-REVIEW` | read-only exact activation/termination/script/SDK evidence | accepted_with_residual | receipt below | One NSApplication activation plus deferred terminate and direct-PID supervision supported. |
 | `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | rejected | `b2a2abf`; receipt below | Activation/termination pass; 420-second permission bound is not globally enforced. |
 | `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | rejected | recorded below | Enforce one absolute post-launch deadline and add slow-identity fake. |
-| `DV-P0B-CAMERA-AUTH-W04-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W04 review | permission script and W01 summary only | running | — | Bound identity, terminal, exit, TERM/KILL, and reap inside one 420-second deadline. |
+| `DV-P0B-CAMERA-AUTH-W04-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W04 review | permission script and W01 summary only | review | `48c0d5c`; receipt below | One absolute deadline now bounds all permission supervision. |
+| `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `48c0d5c` | read-only exact two-path repair commit | running | — | Recheck global deadline, identity-safe cleanup, hardware preservation, claims. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -186,8 +187,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   authorization. Review accepted the facts and identified activation semantics
   plus natural cleanup defects. Read-only E04 accepted a bounded six-path
   repair. W04 activation/termination passed review, but its permission script
-  missed a global deadline; a script-only repair is running and capture remains
-  blocked. The
+  missed a global deadline; script repair `48c0d5c` is in repeat review and
+  capture remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1681,6 +1682,34 @@ residual: Genuine permission and natural-exit runtime remain.
 next_dependency: DV-P0B-CAMERA-AUTH-W04-REVIEW
 runtime_or_visual_handoff: none
 commit: b2a2abfe6e466d32b9b43b6bb43f629a03966101
+```
+
+### `DV-P0B-CAMERA-AUTH-W04-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04-R1
+status: done
+
+outcome: Permission direct-PID supervision uses one absolute monotonic deadline
+from immediately before launch through identity, terminal, exit, signals, reap,
+and trap cleanup; expiry fails without signaling an unproven identity.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; exact W04 rejection.
+changed_paths: Permission script and W01 summary; commit 48c0d5c.
+reused_owners: Accepted W04 activation/termination/direct-PID identity; hardware
+supervisor unchanged.
+checks_run: Script syntax/help/negatives/build-only; natural/stuck/mismatch/trap/
+slow-identity fakes; deadline injection; structural remaining-budget audit;
+hardware-tail, redaction, path, diff, process, root audits.
+behavior_verified: One <=420s post-launch bound; natural reap; exact fallback
+failure; mismatch/expiry no signal; trap shares deadline. Slow fake exited in
+2.041s under 2s injected deadline and no-signal, within 2.25s wall bound.
+scope_check: Exact two script/evidence paths; no Swift, product, runtime, TCC,
+hardware, or configuration change.
+deviations: none material
+residual: Genuine permission runtime remains.
+next_dependency: DV-P0B-CAMERA-AUTH-W04-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 48c0d5cd34e9b208ade6b1ae61498fa8f77ee254
 ```
 
 ## Rejected Receipts
