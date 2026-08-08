@@ -7,6 +7,9 @@ Date: 2026-08-08
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
 `DV-DRAFT-2`.
 
+Active persistent-goal registry:
+[`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
+
 This document converts the Dev Vlogs discovery draft into a reviewable work
 sequence. It is an implementation plan, not product authority. Before product
 code changes, the Draft must be reconciled, its material decisions must be
