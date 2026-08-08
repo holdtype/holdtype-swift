@@ -108,7 +108,7 @@ if [[ "$mode" == "--build-only" ]]; then
     exit 0
 fi
 
-build_settings=$(xcodebuild \
+build_settings=$(timeout_command "$build_timeout_seconds" xcodebuild \
     -project HoldType.xcodeproj \
     -scheme HoldType \
     -configuration Debug \

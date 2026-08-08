@@ -36,6 +36,52 @@ struct DevVlogsPhase0BMediaFinalizerTests {
         #expect(exporter.requests.count == 1)
     }
 
+    @Test func missingExportCallbackTimesOutWithoutBlockingAndLateCallbackIsHarmless() async {
+        let fake = Phase0BExportCallback()
+        let awaiter = DevVlogsPhase0BExportAwaiter(
+            start: fake.start,
+            cancel: fake.cancel
+        )
+        let clock = ContinuousClock()
+        let start = clock.now
+
+        await #expect(throws: DevVlogsPhase0BMediaFinalizerError.exportTimedOut) {
+            try await awaiter.wait(timeout: .milliseconds(20))
+        }
+
+        #expect(clock.now - start < .seconds(1))
+        #expect(fake.cancelCount == 1)
+        #expect(awaiter.terminalCompletionCount == 1)
+        fake.complete(.success(()))
+        #expect(awaiter.terminalCompletionCount == 1)
+        #expect(fake.cancelCount == 1)
+    }
+
+    @Test func missingExportCallbackReturnsPromptlyAfterTaskCancellation() async {
+        let fake = Phase0BExportCallback()
+        let awaiter = DevVlogsPhase0BExportAwaiter(
+            start: fake.start,
+            cancel: fake.cancel
+        )
+        let task = Task {
+            try await awaiter.wait(timeout: .seconds(10))
+        }
+        await Task.yield()
+        let clock = ContinuousClock()
+        let cancellationStart = clock.now
+        task.cancel()
+
+        await #expect(throws: DevVlogsPhase0BMediaFinalizerError.exportCancelled) {
+            try await task.value
+        }
+
+        #expect(clock.now - cancellationStart < .seconds(1))
+        #expect(fake.cancelCount == 1)
+        #expect(awaiter.terminalCompletionCount == 1)
+        fake.complete(.success(()))
+        #expect(awaiter.terminalCompletionCount == 1)
+    }
+
     private func makeRequest(
         audioStart: TimeInterval,
         videoStart: TimeInterval
@@ -50,6 +96,29 @@ struct DevVlogsPhase0BMediaFinalizerTests {
             ),
             timeout: .seconds(300)
         )
+    }
+}
+
+nonisolated private final class Phase0BExportCallback: @unchecked Sendable {
+    private let lock = NSLock()
+    private var completion: DevVlogsPhase0BExportAwaiter.Completion?
+    private var cancellations = 0
+
+    var cancelCount: Int {
+        lock.withLock { cancellations }
+    }
+
+    func start(completion: @escaping DevVlogsPhase0BExportAwaiter.Completion) {
+        lock.withLock { self.completion = completion }
+    }
+
+    func cancel() {
+        lock.withLock { cancellations += 1 }
+    }
+
+    func complete(_ result: DevVlogsPhase0BExportAwaiter.ExportResult) {
+        let completion = lock.withLock { self.completion }
+        completion?(result)
     }
 }
 

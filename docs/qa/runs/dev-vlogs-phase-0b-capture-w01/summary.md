@@ -9,9 +9,11 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 
 ## Implemented boundary
 
-- An explicit Debug environment gate defaults off. The gated delegate avoids
-  constructing the ordinary app delegate and its eager dictation, Fixes, and
-  floating-indicator runtimes.
+- An explicit Debug environment gate defaults off. A Debug entry point selects
+  the harness-only SwiftUI scene graph before constructing either app path.
+  The gated path therefore constructs neither the ordinary app delegate and
+  its eager runtimes nor product Settings, Fixes, History, or failure-prompt
+  scenes; the ungated path remains the ordinary app composition.
 - The harness creates one unique run directory under a caller-provided safe
   temporary root, starts the existing audio-recorder service with a prepared
   run-owned `.m4a`, and never enters normal dictation, provider, output,
@@ -19,12 +21,19 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 - Camera capture selects one explicit stable device ID, adds video input only,
   uses capability-checked movie and sample outputs, records monotonic and
   available sample timing, sets a ten-second movie fragment interval, and has
-  bounded exact-once setup and terminal paths.
+  bounded exact-once setup and terminal paths. Injected steady-capture runtime
+  and disconnect failures stop capture, restore configuration, and complete
+  once even when no start or stop continuation is pending.
 - Native composition/export aligns the camera and audio artifacts from
   monotonic capture markers without claiming an audio first-sample timestamp.
+  Export callback/timeout arbitration resumes the caller after cancellation
+  even when an injected exporter never invokes its completion callback.
   The media probe requires one playable, decoded-sample-backed video track and
   one audio track, candidate dimensions/rate/codecs, positive durations, and
   finite timestamp bounds.
+- App termination uses `terminateLater` while the harness receives a bounded
+  opportunity to clean up camera/audio ownership and write its terminal log;
+  an injected timeout has an explicit redacted classification.
 - JSONL evidence is limited to run/case/attempt IDs, monotonic time, compact
   actions/results, redacted device class/label, and numeric metrics.
 
@@ -33,15 +42,15 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; launch isolation, one audio owner, exact-once finalization, failure cleanup, alignment, timeout cancellation, strict probe validation, and event redaction covered. |
+| Focused macOS fake tests | Pass; pre-composition launch routing, harness-only scene structure, bounded terminate-later cleanup, one audio owner, steady-capture failure cleanup, late-duplicate safety, callback-free export timeout/cancellation, alignment, strict probe validation, and event redaction covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help, missing-camera-ID rejection, bounded build-only execution, and cleanup guard passed. |
-| Diff hygiene | Run at final checkpoint. |
+| Script checks | Shell syntax, help, missing-camera-ID rejection, bounded build-only execution, cleanup guard, and timeout-wrapped hardware build-settings inspection passed structurally; hardware mode was not run. |
+| Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`
 mode with a camera ID. That mode was not executed.

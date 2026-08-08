@@ -26,25 +26,17 @@ struct DevVlogsPhase0BCameraCaptureArtifact: Equatable {
 }
 
 enum DevVlogsPhase0BCameraCaptureError: Error, Equatable {
-    case permissionRequired
-    case permissionDenied
-    case preferredDeviceDisconnected
-    case preferredDeviceBusy
-    case unsupportedCandidatePreset
-    case videoInputUnavailable
-    case movieOutputUnavailable
-    case sampleOutputUnavailable
-    case setupTimedOut
-    case recordingFailed
-    case disconnectedDuringCapture
-    case runtimeFailure
-    case notCapturing
+    case permissionRequired, permissionDenied
+    case preferredDeviceDisconnected, preferredDeviceBusy
+    case unsupportedCandidatePreset, videoInputUnavailable
+    case movieOutputUnavailable, sampleOutputUnavailable
+    case setupTimedOut, recordingFailed
+    case disconnectedDuringCapture, runtimeFailure, notCapturing
 }
 
 protocol DevVlogsPhase0BCameraCapturing: AnyObject {
-    func startCapture(
-        _ request: DevVlogsPhase0BCameraCaptureRequest
-    ) async throws -> DevVlogsPhase0BCameraCaptureStart
+    func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws
+        -> DevVlogsPhase0BCameraCaptureStart
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact
     func cancelCapture() async
 }
@@ -52,11 +44,7 @@ protocol DevVlogsPhase0BCameraCapturing: AnyObject {
 @MainActor
 final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturing {
     private enum State {
-        case idle
-        case starting
-        case capturing
-        case stopping
-        case terminal
+        case idle, starting, capturing, stopping, terminal
     }
 
     private let session = AVCaptureSession()
@@ -77,6 +65,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private var stopContinuation: CheckedContinuation<Void, Error>?
     private var startTimeoutTask: Task<Void, Never>?
     private var stopTimeoutTask: Task<Void, Never>?
+    private let steadyFailureTerminator = DevVlogsPhase0BSteadyCaptureTerminator()
     private weak var configuredDevice: AVCaptureDevice?
     private var originalFormat: AVCaptureDevice.Format?
     private var originalMinimumFrameDuration: CMTime?
@@ -107,6 +96,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 self.movieOutput.startRecording(to: request.outputFileURL, recordingDelegate: self)
             }
             state = .capturing
+            steadyFailureTerminator.arm()
             return DevVlogsPhase0BCameraCaptureStart(
                 requestMonotonicTime: requestTime ?? monotonicClock(),
                 recordingStartMonotonicTime: recordingStartTime ?? monotonicClock(),
@@ -121,20 +111,20 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     }
 
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact {
+        if let failure = await steadyFailureTerminator.waitForFailure() {
+            throw failure
+        }
         guard state == .capturing, let request, let requestTime, let recordingStartTime else {
             throw DevVlogsPhase0BCameraCaptureError.notCapturing
         }
         state = .stopping
+        steadyFailureTerminator.disarm()
 
         do {
             try await withCheckedThrowingContinuation { continuation in
                 stopContinuation = continuation
                 stopTimeoutTask = Task { @MainActor [weak self] in
-                    do {
-                        try await Task.sleep(for: request.setupTimeout)
-                    } catch {
-                        return
-                    }
+                    do { try await Task.sleep(for: request.setupTimeout) } catch { return }
                     self?.resumeStop(
                         throwing: DevVlogsPhase0BCameraCaptureError.setupTimedOut
                     )
@@ -160,6 +150,11 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     }
 
     func cancelCapture() async {
+        if await steadyFailureTerminator.waitForFailure() != nil {
+            state = .terminal
+            return
+        }
+        steadyFailureTerminator.disarm()
         if movieOutput.isRecording {
             movieOutput.stopRecording()
         }
@@ -230,7 +225,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     private func startSession(timeout: Duration) async throws {
         let session = self.session
         let sessionQueue = self.sessionQueue
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let gate = DevVlogsPhase0BContinuationGate(continuation: continuation)
             sessionQueue.async {
                 session.startRunning()
@@ -242,11 +237,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 }
             }
             let timeoutTask = Task {
-                do {
-                    try await Task.sleep(for: timeout)
-                } catch {
-                    return
-                }
+                do { try await Task.sleep(for: timeout) } catch { return }
                 _ = gate.resume(
                     with: .failure(DevVlogsPhase0BCameraCaptureError.setupTimedOut)
                 )
@@ -256,14 +247,10 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     }
 
     private func awaitMovieStart(timeout: Duration, begin: () -> Void) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             startContinuation = continuation
             startTimeoutTask = Task { @MainActor [weak self] in
-                do {
-                    try await Task.sleep(for: timeout)
-                } catch {
-                    return
-                }
+                do { try await Task.sleep(for: timeout) } catch { return }
                 self?.resumeStart(
                     throwing: DevVlogsPhase0BCameraCaptureError.setupTimedOut
                 )
@@ -292,22 +279,40 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     }
 
     private func failActiveCapture(with error: DevVlogsPhase0BCameraCaptureError) {
-        resumeStart(throwing: error)
-        resumeStop(throwing: error)
+        if startContinuation != nil {
+            resumeStart(throwing: error)
+            return
+        }
+        if stopContinuation != nil {
+            resumeStop(throwing: error)
+            return
+        }
+        guard state == .capturing else { return }
+        let timeout = request?.setupTimeout ?? .seconds(30)
+        let claimed = steadyFailureTerminator.terminate(with: error) { [weak self] in
+            guard let self else { return }
+            if self.movieOutput.isRecording {
+                self.movieOutput.stopRecording()
+            }
+            try? await self.finishSession(timeout: timeout)
+            self.state = .terminal
+        }
+        guard claimed else { return }
+        state = .stopping
     }
 
     private func finishSession(timeout: Duration) async throws {
         observers.forEach(NotificationCenter.default.removeObserver)
         observers.removeAll()
         sampleOutput.setSampleBufferDelegate(nil, queue: nil)
+        defer { restoreDeviceConfiguration() }
         try await stopSession(timeout: timeout)
-        restoreDeviceConfiguration()
     }
 
     private func stopSession(timeout: Duration) async throws {
         let session = self.session
         let sessionQueue = self.sessionQueue
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let gate = DevVlogsPhase0BContinuationGate(continuation: continuation)
             sessionQueue.async {
                 if session.isRunning {
@@ -316,11 +321,7 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
                 _ = gate.resume(with: .success(()))
             }
             let timeoutTask = Task {
-                do {
-                    try await Task.sleep(for: timeout)
-                } catch {
-                    return
-                }
+                do { try await Task.sleep(for: timeout) } catch { return }
                 _ = gate.resume(
                     with: .failure(DevVlogsPhase0BCameraCaptureError.setupTimedOut)
                 )
@@ -420,40 +421,44 @@ final class DevVlogsPhase0BCameraCapture: NSObject, DevVlogsPhase0BCameraCapturi
     }
 }
 
-private final class DevVlogsPhase0BContinuationGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Void, Error>?
-    private var timeoutTask: Task<Void, Never>?
-
-    init(continuation: CheckedContinuation<Void, Error>) {
-        self.continuation = continuation
+@MainActor
+final class DevVlogsPhase0BSteadyCaptureTerminator {
+    enum Phase: Equatable {
+        case idle, active, terminating, terminal
     }
 
-    func installTimeoutTask(_ task: Task<Void, Never>) {
-        lock.lock()
-        if continuation == nil {
-            lock.unlock()
-            task.cancel()
-            return
-        }
-        timeoutTask = task
-        lock.unlock()
+    private(set) var phase = Phase.idle
+    private var failure: DevVlogsPhase0BCameraCaptureError?
+    private var cleanupTask: Task<Void, Never>?
+
+    func arm() {
+        guard phase == .idle else { return }
+        phase = .active
+    }
+
+    func disarm() {
+        guard phase == .active else { return }
+        phase = .terminal
     }
 
     @discardableResult
-    func resume(with result: Result<Void, Error>) -> Bool {
-        lock.lock()
-        guard let continuation else {
-            lock.unlock()
-            return false
+    func terminate(
+        with failure: DevVlogsPhase0BCameraCaptureError,
+        cleanup: @escaping @MainActor () async -> Void
+    ) -> Bool {
+        guard phase == .active else { return false }
+        phase = .terminating
+        self.failure = failure
+        cleanupTask = Task { @MainActor [weak self] in
+            await cleanup()
+            self?.phase = .terminal
         }
-        self.continuation = nil
-        let timeoutTask = self.timeoutTask
-        self.timeoutTask = nil
-        lock.unlock()
-        timeoutTask?.cancel()
-        continuation.resume(with: result)
         return true
+    }
+
+    func waitForFailure() async -> DevVlogsPhase0BCameraCaptureError? {
+        await cleanupTask?.value
+        return failure
     }
 }
 

@@ -1,4 +1,5 @@
 #if DEBUG
+import AppKit
 import Foundation
 import HoldTypeDomain
 import Testing
@@ -72,6 +73,101 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(fixture.audio.cancelCount == 1)
         #expect(fixture.finalizer.callCount == 0)
         #expect(fixture.probe.callCount == 0)
+    }
+
+    @Test func applicationRouterConstructsOnlyTheSelectedComposition() {
+        var normalStarts = 0
+        var harnessStarts = 0
+
+        DevVlogsPhase0BLaunch.startApplication(
+            environment: [:],
+            startNormalApplication: { normalStarts += 1 },
+            startHarnessApplication: { harnessStarts += 1 }
+        )
+        #expect(normalStarts == 1)
+        #expect(harnessStarts == 0)
+
+        DevVlogsPhase0BLaunch.startApplication(
+            environment: [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"],
+            startNormalApplication: { normalStarts += 1 },
+            startHarnessApplication: { harnessStarts += 1 }
+        )
+        #expect(normalStarts == 1)
+        #expect(harnessStarts == 1)
+    }
+
+    @Test func harnessCompositionContainsNoProductScenesAndNormalCompositionRemainsIntact() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("HoldType/HoldTypeApp.swift"),
+            encoding: .utf8
+        )
+        let harnessMarker = "private struct DevVlogsPhase0BHarnessApplication: App"
+        let harnessStart = try #require(source.range(of: harnessMarker))
+        let harnessTail = source[harnessStart.lowerBound...]
+        let harnessEnd = try #require(harnessTail.range(of: "#endif"))
+        let harnessComposition = harnessTail[..<harnessEnd.lowerBound]
+
+        #expect(harnessComposition.contains("MenuBarExtra"))
+        #expect(!harnessComposition.contains("SettingsScene"))
+        #expect(!harnessComposition.contains("FixesEditorScene"))
+        #expect(!harnessComposition.contains("TranscriptHistoryScene"))
+        #expect(!harnessComposition.contains("TranscriptionFailurePromptScene"))
+        #expect(source[..<harnessStart.lowerBound].contains("SettingsScene()"))
+        #expect(source[..<harnessStart.lowerBound].contains("FixesEditorScene()"))
+        #expect(source[..<harnessStart.lowerBound].contains("TranscriptHistoryScene()"))
+        #expect(source[..<harnessStart.lowerBound].contains("TranscriptionFailurePromptScene()"))
+    }
+
+    @Test func terminationReturnsLaterUntilCleanupCompletes() async {
+        let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(1))
+        var reply = NSApplication.TerminateReply.terminateNow
+        var cleanupCount = 0
+
+        let outcome = await withCheckedContinuation { continuation in
+            reply = coordinator.begin(
+                cleanup: { cleanupCount += 1 },
+                completion: { continuation.resume(returning: $0) }
+            )
+        }
+
+        #expect(reply == .terminateLater)
+        #expect(outcome == .cleanupCompleted)
+        #expect(cleanupCount == 1)
+        #expect(coordinator.outcome == .cleanupCompleted)
+    }
+
+    @Test func terminationTimeoutIsBoundedAndLateCleanupIsHarmless() async {
+        let coordinator = DevVlogsPhase0BTerminationCoordinator(
+            timeout: .seconds(1),
+            sleep: { _ in }
+        )
+        var cleanupContinuation: CheckedContinuation<Void, Never>?
+        var completionCount = 0
+        var reply = NSApplication.TerminateReply.terminateNow
+
+        let outcome = await withCheckedContinuation { continuation in
+            reply = coordinator.begin(
+                cleanup: {
+                    await withCheckedContinuation { cleanupContinuation = $0 }
+                },
+                completion: {
+                    completionCount += 1
+                    continuation.resume(returning: $0)
+                }
+            )
+        }
+
+        #expect(reply == .terminateLater)
+        #expect(outcome == .cleanupTimedOut)
+        #expect(completionCount == 1)
+        #expect(cleanupContinuation != nil)
+        cleanupContinuation?.resume()
+        await Task.yield()
+        #expect(completionCount == 1)
+        #expect(coordinator.outcome == .cleanupTimedOut)
     }
 
     private func makeEnvironment(runRoot: String) -> [String: String] {

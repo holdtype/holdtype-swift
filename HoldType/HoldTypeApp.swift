@@ -10,21 +10,14 @@ import Darwin
 import HoldTypeOpenAI
 import SwiftUI
 
+#if !DEBUG
 @main
+#endif
 struct HoldTypeApp: App {
-    #if DEBUG
-    @NSApplicationDelegateAdaptor(DevVlogsPhase0BLaunchDelegate.self) private var appDelegate
-    #else
     @NSApplicationDelegateAdaptor(HoldTypeAppDelegate.self) private var appDelegate
-    #endif
 
     init() {
         let launchEnvironment = ProcessInfo.processInfo.environment
-        #if DEBUG
-        guard !DevVlogsPhase0BLaunch.shouldIsolate(environment: launchEnvironment) else {
-            return
-        }
-        #endif
         let isInputMonitoringRecoveryLaunch = InputMonitoringPermissionLaunchRecovery.shouldRequest(
             environment: launchEnvironment
         )
@@ -66,25 +59,9 @@ struct HoldTypeApp: App {
     @SceneBuilder
     private var normalScenes: some Scene {
         MenuBarExtra {
-            #if DEBUG
-            if DevVlogsPhase0BLaunch.shouldIsolate() {
-                EmptyView()
-            } else {
-                MenuBarView()
-            }
-            #else
             MenuBarView()
-            #endif
         } label: {
-            #if DEBUG
-            if DevVlogsPhase0BLaunch.shouldIsolate() {
-                EmptyView()
-            } else {
-                HoldTypeMenuBarLabel()
-            }
-            #else
             HoldTypeMenuBarLabel()
-            #endif
         }
         .menuBarExtraStyle(.window)
 
@@ -94,6 +71,33 @@ struct HoldTypeApp: App {
         TranscriptionFailurePromptScene()
     }
 }
+
+#if DEBUG
+@main
+private enum HoldTypeDebugEntryPoint {
+    @MainActor
+    static func main() {
+        DevVlogsPhase0BLaunch.startApplication(
+            environment: ProcessInfo.processInfo.environment,
+            startNormalApplication: { HoldTypeApp.main() },
+            startHarnessApplication: { DevVlogsPhase0BHarnessApplication.main() }
+        )
+    }
+}
+
+private struct DevVlogsPhase0BHarnessApplication: App {
+    @NSApplicationDelegateAdaptor(DevVlogsPhase0BLaunchDelegate.self) private var appDelegate
+
+    var body: some Scene {
+        MenuBarExtra {
+            EmptyView()
+        } label: {
+            EmptyView()
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+#endif
 
 private struct HoldTypeMenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow

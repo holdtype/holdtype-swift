@@ -322,6 +322,18 @@ enum DevVlogsPhase0BLaunch {
         DevVlogsPhase0BConfiguration.shouldIsolate(environment: environment)
     }
 
+    static func startApplication(
+        environment: [String: String],
+        startNormalApplication: () -> Void,
+        startHarnessApplication: () -> Void
+    ) {
+        if shouldIsolate(environment: environment) {
+            startHarnessApplication()
+        } else {
+            startNormalApplication()
+        }
+    }
+
     static func makeHarness(environment: [String: String]) throws -> DevVlogsPhase0BHarness {
         guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
             throw DevVlogsPhase0BHarnessFailure.invalidConfiguration
@@ -339,27 +351,91 @@ enum DevVlogsPhase0BLaunch {
     }
 }
 
+enum DevVlogsPhase0BTerminationOutcome: Equatable {
+    case cleanupCompleted
+    case cleanupTimedOut
+}
+
+@MainActor
+final class DevVlogsPhase0BTerminationCoordinator {
+    typealias Sleep = @MainActor (Duration) async throws -> Void
+
+    private let timeout: Duration
+    private let sleep: Sleep
+    private var raceContinuation: CheckedContinuation<DevVlogsPhase0BTerminationOutcome, Never>?
+    private var cleanupTask: Task<Void, Never>?
+    private var timeoutTask: Task<Void, Never>?
+    private(set) var outcome: DevVlogsPhase0BTerminationOutcome?
+
+    init(
+        timeout: Duration,
+        sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
+    ) {
+        self.timeout = timeout
+        self.sleep = sleep
+    }
+
+    func begin(
+        cleanup: @escaping @MainActor () async -> Void,
+        completion: @escaping @MainActor (DevVlogsPhase0BTerminationOutcome) -> Void
+    ) -> NSApplication.TerminateReply {
+        guard cleanupTask == nil, outcome == nil else {
+            return .terminateLater
+        }
+        cleanupTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outcome = await self.raceCleanup(cleanup)
+            completion(outcome)
+        }
+        return .terminateLater
+    }
+
+    private func raceCleanup(
+        _ cleanup: @escaping @MainActor () async -> Void
+    ) async -> DevVlogsPhase0BTerminationOutcome {
+        await withCheckedContinuation { continuation in
+            raceContinuation = continuation
+            cleanupTask = Task { @MainActor [weak self] in
+                await cleanup()
+                self?.finish(.cleanupCompleted)
+            }
+            timeoutTask = Task { @MainActor [weak self, timeout, sleep] in
+                do {
+                    try await sleep(timeout)
+                } catch {
+                    return
+                }
+                self?.finish(.cleanupTimedOut)
+            }
+        }
+    }
+
+    private func finish(_ outcome: DevVlogsPhase0BTerminationOutcome) {
+        guard let continuation = raceContinuation else { return }
+        raceContinuation = nil
+        self.outcome = outcome
+        cleanupTask?.cancel()
+        timeoutTask?.cancel()
+        cleanupTask = nil
+        timeoutTask = nil
+        continuation.resume(returning: outcome)
+    }
+}
+
 @MainActor
 final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
     private let environment: [String: String]
-    private let normalDelegate: HoldTypeAppDelegate?
+    private let terminationCoordinator = DevVlogsPhase0BTerminationCoordinator(
+        timeout: .seconds(35)
+    )
     private var harnessTask: Task<Void, Never>?
 
     override init() {
-        let environment = ProcessInfo.processInfo.environment
-        self.environment = environment
-        normalDelegate = DevVlogsPhase0BLaunch.shouldIsolate(environment: environment)
-            ? nil
-            : HoldTypeAppDelegate()
+        environment = ProcessInfo.processInfo.environment
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if let normalDelegate {
-            normalDelegate.applicationDidFinishLaunching(notification)
-            return
-        }
-
         NSApplication.shared.setActivationPolicy(.prohibited)
         harnessTask = Task { @MainActor in
             if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: environment) {
@@ -377,19 +453,23 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard let normalDelegate else {
-            harnessTask?.cancel()
-            return .terminateNow
-        }
-        return normalDelegate.applicationShouldTerminate(sender)
+        harnessTask?.cancel()
+        return terminationCoordinator.begin(
+            cleanup: { [weak self] in
+                guard let harnessTask = self?.harnessTask else { return }
+                await harnessTask.value
+            },
+            completion: { outcome in
+                if outcome == .cleanupTimedOut {
+                    print("dev_vlogs_phase_0b result=failed category=termination_timeout")
+                }
+                NSApplication.shared.reply(toApplicationShouldTerminate: true)
+            }
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if let normalDelegate {
-            normalDelegate.applicationWillTerminate(notification)
-        } else {
-            harnessTask?.cancel()
-        }
+        harnessTask?.cancel()
     }
 }
 #endif
