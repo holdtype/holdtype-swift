@@ -1,0 +1,47 @@
+{
+  "packet_id": "DV-P0B-CAMERA-AUTH-R03",
+  "captured_at_utc": "2026-08-08T19:12:26Z",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "product_commit": "6681497a4e074e142a28ab3d628293444ff88e12",
+  "authorization_seam_commit": "f35ac7f3659f660e14d596ff0e2e6eb6fa1695be",
+  "macos_version": "26.6",
+  "macos_build": "25G72",
+  "machine_class": "apple_silicon_arm64_redacted_model",
+  "power_state": "ac_power",
+  "thermal_state": "nominal",
+  "debug_identity": {
+    "bundle_identity_class": "accepted_holdtype_debug_identity",
+    "signing_class": "apple_development",
+    "camera_purpose_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true,
+    "activation_route_blobs_unchanged": true,
+    "private_signing_identity_retained": false
+  },
+  "runtime": {
+    "permission_route_invocation_count": 1,
+    "terminal_result_count": 1,
+    "authorization_result": "unknown",
+    "harness_category": "camera_authorization_unknown",
+    "active_state_confirmed": false,
+    "request_access_start_established": false,
+    "prompt_observed": false,
+    "computer_use_click_count": 0,
+    "system_settings_opened": false
+  },
+  "protected_runtime": {
+    "provider_request_performed": false,
+    "keychain_ui_allowed": false,
+    "camera_enumeration_performed": false,
+    "camera_capture_performed": false,
+    "microphone_owner_constructed": false,
+    "media_activity_performed": false,
+    "tccutil_invoked": false,
+    "direct_tcc_database_operation": false
+  },
+  "idle_guard": {
+    "command": "caffeinate -dimsu",
+    "identity_and_liveness_verified": true,
+    "stopped": true
+  }
+}

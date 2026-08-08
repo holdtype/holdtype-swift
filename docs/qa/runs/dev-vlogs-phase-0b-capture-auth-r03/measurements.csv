@@ -1,0 +1,2 @@
+case_id,authorization_result,activation_latency_ms,prompt_latency_ms,request_duration_ms,measurement_disposition
+camera-authorization-active,unknown,,,,evidence_only

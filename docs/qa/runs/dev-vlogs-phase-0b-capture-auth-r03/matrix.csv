@@ -1,0 +1,2 @@
+case_id,mode,route_invocation_count,terminal_result_count,authorization_result,functional_result,residual_class,active_state_confirmed,request_access_start_established,prompt_observed,computer_use_click_count,camera_capture,microphone_owner,media_activity,cleanup_result
+camera-authorization-active,request_camera_permission,1,1,unknown,fail,environment or signing residual,no,no,no,0,not_run,not_run,not_run,pass

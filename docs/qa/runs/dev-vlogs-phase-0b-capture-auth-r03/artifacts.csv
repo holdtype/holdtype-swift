@@ -1,0 +1,4 @@
+case_id,artifact_class,path_class,bytes,sha256,probe_result,recovery_classification,cleanup_status
+camera-authorization-active,run_root,run_owned_internal_temporary,0,,not_applicable,removed,pass
+camera-authorization-active,screenshot,none,0,,not_created,not_retained,pass
+camera-authorization-active,media,none,0,,not_applicable,not_created,pass

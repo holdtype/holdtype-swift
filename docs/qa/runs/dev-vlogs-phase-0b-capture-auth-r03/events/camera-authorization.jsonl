@@ -1,0 +1,2 @@
+{"action":"permission_route","case_id":"camera-authorization-active","evidence_source":"accepted_script_invocation","result":"started","run_id":"capture-auth-r03"}
+{"action":"permission_route_terminal","case_id":"camera-authorization-active","category":"camera_authorization_unknown","evidence_source":"operator_summary","result":"failed","run_id":"capture-auth-r03"}
