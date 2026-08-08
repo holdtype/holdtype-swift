@@ -64,7 +64,8 @@ They are not yet an Active implementation epoch.
 | `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | accepted_with_residual | `9d9efec`, repair `ff70155`; receipts below | Debug/fake/build feasibility accepted; real hardware/media evidence and shipping audio lease remain. |
 | `DV-P0B-CAPTURE-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-W01@9d9efec` | read-only | rejected | recorded below | Return exact four blockers to the original owner; runtime/storage remain blocked. |
 | `DV-P0B-CAPTURE-W01-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | repair `ff70155` | read-only | accepted_with_residual | recorded below | Storage is dependency-ready; hardware remains a separate controlled runtime gate. |
-| `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | running | — | Implement and fake/internal-I/O verify bookmark/capacity/promotion harness; no external-drive or media runtime. |
+| `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | running (repair 1) | `2486b56`; rejected review recorded below | Repair cleanup-prefix symlink validation and stale-bookmark claim; repeat independent review. |
+| `DV-P0B-STORAGE-W01-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-W01@2486b56` | read-only | rejected | recorded below | Return exact safety/claim repairs to original owner; external/runtime work remains blocked. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -84,9 +85,11 @@ They are not yet an Active implementation epoch.
 - Accepted evidence is limited to Debug/fake/build feasibility. It does not
   establish camera/TCC/device/media measurements, E07 dictation non-regression,
   or the shipping shared-audio lease.
-- Running packet: serialized `DV-P0B-STORAGE-W01` fake/internal-I/O harness.
-  External-drive, interruption, and representative-media runtime remain gated
-  on independent review of this packet.
+- Running packet: repair cycle 1 for `DV-P0B-STORAGE-W01`.
+- Independent review rejected `2486b56`: cleanup did not revalidate the required
+  temp-prefix component against symlink substitution immediately before
+  recursive deletion, and the stale-bookmark summary claim exceeded the test.
+  External-drive, interruption, and representative-media runtime remain gated.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -375,4 +378,30 @@ next_dependency: Original capture owner repairs the exact findings, then a new
 independent review runs before storage or hardware runtime.
 runtime_or_visual_handoff: none
 reviewed_commit: 9d9efecc36e6337790a2f80e2571d3118e4bc404
+```
+
+### `DV-P0B-STORAGE-W01-REVIEW` of `2486b56`
+
+```text
+packet_id: DV-P0B-STORAGE-W01-REVIEW
+status: done
+verdict: reject
+
+outcome: Path scope, build, 18 focused tests, promotion collision, redaction,
+and residue checks pass, but cleanup symlink-prefix safety fails.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; exact W01 packet and
+commit; protected storage contracts.
+changed_paths: none
+checks_run: Exact three-path diff; structure; focused suite; bounded Debug
+build; zero-residue and process audit.
+scope_check: Clean; no product, external-volume, media, or hardware runtime.
+deviations: none
+residual: Cleanup validates the run-root leaf but not the required temp-prefix
+component immediately before recursive delete, allowing a parent-symlink
+substitution risk. The summary also overstates stale-bookmark evidence: rename
+following passed, but a stale result was not deterministically established.
+next_dependency: Original storage owner repairs the same three paths, adds a
+redirected-prefix survival test, corrects the claim, then repeats review.
+runtime_or_visual_handoff: none
+reviewed_commit: 2486b56c02130abd905824a0b50da95118a4b81c
 ```
