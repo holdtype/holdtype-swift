@@ -89,11 +89,12 @@ and independently reviews the new rule.
 | `DV-P0A-QUALITY-REVIEW` | unassigned reviewer | proposed `DV-DRAFT-4` | `DV-P0A-QUALITY-SPEC` | read-only | queued | — | Independent contract-delta and stale-packet review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
-| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | rejected | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`; receipts below | Repair fresh caffeinate identity validation immediately before KILL. No external runtime. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | review | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Caffeinate PID-reuse repair complete; repeat review running. No external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `986af6c` | read-only exact three-path repair commit | rejected | recorded below | Return exact three remaining findings to original owner; repeat review before external runtime. |
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
+| `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | running | — | Recheck fresh pre-KILL caffeinate identity and EXIT-trap false-success closure. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -135,11 +136,10 @@ and independently reviews the new rule.
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Next authority packet: produce and review `DV-DRAFT-4`, then revalidate the
   capture/media harness against the new epoch.
-- `DV-P0B-STORAGE-W02` wrapper repair `d0c9ce5` closed supervisor-group
-  identity capture and signaling. Repeat review found one remaining PID-reuse
-  gap: caffeinate identity is not freshly revalidated immediately before KILL.
-  No external runtime may run before repair acceptance; the packet remains
-  unaffected by the quality delta.
+- `DV-P0B-STORAGE-W02` wrapper repair `a50026a` freshly revalidates caffeinate
+  identity immediately before KILL and converts uncertainty to cleanup failure
+  with no signal. Repeat review is running. No external runtime may run before
+  acceptance; the packet remains unaffected by the quality delta.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -770,6 +770,34 @@ residual: Actual external SSD/HDD evidence remains separately authorized.
 next_dependency: DV-P0B-STORAGE-W02-REVIEW-R3
 runtime_or_visual_handoff: none
 commit: d0c9ce529f8b43234575ce9db2e51a0b007bb484
+```
+
+### `DV-P0B-STORAGE-W02-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R4
+status: done
+
+outcome: Caffeinate KILL now requires a fresh exact identity match after the
+bounded TERM wait. Missing, changed, timed-out, or failed identity evidence
+emits no KILL and forces cleanup failure, including through EXIT traps.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+W02 repair chain and REVIEW-R3 reject recorded at 9186352.
+changed_paths: Test-only external-storage wrapper only; repair commit a50026a.
+reused_owners: Accepted supervisor identity/signaling, preflight, opt-in,
+timeouts, exact scratch, redaction, and Swift owners.
+checks_run: Syntax/help; five argument negatives; seven direct and six EXIT-trap
+caffeinate cells; seven supervisor identity, five group-probe, and four actual
+lifecycle cells; 29 cleanup/process cells total; structural, diff, exact-path,
+mode, redaction, protected-owner, process, and residue audits.
+scope_check: Exact one-wrapper-path repair; zero external-volume I/O and no
+enabled external invocation, disk probes, Swift, product, project, spec,
+registry, media, UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains separately authorized.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R4
+runtime_or_visual_handoff: none
+commit: a50026aa53d93c0808ac84259f05759073434fdb
 ```
 
 ## Rejected Receipts
