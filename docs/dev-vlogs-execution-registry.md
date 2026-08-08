@@ -91,7 +91,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | accepted_with_residual | `2f3266a`; receipt below | Source delta accepted; Build fallback remains separate. |
 | `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | accepted_with_residual | recorded below | Revalidate affected capture/media packets; Build remains gated. |
 | `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
-| `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | running | — | Map stale fixed-source assumptions and minimal passthrough-preserving repair before runtime. |
+| `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | accepted_with_residual | receipt below | Passthrough-preserving Debug repair is feasible; realized hardware compatibility remains evidence-needed. |
+| `DV-P0B-CAPTURE-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-E03` | exact Debug camera/finalizer/probe/preservation/launch/event, focused tests, W01 summary | running | — | Remove fixed source overrides/encode, add passthrough and encoded-sample preservation proof; no runtime or Build behavior. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -140,9 +141,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 - No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
   dispatch when the user superseded the fixed 720p/30 source-quality rule.
 - Source-only `DV-DRAFT-4@2f3266a` is accepted_with_residual for evidence work.
-  `DV-P0B-CAPTURE-E03` is revalidating the Debug harness against native-source
-  passthrough before a new implementation or runtime packet. The final Build
-  fallback remains separate and does not block source evidence.
+  `DV-P0B-CAPTURE-E03` accepted a bounded Apple-native repair design. The
+  Debug-only `DV-P0B-CAPTURE-W02` repair is running; the final Build fallback
+  remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
   Actual external runtime still requires explicit authorization of each exact
@@ -888,6 +889,31 @@ no-downscale/no-nominal-FPS-reduction encode and failing an incompatible Build.
 next_dependency: Revalidate affected capture/media packets against DV-DRAFT-4.
 runtime_or_visual_handoff: none
 reviewed_commit: 2f3266a12643251f890f5347dc9f1ca09d47516d
+```
+
+### `DV-P0B-CAPTURE-E03`
+
+```text
+packet_id: DV-P0B-CAPTURE-E03
+status: done
+
+outcome: Accepted harness lifecycle remains reusable, but its media path is
+stale under DV-DRAFT-4. A bounded Apple-native Debug repair is feasible using
+default high negotiation, no format/FPS override, passthrough composition,
+transform propagation, and pre/post encoded-sample comparison.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B E02/E04/E06; accepted
+W01/R03 lifecycle and review evidence; Apple SDK headers and primary docs.
+changed_paths: none
+checks_run: Exact Debug harness/test/script/QA and Debug/Release isolation
+inspection; SDK/API verification; scoped Git/diff checks. No build or runtime.
+scope_check: Read-only; no product, dictation, storage, UI, iOS, Build,
+publication, project, entitlement, or dependency change.
+deviations: none
+residual: Realized default-high camera format, passthrough compatibility,
+sample preservation, orientation, VFR, timing, resource, and byte-rate evidence
+remain hardware-dependent. DV-BUILD-6 remains separate.
+next_dependency: DV-P0B-CAPTURE-W02 Debug-only native-source repair.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
