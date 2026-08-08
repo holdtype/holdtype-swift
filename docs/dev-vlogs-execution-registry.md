@@ -105,7 +105,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | accepted_with_residual | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
 | `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Same-identity activation-before-request seam is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R02-REVIEW` | exact Debug Launch, authorization tests, W01 summary | review | `f35ac7f`; receipt below | Auth-only activation repair complete; no runtime or product change. |
-| `DV-P0B-CAMERA-AUTH-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W02@f35ac7f` | read-only exact three-path commit | running | — | Review activation ordering, isolation, fail-closed behavior, and Release separation. |
+| `DV-P0B-CAMERA-AUTH-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | incorrect full commit authority | read-only | rejected | recorded below | Requested full SHA did not exist; no source inspection occurred. |
+| `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | corrected `DV-P0B-CAMERA-AUTH-W02@f35ac7f3659` | read-only exact three-path commit | running | — | Review activation ordering, isolation, fail-closed behavior, and Release separation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -1337,10 +1338,32 @@ residual: Genuine same-identity permission runtime and review remain; no
 prompt, grant, row, capture, media, or TCC-state claim.
 next_dependency: DV-P0B-CAMERA-AUTH-W02-REVIEW
 runtime_or_visual_handoff: none
-commit: f35ac7f0c269f538ac230c966a519994524498d1
+commit: f35ac7f3659f660e14d596ff0e2e6eb6fa1695be
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-W02-REVIEW` — incorrect artifact authority
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W02-REVIEW
+status: blocked
+verdict: reject
+
+outcome: Requested full SHA f35ac7f0c269f538ac230c966a519994524498d1
+does not exist, so review stopped before source inspection.
+authority_used: Exact-artifact stop condition.
+reviewed_commit_and_parent: none; Git resolves prefix f35ac7f to
+f35ac7f3659f660e14d596ff0e2e6eb6fa1695be, parent
+f8e0cc00e6e90294d477a1a4e63fbae9cdd3f2ef.
+changed_paths_reviewed: none
+checks_run: rev-parse, cat-file, and bounded hash reconciliation.
+scope_check: No file, runtime, hardware, TCC, or UI action.
+deviations: none
+residual: Full review pending corrected exact authority.
+next_dependency: DV-P0B-CAMERA-AUTH-W02-REVIEW-R1
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-CAMERA-AUTH-R01-REVIEW` of `4f0efb5`
 
