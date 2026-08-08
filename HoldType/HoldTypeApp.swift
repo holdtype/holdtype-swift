@@ -12,10 +12,19 @@ import SwiftUI
 
 @main
 struct HoldTypeApp: App {
+    #if DEBUG
+    @NSApplicationDelegateAdaptor(DevVlogsPhase0BLaunchDelegate.self) private var appDelegate
+    #else
     @NSApplicationDelegateAdaptor(HoldTypeAppDelegate.self) private var appDelegate
+    #endif
 
     init() {
         let launchEnvironment = ProcessInfo.processInfo.environment
+        #if DEBUG
+        guard !DevVlogsPhase0BLaunch.shouldIsolate(environment: launchEnvironment) else {
+            return
+        }
+        #endif
         let isInputMonitoringRecoveryLaunch = InputMonitoringPermissionLaunchRecovery.shouldRequest(
             environment: launchEnvironment
         )
@@ -51,10 +60,31 @@ struct HoldTypeApp: App {
     }
 
     var body: some Scene {
+        normalScenes
+    }
+
+    @SceneBuilder
+    private var normalScenes: some Scene {
         MenuBarExtra {
+            #if DEBUG
+            if DevVlogsPhase0BLaunch.shouldIsolate() {
+                EmptyView()
+            } else {
+                MenuBarView()
+            }
+            #else
             MenuBarView()
+            #endif
         } label: {
+            #if DEBUG
+            if DevVlogsPhase0BLaunch.shouldIsolate() {
+                EmptyView()
+            } else {
+                HoldTypeMenuBarLabel()
+            }
+            #else
             HoldTypeMenuBarLabel()
+            #endif
         }
         .menuBarExtraStyle(.window)
 

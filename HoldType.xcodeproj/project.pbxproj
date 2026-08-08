@@ -97,6 +97,7 @@
 		D4A174092FEF174000000009 /* Exceptions for "HoldType" folder in "HoldType" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Info-Debug.plist,
 				Info.plist,
 			);
 			target = 9DB749682FE6D7300053C3F3 /* HoldType */;
@@ -695,7 +696,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = HoldType/HoldType.entitlements;
+				CODE_SIGN_ENTITLEMENTS = HoldType/HoldTypeDebugCapture.entitlements;
 				CODE_SIGN_IDENTITY = "$(HOLDTYPE_CODE_SIGN_IDENTITY)";
 				CODE_SIGN_STYLE = "$(HOLDTYPE_CODE_SIGN_STYLE)";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -705,7 +706,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = HoldType/Info.plist;
+				INFOPLIST_FILE = "HoldType/Info-Debug.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
