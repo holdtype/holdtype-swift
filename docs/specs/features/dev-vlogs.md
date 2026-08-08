@@ -1,12 +1,15 @@
 # Dev Vlogs
 
-Status: Decision-complete Draft for Phase 0B evidence; not implementation
-authority.
+Status: Source-decision-complete Draft for Phase 0B evidence; Build fallback
+pending; not implementation authority.
 
-Contract revision: `DV-DRAFT-3`.
+Contract revision: `DV-DRAFT-4`.
 
-Revision note: `DV-DRAFT-3` records the user's accepted `DV-D01` through
-`DV-D13` decisions and pins the evidence still required before activation. It
+Revision note: `DV-DRAFT-4` supersedes the fixed source-quality part of
+`DV-D05` with the user's native-source preservation decision. The selected
+camera and macOS negotiate the captured video format; HoldType must not
+downsample or additionally encode source video. The final Build fallback when
+passthrough is impossible remains an explicit pending decision. This revision
 does not authorize product implementation; Phase 0B feasibility and measurement
 evidence plus Phase 0C reconciliation remain mandatory.
 
@@ -70,21 +73,26 @@ cleanup behavior.
 
 ### Contract Delta
 
-- Change ID: `DV-DELTA-DRAFT-3-D01-D13`.
+- Change ID: `DV-DELTA-DRAFT-4-NATIVE-SOURCE`.
 - Change mode: scoped `evolve` inside the Dev Vlogs Draft.
-- Authorized by: user acceptance of `DV-D01` through `DV-D13` on 2026-08-08.
-- Domain and clause IDs: `DV-PRODUCT-1`–`DV-PRODUCT-2`, `DV-UI-6`,
-  `DV-APP-1`–`DV-APP-5`,
-  `DV-CAPTURE-3`–`DV-CAPTURE-4`, `DV-CAPTURE-9`–`DV-CAPTURE-11`,
-  `DV-STORAGE-8`–`DV-STORAGE-10`, `DV-BUILD-2`,
-  `DV-BUILD-6`–`DV-BUILD-9`, and `DV-SHARE-1`–`DV-SHARE-3`.
-- Previous behavior: these points were recommendations or unresolved product
-  decisions in `DV-DRAFT-2`.
-- New behavior: the V1 decisions are accepted Draft behavior; only the
-  explicitly evidence-dependent feasibility and numeric-threshold questions
-  remain open.
-- Evidence basis: the accepted user decision set, the implementation plan's
-  Section 11 decision brief, and the Phase 0B protocol at
+- Authorized by: the user's 2026-08-08 instruction that HoldType must preserve
+  camera/macOS-native source quality without app-imposed compression or
+  downgrade, clarified as no additional HoldType source-video encode or
+  downsample rather than a promise of sensor RAW.
+- Domain and clause IDs: source portion of `DV-D05`, `DV-CAPTURE-10`,
+  `DV-STORAGE-9`–`DV-STORAGE-10`, `DV-BUILD-3`, `DV-BUILD-6`,
+  `DV-ACC-MEDIA-1`, and `DV-EU-3`–`DV-EU-4`.
+- Previous behavior: `DV-DRAFT-3` treated one fixed
+  resolution/frame-rate/codec combination as the source candidate and tied
+  storage evidence and Build output to that preset.
+- New behavior: the selected camera and macOS negotiate source video;
+  HoldType adds no resolution/FPS downgrade and no additional source-video
+  encode. Source finalization may change container and add dictation audio only
+  through a proven video-passthrough path. Build fallback when passthrough is
+  impossible remains unresolved and does not block source-capture evidence.
+- Evidence basis: the explicit user decision recorded in the persistent-goal
+  registry at `cf2c4ee`, this Draft, the implementation plan, and the Phase 0B
+  protocol at
   [`docs/qa/dev-vlogs-phase-0b-feasibility-and-measurement-protocol.md`](../../qa/dev-vlogs-phase-0b-feasibility-and-measurement-protocol.md).
 - Compatibility classification: additive Draft evolution; no shipped behavior,
   adjacent Active contract, or release baseline changes.
@@ -92,13 +100,14 @@ cleanup behavior.
   Recording Cache, shared Settings, Permissions, Keychain, diagnostics,
   updates, unrelated menu behavior, iOS, and website/marketing remain
   protected.
-- QA and design impact: Phase 0B collects feasibility and measurement evidence;
-  UI prototype work remains blocked until `build-macos-apps:swiftui-patterns`
-  is available. No UI is designed by this delta.
-- Specification paths changed: this Draft only; the separate Phase 0B protocol
-  is evidence guidance, not product authority.
-- Independent review: pending `DV-P0A-REVIEW`.
-- New contract revision: `DV-DRAFT-3`.
+- QA and design impact: Phase 0B must prove realized negotiated format and
+  source-video preservation, and measure capacity from actual source behavior.
+  No capture-quality selector is introduced. UI work remains independently
+  gated.
+- Specification paths changed: this Draft, its Phase 0B evidence protocol, and
+  the governing implementation plan.
+- Independent review: pending `DV-P0A-QUALITY-REVIEW`.
+- New contract revision: `DV-DRAFT-4`.
 
 ## Scope
 
@@ -121,6 +130,8 @@ cleanup behavior.
 - replacing Transcript History or Recording Cache;
 - making camera success a prerequisite for dictation;
 - a full nonlinear video editor in the first release;
+- a HoldType capture-resolution, frame-rate, or quality preset;
+- promising sensor RAW or uncompressed camera output;
 - automatic publication without an explicit user action and final
   confirmation;
 - changing iOS behavior;
@@ -139,7 +150,7 @@ cleanup behavior.
 - **Vlog day**: the calendar-day collection that groups clips across trigger
   apps without moving or duplicating their source files.
 - **Build**: a saved recipe containing an ordered selection of clips and an
-  export preset.
+  export policy.
 - **Export**: one immutable rendered video produced by a successful build.
 - **Publication attempt**: a future destination-specific upload or post that
   references one completed export.
@@ -212,10 +223,19 @@ Phase 0B completes and Phase 0C reconciles the affected Active contracts.
 - `DV-CAPTURE-9`: The source clip does not contain transcript text, nearby
   context, prompts, API credentials, or provider responses in the first
   release.
-- `DV-CAPTURE-10`: The V1 source-preset candidate is fixed 1280x720 at 30
-  frames per second with H.264 video and AAC audio. It becomes accepted source
-  quality only if Phase 0B measurements support it and Phase 0C records that
-  evidence; this Draft does not predetermine the measurement result.
+- `DV-CAPTURE-10`: The selected camera and macOS negotiate the actual captured
+  video format. HoldType does not request a lower resolution or frame rate for
+  storage predictability, downsample the source video, or run an additional
+  source-video encode. It preserves the video encoding delivered by the
+  camera/system; native 1080p or another negotiated format is allowed without
+  becoming a HoldType quality preset, and this clause does not promise sensor
+  RAW or uncompressed capture. Camera-format behavior remains configured by the
+  camera and macOS rather than a HoldType capture-quality control. Source
+  finalization may change container and add the dictation audio only through a
+  proven video-passthrough path. If Phase 0B cannot produce one playable source
+  clip while preserving that video, the source cell fails with an exact
+  platform or product dependency; HoldType must not silently transcode or
+  downscale it.
 - `DV-CAPTURE-11`: V1 mirrors only the live preview. Stored source video keeps
   the camera's physically correct orientation. Build-time mirroring is
   deferred.
@@ -265,11 +285,14 @@ Phase 0B completes and Phase 0C reconciles the affected Active contracts.
   automatically. It shows size by day and app, warns before space is exhausted,
   and requires explicit deletion.
 - `DV-STORAGE-9`: Numeric low-space warning and hard-stop thresholds are
-  derived from Phase 0B produced-byte-rate and finalization-overhead evidence.
-  They must not be guessed or fixed before that evidence is reconciled.
+  derived from Phase 0B produced-byte-rate and finalization-overhead evidence
+  for the actual formats negotiated across the available camera matrix. They
+  must not be guessed or derived from a fixed HoldType capture preset.
 - `DV-STORAGE-10`: The hard stop must reserve at least one maximum-duration
-  attempt at the accepted source preset plus measured finalization overhead.
-  Warning capacity remains distinct from that hard stop.
+  attempt under a safe bound established from measured negotiated-source
+  behavior, plus measured finalization overhead. Warning capacity remains
+  distinct from that hard stop. If Phase 0B cannot establish a safe bound, the
+  numeric policy remains open for Phase 0C rather than being invented.
 
 ### Folder organization
 
@@ -336,14 +359,19 @@ draft contract.
   for the selected day in chronological order. The user can narrow the app
   scope, change clip selection, and reorder selected clips before confirming.
 - `DV-BUILD-3`: A build recipe is saved before rendering and identifies its
-  ordered source clip IDs and export preset.
+  ordered source clip IDs and the accepted export policy in force for that
+  build.
 - `DV-BUILD-4`: Rendering writes a new output. It does not overwrite source
   clips or an earlier successful export.
 - `DV-BUILD-5`: A failed or cancelled build leaves source clips unchanged and
   may be retried from its existing recipe.
-- `DV-BUILD-6`: The V1 export candidate is 1280x720 at 30 frames per second
-  with H.264 video and AAC audio, contingent on Phase 0B evidence and Phase 0C
-  acceptance alongside the source-preset decision.
+- `DV-BUILD-6`: Direct-compatible video passthrough is desirable and may be
+  measured, but no fallback is authorized when selected clips cannot be
+  composed without video re-encoding. Before Build implementation, the user
+  must choose between (a) one final encode that does not reduce source
+  resolution or nominal frame rate and (b) failing that Build without an
+  output. This Draft chooses neither outcome. The pending Build fork does not
+  block native-source capture evidence.
 - `DV-BUILD-7`: V1 provides selection and reorder, but no trim or timeline.
   Square, portrait, captions, title cards, transitions, silence trimming, and
   automatic highlights are deferred.
@@ -420,6 +448,9 @@ authority to begin publication work.
 - V1 stores no transcript text beside vlog clips.
 - V1 mirrors preview only; stored source orientation remains physically
   correct.
+- HoldType does not downsample or additionally encode source video; source
+  finalization preserves the negotiated video through a proven passthrough
+  path or fails truthfully.
 - Default logs contain no video, audio, transcripts, paths, app content,
   prompts, credentials, or provider payloads.
 - Build is non-destructive; clip deletion is explicit.
@@ -448,7 +479,7 @@ revision reconciles the following active contracts:
   an analogous but separate durability contract; it must not become a second
   owner inside Transcript History.
 
-Phase 0C must advance this contract beyond `DV-DRAFT-3`, record the Phase 0B
+Phase 0C must advance this contract beyond `DV-DRAFT-4`, record the Phase 0B
 evidence, reconcile the protected Active contracts above, add the final
 acceptance map, and explicitly mark a new revision Active. Until then, this
 Draft cannot authorize implementation.
@@ -550,9 +581,17 @@ failure behavior before this becomes contract text.
 - Fragmented QuickTime writing materially improves partial-file recovery. Apple
   documents a 10-second default fragment interval for movie capture and
   recommends 10 seconds or greater for external storage.
-- A uniform source preset makes chronological assembly predictable.
-- AVFoundation compositions plus export sessions are sufficient for a first
-  native concatenate-and-export path.
+- Phase 0B must establish whether native composition or another platform path
+  can change the container and add dictation audio while copying the negotiated
+  video track without decoding, encoding, downsampling, or reducing frame rate.
+- The smallest preservation evidence compares camera-only and finalized source
+  video tracks: realized dimensions, nominal frame rate, codec/media subtype,
+  relevant format description, timestamp bounds, and container/track/sample
+  evidence sufficient to distinguish copied encoded video from a re-encode.
+  The exact API is implementation evidence rather than contract text.
+- Direct-compatible Build passthrough is worth measuring, but composition of
+  incompatible source clips remains governed by the unresolved `DV-BUILD-6`
+  fork.
 - FFmpeg remains a useful development/reference tool, but shipping it in the
   first product version adds binary size, licensing, update, and subprocess
   boundaries that the native path does not yet require.
@@ -564,7 +603,8 @@ failure behavior before this becomes contract text.
 - Observe mount and unmount changes, but revalidate the exact bookmark and
   writability before every capture rather than trusting a mount notification.
 - Query useful available capacity and compute a conservative per-attempt
-  requirement from the selected capture preset and maximum dictation length.
+  requirement from the safe measured bound for actual negotiated source
+  behavior and maximum dictation length.
 - Write active files under a temporary name, use fragmented media, validate
   tracks, then atomically publish the final clip name where the file system
   supports it.
@@ -586,26 +626,19 @@ owners. This permits:
 - changing a platform adapter without changing clip storage;
 - handling ambiguous uploads without duplicate public posts.
 
-## Candidate media and storage budget
+## Native-source media and storage budget
 
-For a 720p H.264 source at roughly 2-5 Mbps plus 128 Kbps AAC audio, the
-calculated storage range is approximately:
+No fixed source bitrate or file-size estimate is authoritative because the
+selected camera and macOS negotiate the realized source format. Phase 0B must
+measure camera-only bytes, finalized source-clip bytes, bytes per recorded
+second, peak temporary ownership, and finalization overhead for every available
+camera and realized format in the controlled matrix.
 
-- 16-39 MB per recorded minute;
-- 1.0-2.3 GB per recorded hour;
-- 0.5-1.2 GB for thirty one-minute clips in a day;
-- 0.25-0.58 GB for one maximum 15-minute attempt.
-
-These are planning estimates, not measured HoldType results. Phase 0B must
-measure real files from the built-in camera, a USB camera when available, and
-connected iPhone Continuity Camera before source quality, warning, and
-hard-stop thresholds are accepted. No planning estimate in this section is a
-numeric product threshold.
-
-The 720p H.264/AAC direction is a pragmatic first default because Apple's
-1280x720 export preset produces H.264 with AAC, and X recommends 720p H.264
-with AAC for ordinary video upload. Higher quality and portrait/square exports
-belong in explicit later presets.
+Those measurements may establish a conservative safe bound for one
+maximum-duration attempt. If they do not, the numeric warning and hard-stop
+policy remains an explicit Phase 0C input. HoldType must not obtain predictable
+storage by lowering source resolution/frame rate or adding a source-video
+encode.
 
 ## Research synthesis
 
@@ -656,7 +689,6 @@ Primary platform sources:
 - [Apple: Useful available volume capacity](https://developer.apple.com/documentation/foundation/urlresourcevalues/volumeavailablecapacityforimportantusage)
 - [Apple: SwiftUI file selection and persistent access](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox)
 - [Apple: AVAssetExportSession](https://developer.apple.com/documentation/avfoundation/avassetexportsession)
-- [Apple: 1280x720 H.264/AAC export preset](https://developer.apple.com/documentation/avfoundation/avassetexportpreset1280x720)
 - [Apple: macOS sharing picker](https://developer.apple.com/documentation/appkit/nssharingservicepicker)
 - [FFmpeg concat demuxer reference](https://ffmpeg.org/ffmpeg-formats.html#concat)
 - [X media upload best practices](https://docs.x.com/x-api/media/quickstart/best-practices)
@@ -692,7 +724,8 @@ prototype rather than copying an established end-to-end pattern.
 - verify one-audio-owner capture and muxing;
 - test internal and external destinations, unplug, low-space, sleep, quit, and
   camera-disconnect behavior;
-- measure actual storage and CPU impact at candidate presets;
+- prove source-video passthrough and measure actual storage and CPU impact for
+  each realized negotiated source format;
 - use the bounded Phase 0B protocol linked by this Draft;
 - keep UI preview feasibility and prototype activity blocked until
   `build-macos-apps:swiftui-patterns` is available.
@@ -711,7 +744,9 @@ prototype rather than copying an established end-to-end pattern.
 
 - saved build recipes;
 - chronological selection and reorder;
-- native 720p H.264/AAC export;
+- direct-compatible passthrough evidence;
+- no incompatible-source Build fallback until the user resolves
+  `DV-BUILD-6`;
 - progress, cancel, retry, preview, Reveal in Finder, and Share;
 - no direct social account required.
 
@@ -730,8 +765,10 @@ prototype rather than copying an established end-to-end pattern.
   maximum-duration captures;
 - actual byte rate and finalization overhead needed to derive the low-space
   warning and hard-stop thresholds;
-- whether measured 720p/30 H.264/AAC results support accepting the fixed V1
-  candidate;
+- whether each available camera can produce a playable finalized source clip
+  with the negotiated video preserved without an additional HoldType encode;
+- which final Build behavior the user chooses under `DV-BUILD-6` when
+  selected clips cannot be composed by passthrough;
 - the right preview/indicator balance during frequent short captures;
 - real Continuity Camera and multi-camera device identity behavior;
 - the SwiftUI-first preview path on supported macOS targets after the required
@@ -749,16 +786,18 @@ Draft.
 | `DV-ACC-APP-1` | Selected/default, excluded, unknown, renamed, duplicate-name, HoldType-focus, and menu-start trigger cases preserve bundle-ID policy and the start-time snapshot. | `DV-P0B-E01`; later product QA required. |
 | `DV-ACC-CAMERA-1` | Preferred-device identity, no silent fallback, busy/disconnect/reconnect, and Continuity Camera behavior are truthful. | `DV-P0B-E01`, `DV-P0B-E02`, `DV-P0B-E04`. |
 | `DV-ACC-CAPTURE-1` | One microphone owner produces at most one playable audio/video clip for an eligible attempt; every vlog failure leaves dictation usable. | `DV-P0B-E02`, `DV-P0B-E04`, `DV-P0B-E07`. |
-| `DV-ACC-MEDIA-1` | Candidate quality, preparation, sync/drift, resource use, byte rate, and finalization overhead are measured before numeric product thresholds are accepted. | `DV-P0B-E06`. |
+| `DV-ACC-MEDIA-1` | Each realized negotiated source format is recorded; finalization proves no HoldType video downsample or re-encode; preparation, sync/drift, resource use, byte rate, and overhead are measured before numeric thresholds are accepted. | `DV-P0B-E02`, `DV-P0B-E04`, `DV-P0B-E06`. |
 | `DV-ACC-STORAGE-1` | Internal/external destination handling, useful capacity, no silent fallback, unplug/interruption, and truthful recovery are demonstrated. | `DV-P0B-E03`, `DV-P0B-E04`. |
 | `DV-ACC-LIBRARY-1` | Day/app hierarchy, stable IDs, truthful sizes, active-file protection, explicit Delete, and index reconstruction work without transcript persistence. | Later product QA required. |
-| `DV-ACC-BUILD-1` | Selection/reorder, deterministic output, cancel/retry, missing-source handling, no overwrite, playable output, and unchanged sources are demonstrated. | Capture/mux feasibility only in `DV-P0B-E02`; later build QA required. |
+| `DV-ACC-BUILD-1` | After `DV-BUILD-6` is resolved, selection/reorder, deterministic output, cancel/retry, missing-source handling, no overwrite, playable output, and unchanged sources are demonstrated. | Source passthrough feasibility only in `DV-P0B-E02`; later Build QA required. |
 | `DV-ACC-SHARE-1` | V1 exposes Export, Reveal in Finder, and macOS Share only; no direct adapter or publication state exists. | Later product QA required. |
 | `DV-ACC-UI-1` | Overview opens first; delivered sections follow the accepted order; all visible UI is SwiftUI. | `DV-P0B-E05` remains blocked until the required skill is available. |
 
-## Resolved decisions and evidence-dependent unknowns
+## Resolved decisions and remaining unknowns
 
-The user resolved every V1 product choice in the decision brief on 2026-08-08:
+The user resolved the source-quality portion of `DV-D05` on 2026-08-08.
+The incompatible-source Build fallback in `DV-BUILD-6` remains a separate
+material product fork:
 
 | Decision | Accepted Draft result |
 | --- | --- |
@@ -766,9 +805,9 @@ The user resolved every V1 product choice in the decision brief on 2026-08-08:
 | `DV-D02` | Selected apps is recommended/default; all-apps-with-exclusions is secondary. |
 | `DV-D03` | Trigger app is frozen at start; later focus changes do not stop or move the clip. |
 | `DV-D04` | The dictation microphone is the only V1 audio source. |
-| `DV-D05` | Fixed 720p/30 H.264/AAC is the V1 candidate, contingent on Phase 0 evidence. |
+| `DV-D05` | Preserve the camera/macOS-negotiated source without a HoldType resolution/FPS downgrade or additional source-video encode. No HoldType capture-quality selector is added; native 1080p or another negotiated format is allowed without promising sensor RAW. |
 | `DV-D06` | Mirror preview only; source remains physically correct; build-time mirroring is deferred. |
-| `DV-D07` | Numeric low-space thresholds come from measured byte rate and overhead; the hard stop reserves at least one maximum-duration attempt plus finalization overhead. |
+| `DV-D07` | Numeric low-space thresholds come from measured negotiated-source byte rate and overhead; the hard stop reserves one maximum-duration attempt under a safe measured bound plus finalization overhead, or remains open for Phase 0C if no safe bound is established. |
 | `DV-D08` | V1 has no automatic retention or deletion. |
 | `DV-D09` | Build supports selection and reorder, with no trim or timeline. |
 | `DV-D10` | V1 persists no transcript text beside clips. |
@@ -776,8 +815,8 @@ The user resolved every V1 product choice in the decision brief on 2026-08-08:
 | `DV-D12` | V1 delivery stops at Export, Reveal in Finder, and macOS Share. |
 | `DV-D13` | The final V1 name is `Dev Vlogs`. |
 
-No unresolved product-choice question remains from `DV-D01` through
-`DV-D13`. The remaining unknowns are evidence-dependent:
+All other `DV-D01` through `DV-D13` decisions remain unchanged. The
+remaining unknowns are:
 
 - `DV-EU-1`: measured camera preparation/start latency and the numeric V1
   product budget derived from it;
@@ -785,10 +824,16 @@ No unresolved product-choice question remains from `DV-D01` through
   typical, and maximum-duration attempts;
 - `DV-EU-3`: measured produced byte rate and finalization overhead used to set
   numeric warning and hard-stop capacity;
-- `DV-EU-4`: whether the controlled hardware/storage matrix supports accepting
-  fixed 720p/30 H.264/AAC for V1;
+- `DV-EU-4`: whether the controlled hardware/storage matrix proves one
+  playable source clip per applicable cell while preserving the negotiated
+  source video without HoldType downsampling or re-encoding;
 - `DV-EU-5`: the supported SwiftUI-first preview path, pending availability of
   `build-macos-apps:swiftui-patterns` and bounded feasibility evidence.
+
+`DV-BUILD-6` remains a real user decision: when direct-compatible passthrough
+cannot compose the selected clips, choose either one final encode without
+reducing source resolution or nominal frame rate, or fail the Build. Phase 0B
+may gather compatibility evidence but must not choose this fallback.
 
 Phase 0B records these results without inventing thresholds. Phase 0C must
 classify and reconcile them before any Active implementation revision.

@@ -3,9 +3,9 @@
 Status: bounded Draft evidence protocol; not product implementation authority.
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-DRAFT-3`.
+`DV-DRAFT-4`.
 
-Phase: `DV-P0B` after `DV-P0A-REVIEW` accepts the pinned Draft.
+Phase: `DV-P0B` after `DV-P0A-QUALITY-REVIEW` accepts the pinned Draft.
 
 ## Purpose and boundary
 
@@ -23,8 +23,11 @@ environment with no live OpenAI request or live Keychain access.
 
 Numeric low-space and start-latency product thresholds remain
 evidence-derived. This protocol must measure them and must not invent them.
-The 720p/30 H.264/AAC preset is a candidate until Phase 0C reconciles the
-measurements.
+The selected camera and macOS negotiate the source-video format. Phase 0B must
+prove that HoldType neither downscales nor additionally encodes that video
+during source finalization. The pending incompatible-source Build fallback is
+outside this source-capture decision and does not block Phase 0B source
+evidence.
 
 ## Stable evidence gates
 
@@ -52,7 +55,7 @@ map for:
 - camera discovery, stable device identity, connect/disconnect, busy-device,
   and Continuity Camera signals on supported macOS targets;
 - camera-only capture, timestamps, fragmented movie output, composition/mux,
-  media probing, and H.264/AAC export support;
+  media probing, and video-passthrough/remux support;
 - bookmark-backed destination access, useful available capacity, mount state,
   and external-volume interruption signals;
 - the existing sanitized runtime and fake-backed dictation verification paths.
@@ -82,10 +85,13 @@ For each applicable success case:
 3. Stop both branches through the controlled attempt boundary.
 4. Give the debug finalizer bounded read access to the completed dictation
    audio artifact without changing its owner or cleanup policy.
-5. Mux camera video and dictation audio into a candidate 1280x720, 30 fps,
-   H.264/AAC clip.
-6. Probe the result and establish playable video and audio tracks, media
-   duration, dimensions, nominal frame rate, codecs, and timestamp bounds.
+5. Finalize one source clip, changing container if needed and adding dictation
+   audio only through a video-passthrough path. Do not request a lower source
+   resolution/frame rate, downsample, or additionally encode the video.
+6. Probe the camera-only and finalized assets and establish playable video and
+   audio tracks, media duration, realized dimensions, nominal frame rate,
+   codec/media subtype, relevant format description, timestamp bounds, and
+   evidence that the encoded source video was preserved.
 7. Release the temporary audio access and classify every intermediate artifact.
 
 Use visible and audible sync markers near the start and end of controlled test
@@ -96,7 +102,8 @@ Functional pass criteria:
 
 - exactly one microphone capture owner exists;
 - the final clip contains one playable video track and one playable audio
-  track with the expected candidate encoding;
+  track, and the final video preserves the realized negotiated source without
+  a HoldType downsample or additional video encode;
 - one attempt cannot finalize more than one Ready clip;
 - timeout, cancel, camera failure, and mux failure terminate in a truthful
   recoverable or failed state without changing the dictation result;
@@ -105,6 +112,15 @@ Functional pass criteria:
 Latency, offset, drift, finalization time, and resource values are
 evidence-only measurements until Phase 0C. They do not pass merely by being
 small and do not fail merely by being large without an accepted threshold.
+
+The smallest no-reencode evidence must compare the camera-only and finalized
+video tracks. Record dimensions, nominal frame rate, codec/media subtype,
+relevant format description, timestamp bounds, and container/track/sample
+evidence sufficient to distinguish copied encoded video from decode/re-encode.
+The spike may select the narrowest supported platform probe, but it must not
+claim passthrough from matching dimensions or codec names alone. If it cannot
+produce a playable clip or prove preservation, the source cell fails with an
+exact platform/API or product dependency; it must not silently transcode.
 
 ## 3. Storage spike — `DV-P0B-E03`
 
@@ -136,8 +152,9 @@ false Ready state, or any effect on protected storage owners.
 
 This gate measures the inputs for warning and hard-stop capacity. It does not
 choose numeric product thresholds. Phase 0C must derive them so the hard stop
-reserves at least one maximum-duration attempt plus measured finalization
-overhead.
+reserves at least one maximum-duration attempt under a safe bound established
+from measured negotiated-source behavior, plus measured finalization overhead.
+If the matrix does not establish a safe bound, the threshold remains open.
 
 ## 4. Controlled runtime hardware matrix — `DV-P0B-E04`
 
@@ -156,7 +173,7 @@ cleanup.
 | Camera | Built-in camera; USB camera if available; connected iPhone Continuity Camera |
 | Destination | Internal storage; external SSD if available; external HDD if available |
 | Duration | Short: 10 seconds; typical: 60 seconds; maximum: 15 minutes |
-| Output | Candidate 720p/30 H.264/AAC with playable audio and video tracks |
+| Output | Realized camera/macOS-negotiated source format; playable audio/video tracks; proven video preservation through source finalization |
 
 Run every available camera across all three durations on internal storage. Run
 the built-in camera across all three durations on every available external
@@ -231,7 +248,10 @@ Record one row per case with units and monotonic timestamps where applicable:
 - baseline dictation start latency without the vlog spike and the paired delta;
 - initial audio/video offset and end-of-capture drift in milliseconds;
 - actual duration, dimensions, average frame rate, dropped-frame count, video
-  codec, audio codec, and track-playability result;
+  codec/media subtype, relevant video format description, audio codec, and
+  track-playability result for camera-only and finalized assets;
+- source-to-final video-preservation evidence, including the chosen
+  container/track/sample proof and its result;
 - process CPU mean, p95, and peak; resident-memory baseline and peak;
 - raw video bytes, dictation-audio bytes, finalized clip bytes, recovered
   fragment bytes, bytes per recorded second, finalization time, peak bytes
@@ -353,6 +373,8 @@ the corresponding UI feasibility claim.
 
 The review returns functional failures and protected-domain dependencies as
 blockers. It carries quantitative evidence and honest environment residuals to
-Phase 0C. Phase 0C, not this protocol, decides whether measurements support the
-candidate preset and derives numeric start-latency and low-space product
-thresholds before proposing an Active contract.
+Phase 0C. Phase 0C, not this protocol, derives numeric start-latency and
+low-space product thresholds from actual negotiated-source behavior before
+proposing an Active contract. Evidence about direct-compatible Build
+passthrough may be retained, but the unresolved `DV-BUILD-6` fallback remains
+a separate user decision.

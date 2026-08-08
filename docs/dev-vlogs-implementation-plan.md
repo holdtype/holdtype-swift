@@ -5,7 +5,7 @@ Status: planning only; implementation is not authorized.
 Date: 2026-08-08
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-DRAFT-3`.
+`DV-DRAFT-4`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -59,8 +59,9 @@ ambient recorder, or a second failure dependency for dictation.
 - Forbidden specification delta: weakening normal audio cleanup, changing
   dictation exact-once behavior, adding hidden capture, moving feature toggles
   into Permissions, or changing iOS.
-- Material user decisions: Section 11.
-- Current contract revision: `DV-DRAFT-3`.
+- Material user decisions: the `DV-BUILD-6` incompatible-source fallback
+  remains pending in Section 11; the source-quality rule is resolved.
+- Current contract revision: `DV-DRAFT-4`.
 - Required review and QA: contract review before implementation; focused media
   and persistence tests per phase; real macOS UI and device/storage QA before
   release claims.
@@ -86,6 +87,10 @@ The plan treats these points as already agreed:
   by bundle identifier.
 - One preferred camera is remembered across disconnect/reconnect and is never
   silently replaced.
+- The selected camera and macOS negotiate source video. HoldType adds no
+  resolution/FPS downgrade or additional source-video encode, and exposes no
+  capture-quality selector. Native 1080p or another negotiated format may be
+  preserved without becoming a HoldType preset or a sensor-RAW promise.
 - The default destination is `~/Movies/HoldType Dev Vlogs`; the user can choose
   an external drive. An unavailable destination never causes a silent internal
   fallback.
@@ -134,7 +139,7 @@ navigation, controls, state, overlays, and feedback stay in SwiftUI.
 | Section | Responsibility | First delivery |
 | --- | --- | --- |
 | Overview | Feature enablement, readiness, current-day summary, primary recovery or build action | Setup MVP |
-| Capture | Preferred camera, bounded preview, capture preset, visible recording behavior | Setup MVP |
+| Capture | Preferred camera, bounded preview, visible recording behavior | Setup MVP |
 | Applications | Selected-app allowlist or all-apps-with-exclusions policy | Setup MVP |
 | Storage | Destination, bookmark health, free space, archive size, Finder actions | Setup MVP |
 | Library | Days, app groups, clips, playback, inclusion, Reveal, Delete | Local clip MVP |
@@ -175,12 +180,12 @@ The names below describe responsibilities, not required final type names.
 ### 5.1 Domain and persistence
 
 - `DevVlogsSettings`: enabled state, preferred camera identity, app policy,
-  selected preset, and destination reference.
+  and destination reference.
 - `VlogClip`: stable identity, source attempt identity, trigger-app snapshot,
   media bounds, health, duration, size, and lifecycle.
 - `VlogDay`: an index over clips grouped by local date and app.
-- `VlogBuild`: ordered source IDs, preset, lifecycle, and immutable export
-  references.
+- `VlogBuild`: ordered source IDs, accepted export policy, lifecycle, and
+  immutable export references.
 - `PublicationAttempt`: deferred destination-specific state that references one
   completed export.
 - A focused settings store persists small non-secret preferences.
@@ -260,7 +265,8 @@ Spike matrix:
 - destination unplug during capture and finalization;
 - camera disconnect, camera busy, sleep/wake, quit, and process interruption;
 - playable-track validation and fragment recovery;
-- 720p/30 H.264/AAC as the first candidate preset.
+- realized camera/macOS-negotiated dimensions, frame rate, codec/format, and
+  video-passthrough evidence through source finalization.
 
 The spike may use a debug-only harness, fixtures, and logs. It must not ship a
 feature toggle, capture from ordinary user actions, or weaken dictation
@@ -271,7 +277,8 @@ Exit:
 - one microphone owner and later muxing are demonstrated or rejected with
   evidence;
 - bounded preparation does not delay dictation beyond the accepted budget;
-- sync/drift and resource measurements support a candidate preset;
+- source finalization preserves the negotiated video without downsampling or
+  additional video encoding, or returns an exact dependency;
 - external-drive interruption has a truthful recovery classification;
 - any disproved assumption returns to the user as a concrete product fork.
 
@@ -282,7 +289,7 @@ code edit.
 
 Required spec work:
 
-1. Advance Dev Vlogs beyond `DV-DRAFT-3` to the proposed `DV-ACTIVE-1`, record
+1. Advance Dev Vlogs beyond `DV-DRAFT-4` to the proposed `DV-ACTIVE-1`, record
    the accepted spike evidence, add acceptance scenario IDs, and mark the
    contract Active.
 2. Amend `privacy-and-permissions.md` with optional Camera permission and one
@@ -343,11 +350,13 @@ dictation retains its current behavior.
 
 Work:
 
-- freeze trigger app, policy, camera, destination, preset, and attempt identity
-  at dictation start;
+- freeze trigger app, policy, camera, destination, and attempt identity at
+  dictation start, then record the realized negotiated camera format for that
+  attempt;
 - prepare camera capture within the agreed bound;
 - implement the shared-audio lease and independent vlog lifecycle;
-- finalize, mux, validate, and publish one source clip;
+- finalize, mux, validate, and publish one source clip through a proven
+  no-video-reencode path;
 - write minimal day/app manifests and compact redacted diagnostics;
 - expose current capture or skipped/degraded state in the Dev Vlogs window and
   only the approved compact indication in the menu bar;
@@ -392,14 +401,17 @@ Exit:
 
 Goal: turn selected clips into one reproducible local video.
 
+Entry dependency: the user has resolved `DV-BUILD-6` for selected clips that
+cannot be composed through direct-compatible video passthrough.
+
 Work:
 
 - create saved build recipes before rendering;
 - default to Ready, non-excluded clips for one selected day in chronological
   order;
 - provide the approved selection/reorder controls;
-- render a new compatible H.264/AAC export with progress, cancellation, retry,
-  and bounded media operations;
+- render according to the later accepted `DV-BUILD-6` export policy, with
+  progress, cancellation, retry, and bounded media operations;
 - retain completed exports independently from later source deletion;
 - add playback, Reveal in Finder, and the macOS Share surface.
 
@@ -464,8 +476,9 @@ Exit:
 - Every visible UI phase receives a Computer Use pass against the actual app,
   with the repository's `caffeinate`, sanitized Keychain, launch, and process
   cleanup rules.
-- Capture and export performance evidence records the actual preset, device,
-  duration, byte rate, CPU, memory, start latency, sync offset, and drift.
+- Capture and source-finalization evidence records the actual negotiated source
+  format, device, duration, byte rate, CPU, memory, start latency, sync offset,
+  drift, and video-preservation result.
 
 ### Per-checkpoint baseline
 
@@ -560,15 +573,21 @@ or override individual items.
 | `DV-D02` | App-policy prominence | Selected apps is the recommended/default path; all-apps-with-exclusions is secondary | Safer privacy posture and matches the developer-tool use case. |
 | `DV-D03` | Focus change during dictation | Freeze the trigger app at start; do not stop or move the vlog when focus later changes | One dictation maps to one clip and one folder without fragile focus tracking. |
 | `DV-D04` | V1 audio source | Always the same dictation microphone | Avoids a second capture owner and keeps the spoken take consistent. |
-| `DV-D05` | Source quality | Fixed 720p/30 H.264/AAC for V1; measure before accepting | Keeps storage and build behavior predictable while retaining useful social quality. |
+| `DV-D05` | Source quality | Preserve the camera/macOS-negotiated source without a HoldType resolution/FPS downgrade or additional source-video encode; expose no capture-quality selector | Preserves what the camera and system actually provide without promising sensor RAW or turning native 1080p into a HoldType preset. |
 | `DV-D06` | Mirroring | Mirror preview only; keep the source physically correct; defer build-time mirroring | Familiar setup preview without baking an irreversible presentation choice into source media. |
-| `DV-D07` | Low-space policy | Derive numeric warning/hard-stop values from Phase 0 byte-rate measurements; hard-stop must reserve at least one max-length attempt plus finalization overhead | A guessed fixed threshold may be unsafe for the actual preset or too aggressive on smaller disks. |
+| `DV-D07` | Low-space policy | Derive numeric warning/hard-stop values from measured negotiated-source byte rates; hard-stop must reserve at least one max-length attempt under a safe measured bound plus finalization overhead | A guessed fixed threshold may be unsafe across actual camera formats; if no safe bound is proven, Phase 0C must leave the threshold open. |
 | `DV-D08` | Automatic retention | No automatic deletion in V1; show usage and require explicit Delete | Preserves trust while the archive model is new. Add bounded retention later as an explicit opt-in policy. |
 | `DV-D09` | First build editing | Selection and reorder, but no trim/timeline | Enough control to remove noise and shape the day without creating a video editor. |
 | `DV-D10` | Transcript metadata | Do not persist transcript text beside clips in V1 | Keeps the video archive independent from transcript retention and avoids a second sensitive text index. |
 | `DV-D11` | Command surface | App commands only for V1; no CLI | The requested user workflow is covered without prematurely freezing an automation API. |
 | `DV-D12` | First publication target | Export, Reveal, and macOS Share only | Delivers the durable value before adding credentials and unstable provider APIs. |
 | `DV-D13` | User-facing name | `Dev Vlogs` | Clear and compact; can be changed before contract activation without migration cost. |
+
+Source capture is resolved. One separate Build decision remains:
+
+| ID | Decision | Unranked alternatives | Status |
+| --- | --- | --- | --- |
+| `DV-BUILD-6` | Fallback when selected clips cannot be composed by direct-compatible video passthrough | (a) one final encode that preserves source resolution and nominal frame rate; (b) fail the Build with no output | Pending user decision; does not block source-capture evidence |
 
 ## 12. Recommended First Release Cut
 
@@ -579,10 +598,13 @@ The smallest release worth shipping is Phases 0 through 4:
   destination;
 - short best-effort camera clips tied to eligible dictations;
 - day/app library with playback, Reveal, exclusion, and explicit Delete;
-- explicit daily build with selection/reorder, 720p export, Reveal, and Share.
+- explicit daily build with selection/reorder, the later accepted
+  `DV-BUILD-6` export policy, Reveal, and Share.
 
 Direct publication, captions, transcript search, trim, timelines, automatic
-highlights, automatic retention, 1080p, multiple cameras, and CLI automation
-should remain later contracts. This cut is already useful as a private daily
-archive and creates a stable export artifact that future social integrations
-can consume.
+highlights, automatic retention, multiple cameras, and CLI automation should
+remain later contracts. There is no explicit 1080p capture preset or
+capture-quality-control feature; native negotiated 1080p or another source
+format may still be preserved and must not be downsampled. This cut is already
+useful as a private daily archive and creates a stable export artifact that
+future social integrations can consume.
