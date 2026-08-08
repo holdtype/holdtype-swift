@@ -102,8 +102,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R01@4f0efb5` | read-only exact seven-file evidence commit | rejected | recorded below | Summary-only truthfulness repair required before permission action. |
 | `DV-P0B-CAMERA-AUTH-R01-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected AUTH-R01 review | exact capture-auth-R01 summary only | accepted_with_residual | `308a191`; receipt below | Summary contradiction repaired; permission state remains unknown. |
 | `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | repair `308a191` | read-only exact one-path repair commit | accepted_with_residual | receipt below | Enable and verify HoldType Camera switch before capture retry. |
-| `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | review / row_absent | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
-| `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | running | — | Validate row-absence evidence and define a same-identity registration action. |
+| `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | accepted_with_residual | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
+| `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Same-identity activation-before-request seam is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R02-REVIEW` | exact Debug Launch, authorization tests, W01 summary | running | — | Activate only explicit permission mode before requestAccess; no runtime or product change. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -161,8 +162,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   same-identity Camera authorization request timed out without an actionable
   prompt. Evidence facts and cleanup passed review, but one summary-only TCC
   truthfulness repair `308a191` is accepted. A bounded Computer Use action is
-  in review after finding the HoldType Camera row absent; no switch or TCC
-  action occurred. The
+  accepted after finding the HoldType Camera row absent; no switch or TCC
+  action occurred. A three-path Debug activation-before-request repair is
+  running. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -1268,6 +1270,39 @@ operator switch.
 next_dependency: DV-P0B-CAMERA-AUTH-R02-REVIEW
 runtime_or_visual_handoff: Exact Camera pane only; no screenshot or capture.
 commit: 36445d2fb0a9fd6ad9bc7b95831c4fa867596481
+```
+
+### `DV-P0B-CAMERA-AUTH-R02-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R02-REVIEW
+status: done
+verdict: accept_with_residual
+permission_cell: not_available — holdtype_row_absent
+
+outcome: Computer Use evidence supports that the Camera pane had no visible
+HoldType row and no setting changed. Row absence establishes neither grant nor
+denial and provides no manual switch.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+AUTH-R01 repair/review; exact R02 evidence.
+reviewed_commit_and_parent: 36445d2fb0a9fd6ad9bc7b95831c4fa867596481;
+04134352f932381268afff74a55e4b86e5906640.
+changed_paths_reviewed: Exactly seven redacted evidence files; no changes.
+checks_run: Exact diff/path/blob; structured chronology; Computer Use and
+no-action checks; redaction/media/path scans; process, guard, run-root, and
+protected-path snapshot.
+classification_review: Camera pane open, HoldType row unavailable, terminal
+closure; zero switch/unrelated/auth/request/capture/mic/media/TCC actions.
+cleanup_review: Exact lingering System Settings process was identity-validated
+and boundedly terminated; no residue and pre-existing HoldType preserved.
+scope_check: Exact evidence-only scope; no product, signing, TCC, storage, or
+iOS change.
+deviations: Packet-opened System Settings remained resident after UI quit and
+required exact TERM cleanup.
+residual: Authorization remains unknown; no manual switch or capture retry.
+next_dependency: Debug-only activation-before-request repair limited to Launch,
+authorization tests, and W01 summary, then review and one permission runtime.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
