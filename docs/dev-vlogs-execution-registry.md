@@ -127,7 +127,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W05@b071056` | read-only exact three-path repair commit | accepted_with_residual | receipt below | One bounded diagnostic permission-only runtime is dependency-ready. |
 | `DV-P0B-CAMERA-AUTH-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W05-REVIEW` | one redacted capture-auth-R06 QA run; no media | accepted_evidence / functional_fail | `a7f47a9`; receipt below | One direct process exited naturally; activation timed out before authorization. |
 | `DV-P0B-CAMERA-AUTH-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R06@a7f47a9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Clean topology accepted; activation remains a platform dependency before authorization. |
-| `DV-P0B-CAMERA-AUTH-E06` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R06-REVIEW` | read-only exact activation/LaunchServices/source/script/SDK evidence | running | — | Determine a safely identifiable same-signed activation route; no runtime. |
+| `DV-P0B-CAMERA-AUTH-E06` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R06-REVIEW` | read-only exact activation/LaunchServices/source/script/SDK evidence | review | receipt below | Exact-URL NSWorkspace launch plus ownership acknowledgment proposed; independent design review required. |
+| `DV-P0B-CAMERA-AUTH-E06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-E06` | read-only exact map/API/ownership review | running | — | Validate helper necessity, identity/TCC safety, handshake, categories, paths, and test envelope. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -211,7 +212,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   activation_requested before authorization. Review accepted the evidence and
   classified the remaining failure as a platform activation dependency rather
   than signing/TCC proof or a new demonstrated Debug defect. Read-only
-  activation/LaunchServices exploration is running; capture remains blocked. The
+  activation/LaunchServices exploration proposed exact-URL NSWorkspace launch
+  through a bounded non-requesting helper plus target ownership acknowledgment.
+  Independent design review is running before any writable repair; capture
+  remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2029,6 +2033,46 @@ next_dependency: Bounded read-only activation/LaunchServices exploration before
 any repair or permission retry.
 runtime_or_visual_handoff: none
 reviewed_commit: a7f47a96661c60c7e00a092cc2220bc9e2298c52
+```
+
+### `DV-P0B-CAMERA-AUTH-E06`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E06
+status: done
+
+outcome: Apple-supported exact-URL NSWorkspace.openApplication with a bounded
+run-root helper can launch the same signed Debug app, return typed process
+identity, preserve W05 ownership, and gate Camera work on an exact PID/token
+acknowledgment.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; accepted W05/R06 evidence;
+repository rules; installed AppKit SDK headers and Apple primary documentation.
+changed_paths: none
+api_findings: Direct Mach-O execution has no LaunchServices foreground request;
+regular policy plus NSApplication.activate is non-guaranteed. OpenConfiguration
+supports exact app URL, activates, new instance, no substitution/recent item,
+sanitized environment, and a returned NSRunningApplication identity.
+recommended_route: Compile/ad-hoc-sign a committed run-root helper that never
+imports AVFoundation; helper opens the exact Debug app and returns typed
+identity; script validates LaunchServices fields plus W05 marker proof; target
+cannot inspect status/requestAccess until an atomic PID/token acknowledgment and
+active-state confirmation; no second target-side activation request.
+minimal_paths: New helper source; permission spike script; Debug Launch,
+CameraAuthorization, EventLog; focused authorization/launch tests; W01 summary.
+No project, plist, entitlement, HoldTypeApp, normal product, or Release change.
+invariants: Same signed Debug HoldType is sole Camera requester; helper has no
+Camera capability; exact URL/new instance/no substitution; one deadline;
+marker/identity proof before acknowledgment or signal; normal/hardware/Release
+unchanged; no broad process action.
+checks_run: Read-only source/evidence/SDK/Apple-doc/test-map/diff/worktree review;
+no build, test, launch, TCC, Camera, microphone, media, UI, or process action.
+scope_check: Activation/LaunchServices evidence only.
+deviations: none
+residual: LaunchServices activation remains evidence-needed; helper tooling may
+be blocked by local compile/sign policy; Camera/TCC remains unproven.
+next_dependency: Independent design review, then a bounded writable repair if
+accepted.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
