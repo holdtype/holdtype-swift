@@ -1,6 +1,7 @@
 #!/bin/zsh
 
 set -euo pipefail
+typeset -F 6 SECONDS
 
 script_directory=${0:A:h}
 repository_root=${script_directory:h}
@@ -11,10 +12,11 @@ camera_id=""
 capture_duration=10
 case_id="capture"
 permission_timeout_seconds=420
-permission_cleanup_reserve_seconds=11
 timeout_executable=""
 capture_supervisor_pid=""
 permission_app_pid=""
+permission_deadline=""
+permission_app_exit_status=""
 permission_app_ppid=""
 permission_app_executable=""
 permission_app_command=""
@@ -129,14 +131,42 @@ terminate_capture_supervisor() {
     capture_supervisor_pid=""
 }
 
+permission_timeout_cap() {
+    local deadline="$1"
+    local maximum_seconds="$2"
+    [[ -n "$deadline" && "$maximum_seconds" == <-> ]] || return 1
+    local -F 6 remaining_seconds=$(( deadline - SECONDS ))
+    (( remaining_seconds > 0.0 )) || return 1
+    if (( remaining_seconds < maximum_seconds )); then
+        REPLY="$remaining_seconds"
+    else
+        REPLY="$maximum_seconds"
+    fi
+}
+
+permission_sleep() {
+    local deadline="$1"
+    permission_timeout_cap "$deadline" 1 || return 1
+    local -F 6 sleep_seconds="$REPLY"
+    (( sleep_seconds < 0.1 )) || sleep_seconds=0.1
+    sleep "$sleep_seconds"
+    (( SECONDS <= deadline ))
+}
+
 read_permission_identity() {
     local child_pid="$1"
-    observed_permission_ppid=$(timeout_command 2 ps -p "$child_pid" -o ppid= | tr -d '[:space:]') || return 1
-    observed_permission_executable=$(timeout_command 2 lsof -a -p "$child_pid" -d txt -Fn 2>/dev/null |
+    local deadline="$2"
+    permission_timeout_cap "$deadline" 2 || return 1
+    observed_permission_ppid=$(timeout_command "$REPLY" ps -p "$child_pid" -o ppid= |
+        tr -d '[:space:]') || return 1
+    permission_timeout_cap "$deadline" 2 || return 1
+    observed_permission_executable=$(timeout_command "$REPLY" lsof -a -p "$child_pid" -d txt -Fn 2>/dev/null |
         awk '/^n/ { print substr($0, 2); exit }') || return 1
-    observed_permission_command=$(timeout_command 2 ps -ww -p "$child_pid" -o command= |
+    permission_timeout_cap "$deadline" 2 || return 1
+    observed_permission_command=$(timeout_command "$REPLY" ps -ww -p "$child_pid" -o command= |
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//') || return 1
-    observed_permission_start=$(timeout_command 2 ps -p "$child_pid" -o lstart= |
+    permission_timeout_cap "$deadline" 2 || return 1
+    observed_permission_start=$(timeout_command "$REPLY" ps -p "$child_pid" -o lstart= |
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//') || return 1
     [[ -n "$observed_permission_ppid" && -n "$observed_permission_executable" &&
         -n "$observed_permission_command" && -n "$observed_permission_start" ]]
@@ -144,9 +174,11 @@ read_permission_identity() {
 
 capture_permission_identity() {
     local child_pid="$permission_app_pid"
-    local checks_remaining=50
-    while (( checks_remaining > 0 )); do
-        if read_permission_identity "$child_pid" &&
+    local deadline="$1"
+    local capture_deadline=$(( SECONDS + 5 ))
+    (( capture_deadline < deadline )) || capture_deadline="$deadline"
+    while (( SECONDS < capture_deadline )); do
+        if read_permission_identity "$child_pid" "$capture_deadline" &&
             [[ "$observed_permission_ppid" == "$$" &&
                "$observed_permission_executable" == "$app_binary" &&
                "$observed_permission_command" == "$app_binary" ]]; then
@@ -156,16 +188,16 @@ capture_permission_identity() {
             permission_app_start="$observed_permission_start"
             return 0
         fi
-        sleep 0.1
-        checks_remaining=$(( checks_remaining - 1 ))
+        permission_sleep "$capture_deadline" || return 1
     done
     return 1
 }
 
 permission_identity_matches() {
     local child_pid="$permission_app_pid"
+    local deadline="$1"
     [[ "$child_pid" == <-> ]] || return 1
-    read_permission_identity "$child_pid" || return 1
+    read_permission_identity "$child_pid" "$deadline" || return 1
     [[ "$observed_permission_ppid" == "$permission_app_ppid" &&
        "$observed_permission_executable" == "$permission_app_executable" &&
        "$observed_permission_command" == "$permission_app_command" &&
@@ -174,62 +206,82 @@ permission_identity_matches() {
 
 reap_permission_app() {
     local child_pid="$permission_app_pid"
+    local deadline="$1"
     [[ "$child_pid" == <-> ]] || return 0
+    permission_timeout_cap "$deadline" 1 || return 1
+    kill -0 "$child_pid" 2>/dev/null && return 1
     local child_status=0
     set +e
     wait "$child_pid"
     child_status=$?
     set -e
+    permission_app_exit_status="$child_status"
     permission_app_pid=""
-    return "$child_status"
+    (( SECONDS <= deadline ))
+}
+
+wait_for_permission_exit() {
+    local deadline="$1"
+    local maximum_seconds="$2"
+    local phase_deadline=$(( SECONDS + maximum_seconds ))
+    (( phase_deadline < deadline )) || phase_deadline="$deadline"
+    while kill -0 "$permission_app_pid" 2>/dev/null; do
+        permission_sleep "$phase_deadline" || return 1
+    done
 }
 
 terminate_permission_app() {
     local child_pid="$permission_app_pid"
+    local deadline="$1"
     [[ "$child_pid" == <-> ]] || return 0
+    permission_timeout_cap "$deadline" 1 || {
+        print -u2 -r -- "cleanup refused: Camera permission deadline expired"
+        return 1
+    }
     if ! kill -0 "$child_pid" 2>/dev/null; then
-        reap_permission_app || true
-        return 0
+        reap_permission_app "$deadline"
+        return $?
     fi
-    permission_identity_matches || {
+    permission_identity_matches "$deadline" || {
         print -u2 -r -- "cleanup refused: Camera permission process identity changed"
         return 1
     }
+    permission_timeout_cap "$deadline" 1 || return 1
     kill -TERM "$child_pid" 2>/dev/null || true
-    local checks_remaining=50
-    while kill -0 "$child_pid" 2>/dev/null && (( checks_remaining > 0 )); do
-        sleep 0.1
-        checks_remaining=$(( checks_remaining - 1 ))
-    done
+    wait_for_permission_exit "$deadline" 5 || true
     if kill -0 "$child_pid" 2>/dev/null; then
-        permission_identity_matches || {
+        permission_identity_matches "$deadline" || {
             print -u2 -r -- "cleanup refused: Camera permission process identity changed before KILL"
             return 1
         }
+        permission_timeout_cap "$deadline" 1 || return 1
         kill -KILL "$child_pid" 2>/dev/null || true
-        checks_remaining=10
-        while kill -0 "$child_pid" 2>/dev/null && (( checks_remaining > 0 )); do
-            sleep 0.1
-            checks_remaining=$(( checks_remaining - 1 ))
-        done
-        kill -0 "$child_pid" 2>/dev/null && return 1
+        wait_for_permission_exit "$deadline" 1 || return 1
     fi
-    reap_permission_app || true
+    reap_permission_app "$deadline"
 }
 
 permission_terminal_observed() {
-    grep -Eq '^dev_vlogs_phase_0b result=(ready|failed|timed_out|cancelled) category=' \
+    local deadline="$1"
+    permission_timeout_cap "$deadline" 2 || return 1
+    timeout_command "$REPLY" grep -Eq \
+        '^dev_vlogs_phase_0b result=(ready|failed|timed_out|cancelled) category=' \
         "$permission_operator_log" || return 1
     local event_log
     for event_log in "$resolved_run_root"/dv-p0b-camera-authorization-*/evidence/events.jsonl(N); do
-        grep -Eq '"action":"camera_authorization_terminal"' "$event_log" && return 0
+        permission_timeout_cap "$deadline" 2 || return 1
+        timeout_command "$REPLY" grep -Eq '"action":"camera_authorization_terminal"' \
+            "$event_log" && return 0
     done
     return 1
 }
 
 cleanup() {
     local cleanup_status=0
-    terminate_permission_app || cleanup_status=1
+    if [[ "$permission_app_pid" == <-> ]]; then
+        [[ -n "$permission_deadline" ]] &&
+            terminate_permission_app "$permission_deadline" || cleanup_status=1
+    fi
     terminate_capture_supervisor
     (( cleanup_status == 0 )) || return 1
     if [[ "$resolved_run_root" != "$resolved_temp_root"/holdtype-dv-p0b.* ]]; then
@@ -275,10 +327,21 @@ app_binary="$target_build_directory/$full_product_name/Contents/MacOS/HoldType"
 [[ -x "$app_binary" ]] || { print -u2 -r -- "error: Debug app binary is unavailable"; exit 1; }
 
 if [[ "$mode" == "--request-camera-permission" ]]; then
+    if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-}" ]]; then
+        [[ "$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS" == <-> ]] &&
+            (( HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS >= 1 &&
+               HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS <= 420 )) || {
+            print -u2 -r -- "error: Camera permission timeout must be 1 through 420 seconds"
+            exit 64
+        }
+        permission_timeout_seconds="$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS"
+    fi
     sanitized_home="$resolved_run_root/home"
     mkdir -p -- "$sanitized_home"
     permission_operator_log="$resolved_run_root/permission-operator.log"
+    permission_deadline=$(( SECONDS + permission_timeout_seconds ))
     env \
+        -u HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS \
         -u OPENAI_API_KEY \
         -u HOLDTYPE_DEBUG_API_KEY_FILE \
         HOME="$sanitized_home" \
@@ -289,36 +352,31 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
         HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID="camera-authorization" \
         "$app_binary" >"$permission_operator_log" 2>&1 &
     permission_app_pid=$!
-    permission_deadline=$(( SECONDS + permission_timeout_seconds ))
-    permission_terminal_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))
-    capture_permission_identity || {
+    capture_permission_identity "$permission_deadline" || {
         print -u2 -r -- "error: Camera permission process identity could not be established"
         exit 1
     }
-    while ! permission_terminal_observed; do
+    while ! permission_terminal_observed "$permission_deadline"; do
         if ! kill -0 "$permission_app_pid" 2>/dev/null; then
-            reap_permission_app || true
+            reap_permission_app "$permission_deadline" || true
             print -u2 -r -- "error: Camera permission process exited before terminal evidence"
             exit 1
         fi
-        (( SECONDS < permission_terminal_deadline )) || {
+        (( SECONDS < permission_deadline )) || {
             print -u2 -r -- "error: Camera permission request exceeded its bounded deadline"
             exit 124
         }
-        sleep 0.1
+        permission_sleep "$permission_deadline" || exit 124
     done
-    natural_exit_checks=50
-    while kill -0 "$permission_app_pid" 2>/dev/null && (( natural_exit_checks > 0 )); do
-        sleep 0.1
-        natural_exit_checks=$(( natural_exit_checks - 1 ))
-    done
-    if kill -0 "$permission_app_pid" 2>/dev/null; then
+    if ! wait_for_permission_exit "$permission_deadline" 5; then
         print -u2 -r -- "error: Camera permission process did not exit naturally"
-        terminate_permission_app || true
+        terminate_permission_app "$permission_deadline" || true
         exit 1
     fi
-    reap_permission_app
-    grep -E '^dev_vlogs_phase_0b result=' "$permission_operator_log"
+    reap_permission_app "$permission_deadline" || exit 124
+    (( permission_app_exit_status == 0 )) || exit "$permission_app_exit_status"
+    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    timeout_command "$REPLY" grep -E '^dev_vlogs_phase_0b result=' "$permission_operator_log"
     print -r -- "camera_permission_request=terminal capture=not_run microphone=not_run"
     exit 0
 fi
