@@ -1,0 +1,2 @@
+{"action":"camera_authorization_request","attempt_id":"authorization-attempt-1","case_id":"camera-authorization","category":null,"evidence_source":"accepted_request_mode","monotonic_milliseconds":null,"result":"started","run_id":"capture-auth-r01"}
+{"action":"camera_authorization_terminal","attempt_id":"authorization-attempt-1","case_id":"camera-authorization","category":"camera_authorization_timed_out","evidence_source":"operator_summary","monotonic_milliseconds":null,"result":"timed_out","run_id":"capture-auth-r01"}

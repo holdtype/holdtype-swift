@@ -1,0 +1,2 @@
+case_id,authorization_result,request_duration_ms,prompt_latency_ms,measurement_disposition
+camera-authorization,timeout,,,evidence_only

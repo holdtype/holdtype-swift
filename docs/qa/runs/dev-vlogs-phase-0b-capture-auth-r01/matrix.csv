@@ -1,0 +1,2 @@
+case_id,mode,request_attempt_count,terminal_result_count,authorization_result,functional_result,residual_class,prompt_observation,computer_use_action,camera_enumeration,camera_capture,microphone_owner,media_activity,cleanup_result
+camera-authorization,request_camera_permission,1,1,timeout,fail,environment or signing residual,unavailable_after_bounded_attach_timeout,none,not_run,not_run,not_run,not_run,pass
