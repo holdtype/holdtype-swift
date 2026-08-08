@@ -35,18 +35,12 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
-        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else {
-            return nil
-        }
+        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else { return nil }
         let duration = environment[durationEnvironmentKey]
             .flatMap(TimeInterval.init) ?? defaultDuration
-        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else {
-            return nil
-        }
+        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else { return nil }
         let caseID = environment[caseIDEnvironmentKey] ?? "capture"
-        guard isSafeIdentifier(caseID) else {
-            return nil
-        }
+        guard isSafeIdentifier(caseID) else { return nil }
         return DevVlogsPhase0BConfiguration(
             runRoot: resolvedRunRoot,
             cameraUniqueID: rawCameraID,
@@ -56,8 +50,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
     }
     private static func isSafeIdentifier(_ value: String) -> Bool {
         !value.isEmpty && value.count <= 64 && value.allSatisfy {
-            $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_")
-        }
+            $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
 }
 struct DevVlogsPhase0BRunPaths: Equatable {
@@ -89,8 +82,7 @@ struct DevVlogsPhase0BRunPaths: Equatable {
     }
 }
 enum DevVlogsPhase0BHarnessOutcome: Equatable {
-    case ready(DevVlogsPhase0BMediaProbeResult), failed(DevVlogsPhase0BHarnessFailure)
-}
+    case ready(DevVlogsPhase0BMediaProbeResult), failed(DevVlogsPhase0BHarnessFailure) }
 @MainActor
 final class DevVlogsPhase0BHarness {
     private let configuration: DevVlogsPhase0BConfiguration
@@ -361,6 +353,7 @@ final class DevVlogsPhase0BTerminationCoordinator {
     private var completionTask: Task<Void, Never>?
     private(set) var state = DevVlogsPhase0BTerminationState.active
     private(set) var outcome: DevVlogsPhase0BTerminationOutcome?
+    var permitsNaturalTermination: Bool { state == .harnessCompleted }
     init(timeout: Duration, sleep: @escaping Sleep = { try await Task.sleep(for: $0) }) {
         self.timeout = timeout
         self.sleep = sleep
@@ -393,9 +386,8 @@ final class DevVlogsPhase0BTerminationCoordinator {
         }
         return .terminateLater
     }
-    private func raceCleanup(
-        _ cleanup: @escaping @MainActor () async -> Void
-    ) async -> DevVlogsPhase0BTerminationOutcome {
+    private func raceCleanup(_ cleanup: @escaping @MainActor () async -> Void)
+        async -> DevVlogsPhase0BTerminationOutcome {
         await withCheckedContinuation { continuation in
             raceContinuation = continuation
             cleanupWorker = Task { @MainActor [weak self] in
@@ -425,13 +417,35 @@ final class DevVlogsPhase0BTerminationCoordinator {
     }
 }
 @MainActor
+final class DevVlogsPhase0BNaturalTerminationScheduler {
+    private let enqueue: (@escaping @MainActor () -> Void) -> Void
+    private var didSchedule = false
+    init(enqueue: @escaping (@escaping @MainActor () -> Void) -> Void = { action in
+        DispatchQueue.main.async { action() }
+    }) { self.enqueue = enqueue }
+    func schedule(_ action: @escaping @MainActor () -> Void) {
+        guard !didSchedule else { return }
+        didSchedule = true
+        enqueue(action)
+    }
+}
+@MainActor
 final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
     private let environment: [String: String]
-    private let terminationCoordinator = DevVlogsPhase0BTerminationCoordinator(
-        timeout: .seconds(35)
-    )
+    private let naturalTerminationScheduler: DevVlogsPhase0BNaturalTerminationScheduler
+    private let terminationCoordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(35))
     private var harnessTask: Task<Void, Never>?
-    override init() { environment = ProcessInfo.processInfo.environment; super.init() }
+    override convenience init() {
+        self.init(environment: ProcessInfo.processInfo.environment, naturalTerminationScheduler: .init())
+    }
+    init(
+        environment: [String: String],
+        naturalTerminationScheduler: DevVlogsPhase0BNaturalTerminationScheduler
+    ) {
+        self.environment = environment
+        self.naturalTerminationScheduler = naturalTerminationScheduler
+        super.init()
+    }
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let launchEnvironment = environment
@@ -439,13 +453,9 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             if let terminal = await DevVlogsPhase0BLaunch.cameraAuthorizationTerminal(
                 environment: launchEnvironment,
                 activation: .live,
-                routeStarted: {
-                    print(DevVlogsPhase0BCameraAuthorizationOperatorSummary.routeStartedLine)
-                },
+                routeStarted: { print(DevVlogsPhase0BCameraAuthorizationOperatorSummary.routeStartedLine) },
                 makeHarness: {
-                    try DevVlogsPhase0BCameraAuthorizationHarness.make(
-                        environment: launchEnvironment
-                    )
+                    try DevVlogsPhase0BCameraAuthorizationHarness.make(environment: launchEnvironment)
                 }
             ) {
                 self?.completeAuthorization(terminal)
@@ -454,9 +464,7 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
             let outcome: DevVlogsPhase0BHarnessOutcome
             if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: launchEnvironment) {
                 outcome = await harness.run()
-            } else {
-                outcome = .failed(.invalidConfiguration)
-            }
+            } else { outcome = .failed(.invalidConfiguration) }
             self?.completeHarness(outcome)
         }
     }
@@ -467,7 +475,11 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
     private func complete(line: String) {
         print(line)
         harnessTask = nil
-        if terminationCoordinator.harnessDidComplete() { NSApplication.shared.terminate(nil) }
+        guard terminationCoordinator.harnessDidComplete() else { return }
+        naturalTerminationScheduler.schedule { [weak self] in
+            guard let self, self.terminationCoordinator.permitsNaturalTermination else { return }
+            NSApplication.shared.terminate(nil)
+        }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let activeTask = harnessTask

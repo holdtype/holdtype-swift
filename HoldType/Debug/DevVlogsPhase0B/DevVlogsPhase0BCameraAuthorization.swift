@@ -54,16 +54,14 @@ private enum DevVlogsPhase0BApplicationActivationOutcome {
 struct DevVlogsPhase0BApplicationActivation {
     typealias Sleep = @MainActor @Sendable (Duration) async throws -> Void
     let setRegularPolicy: () -> Bool
-    let requestProcessActivation: () -> Bool
-    let requestApplicationActivation: () -> Void
+    let activateApplication: () -> Void
     let isActive: () -> Bool
     let sleep: Sleep
     let confirmationAttempts: Int
 
     static let live = Self(
         setRegularPolicy: { NSApplication.shared.setActivationPolicy(.regular) },
-        requestProcessActivation: { NSRunningApplication.current.activate(options: []) },
-        requestApplicationActivation: { NSApplication.shared.activate() },
+        activateApplication: { NSApplication.shared.activate() },
         isActive: { NSApplication.shared.isActive },
         sleep: { try await Task.sleep(for: $0) },
         confirmationAttempts: 100
@@ -77,20 +75,24 @@ struct DevVlogsPhase0BApplicationActivation {
         stage(.regularPolicySet)
         guard !Task.isCancelled else { return .cancelled }
         stage(.activationRequested)
-        guard requestProcessActivation() else { return .requestRejected }
-        requestApplicationActivation()
+        activateApplication()
+        if isActive() {
+            stage(.activeStateConfirmed)
+            return .active
+        }
         for _ in 0 ..< confirmationAttempts {
             guard !Task.isCancelled else { return .cancelled }
-            if isActive() {
-                stage(.activeStateConfirmed)
-                return .active
-            }
             do {
                 try await sleep(.milliseconds(50))
             } catch is CancellationError {
                 return .cancelled
             } catch {
                 return .confirmationTimedOut
+            }
+            guard !Task.isCancelled else { return .cancelled }
+            if isActive() {
+                stage(.activeStateConfirmed)
+                return .active
             }
         }
         return .confirmationTimedOut

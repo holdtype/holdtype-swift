@@ -17,11 +17,13 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 - A separate explicit `--request-camera-permission` script command reuses that
   same early-isolated signed Debug app identity without constructing the
   capture/audio/media harness. Only this route first changes the same process
-  to the regular activation policy, requests activation, and boundedly waits
-  for the app to become active before evaluating Camera authorization. Failure
-  to set the policy, request activation, confirm active state, or construct the
-  authorization harness now returns a distinct closed redacted result and
-  never inspects Camera status or calls `requestAccess`. The one terminal event
+  to the regular activation policy, calls `NSApplication.activate` exactly
+  once, and observes `isActive` immediately and under a bounded 100-by-50ms
+  confirmation loop before evaluating Camera authorization. Policy failure,
+  active-state timeout or cancellation, or harness construction failure returns
+  a distinct closed redacted result and never inspects Camera status or calls
+  `requestAccess`; the historical activation-rejected category remains
+  decode-only and has no live producer. The one terminal event
   reports only the furthest completed closed stage: route start, regular policy,
   activation request, active confirmation, harness entry, status inspection,
   or request start. Unknown AVFoundation status is distinct from all pre-harness
@@ -62,9 +64,12 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   transform metadata, ordered encoded payload and sample boundaries, count,
   bytes, duration, and PTS/DTS under exactly one expected insertion offset. No
   raw samples or digest leave the run directory.
-- A naturally completed harness clears its task before requesting termination,
-  so success and camera-start failure exit without cancelling or awaiting the
-  completing task itself. An external quit during active work uses
+- A naturally completed harness prints its terminal line, clears its task, and
+  records harness completion before scheduling one termination request on the
+  next main-queue turn. This lets the authorization task unwind without
+  cancelling or awaiting itself. If external quit wins the scheduling race,
+  the queued request becomes a no-op and no duplicate cleanup or reply occurs.
+  An external quit during active work uses
   `terminateLater` while camera/audio cleanup and terminal logging receive a
   bounded opportunity; completion, timeout, and late callbacks reply exactly
   once in injected tests.
@@ -90,14 +95,14 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 59 logical tests include 14 authorization-mode tests covering closed policy/rejection/active-timeout/activation-cancel/harness/status outcomes, exact furthest stages, activation/status/request ordering, zero authorization work for normal and hardware routes, every authorization status, exact-one request, grant/denial/restriction callbacks, callback-absent timeout, cancellation, ignored late callbacks, exact-one start/terminal evidence, early launch routing, and owner isolation, while preserving the 45 accepted launch, R03 lifecycle/error, native-source, passthrough, probe, preservation, one-audio-owner, Ready-gating, and redaction tests. |
+| Focused macOS fake tests | Pass; 59 logical tests include 14 authorization-mode tests covering live policy/active-timeout/activation-cancel/harness/status outcomes, historical closed-category decoding, exact furthest stages, one activation followed by separately sequenced active observations, activation/status/request ordering, zero authorization work for normal and hardware routes, every authorization status, exact-one request, callback outcomes, timeout/cancellation/late-callback safety, exact-one terminal evidence, early launch routing, and owner isolation. The remaining 45 preserve accepted launch, deferred natural termination and external-quit races, R03 lifecycle/errors, native-source, passthrough, probe, preservation, one-audio-owner, Ready gating, and redaction. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, exact run-owned supervisor cleanup, planned-duration-plus-300-second hardware bound, and the separate sanitized 120-plus-300-second Camera-request bound passed structurally; neither hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, planned-duration-plus-300-second hardware supervision, and the separate sanitized 420-second Camera-request supervision passed. Permission-mode fakes proved direct app-PID identity capture, terminal evidence observation, natural exit/reap, stuck-terminal exact TERM/KILL failure, identity-mismatch no-signal failure, trap cleanup, and zero residue where identity-safe cleanup was possible. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`

@@ -117,51 +117,57 @@ struct DevVlogsPhase0BLaunchTests {
     @Test func cameraStartFailureUsesNaturalExitWithoutSelfCleanup() async {
         let fixture = makeFixture(cameraFailure: .permissionDenied)
         let outcome = await fixture.harness.run()
-        let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(35))
-        var normalExitRequests = 0
-        var externalCancelCount = 0
-        var externalCleanupCount = 0
         #expect(outcome == .failed(.cameraStart(.cameraPermissionDenied)))
         #expect(
             DevVlogsPhase0BOperatorSummary.line(for: outcome) ==
                 "dev_vlogs_phase_0b result=failed category=camera_permission_denied"
         )
-        if coordinator.harnessDidComplete() { normalExitRequests += 1 }
-        let reply = coordinator.begin(
-            cancelActive: { externalCancelCount += 1 },
-            cleanup: { externalCleanupCount += 1 },
-            completion: { _ in Issue.record("Natural completion must not reply asynchronously") }
-        )
-        #expect(reply == .terminateNow)
-        #expect(normalExitRequests == 1)
-        #expect(externalCancelCount == 0)
-        #expect(externalCleanupCount == 0)
         #expect(fixture.audio.cancelCount == 1)
         #expect(fixture.camera.cleanupCount == 1)
         #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
         #expect(fixture.events.events.last?.category == .cameraPermissionDenied)
-        #expect(!coordinator.harnessDidComplete())
     }
-    @Test func naturalCompletionClearsTaskBeforeRequestingTermination() throws {
+    @Test func naturalTerminationIsDeferredOnceAndExternalQuitWinsTheRace() throws {
+        var pending: (@MainActor () -> Void)?
+        var enqueueCount = 0
+        let scheduler = DevVlogsPhase0BNaturalTerminationScheduler {
+            enqueueCount += 1; pending = $0
+        }
+        var naturalRequests = 0
+        scheduler.schedule { naturalRequests += 1 }
+        scheduler.schedule { naturalRequests += 100 }
+        #expect(enqueueCount == 1)
+        #expect(naturalRequests == 0)
+        pending?()
+        #expect(naturalRequests == 1)
+
+        let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(35))
+        var racedRequest: (@MainActor () -> Void)?
+        let racedScheduler = DevVlogsPhase0BNaturalTerminationScheduler { racedRequest = $0 }
+        #expect(coordinator.harnessDidComplete())
+        racedScheduler.schedule {
+            if coordinator.permitsNaturalTermination { naturalRequests += 1 }
+        }
+        #expect(coordinator.begin(cancelActive: {}, cleanup: {}, completion: { _ in }) == .terminateNow)
+        racedRequest?()
+        #expect(naturalRequests == 1)
+
         let repositoryRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
         let source = try String(
-            contentsOf: repositoryRoot.appendingPathComponent(
-                "HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BLaunch.swift"
-            ),
+            contentsOf: repositoryRoot.appendingPathComponent("HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BLaunch.swift"),
             encoding: .utf8
         )
-        let completionStart = try #require(source.range(of: "private func completeHarness"))
-        let completionTail = source[completionStart.lowerBound...]
-        let completionEnd = try #require(completionTail.range(of: "func applicationShouldTerminate"))
-        let completion = completionTail[..<completionEnd.lowerBound]
+        let start = try #require(source.range(of: "private func complete(line:"))
+        let tail = source[start.lowerBound...]
+        let end = try #require(tail.range(of: "func applicationShouldTerminate"))
+        let completion = tail[..<end.lowerBound]
+        let printLine = try #require(completion.range(of: "print(line)"))
         let clear = try #require(completion.range(of: "harnessTask = nil"))
         let transition = try #require(completion.range(of: "terminationCoordinator.harnessDidComplete()"))
-        let terminate = try #require(completion.range(of: "NSApplication.shared.terminate(nil)"))
-        #expect(clear.lowerBound < transition.lowerBound)
-        #expect(transition.lowerBound < terminate.lowerBound)
-        #expect(!completion.contains("harnessTask.value"))
+        let schedule = try #require(completion.range(of: "naturalTerminationScheduler.schedule"))
+        #expect(printLine.lowerBound < clear.lowerBound && clear.lowerBound < transition.lowerBound)
+        #expect(transition.lowerBound < schedule.lowerBound && !completion.contains("harnessTask.value"))
     }
     @Test func applicationRouterConstructsOnlyTheSelectedComposition() {
         var normalStarts = 0
