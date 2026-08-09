@@ -38,7 +38,11 @@ hardware_snapshot_identity=""
 hardware_snapshot_digest=""
 hardware_handoff_retained=0
 hardware_handoff_cleanup_forbidden=0
+hardware_raw_cleanup_forbidden=0
 hardware_raw_root_identity=""
+hardware_evidence_worker_pid=""
+hardware_evidence_worker_kind=""
+hardware_publisher_output=""
 consumer_root_token=""
 consumer_root_device=""
 consumer_root_inode=""
@@ -148,7 +152,7 @@ PRESERVATION_DIMENSIONS = {
     "presentation_timestamp_mismatch", "decode_timestamp_mismatch", "format_description_mismatch",
     "dimensions_mismatch", "transform_mismatch", "cancelled", "timed_out", "unknown",
 }
-CASE_IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+CASE_IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}")
 UUID_IDENTIFIER = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
 )
@@ -206,8 +210,8 @@ def metric_rules():
     for prefix in ("camera", "final", "audio"):
         for suffix in ("width", "height", "display_width", "display_height"):
             rules[f"{prefix}_{suffix}"] = ("px", "evidence_only", 1e-12, 100_000.0, False)
-        for suffix in ("nominal_fps", "derived_fps"):
-            rules[f"{prefix}_{suffix}"] = ("fps", "evidence_only", 1e-12, 1_000.0, False)
+        rules[f"{prefix}_nominal_fps"] = ("fps", "evidence_only", 0.0, 1_000.0, False)
+        rules[f"{prefix}_derived_fps"] = ("fps", "evidence_only", 1e-12, 1_000.0, False)
         for suffix in ("start_timestamp", "end_timestamp"):
             rules[f"{prefix}_{suffix}"] = ("s", "evidence_only", -86_400.0, 86_400.0, False)
         rules[f"{prefix}_estimated_data_rate"] = ("bps", "evidence_only", 0.0, 1e15, False)
@@ -254,7 +258,9 @@ def validate_metrics(metrics, result_kind):
     }
     if result_kind == "ready":
         for prefix in ("camera", "final"):
-            if not ({f"{prefix}_nominal_fps", f"{prefix}_derived_fps"} & set(seen)):
+            nominal = seen.get(f"{prefix}_nominal_fps")
+            derived = seen.get(f"{prefix}_derived_fps")
+            if not ((nominal is not None and nominal > 0) or derived is not None):
                 fail()
         required = video_required | audio_required | {
             "camera_video_duration", "final_video_duration", "audio_duration",
@@ -268,7 +274,9 @@ def validate_metrics(metrics, result_kind):
             fail()
     if result_kind == "preservation":
         for prefix in ("camera", "final"):
-            if not ({f"{prefix}_nominal_fps", f"{prefix}_derived_fps"} & set(seen)):
+            nominal = seen.get(f"{prefix}_nominal_fps")
+            derived = seen.get(f"{prefix}_derived_fps")
+            if not ((nominal is not None and nominal > 0) or derived is not None):
                 fail()
         required = video_required | audio_required
         if (not required.issubset(seen) or not set(seen).issubset(video_allowed | audio_required)
@@ -429,6 +437,9 @@ def apply_mutation(name, base, raw_root, raw_name, raw_media, source, handoff, h
         os.mkdir(handoff_name, 0o700, dir_fd=base)
     elif name == "slow_validator":
         time.sleep(10)
+    elif name == "slow_publisher_execution":
+        print("hardware_evidence_publisher=pinned producer_pid=" + str(os.getpid()), flush=True)
+        time.sleep(10)
 
 def verify_bindings(base_path, base_identities, base, raw_name, raw_identity, raw_root,
                     media_identity, raw_media, source_identity, handoff_name, handoff_identity):
@@ -471,11 +482,12 @@ def tokens_with_identity(parent, pattern, wanted):
 def publish():
     base = raw_root = raw_media = source = handoff = event_fd = output_fd = None
     created_identity = None
-    retention_reason = None
+    raw_identity = handoff_identity = None
+    retention_reason = "publisher_validation_mismatch"
     handoff_name = os.environ.get("DV_HARDWARE_HANDOFF_ROOT_NAME", "unknown")
+    raw_name = os.environ.get("DV_HARDWARE_RAW_ROOT_NAME", "unknown")
     try:
         base_path = os.environ["DV_HARDWARE_BASE"]
-        raw_name = os.environ["DV_HARDWARE_RAW_ROOT_NAME"]
         if ROOT_NAME.fullmatch(raw_name) is None or HANDOFF_NAME.fullmatch(handoff_name) is None:
             fail()
         base, base_identities = walk_absolute(base_path)
@@ -513,6 +525,7 @@ def publish():
             os.close(rebound)
         verify_bindings(base_path, base_identities, base, raw_name, raw_identity, raw_root,
                         media_identity, raw_media, source_identity, handoff_name, handoff_identity)
+        retention_reason = "source_schema_mismatch"
         result, category, dimension = validate_events(payload, os.environ["DV_HARDWARE_CASE_ID"])
         if mutation == "same_size_mutation":
             writer = os.open("events.jsonl", os.O_WRONLY | os.O_NOFOLLOW, dir_fd=source)
@@ -526,10 +539,10 @@ def publish():
         os.lseek(event_fd, 0, os.SEEK_SET)
         proof_payload = read_snapshot(event_fd)
         proof_value = os.fstat(event_fd)
+        retention_reason = "source_digest_mismatch"
         if (proof_payload != payload or digest(proof_payload) != source_digest
                 or identity(proof_value) != identity(event_value)
                 or proof_value.st_size != event_value.st_size):
-            retention_reason = "source_digest_mismatch"
             fail()
         output_fd = os.open("events.jsonl", os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                             0o600, dir_fd=handoff)
@@ -587,26 +600,22 @@ def publish():
               " snapshot_sha256=" + source_digest +
               " file=events.jsonl cleanup=trusted_debug_consumer_once")
     except Exception:
-        if retention_reason is not None:
-            print("hardware_evidence_publish=retained reason=" + retention_reason +
-                  " root_token=" + handoff_name + " cleanup=retain")
-        elif created_identity is not None and handoff is not None:
-            try:
-                cleanup_descriptor = os.open(
-                    "events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=handoff
-                )
-                try:
-                    can_delete = identity(os.fstat(cleanup_descriptor)) == created_identity
-                    if not can_delete:
-                        print("hardware_evidence_publish=retained reason=snapshot_identity_mismatch " +
-                              "root_token=" + handoff_name + " cleanup=retain")
-                    else:
-                        os.unlink("events.jsonl", dir_fd=handoff)
-                finally:
-                    os.close(cleanup_descriptor)
-            except OSError:
-                print("hardware_evidence_publish=retained reason=failed_output_cleanup_mismatch " +
-                      "root_token=" + handoff_name + " cleanup=retain")
+        original_raw = ""
+        original_handoff = ""
+        if base is not None and raw_identity is not None:
+            matches = tokens_with_identity(base, ROOT_NAME, raw_identity[:2])
+            if len(matches) == 1 and matches[0] != raw_name:
+                original_raw = matches[0]
+        if base is not None and handoff_identity is not None:
+            matches = tokens_with_identity(base, HANDOFF_NAME, handoff_identity[:2])
+            if len(matches) == 1 and matches[0] != handoff_name:
+                original_handoff = matches[0]
+        print("hardware_evidence_publish=retained reason=" + retention_reason +
+              " residual_class=raw_and_handoff raw_root_token=" + raw_name +
+              " handoff_root_token=" + handoff_name +
+              (" original_raw_root_token=" + original_raw if original_raw else "") +
+              (" original_handoff_root_token=" + original_handoff if original_handoff else "") +
+              " cleanup=retain_implicated")
         sys.exit(1)
     finally:
         for descriptor in (output_fd, event_fd, source, raw_media, raw_root, handoff, base):
@@ -667,6 +676,7 @@ def consume():
         if len(payload) != snapshot_value.st_size or digest(payload) != expected_digest:
             reason = "snapshot_digest_mismatch"
             fail()
+        reason = "snapshot_schema_mismatch"
         result, category, dimension = validate_events(payload, os.environ["DV_HARDWARE_CASE_ID"])
         os.lseek(snapshot, 0, os.SEEK_SET)
         proof_payload = read_snapshot(snapshot)
@@ -686,6 +696,13 @@ def consume():
         if rebound_identity != root_identity:
             reason = "root_identity_mismatch"
             fail()
+        consumer_test = os.environ.get("DV_HARDWARE_CONSUMER_TEST", "")
+        if consumer_test == "slow_consumer_execution":
+            print("hardware_evidence_consumer=pinned producer_pid=" + str(os.getpid()) +
+                  " root_token=" + token, flush=True)
+            time.sleep(10)
+        if consumer_test == "snapshot_cleanup_mismatch":
+            os.link("events.jsonl", "events-retained", src_dir_fd=root, dst_dir_fd=root)
         os.unlink("events.jsonl", dir_fd=root)
         deleted = True
         if os.fstat(snapshot).st_nlink != 0 or os.listdir(root):
@@ -701,8 +718,9 @@ def consume():
               " preservation_error=" + dimension + " root_token=" + token +
               " cleanup=trusted_debug_exact_path")
     except Exception:
-        outcome = "retained" if root_observed else "rejected"
-        print("hardware_evidence_consumer=" + outcome + " reason=" + reason + " root_token=" + token +
+        outcome = "retained"
+        print("hardware_evidence_consumer=" + outcome + " reason=" + reason +
+              " residual_class=handoff_root root_token=" + token +
               (" expected_root_token=" + expected_root_token if expected_root_token else "") +
               " cleanup=" + ("partial_snapshot_removed" if deleted else "not_attempted"))
         sys.exit(70)
@@ -744,22 +762,87 @@ prepare_hardware_evidence_handoff() {
         "$hardware_handoff_root"
 }
 
+terminate_hardware_evidence_worker() {
+    local child_pid="$hardware_evidence_worker_pid"
+    [[ "$child_pid" == <-> ]] || return 0
+    if kill -0 "$child_pid" 2>/dev/null; then
+        kill -TERM "$child_pid" 2>/dev/null || true
+        local checks_remaining=20
+        while kill -0 "$child_pid" 2>/dev/null && (( checks_remaining > 0 )); do
+            sleep 0.05
+            checks_remaining=$(( checks_remaining - 1 ))
+        done
+        if kill -0 "$child_pid" 2>/dev/null; then
+            kill -KILL "$child_pid" 2>/dev/null || true
+        fi
+    fi
+    wait "$child_pid" 2>/dev/null || true
+    hardware_evidence_worker_pid=""
+    hardware_evidence_worker_kind=""
+    if [[ -n "$hardware_publisher_output" &&
+          "$hardware_publisher_output" == "$resolved_temp_root"/.holdtype-dv-p0b-publisher.* ]]; then
+        rm -f -- "$hardware_publisher_output"
+        hardware_publisher_output=""
+    fi
+}
+
+record_hardware_evidence_signal_retention() {
+    case "$hardware_evidence_worker_kind" in
+        publisher)
+            hardware_raw_cleanup_forbidden=1
+            hardware_handoff_cleanup_forbidden=1
+            print -r -- "hardware_evidence_publish=retained reason=signal residual_class=raw_and_handoff raw_root_token=${resolved_run_root:t} handoff_root_token=$hardware_handoff_root_name cleanup=retain_implicated"
+            ;;
+        consumer)
+            print -r -- "hardware_evidence_consumer=retained reason=signal residual_class=pinned_snapshot root_token=$consumer_root_token cleanup=not_attempted"
+            ;;
+    esac
+}
+
 validate_and_handoff_hardware_evidence() {
     local output
     local publication_status
+    local publisher_suffix="${${resolved_run_root:t}#holdtype-dv-p0b.}"
+    hardware_publisher_output="$resolved_temp_root/.holdtype-dv-p0b-publisher.$publisher_suffix"
+    : > "$hardware_publisher_output"
+    chmod 0600 "$hardware_publisher_output"
     set +e
-    output=$(DV_HARDWARE_OPERATION=publish \
+    DV_HARDWARE_OPERATION=publish \
         DV_HARDWARE_BASE="$resolved_temp_root" \
         DV_HARDWARE_RAW_ROOT_NAME="${resolved_run_root:t}" \
         DV_HARDWARE_HANDOFF_ROOT_NAME="$hardware_handoff_root_name" \
         DV_HARDWARE_CASE_ID="$case_id" \
         DV_HARDWARE_MUTATION="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" \
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
-        /usr/bin/python3 -c "$hardware_evidence_handoff_source" 2>&1)
+        /usr/bin/python3 -c "$hardware_evidence_handoff_source" >"$hardware_publisher_output" 2>&1 &
+    hardware_evidence_worker_pid=$!
+    hardware_evidence_worker_kind=publisher
+    if [[ "${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" == \
+          slow_publisher_execution ]]; then
+        local marker_checks=200
+        while kill -0 "$hardware_evidence_worker_pid" 2>/dev/null &&
+              ! grep -q 'hardware_evidence_publisher=pinned' "$hardware_publisher_output" &&
+              (( marker_checks > 0 )); do
+            sleep 0.01
+            marker_checks=$(( marker_checks - 1 ))
+        done
+        if grep -q 'hardware_evidence_publisher=pinned' "$hardware_publisher_output"; then
+            local producer_pid=$(grep -o 'producer_pid=[0-9]*' "$hardware_publisher_output" | head -1)
+            [[ "$producer_pid" =~ '^producer_pid=[0-9]+$' ]] || producer_pid="producer_pid=unknown"
+            print -r -- "hardware_evidence_publisher=pinned worker_pid=$hardware_evidence_worker_pid $producer_pid raw_root_token=${resolved_run_root:t} handoff_root_token=$hardware_handoff_root_name"
+        fi
+    fi
+    wait "$hardware_evidence_worker_pid"
     publication_status=$?
+    hardware_evidence_worker_pid=""
+    hardware_evidence_worker_kind=""
     set -e
+    output=$(<"$hardware_publisher_output")
+    rm -f -- "$hardware_publisher_output"
+    hardware_publisher_output=""
     [[ -z "$output" ]] || print -r -- "$output"
-    if [[ "$output" == *"cleanup=retain"* ]]; then
+    if [[ "$output" == *"cleanup=retain_implicated"* ]]; then
+        hardware_raw_cleanup_forbidden=1
         hardware_handoff_cleanup_forbidden=1
     fi
     (( publication_status == 0 )) || return "$publication_status"
@@ -780,6 +863,8 @@ validate_and_handoff_hardware_evidence() {
 }
 
 consume_hardware_evidence() {
+    local consumer_status
+    set +e
     DV_HARDWARE_OPERATION=consume \
         DV_HARDWARE_BASE="$resolved_temp_root" \
         DV_HARDWARE_HANDOFF_ROOT_NAME="$consumer_root_token" \
@@ -789,8 +874,18 @@ consume_hardware_evidence() {
         DV_HARDWARE_SNAPSHOT_INODE="$consumer_snapshot_inode" \
         DV_HARDWARE_SNAPSHOT_SHA256="$consumer_snapshot_digest" \
         DV_HARDWARE_CASE_ID="$case_id" \
+        DV_HARDWARE_CONSUMER_TEST="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONSUMER_TEST:-}" \
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
-        /usr/bin/python3 -c "$hardware_evidence_handoff_source"
+        /usr/bin/python3 -c "$hardware_evidence_handoff_source" &
+    hardware_evidence_worker_pid=$!
+    hardware_evidence_worker_kind=consumer
+    print -r -- "hardware_evidence_consumer=executing worker_pid=$hardware_evidence_worker_pid root_token=$consumer_root_token"
+    wait "$hardware_evidence_worker_pid"
+    consumer_status=$?
+    hardware_evidence_worker_pid=""
+    hardware_evidence_worker_kind=""
+    set -e
+    return "$consumer_status"
 }
 
 create_hardware_evidence_test_fixture() {
@@ -851,6 +946,10 @@ metrics = [
     {"name": "audio_end_timestamp", "value": 10, "unit": "s", "disposition": "evidence_only"},
     {"name": "audio_estimated_data_rate", "value": 128000, "unit": "bps", "disposition": "evidence_only"},
 ]
+if scenario in {"valid_nominal_zero_derived_positive", "valid_ready_nominal_zero_derived_positive"}:
+    next(item for item in metrics if item["name"] == "camera_nominal_fps")["value"] = 0
+    metrics.append({"name": "camera_derived_fps", "value": 30, "unit": "fps",
+                    "disposition": "evidence_only"})
 terminal = dict(base)
 terminal.update({
     "monotonicMilliseconds": 2, "action": "attempt_terminal", "result": "failed",
@@ -878,7 +977,8 @@ ready_video = {
     "preservedEncodedByteCount": 1048576, "matched": True,
 }
 if scenario in {
-    "valid_ready", "ready_extra_video_key", "ready_count_mismatch", "ready_unmatched",
+    "valid_ready", "valid_ready_nominal_zero_derived_positive", "ready_extra_video_key",
+    "ready_count_mismatch", "ready_unmatched",
     "ready_wrong_method", "ready_bad_device_label", "ready_bad_device_class",
     "ready_missing_audio_duration", "ready_missing_video_metric", "ready_missing_fps",
     "ready_impossible_audio_metric", "ready_with_failure_category",
@@ -1526,7 +1626,9 @@ fi
 # Install cleanup ownership before any run-owned root is created. Paths are
 # predeclared before mkdir, so a preparation signal cannot create an orphan.
 cleanup() {
-    if [[ -n "$resolved_run_root" && -n "$resolved_temp_root" &&
+    terminate_hardware_evidence_worker
+    if [[ "$hardware_raw_cleanup_forbidden" != 1 &&
+          -n "$resolved_run_root" && -n "$resolved_temp_root" &&
           "$resolved_run_root" == "$resolved_temp_root"/holdtype-dv-p0b.* &&
           -d "$resolved_run_root" ]]; then
         "$timeout_executable" --signal=TERM --kill-after=1s 5s rm -rf -- "$resolved_run_root" || return 1
@@ -1554,6 +1656,7 @@ finish_cleanup() {
 finish_signal() {
     termination_signal_status="$1"
     trap - INT TERM
+    record_hardware_evidence_signal_retention
     cleanup || true
     termination_cleanup_completed=1
     exit "$termination_signal_status"
@@ -2611,16 +2714,22 @@ cleanup_trusted_debug_root() {
 
 cleanup_nonpermission_mode() {
     local cleanup_status=0
+    terminate_hardware_evidence_worker
     terminate_hardware_preparation
     terminate_capture_supervisor
     if [[ -n "$resolved_run_root" ]]; then
-        cleanup_trusted_debug_root raw "${resolved_run_root:t}" "$hardware_raw_root_identity" || \
+        if [[ "$hardware_raw_cleanup_forbidden" == 1 ]]; then
+            print -u2 -r -- "hardware_evidence_raw=retained root_token=${resolved_run_root:t} cleanup=retention_required"
             cleanup_status=1
+        else
+            cleanup_trusted_debug_root raw "${resolved_run_root:t}" "$hardware_raw_root_identity" || \
+                cleanup_status=1
+        fi
     fi
     if [[ "$mode" == "--hardware" && -n "$hardware_handoff_root_name" &&
           "$hardware_handoff_retained" != 1 ]]; then
         if [[ "$hardware_handoff_cleanup_forbidden" == 1 ]]; then
-            print -u2 -r -- "hardware_evidence_handoff=retained root_token=$hardware_handoff_root_name cleanup=detected_mismatch"
+            print -u2 -r -- "hardware_evidence_handoff=retained root_token=$hardware_handoff_root_name cleanup=retention_required"
             cleanup_status=1
         else
             cleanup_trusted_debug_root handoff "$hardware_handoff_root_name" \

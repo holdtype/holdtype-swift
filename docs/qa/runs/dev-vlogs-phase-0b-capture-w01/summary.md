@@ -117,28 +117,39 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   validates that one pinned snapshot, rechecks identity and digest, and makes one
   bounded descriptor-relative cleanup attempt. Observed root, snapshot, digest,
   owner, schema, or cleanup mismatches fail closed without an uncertain success
-  claim and report the exact private residual by token for fixture-owned audit.
+  claim. Failed publication retains both bounded run-owned roots so the exact
+  implicated raw or snapshot object remains available; same-size mutation
+  specifically retains the mutated raw `events.jsonl`. Consumer mismatch and
+  partial-cleanup failures retain the handoff root and any surviving pinned
+  snapshot object. Evidence reports only the sanitized residual class and
+  random root tokens for fixture-owned audit, never a full private path.
   The validator accepts exactly one matching start and one protected Swift
   terminal, rejects duplicate/unknown/missing keys and non-finite or out-of-range
   values, and closes every emitted failure, preservation, Ready, device, metric,
-  stage-evidence, and redaction combination. Valid ordinary failures, strict
-  preservation failures, Ready, and cancellation survive raw cleanup and are
-  consumed once. Timeout and preparation-time INT/TERM cases are bounded and
-  leave no run-owned root or process. This handoff was fake-verified only.
+  stage-evidence, and redaction combination. It accepts the protected safe-ID
+  grammar including leading hyphen or underscore, and a finite nominal FPS of
+  zero only when the corresponding finite derived FPS is positive. Valid
+  ordinary failures, strict preservation failures, Ready, and cancellation
+  survive raw cleanup and are consumed once. Timeout and preparation-time
+  INT/TERM cases are bounded and leave no run-owned root or process. INT/TERM
+  during pinned publisher or consumer execution terminates only the two exact
+  owned process identities and retains the implicated raw/handoff evidence;
+  unrelated sentinel processes and files remain untouched. This handoff was
+  fake-verified only.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; accepted authorization/helper/handshake/lifecycle coverage remains alongside exhaustive typed preservation mapping and the production-route handoff suite. The handoff suite accepts every protected ordinary failure plus valid preservation-failure, Ready, and cancelled forms; proves post-EXIT one-shot consumption after raw cleanup; rejects ownership, same-size/source/post-publication mutation, duplicate/unknown/partial schema, private-data, and numeric fixtures; retains detected substitutions for fixture audit; and covers bounded timeout plus preparation-time INT/TERM cleanup. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
+| Focused macOS fake tests | Pass; accepted authorization/helper/handshake/lifecycle coverage remains alongside exhaustive typed preservation mapping and the production-route handoff suite. The handoff suite accepts every protected ordinary failure plus valid preservation-failure, Ready, cancelled, leading-hyphen/underscore case-ID, and nominal-zero/derived-positive FPS forms; proves post-EXIT one-shot consumption after raw cleanup; rejects ownership, same-size/source/post-publication mutation, duplicate/unknown/partial schema, private-data, and numeric fixtures; audits universal implicated-residual retention across publisher and consumer mismatch classes; and covers bounded timeout, preparation signals, plus publisher/consumer INT/TERM with exact owned-process and unrelated-sentinel proof. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally requires one exact predeclared JSONL source, pins separate raw and retained authorities under the canonical trusted temp base, proves content stability with a descriptor-stable digest, and completes the closed-schema exclusive handoff under a five-second TERM/KILL bound before raw cleanup. The explicit consumer accepts the reported identity/digest authority, consumes the pinned snapshot once, and performs one bounded trusted-root cleanup attempt. Detected mismatch output names only the private random token and retains the residual; no full path or private payload is exposed. Non-hardware modes do not enter this route. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally requires one exact predeclared JSONL source, pins separate raw and retained authorities under the canonical trusted temp base, proves content stability with a descriptor-stable digest, and completes the closed-schema exclusive handoff under a five-second TERM/KILL bound before raw cleanup. The explicit consumer accepts the reported identity/digest authority, consumes the pinned snapshot once, and performs one bounded trusted-root cleanup attempt. Every detected mismatch retains its bounded implicated residual; output names only sanitized classes and random tokens, with no full path or private payload. Publisher and consumer worker/producer identities are explicit and TERM-to-KILL bounded. Non-hardware modes do not enter this route. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`

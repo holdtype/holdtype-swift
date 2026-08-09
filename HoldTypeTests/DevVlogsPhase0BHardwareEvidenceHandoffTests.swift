@@ -59,6 +59,20 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         }
     }
 
+    @Test func protectedIdentifierAndZeroNominalFPSFormsPublishAndConsume() throws {
+        for (scenario, caseID) in [
+            ("valid", "-leading-hyphen"), ("valid", "_leading-underscore"),
+            ("valid_nominal_zero_derived_positive", "zero-nominal-failure"),
+            ("valid_ready_nominal_zero_derived_positive", "zero-nominal-ready"),
+        ] {
+            let result = try runScenario(scenario, caseID: caseID)
+            defer { remove(result.outerRoot) }
+            #expect(result.status == 0, "Expected \(scenario) / \(caseID) to pass")
+            let authority = try authority(in: result.output)
+            #expect(try runConsumer(authority, in: result.outerRoot, caseID: caseID).status == 0)
+        }
+    }
+
     @Test func productionRouteRejectsOwnershipMutationSchemaAndPrivateDataMatrix() throws {
         let invalid = [
             "zero", "multiple", "add_after_list", "remove_after_list", "source_replacement",
@@ -83,12 +97,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             "ordinary_failure_metrics", "ordinary_failure_device", "published_digest_mismatch",
             "published_identity_mismatch", "failed_output_replacement",
         ]
-        let retained = Set([
-            "same_size_mutation", "raw_root_swap", "destination_parent_swap", "symlink",
-            "source_ancestor_symlink", "destination_ancestor_symlink", "hardlink",
-            "wrong_destination_mode", "published_digest_mismatch",
-            "published_identity_mismatch", "failed_output_replacement",
-        ])
         for scenario in invalid {
             let result = try runScenario(scenario)
             #expect(result.status != 0, "Expected \(scenario) to fail closed")
@@ -96,22 +104,29 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(!result.output.contains("hardware_evidence_test=pass"))
             #expect(!result.output.contains("/Users/"))
             #expect(!result.output.contains(result.outerRoot.path))
-            if retained.contains(scenario) {
-                #expect(result.output.contains("retained"))
-                #expect(!rawRoots(in: result.outerRoot).isEmpty ||
-                        !handoffRoots(in: result.outerRoot).isEmpty)
-                if scenario == "raw_root_swap" {
-                    #expect(result.output.contains(
-                        "original_root_token=holdtype-dv-p0b."
-                    ))
-                } else if scenario == "destination_parent_swap" {
-                    #expect(result.output.contains(
-                        "original_root_token=holdtype-dv-p0b-handoff."
-                    ))
-                }
-            } else {
-                #expect(rawRoots(in: result.outerRoot).isEmpty)
-                #expect(handoffRoots(in: result.outerRoot).isEmpty)
+            #expect(result.output.contains("hardware_evidence_publish=retained"))
+            #expect(result.output.contains("residual_class=raw_and_handoff"))
+            #expect(result.output.contains("raw_root_token=holdtype-dv-p0b."))
+            #expect(result.output.contains("handoff_root_token=holdtype-dv-p0b-handoff."))
+            #expect(!rawRoots(in: result.outerRoot).isEmpty)
+            #expect(!handoffRoots(in: result.outerRoot).isEmpty)
+            for key in ["raw_root_token=", "handoff_root_token="] {
+                let field = try #require(result.output.split(whereSeparator: \.isWhitespace)
+                    .first { $0.hasPrefix(key) })
+                let token = String(field.dropFirst(key.count))
+                #expect(FileManager.default.fileExists(atPath:
+                    result.outerRoot.appendingPathComponent(token).path))
+            }
+            if scenario == "raw_root_swap" {
+                #expect(result.output.contains("original_raw_root_token=holdtype-dv-p0b."))
+            } else if scenario == "destination_parent_swap" {
+                #expect(result.output.contains(
+                    "original_handoff_root_token=holdtype-dv-p0b-handoff."
+                ))
+            } else if scenario == "same_size_mutation" {
+                let event = try #require(rawRoots(in: result.outerRoot).first)
+                    .appendingPathComponent("hardware-raw/evidence/events.jsonl")
+                #expect(try Data(contentsOf: event).first == 0x20)
             }
             remove(result.outerRoot)
         }
@@ -123,10 +138,16 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             defer { remove(result.outerRoot) }
             let authority = try authority(in: result.output)
             try mutate(mutation, authority: authority, outerRoot: result.outerRoot)
-            let consumed = try runConsumer(authority, in: result.outerRoot)
+            let consumed = try runConsumer(
+                authority, in: result.outerRoot,
+                caseID: mutation == .caseSchema ? "other-case" : "handoff-test",
+                consumerScenario: mutation == .cleanup ? "snapshot_cleanup_mismatch" : nil
+            )
             #expect(consumed.status != 0)
             #expect(consumed.output.contains("hardware_evidence_consumer=retained"))
-            #expect(consumed.output.contains("cleanup=not_attempted"))
+            #expect(consumed.output.contains(
+                mutation == .cleanup ? "cleanup=partial_snapshot_removed" : "cleanup=not_attempted"
+            ))
             #expect(!consumed.output.contains("hardware_evidence_consumer=consumed"))
             #expect(!handoffRoots(in: result.outerRoot).isEmpty)
             if case .rootIdentity = mutation {
@@ -157,6 +178,41 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(rawRoots(in: result.outerRoot).isEmpty)
             #expect(handoffRoots(in: result.outerRoot).isEmpty)
             remove(result.outerRoot)
+        }
+    }
+
+    @Test func publisherAndConsumerTERMAndINTRetainEvidenceWithoutCollateralEffects() throws {
+        for signal in [SIGTERM, SIGINT] {
+            let publisherRoot = try makeOuterRoot()
+            defer { remove(publisherRoot) }
+            let publisherSentinel = try installSentinel(in: publisherRoot)
+            let publisher = try run(
+                arguments: hardwareArguments, scenario: "slow_publisher_execution", timeout: 8,
+                signalAfterOutput: "hardware_evidence_publisher=pinned", signal: signal,
+                outerRoot: publisherRoot
+            )
+            #expect(publisher.status == (signal == SIGTERM ? 143 : 130))
+            #expect(publisher.output.contains("hardware_evidence_publish=retained reason=signal"))
+            #expect(!rawRoots(in: publisherRoot).isEmpty)
+            #expect(!handoffRoots(in: publisherRoot).isEmpty)
+            try assertSentinelSurvived(publisherSentinel, output: publisher.output)
+
+            let consumerRoot = try makeOuterRoot()
+            defer { remove(consumerRoot) }
+            let produced = try runScenario("valid", outerRoot: consumerRoot)
+            let authority = try authority(in: produced.output)
+            let consumerSentinel = try installSentinel(in: consumerRoot)
+            let consumer = try runConsumer(
+                authority, in: consumerRoot, consumerScenario: "slow_consumer_execution",
+                signalAfterOutput: "hardware_evidence_consumer=pinned", signal: signal
+            )
+            #expect(consumer.status == (signal == SIGTERM ? 143 : 130))
+            #expect(consumer.output.contains("hardware_evidence_consumer=retained reason=signal"))
+            try assertSnapshot(
+                consumerRoot.appendingPathComponent(authority.rootToken)
+                    .appendingPathComponent("events.jsonl"), authority: authority
+            )
+            try assertSentinelSurvived(consumerSentinel, output: consumer.output)
         }
     }
 
@@ -202,24 +258,33 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         ["--hardware", "--camera-id", "fake-camera", "--case-id", "handoff-test"]
     }
 
-    private func runScenario(_ scenario: String) throws -> ScriptResult {
-        try run(arguments: hardwareArguments, scenario: scenario, timeout: 8)
+    private func runScenario(
+        _ scenario: String, caseID: String = "handoff-test", outerRoot: URL? = nil
+    ) throws -> ScriptResult {
+        try run(arguments: ["--hardware", "--camera-id", "fake-camera", "--case-id", caseID],
+                scenario: scenario, timeout: 8, outerRoot: outerRoot)
     }
 
-    private func runConsumer(_ authority: HandoffAuthority, in outerRoot: URL) throws -> ScriptResult {
+    private func runConsumer(
+        _ authority: HandoffAuthority, in outerRoot: URL, caseID: String = "handoff-test",
+        consumerScenario: String? = nil, signalAfterOutput: String? = nil,
+        signal: Int32? = nil
+    ) throws -> ScriptResult {
         try run(arguments: [
             "--consume-hardware-evidence", "--root-token", authority.rootToken,
             "--root-device", String(authority.rootDevice), "--root-inode", String(authority.rootInode),
             "--snapshot-device", String(authority.snapshotDevice),
             "--snapshot-inode", String(authority.snapshotInode),
-            "--snapshot-sha256", authority.snapshotDigest, "--case-id", "handoff-test",
-        ], scenario: nil, timeout: 8, outerRoot: outerRoot)
+            "--snapshot-sha256", authority.snapshotDigest, "--case-id", caseID,
+        ], scenario: nil, timeout: 8, signalAfterOutput: signalAfterOutput, signal: signal,
+           outerRoot: outerRoot, consumerScenario: consumerScenario)
     }
 
     private func run(
         arguments: [String], scenario: String?, timeout: TimeInterval,
         signalAfterOutput: String? = nil, signal: Int32? = nil,
-        preparationScenario: String? = nil, outerRoot suppliedRoot: URL? = nil
+        preparationScenario: String? = nil, outerRoot suppliedRoot: URL? = nil,
+        consumerScenario: String? = nil
     ) throws -> ScriptResult {
         let outerRoot = suppliedRoot ?? FileManager.default.temporaryDirectory.appendingPathComponent(
             "dv-p0b-handoff-tests-\(UUID().uuidString)", isDirectory: true
@@ -241,6 +306,7 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST"] = scenario
         environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_PREPARATION_TEST"] = preparationScenario
+        environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONSUMER_TEST"] = consumerScenario
         process.environment = environment
         process.currentDirectoryURL = repositoryRoot
         process.standardOutput = outputHandle
@@ -338,10 +404,65 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
                 at: original.appendingPathComponent("events.jsonl"), to: snapshot
             )
             chmod(snapshot.path, 0o400)
+        case .rootSchema:
+            FileManager.default.createFile(
+                atPath: root.appendingPathComponent("unexpected").path, contents: Data()
+            )
+        case .rootMode:
+            chmod(root.path, 0o755)
+        case .snapshotMode:
+            chmod(snapshot.path, 0o600)
+        case .caseSchema, .cleanup:
+            break
         }
     }
 
-    private func rawRoots(in root: URL) -> [URL] { roots(in: root, prefix: "holdtype-dv-p0b.") }
+    private func makeOuterRoot() throws -> URL {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "dv-p0b-handoff-tests-\(UUID().uuidString)", isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: root, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        return root
+    }
+
+    private func installSentinel(in root: URL) throws -> SignalSentinel {
+        let file = root.appendingPathComponent("unrelated-sentinel")
+        try Data("unrelated".utf8).write(to: file, options: .withoutOverwriting)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["30"]
+        try process.run()
+        return SignalSentinel(file: file, process: process)
+    }
+
+    private func assertSentinelSurvived(_ sentinel: SignalSentinel, output: String) throws {
+        #expect(sentinel.process.isRunning)
+        #expect(try String(contentsOf: sentinel.file, encoding: .utf8) == "unrelated")
+        #expect(!output.contains(sentinel.file.path))
+        let ownedPIDs = output.split(whereSeparator: \.isWhitespace).compactMap { field -> Int32? in
+            let text = String(field)
+            guard text.hasPrefix("worker_pid=") || text.hasPrefix("producer_pid=") else {
+                return nil
+            }
+            return Int32(text.split(separator: "=", maxSplits: 1)[1])
+        }
+        #expect(Set(ownedPIDs).count == 2)
+        for ownedPID in Set(ownedPIDs) { #expect(kill(ownedPID, 0) != 0) }
+        sentinel.process.terminate()
+        let deadline = Date().addingTimeInterval(1)
+        while sentinel.process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        if sentinel.process.isRunning { kill(sentinel.process.processIdentifier, SIGKILL) }
+        sentinel.process.waitUntilExit()
+    }
+
+    private func rawRoots(in root: URL) -> [URL] {
+        roots(in: root, prefix: "holdtype-dv-p0b.").filter {
+            !$0.lastPathComponent.hasPrefix("holdtype-dv-p0b-handoff.")
+        }
+    }
     private func handoffRoots(in root: URL) -> [URL] {
         roots(in: root, prefix: "holdtype-dv-p0b-handoff.")
     }
@@ -367,7 +488,10 @@ private struct HandoffAuthority {
     let snapshotDigest: String
 }
 
-private enum ConsumerMutation: CaseIterable { case digest, snapshotIdentity, rootIdentity }
+private enum ConsumerMutation: CaseIterable {
+    case digest, snapshotIdentity, rootIdentity, rootSchema, rootMode, snapshotMode, caseSchema, cleanup
+}
+private struct SignalSentinel { let file: URL; let process: Process }
 private struct ScriptResult { let status: Int32; let output: String; let outerRoot: URL }
 private enum HandoffTestError: Error { case processDidNotExit }
 #endif
