@@ -184,8 +184,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | rejected | receipt below | Replace retained raw configuration with a value-free validated marker. |
 | `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | accepted_with_residual | `7b1ba8d`; receipt below | Value-free inert-host repair accepted; external evidence still requires one controlled rerun. |
 | `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded storage R02 under prior exact-root authority is dependency-ready. |
-| `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | running | — | Repeat two serialized mechanics cells under one verified session guard and prove protected metadata stability. |
-| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-R02` | read-only exact runtime evidence and accepted W03 provenance | queued | — | Decide final external storage evidence and protected-scope closure. |
+| `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | review / protected-scope-fail | `98b3b66`; receipt below | Both mechanics cells pass again; protected Recovery metadata changed under the accepted inert host. |
+| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | running | — | Reconcile repeated protected metadata change and identify exact host/test/process ownership without another runtime. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -342,9 +342,12 @@ other external root remain unauthorized.
   but review rejected one private-value lifetime: the inert app state retained
   the validated full volume root. Two-path value-free-marker repair W03-R1
   removed all raw configuration lifetime and is independently accepted. One
-  bounded R02 rerun under the prior exact-root/scratch authority is running
-  with one session guard and metadata-only protected before/after proof. No
-  restorative action against the historical artifact is authorized.
+  bounded R02 rerun used one session guard and metadata-only protected
+  before/after proof. It again passed both storage mechanics cells and cleaned
+  all scratch/processes,
+  but the same protected recovery file was atomically replaced during the
+  session despite accepted inert-host routing. A new causal read-only review is
+  running; no additional runtime or restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -353,8 +356,8 @@ other external root remain unauthorized.
   inventory confirmed currently mounted writable candidates in both classes.
   The user explicitly authorized `/Volumes/TB4-Movies-Archive` and
   `/Volumes/Movie_Archive`, limited to new run-owned scratch directories with
-  no write/delete outside them. `DV-P0B-STORAGE-R01` is dependency-ready after
-  the serialized W07-R2 review lane.
+  no write/delete outside them. Both R01 and R02 mechanics cells are accepted;
+  packet-level closure awaits the R02 protected-owner review.
 - The exact `build-macos-apps:swiftui-patterns` skill is now exposed by the
   current Build macOS Apps package and has been read together with its
   windowing, settings, split-view, menu-bar, and commands references. The
@@ -3400,6 +3403,42 @@ restorative action is authorized. Acceptance adds no external runtime evidence.
 next_dependency: One bounded DV-P0B-STORAGE-R02 under prior exact-root authority.
 runtime_or_visual_handoff: none
 reviewed_commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
+```
+
+### `DV-P0B-STORAGE-R02`
+
+```text
+packet_id: DV-P0B-STORAGE-R02
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=pass
+packet_scope_result: fail / protected-domain dependency
+
+outcome: Both exact cells passed once through the accepted value-free inert
+host, but protected metadata changed again. No retry, attribution, restoration,
+or repair occurred.
+checks_run: Accepted ancestry/blob proof; one persistent guard with nine
+identity/liveness checks; exact read-only root preflights; two serialized
+wrapper invocations; scratch/process/protected metadata comparison; structured
+evidence, checksum/cap, redaction/no-media, exact seven-path/diff/commit audits.
+single_guard: One guard spanned baseline, both cells, final protected snapshot,
+and evidence capture; stopped/reaped exactly. No replacement.
+mechanics: Both cells pass bookmark-after-rename, positive capacity,
+RENAME_EXCL promotion, collision preservation, exact destination/no fallback,
+26-byte fixture, and cleanup. Measurements remain evidence_only.
+protected_scope: Count/path set remained stable, but the same recovery file was
+atomically replaced with unchanged size and its directory mtime changed.
+Contents were never opened/read/hashed; exact private delta is not persisted.
+cleanup: Both scratch prefixes absent; all run-owned app/test/wrapper/guard
+processes zero; pre-existing HoldType set remained empty.
+scope_check: Exact seven evidence paths; no source/spec/registry/project/
+product/TCC/media change or protected corrective action.
+residual: Causal protected-domain review required. Physical interruption,
+read-only, true stale, low capacity, and media remain not_available.
+next_dependency: DV-P0B-STORAGE-R02-REVIEW
+runtime_or_visual_handoff: none
+commit: 98b3b66bedab1191673848fbe874f0c339823067
+parent: e91b063efb918d39f7eca109aca84c75c9eb6011
 ```
 
 ## Rejected Receipts
