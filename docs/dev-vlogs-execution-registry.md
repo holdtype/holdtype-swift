@@ -217,7 +217,7 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
 | `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | rejected | `c4e1b15`; receipt below | Prior races repaired; pre-install cancellation can still be lost. |
 | `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
-| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | running | — | Repair only pre-install cancellation registration; no new state/path. |
+| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | review | exact receipt below | Existing-state pre-install cancellation handshake repaired; Review-R4 required. |
 | `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted current E07 design review | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
@@ -4366,30 +4366,52 @@ a second waiter arrives while entryWaitOpen is already true before entry, or
 when enterAndWaitForResolution is called a second time. No waiter-consumption
 field exists or is needed.
 
-Before entry, waitUntilEntered atomically sets entryWaitOpen and installs the
-entry continuation under waitState. Its cancellation handler synchronously
-locks waitState and, only while entryWaitOpen is true and isClosed is false,
-records cancellationRequested and takes/clears the entry continuation; after
-unlocking it resumes that local value by throwing CancellationError as the
-handler's final side effect. If entryWaitOpen is already false, the handler is
-a no-op. It creates no Task. A do/catch finalization path runs after normal or
-throwing resumption. In one waitState.withLock transition, waitUntilEntered
-reads Task.isCancelled without throwing, rechecks cancellationRequested and
-closes entryWaitOpen. If either cancellation value is true, that transition
-takes and clears both continuation fields and captures any resolution
-continuation for one outside-lock CancellationError resume; the actor then
-updates its terminal counters and returns only by throwing CancellationError.
-If both values are false, the same transition closes entryWaitOpen and returns
-only after confirming its entry continuation is nil. That mutex-protected
-recheck-and-close is the joined return boundary. A cancellation handler that
-obtains the mutex afterward sees entryWaitOpen false, is a no-op and cannot
-retroactively change the completed observation.
+Before exposing its cancellation handler, pre-entry waitUntilEntered uses one
+waitState.withLock transition to validate the unused gate and set
+entryWaitOpen true while leaving entryContinuation nil. It performs no await or
+yield between that opening transition and withTaskCancellationHandler. Inside
+the handler operation it captures Task.isCancelled immediately before creating
+the checked continuation. The continuation-install withLock transition checks
+both that captured signal and cancellationRequested. If either is true, it
+sets cancellationRequested true, never stores the new continuation, returns
+that continuation as a local cancellation value, unlocks, and resumes the
+local by throwing CancellationError. Otherwise it stores entryContinuation
+while entryWaitOpen remains true. Thus the continuation body returns only
+after either an outside-lock immediate cancellation resume or an atomic store
+under an open flag with normal-entry and cancellation resumers.
+
+The wait cancellation handler synchronously locks waitState and, only while
+entryWaitOpen is true and isClosed is false, records cancellationRequested and
+takes/clears the entry continuation; after unlocking it resumes that local by
+throwing CancellationError as the handler's final side effect. If
+entryWaitOpen is already false, the handler is a no-op. It creates no Task. A
+do/catch finalization path runs after normal or throwing resumption. In one
+waitState.withLock transition, waitUntilEntered reads Task.isCancelled without
+throwing, rechecks cancellationRequested and closes entryWaitOpen. If either
+cancellation value is true, that transition takes and clears both continuation
+fields and captures any resolution continuation for one outside-lock
+CancellationError resume; the actor then updates its terminal counters and
+returns only by throwing CancellationError. If both values are false, the same
+transition closes entryWaitOpen and returns only after confirming its entry
+continuation is nil. That mutex-protected recheck-and-close is the joined
+return boundary. A cancellation handler that obtains the mutex afterward sees
+entryWaitOpen false, is a no-op and cannot retroactively change the completed
+observation.
 
 enterAndWaitForResolution() async throws rejects enterCount other than zero.
-The actor first sets its entry/waiter counts to one; one following withLock
-transition sets resolutionWaitOpen, installs the resolution continuation and
-takes/clears the entry continuation before resuming that entry local outside
-the lock. Its
+The actor first sets its entry/waiter counts to one. Before exposing its
+cancellation handler, one waitState.withLock transition validates the unused
+resolution path and sets resolutionWaitOpen true while leaving
+resolutionContinuation nil; there is no await or yield before
+withTaskCancellationHandler. Inside the handler operation it captures
+Task.isCancelled immediately before creating the checked resolution
+continuation. The continuation-install withLock transition checks both that
+captured signal and cancellationRequested. If either is true, it sets
+cancellationRequested true, never stores the new resolution continuation, and
+takes/clears any entry continuation; after unlocking it resumes the new local
+and any entry local by throwing CancellationError. Otherwise the same
+transition stores resolutionContinuation and takes/clears entryContinuation,
+then resumes the entry local normally outside the lock. The resolution
 cancellation handler synchronously locks waitState and, only while
 resolutionWaitOpen is true and isClosed is false, records
 cancellationRequested and takes/clears the resolution continuation; after
@@ -4402,6 +4424,33 @@ on a cancellation terminal. The actor then updates terminal counters and
 returns or throws only after its own continuation is nil and all cancellation
 state for that method is closed. That mutex-protected recheck-and-close is this
 method's joined return boundary.
+
+The registration/race dispositions are closed:
+- Already cancelled before either suspending call: its open flag is set first;
+  handler registration and the captured install signal make cancellation
+  sticky; the continuation is not stored and is locally resumed with
+  CancellationError outside the mutex.
+- Cancellation after the open transition but before install: either the
+  handler sets cancellationRequested first or the captured install signal is
+  true, in which case the install transition does not store. If cancellation
+  races after the signal capture and install wins the mutex before the handler,
+  it stores under the already-open flag and the handler becomes its future
+  resumer.
+- Normal install versus cancellation: the mutex winner either refuses and
+  immediately resumes the local continuation, or stores it for the handler to
+  take. No third state exists.
+- Normal entry/resolution versus cancellation after install: the mutex winner
+  takes the stored continuation once; a normal-resume winner is still subject
+  to the unchanged post-resumption cancellation recheck before return.
+- Cancellation after the joined open-flag close is late; the handler is a
+  no-op and cannot mutate terminal state.
+
+For both methods, every checked-continuation install transition ends in exactly
+one of two dispositions: not stored and resumed locally outside the mutex, or
+stored once while its method flag is open with normal and cancellation routes
+mutex-serialized to exactly one future resumer. Returning from the continuation
+body with neither disposition is forbidden; no call may suspend without an
+exact resumption owner.
 
 resolve(.ready|.timedOut) is actor-isolated. It rejects a second resolution,
 sets resolutionCount one, waiterCount zero and isResolved true, takes/clears
@@ -4777,14 +4826,20 @@ stop_table:
 - Cancel has provider/correction/translation/History/output/cache activity:
   functional fail.
 - Recording does not precede slow-gate resolution: functional fail.
-- Gate state differs from the one exact R3 Mutex tuple; waitUntilEntered is not
+- Gate state differs from the one exact R4 Mutex tuple; waitUntilEntered is not
   idempotent after entry; duplicateEntry applies outside a concurrent pending
-  waiter/second enter; any handler creates a Task; a continuation is resumed
-  while stored or more than once; a handler mutates state after its
-  corresponding open flag closes; either method does not combine its post-
-  resume Task.isCancelled/cancellationRequested recheck and open-flag closure
-  in one mutex transition; or terminal snapshot projection is not pending/open
-  zero and isClosed true: structural or functional fail.
+  waiter/second enter; a method flag is not opened before cancellation-handler
+  exposure; an await/yield occurs between opening and exposure; install does
+  not atomically check cancellationRequested plus a captured current
+  Task.isCancelled signal; a cancelled install stores rather than resuming its
+  local continuation outside the mutex; an install returns with neither an
+  immediate local resume nor one stored continuation under its open flag; any
+  handler creates a Task; a continuation is resumed while stored or more than
+  once; a handler mutates state after its corresponding open flag closes;
+  either method does not combine its post-resume Task.isCancelled/
+  cancellationRequested recheck and open-flag closure in one mutex transition;
+  or terminal snapshot projection is not pending/open zero and isClosed true:
+  structural or functional fail.
 - Observer terminal/cleanup is not exact one, duplicate mutates state, or
   access/journal/recovery/provider/task remains outstanding: functional fail.
 - terminalActionCompletedWithObservedResourcesClosed is false at comparison,
@@ -4806,13 +4861,18 @@ stop_table:
 - W02/W07 presented as E07 proof or an expectation weakened to pass: reject.
 
 independent_review_matrix:
-Review-R3 verifies authority and no spec delta; exact ten-path diff; one
+Review-R4 verifies authority and no spec delta; exact ten-path diff; one
 canonical controller/recorder/microphone; observer completed-value/token-only
 boundary; success/cancel/failure/disconnect/mux/slow ordering; recording before
 slow resolution; exact Mutex tuple with two optional continuations and four
 minimal closure scalars; idempotent post-entry wait and narrow duplicateEntry;
-synchronous no-Task cancellation and late-handler no-op after each open flag
-closes; same-mutex post-resume recheck-and-close; seven-field snapshot with
+suspending flags opened before handler exposure with no intervening yield;
+install checks tuple cancellation plus captured current Task cancellation;
+immediate outside-lock cancellation or stored/open exact resumption ownership;
+already-cancelled, cancel-before-install, install-versus-cancel, normal-
+resolution-versus-cancel and late-after-close dispositions; synchronous no-
+Task cancellation and late-handler no-op after each open flag closes; same-
+mutex post-resume recheck-and-close; seven-field snapshot with
 pre-resolution 1/0/1/false/1/1/false and terminal 1/1/0/true/0/0/true; ten
 closed snapshots and equality; truthful
 terminalActionCompletedWithObservedResourcesClosed derivation with no private
@@ -6538,3 +6598,117 @@ next_dependency: DV-P0B-E07-E01-R4, then independent
 DV-P0B-E07-E01-REVIEW-R4. DV-P0B-E07-W01 remains blocked.
 runtime_or_visual_handoff: none
 ```
+
+### DV-P0B-E07-E01-R4
+
+~~~text
+packet_id: DV-P0B-E07-E01-R4
+status: design_complete_pending_independent_review
+outcome: The sole rejected R3 gap is repaired without new state. Each
+suspending gate method opens its existing method flag before cancellation-
+handler exposure, atomically refuses an already-cancelled install, and retains
+the R3 post-resumption join.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry through E07 R1-R3
+and Review-R1 through Review-R3; SWIFT; agent tooling; active microphone-input
+and recording-durability contracts. root-orchestration was not read because
+this is a finite design owner.
+
+authority_and_frozen_scope: Discover-only DV-DRAFT-4 E02/E07/E08 with no spec
+delta. R1-R3's exact ten paths, two DEBUG <=500-line test files, ten paired
+cases/sequences, completed-artifact/token observer, cleanup Boolean, protocol-
+overload wording, seven-field snapshot, existing Mutex tuple, eight QA schemas,
+provenance, parent pinning, commands, redaction, stops and fake-only residual
+remain unchanged. No field, helper, function, path or case is added.
+
+existing_state_only: DevVlogsPhase0BE07SlowPreparationGate remains an actor
+with exactly one nonisolated Synchronization.Mutex tuple:
+(entryContinuation:CheckedContinuation<Void, Error>?,
+ resolutionContinuation:CheckedContinuation<GateResolution, Error>?,
+ entryWaitOpen:Bool, resolutionWaitOpen:Bool,
+ cancellationRequested:Bool, isClosed:Bool).
+Initial values remain nil/nil/false/false/false/false. No task handle, relay
+Task, third continuation, generation, waiter-consumption field, helper, global,
+poll, sleep or clock is permitted.
+
+preinstall_handshake:
+1. Pre-entry waitUntilEntered sets entryWaitOpen true under waitState before
+   withTaskCancellationHandler. enterAndWaitForResolution similarly sets
+   resolutionWaitOpen true before handler exposure. There is no await or yield
+   between opening and exposure. The post-entry idempotent branch remains
+   nonsuspending and opens no new path.
+2. Inside each handler operation, Task.isCancelled is captured immediately
+   before withCheckedThrowingContinuation creates the local continuation.
+3. The continuation-install withLock transition checks both the captured Task
+   signal and tuple.cancellationRequested. If either is true it sets
+   cancellationRequested true, leaves its continuation field nil and returns
+   the new continuation as a local cancellation value. Resolution install also
+   takes/clears any entry continuation. Every local resumes with
+   CancellationError only after unlocking.
+4. If neither signal is true, install stores exactly its one continuation while
+   its method flag is true. Normal entry/resolution and cancellation are
+   serialized by the same mutex; exactly one takes/clears and resumes outside
+   the mutex.
+5. The continuation body returns only after choosing one exact disposition:
+   unstored plus outside-lock immediate cancellation resume, or stored once
+   under its open flag with an exact future resumption owner. It never suspends
+   with a nil unstored continuation and no local resume.
+6. R3 finalization remains binding: after every resume, Task.isCancelled,
+   cancellationRequested and the method open-flag close share one mutex
+   transition; terminal locals resume outside the mutex; terminal projection
+   remains pending/open zero and closed true.
+
+closed_race_cases:
+- already_cancelled_before_call: flag first; handler registration or captured
+  signal makes cancellation sticky; install never stores and resumes locally.
+- cancellation_between_exposure_and_install: handler/captured-signal winner
+  refuses storage; if cancellation races after capture and install wins the
+  mutex, install stores under the open flag and the handler becomes its future
+  resumer.
+- normal_install_vs_cancel: mutex ordering yields either immediate unstored
+  cancellation or one stored continuation taken by cancellation.
+- normal_resolution_vs_cancel: the mutex winner takes/resumes once; a normal
+  winner still passes the post-resume cancellation join before return.
+- late_cancel_after_close: the false open flag makes the handler a no-op.
+
+snapshot_and_slow_case: Values remain pre-resolution
+1/0/1/false/1/1/false and timed-out terminal 1/1/0/true/0/0/true. The existing
+slow case still requires canonical recording before timedOut, then awaits both
+gate methods and terminal closure. Registration races are transition-review
+cases in the existing gate owner, not new paired product cases.
+
+hard_stops:
+- Handler exposure before its flag opens, or yield between opening/exposure:
+  structural/functional fail.
+- Install omits tuple cancellation or captured Task cancellation, stores after
+  observed cancellation, resumes immediate cancellation while locked, or has
+  neither local resume nor stored/open continuation with future resumer:
+  functional fail.
+- Any of the five race dispositions differs; a continuation resumes while
+  stored/twice; or post-resumption join is weakened: functional fail.
+- New state/path/helper/task/continuation, changed snapshot, or changed accepted
+  R1-R3 non-gate clause: structural/scope fail.
+- Every unchanged R1-R3 hard stop remains binding.
+
+independent_review_matrix: Review-R4 verifies the exact one-path registry
+delta; unchanged Mutex tuple/snapshot; open-before-exposure with no yield;
+captured Task plus tuple cancellation in atomic install; cancelled install
+never stored and resumed outside lock; stored/open install has exactly one
+mutex-winning future resumer; five closed race dispositions; unchanged post-
+resume join/terminal projection; and preservation of all accepted non-gate
+R1-R3 paths, symbols, cases, schemas, provenance, checks, redaction and
+residuals. Any hard stop requires rejection.
+
+scope_check: Registry only. Unrelated storage W01 paths are preserved and
+excluded. No spec/product/source/test/script/QA implementation, build, test,
+runtime, process, hardware, provider, Keychain, permission, media, storage or UI
+action occurred.
+deviations: none.
+residual: Acceptance remains deterministic fake-backed E07 only. Shipping
+audio lease and real hardware/media/storage/provider behavior remain unproven.
+DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R4
+runtime_or_visual_handoff: none
+~~~
