@@ -239,8 +239,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | rejected | receipt below | Return exact three-path evidence-integrity R3; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | rejected | `a9cd237`; receipt below | Raw events close; partial artifacts can still retain success-looking claims. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | running | — | No retained partial may claim success/cleanup complete before atomic evidence commit. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4` terminal artifact | read-only exact repair review | queued | — | Review must use production-configured private host from first launch. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | review | `079fc03`; receipt below | Failure-safe partial evidence implemented; independent review pending. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | running | — | Review must use production-configured private host from first launch. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7334,5 +7334,43 @@ observer runtime remain blocked; protected effect from the excluded reviewer
 invocation is unknown and must not be silently cleared.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R4, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4 using the private host from first launch.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R4
+status: implementation_complete_pending_independent_review
+commit: 079fc037003d5ca2d6aca495ad06e0b3ca0fb83b
+parent: 63e4f5dd8b62abe409e44dd8a1c9a74371e2f75e
+
+outcome: Partial evidence remains failure-safe until the complete exact
+eight-file set and schemas commit. Precommit artifacts use only
+evidence_write_failed, incomplete_retained, uncertain/not-run comparisons,
+empty events and explicit uncommitted state. No retained partial can claim
+cleanup complete or a successful terminal/classification.
+
+evidence: Middle-write, ninth-file and promotion failures enumerate every
+retained file and prove all are free of success markers. Promotion/final-schema
+failure restores the closed failure-safe schema before status 74. Stable
+success still yields exactly eight mode-0600 closed-schema files.
+
+changed_paths: The same controller script, controller tests and W01 summary.
+Seven frozen W01 blobs and accepted R2/R3 parser, event retention, router,
+deadlines, cleanup ordering, identity pins, Release isolation and summary
+disclosures are preserved.
+
+checks: Controller 11/11; protected/inert/hosted 19/19 using production-
+configured private .xctestrun from first launch; signed Debug/codesign;
+unsigned Release/string isolation; zsh and strict C syntax; structure at 500
+lines; diff, redaction, process/root audits.
+
+scope_check: Exact three paths; no observer --execute, external volume, live
+HOME/protected-path inspection, product runtime, Camera/TCC/Keychain/provider/
+media action.
+deviations: none; no direct xcodebuild-host environment assumption was used.
+residual: Independent Review-R4 required; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4.
 runtime_or_visual_handoff: none
 ```
