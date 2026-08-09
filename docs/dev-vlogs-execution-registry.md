@@ -133,7 +133,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | rejected | receipt below | Seven-path focused repair required before runtime. |
 | `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | rejected | `daac571`; receipt below | Original five findings closed; cleanup deadline and test-hook isolation remain. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | rejected | receipt below | Three-path cleanup/hook-isolation repair required. |
-| `DV-P0B-CAMERA-AUTH-W06-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R1 review | permission script, LaunchServices tests, W01 summary only | running | — | Bound/verify EXIT cleanup and isolate parser test hook from protected modes. |
+| `DV-P0B-CAMERA-AUTH-W06-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R1 review | permission script, LaunchServices tests, W01 summary only | review | `10804b6`; receipt below | Cleanup reserve and hook isolation implemented; independent review required. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `10804b6` | read-only exact three-path repair commit | running | — | Recheck cleanup bound, scrub/retention truth, hook isolation, protected hashes. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -226,7 +227,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
   coverage guarantees. Focused repair `daac571` passes 20/20 focused and 66/66
   full Phase 0B tests but repeat review found cleanup outside the global
   deadline and a test hook affecting build-only/hardware modes. Three-path R2
-  repair is running; capture remains blocked. The
+  repair `10804b6` passes 68 Phase 0B tests and is in repeat review; capture
+  remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2276,6 +2278,39 @@ next_dependency: Three-path bounded cleanup and hook-isolation repair, then
 repeat review.
 runtime_or_visual_handoff: none
 reviewed_commit: daac5718750492f069b04369b98ca7852e2f389e
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R2`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R2
+status: done
+
+outcome: Permission work now leaves an exact 11-second cleanup tail inside the
+original 420-second deadline; bounded verified scrub/root cleanup fails with 70
+on uncertainty. Parser test hook is permission-only.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R1 rejection.
+changed_paths: Permission script, LaunchServices tests, W01 summary; commit
+10804b6.
+checks_run: Syntax/structure; actual parser fakes; cleanup fake matrix; hook
+mode parity including real build-only; 9 focused LaunchServices and 68 full
+Phase 0B tests; signed Debug build-only; settings isolation; hardware/W05
+hashes; diff/redaction/path/process/root audits.
+cleanup_deadline: Work cutoff reserves 6s process cleanup, 1s root verify, 1s
+sensitive scrub, 1s reverify, and 2s exact-root delete inside the global
+deadline. Uncertainty scrubs sensitive artifacts before retaining a verified
+private root; any unproven result returns 70.
+hook_isolation: SCRIPT_RESULT_TEST is reached only for explicit permission
+mode; help/default/errors/missing-camera hardware and build-only match ordinary
+dispatch.
+scope_check: Exact three-path Debug tooling/test/evidence repair; no app/helper/
+project/configuration/runtime/TCC/camera/microphone/media/storage/UI/iOS/Build/
+publication change.
+deviations: none
+residual: Real same-identity permission/TCC execution remains runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: 10804b6f70d04ca1cc805c70355a4954f5229da9
 ```
 
 ## Rejected Receipts
