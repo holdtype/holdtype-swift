@@ -186,7 +186,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded storage R02 under prior exact-root authority is dependency-ready. |
 | `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | review / protected-scope-fail | `98b3b66`; receipt below | Both mechanics cells pass again; protected Recovery metadata changed under the accepted inert host. |
 | `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | rejected_scope / cells_accepted | receipt below | Both mechanics cells remain accepted; live-HOME exposure prevents protected-scope closure. |
-| `DV-P0B-STORAGE-W04` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected R02 review | external-storage wrapper, canonical feasibility test, W01 summary only if claim changes | running | — | Add wrapper-owned private HOME plus in-host Foundation-path assertion; no runtime or external I/O. |
+| `DV-P0B-STORAGE-W04` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected R02 review | external-storage wrapper, canonical feasibility test, W01 summary only if claim changes | review | `03fac5c`; receipt below | Private-HOME repair complete; independent review required before final scope runtime. |
+| `DV-P0B-STORAGE-W04-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04@03fac5c` | read-only exact two-path repair commit | running | — | Verify Foundation confinement, exact cleanup, W02 invariants, and Release isolation. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -350,8 +351,9 @@ other external root remain unauthorized.
   session despite accepted inert-host routing. Independent review accepts both
   mechanics cells and rejects packet scope: the hosted test bundle still
   inherits live HOME, so W03's router/value isolation cannot protect the live
-  Foundation user-domain path. A wrapper-owned private-HOME repair is running;
-  no additional runtime or restorative action is authorized before review.
+  Foundation user-domain path. Wrapper-owned private-HOME repair `03fac5c` is
+  complete and in independent review; no additional runtime or restorative
+  action is authorized before acceptance.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3443,6 +3445,41 @@ next_dependency: DV-P0B-STORAGE-R02-REVIEW
 runtime_or_visual_handoff: none
 commit: 98b3b66bedab1191673848fbe874f0c339823067
 parent: e91b063efb918d39f7eca109aca84c75c9eb6011
+```
+
+### `DV-P0B-STORAGE-W04`
+
+```text
+packet_id: DV-P0B-STORAGE-W04
+status: done
+
+outcome: The external-storage wrapper now creates and identity-pins one fresh
+mode-0700 task HOME, injects HOME/CFFIXED_USER_HOME only into the hosted
+test-without-building route, and cleans that exact identity after supervised
+termination. The hosted runtime test fails before external scratch creation
+unless effective Foundation Application Support and default
+TranscriptionRecovery resolve as strict descendants of that HOME.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only; W01 summary unchanged.
+checks_run: Structure/syntax/diff; signed Debug build-for-testing; dedicated
+fresh-process hosted confinement cell; serial relevant Phase 0B 68/68;
+production wrapper env and cleanup fakes covering success, failure, timeout,
+INT, TERM, identity uncertainty, and sibling preservation; unsigned Release
+and artifact isolation; protected-blob, redaction, process, temp, and root
+audits.
+protected_scope: Accepted W02 process functions, W03 router/value-free state,
+recovery/product/project/plist/entitlement owners, Release, and ordinary modes
+remain unchanged. No external volume, live HOME, protected path, app, TCC,
+camera/audio, Keychain, media, or restorative runtime occurred.
+scope_check: Exact two-path master commit; clean worktree and zero run-owned
+residue.
+deviations: Test file was mechanically compacted below the 500-line ceiling;
+one local zsh audit variable shadowed PATH and the audit was rerun correctly.
+residual: Independent review only; no external runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W04-REVIEW
+runtime_or_visual_handoff: none
+commit: 03fac5cb7cfef202df1077e07645f5b08b4f4af1
+parent: 5a9a50a2e05939ca64736d2b054b7bd455f7ea63
 ```
 
 ## Rejected Receipts
