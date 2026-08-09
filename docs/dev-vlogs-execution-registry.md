@@ -161,9 +161,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
-| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | review | receipt below | SwiftUI frame-rendering path and exact seven-path W01 envelope returned; independent review required. |
-| `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | running | pending | Accept, narrow, or reject the W01 envelope before any UI spike. |
-| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01`; accepted `DV-P0B-UI-E02-REVIEW` required | bounded prototype/evidence paths assigned after E02 review | queued | — | Dispatch only from the independently accepted E02 envelope; Phase 0B evidence only, not product UI. |
+| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
+| `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
+| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | running | pending | Implement and fake/build-verify the isolated E05 spike; no Camera/UI runtime. |
+| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW` required | one later controlled preview runtime/evidence packet | queued | — | Runtime only after W01 independent review; Phase 0B evidence only, not product UI. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -301,8 +302,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   historical unavailable-skill receipt remains valid for its earlier
   environment, but the gate is now resolved. Read-only `DV-P0B-UI-E02`
   returned a pure SwiftUI frame-rendering candidate and exact bounded spike
-  envelope. Independent `DV-P0B-UI-E02-REVIEW` is running; no E05 source or
-  runtime packet may start before that review is accepted.
+  envelope. Independent `DV-P0B-UI-E02-REVIEW` accepted the corrected
+  seven-path packet with runtime residuals. `DV-P0B-UI-W01` is the only
+  writable UI packet now running; no Camera or visual runtime may start before
+  its implementation is independently reviewed.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2853,6 +2856,49 @@ responsiveness, and release remain runtime evidence after implementation review.
 next_dependency: DV-P0B-UI-E02-REVIEW, then one bounded W01 spike.
 runtime_or_visual_handoff: One controlled asymmetric non-sensitive marker;
 retain at most one redacted screenshot and no device ID, path, media, or speech.
+```
+
+### `DV-P0B-UI-E02-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-E02-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: One corrected bounded Debug-only E05 implementation spike is
+authorized. Current macOS 14+ APIs support AVCaptureVideoDataOutput to
+CVPixelBuffer/CIImage/reused CIContext/CGImage and SwiftUI Image without a
+visible AppKit adapter, new dependency, project edit, or coupling to accepted
+recording owners.
+reviewed_evidence: HoldTypeApp owns the earliest Debug routing seam; a separate
+App.main does not instantiate HoldTypeApp or product owners. App/test groups
+are filesystem-synchronized; Debug alone has Camera purpose/entitlement;
+Release remains isolated. Apple documents synchronous stopRunning and supported
+frame delivery/conversion primitives predating the macOS 14 minimum.
+corrected_writable_paths: HoldType/HoldTypeApp.swift; new Debug PreviewLaunch,
+PreviewSession, and PreviewView; new PreviewLaunchTests and PreviewSessionTests;
+one docs/qa/runs/dev-vlogs-phase-0b-preview-w01/summary.md.
+required_constraints: Exact automation/Keychain-skip gated route before normal
+startup; malformed/conflicting input remains in a noncapturing preview error
+app; explicit exact-device selection with no fallback/requestAccess; one fresh
+session graph per acquisition; display-only SwiftUI mirroring; delegate and
+observer teardown before off-main synchronous stop; generation-checked late
+frame suppression; no file/audio/movie output or capture-format mutation.
+forbidden: Project/plist/entitlement/scheme/script, Settings, MenuBar,
+dictation, accepted capture/finalizer/probe/preservation, permission/W07,
+storage, Release, iOS, AppKit visible UI, NSViewRepresentable, preview layer,
+TCC/runtime/media.
+checks_run: Independent full authority/skill read; smallest source/project/
+configuration evidence; installed SDK and primary Apple API review. No build,
+test, runtime, Camera, TCC, Computer Use, edit, or process launch.
+scope_check: Read-only review; worktree unchanged.
+deviations: none
+residual: Real cadence, Continuity orientation, mirroring, responsiveness,
+camera-indicator release, and reacquisition require a later controlled runtime;
+E05 does not prove source-capture coexistence.
+next_dependency: DV-P0B-UI-W01, independent review, then one E05 runtime.
+runtime_or_visual_handoff: Separate packet only; one non-sensitive asymmetric
+marker, at most one redacted screenshot, no ID/path/media/speech/TCC mutation.
 ```
 
 ## Rejected Receipts
