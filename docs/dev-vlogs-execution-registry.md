@@ -163,7 +163,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
 | `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
-| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | running | pending | Implement and fake/build-verify the isolated E05 spike; no Camera/UI runtime. |
+| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | review | `085fa26`; receipt below | Fake/build spike is green; independent source/build review required before Camera/UI runtime. |
+| `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | running | pending | Review isolation, lifecycle, frame pipeline, SwiftUI boundary, tests, and Release proof. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW` required | one later controlled preview runtime/evidence packet | queued | — | Runtime only after W01 independent review; Phase 0B evidence only, not product UI. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -303,9 +304,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   environment, but the gate is now resolved. Read-only `DV-P0B-UI-E02`
   returned a pure SwiftUI frame-rendering candidate and exact bounded spike
   envelope. Independent `DV-P0B-UI-E02-REVIEW` accepted the corrected
-  seven-path packet with runtime residuals. `DV-P0B-UI-W01` is the only
-  writable UI packet now running; no Camera or visual runtime may start before
-  its implementation is independently reviewed.
+  seven-path packet with runtime residuals. `DV-P0B-UI-W01@085fa26` completed
+  the isolated SwiftUI frame spike with focused/full fake tests and Debug/
+  Release isolation. Independent `DV-P0B-UI-W01-REVIEW` is running; no Camera
+  or visual runtime may start before that review is accepted.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2899,6 +2901,53 @@ E05 does not prove source-capture coexistence.
 next_dependency: DV-P0B-UI-W01, independent review, then one E05 runtime.
 runtime_or_visual_handoff: Separate packet only; one non-sensitive asymmetric
 marker, at most one redacted screenshot, no ID/path/media/speech/TCC mutation.
+```
+
+### `DV-P0B-UI-W01`
+
+```text
+packet_id: DV-P0B-UI-W01
+status: done
+
+outcome: Implemented and fake/build-verified the isolated Debug-only
+SwiftUI-first preview spike in exactly seven owned paths; commit 085fa26.
+specified_expectation: Exact automation/Keychain-gated early route; malformed
+or conflicting input stays noncapturing; explicit exact-device Start/Stop;
+no fallback, requestAccess, passive capture, or media; SwiftUI display-only
+mirror; bounded fresh graph and cleanup before Stopped; Release isolation.
+observed_evidence: Router precedes accepted harness. Valid mode composes only a
+WindowGroup preview. AVCaptureVideoDataOutput-only session uses default
+uncompressed frames, serial queues, one CIContext, a 30-second first-frame
+bound, generation-checked coalescing, and ordered delegate/observer/session/
+graph cleanup. SwiftUI exposes deterministic preview states and accessibility
+identifiers.
+changed_paths: HoldTypeApp.swift; new Debug PreviewLaunch, PreviewSession, and
+PreviewView; new PreviewLaunchTests and PreviewSessionTests; one preview-w01
+QA summary.
+checks_run: Structure pass; final 13 new XCTest plus 12 existing Launch tests;
+73 proportional Phase 0B Swift-Testing cases; Debug build; Release scheme and
+settings; direct genuinely unsigned Release target artifact; original Release
+plist/entitlements and no Camera key/preview symbols; forbidden API, diff,
+process, and temp-root audits.
+protected_proof: Project, plist, entitlement, scripts, product scenes/menu/
+Settings/dictation, and accepted capture/auth/finalizer/probe/preservation
+owners unchanged; existing Launch tests green; owned worktree clean.
+discrepancy_classification: A test continuation caused a Swift compiler SIL
+loop and was replaced with deterministic cancellable suspension. One
+cancel-before-graph-snapshot cleanup race was found in self-review and repaired
+before the final green checks. No contract discrepancy remains.
+scope_check: Exact seven-path Debug/test/evidence envelope; no app launch,
+Camera, TCC, Computer Use, media, permission, product, Release, iOS, script,
+project, spec, plan, or registry edit.
+deviations: Run-owned build/log roots moved to Trash; no process/temp residue;
+pre-existing installed HoldType preserved.
+residual: Real cadence, orientation, visual mirroring, camera indicator/release,
+and stop/reacquisition remain later runtime evidence; no source-capture
+coexistence claim.
+next_dependency: DV-P0B-UI-W01-REVIEW
+runtime_or_visual_handoff: none
+commit: 085fa26dc7040d91b9427a292aa62a9dbe0035c8
+parent: fc9001713097d835d7d7d762fa7c31770145d376
 ```
 
 ## Rejected Receipts
