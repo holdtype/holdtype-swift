@@ -159,6 +159,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
+| `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -296,8 +297,11 @@ new HoldType preset or control; HoldType simply does not downsample it.
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
-- E01 observed writable external SSD and HDD classes. Exact authorized scratch
-  bases and runtime availability remain pending for the storage packet.
+- E01 observed writable external SSD and HDD classes. A fresh bounded read-only
+  inventory confirmed currently mounted writable candidates in both classes;
+  their exact roots were returned privately to `/root` and were not persisted
+  in the registry. External runtime remains blocked until the user explicitly
+  authorizes each exact root and its run-owned scratch boundary.
 - The exact `build-macos-apps:swiftui-patterns` skill is now exposed by the
   current Build macOS Apps package and has been read together with its
   windowing, settings, split-view, menu-bar, and commands references. The
@@ -995,6 +999,41 @@ quantitative evidence remain separately authorized.
 next_dependency: Separately authorize an exact-root external runtime packet.
 runtime_or_visual_handoff: none
 reviewed_commit: a50026aa53d93c0808ac84259f05759073434fdb
+```
+
+### `DV-P0B-STORAGE-INVENTORY-R01`
+
+```text
+packet_id: DV-P0B-STORAGE-INVENTORY-R01
+status: done
+verdict: accepted_with_residual
+
+outcome: A bounded read-only inventory found four currently mounted local
+external physical volume roots. One external SSD and two external HDD roots
+currently pass non-writing directory-access checks; one additional external
+APFS root is mounted but not directory-writable. Exact roots were returned
+privately to `/root` only and are not persisted here.
+specified_expectation: Inventory may identify candidates but must not select,
+authorize, write, create bookmarks, mount, eject, traverse user content, or
+claim numeric capacity suitability.
+observed_evidence: Candidate roots are real directories rather than symlinks.
+Filesystem, local/external, mount read-only, directory-access, media class, and
+available-capacity metadata were collected with bounded read-only system
+queries. No threshold was inferred.
+authority_used: DV-DRAFT-4@2f3266a storage clauses; Phase 0B E03/E04/E08;
+accepted STORAGE-E02/W02/REVIEW-R4 seam.
+changed_paths: none
+checks_run: Bounded diskutil, mount, df, stat, and directory-access metadata;
+internal/system and simulator mounts excluded; clean worktree verification.
+scope_check: Read-only volume metadata only. No file traversal, write, create,
+mount, eject, process retention, app, camera, TCC, source, spec, or registry
+action by the worker.
+deviations: none
+residual: Observation is not runtime authorization. Exact SSD/HDD roots and
+run-owned scratch boundaries require explicit user approval before any write.
+next_dependency: User authorizes each exact selected mount root; then dispatch
+one bounded external-storage runtime and independent review.
+runtime_or_visual_handoff: none
 ```
 
 ### `DV-P0A-QUALITY-SPEC`
