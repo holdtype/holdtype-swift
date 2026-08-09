@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "packet_id": "DV-P0B-STORAGE-R01",
+  "captured_at_utc": "2026-08-09T14:31:52Z",
+  "product_commit": "ea8b92b4ea792b653f617bfe87dd61a5ef445f8f",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "host": {
+    "os": "macOS",
+    "os_version": "26.6",
+    "os_build": "25G72",
+    "architecture": "arm64",
+    "machine_model": "Mac16,11",
+    "xcode_version": "26.6",
+    "xcode_build": "17F113"
+  },
+  "wrapper": {
+    "reviewed_commit": "a50026aa53d93c0808ac84259f05759073434fdb",
+    "reviewed_git_blob": "b8439fa07f8d524f7d3ae85e96b665aa5486181b",
+    "current_git_blob": "b8439fa07f8d524f7d3ae85e96b665aa5486181b",
+    "syntax_check": "pass",
+    "help_check": "pass",
+    "build_timeout_seconds": 600,
+    "test_timeout_seconds": 180,
+    "outer_timeout_seconds": 840
+  },
+  "cells": [
+    {
+      "case_id": "storage_r01_ssd_hfsplus",
+      "destination_class": "external_ssd_hfsplus",
+      "filesystem_class": "hfsplus",
+      "metadata_preflight": "pass"
+    },
+    {
+      "case_id": "storage_r01_hdd_apfs",
+      "destination_class": "external_hdd_apfs",
+      "filesystem_class": "apfs",
+      "metadata_preflight": "pass"
+    }
+  ],
+  "redaction": {
+    "mount_roots_retained": false,
+    "volume_labels_retained": false,
+    "volume_identifiers_retained": false,
+    "device_nodes_retained": false,
+    "scratch_identifiers_retained": false,
+    "process_identifiers_retained": false,
+    "user_paths_retained": false,
+    "private_signing_material_retained": false
+  }
+}
