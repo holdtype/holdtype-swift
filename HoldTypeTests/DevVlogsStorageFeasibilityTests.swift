@@ -4,9 +4,7 @@ import Testing
 protocol DevVlogsStorageCapacityProviding { func usefulCapacity(at destinationURL: URL) throws -> Int64? }
 protocol DevVlogsStorageDestinationStateProviding { func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState }
 struct DevVlogsStorageDestinationState: Equatable { let isAvailable: Bool, isLocal: Bool, isReadOnly: Bool }
-enum DevVlogsStorageSkipReason: String, Equatable {
-    case unavailable, nonlocal; case readOnly = "read_only", capacityUnknown = "capacity_unknown"; case insufficientCapacity = "insufficient_capacity"
-}
+enum DevVlogsStorageSkipReason: String, Equatable { case unavailable, nonlocal; case readOnly = "read_only", capacityUnknown = "capacity_unknown"; case insufficientCapacity = "insufficient_capacity" }
 enum DevVlogsStoragePreflightResult: Equatable { case proceed(usefulCapacity: Int64, suppliedReserve: Int64); case skip(DevVlogsStorageSkipReason) }
 struct DevVlogsStoragePreflight {
     let capacityProvider: any DevVlogsStorageCapacityProviding; let destinationStateProvider: any DevVlogsStorageDestinationStateProviding
@@ -262,7 +260,7 @@ struct DevVlogsStorageFeasibilityTests {
     @Test func wrapperExecutesTheClosedEnvironmentOnTheActualTestPath() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let wrapperURL = repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_external_storage.sh")
-        let wrapper = try String(contentsOf: wrapperURL, encoding: .utf8)
+        let wrapper = try String(contentsOf: wrapperURL, encoding: .utf8); let cleanupCall = try #require(wrapper.range(of: "cleanup_task_home || fail")); let successClaim = try #require(wrapper.range(of: "result=pass cleanup=complete")); #expect(cleanupCall.lowerBound < successClaim.lowerBound)
         func shellFunction(_ name: String) throws -> Substring {
             let start = try #require(wrapper.range(of: "\(name)() {")); let tail = wrapper[start.lowerBound...]
             let end = try #require(tail.range(of: "\n}\n")); return tail[..<end.upperBound]
@@ -298,31 +296,35 @@ struct DevVlogsStorageFeasibilityTests {
             for secret in ["HOME=", "CFFIXED_USER_HOME", "HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME", "HOLDTYPE_AUTOMATION", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI",
                 "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST", rejectedRoot] { #expect(!text.contains(secret)) }
         }
-        let homeFunctions = try ["task_home_path_identity", "create_task_home", "validate_task_home",
-            "cleanup_task_home", "cleanup"].map { try shellFunction($0) }.joined(separator: "\n")
+        let homeFunctions = try ["task_home_path_identity", "create_task_home", "validate_task_home", "cleanup_task_home", "cleanup"].map { try shellFunction($0) }.joined(separator: "\n")
         let lifecycleShell = """
         \(homeFunctions)
         zmodload zsh/system
         metadata_timeout_seconds=15
-        run_metadata_probe() { "$@"; }
+        race_mode=none
+        run_metadata_probe() {
+            if [[ "$race_mode" == replace && "$1" == /bin/zsh && "$2" == -c && "$4" == task-home-cleanup ]]; then race_mode=done
+                /bin/mv "$task_home" "$moved_home" || return 70; /bin/mkdir -m 700 "$task_home" || return 70; fi; "$@"
+        }
         terminate_supervisor() { return 0; }
         stop_caffeinate() { return 0; }
         run_case() {
-            local action=$1 expected=$2 actual
-            ( task_home="" task_home_identity=""; create_task_home || exit 71
+            local action=$1 expected=$2 actual; ( task_home="" task_home_identity=""; create_task_home || exit 71
               trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
-              case "$action" in success) exit 0;; failure) exit 9;; timeout) exit 124;;
-                  int) kill -INT $sysparams[pid];; term) kill -TERM $sysparams[pid];; esac )
+              case "$action" in success) exit 0;; failure) exit 9;; timeout) exit 124;; int) kill -INT $sysparams[pid];; term) kill -TERM $sysparams[pid];; esac )
             actual=$?; [[ "$actual" == "$expected" ]]
         }
-        run_case success 0 && run_case failure 9 && run_case timeout 124 &&
-            run_case int 130 && run_case term 143 || exit 72
+        run_case success 0 && run_case failure 9 && run_case timeout 124 && run_case int 130 && run_case term 143 || exit 72
         task_home="" task_home_identity=""; create_task_home || exit 73; retained_home=$task_home
-        sibling="${task_home}.sibling"; /bin/mkdir -m 700 "$sibling" || exit 74
-        /bin/chmod 755 "$task_home"; cleanup_task_home && exit 74
-        [[ -d "$retained_home" ]] || exit 75
-        /bin/chmod 700 "$task_home"; cleanup_task_home || exit 76
+        sibling="${task_home}.sibling"; /bin/mkdir -m 700 "$sibling" || exit 74; /bin/chmod 755 "$task_home"
+        cleanup_task_home && exit 74; [[ -d "$retained_home" ]] || exit 75; /bin/chmod 700 "$task_home"; cleanup_task_home || exit 76
         [[ ! -e "$retained_home" && -d "$sibling" ]] || exit 77; /bin/rmdir "$sibling" || exit 78
+        task_home="" task_home_identity=""; create_task_home || exit 79; pinned_home=$task_home; moved_home="${task_home}.original"
+        sibling="${task_home}.sibling" replacement="${task_home}.cleanup"; /bin/mkdir -m 700 "$sibling" || exit 80; race_mode=replace
+        result=$(cleanup_task_home && print -r -- 'cleanup=complete'); actual=$?
+        [[ "$actual" == 70 && "$result" != *cleanup=complete* ]] || exit 81; [[ ! -e "$pinned_home" && -d "$moved_home" && -d "$replacement" && -d "$sibling" ]] || exit 82
+        [[ "$(/usr/bin/stat -f '%u|%Lp|%d|%i' "$moved_home")" == "$task_home_identity" && -n "$task_home" && -n "$task_home_identity" ]] || exit 83
+        /bin/rm -rf -- "$moved_home" "$replacement" "$sibling" || exit 85
         print -r -- home_cleanup_matrix=pass
         """
         let lifecycle = Process(); let lifecycleOutput = Pipe(); lifecycle.executableURL = URL(fileURLWithPath: "/bin/zsh"); lifecycle.arguments = ["-c", lifecycleShell]

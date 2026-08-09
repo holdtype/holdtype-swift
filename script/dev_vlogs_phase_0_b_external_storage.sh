@@ -170,10 +170,19 @@ validate_task_home() {
 }
 
 cleanup_task_home() {
+    local cleanup_program='source=$1 expected=$2 quarantine="${1}.cleanup"
+[[ ! -e "$quarantine" && ! -L "$quarantine" ]] || exit 70
+/bin/mv -n "$source" "$quarantine" || exit 70
+[[ ! -e "$source" && ! -L "$source" ]] || exit 70
+current=$(/usr/bin/stat -f "%u|%Lp|%d|%i" "$quarantine" 2>/dev/null) || exit 70
+[[ "$current" == "$expected" ]] || exit 70
+exec /bin/rm -rf -- "$quarantine"'
     [[ -n "$task_home" ]] || return 0
     validate_task_home || return 70
-    run_metadata_probe /bin/rm -rf -- "$task_home" || return 70
-    [[ ! -e "$task_home" && ! -L "$task_home" ]] || return 70
+    run_metadata_probe /bin/zsh -c "$cleanup_program" task-home-cleanup \
+        "$task_home" "$task_home_identity" || return 70
+    [[ ! -e "$task_home" && ! -L "$task_home" &&
+       ! -e "${task_home}.cleanup" && ! -L "${task_home}.cleanup" ]] || return 70
     task_home=""; task_home_identity=""
 }
 
@@ -480,5 +489,6 @@ run_external_storage_test() {
 validate_volume
 create_task_home || fail "private test HOME could not be established"
 run_external_storage_test
+cleanup_task_home || fail "private test HOME cleanup was retained"
 
 print -r -- "external_storage_case=$case_id result=pass cleanup=complete"
