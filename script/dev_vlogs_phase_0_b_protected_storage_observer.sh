@@ -41,7 +41,7 @@ cleanup_state="incomplete_retained"
 evidence_write_state="not_attempted"
 build_comparison="uncertain"
 hosted_comparison="not_run"
-observer_events=""
+retained_observer_events=""
 run_id=""
 timeout_executable=""
 metadata_timeout_seconds=15
@@ -286,54 +286,206 @@ evidence_relative_paths() {
         measurements.csv artifacts.csv residuals.md events/storage-observer-r01.jsonl
 }
 
+write_evidence_file() {
+    local evidence_root="$1" root_identity="$2" events_identity="$3"
+    local relative="$4" content="$5" target parent current
+    remaining_budget 0 >/dev/null || return 124
+    current=$(identity "$evidence_root" 755) || return 70
+    [[ "$current" == "$root_identity" ]] || return 70
+    target="$evidence_root/$relative"; parent="${target:h}"
+    if [[ "$relative" == events/* ]]; then
+        current=$(identity "$parent" 755) || return 70
+        [[ "$current" == "$events_identity" ]] || return 70
+    else
+        [[ "$parent" == "$evidence_root" ]] || return 70
+    fi
+    [[ ! -e "$target" && ! -L "$target" ]] || return 70
+    if (( $+functions[observer_evidence_write_test_hook] )); then
+        observer_evidence_write_test_hook "$relative" || return 70
+    fi
+    if ! { print -rn -- "$content" >"$target"; } 2>/dev/null; then return 70; fi
+    run_metadata_probe /bin/chmod 600 "$target" >/dev/null || return 70
+    regular_file_identity "$target" 600 >/dev/null || return 70
+}
+
+validate_runtime_evidence() {
+    local evidence_root="$1" stage="${2:-complete}"
+    run_metadata_probe /usr/bin/python3 - "$evidence_root" "$EUID" "$terminal_class" \
+        "$terminal_phase" "$build_comparison" "$hosted_comparison" "$cleanup_state" "$stage" \
+        <<'PY' || return $?
+import csv, io, json, os, pathlib, stat, sys
+root = pathlib.Path(sys.argv[1])
+uid = int(sys.argv[2])
+terminal, phase, build, hosted, cleanup, stage = sys.argv[3:]
+paths = ["summary.md", "source-feasibility.md", "environment.json", "matrix.csv",
+         "measurements.csv", "artifacts.csv", "residuals.md",
+         "events/storage-observer-r01.jsonl"]
+allowed_terminal = {"environment_conflict", "guard_discontinuity", "build_failed",
+ "build_window_change_correlated", "run_owned_canonical_recovery_write_correlated",
+ "still_unknown", "evidence_conflict", "observer_invalid", "metadata_uncertain",
+ "hosted_test_failed", "pass_unchanged", "owner_exposed_no_mutation", "cleanup_uncertain"}
+allowed_phase = {"initializing", "baseline", "guard", "setup", "probe_build", "build",
+ "hosted_setup", "hosted", "cleanup", "signal", "controller"}
+allowed_compare = {"uncertain", "not_run", "unchanged", "changed", "missing_unchanged"}
+if terminal not in allowed_terminal or phase not in allowed_phase or stage not in {"pending", "complete"}:
+    raise SystemExit(65)
+if build not in allowed_compare or hosted not in allowed_compare:
+    raise SystemExit(65)
+if cleanup not in {"complete", "incomplete_retained"}:
+    raise SystemExit(65)
+try:
+    entries = list(os.scandir(root))
+    event_entries = list(os.scandir(root / "events"))
+except OSError:
+    raise SystemExit(65)
+root_names = paths[:7] + ["events"] if stage == "complete" else paths[1:7] + ["events"]
+if sorted(entry.name for entry in entries) != sorted(root_names):
+    raise SystemExit(65)
+if [entry.name for entry in event_entries] != ["storage-observer-r01.jsonl"]:
+    raise SystemExit(65)
+checked_paths = paths if stage == "complete" else paths[1:]
+for relative in checked_paths:
+    value = os.lstat(root / relative)
+    if not stat.S_ISREG(value.st_mode) or stat.S_IMODE(value.st_mode) != 0o600:
+        raise SystemExit(65)
+    if value.st_uid != uid or value.st_nlink != 1:
+        raise SystemExit(65)
+if stage == "complete":
+    summary = (root / "summary.md").read_text()
+    expected_summary = f"""# Phase 0B protected-storage observer R01
+
+terminal_class: {terminal}
+terminal_phase: {phase}
+build_window: {build}
+hosted_window: {hosted}
+cleanup: {cleanup}
+"""
+    if summary != expected_summary:
+        raise SystemExit(65)
+source = (root / "source-feasibility.md").read_text()
+expected_source = f"""# Source feasibility
+
+controller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh
+probe: script/dev_vlogs_phase_0_b_protected_storage_probe.c
+observer: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift
+route_schema: stderr-json-v1
+terminal_class: {terminal}
+"""
+if source != expected_source:
+    raise SystemExit(65)
+environment = json.loads((root / "environment.json").read_text())
+if environment != {"schema_version": 1, "mode": "nonexternal", "private_home": True,
+                   "cleanup": cleanup} or type(environment["schema_version"]) is not int:
+    raise SystemExit(65)
+def rows(name):
+    with (root / name).open(newline="") as value:
+        return list(csv.reader(value))
+if rows("matrix.csv") != [["case_id", "terminal_class", "terminal_phase", "cleanup"],
+                           ["protected_metadata", terminal, phase, cleanup]]:
+    raise SystemExit(65)
+if rows("measurements.csv") != [["phase", "result"], ["build", build], ["hosted", hosted]]:
+    raise SystemExit(65)
+expected_artifacts = [["path", "status"]] + [[relative, cleanup] for relative in paths]
+if rows("artifacts.csv") != expected_artifacts:
+    raise SystemExit(65)
+if (root / "residuals.md").read_text() != """# Residuals
+
+Arbitrary non-run-owned writers remain unattributed and classify as still_unknown.
+""":
+    raise SystemExit(65)
+for line in (root / paths[-1]).read_text().splitlines():
+    if not line.startswith("HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 "):
+        raise SystemExit(65)
+    try: json.loads(line.split(" ", 1)[1])
+    except (json.JSONDecodeError, IndexError): raise SystemExit(65)
+PY
+    if [[ -s "$evidence_root/events/storage-observer-r01.jsonl" ]]; then
+        [[ -n "${run_id:-}" ]] || return 70
+        validate_observer_stream "$evidence_root/events/storage-observer-r01.jsonl" \
+            "${run_id:-}" facts >/dev/null || return 70
+    fi
+}
+
+discard_uncommitted_summary() {
+    local evidence_root="$1" root_identity="$2" summary_identity="$3" current
+    current=$(identity "$evidence_root" 755) || return 70
+    [[ "$current" == "$root_identity" ]] || return 70
+    current=$(regular_file_identity "$evidence_root/summary.md" 600) || return 70
+    [[ "$current" == "$summary_identity" ]] || return 70
+    run_metadata_probe /bin/unlink "$evidence_root/summary.md" >/dev/null || return 70
+    [[ ! -e "$evidence_root/summary.md" && ! -L "$evidence_root/summary.md" ]] || return 70
+}
+
 write_runtime_evidence() {
     local evidence_root="${1:-$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01}"
-    local relative
+    local relative root_identity events_identity summary_identity artifacts_content
+    local summary_content source_content environment_content matrix_content measurements_content
     remaining_budget 0 >/dev/null || return 124
     [[ ! -e "$evidence_root" && ! -L "$evidence_root" ]] || return 70
-    run_metadata_probe /bin/mkdir -m 755 "$evidence_root" "$evidence_root/events" \
-        >/dev/null || return 70
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "# Phase 0B protected-storage observer R01
+    run_metadata_probe /bin/mkdir -m 755 "$evidence_root" >/dev/null || return 70
+    root_identity=$(identity "$evidence_root" 755) || return 70
+    run_metadata_probe /bin/mkdir -m 755 "$evidence_root/events" >/dev/null || return 70
+    events_identity=$(identity "$evidence_root/events" 755) || return 70
+    summary_content="# Phase 0B protected-storage observer R01
 
 terminal_class: $terminal_class
 terminal_phase: $terminal_phase
 build_window: $build_comparison
 hosted_window: $hosted_comparison
 cleanup: $cleanup_state
-" >"$evidence_root/summary.md"
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "# Source feasibility
+"
+    source_content="# Source feasibility
 
 controller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh
 probe: script/dev_vlogs_phase_0_b_protected_storage_probe.c
 observer: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift
 route_schema: stderr-json-v1
 terminal_class: $terminal_class
-" >"$evidence_root/source-feasibility.md"
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "{\"schema_version\":1,\"mode\":\"nonexternal\",\"private_home\":true,\"cleanup\":\"$cleanup_state\"}" \
-        >"$evidence_root/environment.json"
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "case_id,terminal_class,terminal_phase,cleanup
-protected_metadata,$terminal_class,$terminal_phase,$cleanup_state" >"$evidence_root/matrix.csv"
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "phase,result
+"
+    environment_content="{\"schema_version\":1,\"mode\":\"nonexternal\",\"private_home\":true,\"cleanup\":\"$cleanup_state\"}"$'\n'
+    matrix_content="case_id,terminal_class,terminal_phase,cleanup
+protected_metadata,$terminal_class,$terminal_phase,$cleanup_state
+"
+    measurements_content="phase,result
 build,$build_comparison
-hosted,$hosted_comparison" >"$evidence_root/measurements.csv"
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "path,status" >"$evidence_root/artifacts.csv"
+hosted,$hosted_comparison
+"
+    artifacts_content="path,status"$'\n'
     for relative in "${(@f)$(evidence_relative_paths)}"; do
-        remaining_budget 0 >/dev/null || return 124
-        print -r -- "$relative,$cleanup_state" >>"$evidence_root/artifacts.csv"
+        artifacts_content+="$relative,$cleanup_state"$'\n'
     done
-    remaining_budget 0 >/dev/null || return 124
-    print -r -- "# Residuals
-
-Arbitrary non-run-owned writers remain unattributed and classify as still_unknown.
-" >"$evidence_root/residuals.md"
-    remaining_budget 0 >/dev/null || return 124
-    print -rn -- "$observer_events" >"$evidence_root/events/storage-observer-r01.jsonl"
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        source-feasibility.md "$source_content" || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        environment.json "$environment_content" || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        matrix.csv "$matrix_content" || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        measurements.csv "$measurements_content" || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        artifacts.csv "$artifacts_content" || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" residuals.md \
+        $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' \
+        || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        events/storage-observer-r01.jsonl "$retained_observer_events" || return $?
+    validate_runtime_evidence "$evidence_root" pending || return $?
+    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        summary.md "$summary_content" || return $?
+    summary_identity=$(regular_file_identity "$evidence_root/summary.md" 600) || return 70
+    if (( $+functions[observer_evidence_postcondition_test_hook] )); then
+        observer_evidence_postcondition_test_hook "$evidence_root" || {
+            discard_uncommitted_summary "$evidence_root" "$root_identity" "$summary_identity" \
+                || return 70
+            return 70
+        }
+    fi
+    validate_runtime_evidence "$evidence_root" || {
+        local validation_status=$?
+        discard_uncommitted_summary "$evidence_root" "$root_identity" "$summary_identity" \
+            || return 70
+        return "$validation_status"
+    }
 }
 
 finalize_controller() {
@@ -358,7 +510,8 @@ finalize_controller() {
     fi
     terminal_finalized=true
     terminal_finalizing=false
-    unset run_id task_home task_home_identity derived_data derived_data_identity temporary_root
+    run_id=""; task_home=""; task_home_identity=""; derived_data=""
+    derived_data_identity=""; temporary_root=""
     return "$terminal_exit_status"
 }
 
@@ -444,12 +597,14 @@ classify_observer_result() {
 }
 
 validate_observer_stream() {
-    local stream="$1" expected_run_id="$2"
-    run_metadata_probe /usr/bin/python3 - "$stream" "$expected_run_id" <<'PY'
+    local stream="$1" expected_run_id="$2" output_mode="${3:-facts}"
+    run_metadata_probe /usr/bin/python3 - "$stream" "$expected_run_id" "$output_mode" <<'PY'
 import json, pathlib, sys, uuid
 prefix = "HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 "
 path = pathlib.Path(sys.argv[1])
 expected_run_id = sys.argv[2]
+output_mode = sys.argv[3]
+if output_mode not in {"facts", "events"}: raise SystemExit(65)
 try: expected_uuid = uuid.UUID(expected_run_id)
 except (ValueError, TypeError, AttributeError): raise SystemExit(65)
 if str(expected_uuid) != expected_run_id: raise SystemExit(65)
@@ -521,7 +676,10 @@ if pairs:
     elif scope_values == {"private_task_home"}: scopes = "private_only"
     else: scopes = "outside_or_indeterminate"
 owner = "observed" if owner_count == 1 else "absent"
-print("valid", results, owner, scopes)
+if output_mode == "facts": print("valid", results, owner, scopes)
+else:
+    for value in values:
+        print(prefix + json.dumps(value, separators=(",", ":"), ensure_ascii=True))
 PY
 }
 
@@ -639,10 +797,13 @@ run_controller() {
         record_terminal metadata_uncertain hosted 70; return 0
     }
     hosted_compare=$(compare_snapshot "$after_build" "$after_hosted"); hosted_comparison="$hosted_compare"
-    set +e
-    observer_events=$(run_metadata_probe /usr/bin/grep \
-        '^HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 ' "$logs_root/hosted.log")
-    set -e
+    retained_observer_events=""
+    if retained_observer_events=$(validate_observer_stream "$logs_root/hosted.log" \
+        "$run_id" events 2>/dev/null); then
+        [[ -z "$retained_observer_events" ]] || retained_observer_events+=$'\n'
+    else
+        retained_observer_events=""
+    fi
     local hosted_terminal hosted_status=70
     hosted_terminal=$(classify_observer_stream_result "$logs_root/hosted.log" "$run_id" \
         "$build_compare" "$hosted_state" "$hosted_compare" "$concurrent_state")

@@ -42,7 +42,13 @@ result bundle.
   real 930-second outer supervisor bound every stage and cleanup. TMPDIR,
   logs, bin, and the compiled probe are creation-identity pinned; cleanup
   quarantines and revalidates the exact run-root identity before deletion. A
-  single terminal state machine reaps the supervisor, resolves exact root
+  hosted event line becomes durable only after the complete expected-run,
+  closed-schema stream validates; malformed and pre-hosted outcomes retain an
+  empty event file. Every evidence directory/file operation is checked, and
+  success requires the exact eight regular mode-0600 closed-schema files with
+  no extras; a partial or failed postcondition is retained without a success
+  claim.
+- A single terminal state machine reaps the supervisor, resolves exact root
   cleanup while the guard remains proven, reaps the guard, then attempts the
   closed eight-file evidence write. Cleanup or
   evidence uncertainty overrides success before any durable success claim.

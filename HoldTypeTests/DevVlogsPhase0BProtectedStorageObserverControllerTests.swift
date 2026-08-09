@@ -21,7 +21,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             #expect(!output.contains("/private/tmp/holdtype-dev-vlogs-observer."))
         }
     }
-
     @Test func classifierRowsAreSingleAndFirstApplicable() throws {
         let rows: [([String], String)] = [
             (["conflict", "continuous", "passed", "unchanged", "passed",
@@ -74,7 +73,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             #expect(result.output.split(separator: "\n").count == 1)
         }
     }
-
     @Test func productionParserBindsRunAndFeedsExactFactsToClassification() throws {
         let owner = observerLine(2, "owner_initialized", "none", "recovery_directory",
                                  "private_task_home", "observed")
@@ -93,7 +91,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
                 == "run_owned_canonical_recovery_write_correlated\n")
         #expect(try classifyStream([readyLine] + outside, concurrent: "uncertain").output
                 == "still_unknown\n")
-
         var wrongRun = outside
         wrongRun[1] = observerLine(3, "mutation_begin", "replace_recovery_index",
             "recovery_index", "outside_private_task_home", "attempted", runID: otherRunID)
@@ -114,7 +111,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         ]
         for lines in invalid { #expect(try parseStream(lines).status != 0) }
     }
-
     @Test func absoluteInnerAndOuterBoundsStopTermIgnoringCommands() throws {
         let timeout = try timeoutExecutable()
         let result = try run(["/bin/zsh", "-c", """
@@ -137,7 +133,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(result.status == 0)
         #expect(result.output == "bounds=pass\n")
     }
-
     @Test func privateArtifactReplacementAndDiagnosticsFailClosed() throws {
         let timeout = try timeoutExecutable()
         let result = try run(["/bin/zsh", "-c", """
@@ -194,7 +189,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(result.status == 0)
         #expect(result.output == "pins_and_redaction=pass\n")
     }
-
     @Test func summaryTruthfullyDisclosesTheRejectedLiveHomeDiagnostic() throws {
         let summary = try String(contentsOfFile: summaryPath, encoding: .utf8)
         let normalized = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
@@ -205,13 +199,11 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     }
 
     @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
+        let ready = shellQuote(readyLine + "\n")
         let result = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
-            deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d \
-                /private/tmp/holdtype-observer-terminal.XXXXXXXX)
-            /bin/chmod 700 "$fixture"
-            stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }
-            stop_guard() { trace+=g }
+            deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
+            /bin/chmod 700 "$fixture"; stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }; stop_guard() { trace+=g }
             for item in environment_conflict:baseline:uncertain:not_run:70 \
                 guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
                 build_window_change_correlated:build:changed:not_run:70 \
@@ -224,7 +216,7 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
                 build_comparison=$values[3]; hosted_comparison=$values[4]
                 terminal_exit_status=$values[5]; terminal_finalized=false; terminal_finalizing=false
                 cleanup_state=incomplete_retained; evidence_write_state=not_attempted; trace=""
-                observer_events=$([[ "$terminal_phase" == hosted ]] && print fixture || true)
+                retained_observer_events=""; run_id=""
                 evidence="$fixture/$terminal_class"; final_status=0
                 finalize_controller "$evidence" || final_status=$?
                 [[ $final_status == $terminal_exit_status && "$trace" == srg &&
@@ -232,28 +224,38 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
                 /usr/bin/grep -q "terminal_class: $terminal_class" "$evidence/summary.md" || exit 72
                 /usr/bin/grep -q "cleanup: complete" "$evidence/summary.md" || exit 73
             done
-            cleanup_run_root() { trace+=r; return 70 }
+            run_id=\(shellQuote(runID)); expected_run="$run_id"; retained_observer_events=\(ready)
             terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0
-            terminal_finalized=false; terminal_finalizing=false; trace=""; observer_events=fixture
+            terminal_finalized=false; terminal_finalizing=false; valid="$fixture/valid"; finalize_controller "$valid"
+            validate_observer_stream "$valid/events/storage-observer-r01.jsonl" "$expected_run" >/dev/null || exit 74
+            cleanup_run_root() { trace+=r; return 70 }; trace=""; retained_observer_events=""; terminal_finalized=false; terminal_finalizing=false
             cleanup_evidence="$fixture/cleanup-override"; cleanup_status=0
             finalize_controller "$cleanup_evidence" || cleanup_status=$?
-            [[ $cleanup_status == 70 && "$trace" == srg ]] || exit 74
-            /usr/bin/grep -q 'terminal_class: cleanup_uncertain' \
-                "$cleanup_evidence/summary.md" || exit 75
-            /usr/bin/grep -q 'cleanup: incomplete_retained' \
-                "$cleanup_evidence/summary.md" || exit 76
-            cleanup_run_root() { trace+=r }; failed_evidence="$fixture/evidence-failure"
-            /bin/mkdir -m 700 "$failed_evidence"; terminal_class=pass_unchanged
-            terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
-            failure_status=0; finalize_controller "$failed_evidence" || failure_status=$?
-            [[ $failure_status == 74 && "$terminal_class" == evidence_write_failed &&
-               -d "$failed_evidence" ]] || exit 77
+            [[ $cleanup_status == 70 && "$trace" == srg && "$terminal_class" == cleanup_uncertain &&
+               $(/usr/bin/grep -c 'cleanup: incomplete_retained' "$cleanup_evidence/summary.md") == 1 ]] || exit 75; cleanup_run_root() { trace+=r }
+            sentinel='PRIVATE_PATH_SENTINEL_SECRET'; malformed="$fixture/malformed.log"; print -r -- "HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 $sentinel" >"$malformed"
+            retained_observer_events=$(validate_observer_stream "$malformed" "$expected_run" events 2>/dev/null) || retained_observer_events=""
+            terminal_class=observer_invalid; terminal_exit_status=70; terminal_finalized=false; terminal_finalizing=false
+            malformed_evidence="$fixture/malformed"; malformed_status=0
+            finalize_controller "$malformed_evidence" || malformed_status=$?
+            [[ $malformed_status == 70 && ! -s "$malformed_evidence/events/storage-observer-r01.jsonl" &&
+               -z "$(/usr/bin/grep -R "$sentinel" "$malformed_evidence" 2>/dev/null)" ]] || exit 75
+            observer_evidence_write_test_hook() { [[ "$1" != measurements.csv ]] }
+            terminal_class=pass_unchanged; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
+            retained_observer_events=""; mid="$fixture/mid"; mid_status=0
+            finalize_controller "$mid" || mid_status=$?; unfunction observer_evidence_write_test_hook
+            [[ $mid_status == 74 && "$terminal_class" == evidence_write_failed && -d "$mid" &&
+               ! -e "$mid/summary.md" ]] || exit 76
+            observer_evidence_postcondition_test_hook() { print unexpected >"$1/unexpected" }
+            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
+            post="$fixture/post"; post_status=0
+            finalize_controller "$post" || post_status=$?
+            [[ $post_status == 74 && -e "$post/unexpected" && ! -e "$post/summary.md" ]] || exit 77
             print terminal_evidence=pass; /bin/rm -rf -- "$fixture"
             """])
         #expect(result.status == 0)
         #expect(result.output == "terminal_evidence=pass\n")
     }
-
     @Test func cleanupDeletesStableIdentityAndRetainsReplacementAndSibling() throws {
         let stable = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath))
@@ -291,7 +293,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(replacement.status == 0)
         #expect(replacement.output == "replacement_retained\n")
     }
-
     @Test func productionXCTestRunConfigurationInjectsTheClosedHostedEnvironment() throws {
         let result = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath))
