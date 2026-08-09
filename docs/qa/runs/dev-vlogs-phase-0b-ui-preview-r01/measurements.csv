@@ -1,0 +1,9 @@
+case_id,metric,value,unit,disposition,qualifier
+preview-e05,launch_to_exact_process_discovery,12395.599,milliseconds,evidence_only,run_owned_process_identity
+preview-e05,start_to_terminal_observation_upper_bound,43984.082,milliseconds,evidence_only,includes_computer_use_transport
+preview-e05,total_ui_session,260808.777,milliseconds,evidence_only,under_five_minutes
+preview-e05,first_frame_latency,,milliseconds,not_available,camera_authorization_not_determined
+preview-e05,observed_frame_change_count,0,count,not_available,camera_never_started
+preview-e05,observed_frame_cadence,,frames_per_second,not_available,camera_never_started
+preview-e05,stop_to_released,,milliseconds,not_available,stop_not_enabled
+preview-e05,second_start_to_first_frame,,milliseconds,not_available,contract_retry_not_reached

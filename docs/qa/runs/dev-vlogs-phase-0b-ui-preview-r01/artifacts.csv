@@ -1,0 +1,4 @@
+case_id,artifact_class,count,bytes,checksum,probe_result,recovery_classification,cleanup_status,privacy_disposition
+preview-e05,captured_media,0,0,not_applicable,not_applicable,not_applicable,none_created,no_audio_video_or_image
+preview-e05,screenshot,0,0,not_applicable,not_applicable,not_applicable,none_retained,private_device_label_and_no_safe_frame
+preview-e05,event_stream,1,,not_retained,validated,not_applicable,retained,compact_redacted_facts_only

@@ -1,0 +1,7 @@
+{"case_id":"preview-e05","monotonic_seconds":150576.462391,"route":"isolated_debug_preview","action":"launch","state":"requested","terminal":false}
+{"case_id":"preview-e05","monotonic_seconds":150588.857990,"route":"isolated_debug_preview","action":"process_discovery","state":"one_exact_run_owned_identity","terminal":false}
+{"case_id":"preview-e05","monotonic_seconds":150673.238500,"route":"isolated_debug_preview","action":"inspect","state":"idle_camera_released","terminal":false}
+{"case_id":"preview-e05","monotonic_seconds":null,"route":"isolated_debug_preview","action":"select_camera","state":"explicit_external_selection","terminal":false}
+{"case_id":"preview-e05","monotonic_seconds":150744.542709,"route":"isolated_debug_preview","action":"start","state":"requested","terminal":false}
+{"case_id":"preview-e05","monotonic_seconds":150788.526791,"route":"isolated_debug_preview","action":"start","state":"authorization_required","terminal":true}
+{"case_id":"preview-e05","monotonic_seconds":150837.271168,"route":"isolated_debug_preview","action":"cleanup","state":"run_owned_process_exited","terminal":true}

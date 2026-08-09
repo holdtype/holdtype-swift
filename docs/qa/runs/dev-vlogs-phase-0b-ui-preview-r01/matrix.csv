@@ -1,0 +1,2 @@
+case_id,device_class,availability_count,permission_state,explicit_selection,no_passive_capture,first_start,changing_frames,display_mirroring,camera_indicator,first_release,reacquisition,second_release,cleanup,functional_result,residual_class
+preview-e05,external,1,not_determined,pass,pass,not_available,not_available,not_available,not_observed,not_exercised,not_exercised,not_exercised,pass,not_available,environment_or_signing_residual
