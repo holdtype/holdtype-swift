@@ -215,8 +215,10 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
 | `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | rejected | `1616247`; receipt below | Cleanup/overload repaired; slow-gate race contract still inconsistent. |
 | `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
-| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | review | exact receipt below | Slow-gate idempotency and synchronous cancellation closure repaired; Review-R3 required. |
-| `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
+| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | rejected | `c4e1b15`; receipt below | Prior races repaired; pre-install cancellation can still be lost. |
+| `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
+| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | running | — | Repair only pre-install cancellation registration; no new state/path. |
+| `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted current E07 design review | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
@@ -6497,3 +6499,42 @@ unproven. DV-P0B-E07-W01 remains blocked.
 next_dependency: DV-P0B-E07-E01-REVIEW-R3
 runtime_or_visual_handoff: none
 ~~~
+
+### `DV-P0B-E07-E01-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R3
+status: rejected
+reviewed_commit: c4e1b15251739ebefd4bcc08bd2f9bd06c838b11
+parent: 91c8cc01d647ff5085da59d62b15aa7dd72c124f
+scope: exact one-path registry-only repair; diff hygiene passes.
+
+accepted_repairs: Post-entry waitUntilEntered is idempotent; duplicateEntry is
+narrowed correctly; one Synchronization.Mutex tuple owns the two continuations
+and four closure flags; handler clearing/resumption is synchronous, outside-lock
+and relay-free; installed-continuation post-resume closure/projections are
+coherent. Accepted cleanup Boolean, protocol witnesses, paths, cases, schemas,
+redaction, provenance, parent pinning and residuals remain unchanged.
+
+blocking_finding: Both suspending methods retain a pre-install cancellation
+race. An already-cancelled task or cancellation before continuation install can
+run the handler while the open flag is false; the handler no-ops, and the later
+open/install transition does not recheck cancellationRequested/current task
+cancellation. The continuation can then suspend forever, so post-resume cleanup
+is unreachable.
+
+smallest_repair: Registry-only R4 using the existing mutex tuple. Open the
+method flag before exposing the handler. During continuation installation,
+atomically recheck cancellationRequested and current task cancellation; when
+cancellation already won, do not store and resume the local continuation with
+CancellationError outside the mutex. Preserve the existing post-resumption
+join. Add explicit already-cancelled/cancel-before-install stop and review
+cases. No new state or path is required.
+
+scope_check: Read-only registry review only. No edit, build, test, app/runtime,
+process, hardware, provider, Keychain, media, permission or storage action.
+residual: Eventual acceptance remains deterministic fake-backed E07 only.
+next_dependency: DV-P0B-E07-E01-R4, then independent
+DV-P0B-E07-E01-REVIEW-R4. DV-P0B-E07-W01 remains blocked.
+runtime_or_visual_handoff: none
+```
