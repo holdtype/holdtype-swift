@@ -219,8 +219,8 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
 | `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | accepted | `c0001a9`; receipt below | Existing-state cancellation registration is implementable and accepted. |
 | `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
-| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | running | — | Prove or reject E07 through paired fake-backed attempts; no camera/storage runtime. |
-| `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
+| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | review | `0e3b3ad`; receipt below | Checks passed; coordination-only parent drift is explicitly revalidated for review, not acceptance. |
+| `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | running | — | Independently verify the ten-path artifact and parent-drift disposition before E07 acceptance. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
@@ -483,6 +483,47 @@ scope_check: Coordination-only; no product behavior or source change.
 deviations: none
 residual: DV-D01-D13 require specification integration and review.
 next_dependency: DV-P0A-SPEC
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01`
+
+```text
+packet_id: DV-P0B-E07-W01
+status: implementation_complete_pending_independent_review
+commit: 0e3b3ada836dc8a3c037b45001aa1dbfae774df8
+actual_parent: b1160fd26e76e5135b14da69c67b0367eefbbe40
+dispatch_parent: 24f4a601087322c6a3ac80e637e808a684deb9b4
+
+outcome: Deterministic fake-backed E07 implementation and retained evidence
+completed in the exact ten-path accepted envelope. Structure, focused paired
+E07 cases, adjacent controller/launch suites, signed Debug build, target
+membership, schema/order/redaction, protected blobs and diff hygiene passed.
+No app, camera, microphone, storage, provider, Keychain, media or visual
+runtime action occurred.
+
+scope: Two new DEBUG-only Swift test files and exactly eight QA files under
+docs/qa/runs/dev-vlogs-phase-0b-dictation-w01. No product, Debug harness,
+script, project, existing-test, specification or registry path changed in the
+worker commit. Source manifest is
+79938c979c2631cef9e1c202a550cc7c25e13766f32771f88f81bc3331f8d249.
+
+coordination_parent_revalidation: The dispatch parent remains the authority
+recorded by the evidence. Before the worker checkpoint, master advanced only
+by b1160fd, an independent registry-only coordination commit recording the
+rejected Storage Observer review. Git ancestry is
+24f4a60 -> b1160fd -> 0e3b3ad, and the worker diff against its actual parent
+contains exactly the ten allowlisted E07 paths. History was not rewritten.
+This nonsemantic parent drift is accepted solely for admission to independent
+review; it is not E07 acceptance.
+
+deviation: Synchronization.Mutex requires macOS 15; the test-only gate and pair
+harness are availability-scoped and executed on macOS 26.6. Shipping deployment
+and project settings remain unchanged.
+
+residual: Fake-backed E07 only; shipping shared-audio lease and real
+hardware/media/storage/provider behavior remain unproven.
+next_dependency: DV-P0B-E07-W01-REVIEW.
 runtime_or_visual_handoff: none
 ```
 
