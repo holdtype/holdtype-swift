@@ -233,8 +233,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2@794b733` | read-only exact design review | accepted | receipt below | Exact ten-path implementation envelope is dependency-ready; runtime remains separately blocked. |
 | `DV-P0B-STORAGE-OBSERVER-W01` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | exact ten paths from accepted R2 design only | rejected | `8d1c48a`; receipt below | Observer/route are sound; production controller and summary require narrow R1. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01@8d1c48a` | read-only exact implementation review | rejected | receipt below | Repair event-derived parsing, bounds, pins, redaction and summary truthfulness. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | review | `2a25dd3`; receipt below | Controller repair complete; accepted observer/recovery/route/probe blobs remain frozen. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | running | — | No runtime before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | rejected | `2a25dd3`; receipt below | Parser/pins pass; terminal evidence, cleanup, exact types, outer binding and summary remain open. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | running | — | Close terminal evidence/cleanup state machine, exact JSON types, outer binding and summary truth. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2` terminal artifact | read-only exact repair review | queued | — | No runtime before acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7059,5 +7061,54 @@ deviations: none.
 residual: Deterministic fake-backed E07 only; no shipping lease or real
 hardware/media/storage/provider proof.
 next_dependency: DV-P0B-E07-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1
+status: rejected
+reviewed_commit: 2a25dd3fb98a5e0d90385593210e4f01e8666680
+parent: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+
+accepted_repairs: Exact three-path scope/current blobs and all seven frozen W01
+blobs pass. Event parsing is expected-run-bound and event-derived; uncertainty
+wins correlation. TMPDIR/logs/bin/probe and other private artifacts are pinned.
+Private hosted env injection, Release isolation, signed Debug build, focused
+30/30 and protected 60/60 tests pass.
+
+blocking_findings:
+1. Classified build-window/hosted change, conflict and failure return nonzero;
+under set -e run_controller skips write_runtime_evidence. The writer also
+requires hosted events, impossible for a build-window first stop. Principal
+terminal outcomes therefore retain no accepted eight-file evidence.
+2. cleanup=complete success is emitted before the EXIT trap stops/reaps the
+guard, so later guard uncertainty can follow an already-recorded success.
+3. JSON schema_version/sequence accept bool and 1.0 through Python numeric
+equality; exact integer types are not enforced.
+4. The directly callable controller-inner mode bypasses the mandatory outer
+930-second supervisor.
+5. Summary acknowledges an unconfined live-HOME diagnostic but then asserts
+inert/no Recovery.json stat without evidence sufficient to prove that claim.
+
+smallest_repair: One terminal evidence/cleanup state machine must retain every
+first-stop result, including pre-hosted stops; cleanup/reap must precede durable
+cleanup-complete/success and override it on uncertainty; schema numbers require
+exact JSON integer types with bool/float negatives; inner execution must be
+bound to the real outer supervisor or inaccessible as a bypass; summary must
+state only bounded known facts. Add behavioral production-route tests. Keep
+the exact three-path envelope and seven frozen W01 blobs.
+
+scope_check: Read-only review. No observer --execute, external volume,
+live-HOME host, protected-path probe/content access, Camera/TCC/Keychain/
+provider/media runtime or repository edit.
+deviations: Reviewer build signing used the normal invoking environment only;
+launched tests used task-owned private HOME/CFFIX/TMPDIR and inert route. No
+protected content was inspected.
+residual: Non-run-owned writers may remain still_unknown; implementation
+acceptance and all observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R2, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
 runtime_or_visual_handoff: none
 ```
