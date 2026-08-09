@@ -185,7 +185,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | accepted_with_residual | `7b1ba8d`; receipt below | Value-free inert-host repair accepted; external evidence still requires one controlled rerun. |
 | `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded storage R02 under prior exact-root authority is dependency-ready. |
 | `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | review / protected-scope-fail | `98b3b66`; receipt below | Both mechanics cells pass again; protected Recovery metadata changed under the accepted inert host. |
-| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | running | — | Reconcile repeated protected metadata change and identify exact host/test/process ownership without another runtime. |
+| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | rejected_scope / cells_accepted | receipt below | Both mechanics cells remain accepted; live-HOME exposure prevents protected-scope closure. |
+| `DV-P0B-STORAGE-W04` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected R02 review | external-storage wrapper, canonical feasibility test, W01 summary only if claim changes | running | — | Add wrapper-owned private HOME plus in-host Foundation-path assertion; no runtime or external I/O. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -346,8 +347,11 @@ other external root remain unauthorized.
   before/after proof. It again passed both storage mechanics cells and cleaned
   all scratch/processes,
   but the same protected recovery file was atomically replaced during the
-  session despite accepted inert-host routing. A new causal read-only review is
-  running; no additional runtime or restorative action is authorized.
+  session despite accepted inert-host routing. Independent review accepts both
+  mechanics cells and rejects packet scope: the hosted test bundle still
+  inherits live HOME, so W03's router/value isolation cannot protect the live
+  Foundation user-domain path. A wrapper-owned private-HOME repair is running;
+  no additional runtime or restorative action is authorized before review.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3442,6 +3446,42 @@ parent: e91b063efb918d39f7eca109aca84c75c9eb6011
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-STORAGE-R02-REVIEW` of `98b3b66`
+
+```text
+packet_id: DV-P0B-STORAGE-R02-REVIEW
+status: done
+verdict: reject
+functional_cell_verdicts: external_ssd_hfsplus=accept;
+external_hdd_apfs=accept
+packet_scope_verdict: reject
+
+outcome: Exact R02 evidence is internally consistent and preserves both
+external mechanics passes. Packet scope cannot close because the same protected
+Recovery metadata was atomically replaced again while the app-hosted test
+bundle inherited live HOME.
+checks_run: Exact seven-file commit/parent/current-blob and structured evidence
+audit; fixture checksum/size, redaction, guard, scratch/process cleanup,
+accepted wrapper/router/value-free provenance, project test-host configuration,
+and minimal recovery-lifecycle trace. No runtime or protected-path access.
+causal_boundary: W03's outer inert router and value-free state remain accepted,
+but they do not isolate Foundation user-domain paths for the complete hosted
+test bundle. The exact transient creator and restoration predicate remain
+unproven and must not be claimed.
+scope_check: Read-only; no repository, external volume, process, protected
+artifact, TCC, camera/audio, Keychain, or restorative action.
+residual: Exact Recovery contents/creator/predicate remain intentionally
+unknown. Physical interruption, remount, true-stale, genuine read-only/low-
+capacity, and representative media remain not_available.
+exact_next_dependency: Add a fresh wrapper-owned private HOME to the complete
+test-without-building invocation, assert inside the hosted test that effective
+Foundation Application Support and default TranscriptionRecovery resolve below
+that HOME before external scratch creation, prove exact cleanup, then obtain
+independent review before one final protected-scope runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: 98b3b66bedab1191673848fbe874f0c339823067
+```
 
 ### `DV-P0B-STORAGE-W03-REVIEW` of `89127cc`
 
