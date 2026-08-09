@@ -180,8 +180,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
 | `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | rejected_scope / cells_accepted | `f7bbc9d`; receipt below | Both storage mechanics cells are accepted; packet scope failed because normal app-host lifecycle exposed TranscriptionRecovery. |
 | `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
-| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | running | — | Prevent normal lifecycle/recovery owners from constructing during external storage tests; no runtime. |
-| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-W03` | read-only exact repair commit | queued | — | Verify inert route, fail-closed configuration, wrapper environment, Release isolation, and protected owners. |
+| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | review | `89127cc`; receipt below | Six-path inert test-host repair is terminal; independent review decides acceptance. |
+| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | running | — | Verify inert route, fail-closed configuration, wrapper environment, Release isolation, and protected owners. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -3306,6 +3306,38 @@ next_dependency: DV-P0B-STORAGE-R01-REVIEW
 runtime_or_visual_handoff: none
 commit: f7bbc9d803e802e2564f3943cd7725cffe4bc5b1
 parent: ea8b92b4ea792b653f617bfe87dd61a5ef445f8f
+```
+
+### `DV-P0B-STORAGE-W03`
+
+```text
+packet_id: DV-P0B-STORAGE-W03
+status: done
+
+outcome: Added a complete outer Debug-only inert storage XCTest host before
+every existing Debug/product composition. Complete sanitized storage opt-in
+selects the inert host; missing, empty, malformed, or conflicting storage
+configuration remains typed/nonproduct and cannot construct normal, capture,
+authorization, preview, runtime, recovery, or filesystem owners. The accepted
+wrapper injects the exact host/automation/Keychain environment.
+changed_paths: HoldType/HoldTypeApp.swift; new Debug StorageTestHostLaunch;
+external-storage wrapper; new storage-host launch tests; canonical storage
+feasibility tests; storage W01 summary.
+checks_run: Structure/syntax/diff; signed Debug and build-for-testing; focused
+storage-host/wrapper and all accepted route/media suites; production wrapper
+function fake; help/default/invalid; unsigned Release/settings/artifact
+isolation; 21/21 protected blobs; redaction/process/temp/path audits.
+scope_check: Exact six paths, clean worktree; no external storage, app launch,
+live HOME, Recovery.json, camera/mic/TCC, product UI, project/plist/entitlement,
+dependency, or protected-artifact action.
+deviations: Signing required split build/test environments; one aggregate
+supervisor timed out after XCTest success and every group was rerun separately
+to exit 0. Task roots were moved to recoverable Trash.
+residual: Independent review only; no external runtime rerun authorized.
+next_dependency: DV-P0B-STORAGE-W03-REVIEW
+runtime_or_visual_handoff: none
+commit: 89127ccfa211b29d588bc09525ad17cabd7ffba8
+parent: 2492176ecb17cd9a8fad8b5f829de5cc8b5077ef
 ```
 
 ## Rejected Receipts
