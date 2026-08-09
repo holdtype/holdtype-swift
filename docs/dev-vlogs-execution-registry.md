@@ -219,8 +219,10 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
 | `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | accepted | `c0001a9`; receipt below | Existing-state cancellation registration is implementable and accepted. |
 | `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
-| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | review | `0e3b3ad`; receipt below | Checks passed; coordination-only parent drift is explicitly revalidated for review, not acceptance. |
-| `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | running | — | Independently verify the ten-path artifact and parent-drift disposition before E07 acceptance. |
+| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | rejected | `0e3b3ad`; receipt below | Scope/provenance pass; cancellation, cleanup ordering and schema closure require narrow R1. |
+| `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | rejected | receipt below | Return exact two-test-path R1 to the original owner; runtime remains blocked. |
+| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | exact two E07 Swift test paths; retained QA only if claims change | running | — | Repair same-mutex cancellation closure, cleanup ordering and closed validator schema. |
+| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1` terminal receipt | read-only exact repair review | queued | — | Independent acceptance required before E07 can unblock capture review. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
@@ -6846,5 +6848,55 @@ procedure deviation; no protected content was inspected.
 residual: No protected/external observer runtime is accepted.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R1, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW
+status: rejected
+reviewed_commit: 0e3b3ada836dc8a3c037b45001aa1dbfae774df8
+actual_parent: b1160fd26e76e5135b14da69c67b0367eefbbe40
+dispatch_parent: 24f4a601087322c6a3ac80e637e808a684deb9b4
+
+accepted_evidence: Exact ten-path scope/modes/current blobs, nonsemantic
+registry-only parent drift, canonical DictationSessionController and one
+recorder witness, ten paired cases, source manifest, protected blobs, target
+membership, DEBUG/line bounds, retained artifact cardinality/order/redaction,
+structure and focused 11-test suite all pass. The parent drift does not make
+the proof depend on the immediate parent.
+
+blocking_findings:
+1. Both slow-gate post-resume paths read Task.isCancelled before taking the
+mutex, then close the open flag and inspect cancellation separately. A cancel
+between the stale read and closure can lose to closure, become a no-op in the
+handler and let a cancellation winner return success, contrary to R4.
+2. Observer completion records terminal, cleaned and cleanupCount=1 before the
+deferred temporary-access release. The evidence can claim cleanup while the
+token remains acquired.
+3. Evidence validation hard-codes pass where the accepted schema permits
+pass|fail and checks only the first measurement metric plus common row
+fragments; duplicated, substituted or reordered metric names can pass.
+
+smallest_repair: Same owner may change only the two existing E07 Swift test
+paths unless a retained claim changes. Derive Task cancellation plus tuple
+cancellation and close the corresponding open flag in one mutex transition;
+release/snapshot temporary access before cleaned; validate the literal
+pass/fail contract and exact eight metric names/order. Exercise these repairs
+through existing allowed tests. No product hook, new path/type, shipping lease
+or runtime claim.
+
+scope_check: Read-only review. No repository edit, app/UI/hardware/microphone/
+camera/provider/Keychain/media/storage/runtime/process action. Concurrent
+Storage Observer work was preserved.
+deviations: Synchronization.Mutex remains test-only macOS-15 availability-
+scoped; shipping deployment is unchanged. Parent drift is accepted only as
+nonsemantic provenance drift.
+residual: Eventual acceptance remains deterministic fake-backed E07 only;
+shipping audio lease and real hardware/media/storage/provider behavior remain
+unproven.
+next_dependency: DV-P0B-E07-W01-R1, then independent
+DV-P0B-E07-W01-REVIEW-R1. DV-P0B-CAPTURE-R07 remains blocked.
 runtime_or_visual_handoff: none
 ```
