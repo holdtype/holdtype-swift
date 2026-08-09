@@ -211,14 +211,14 @@ other external root remain unauthorized.
 | `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
 | `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
-| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | paused_by_user | pause receipt below | Source/target/protected-blob confirmation is complete; exact self-contained registry contract was being drafted when paused. |
+| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | running | resume receipt below | Source/target/protected-blob confirmation is complete; resume only the exact self-contained registry contract. |
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1` terminal artifact | read-only exact design review | queued | — | W01 stays blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
-| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1` terminal artifact | read-only exact design review | paused_by_user | pause receipt below | Gate/diff complete; three exactness questions remain unresolved and no verdict has been issued. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1` terminal artifact | read-only exact design review | running | resume receipt below | Resume the exact one-path design review and resolve the three preliminary exactness questions before verdict. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -5100,5 +5100,46 @@ scope_check: Registry-only pause checkpoint. No product/spec/source/test/script
 or QA runtime evidence path changed. No process or resource was intentionally
 left running by the paused packets.
 next_dependency: Explicit user resume after Codex restart.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-RESUME-2026-08-09`
+
+```text
+packet_id: DV-P0B-RESUME-2026-08-09
+status: resumed
+authority: User explicitly resumed the paused persistent goal after restarting
+Codex.
+
+restart_gate: /root re-read the persistent objective; global and repository
+AGENTS; root-orchestration; product-truth governance; onboarding; specification
+README/index; complete DV-DRAFT-4; complete Phase 0B protocol and governing
+plan; current registry including the pause receipt; SWIFT/tooling; and the
+complete active dictation, durability, privacy, OpenAI, output, post-action,
+correction, History, Settings, platform-testing and verification contracts.
+
+spec_basis: Discover-only Phase 0B evidence remains pinned to
+DV-DRAFT-4@2f3266a. Resume only the two interrupted registry design/review
+packets. Ordinary dictation/transcription/correction/translation/output,
+History/Recovery, Settings/Keychain, permissions, diagnostics, Release, iOS and
+product runtime remain protected. No specification delta is authorized.
+
+resumed_packets:
+- DV-P0B-E07-E01-R1: finish the self-contained registry design artifact only;
+  no implementation/build/test/runtime.
+- DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1: finish the read-only exact design
+  review of 8fe5645 and resolve the three preliminary questions before a
+  terminal verdict.
+
+blocked_packets: DV-P0B-E07-W01, DV-P0B-CAPTURE-R07, storage observer
+implementation/runtime, DV-P0C-CONTRACT and all later phases remain blocked
+until their exact dependencies are accepted. The resume request grants no
+camera, permission, external-volume or protected-path runtime authority.
+
+scope_check: Registry coordination only. Worktree was clean on master at
+4210114 before this resume update. No product/spec/source/test/script/QA evidence
+path, process or external resource was touched.
+next_dependency: Terminal E07 R1 design artifact and terminal storage observer
+R1 review, each recorded before any later dispatch.
 runtime_or_visual_handoff: none
 ```
