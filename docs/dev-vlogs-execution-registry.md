@@ -213,9 +213,9 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
 | `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | rejected | `d14a927`; receipt below | Canonical design is sound, but three internal contradictions require registry-only R2. |
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
-| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | running | — | Resolve exactly three internal contradictions; no envelope expansion. |
+| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | review | exact receipt below | Three internal contradictions repaired; independent Review-R2 required. |
 | `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
-| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R1` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
+| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R2` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
@@ -479,6 +479,117 @@ residual: DV-D01-D13 require specification integration and review.
 next_dependency: DV-P0A-SPEC
 runtime_or_visual_handoff: none
 ```
+
+### DV-P0B-E07-E01-R2
+
+~~~text
+packet_id: DV-P0B-E07-E01-R2
+status: design_complete_pending_independent_review
+outcome: Exactly the three Review-R1 contradictions are repaired. The R1
+ten-path envelope, two DEBUG <=500-line test files, ten cases and paired
+sequences, observer/completed-artifact/token boundary, eight QA schemas,
+provenance, dispatch-parent equality, bounded commands, redaction and
+deterministic fake-only residual remain unchanged.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry header/scope/
+decisions/epoch/table/coordination plus E07 R1 and rejected Review-R1; SWIFT;
+agent tooling; active microphone-input and recording-durability contracts.
+root-orchestration was not read because this is a finite design owner.
+
+expected: Discover-only E02/E07/E08 design repair with no specification delta.
+Canonical DictationSessionController and the sole AudioRecorderService remain
+authoritative. Every baseline/spike equality, cancel/provider/output rule,
+observer access rule, evidence schema and protected boundary remains R1-exact.
+
+repair_1_slow_gate_continuations:
+- DevVlogsPhase0BE07SlowPreparationGate publicly exposes only GateSnapshot
+  enterCount:Int, resolutionCount:Int, waiterCount:Int and isResolved:Bool.
+- Its only continuation storage is exactly private optional one-shot
+  entryContinuation:CheckedContinuation<Void, Error>? and
+  resolutionContinuation:CheckedContinuation<GateResolution, Error>?.
+- waitUntilEntered returns immediately after entry, otherwise installs the
+  entry continuation only on the unused nonterminal single-use gate.
+- enterAndWaitForResolution increments entry, installs the resolution
+  continuation and waiter count, then takes/clears the entry continuation
+  before resuming its local value. resolve sets the terminal scalar snapshot,
+  then takes/clears the resolution continuation before resuming its local value
+  with the exact GateResolution.
+- Every continuation is resumed at most once and only after its property is
+  nil. Normal return, resolution, error and cancellation leave both nil.
+  Each cancellation handler may create exactly one scoped relay Task that calls
+  only the existing resolve(.timedOut); it adds no method, helper, global or
+  stored task. Pre-entry cancellation clear/resumes the entry continuation by
+  throwing CancellationError. Resolution-wait cancellation clear/resumes with
+  timedOut, after which enterAndWaitForResolution immediately checks
+  Task.isCancelled and throws CancellationError. The first actor-isolated
+  terminal transition wins; a losing cancellation relay performs no resume.
+  Later wait/enter throws CancellationError and later resolve throws
+  duplicateResolution.
+- snapshot() throws -> GateSnapshot returns only the four scalars and throws
+  HarnessError.outstandingResource if a terminal gate retains a continuation.
+  There is no additional public field, continuation, long-lived/untracked task,
+  global, polling, sleep, clock, helper or real wait.
+
+repair_2_observable_action_resource_closure:
+- Remove the rejected R1 private-session counter entirely from
+  DictationSnapshot, expected values, stop conditions and review checks.
+- Add exactly
+  terminalActionCompletedWithObservedResourcesClosed:Bool.
+- It becomes true only after the awaited public finish/cancel action returns,
+  the public controller action state is success/idle respectively, duration
+  monitor start/stop counts match, journal/recovery/provider outstanding counts
+  are zero and all harness-owned continuations/tasks have been awaited and
+  report outstanding zero. It remains false before convergence.
+- This field does not observe, infer or count private finishSession,
+  activeSessionID or any private canonical cleanup. A harness-maintained
+  canonical-cleanup counter is forbidden. Success and cancel both require the
+  Boolean true at comparison.
+
+repair_3_protocol_overloads:
+- No overload is allowed beyond exact production protocol witnesses.
+- DevVlogsPhase0BE07RecorderSpy implements exactly both production
+  AudioRecorderService startRecording witnesses and no additional
+  startRecording overload.
+- Global functions, extensions, extra/nested helper types and custom overloads
+  remain forbidden. Exact protocol witnesses are required rather than
+  prohibited.
+
+hard_stops:
+- Gate does not have exactly the two named private optional continuation
+  properties; adds public continuation state; resumes while stored or more than
+  once; retains one on any exit; cancellation is nonterminal; or uses a
+  task beyond the one existing-resolve cancellation relay, global, poll, sleep,
+  clock or helper: reject or functional fail.
+- terminalActionCompletedWithObservedResourcesClosed is false, absent or
+  fabricated from a harness counter/private-session inference rather than the
+  named public/injected evidence: functional fail and reject cleanup evidence.
+- RecorderSpy lacks either production startRecording witness or adds any
+  overload beyond exact protocol witnesses: structural stop.
+- Every unchanged R1 stop condition remains binding.
+
+independent_review_matrix: Review-R2 checks the exact one-path R2 diff and
+unchanged R1 envelope; the four-field public GateSnapshot; exactly two private
+optional continuations; store-before-entry-notify; clear-before-exact-once
+resume; the single existing-resolve cancellation relay, first-terminal-wins
+race behavior and nil on every exit; observable Boolean
+derivation with no private-session/fabricated-cleanup claim; exact two
+startRecording witnesses and no extra overload; all prior case/snapshot/
+schema/provenance/timeout/redaction/dirty-state checks. Any hard stop rejects.
+
+scope_check: Edited only docs/dev-vlogs-execution-registry.md. Unrelated storage
+implementation paths were preserved and excluded. No spec, product, source,
+test, script or QA implementation; build/test/runtime/process; microphone,
+camera, storage, provider, Keychain, permission, media or UI action occurred.
+
+deviations: none. No design expansion beyond the three rejected contradictions.
+residual: Accepted R2 would still prove only deterministic fake-backed E07.
+Shipping shared-audio lease and real hardware/media/storage/provider behavior
+remain unproven. DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R2
+runtime_or_visual_handoff: none
+~~~
 
 ### `DV-G0-REGISTRY-REVIEW`
 
@@ -4144,14 +4255,16 @@ The closed enum cases are:
   symlinkNotAllowed, invalidHeading, invalidSchema, duplicateKey,
   invalidCardinality, invalidOrder, forbiddenContent.
 
-No global function, extension, extra helper type, overload or nested helper is
-permitted. Production protocol witnesses use the current protocol declarations
-verbatim and do not expand the helper API. The only additional named methods
-are:
+No global function, extension, extra helper type or nested helper is permitted.
+No overload is permitted beyond the exact production protocol witnesses;
+RecorderSpy implements exactly both AudioRecorderService startRecording
+witnesses and no additional startRecording overload. Production protocol
+witnesses use the current protocol declarations verbatim and do not expand the
+helper API. The only additional named methods are:
 - TemporaryAccessToken: init(completedArtifact:identity:),
   acquire(completedArtifact:), release(_:), snapshot().
 - SlowPreparationGate: enterAndWaitForResolution(), waitUntilEntered(),
-  resolve(_:), snapshot().
+  resolve(_:), snapshot() throws -> GateSnapshot.
 - Observer: init(caseID:slowPreparationGate:), prepare(),
   finish(completedArtifact:temporaryAccessToken:), cancel(),
   destinationDidDisconnect(), snapshot(), and private complete(_:).
@@ -4210,11 +4323,15 @@ recorder stop and completed artifact; recovery checkpoint; journal release;
 userFinished/historyCheckpoint/providerAuthorized terminal; transcribing;
 credential reuse; provider seal; dispatch/request; accept; usage; correction;
 optional translation; accepted output/success state; History; recovery
-removal; output; cache; duration/provider/session/task cleanup.
+removal; output; cache; awaited public finish-action return; and closure of all
+injected/publicly observable duration, provider, journal, recovery and
+harness-task resources.
 
 Baseline cancel order is settings; credential; journal prepare; recorder start;
 recording; cancel; recorder cancel; journal discard; explicitUserDiscard/
-explicitlyDiscarded/providerAuthorized=false; idle; monitor/session cleanup.
+explicitlyDiscarded/providerAuthorized=false; idle; awaited public cancel-action
+return; and closure of all injected/publicly observable duration, journal,
+recovery, provider and harness-task resources.
 Provider seal/dispatch/request/accept, usage, correction, translation, History,
 output and cache remain zero.
 
@@ -4236,15 +4353,59 @@ and observer capturing, observer cancel/cleanup and duplicate rejection, then
 canonical baseline cancel. Observer failure never cancels canonical audio.
 
 slow_barrier:
-DevVlogsPhase0BE07SlowPreparationGate has only enterCount:Int,
-resolutionCount:Int, waiterCount:Int and isResolved:Bool. Start observer prepare;
-await waitUntilEntered; assert 1/0/1/false; start canonical controller; await
-.recording; while gate is unresolved assert recorder start 1, resolution 0 and
-observer terminal 0; only then resolve(.timedOut); await
-cameraPreparationTimedOut; assert 1/1/0/true; finish canonical dictation; reject
-duplicate observer terminal. Task.sleep, ContinuousClock, asyncAfter, polling
-and real waiting are forbidden. Failure to reach .recording before resolution
-is a functional fail.
+DevVlogsPhase0BE07SlowPreparationGate's public GateSnapshot has only
+enterCount:Int, resolutionCount:Int, waiterCount:Int and isResolved:Bool. Its
+only continuation storage is exactly these two private optional one-shot
+properties and no others:
+- entryContinuation: CheckedContinuation<Void, Error>?
+- resolutionContinuation: CheckedContinuation<GateResolution, Error>?
+
+The actor-isolated gate is single-use. waitUntilEntered returns immediately
+when enterCount is already one; otherwise it stores entryContinuation only when
+both continuation fields are nil and the gate is not terminal. A second entry
+wait or a second enter throws duplicateEntry. enterAndWaitForResolution first
+increments enterCount, installs resolutionContinuation, sets waiterCount to
+one, then takes and clears entryContinuation before resuming that local value
+with Void. This ordering guarantees that an awakened entry waiter can observe
+the installed resolution waiter.
+
+resolve(.ready|.timedOut) requires the installed resolution continuation. It
+sets resolutionCount to one, waiterCount to zero and isResolved to true, then
+takes and clears resolutionContinuation before resuming that local value with
+the exact GateResolution. A second resolution throws duplicateResolution. No
+stored continuation is resumed while still stored, and each stored value is
+resumed exactly once.
+
+Both suspending methods use cancellation handlers whose only relay is one
+scoped Task that invokes the existing resolve(.timedOut) method; no new method,
+helper, global or stored task is allowed. When cancellation occurs before
+entry, that reserved pre-entry resolve path sets resolutionCount to one,
+waiterCount to zero and isResolved to true, takes/clears entryContinuation and
+resumes that local value once by throwing CancellationError. A direct harness
+resolve before entry is forbidden. When cancellation occurs while awaiting
+resolution, resolve performs its normal clear-before-resume with timedOut and
+enterAndWaitForResolution checks Task.isCancelled immediately after suspension,
+then throws CancellationError instead of returning the GateResolution. The
+relay performs no work after the existing resolve returns. Every later wait or
+enter after cancellation throws CancellationError; every later resolve throws
+duplicateResolution and cannot install or resume another continuation.
+
+If cancellation races a normal entry notification or resolution, the actor's
+first terminal transition wins; the losing relay observes the cleared field
+and terminal state, performs no resume and returns. Normal return, resolution,
+error and cancellation leave both private continuation fields nil. No
+additional continuation, long-lived/untracked task, global, helper, polling,
+sleep, clock or real wait is permitted.
+
+The slow case starts observer prepare; awaits waitUntilEntered; asserts public
+snapshot 1/0/1/false; starts the canonical controller; awaits .recording; while
+the gate is unresolved asserts recorder start one, resolution zero and observer
+terminal zero; only then resolves timedOut; awaits cameraPreparationTimedOut;
+calls snapshot() throws -> GateSnapshot, which throws
+HarnessError.outstandingResource if a terminal gate retains either private
+continuation, and asserts the returned public snapshot 1/1/0/true;
+finishes canonical dictation; and rejects the duplicate observer terminal.
+Failure to reach .recording before resolution is a functional fail.
 
 snapshot_schema:
 DevVlogsPhase0BE07DictationSnapshot has exactly:
@@ -4265,8 +4426,19 @@ usageCount:Int; acceptedOutputClass:AcceptedOutputClass;
 lastTranscriptAcceptedCount:Int; historyCount:Int; outputCount:Int;
 cacheCount:Int; terminalCause:TerminalCause;
 terminalDurability:Durability; durationMonitorStartCount:Int;
-durationMonitorStopCount:Int; sessionCleanupCount:Int;
+durationMonitorStopCount:Int;
+terminalActionCompletedWithObservedResourcesClosed:Bool;
 providerOutstandingCount:Int; outstandingTaskCount:Int.
+
+terminalActionCompletedWithObservedResourcesClosed is true only after the
+awaited public finish or cancel action returns, the controller's public action
+state is respectively success or idle, duration monitor start/stop counts are
+equal, journal/recovery/provider outstanding counts are zero, and every
+harness-owned continuation/task has been awaited and reports outstanding zero.
+It is false before those observable conditions converge. It does not count,
+infer or claim private finishSession execution, private activeSessionID reset,
+or any other unobservable canonical session cleanup. No harness-owned counter
+may substitute for this Boolean.
 
 Success values are states idle/recording/transcribing/success, terminal success,
 owner dictationRecorder/1, recorder 1/1/0, all three artifact identities
@@ -4275,15 +4447,16 @@ consumer checks 2 or 3 for translated, journal 1/1/0/0, recovery 1/1/0,
 provider decision 1/authorized true, provider seal/dispatch/request/accept
 1/1/1/1, correction 1, translation only for translated, usage/accepted/
 History/output/cache 1 each, userFinished/historyCheckpoint, monitor 1/1,
-session cleanup 1, and provider/task outstanding 0/0.
+terminalActionCompletedWithObservedResourcesClosed true, and provider/task
+outstanding 0/0.
 
 Cancel values are states idle/recording/idle, terminal cancelled, owner
 dictationRecorder/1, recorder 1/0/1, prepared dictationAudio and finalized/
 provider artifact none, settings/credential 1/1, credential-consumer/mismatch
 0/0, journal 1/0/1/0, recovery all zero, provider decision 1/authorized false,
 all provider/correction/translation/usage/accepted/History/output/cache zero,
-explicitUserDiscard/explicitlyDiscarded, monitor 1/1, cleanup 1 and outstanding
-0/0.
+explicitUserDiscard/explicitlyDiscarded, monitor 1/1, provider/task outstanding
+0/0 and terminalActionCompletedWithObservedResourcesClosed true.
 
 ObserverSnapshot has exactly phases:[ObserverPhase],
 terminal:ObserverTerminal, terminalCount:Int, cleanupCount:Int,
@@ -4584,8 +4757,21 @@ stop_table:
 - Cancel has provider/correction/translation/History/output/cache activity:
   functional fail.
 - Recording does not precede slow-gate resolution: functional fail.
-- Terminal/cleanup is not exact one, duplicate mutates state, or access/journal/
-  recovery/provider/task remains outstanding: functional fail.
+- Gate continuation storage is not exactly the two authorized private optional
+  properties, either continuation is resumed more than once or while stored,
+  normal/cancel/error completion retains one, cancellation is not terminal, or
+  any task other than the single existing-resolve cancellation relay, or any
+  polling/sleep/global/helper, substitutes for it: structural or functional
+  fail as applicable.
+- Observer terminal/cleanup is not exact one, duplicate mutates state, or
+  access/journal/recovery/provider/task remains outstanding: functional fail.
+- terminalActionCompletedWithObservedResourcesClosed is false at comparison,
+  or is derived from a harness counter/private-session inference instead of
+  public action return/state plus injected/public resource evidence: functional
+  fail and reject the cleanup claim.
+- RecorderSpy does not implement exactly both production AudioRecorderService
+  startRecording witnesses, or adds any overload beyond exact production
+  protocol witnesses: structural stop.
 - Baseline differs from expectation, baseline becomes unusable, or pair
   snapshots differ: functional fail.
 - Evidence inventory/schema/order/cardinality/size/redaction violation:
@@ -4598,14 +4784,22 @@ stop_table:
 - W02/W07 presented as E07 proof or an expectation weakened to pass: reject.
 
 independent_review_matrix:
-Review-R1 verifies authority and no spec delta; exact ten-path diff; one
+Review-R2 verifies authority and no spec delta; exact ten-path diff; one
 canonical controller/recorder/microphone; observer completed-value/token-only
 boundary; success/cancel/failure/disconnect/mux/slow ordering; recording before
-slow resolution; ten closed snapshots and equality; terminal/access/cleanup
-cardinality and zero residue; cancel provider/output invariance; eight closed
-evidence schemas and redaction; W02/W07/current-parent provenance; <=500/
-DEBUG/target membership; exact selectors/bounds; residual truth; unrelated
-dirty-state preservation. Any stop-table condition requires rejection.
+slow resolution; exactly two private optional one-shot gate continuations with
+store-before-notify, clear-before-exact-once-resume, terminal cancellation and
+nil-on-all-exits; exactly one scoped cancellation relay that invokes only the
+existing resolve(.timedOut), with the first actor-isolated terminal transition
+winning; unchanged four-scalar public GateSnapshot; ten closed
+snapshots and equality; truthful
+terminalActionCompletedWithObservedResourcesClosed derivation with no private
+session or fabricated-counter claim; observer terminal/access/cleanup
+cardinality and zero residue; exactly both production startRecording witnesses
+and no extra overload; cancel provider/output invariance; eight closed evidence
+schemas and redaction; W02/W07/current-parent provenance; <=500/DEBUG/target
+membership; exact selectors/bounds; residual truth; unrelated dirty-state
+preservation. Any stop-table condition requires rejection.
 
 scope_check: Registry design artifact only. No product/spec/source/test/script/
 QA implementation, build, test, runtime, process, hardware, provider, Keychain,
@@ -6079,17 +6273,17 @@ blocking_findings:
 1. DevVlogsPhase0BE07SlowPreparationGate permits only four scalar fields, but
    its nonpolling enter/wait/resolve API needs retained entry and resolution
    continuations; globals, polling, sleep and extra helpers are forbidden.
-2. sessionCleanupCount has no injected or public observation source because
-   finishSession and activeSessionID are private. A harness-return counter would
-   manufacture canonical cleanup evidence.
+2. The removed R1 private-session cleanup counter has no injected or public
+observation source because finishSession and activeSessionID are private. A
+harness-return counter would manufacture canonical cleanup evidence.
 3. The blanket prohibition on overloads conflicts with the two exact
    AudioRecorderService startRecording protocol witnesses.
 
 smallest_repair: Registry-only R2 by the same design owner. Permit exactly two
 private optional one-shot continuations while retaining the four scalar public
-gate snapshot fields; replace sessionCleanupCount with a truthfully observable
-action-completion/resource-closure field or an existing-source observation
-requiring no product hook; limit the overload ban to additional overloads
+gate snapshot fields; replace the removed private-session counter with a
+truthfully observable action-completion/resource-closure field or source
+observation requiring no product hook; limit the overload ban to additional overloads
 beyond exact protocol witnesses. Add the same rules to the stop/review matrix.
 
 scope_check: Read-only review only. No edit, build, test, app/runtime, process,
