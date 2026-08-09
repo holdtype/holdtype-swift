@@ -5,65 +5,44 @@ protocol DevVlogsStorageCapacityProviding { func usefulCapacity(at destinationUR
 protocol DevVlogsStorageDestinationStateProviding { func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState }
 struct DevVlogsStorageDestinationState: Equatable { let isAvailable: Bool, isLocal: Bool, isReadOnly: Bool }
 enum DevVlogsStorageSkipReason: String, Equatable {
-    case unavailable, nonlocal
-    case readOnly = "read_only"
-    case capacityUnknown = "capacity_unknown"
-    case insufficientCapacity = "insufficient_capacity"
+    case unavailable, nonlocal; case readOnly = "read_only", capacityUnknown = "capacity_unknown"; case insufficientCapacity = "insufficient_capacity"
 }
-enum DevVlogsStoragePreflightResult: Equatable {
-    case proceed(usefulCapacity: Int64, suppliedReserve: Int64)
-    case skip(DevVlogsStorageSkipReason)
-}
+enum DevVlogsStoragePreflightResult: Equatable { case proceed(usefulCapacity: Int64, suppliedReserve: Int64); case skip(DevVlogsStorageSkipReason) }
 struct DevVlogsStoragePreflight {
-    let capacityProvider: any DevVlogsStorageCapacityProviding
-    let destinationStateProvider: any DevVlogsStorageDestinationStateProviding
+    let capacityProvider: any DevVlogsStorageCapacityProviding; let destinationStateProvider: any DevVlogsStorageDestinationStateProviding
     func evaluate(destinationURL: URL, suppliedReserve: Int64) throws -> DevVlogsStoragePreflightResult {
         let state = try destinationStateProvider.state(at: destinationURL)
         guard state.isAvailable else { return .skip(.unavailable) }
         guard state.isLocal else { return .skip(.nonlocal) }
         guard !state.isReadOnly else { return .skip(.readOnly) }
-        guard let capacity = try capacityProvider.usefulCapacity(at: destinationURL) else {
-            return .skip(.capacityUnknown)
-        }
+        guard let capacity = try capacityProvider.usefulCapacity(at: destinationURL) else { return .skip(.capacityUnknown) }
         guard capacity >= suppliedReserve else { return .skip(.insufficientCapacity) }
         return .proceed(usefulCapacity: capacity, suppliedReserve: suppliedReserve)
     }
 }
 struct DevVlogsURLStorageCapacityProvider: DevVlogsStorageCapacityProviding {
     func usefulCapacity(at destinationURL: URL) throws -> Int64? {
-        try destinationURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-            .volumeAvailableCapacityForImportantUsage
+        try destinationURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage
     }
 }
 enum DevVlogsStorageMediaValidation: String, Equatable { case playable, unvalidated, unusable }
 enum DevVlogsStorageClipClassification: String, Equatable { case ready, incomplete, failed }
 enum DevVlogsStorageCleanupClassification: String, Equatable { case complete; case pendingReconnect = "pending_reconnect" }
 struct DevVlogsStorageTerminalState: Equatable {
-    let clip: DevVlogsStorageClipClassification
-    let cleanup: DevVlogsStorageCleanupClassification
+    let clip: DevVlogsStorageClipClassification; let cleanup: DevVlogsStorageCleanupClassification
     static func classify(byteCount: Int64?, validation: DevVlogsStorageMediaValidation,
                          destinationAvailable: Bool) -> Self {
-        let clip: DevVlogsStorageClipClassification
-        if (byteCount ?? 0) <= 0 || validation == .unusable {
-            clip = .failed
-        } else if validation == .playable {
-            clip = .ready
-        } else {
-            clip = .incomplete
-        }
+        let clip: DevVlogsStorageClipClassification = (byteCount ?? 0) <= 0 || validation == .unusable
+            ? .failed : validation == .playable ? .ready : .incomplete
         return Self(clip: clip, cleanup: destinationAvailable ? .complete : .pendingReconnect)
     }
 }
 struct DevVlogsStorageEvidenceRecord: Codable, Equatable {
     let runID: String, caseID: String, attemptID: String
     let destinationClass: String, filesystemClass: String, relativePathClass: String
-    let byteCount: Int64
-    let bookmarkWasStale: Bool
-    let result: String
+    let byteCount: Int64; let bookmarkWasStale: Bool; let result: String
     func encoded() throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(self)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]; return try encoder.encode(self)
     }
 }
 @Suite(.serialized)
@@ -78,14 +57,10 @@ struct DevVlogsStorageFeasibilityTests {
         #expect(root.rootURL.deletingLastPathComponent().standardizedFileURL == expectedPrefix)
         #expect(root.rootURL.lastPathComponent == root.runID.uuidString.lowercased())
         let outside = FileManager.default.temporaryDirectory.appendingPathComponent("outside")
-        #expect(throws: DevVlogsStorageHarnessError.outOfScope) {
-            _ = try root.ownedURL(relativePath: outside.path)
-        }
+        #expect(throws: DevVlogsStorageHarnessError.outOfScope) { _ = try root.ownedURL(relativePath: outside.path) }
         let marker = root.rootURL.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
         try Data(UUID().uuidString.utf8).write(to: marker)
-        #expect(throws: DevVlogsStorageHarnessError.markerMismatch) {
-            try root.cleanup()
-        }
+        #expect(throws: DevVlogsStorageHarnessError.markerMismatch) { try root.cleanup() }
         #expect(FileManager.default.fileExists(atPath: root.rootURL.path))
     }
     @Test func missingMarkerAndSymlinkedComponentCannotAuthorizeCleanupOrIO() throws {
@@ -99,13 +74,10 @@ struct DevVlogsStorageFeasibilityTests {
         try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
         let link = try root.ownedURL(relativePath: "linked-target")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
-        #expect(throws: DevVlogsStorageHarnessError.symbolicLink) {
-            _ = try root.ownedURL(relativePath: "linked-target/clip.mov")
-        }
+        #expect(throws: DevVlogsStorageHarnessError.symbolicLink) { _ = try root.ownedURL(relativePath: "linked-target/clip.mov") }
     }
     @Test func cleanupRemovesOnlyMarkerVerifiedRunRoot() throws {
-        let first = try makeRoot()
-        let second = try makeRoot()
+        let first = try makeRoot(); let second = try makeRoot()
         defer { cleanupIfOwned(second) }
         try first.cleanup()
         #expect(!FileManager.default.fileExists(atPath: first.rootURL.path))
@@ -257,53 +229,29 @@ struct DevVlogsStorageFeasibilityTests {
         #expect(try Data(contentsOf: try root.ownedURL(relativePath: "active/existing.partial")) == bytes)
     }
     @Test func interruptionAndPartialClassificationNeverInventReadyMedia() {
-        #expect(DevVlogsStorageTerminalState.classify(
-            byteCount: 128,
-            validation: .unvalidated,
-            destinationAvailable: false
-        ) == .init(clip: .incomplete, cleanup: .pendingReconnect))
-        #expect(DevVlogsStorageTerminalState.classify(
-            byteCount: 0,
-            validation: .unvalidated,
-            destinationAvailable: false
-        ) == .init(clip: .failed, cleanup: .pendingReconnect))
-        #expect(DevVlogsStorageTerminalState.classify(
-            byteCount: 128,
-            validation: .unusable,
-            destinationAvailable: true
-        ) == .init(clip: .failed, cleanup: .complete))
-        #expect(DevVlogsStorageTerminalState.classify(
-            byteCount: 128,
-            validation: .playable,
-            destinationAvailable: true
-        ).clip == .ready)
+        #expect(DevVlogsStorageTerminalState.classify(byteCount: 128, validation: .unvalidated,
+            destinationAvailable: false) == .init(clip: .incomplete, cleanup: .pendingReconnect))
+        #expect(DevVlogsStorageTerminalState.classify(byteCount: 0, validation: .unvalidated,
+            destinationAvailable: false) == .init(clip: .failed, cleanup: .pendingReconnect))
+        #expect(DevVlogsStorageTerminalState.classify(byteCount: 128, validation: .unusable,
+            destinationAvailable: true) == .init(clip: .failed, cleanup: .complete))
+        #expect(DevVlogsStorageTerminalState.classify(byteCount: 128, validation: .playable,
+            destinationAvailable: true).clip == .ready)
     }
     @Test func unavailableAndReadOnlyStatesSkipWithoutDestinationFallback() throws {
         for reason in [DevVlogsStorageSkipReason.unavailable, .readOnly] {
-            let state = DevVlogsStorageDestinationState(
-                isAvailable: reason != .unavailable,
-                isLocal: true,
-                isReadOnly: reason == .readOnly
-            )
-            let result = try DevVlogsStoragePreflight(
-                capacityProvider: FixedCapacityProvider(capacity: Int64.max),
-                destinationStateProvider: FixedDestinationProvider(state: state)
-            ).evaluate(destinationURL: URL(fileURLWithPath: "/redacted/selected"), suppliedReserve: 1)
+            let state = DevVlogsStorageDestinationState(isAvailable: reason != .unavailable,
+                isLocal: true, isReadOnly: reason == .readOnly)
+            let result = try DevVlogsStoragePreflight(capacityProvider: FixedCapacityProvider(capacity: Int64.max),
+                destinationStateProvider: FixedDestinationProvider(state: state)).evaluate(
+                    destinationURL: URL(fileURLWithPath: "/redacted/selected"), suppliedReserve: 1)
             #expect(result == .skip(reason))
         }
     }
     @Test func evidenceRecordIsRedactedAndContainsNoPathOrBookmarkPayload() throws {
-        let record = DevVlogsStorageEvidenceRecord(
-            runID: "run-1",
-            caseID: "promotion-collision",
-            attemptID: "attempt-1",
-            destinationClass: "internal",
-            filesystemClass: "apfs",
-            relativePathClass: "active_fragment",
-            byteCount: 13,
-            bookmarkWasStale: false,
-            result: "incomplete"
-        )
+        let record = DevVlogsStorageEvidenceRecord(runID: "run-1", caseID: "promotion-collision",
+            attemptID: "attempt-1", destinationClass: "internal", filesystemClass: "apfs",
+            relativePathClass: "active_fragment", byteCount: 13, bookmarkWasStale: false, result: "incomplete")
         let payload = try #require(String(data: record.encoded(), encoding: .utf8))
         #expect(!payload.contains(FileManager.default.temporaryDirectory.path))
         #expect(!payload.contains("/Users/"))
@@ -315,21 +263,27 @@ struct DevVlogsStorageFeasibilityTests {
         let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let wrapperURL = repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_external_storage.sh")
         let wrapper = try String(contentsOf: wrapperURL, encoding: .utf8)
-        let start = try #require(wrapper.range(of: "run_external_storage_test() {")); let tail = wrapper[start.lowerBound...]
-        let end = try #require(tail.range(of: "\n}\n")); let function = tail[..<end.upperBound]
+        func shellFunction(_ name: String) throws -> Substring {
+            let start = try #require(wrapper.range(of: "\(name)() {")); let tail = wrapper[start.lowerBound...]
+            let end = try #require(tail.range(of: "\n}\n")); return tail[..<end.upperBound]
+        }
         let shell = """
-        \(function)
+        \(try shellFunction("run_external_storage_test"))
         run_bounded() { /usr/bin/printf '%s\\n' "$@"; }
+        validate_task_home() { return 0; }
         test_timeout_seconds=180 volume_root=/Volumes/redacted-fixture
         expected_class=external-ssd expected_filesystem=apfs case_id=mechanics_case
         run_id=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee
+        task_home=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34
         run_external_storage_test
         """
-        let process = Process(); let output = Pipe(); process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-c", shell]; process.standardOutput = output; try process.run(); process.waitUntilExit()
+        let process = Process(); let output = Pipe(); process.executableURL = URL(fileURLWithPath: "/bin/zsh"); process.arguments = ["-c", shell]
+        process.standardOutput = output; try process.run(); process.waitUntilExit()
         let arguments = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
         #expect(process.terminationStatus == 0)
-        for expected in ["HOLDTYPE_AUTOMATION=1", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip",
+        for expected in ["HOME=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34",
+            "CFFIXED_USER_HOME=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34",
+            "HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME=1", "HOLDTYPE_AUTOMATION=1", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip",
             "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1", "/usr/bin/xcodebuild", "test-without-building",
             "-only-testing:HoldTypeTests/DevVlogsExternalStorageRuntimeTests"] { #expect(arguments.split(separator: "\n").contains(Substring(expected))) }
         let rejectedRoot = "/Volumes/private-fixture-token"
@@ -340,10 +294,43 @@ struct DevVlogsStorageFeasibilityTests {
         for (arguments, expectedStatus) in nonExecuteCases {
             let check = Process(); let captured = Pipe(); check.executableURL = URL(fileURLWithPath: "/bin/zsh"); check.arguments = [wrapperURL.path] + arguments
             check.standardOutput = captured; check.standardError = captured; try check.run(); check.waitUntilExit()
-            let text = String(decoding: captured.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); #expect(check.terminationStatus == expectedStatus); #expect(!text.contains("HOLDTYPE_AUTOMATION"))
-            #expect(!text.contains("HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI") && !text.contains("HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST") && !text.contains(rejectedRoot))
+            let text = String(decoding: captured.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); #expect(check.terminationStatus == expectedStatus)
+            for secret in ["HOME=", "CFFIXED_USER_HOME", "HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME", "HOLDTYPE_AUTOMATION", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI",
+                "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST", rejectedRoot] { #expect(!text.contains(secret)) }
         }
+        let homeFunctions = try ["task_home_path_identity", "create_task_home", "validate_task_home",
+            "cleanup_task_home", "cleanup"].map { try shellFunction($0) }.joined(separator: "\n")
+        let lifecycleShell = """
+        \(homeFunctions)
+        zmodload zsh/system
+        metadata_timeout_seconds=15
+        run_metadata_probe() { "$@"; }
+        terminate_supervisor() { return 0; }
+        stop_caffeinate() { return 0; }
+        run_case() {
+            local action=$1 expected=$2 actual
+            ( task_home="" task_home_identity=""; create_task_home || exit 71
+              trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
+              case "$action" in success) exit 0;; failure) exit 9;; timeout) exit 124;;
+                  int) kill -INT $sysparams[pid];; term) kill -TERM $sysparams[pid];; esac )
+            actual=$?; [[ "$actual" == "$expected" ]]
+        }
+        run_case success 0 && run_case failure 9 && run_case timeout 124 &&
+            run_case int 130 && run_case term 143 || exit 72
+        task_home="" task_home_identity=""; create_task_home || exit 73; retained_home=$task_home
+        sibling="${task_home}.sibling"; /bin/mkdir -m 700 "$sibling" || exit 74
+        /bin/chmod 755 "$task_home"; cleanup_task_home && exit 74
+        [[ -d "$retained_home" ]] || exit 75
+        /bin/chmod 700 "$task_home"; cleanup_task_home || exit 76
+        [[ ! -e "$retained_home" && -d "$sibling" ]] || exit 77; /bin/rmdir "$sibling" || exit 78
+        print -r -- home_cleanup_matrix=pass
+        """
+        let lifecycle = Process(); let lifecycleOutput = Pipe(); lifecycle.executableURL = URL(fileURLWithPath: "/bin/zsh"); lifecycle.arguments = ["-c", lifecycleShell]
+        lifecycle.standardOutput = lifecycleOutput; lifecycle.standardError = lifecycleOutput; try lifecycle.run(); lifecycle.waitUntilExit()
+        let result = String(decoding: lifecycleOutput.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        #expect(lifecycle.terminationStatus == 0); #expect(result == "home_cleanup_matrix=pass\n")
     }
+    @Test func hostedFoundationPathsAreConfinedBeforeExternalIO() throws { if getenv("HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME") != nil { try validateFoundationStorageIsolation() } }
     @Test func externalAuthorityEvidenceIsClosedAndFailClosedWithoutExternalIO() throws {
         let root = URL(fileURLWithPath: "/Volumes/redacted-fixture", isDirectory: true)
         let authorization = DevVlogsExternalStorageAuthorization(volumeRootURL: root,
@@ -445,6 +432,7 @@ struct DevVlogsExternalStorageRuntimeTests {
     @Test func explicitExternalRootRunsBoundedMechanicsOnlyWhenEnabled() throws {
         guard let configuration = try DevVlogsExternalStorageRuntimeConfiguration.load() else { return }
         do {
+            try validateFoundationStorageIsolation()
             let root = try DevVlogsStorageRunRoot(runID: configuration.runID,
                 authority: .explicitlyAuthorizedExternal(configuration.authorization))
             defer { let cleanup = root.cleanupClassification()
@@ -478,17 +466,27 @@ struct DevVlogsExternalStorageRuntimeTests {
         }
     }
 }
-private struct FixedCapacityProvider: DevVlogsStorageCapacityProviding {
-    let capacity: Int64?; func usefulCapacity(at destinationURL: URL) throws -> Int64? { capacity }
+private func validateFoundationStorageIsolation() throws {
+    let fileManager = FileManager.default; let home = fileManager.homeDirectoryForCurrentUser.resolvingSymlinksInPath()
+    let prefix = "holdtype-dev-vlogs-storage-home."; let name = home.lastPathComponent
+    guard home.deletingLastPathComponent().path == "/private/tmp", name.hasPrefix(prefix),
+          name.dropFirst(prefix.count).count == 8,
+          name.dropFirst(prefix.count).allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) }) else {
+        throw DevVlogsStoragePrivateHomeError.homeDirectory }
+    guard let applicationSupport = fileManager.urls(for: .applicationSupportDirectory,
+        in: .userDomainMask).first?.resolvingSymlinksInPath() else { throw DevVlogsStoragePrivateHomeError.applicationSupport }
+    let recovery = applicationSupport.appendingPathComponent("HoldType", isDirectory: true)
+        .appendingPathComponent("TranscriptionRecovery", isDirectory: true).standardizedFileURL
+    let homeComponents = home.pathComponents
+    guard [applicationSupport, recovery].allSatisfy({ $0.pathComponents.count > homeComponents.count &&
+        Array($0.pathComponents.prefix(homeComponents.count)) == homeComponents }) else {
+        throw DevVlogsStoragePrivateHomeError.descendant }
 }
-private struct FixedDestinationProvider: DevVlogsStorageDestinationStateProviding {
-    let state: DevVlogsStorageDestinationState; func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState { state }
-}
-struct CapacityCase: CustomTestStringConvertible, Sendable {
-    let name: String; let state: DevVlogsStorageDestinationState; let capacity: Int64?
-    let reserve: Int64; let expected: DevVlogsStoragePreflightResult
-    var testDescription: String { name }
-}
+private enum DevVlogsStoragePrivateHomeError: Error { case homeDirectory, applicationSupport, descendant }
+private struct FixedCapacityProvider: DevVlogsStorageCapacityProviding { let capacity: Int64?; func usefulCapacity(at destinationURL: URL) throws -> Int64? { capacity } }
+private struct FixedDestinationProvider: DevVlogsStorageDestinationStateProviding { let state: DevVlogsStorageDestinationState; func state(at destinationURL: URL) throws -> DevVlogsStorageDestinationState { state } }
+struct CapacityCase: CustomTestStringConvertible, Sendable { let name: String; let state: DevVlogsStorageDestinationState; let capacity: Int64?
+    let reserve: Int64; let expected: DevVlogsStoragePreflightResult; var testDescription: String { name } }
 private let capacityCases: [CapacityCase] = [
     .init(name: "unavailable", state: .init(isAvailable: false, isLocal: true, isReadOnly: false), capacity: 100, reserve: 50, expected: .skip(.unavailable)),
     .init(name: "read-only", state: .init(isAvailable: true, isLocal: true, isReadOnly: true), capacity: 100, reserve: 50, expected: .skip(.readOnly)),

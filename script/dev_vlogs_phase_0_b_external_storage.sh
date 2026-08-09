@@ -23,6 +23,8 @@ group_member_pids=()
 group_state="uncertain"
 caffeinate_pid=""
 caffeinate_identity=""
+task_home=""
+task_home_identity=""
 reaped_exit_code=70
 
 usage() {
@@ -141,6 +143,38 @@ fi
 
 run_metadata_probe() {
     "$timeout_executable" --signal=TERM --kill-after=2s "$metadata_timeout_seconds" "$@"
+}
+
+task_home_path_identity() {
+    local path="$1" details
+    [[ "${path:h}" == /private/tmp &&
+       "${path:t}" =~ '^holdtype-dev-vlogs-storage-home\.[A-Za-z0-9]{8}$' &&
+       -d "$path" && ! -L "$path" && "${path:A}" == "$path" ]] || return 70
+    details=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp|%d|%i' "$path" 2>/dev/null) || return 70
+    [[ "$details" == "$(/usr/bin/id -u)|700|"* ]] || return 70
+    print -r -- "$details"
+}
+
+create_task_home() {
+    [[ -z "$task_home" && -z "$task_home_identity" ]] || return 70
+    task_home=$(run_metadata_probe /usr/bin/mktemp -d \
+        /private/tmp/holdtype-dev-vlogs-storage-home.XXXXXXXX) || return 70
+    task_home_identity=$(task_home_path_identity "$task_home") || return 70
+}
+
+validate_task_home() {
+    local current
+    [[ -n "$task_home" && -n "$task_home_identity" ]] || return 70
+    current=$(task_home_path_identity "$task_home") || return 70
+    [[ "$current" == "$task_home_identity" ]] || return 70
+}
+
+cleanup_task_home() {
+    [[ -n "$task_home" ]] || return 0
+    validate_task_home || return 70
+    run_metadata_probe /bin/rm -rf -- "$task_home" || return 70
+    [[ ! -e "$task_home" && ! -L "$task_home" ]] || return 70
+    task_home=""; task_home_identity=""
 }
 
 run_external_preflight() {
@@ -368,7 +402,11 @@ stop_caffeinate() {
 cleanup() {
     local exit_code=$?
     trap - EXIT INT TERM
-    terminate_supervisor || exit_code=70
+    if ! terminate_supervisor; then
+        exit_code=70
+    elif ! cleanup_task_home; then
+        exit_code=70
+    fi
     stop_caffeinate || exit_code=70
     exit "$exit_code"
 }
@@ -416,7 +454,11 @@ run_bounded "$build_timeout_seconds" /usr/bin/xcodebuild \
     build-for-testing
 
 run_external_storage_test() {
+    validate_task_home || return 70
     run_bounded "$test_timeout_seconds" /usr/bin/env \
+        HOME="$task_home" \
+        CFFIXED_USER_HOME="$task_home" \
+        HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME=1 \
         HOLDTYPE_AUTOMATION=1 \
         HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip \
         HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1 \
@@ -436,6 +478,7 @@ run_external_storage_test() {
 }
 
 validate_volume
+create_task_home || fail "private test HOME could not be established"
 run_external_storage_test
 
 print -r -- "external_storage_case=$case_id result=pass cleanup=complete"
