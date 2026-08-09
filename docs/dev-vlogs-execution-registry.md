@@ -231,8 +231,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2@794b733` | read-only exact design review | accepted | receipt below | Exact ten-path implementation envelope is dependency-ready; runtime remains separately blocked. |
 | `DV-P0B-STORAGE-OBSERVER-W01` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | exact ten paths from accepted R2 design only | rejected | `8d1c48a`; receipt below | Observer/route are sound; production controller and summary require narrow R1. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01@8d1c48a` | read-only exact implementation review | rejected | receipt below | Repair event-derived parsing, bounds, pins, redaction and summary truthfulness. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | running | — | Accepted observer/recovery/route/probe blobs are frozen. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1` terminal artifact | read-only exact repair review | queued | — | No runtime before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | review | `2a25dd3`; receipt below | Controller repair complete; accepted observer/recovery/route/probe blobs remain frozen. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | running | — | No runtime before acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -6937,5 +6937,49 @@ deviations: none.
 residual: Deterministic fake-backed E07 only; no shipping lease or real
 hardware/media/storage/provider proof.
 next_dependency: DV-P0B-E07-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R1
+status: implementation_complete_pending_independent_review
+commit: 2a25dd3fb98a5e0d90385593210e4f01e8666680
+parent: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+
+outcome: The production protected-storage evidence controller now derives
+classification from a closed, expected-run-bound event stream; gives
+concurrent uncertainty first-applicable priority; enforces one absolute
+900-second inner deadline plus a real 930-second outer supervisor; creation-
+pins TMPDIR/logs/bin/probe; and suppresses or redacts private diagnostics.
+The W01 summary now truthfully discloses the excluded pre-repair route.
+
+changed_paths:
+- script/dev_vlogs_phase_0_b_protected_storage_observer.sh
+- HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverControllerTests.swift
+- docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md
+
+evidence: Production parsing rejects malformed/orphan/duplicate/mismatched
+streams and feeds exact owner/mutation/result/scope facts to classification.
+TERM-ignoring inner/outer fixtures close within bounds; expired work starts no
+new command. Identity-replacement fixtures fail closed while preserving
+original/replacement/sibling objects. All seven frozen W01 blobs match.
+
+checks: Focused observer/host/router 30/30, final controller 11/11, protected
+recovery/capture/auth/preview 58 Swift Testing + 5 XCTest, signed Debug/codesign,
+unsigned Release and key/string isolation, zsh CLI matrix, C probe build,
+structure, exact cleanup and residue audits passed.
+
+scope_check: Exact three paths; no external storage, observer --execute, live
+protected-content access, Camera/TCC/Keychain/provider/media or product
+runtime. Existing inert host, observer, recovery hooks, C probe and external
+wrapper remain unchanged.
+deviations: A deterministic ps-indentation fixture exposed a process-identity
+normalization defect, repaired within scope. Dispatch parent text was stale;
+the commit used the then-current disjoint E07 parent without rewriting history.
+residual: Independent review remains mandatory. Non-run-owned writers may
+still classify truthfully as still_unknown. No runtime authority is granted.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1.
 runtime_or_visual_handoff: none
 ```
