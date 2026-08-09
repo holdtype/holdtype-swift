@@ -241,8 +241,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | rejected | `079fc03`; receipt below | Failure-safe init passes; sequential rollback and replacement identity remain unsafe. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | review | `0058993`; receipt below | Identity-bound atomic evidence commit implemented; independent review pending. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | rejected | `0058993`; receipt below | Atomic swap exists; creation, cleanup, commit reconciliation and success truth remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | rejected | receipt below | Return syscall-boundary and terminal-truth R6; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | running | — | Exclusive fd creation, post-swap reconciliation, safe cleanup and residual-aware success. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7468,5 +7470,52 @@ deviations: None. One unrelated review-owned temp root was observed and left
 untouched.
 residual: Independent review only; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5
+status: rejected
+reviewed_commit: 005899385a1aa52b92b022aa2c8dbeb85cef5459
+parent: 7f80a4cc42dabd3e822c73f1a0342b1a012a8106
+
+accepted_evidence: Exact three paths/current blobs/modes and all protected
+blobs pass. Local SDK supports renameatx_np RENAME_SWAP. The single swap point,
+complete staging validation, failure-safe retained tree, normal final eight
+files, focused private suites, signed Debug and Release isolation pass.
+
+blocking_findings:
+1. Staged file creation checks absence then uses ordinary redirection. A seam-
+installed mode-0600 replacement was truncated and accepted.
+2. Displaced-tree cleanup revalidates an absolute path then calls path-based
+unlink/rmdir. A replacement between validation and consumption was deleted.
+3. Displaced-safe cleanup failure is converted to status 0; durable evidence
+and public output can claim cleanup complete while a retained failure-safe tree
+exists. Tests expected this false-success path and did not exercise public
+success emission.
+4. Swap helper nonzero/timeout cannot distinguish failure before swap from
+interruption after commit. Tests cover only pre-helper failure.
+5. Per-object descriptor identity claims are incomplete; directory link count
+and file creation/pinning lack fd-bound proof.
+
+smallest_repair: Create/write/chmod/fstat each staged file through exclusive
+descriptor-relative O_NOFOLLOW descriptors and pin full identity. Reconcile
+helper timeout/nonzero by exact pre/post path identities so committed versus
+uncommitted is unambiguous. Never delete through separately validated mutable
+paths; use one descriptor-relative helper boundary or retain the coherent
+displaced tree on uncertainty. Any retained displaced-safe residual must be
+encoded in durable terminal state and suppress cleanup-complete/public success.
+Add production replacements, post-swap interruption and public success-gate
+tests. Preserve exact three paths and accepted prior behavior.
+
+scope_check: Read-only review; no live HOME/protected inspection, observer
+--execute, external volume, Camera/TCC/Keychain/provider/media action or edit.
+deviations: none.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R6, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
 runtime_or_visual_handoff: none
 ```
