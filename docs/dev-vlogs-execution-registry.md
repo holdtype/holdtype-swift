@@ -140,7 +140,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | rejected | `f989aa8`; receipt below | Full-pipeline timeout closed; exact-object deletion remains unproven. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
 | `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
-| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 | no writable scope | pending | — | Choose a narrow permission-only retained-root residual or a privileged/different-UID cleanup boundary. |
+| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 and W07 R1 review | no writable scope | pending | — | Choose a narrow Debug-only same-UID trusted boundary for permission/handoff evidence, or a privileged/different-UID cleanup boundary. |
 | `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
 | `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | rejected | `7fbeab8`; receipt below | Functional fail is supported, but evidence incorrectly attributes all unavailable details to watcher loss. |
 | `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | rejected | receipt below | Three-path evidence-only causal-wording repair required; no runtime retry. |
@@ -148,8 +148,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-R06-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | R06 evidence repair `323844e` | read-only exact three-path repair | accepted_with_residual | receipt below | Evidence is truthful; exact mismatch and realized metrics remain unavailable from R06. |
 | `DV-P0B-CAPTURE-W07` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a`; accepted R06 evidence | accepted R06 review R1 | exact Debug event/launch/script, four focused test files, W01 summary | rejected | `fc514a7`; receipt below | Preservation diagnostics pass; handoff is deleted at EXIT and lacks closed schema/ancestor pinning. |
 | `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | rejected | receipt below | Three-path handoff-only repair required; no hardware retry. |
-| `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | review | `eede551`; receipt below | Retained external snapshot, descriptor-pinned ancestry, closed schema/duplicate rejection, bounded behavioral tests implemented. |
-| `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | running | — | No hardware retry before acceptance. |
+| `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | rejected | `eede551`; receipt below | Snapshot survives cleanup, but post-exit exact identity/delete, same-size mutation, schema completeness, and signal cleanup remain open. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | rejected | receipt below | R2 must not begin until the same-UID cleanup trust boundary is decided. |
+| `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; cleanup decision | script, hardware handoff tests, W01 summary only | blocked | — | Repair schema/mutation/signal/consumer authority after user selects a viable cleanup threat model. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -273,9 +274,13 @@ new HoldType preset or control; HoldType simply does not downsample it.
   not closed, and ancestor replacement could escape the run root. Preservation
   mappings/stage evidence passed. Three-path W07-R1 repair is running; camera,
   finalizer, probe, comparator, and accepted Swift diagnostic blobs remain
-  protected. W07-R1 repair `eede551` is in independent review after 73/73 full
-  tests and 54 adversarial handoff cases. No hardware retry precedes
-  independent acceptance. The
+  protected. W07-R1 repair `eede551` was rejected after review proved the
+  retained snapshot still lacks immutable post-exit identity/exact cleanup and
+  the schema admits impossible partial evidence. Exact cleanup again reaches
+  the Darwin same-UID platform limit already established by E07; W07-R2 is
+  blocked on the shared trust-boundary decision rather than repeating another
+  pathname-delete repair. No hardware retry precedes that decision and repair.
+  The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2770,6 +2775,42 @@ runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAPTURE-W07-REVIEW-R1` of `eede551`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: The retained sibling snapshot survives raw cleanup and production
+hooks pass, but immutable post-exit evidence authority and exact cleanup are
+not established; the validator also accepts partial schemas the protected Swift
+route cannot emit.
+retained_lifecycle: Separate root/snapshot survive EXIT. A signal window between
+mktemp and ownership assignment can orphan a root without cleanup authority.
+descriptor_findings: Post-exit token/fixed-name authority has no pinned identity
+or digest; consumer reads/deletes by pathname. Failed-publication cleanup closes
+its proving FD before pathname unlink. Same-inode same-size source mutation is
+undetected. Raw cleanup remains mutable-path after descriptors close.
+schema_findings: Ready metrics omit fields guaranteed by protected probes;
+generic IDs and impossible terminal categories can pass. Closed-schema and
+immutable-snapshot claims are therefore false.
+checks_run: Exact three-path scope, structure, syntax/help, focused 5/5 actual
+production hooks, settings/artifact/protected-blob audits, independent post-
+exit replacement/mutation/schema/cleanup probes, redaction and residue checks.
+protected_owners: All accepted W07 Swift, media, product, permission, project,
+plist, and entitlement blobs unchanged.
+exact_repair: Script, handoff tests, and W01 summary only. Repair post-exit
+identity/digest and consumer cleanup authority, failed-output cleanup, in-place
+mutation detection, preparation-signal ownership, raw cleanup, and exact schema.
+scope_check: Read-only; no runtime or repository change.
+residual: The exact cleanup requirement reaches the same Darwin same-UID
+path-deletion limit established by E07; user/protocol trust-boundary authority
+is required before a truthful R2 envelope.
+next_dependency: DV-P0B-CAMERA-AUTH-CLEANUP-DECISION, then W07-R2 and review.
+changed_paths: none
+```
 
 ### `DV-P0B-CAPTURE-W07-REVIEW` of `fc514a7`
 
