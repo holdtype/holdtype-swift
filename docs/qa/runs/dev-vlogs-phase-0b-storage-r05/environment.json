@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "packet_id": "DV-P0B-STORAGE-R05",
+  "captured_at_utc": "2026-08-09T18:34:39Z",
+  "product_commit": "c54c798f1543f03cfcd0d0e87d7b6320a256a22e",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "host": {
+    "os": "macOS",
+    "os_version": "26.6",
+    "os_build": "25G72",
+    "architecture": "arm64",
+    "machine_model": "Mac16,11",
+    "xcode_version": "26.6",
+    "xcode_build": "17F113"
+  },
+  "accepted_provenance": {
+    "external_seam_reviewed_commit": "a50026aa53d93c0808ac84259f05759073434fdb",
+    "value_free_inert_host_commit": "7b1ba8deae6099ba7416751a894e0ca3ad1582fb",
+    "private_home_repair_commit": "029f8364bb80b58c9f77cb49dbaea05869c989fb",
+    "derived_data_identity_repair_commit": "b172bfd69de8e4313e523f39386ade28a2eda8aa",
+    "registry_authority_commit": "c54c798f1543f03cfcd0d0e87d7b6320a256a22e",
+    "current_wrapper_git_blob": "8b8e3e89fbae3ddbc7c0c86ce672d2ec6726b3ab",
+    "current_canonical_test_git_blob": "93be464c0dfc86187795e7dd17b2739c12a228a6",
+    "current_router_git_blob": "7132e7e6d439f7ec9616d4b6252152d6cd76fd49",
+    "current_inert_host_git_blob": "104a17760bed084622b5665e1c253660ad590187",
+    "syntax_check": "pass",
+    "help_check": "pass",
+    "default_fail_closed_check": "pass"
+  },
+  "bounds_seconds": {
+    "build": 600,
+    "test": 180,
+    "wrapper_outer": 840,
+    "controller_outer": 1700
+  },
+  "single_controller_and_guard": {
+    "controller_launches": 1,
+    "controller_noninteractive": true,
+    "controller_restarted": false,
+    "guard_command": "caffeinate -dimsu",
+    "guard_starts": 1,
+    "guard_identity_checkpoints_through_ssd": 5,
+    "controller_and_guard_identity_continuous_through_ssd": true,
+    "guard_replaced": false,
+    "controller_terminal_status": 71,
+    "guard_absent_at_final_observation": true,
+    "explicit_guard_term_and_parent_wait_fact": "not_evidenced"
+  },
+  "cell_invocations": {
+    "external_ssd_hfsplus": 1,
+    "external_hdd_apfs": 0
+  },
+  "functional_result_by_cell": {
+    "external_ssd_hfsplus": "pass",
+    "external_hdd_apfs": "not_invoked_protected_stop"
+  },
+  "protected_metadata": {
+    "baseline_completed": true,
+    "post_ssd_snapshot_completed": true,
+    "final_separate_snapshot_completed": false,
+    "result": "changed",
+    "exact_private_delta_inspected": false,
+    "exact_private_delta_retained": false
+  },
+  "private_home_and_derived_data": {
+    "hosted_confinement_result": "pass",
+    "private_home_and_cffix_selected": true,
+    "shared_identity_pinned_derived_data": true,
+    "wrapper_task_home_cleanup": "complete"
+  },
+  "cleanup": {
+    "external_scratch_prefixes": "absent",
+    "wrapper_task_homes": "absent",
+    "run_owned_app_build_test_processes": "zero",
+    "controller_process": "absent",
+    "guard_process": "absent",
+    "private_controller_and_raw_root": "absent_after_evidence_validation",
+    "explicit_guard_reap_proof": "not_evidenced"
+  },
+  "redaction": {
+    "mount_roots_retained": false,
+    "volume_labels_retained": false,
+    "volume_identifiers_retained": false,
+    "device_nodes_retained": false,
+    "scratch_identifiers_retained": false,
+    "process_identifiers_retained": false,
+    "protected_paths_or_filenames_retained": false,
+    "protected_counts_retained": false,
+    "protected_inodes_or_mtimes_retained": false,
+    "user_paths_retained": false,
+    "private_signing_material_retained": false
+  }
+}
