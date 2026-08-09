@@ -212,15 +212,17 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
 | `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Self-contained W01 contract is complete; independent Review-R1 required. |
-| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1` terminal artifact | read-only exact design review | queued | — | W01 stays blocked until acceptance. |
+| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | running | — | W01 stays blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R1` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645` | read-only exact design review | rejected | receipt below | High-level design is sound; five literal contract gaps require registry-only R2. |
-| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | review | exact receipt below | Five literal gaps repaired; independent Review-R2 required. |
-| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2` terminal artifact | read-only exact design review | queued | — | Implementation and runtime remain blocked until acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | accepted | `794b733`; receipt below | Five literal gaps repaired and independently accepted. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2@794b733` | read-only exact design review | accepted | receipt below | Exact ten-path implementation envelope is dependency-ready; runtime remains separately blocked. |
+| `DV-P0B-STORAGE-OBSERVER-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | exact ten paths from accepted R2 design only | queued | — | Debug observer implementation only; no protected/external/runtime action. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01` terminal artifact | read-only exact implementation review | queued | — | Runtime remains separately user-authorized after implementation acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -6010,5 +6012,48 @@ later runtime needs explicit authority for one nonexternal controller
 invocation and the exact R1 metadata-only/process/private-root operations;
 arbitrary writers can still terminate as still_unknown without attribution.
 next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2
+status: accepted
+reviewed_commit: 794b73314ed44955865f0dbceaf6820e32ea7abc
+parent: 85e546c8a3b7a247fd0f8922c7974e4f0c193882
+scope: exact one-path registry-only design repair; mode 100644 preserved.
+
+outcome: All five Review-R1 blockers are closed without widening the accepted
+observer design or granting runtime authority.
+
+verified_contract:
+- Six literal marker wire values and the exhaustive five-case
+  RecoveryArtifactDeletionKind caller/action/category mapping are closed with
+  no raw-string/default route.
+- Root, system ancestors, home, user-owned components, recovery directory and
+  index have exact no-follow type/uid/mode/link predicates and deterministic
+  missing/error handling.
+- The direct-child caffeinate guard is the first process action and its identity
+  is proven before helper compilation, build, test or app execution.
+- Terminal classification uses a deterministic first-applicable priority;
+  metadata change suppresses success and no `A or B` ambiguity remains.
+- The future runtime envelope contains exactly eight files, including
+  source-feasibility.md.
+
+accepted_direction: The exact ten-path future implementation envelope,
+default-disabled DEBUG seam, non-enumerating observation primitive, phase
+split, bounds, cleanup direction, protected owners and byte-identical external
+wrapper remain unchanged. Durable output is value-free/redacted.
+
+checks: Exact commit/parent/tree/path/mode/blob audit, complete diff review and
+git diff --check. Reviewer performed no source inspection, build, test, process
+query, live-HOME/protected-path/volume/app/Keychain/TCC/runtime action.
+
+residual: Implementation does not authorize runtime. A future arbitrary writer
+may still classify truthfully as still_unknown.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW. Any nonexternal observer runtime requires
+separate explicit authority.
 runtime_or_visual_handoff: none
 ```
