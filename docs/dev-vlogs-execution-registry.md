@@ -221,8 +221,10 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
 | `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | rejected | `0e3b3ad`; receipt below | Scope/provenance pass; cancellation, cleanup ordering and schema closure require narrow R1. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | rejected | receipt below | Return exact two-test-path R1 to the original owner; runtime remains blocked. |
-| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | review | `8f21b2e`; receipt below | Three findings repaired; seven other QA blobs frozen; independent review pending. |
-| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1@8f21b2e` | read-only exact repair review | running | — | Independent acceptance required before E07 can unblock capture review. |
+| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | rejected | `8f21b2e`; receipt below | Cancellation, cleanup and metric order pass; pass/fail cross-schema remains open. |
+| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1@8f21b2e` | read-only exact repair review | rejected | receipt below | Return validator-only R2; E07/runtime remain blocked. |
+| `DV-P0B-E07-W01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW-R1` | two E07 Swift test paths plus manifest-only `environment.json` update | running | — | Close pass/fail summary-matrix-event cross-agreement; preserve accepted R1 repairs. |
+| `DV-P0B-E07-W01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R2` terminal receipt | read-only exact repair review | queued | — | Independent acceptance required before E07 can unblock capture review. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
@@ -6981,5 +6983,46 @@ the commit used the then-current disjoint E07 parent without rewriting history.
 residual: Independent review remains mandatory. Non-run-owned writers may
 still classify truthfully as still_unknown. No runtime authority is granted.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW-R1
+status: rejected
+reviewed_commit: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+parent: f1183f71581e8a9b8330ebfaaf8f0bd8bf08d599
+
+accepted_repairs: Exact three-path scope/current blobs, seven frozen QA blobs,
+manifest-only environment delta and digest pass. The slow-gate joined
+cancellation transition, R4 registration/continuation/snapshot behavior,
+pre-cleaned temporary-access release, exact eight measurement metric order,
+structure, target membership, signed focused 11-test suite and diff hygiene
+all pass.
+
+blocking_finding: Overall summary/environment now allow pass|fail with a named
+unequal case, but matrix validation still requires all ten rows pass/equal and
+event validation requires all pair comparisons equal. A fail claim with an
+all-pass matrix/event stream validates, while a truthful failed row/event is
+rejected. Overall result, named unequal case, matrix row and pair event are not
+cross-checked.
+
+smallest_repair: Same owner and existing two-Swift-plus-manifest ceiling.
+Validator must accept closed pass and fail matrix/event forms; pass iff all ten
+rows/events are equal/pass; fail requires at least one exact named case with
+matrix false/fail and event unequal/false, with duplicates, disagreements and
+unlisted cases rejected. Seven retained pass-evidence blobs stay frozen; only
+the derived source manifest may update. Exercise negative cross-agreement
+forms through existing tests.
+
+scope_check: Read-only review; no edit, app/runtime, camera, microphone,
+provider, Keychain, media, storage or process action.
+deviations: Test-only macOS-15 Synchronization.Mutex availability remains
+acceptable; shipping deployment is unchanged.
+residual: Eventual acceptance remains deterministic fake-backed E07 only; no
+shipping audio lease or real hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01-R2, then independent
+DV-P0B-E07-W01-REVIEW-R2. DV-P0B-CAPTURE-R07 remains blocked.
 runtime_or_visual_handoff: none
 ```
