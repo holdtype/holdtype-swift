@@ -12,6 +12,17 @@ camera_id=""
 capture_duration=10
 case_id="capture"
 permission_timeout_seconds=420
+permission_cleanup_process_seconds=6
+permission_cleanup_root_probe_seconds=1
+permission_cleanup_sensitive_delete_seconds=1
+permission_cleanup_root_delete_seconds=2
+permission_cleanup_reserve_seconds=$((
+    permission_cleanup_process_seconds +
+    permission_cleanup_root_probe_seconds +
+    permission_cleanup_sensitive_delete_seconds +
+    permission_cleanup_root_probe_seconds +
+    permission_cleanup_root_delete_seconds
+))
 timeout_executable=""
 capture_supervisor_pid=""
 permission_app_pid=""
@@ -21,6 +32,7 @@ permission_helper_command=""
 permission_helper_start=""
 permission_helper_inode=""
 permission_deadline=""
+permission_work_deadline=""
 permission_app_exit_status=""
 permission_app_ppid=""
 permission_app_executable=""
@@ -42,6 +54,8 @@ permission_result_bundle=""
 permission_result_executable=""
 permission_result_identifier=""
 permission_result_digest=""
+permission_sensitive_remove_executable="/bin/rm"
+permission_root_remove_executable="/bin/rm"
 observed_permission_ppid=""
 observed_permission_executable=""
 observed_permission_command=""
@@ -176,6 +190,13 @@ permission_timeout_cap() {
     else
         REPLY="$maximum_seconds"
     fi
+}
+
+begin_permission_deadline() {
+    local total_seconds="$1"
+    permission_deadline=$(( SECONDS + total_seconds ))
+    permission_work_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))
+    (( permission_work_deadline > SECONDS ))
 }
 
 permission_sleep() {
@@ -736,20 +757,20 @@ run_permission_result_parser_self_test() {
     [[ "$mode" == "--request-camera-permission" ]] || exit 64
     permission_timeout_seconds="${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-20}"
     [[ "$permission_timeout_seconds" == <-> && "$permission_timeout_seconds" -le 30 ]] || exit 64
-    permission_deadline=$(( SECONDS + permission_timeout_seconds ))
+    begin_permission_deadline "$permission_timeout_seconds" || exit 124
     permission_launcher_result="$resolved_run_root/camera-authorization-launch.json"
     permission_acknowledgment="$resolved_run_root/camera-authorization-ack.json"
     permission_helper_executable="$resolved_run_root/camera-authorization-launcher"
     permission_launch_token=$(printf '%064d' 0)
     permission_app_pid="$$"
-    permission_timeout_cap "$permission_deadline" "$permission_timeout_seconds" || exit 124
+    permission_timeout_cap "$permission_work_deadline" "$permission_timeout_seconds" || exit 124
     timeout_command "$REPLY" xcrun swiftc -D DEBUG -parse-as-library \
         -framework AppKit -framework Foundation \
         "$repository_root/script/DevVlogsPhase0BCameraAuthorizationLauncher.swift" \
         -o "$permission_helper_executable"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" chmod 0700 "$resolved_run_root" "$permission_helper_executable"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     expected_process_digest=$(print -rn -- "$permission_launch_token:$permission_app_pid" |
         timeout_command "$REPLY" shasum -a 256 | awk '{ print $1 }')
     local extra=""
@@ -761,7 +782,7 @@ run_permission_result_parser_self_test() {
         "\"executable_url_matches\":true,\"bundle_identifier_matches\":true," \
         "\"launch_monotonic_ms\":1,\"process_digest\":\"$digest\"$extra}" \
         > "$permission_launcher_result"
-    permission_timeout_cap "$permission_deadline" 5 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 5 || exit 124
     set +e
     verified_result=$(timeout_command "$REPLY" env \
         HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT="$resolved_run_root" \
@@ -775,57 +796,166 @@ run_permission_result_parser_self_test() {
         print -r -- "permission_result_parser_test=rejected acknowledgment=absent"
         exit 65
     fi
-    publish_permission_acknowledgment "$expected_process_digest" "$permission_deadline" || exit 1
+    publish_permission_acknowledgment "$expected_process_digest" "$permission_work_deadline" || exit 1
     [[ -f "$permission_acknowledgment" ]] || exit 1
     print -r -- "permission_result_parser_test=pass acknowledgment=published"
     exit 0
 }
 
-cleanup() {
+run_permission_cleanup_self_test() {
+    local scenario="${HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST:-}"
+    case "$scenario" in
+        cleanup_normal|cleanup_uncertain|cleanup_scrub_timeout|cleanup_scrub_failure|\
+        cleanup_root_timeout|cleanup_root_failure|cleanup_deadline_expired|cleanup_term|cleanup_int) ;;
+        *) exit 64 ;;
+    esac
+    permission_timeout_seconds="${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-14}"
+    [[ "$permission_timeout_seconds" == <-> &&
+        "$permission_timeout_seconds" -gt "$permission_cleanup_reserve_seconds" &&
+        "$permission_timeout_seconds" -le 30 ]] || exit 64
+    begin_permission_deadline "$permission_timeout_seconds" || exit 124
+    permission_launcher_result="$resolved_run_root/camera-authorization-launch.json"
+    permission_acknowledgment="$resolved_run_root/camera-authorization-ack.json"
+    permission_acknowledgment_temporary="$resolved_run_root/.camera-authorization-ack.test"
+    permission_operator_log="$resolved_run_root/permission-launcher.log"
+    permission_launch_token=$(printf '%064d' 0)
+    umask 077
+    print -rn -- "$permission_launch_token" > "$permission_launcher_result"
+    print -rn -- "$permission_launch_token" > "$permission_acknowledgment"
+    print -rn -- "$permission_launch_token" > "$permission_acknowledgment_temporary"
+    print -rn -- "$permission_launch_token" > "$permission_operator_log"
+
+    local slow_remover="$resolved_run_root/slow-remove"
+    if [[ "$scenario" == cleanup_scrub_timeout || "$scenario" == cleanup_root_timeout ]]; then
+        print -r -- '#!/bin/zsh' > "$slow_remover"
+        print -r -- 'sleep 5' >> "$slow_remover"
+        permission_timeout_cap "$permission_work_deadline" 1 || exit 124
+        timeout_command "$REPLY" chmod 0700 "$slow_remover" || exit 1
+    fi
+    case "$scenario" in
+        cleanup_uncertain)
+            permission_supervision_uncertain=1
+            permission_preserve_root=1
+            ;;
+        cleanup_scrub_timeout) permission_sensitive_remove_executable="$slow_remover" ;;
+        cleanup_scrub_failure) permission_sensitive_remove_executable="/usr/bin/false" ;;
+        cleanup_root_timeout) permission_root_remove_executable="$slow_remover" ;;
+        cleanup_root_failure) permission_root_remove_executable="/usr/bin/false" ;;
+        cleanup_deadline_expired) permission_deadline="$SECONDS" ;;
+    esac
+    print -r -- "permission_cleanup_test=$scenario"
+    case "$scenario" in
+        cleanup_term) kill -TERM $$ ;;
+        cleanup_int) kill -INT $$ ;;
+        *) exit 0 ;;
+    esac
+}
+
+permission_verify_run_root() {
+    local deadline="$1"
+    [[ "$resolved_run_root" == "$resolved_temp_root"/holdtype-dv-p0b.* ]] || return 1
+    permission_timeout_cap "$deadline" "$permission_cleanup_root_probe_seconds" || return 1
+    local metadata
+    metadata=$(timeout_command "$REPLY" stat -f '%u:%Lp:%HT' "$resolved_run_root") || return 1
+    [[ "$metadata" == "$EUID:700:Directory" ]]
+}
+
+permission_scrub_sensitive_artifacts() {
+    local deadline="$1"
+    local -a artifacts=()
+    local artifact
+    for artifact in "$permission_launcher_result" "$permission_acknowledgment" \
+        "$permission_acknowledgment_temporary" "$permission_operator_log"; do
+        [[ -n "$artifact" ]] || continue
+        [[ "$artifact" == "$resolved_run_root"/* ]] || return 1
+        artifacts+=("$artifact")
+    done
+    if (( ${#artifacts} > 0 )); then
+        permission_timeout_cap "$deadline" "$permission_cleanup_sensitive_delete_seconds" || return 1
+        timeout_command "$REPLY" "$permission_sensitive_remove_executable" -f -- "${artifacts[@]}" || return 1
+    fi
+    for artifact in "${artifacts[@]}"; do
+        [[ ! -e "$artifact" && ! -L "$artifact" ]] || return 1
+    done
+    permission_launch_token=""
+}
+
+permission_remove_run_root() {
+    local deadline="$1"
+    permission_verify_run_root "$deadline" || return 1
+    permission_timeout_cap "$deadline" "$permission_cleanup_root_delete_seconds" || return 1
+    timeout_command "$REPLY" "$permission_root_remove_executable" -rf -- "$resolved_run_root" || return 1
+    [[ ! -e "$resolved_run_root" && ! -L "$resolved_run_root" ]]
+}
+
+cleanup_permission_mode() {
     local cleanup_status=0
     if [[ -n "$permission_deadline" &&
           ( "$permission_helper_pid" == <-> || ${#permission_registry_pids} > 0 ) ]]; then
         if [[ -z "$permission_helper_pid" && "$permission_quiet_rescan_complete" == 1 ]]; then
             :
         else
-            terminate_permission_processes "$permission_deadline" || cleanup_status=1
+            local process_deadline=$(( SECONDS + permission_cleanup_process_seconds ))
+            (( process_deadline < permission_deadline )) || process_deadline="$permission_deadline"
+            terminate_permission_processes "$process_deadline" || {
+                cleanup_status=1
+                permission_preserve_root=1
+            }
         fi
     fi
-    terminate_capture_supervisor
-    [[ -z "$permission_launcher_result" ]] || rm -f -- "$permission_launcher_result"
-    [[ -z "$permission_acknowledgment" ]] || rm -f -- "$permission_acknowledgment"
-    [[ -z "$permission_acknowledgment_temporary" ]] || rm -f -- "$permission_acknowledgment_temporary"
-    [[ -z "$permission_operator_log" ]] || rm -f -- "$permission_operator_log"
-    permission_launch_token=""
-    (( cleanup_status == 0 )) || return 1
+    permission_verify_run_root "$permission_deadline" &&
+        permission_scrub_sensitive_artifacts "$permission_deadline" || {
+        print -u2 -r -- "cleanup failed: sensitive Camera permission artifacts remain in a private run root"
+        permission_preserve_root=1
+        return 1
+    }
     (( permission_supervision_uncertain == 0 && permission_preserve_root == 0 )) || {
         print -u2 -r -- "cleanup retained: Camera permission process ownership was inconclusive"
         return 1
     }
+    (( cleanup_status == 0 )) || return 1
     if [[ "$permission_supervision_started" == 1 ]]; then
         (( permission_quiet_rescan_complete == 1 )) || return 1
         [[ -z "$permission_helper_pid" ]] || return 1
     fi
-    if [[ "$resolved_run_root" != "$resolved_temp_root"/holdtype-dv-p0b.* ]]; then
-        print -u2 -r -- "cleanup refused: run root did not match the exact temporary prefix"
+    permission_remove_run_root "$permission_deadline" || {
+        print -u2 -r -- "cleanup failed: private Camera permission run root could not be removed"
         return 1
-    fi
-    if [[ -d "$resolved_run_root" ]]; then
+    }
+}
+
+cleanup_nonpermission_mode() {
+    terminate_capture_supervisor
+    if [[ "$resolved_run_root" == "$resolved_temp_root"/holdtype-dv-p0b.* && -d "$resolved_run_root" ]]; then
         rm -rf -- "$resolved_run_root"
+    fi
+}
+
+cleanup() {
+    if [[ "$mode" == "--request-camera-permission" ]]; then
+        cleanup_permission_mode
+    else
+        cleanup_nonpermission_mode
     fi
 }
 finish_cleanup() {
     local prior_status=$?
     trap - EXIT
-    cleanup || prior_status=1
+    cleanup || prior_status=70
     exit "$prior_status"
 }
 trap finish_cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST:-}" ]]; then
-    run_permission_result_parser_self_test
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST:-}" ]]; then
+        case "$HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST" in
+            valid|extra_key|wrong_digest) run_permission_result_parser_self_test ;;
+            cleanup_*) run_permission_cleanup_self_test ;;
+            *) exit 64 ;;
+        esac
+    fi
 fi
 
 cd "$repository_root"
@@ -860,54 +990,56 @@ app_binary=${app_binary:A}
 if [[ "$mode" == "--request-camera-permission" ]]; then
     if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-}" ]]; then
         [[ "$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS" == <-> ]] &&
-            (( HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS >= 1 &&
+            (( HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS >
+                    permission_cleanup_reserve_seconds &&
                HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS <= 420 )) || {
-            print -u2 -r -- "error: Camera permission timeout must be 1 through 420 seconds"
+            print -u2 -r -- "error: Camera permission timeout must preserve the cleanup reserve and not exceed 420 seconds"
             exit 64
         }
         permission_timeout_seconds="$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS"
     fi
-    permission_deadline=$(( SECONDS + permission_timeout_seconds ))
+    begin_permission_deadline "$permission_timeout_seconds" || exit 124
     sanitized_home="$resolved_run_root/home"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" mkdir -p -- "$sanitized_home" || exit 1
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" chmod 0700 "$resolved_run_root" "$sanitized_home" || exit 1
     permission_operator_log="$resolved_run_root/permission-launcher.log"
     permission_launcher_result="$resolved_run_root/camera-authorization-launch.json"
     permission_acknowledgment="$resolved_run_root/camera-authorization-ack.json"
     permission_helper_executable="$resolved_run_root/camera-authorization-launcher"
-    permission_timeout_cap "$permission_deadline" "$permission_timeout_seconds" || exit 124
+    permission_timeout_cap "$permission_work_deadline" "$permission_timeout_seconds" || exit 124
     timeout_command "$REPLY" xcrun swiftc -D DEBUG -parse-as-library \
         -framework AppKit -framework Foundation \
         "$repository_root/script/DevVlogsPhase0BCameraAuthorizationLauncher.swift" \
         -o "$permission_helper_executable"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" chmod 0700 "$permission_helper_executable" || exit 1
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     [[ "$(timeout_command "$REPLY" stat -f '%Lp' "$permission_helper_executable")" == 700 ]] || exit 1
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     if timeout_command "$REPLY" xattr -p com.apple.quarantine \
         "$permission_helper_executable" >/dev/null 2>&1; then
         print -u2 -r -- "error: Camera permission launcher is quarantined"
         exit 1
     fi
     permission_helper_executable=${permission_helper_executable:A}
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     permission_helper_inode=$(timeout_command "$REPLY" stat -f '%i' "$permission_helper_executable")
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     permission_launch_token=$(timeout_command "$REPLY" /bin/sh -c \
         "LC_ALL=C od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]'")
     [[ "$permission_launch_token" =~ '^[0-9a-f]{64}$' ]] || exit 1
     permission_marker="HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT=$resolved_run_root"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     permission_app_inode=$(timeout_command "$REPLY" stat -f '%i' "$app_binary") || exit 1
     [[ "$permission_app_inode" == <-> ]] || exit 1
-    capture_permission_baseline "$permission_deadline" || {
+    capture_permission_baseline "$permission_work_deadline" || {
         print -u2 -r -- "error: Camera permission process baseline was inconclusive"
         permission_preserve_root=1
         exit 1
     }
+    permission_timeout_cap "$permission_work_deadline" 1 || exit 124
     env \
         -u HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS \
         -u OPENAI_API_KEY \
@@ -926,31 +1058,31 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
         --timeout 120 >"$permission_operator_log" 2>&1 &
     permission_helper_pid=$!
     permission_supervision_started=1
-    capture_permission_helper_identity "$permission_deadline" || {
+    capture_permission_helper_identity "$permission_work_deadline" || {
         print -u2 -r -- "error: Camera permission launcher identity could not be established"
         exit 1
     }
     while [[ ! -f "$permission_launcher_result" ]]; do
-        scan_permission_processes "$permission_deadline" || exit 1
+        scan_permission_processes "$permission_work_deadline" || exit 1
         if ! kill -0 "$permission_helper_pid" 2>/dev/null; then
-            reap_permission_app "$permission_deadline" || true
+            reap_permission_app "$permission_work_deadline" || true
             print -u2 -r -- "error: Camera permission launcher exited without a result"
             exit 1
         fi
-        permission_sleep "$permission_deadline" || exit 124
+        permission_sleep "$permission_work_deadline" || exit 124
     done
     while (( ${#permission_registry_pids} == 0 )); do
-        scan_permission_processes "$permission_deadline" || exit 1
+        scan_permission_processes "$permission_work_deadline" || exit 1
         (( ${#permission_registry_pids} <= 1 )) || {
             print -u2 -r -- "error: Camera permission ownership was not unique"
             exit 1
         }
         (( ${#permission_registry_pids} == 1 )) && break
-        permission_sleep "$permission_deadline" || exit 124
+        permission_sleep "$permission_work_deadline" || exit 124
     done
     (( ${#permission_registry_pids} == 1 )) || exit 1
     permission_app_pid="${permission_registry_pids[1]}"
-    permission_timeout_cap "$permission_deadline" 5 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 5 || exit 124
     verified_result=$(timeout_command "$REPLY" env \
         HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT="$resolved_run_root" \
         HOLDTYPE_DEV_VLOGS_PHASE_0B_LAUNCH_TOKEN="$permission_launch_token" \
@@ -963,15 +1095,15 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
         print -u2 -r -- "error: Camera permission launcher result was rejected"
         exit 1
     }
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     expected_process_digest=$(print -rn -- "$permission_launch_token:$permission_app_pid" |
         timeout_command "$REPLY" shasum -a 256 |
         awk '{ print $1 }')
-    publish_permission_acknowledgment "$expected_process_digest" "$permission_deadline" || exit 1
-    wait_for_permission_helper_exit "$permission_deadline" || exit 1
-    reap_permission_app "$permission_deadline" || exit 1
-    while ! permission_terminal_observed "$permission_deadline"; do
-        scan_permission_processes "$permission_deadline" || {
+    publish_permission_acknowledgment "$expected_process_digest" "$permission_work_deadline" || exit 1
+    wait_for_permission_helper_exit "$permission_work_deadline" || exit 1
+    reap_permission_app "$permission_work_deadline" || exit 1
+    while ! permission_terminal_observed "$permission_work_deadline"; do
+        scan_permission_processes "$permission_work_deadline" || {
             print -u2 -r -- "error: Camera permission process ownership was inconclusive"
             exit 1
         }
@@ -979,24 +1111,24 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
             print -u2 -r -- "error: Camera permission process exited before terminal evidence"
             exit 1
         fi
-        (( SECONDS < permission_deadline )) || {
+        (( SECONDS < permission_work_deadline )) || {
             print -u2 -r -- "error: Camera permission request exceeded its bounded deadline"
             exit 124
         }
-        permission_sleep "$permission_deadline" || exit 124
+        permission_sleep "$permission_work_deadline" || exit 124
     done
-    if ! wait_for_permission_exit "$permission_deadline" 5; then
+    if ! wait_for_permission_exit "$permission_work_deadline" 5; then
         print -u2 -r -- "error: Camera permission processes did not exit naturally"
-        terminate_permission_processes "$permission_deadline" || true
+        terminate_permission_processes "$permission_work_deadline" || true
         exit 1
     fi
-    permission_quiet_rescan "$permission_deadline" || {
+    permission_quiet_rescan "$permission_work_deadline" || {
         print -u2 -r -- "error: Camera permission process set did not become quiet"
-        terminate_permission_processes "$permission_deadline" || true
+        terminate_permission_processes "$permission_work_deadline" || true
         exit 1
     }
     (( permission_app_exit_status == 0 )) || exit "$permission_app_exit_status"
-    permission_timeout_cap "$permission_deadline" 2 || exit 124
+    permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" grep -hoE '"category":"[^"]+"' \
         "$resolved_run_root"/dv-p0b-camera-authorization-*/evidence/events.jsonl | tail -1
     print -r -- "camera_permission_request=terminal capture=not_run microphone=not_run"

@@ -103,16 +103,16 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
         for token in ["xcrun swiftc -D DEBUG -parse-as-library", "permission_helper_pid=$!",
                       "--verify-result", "parse_permission_verified_result", "expected_process_digest",
                       "camera-authorization-ack.json", "set -o noclobber", "permission_terminal_observed",
-                      "permission_deadline", "timeout_command \"$REPLY\" ln"] {
+                      "permission_deadline", "permission_work_deadline",
+                      "permission_cleanup_reserve_seconds", "permission_scrub_sensitive_artifacts",
+                      "permission_remove_run_root", "timeout_command \"$REPLY\" ln"] {
             #expect(script.contains(token))
         }
         #expect(!script.contains("plutil -extract"))
         #expect(!script.contains("launcher_result_stat"))
-        #expect(script.contains(
-            "[[ -z \"$permission_acknowledgment_temporary\" ]] || "
-                + "rm -f -- \"$permission_acknowledgment_temporary\""
-        ))
-        let deadline = try #require(script.range(of: "permission_deadline=$(( SECONDS + permission_timeout_seconds ))"))
+        #expect(script.contains("cleanup || prior_status=70"))
+        #expect(script.contains("permission_verify_run_root \"$permission_deadline\""))
+        let deadline = try #require(script.range(of: "begin_permission_deadline \"$permission_timeout_seconds\""))
         let compile = try #require(script.range(of: "timeout_command \"$REPLY\" xcrun swiftc"))
         #expect(deadline.lowerBound < compile.lowerBound)
         #expect(!script.contains("\"$app_binary\" >\"$permission_operator_log\""))
@@ -120,6 +120,49 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
             #expect(!script.contains(forbidden))
         }
         #expect(!script.contains("--token \"$permission_launch_token\""))
+    }
+
+    @Test func cleanupReserveIsBoundedVerifiedAndFailsClosed() throws {
+        let root = try ScriptFixture()
+        defer { root.remove() }
+        let expectations: [(String, Int32, Int, Bool)] = [
+            ("cleanup_normal", 0, 0, false),
+            ("cleanup_uncertain", 70, 1, false),
+            ("cleanup_scrub_timeout", 70, 1, true),
+            ("cleanup_scrub_failure", 70, 1, true),
+            ("cleanup_root_timeout", 70, 1, false),
+            ("cleanup_root_failure", 70, 1, false),
+            ("cleanup_deadline_expired", 70, 1, true),
+            ("cleanup_term", 143, 0, false),
+            ("cleanup_int", 130, 0, false),
+        ]
+        for (scenario, status, rootCount, sensitiveRemain) in expectations {
+            let start = ProcessInfo.processInfo.systemUptime
+            let result = try root.runHook(scenario, timeout: 16)
+            #expect(result.status == status)
+            #expect(ProcessInfo.processInfo.systemUptime - start < 15)
+            let runRoots = try root.runRoots(for: scenario)
+            #expect(runRoots.count == rootCount)
+            let sensitive = runRoots.flatMap(root.sensitiveArtifacts(in:))
+            #expect(sensitive.isEmpty != sensitiveRemain)
+            #expect(!result.output.contains(String(repeating: "0", count: 64)))
+        }
+    }
+
+    @Test func parserHookIsPermissionOnlyAcrossModeSelection() throws {
+        let root = try ScriptFixture()
+        defer { root.remove() }
+        for arguments in [[], ["--help"], ["--unknown"], ["--hardware"],
+                          ["--request-camera-permission", "--build-only"]] {
+            let ordinary = try root.run(arguments: arguments, hook: nil, timeout: 5)
+            let hooked = try root.run(arguments: arguments, hook: "valid", timeout: 5)
+            #expect(hooked.status == ordinary.status)
+            #expect(hooked.output == ordinary.output)
+        }
+        let build = try root.run(arguments: ["--build-only"], hook: "valid", timeout: 600)
+        #expect(build.status == 0)
+        #expect(build.output.contains("build_only=pass hardware=not_run"))
+        #expect(!build.output.contains("permission_result_parser_test"))
     }
 
     @Test func realScriptParserPublishesOnlyAfterStrictVerifiedResult() throws {
@@ -266,6 +309,58 @@ private final class LauncherVerifierFixture {
 }
 
 private enum ProcessFailure: Error { case failed, timedOut }
+
+private final class ScriptFixture {
+    private let repository: URL
+    private let parent: URL
+    private let script: URL
+    private let path = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    init() throws {
+        repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        script = repository.appendingPathComponent("script/dev_vlogs_phase_0b_spike.sh")
+        parent = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: false)
+    }
+
+    func runHook(_ scenario: String, timeout: TimeInterval) throws -> BoundedProcess.Result {
+        let temporary = parent.appendingPathComponent(scenario)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: false)
+        return try run(
+            arguments: ["--request-camera-permission"], hook: scenario, timeout: timeout,
+            extraEnvironment: ["TMPDIR": temporary.path,
+                               "HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS": "14"]
+        )
+    }
+
+    func run(
+        arguments: [String], hook: String?, timeout: TimeInterval,
+        extraEnvironment: [String: String] = [:]
+    ) throws -> BoundedProcess.Result {
+        var environment = extraEnvironment
+        environment["PATH"] = path
+        if let hook { environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST"] = hook }
+        return try BoundedProcess.run(
+            executable: URL(fileURLWithPath: "/bin/zsh"), arguments: [script.path] + arguments,
+            environment: environment, currentDirectory: repository, timeout: timeout
+        )
+    }
+
+    func runRoots(for scenario: String) throws -> [URL] {
+        let directory = parent.appendingPathComponent(scenario)
+        return try FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: nil
+        ).filter { $0.lastPathComponent.hasPrefix("holdtype-dv-p0b.") }
+    }
+
+    func sensitiveArtifacts(in root: URL) -> [URL] {
+        ["camera-authorization-launch.json", "camera-authorization-ack.json",
+         ".camera-authorization-ack.test", "permission-launcher.log"].map(root.appendingPathComponent)
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    func remove() { try? FileManager.default.removeItem(at: parent) }
+}
 
 private enum BoundedProcess {
     struct Result { let status: Int32; let output: String }
