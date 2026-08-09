@@ -167,7 +167,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | rejected | receipt below | R2 must not begin until the same-UID cleanup trust boundary is decided. |
 | `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; accepted cleanup decision | script, hardware handoff tests, W01 summary only | rejected | `b34dc16`; receipt below | Digest/consumer core passes; detected-mismatch retention and exact protected-emitter schema remain defective. |
 | `DV-P0B-CAPTURE-W07-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | W07 R2 repair `b34dc16` | read-only exact three-path repair commit and protected-owner provenance | rejected | receipt below | Return exact three-path retention/schema/signal repair to the same owner. |
-| `DV-P0B-CAPTURE-W07-R3` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R2 review | script, hardware handoff tests, W01 summary only | running | — | Retain every detected mismatch's implicated residual; align exact emitter grammar/cadence; add publisher/consumer signal proof. |
+| `DV-P0B-CAPTURE-W07-R3` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R2 review | script, hardware handoff tests, W01 summary only | review | `a90f888`; receipt below | Exact three-path repair is terminal; independent review decides acceptance. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | W07 R3 repair `a90f888` | read-only exact three-path repair commit and protected-owner provenance | running | — | Verify universal implicated-residual retention, emitter schema alignment, signal behavior, isolation, and scope. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -311,8 +312,10 @@ other external root remain unauthorized.
   publication and one-shot consumption, but independent review rejected it:
   several detected schema/ownership mismatches deleted the implicated residual,
   and the validator rejected leading `-`/`_` case IDs plus legitimate nominal
-  FPS zero with positive derived cadence. Exact three-path R3 repair is running
-  with added publisher/consumer TERM/INT proof.
+  FPS zero with positive derived cadence. Exact three-path R3 repair `a90f888`
+  retains every implicated publisher/consumer residual, aligns both protected
+  emitter forms, and adds publisher/consumer TERM/INT proof; it is in
+  independent review.
   The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
@@ -3199,6 +3202,37 @@ next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R2
 runtime_or_visual_handoff: none
 commit: b34dc16713961478c0f25db15666267695286ff4
 parent: c2a14f824d0333ed1270fdd35fd7e58421994108
+```
+
+### `DV-P0B-CAPTURE-W07-R3`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-R3
+status: done
+
+outcome: Every detected publisher mismatch now retains both implicated Debug
+roots, including malformed/schema cases and the same-size mutated raw source;
+every consumer mismatch retains the implicated handoff root/object. Protected
+leading dash/underscore IDs and nominal-zero with positive derived cadence are
+accepted. Publisher/consumer TERM and INT remain bounded and exact-owned.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; user Debug trust
+decision; exact Review-R2 repair authority.
+changed_paths: script/dev_vlogs_phase_0b_spike.sh;
+HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift;
+docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md.
+checks_run: Structure/syntax; production publisher/consumer hooks; focused 9/9;
+serial Phase 0B 77/77; help/default/negative/build-only; signed Debug; bounded
+Release/settings/artifact isolation; protected 9/9 hashes; diff, redaction,
+path, process, and root audits.
+scope_check: Exact three-path commit, clean worktree, zero run-owned residue; no
+hardware/permission/TCC/app runtime or protected-owner change.
+deviations: none material.
+residual: Debug trust boundary does not claim malicious same-UID resistance and
+does not weaken product storage/deletion rules. Real hardware remains separate.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R3
+runtime_or_visual_handoff: none
+commit: a90f88809b569aaf07151b58d40f8394ae81f330
+parent: 7bb8367848ea18afc6898a5463e7537d9e102c17
 ```
 
 ## Rejected Receipts
