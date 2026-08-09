@@ -135,8 +135,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | rejected | receipt below | Three-path cleanup/hook-isolation repair required. |
 | `DV-P0B-CAMERA-AUTH-W06-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R1 review | permission script, LaunchServices tests, W01 summary only | rejected | `10804b6`; receipt below | Hook isolation closed; timeout escalation and root identity remain unsafe. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `10804b6` | read-only exact three-path repair commit | rejected | receipt below | Hard-bound TERM-ignoring cleanup and no-follow root-identity repair required. |
-| `DV-P0B-CAMERA-AUTH-W06-R3` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R2 review | permission script, LaunchServices tests, W01 summary only | review | `68b9bc3`; receipt below | Hard timeout and descriptor-pinned cleanup implemented; independent review running. |
-| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `68b9bc3` | read-only exact three-path repair commit | running | — | Reproduce hard timeout, root-replacement/TOCTOU, parser, scope, and cleanup evidence. |
+| `DV-P0B-CAMERA-AUTH-W06-R3` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R2 review | permission script, LaunchServices tests, W01 summary only | rejected | `68b9bc3`; receipt below | Hard timeout closed; destructive-boundary TOCTOU and pipeline timeout defects remain. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `68b9bc3` | read-only exact three-path repair commit | rejected | receipt below | Return exact three-path R4 repair to original owner before permission runtime. |
+| `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | running | — | Close every cleanup pipeline and deletion TOCTOU at the destructive boundary. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -232,8 +233,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   repair `10804b6` passes 68 Phase 0B tests and closes hook isolation, but
   repeat review found TERM-ignoring cleanup can outlive the deadline and root
   replacement can escape exact ownership. Three-path R3 repair `68b9bc3`
-  implements hard TERM→KILL bounds and descriptor-pinned no-follow cleanup;
-  independent review is running and capture remains blocked. The
+  closes direct TERM→KILL bounds but review found untimed pipeline consumers
+  and pathname deletion races for sensitive artifacts, recursive children,
+  and the final tombstone. Focused R4 repair is running and capture remains
+  blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2391,6 +2394,45 @@ commit: 68b9bc3482667f95c4faf638ca058b50c7128069
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` of `68b9bc3`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R3
+status: done
+verdict: reject
+
+outcome: Direct hard-timeout escalation and pre-use parent/root identity checks
+improved materially, but destructive cleanup retains check/use races and not
+every cleanup subprocess is inside the hard timeout boundary.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R2 reject and R3.
+reviewed_commit_and_parent: 68b9bc3482667f95c4faf638ca058b50c7128069;
+525d596e02c9babf23cc36b6a3472dd1c065e6ed.
+changed_paths: none
+checks_run: Exact three-path scope/current blobs; structure and syntax; all 20
+production cleanup hooks; independent TERM-ignoring parent/child; focused 9
+LaunchServices tests; actual parser/hook/build-only routes; process/root and
+worktree cleanup.
+closed: Hard timeout rejects insufficient budget, uses TERM then KILL, returns
+truthful timeout, and leaves no owned process-group survivor. Existing declared
+root/symlink/replacement/type/collision hooks and parser isolation pass.
+findings: Cleanup identity pipelines hard-wrap only ps/lsof while later tr,
+awk, or sed consumers run outside the owned timeout group. Sensitive scrub and
+recursive child removal validate with no-follow stat/open but later unlink or
+rmdir by pathname without atomic quarantine or destructive-boundary identity
+proof. The tombstone descriptor is closed before pathname rmdir, so a late
+replacement can be deleted. Existing hooks do not exercise these windows and
+the summary overclaims replacement safety.
+scope_check: Exact Debug tooling/test/evidence review; no product, runtime,
+TCC, camera, microphone, media, storage, UI, iOS, Build, or publication action.
+deviations: Full 68 and unsigned Release were not repeated after deterministic
+rejection; unchanged app/helper/configuration blobs establish no product delta.
+residual: Real LaunchServices Camera permission/TCC remains future evidence,
+blocked first by cleanup safety.
+next_dependency: Focused three-path W06-R4 repair and independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 68b9bc3482667f95c4faf638ca058b50c7128069
+```
 
 ### `DV-P0B-CAMERA-AUTH-W04-REVIEW` of `b2a2abf`
 
