@@ -217,9 +217,9 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
 | `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | rejected | `c4e1b15`; receipt below | Prior races repaired; pre-install cancellation can still be lost. |
 | `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
-| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | review | exact receipt below | Existing-state pre-install cancellation handshake repaired; Review-R4 required. |
-| `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
-| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted current E07 design review | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
+| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | accepted | `c0001a9`; receipt below | Existing-state cancellation registration is implementable and accepted. |
+| `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
+| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | running | — | Prove or reject E07 through paired fake-backed attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
@@ -6712,3 +6712,45 @@ DV-P0B-E07-W01 remains blocked.
 next_dependency: DV-P0B-E07-E01-REVIEW-R4
 runtime_or_visual_handoff: none
 ~~~
+
+### `DV-P0B-E07-E01-REVIEW-R4`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R4
+status: accepted
+reviewed_commit: c0001a99b969e3f292cbc9786475a14bf2248a67
+parent: 8d1c48a339707d0b67d1f7d6ce4edd3b3b0bfd21
+scope: exact one-path registry-only repair; parent storage W01 is unrelated and
+preserved; diff hygiene passes.
+
+outcome: R4 closes the pre-install cancellation race using only the existing
+mutex state. The E07 W01 design is internally implementable and dependency-
+ready.
+
+registration_handshake:
+- Each suspending method opens its existing flag before cancellation-handler
+  exposure with no intervening suspension.
+- Already-cancelled and exposure-before-install cancellation become sticky via
+  the handler or captured Task cancellation state.
+- Installation atomically checks that task state and cancellationRequested.
+- A cancelled install never stores and resumes its local continuation outside
+  the mutex; a normal install stores exactly once under the open flag.
+- Normal/cancellation routes are mutex-serialized to one future resumer;
+  install-vs-cancel and resolution-vs-cancel have exact single-winner outcomes.
+- Late handlers after closure are no-ops and post-resume cancellation/closure
+  remains joined under the same mutex.
+
+preservation: No relay task, extra continuation/state/helper, polling, sleep or
+clock was introduced. Snapshot projections remain coherent. Observable cleanup
+Boolean, exact protocol witnesses, observer ownership, ten cases/sequences,
+eight schemas, redaction, bounded commands, provenance, parent pinning,
+ten-path envelope and fake-only residual are unchanged. All ten future paths
+were absent at review.
+
+scope_check: Read-only registry review only. No edit, build, test, app/runtime,
+process, hardware, provider, Keychain, media, permission or storage action.
+residual: Acceptance authorizes deterministic fake-backed E07 implementation
+only, not a shipping audio lease or real hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01, then DV-P0B-E07-W01-REVIEW.
+runtime_or_visual_handoff: none
+```
