@@ -188,8 +188,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | rejected_scope / cells_accepted | receipt below | Both mechanics cells remain accepted; live-HOME exposure prevents protected-scope closure. |
 | `DV-P0B-STORAGE-W04` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected R02 review | external-storage wrapper, canonical feasibility test, W01 summary only if claim changes | rejected | `03fac5c`; receipt below | Foundation confinement passes; task-HOME pathname cleanup can delete a replacement. |
 | `DV-P0B-STORAGE-W04-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04@03fac5c` | read-only exact two-path repair commit | rejected | receipt below | Repair the wrapper cleanup race and add an exact replacement fixture. |
-| `DV-P0B-STORAGE-W04-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W04 review | external-storage wrapper and canonical feasibility test only | review | `029f836`; receipt below | Replacement-safe cleanup complete; independent review required. |
-| `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | running | — | Verify identity-bound cleanup transaction and exact race coverage before runtime. |
+| `DV-P0B-STORAGE-W04-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W04 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `029f836`; receipt below | Replacement-safe task-HOME cleanup accepted; runtime evidence remains. |
+| `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
+| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | running | — | Final one-pass scope confirmation with private HOME; mechanics are not reopened. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -356,8 +357,9 @@ other external root remain unauthorized.
   Foundation user-domain path. Wrapper-owned private-HOME repair `03fac5c`
   proves confinement but was rejected because cleanup can delete a pathname
   replacement after its identity check. Wrapper-only R1 repair `029f836` is
-  complete and in independent review; no additional runtime or restorative
-  action is authorized before acceptance.
+  independently accepted. One final protected-scope runtime is running under
+  the prior exact-root authority; mechanics remain accepted and no restorative
+  action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3517,6 +3519,37 @@ next_dependency: DV-P0B-STORAGE-W04-REVIEW-R1
 runtime_or_visual_handoff: none
 commit: 029f8364bb80b58c9f77cb49dbaea05869c989fb
 parent: b9182f90243eb982aa8d286f304335812672adad
+```
+
+### `DV-P0B-STORAGE-W04-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W04-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: The replacement-safe cleanup repair is accepted. The bounded child
+exclusively quarantines the current source, validates the relocated identity,
+executes absolute deletion only on equality, and outer success requires source
+and quarantine absence before clearing state or printing completion.
+checks_run: Exact commit/parent/two-path/current-blob audit; diff/structure/zsh;
+help/default/invalid; signed Debug build-for-testing; focused private-HOME
+hosted feasibility and production lifecycle/replacement fixture; redaction,
+protected-owner, process, task-root, and worktree audits. No external runtime.
+replacement_result: Pinned original, valid-looking replacement, and sibling
+survive the mismatch fixture; status 70, retained state, and no success claim.
+Quarantine collision leaves source present and fails without deletion.
+protected_scope: W04 confinement, W02 process owners, W03 routing/value state,
+product/recovery/Recording Cache/History/project/plist/entitlement/Release
+behavior are unchanged.
+scope_check: Read-only; no repository edit, external volume, live HOME,
+protected artifact, app, TCC, camera/audio, Keychain, media, or restorative
+action.
+residual: Acceptance adds no external evidence. One final bounded protected-
+scope runtime remains required.
+next_dependency: DV-P0B-STORAGE-R03
+runtime_or_visual_handoff: none
+reviewed_commit: 029f8364bb80b58c9f77cb49dbaea05869c989fb
 ```
 
 ## Rejected Receipts
