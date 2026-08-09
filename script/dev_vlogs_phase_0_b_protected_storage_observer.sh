@@ -39,6 +39,8 @@ terminal_finalizing=false
 terminal_finalized=false
 cleanup_state="incomplete_retained"
 evidence_write_state="not_attempted"
+evidence_commit_cleanup_state="not_attempted"
+success_staging_root=""
 build_comparison="uncertain"
 hosted_comparison="not_run"
 retained_observer_events=""
@@ -305,26 +307,10 @@ write_evidence_file() {
     fi
     if ! { print -rn -- "$content" >"$target"; } 2>/dev/null; then return 70; fi
     run_metadata_probe /bin/chmod 600 "$target" >/dev/null || return 70
-    regular_file_identity "$target" 600 >/dev/null || return 70
-}
-
-replace_evidence_file() {
-    local evidence_root="$1" root_identity="$2" events_identity="$3"
-    local relative="$4" content="$5" target parent current
-    remaining_budget 0 >/dev/null || return 124
-    current=$(identity "$evidence_root" 755) || return 70
-    [[ "$current" == "$root_identity" ]] || return 70
-    target="$evidence_root/$relative"; parent="${target:h}"
-    if [[ "$relative" == events/* ]]; then
-        current=$(identity "$parent" 755) || return 70
-        [[ "$current" == "$events_identity" ]] || return 70
-    else
-        [[ "$parent" == "$evidence_root" ]] || return 70
+    current=$(regular_file_identity "$target" 600) || return 70
+    if [[ "${capture_evidence_identities:-false}" == true ]]; then
+        captured_evidence_identities+="$relative"$'\t'"$current"$'\n'
     fi
-    regular_file_identity "$target" 600 >/dev/null || return 70
-    if ! { print -rn -- "$content" >"$target"; } 2>/dev/null; then return 70; fi
-    run_metadata_probe /bin/chmod 600 "$target" >/dev/null || return 70
-    regular_file_identity "$target" 600 >/dev/null || return 70
 }
 
 render_failure_safe_evidence() {
@@ -352,12 +338,94 @@ render_failure_safe_evidence() {
         events/storage-observer-r01.jsonl "" || return $?
 }
 
-promote_evidence_file() {
+stage_evidence_file() {
     local relative="$4"
     if (( $+functions[observer_evidence_promotion_test_hook] )); then
         observer_evidence_promotion_test_hook "$relative" || return 70
     fi
-    replace_evidence_file "$@"
+    write_evidence_file "$@"
+}
+
+pin_evidence_files() {
+    local evidence_root="$1" relative current pins=""
+    for relative in "${(@f)$(evidence_relative_paths)}"; do
+        current=$(regular_file_identity "$evidence_root/$relative" 600) || return 70
+        pins+="$relative"$'\t'"$current"$'\n'
+    done
+    print -rn -- "$pins"
+}
+
+validate_evidence_file_identities() {
+    local evidence_root="$1" expected="$2" current
+    current=$(pin_evidence_files "$evidence_root") || return 70
+    [[ "$current" == "$expected" ]] || return 70
+}
+
+cleanup_pinned_evidence_tree() {
+    local tree="$1" tree_identity="$2" events_identity="$3" file_identities="$4"
+    local relative expected current cleanup_failed=false
+    current=$(identity "$tree" 755) || return 70
+    [[ "$current" == "$tree_identity" ]] || return 70
+    current=$(identity "$tree/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    while IFS=$'\t' read -r relative expected; do
+        [[ -n "$relative" && -n "$expected" ]] || continue
+        current=$(regular_file_identity "$tree/$relative" 600) || {
+            cleanup_failed=true; continue
+        }
+        [[ "$current" == "$expected" ]] || { cleanup_failed=true; continue; }
+        run_cleanup_command /bin/unlink "$tree/$relative" || cleanup_failed=true
+    done <<<"$file_identities"
+    [[ "$cleanup_failed" == false ]] || return 70
+    current=$(identity "$tree/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    run_cleanup_command /bin/rmdir "$tree/events" || return 70
+    current=$(identity "$tree" 755) || return 70
+    [[ "$current" == "$tree_identity" ]] || return 70
+    run_cleanup_command /bin/rmdir "$tree" || return 70
+    [[ ! -e "$tree" && ! -L "$tree" ]] || return 70
+}
+
+atomic_swap_evidence_trees() {
+    local parent="$1" parent_identity="$2" retained_name="$3" retained_identity="$4"
+    local staged_name="$5" staged_identity="$6"
+    run_metadata_probe /usr/bin/python3 - "$parent" "$parent_identity" "$retained_name" \
+        "$retained_identity" "$staged_name" "$staged_identity" <<'PY' || return $?
+import ctypes, os, stat, sys
+parent, parent_identity, retained, retained_identity, staged, staged_identity = sys.argv[1:]
+def expected(value):
+    uid, mode, device, inode = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode)
+def exact(value, identity):
+    uid, mode, device, inode = expected(identity)
+    return (stat.S_ISDIR(value.st_mode) and value.st_uid == uid and
+            stat.S_IMODE(value.st_mode) == mode and value.st_dev == device and
+            value.st_ino == inode)
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+try:
+    parent_fd = os.open(parent, flags)
+    if not exact(os.fstat(parent_fd), parent_identity): raise OSError()
+    if not exact(os.stat(retained, dir_fd=parent_fd, follow_symlinks=False), retained_identity):
+        raise OSError()
+    if not exact(os.stat(staged, dir_fd=parent_fd, follow_symlinks=False), staged_identity):
+        raise OSError()
+    libc = ctypes.CDLL(None, use_errno=True)
+    operation = libc.renameatx_np
+    operation.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,
+                          ctypes.c_uint]
+    operation.restype = ctypes.c_int
+    if operation(parent_fd, os.fsencode(retained), parent_fd, os.fsencode(staged), 2) != 0:
+        raise OSError(ctypes.get_errno())
+    if not exact(os.stat(retained, dir_fd=parent_fd, follow_symlinks=False), staged_identity):
+        raise OSError()
+    if not exact(os.stat(staged, dir_fd=parent_fd, follow_symlinks=False), retained_identity):
+        raise OSError()
+except (OSError, ValueError):
+    raise SystemExit(70)
+finally:
+    try: os.close(parent_fd)
+    except (NameError, OSError): pass
+PY
 }
 
 validate_runtime_evidence() {
@@ -467,9 +535,17 @@ PY
 
 write_runtime_evidence() {
     local evidence_root="${1:-$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01}"
-    local relative root_identity events_identity artifacts_content validation_status
+    local relative root_identity events_identity artifacts_content validation_status=0 current
+    local parent parent_mode parent_identity retained_name staged_name staged_identity
+    local staged_events_identity retained_file_identities staged_file_identities
     local summary_content source_content environment_content matrix_content measurements_content
+    local capture_evidence_identities=false captured_evidence_identities=""
+    typeset -A final_contents
     remaining_budget 0 >/dev/null || return 124
+    parent="${evidence_root:h}"; retained_name="${evidence_root:t}"
+    [[ "${parent:A}" == "$parent" && "$retained_name" != */* ]] || return 70
+    parent_mode=$(run_metadata_probe /usr/bin/stat -f '%Lp' "$parent" 2>/dev/null) || return 70
+    parent_identity=$(identity "$parent" "$parent_mode") || return 70
     [[ ! -e "$evidence_root" && ! -L "$evidence_root" ]] || return 70
     run_metadata_probe /bin/mkdir -m 755 "$evidence_root" >/dev/null || return 70
     root_identity=$(identity "$evidence_root" 755) || return 70
@@ -509,32 +585,86 @@ hosted,$hosted_comparison
         observer_evidence_postcondition_test_hook "$evidence_root" || return 70
     fi
     validate_runtime_evidence "$evidence_root" pending || return $?
-    promote_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        source-feasibility.md "$source_content" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" environment.json "$environment_content" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" matrix.csv "$matrix_content" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" measurements.csv "$measurements_content" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" artifacts.csv "$artifacts_content" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" residuals.md $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" events/storage-observer-r01.jsonl "$retained_observer_events" || validation_status=$?
-    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
-        "$events_identity" summary.md "$summary_content" || validation_status=$?
-    if (( ${validation_status:-0} != 0 )); then
-        render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
-            replace_evidence_file || return 70
+    retained_file_identities=$(pin_evidence_files "$evidence_root") || return 70
+    success_staging_root=$(run_metadata_probe /usr/bin/mktemp -d \
+        "$parent/.${retained_name}.success.XXXXXXXX") || return 70
+    [[ "${success_staging_root:h}" == "$parent" ]] || return 70
+    run_metadata_probe /bin/chmod 755 "$success_staging_root" >/dev/null || return 70
+    staged_identity=$(identity "$success_staging_root" 755) || return 70
+    run_metadata_probe /bin/mkdir -m 755 "$success_staging_root/events" >/dev/null || return 70
+    staged_events_identity=$(identity "$success_staging_root/events" 755) || return 70
+    staged_name="${success_staging_root:t}"
+    final_contents=(
+        summary.md "$summary_content"
+        source-feasibility.md "$source_content"
+        environment.json "$environment_content"
+        matrix.csv "$matrix_content"
+        measurements.csv "$measurements_content"
+        artifacts.csv "$artifacts_content"
+        residuals.md $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n'
+        events/storage-observer-r01.jsonl "$retained_observer_events"
+    )
+    capture_evidence_identities=true
+    for relative in "${(@f)$(evidence_relative_paths)}"; do
+        stage_evidence_file "$success_staging_root" "$staged_identity" \
+            "$staged_events_identity" "$relative" "${final_contents[$relative]}" || {
+            validation_status=$?; break
+        }
+    done
+    capture_evidence_identities=false
+    staged_file_identities="${captured_evidence_identities%$'\n'}"
+    if (( validation_status != 0 )); then
+        cleanup_pinned_evidence_tree "$success_staging_root" "$staged_identity" \
+            "$staged_events_identity" "$staged_file_identities" || return 70
         return "$validation_status"
     fi
-    validate_runtime_evidence "$evidence_root" || {
-        validation_status=$?
-        render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
-            replace_evidence_file || return 70
-        return "$validation_status"
+    validate_runtime_evidence "$success_staging_root" || return $?
+    validate_evidence_file_identities "$success_staging_root" "$staged_file_identities" \
+        || return 70
+    if (( $+functions[observer_evidence_final_postcondition_test_hook] )); then
+        observer_evidence_final_postcondition_test_hook "$success_staging_root" || return 70
+    fi
+    if (( $+functions[observer_evidence_before_commit_test_hook] )); then
+        observer_evidence_before_commit_test_hook "$evidence_root" "$success_staging_root"
+    fi
+    current=$(identity "$parent" "$parent_mode") || return 70
+    [[ "$current" == "$parent_identity" ]] || return 70
+    current=$(identity "$evidence_root" 755) || return 70
+    [[ "$current" == "$root_identity" ]] || return 70
+    current=$(identity "$evidence_root/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    current=$(identity "$success_staging_root" 755) || return 70
+    [[ "$current" == "$staged_identity" ]] || return 70
+    current=$(identity "$success_staging_root/events" 755) || return 70
+    [[ "$current" == "$staged_events_identity" ]] || return 70
+    validate_evidence_file_identities "$evidence_root" "$retained_file_identities" || return 70
+    validate_evidence_file_identities "$success_staging_root" "$staged_file_identities" || return 70
+    validate_runtime_evidence "$evidence_root" pending || return $?
+    validate_runtime_evidence "$success_staging_root" || return $?
+    if (( $+functions[observer_evidence_commit_test_hook] )); then
+        observer_evidence_commit_test_hook "$parent" "$retained_name" "$staged_name" || return 70
+    fi
+    atomic_swap_evidence_trees "$parent" "$parent_identity" "$retained_name" "$root_identity" \
+        "$staged_name" "$staged_identity" || return $?
+    current=$(identity "$evidence_root/events" 755) || return 70
+    [[ "$current" == "$staged_events_identity" ]] || return 70
+    current=$(identity "$success_staging_root/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    validate_runtime_evidence "$evidence_root" || return $?
+    validate_evidence_file_identities "$evidence_root" "$staged_file_identities" || return 70
+    validate_runtime_evidence "$success_staging_root" pending || return $?
+    validate_evidence_file_identities "$success_staging_root" "$retained_file_identities" || return 70
+    evidence_commit_cleanup_state=complete
+    if (( $+functions[observer_evidence_cleanup_test_hook] )); then
+        observer_evidence_cleanup_test_hook "$success_staging_root" || {
+            evidence_commit_cleanup_state=retained_failure_safe
+            return 0
+        }
+    fi
+    cleanup_pinned_evidence_tree "$success_staging_root" "$root_identity" "$events_identity" \
+        "$retained_file_identities" || {
+        evidence_commit_cleanup_state=retained_failure_safe
+        return 0
     }
 }
 

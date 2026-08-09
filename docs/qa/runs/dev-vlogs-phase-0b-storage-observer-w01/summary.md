@@ -46,10 +46,11 @@ result bundle.
   closed-schema stream validates; malformed and pre-hosted outcomes retain an
   empty event file. Every evidence directory/file operation is checked, and
   success requires the exact eight regular mode-0600 closed-schema files with
-  no extras. Before that commit, every partial uses only the closed
-  `evidence_write_failed`/`incomplete_retained` uncommitted schema; write,
-  promotion, or postcondition failure restores that failure-safe state and
-  retains no success or cleanup-complete claim.
+  no extras. The durable path keeps the closed `evidence_write_failed`/
+  `incomplete_retained` tree while a separately identity-pinned success tree
+  is built and validated. One descriptor-relative atomic namespace swap is
+  the commit point; precommit uncertainty leaves the failure-safe tree
+  unchanged, and displaced-tree cleanup never traverses an unproven object.
 - A single terminal state machine reaps the supervisor, resolves exact root
   cleanup while the guard remains proven, reaps the guard, then attempts the
   closed eight-file evidence write. Cleanup or

@@ -206,25 +206,15 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             assert_failure_safe() {
                 local file content; for file in "$1"/**/*(.N); do content=$(/bin/cat "$file"); [[ "$content" != *'cleanup: complete'* && "$content" != *'"cleanup":"complete"'* && "$content" != *,complete* && "$content" != *pass_unchanged* && "$content" != *run_owned_canonical_recovery_write_correlated* && "$content" != *build_window_change_correlated* && "$content" != *owner_exposed_no_mutation* ]] || return 1; done
             }
-            for item in environment_conflict:baseline:uncertain:not_run:70 \
-                guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
-                build_window_change_correlated:build:changed:not_run:70 \
-                run_owned_canonical_recovery_write_correlated:hosted:unchanged:changed:70 \
-                still_unknown:hosted:unchanged:changed:70 evidence_conflict:hosted:unchanged:unchanged:70 \
-                observer_invalid:hosted:unchanged:unchanged:70 metadata_uncertain:build:uncertain:not_run:70 \
-                hosted_test_failed:hosted:unchanged:unchanged:70 pass_unchanged:hosted:unchanged:unchanged:0 \
-                owner_exposed_no_mutation:hosted:unchanged:unchanged:0; do
-                values=(${(s/:/)item}); terminal_class=$values[1]; terminal_phase=$values[2]
-                build_comparison=$values[3]; hosted_comparison=$values[4]
-                terminal_exit_status=$values[5]; terminal_finalized=false; terminal_finalizing=false
-                cleanup_state=incomplete_retained; evidence_write_state=not_attempted; trace=""
-                retained_observer_events=""; run_id=""
-                evidence="$fixture/$terminal_class"; final_status=0
-                finalize_controller "$evidence" || final_status=$?
-                [[ $final_status == $terminal_exit_status && "$trace" == srg &&
-                   $(/usr/bin/find "$evidence" -type f | /usr/bin/wc -l) -eq 8 ]] || exit 71
-                /usr/bin/grep -q "terminal_class: $terminal_class" "$evidence/summary.md" || exit 72
-                /usr/bin/grep -q "cleanup: complete" "$evidence/summary.md" || exit 73
+            for item in environment_conflict:baseline:uncertain:not_run:70 guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
+                build_window_change_correlated:build:changed:not_run:70 run_owned_canonical_recovery_write_correlated:hosted:unchanged:changed:70 still_unknown:hosted:unchanged:changed:70 \
+                evidence_conflict:hosted:unchanged:unchanged:70 observer_invalid:hosted:unchanged:unchanged:70 metadata_uncertain:build:uncertain:not_run:70 \
+                hosted_test_failed:hosted:unchanged:unchanged:70 pass_unchanged:hosted:unchanged:unchanged:0 owner_exposed_no_mutation:hosted:unchanged:unchanged:0; do
+                values=(${(s/:/)item}); terminal_class=$values[1]; terminal_phase=$values[2]; build_comparison=$values[3]; hosted_comparison=$values[4]
+                terminal_exit_status=$values[5]; terminal_finalized=false; terminal_finalizing=false; cleanup_state=incomplete_retained; evidence_write_state=not_attempted; trace=""; retained_observer_events=""; run_id=""
+                evidence="$fixture/$terminal_class"; final_status=0; finalize_controller "$evidence" || final_status=$?
+                [[ $final_status == $terminal_exit_status && "$trace" == srg && $(/usr/bin/find "$evidence" -type f | /usr/bin/wc -l) -eq 8 ]] || exit 71
+                /usr/bin/grep -q "terminal_class: $terminal_class" "$evidence/summary.md" && /usr/bin/grep -q "cleanup: complete" "$evidence/summary.md" || exit 72
             done
             run_id=\(shellQuote(runID)); expected_run="$run_id"; retained_observer_events=\(ready)
             terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0
@@ -249,15 +239,31 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             [[ $mid_status == 74 && "$terminal_class" == evidence_write_failed && -d "$mid" &&
                $(/usr/bin/find "$mid" -type f | /usr/bin/wc -l) -gt 0 ]] && assert_failure_safe "$mid" || exit 76
             observer_evidence_postcondition_test_hook() { print unexpected >"$1/unexpected" }
-            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
-            post="$fixture/post"; post_status=0
-            finalize_controller "$post" || post_status=$?
+            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false; post="$fixture/post"; post_status=0; finalize_controller "$post" || post_status=$?
             [[ $post_status == 74 && -e "$post/unexpected" ]] && assert_failure_safe "$post" || exit 77
             unfunction observer_evidence_postcondition_test_hook; observer_evidence_promotion_test_hook() { [[ "$1" != measurements.csv ]] }
-            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
-            promotion="$fixture/promotion"; promotion_status=0
-            finalize_controller "$promotion" || promotion_status=$?; unfunction observer_evidence_promotion_test_hook
+            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false; promotion="$fixture/promotion"; promotion_status=0; finalize_controller "$promotion" || promotion_status=$?; unfunction observer_evidence_promotion_test_hook
             [[ $promotion_status == 74 ]] && assert_failure_safe "$promotion" || exit 78
+            reset_case() { terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false; retained_observer_events="" }
+            observer_evidence_before_commit_test_hook() { /bin/mv "$2/environment.json" "$2/environment.original"; print replacement >"$2/environment.json"; /bin/chmod 600 "$2/environment.json" }
+            reset_case; replaced="$fixture/replaced"; replaced_status=0; finalize_controller "$replaced" || replaced_status=$?; unfunction observer_evidence_before_commit_test_hook
+            [[ $replaced_status == 74 && -e "$success_staging_root/environment.original" && -e "$success_staging_root/environment.json" ]] && assert_failure_safe "$replaced" || exit 79
+            observer_evidence_before_commit_test_hook() { /bin/mv "$2" "$2.original"; /bin/mkdir -m 755 "$2" }
+            reset_case; directory="$fixture/directory"; directory_status=0; finalize_controller "$directory" || directory_status=$?; unfunction observer_evidence_before_commit_test_hook
+            [[ $directory_status == 74 && -d "$success_staging_root" && -d "$success_staging_root.original" ]] && assert_failure_safe "$directory" || exit 80
+            observer_evidence_before_commit_test_hook() { /bin/mv "$1" "$1.original"; /bin/mkdir -m 755 "$1" }
+            reset_case; retained="$fixture/retained"; retained_status=0; finalize_controller "$retained" || retained_status=$?; unfunction observer_evidence_before_commit_test_hook; [[ $retained_status == 74 && -d "$retained" && -d "$retained.original" ]] && assert_failure_safe "$retained.original" || exit 84
+            observer_evidence_before_commit_test_hook() { /bin/mv "$2/events" "$2/events.original"; /bin/mkdir -m 755 "$2/events" }
+            reset_case; events="$fixture/events"; events_status=0; finalize_controller "$events" || events_status=$?; unfunction observer_evidence_before_commit_test_hook; [[ $events_status == 74 && -d "$success_staging_root/events" && -d "$success_staging_root/events.original" ]] && assert_failure_safe "$events" || exit 85
+            observer_evidence_commit_test_hook() { return 70 }
+            reset_case; collision="$fixture/collision"; collision_status=0; finalize_controller "$collision" || collision_status=$?; unfunction observer_evidence_commit_test_hook
+            [[ $collision_status == 74 ]] && assert_failure_safe "$collision" && reset_case && validate_runtime_evidence "$success_staging_root" || exit 81
+            observer_evidence_final_postcondition_test_hook() { print unexpected >"$1/unexpected" }
+            reset_case; schema="$fixture/schema"; schema_status=0; finalize_controller "$schema" || schema_status=$?; unfunction observer_evidence_final_postcondition_test_hook
+            [[ $schema_status == 74 && -e "$success_staging_root/unexpected" ]] && assert_failure_safe "$schema" || exit 82
+            observer_evidence_cleanup_test_hook() { return 70 }
+            reset_case; cleanup="$fixture/atomic-cleanup"; cleanup_status=0; finalize_controller "$cleanup" || cleanup_status=$?; unfunction observer_evidence_cleanup_test_hook
+            [[ $cleanup_status == 0 && "$evidence_commit_cleanup_state" == retained_failure_safe ]] && validate_runtime_evidence "$cleanup" && validate_runtime_evidence "$success_staging_root" pending || exit 83
             print terminal_evidence=pass; /bin/rm -rf -- "$fixture"
             """])
         #expect(result.status == 0)
@@ -436,7 +442,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         try runStream(lines, command:
             "classify_observer_stream_result \"$stream\" \(runID) unchanged passed changed \(concurrent)")
     }
-
     private func runStream(
         _ lines: [String],
         command: String
@@ -453,12 +458,10 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             stream=\(shellQuote(stream.path)); \(command)
             """])
     }
-
     private func timeoutExecutable() throws -> String {
         let candidates = ["/opt/homebrew/bin/timeout", "/usr/local/bin/timeout", "/usr/bin/timeout"]
         return try #require(candidates.first(where: FileManager.default.isExecutableFile(atPath:)))
     }
-
     private func makeFixture() throws -> (root: URL, home: URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "holdtype-observer-probe-\(UUID().uuidString.lowercased())")
@@ -470,16 +473,13 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         }
         return (root, home)
     }
-
     private func privateObserverRoots() throws -> Set<String> {
         let values = try FileManager.default.contentsOfDirectory(atPath: "/private/tmp")
         return Set(values.filter { $0.hasPrefix("holdtype-dev-vlogs-observer.") })
     }
-
     private func shellQuote(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
-
     private func run(
         _ arguments: [String],
         environment: [String: String]? = nil
