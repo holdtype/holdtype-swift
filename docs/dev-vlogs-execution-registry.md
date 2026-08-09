@@ -241,8 +241,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | rejected | `079fc03`; receipt below | Failure-safe init passes; sequential rollback and replacement identity remain unsafe. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | running | — | Replace in-place promotion/rollback with identity-bound all-or-failure-safe commit. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | review | `0058993`; receipt below | Identity-bound atomic evidence commit implemented; independent review pending. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7425,5 +7425,48 @@ residual: Non-run-owned writers may remain still_unknown. Implementation and
 observer runtime remain blocked.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R5, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R5`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R5
+status: implementation_complete_pending_independent_review
+commit: 005899385a1aa52b92b022aa2c8dbeb85cef5459
+parent: 7f80a4cc42dabd3e822c73f1a0342b1a012a8106
+
+outcome: Sequential in-place promotion/rollback is replaced by a creation-
+pinned descriptor-relative atomic namespace swap. Durable retained evidence
+remains a complete closed failure-safe/uncommitted eight-file tree unless the
+separately built and validated success tree commits at the single swap point.
+
+identity_commit: Parent opens O_DIRECTORY|O_NOFOLLOW and exact fstat identity
+is checked. Retained/staged children and every file are pinned relative to that
+descriptor. renameatx_np(RENAME_SWAP) is the sole commit. Post-swap identities
+and both schemas revalidate before success; displaced failure-safe cleanup uses
+only pinned identities and never traverses replacements.
+
+adversarial_evidence: Promotion interruption, middle write, ninth-file/final-
+schema failure, staged file/root/events replacement, retained-root replacement,
+commit failure/collision and cleanup failure enumerate implicated artifacts and
+prove each tree is complete success or complete failure-safe/uncommitted, never
+mixed. Cleanup failure leaves coherent success plus coherent displaced-safe
+residual and reports retained cleanup state.
+
+changed_paths: Same controller script, controller tests and W01 summary. Seven
+frozen W01 hashes remain unchanged; accepted R2-R4 parsing, event binding,
+deadlines, outer route, failure-safe tree, cleanup ordering and redaction are
+reused.
+
+checks: Controller 11/11; production-configured private protected/inert/hosted
+19/19; zsh and strict C syntax; structure at 500 lines; signed Debug/codesign;
+unsigned Release isolation; diff, redaction, path/process/root audits.
+scope_check: Exact three paths; no observer --execute, external volume, live
+HOME/protected content, Camera/TCC/Keychain/provider/media/product runtime.
+deviations: None. One unrelated review-owned temp root was observed and left
+untouched.
+residual: Independent review only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
 runtime_or_visual_handoff: none
 ```
