@@ -149,7 +149,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
-| `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | running | — | Find the official installed/available source and activation path for `build-macos-apps:swiftui-patterns`, or return an exact external dependency. |
+| `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -259,9 +259,11 @@ new HoldType preset or control; HoldType simply does not downsample it.
 - E01 observed writable external SSD and HDD classes. Exact authorized scratch
   bases and runtime availability remain pending for the storage packet.
 - `build-macos-apps:swiftui-patterns` was unavailable during planning; do not
-  dispatch UI design or implementation until resolved. A read-only skill-
-  availability packet is running to find its official activation path without
-  substituting generic UI guidance.
+  dispatch UI design or implementation until resolved. Read-only availability
+  evidence found no installed package, official current catalog entry, alias,
+  supersession, or supported activation path. User authority must supply the
+  package identity or change this exact workflow gate; generic UI guidance is
+  not a substitute.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2487,6 +2489,41 @@ cleanup semantics.
 next_dependency: User/protocol authority must choose a fail-closed retained-
 root residual for the permission-only evidence lane or a privileged/different-
 UID cleanup boundary. No further script-only exact-delete repair is supported.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-UI-SKILL-E01`
+
+```text
+packet_id: DV-P0B-UI-SKILL-E01
+status: done
+verdict: blocked
+
+outcome: The repository-required build-macos-apps:swiftui-patterns skill is
+not installed, exposed, or available through a verified official current
+package/catalog identity in this environment.
+authority_used: AGENTS.md Mandatory UI Skill Gate; Dev Vlogs DV-CAMERA-7 and
+DV-ACC-UI-1; governing plan and current registry.
+changed_paths: none
+checks_run: Exact-name and manifest searches in active Codex skills/plugin
+cache/config/catalog roots; current exposed and recommended skill/plugin
+catalog inspection; official OpenAI documentation search.
+installed_state: No build-macos-apps package or swiftui-patterns skill exists
+on disk or in the current task exposure.
+official_package_identity: None established. The recommended plugin catalog
+contains no matching entry, and official documentation provides no package ID,
+alias, supersession, or installation path for this exact skill.
+equivalence_disposition: Similar available UI/design skills and cached web-app
+skills are not officially mapped substitutes and cannot satisfy the gate.
+activation_path: None in the current task. A supplied official package identity
+would require the supported user-controlled install flow and a fresh task skill
+exposure check.
+scope_check: Read-only skill/catalog/config/reference inspection; no install,
+repository edit, UI/source/runtime, or Computer Use.
+deviations: none
+residual: DV-P0B-E05 and all Dev Vlogs UI work remain blocked.
+next_dependency: User supplies the official skill package identity or
+explicitly authorizes changing the repository's exact UI-skill gate.
 runtime_or_visual_handoff: none
 ```
 
