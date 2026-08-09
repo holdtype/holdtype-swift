@@ -105,13 +105,17 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
                       "camera-authorization-ack.json", "set -o noclobber", "permission_terminal_observed",
                       "permission_deadline", "permission_work_deadline",
                       "permission_cleanup_reserve_seconds", "permission_scrub_sensitive_artifacts",
-                      "permission_remove_run_root", "timeout_command \"$REPLY\" ln"] {
+                      "permission_remove_run_root", "timeout_command \"$REPLY\" ln",
+                      "--kill-after=", "renameatx_np", "RENAME_EXCL", "O_NOFOLLOW",
+                      "dir_fd=", "kill -0 -- \"-$timeout_pid\"", "permission_root_identity",
+                      "permission_parent_identity"] {
             #expect(script.contains(token))
         }
         #expect(!script.contains("plutil -extract"))
         #expect(!script.contains("launcher_result_stat"))
         #expect(script.contains("cleanup || prior_status=70"))
-        #expect(script.contains("permission_verify_run_root \"$permission_deadline\""))
+        #expect(!script.contains("permission_sensitive_remove_executable"))
+        #expect(!script.contains("permission_root_remove_executable"))
         let deadline = try #require(script.range(of: "begin_permission_deadline \"$permission_timeout_seconds\""))
         let compile = try #require(script.range(of: "timeout_command \"$REPLY\" xcrun swiftc"))
         #expect(deadline.lowerBound < compile.lowerBound)
@@ -133,19 +137,35 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
             ("cleanup_root_timeout", 70, 1, false),
             ("cleanup_root_failure", 70, 1, false),
             ("cleanup_deadline_expired", 70, 1, true),
+            ("cleanup_root_symlink", 70, 1, true),
+            ("cleanup_root_replaced", 70, 1, true),
+            ("cleanup_parent_replaced", 70, 0, true),
+            ("cleanup_swap_after_open", 70, 1, false),
+            ("cleanup_tombstone_collision", 70, 1, false),
+            ("cleanup_post_rename_mismatch", 70, 1, false),
+            ("cleanup_sensitive_symlink", 70, 1, true),
+            ("cleanup_sensitive_hardlink", 70, 1, true),
+            ("cleanup_sensitive_type", 70, 1, true),
+            ("cleanup_unexpected_name", 70, 0, false),
+            ("cleanup_hard_timeout_matrix", 0, 0, false),
             ("cleanup_term", 143, 0, false),
             ("cleanup_int", 130, 0, false),
         ]
         for (scenario, status, rootCount, sensitiveRemain) in expectations {
             let start = ProcessInfo.processInfo.systemUptime
             let result = try root.runHook(scenario, timeout: 16)
-            #expect(result.status == status)
+            #expect(result.status == status, Comment(rawValue: "\(scenario): \(result.output)"))
             #expect(ProcessInfo.processInfo.systemUptime - start < 15)
             let runRoots = try root.runRoots(for: scenario)
             #expect(runRoots.count == rootCount)
-            let sensitive = runRoots.flatMap(root.sensitiveArtifacts(in:))
-            #expect(sensitive.isEmpty != sensitiveRemain)
+            #expect(try root.sensitiveArtifacts(for: scenario).isEmpty != sensitiveRemain)
             #expect(!result.output.contains(String(repeating: "0", count: 64)))
+            if scenario == "cleanup_hard_timeout_matrix" {
+                #expect(result.output.contains("permission_hard_timeout_test=pass"))
+            }
+            if scenario == "cleanup_unexpected_name" {
+                #expect(try root.namedArtifact("unexpected-private", for: scenario))
+            }
         }
     }
 
@@ -329,7 +349,7 @@ private final class ScriptFixture {
         return try run(
             arguments: ["--request-camera-permission"], hook: scenario, timeout: timeout,
             extraEnvironment: ["TMPDIR": temporary.path,
-                               "HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS": "14"]
+                               "HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS": "20"]
         )
     }
 
@@ -353,10 +373,22 @@ private final class ScriptFixture {
         ).filter { $0.lastPathComponent.hasPrefix("holdtype-dv-p0b.") }
     }
 
-    func sensitiveArtifacts(in root: URL) -> [URL] {
-        ["camera-authorization-launch.json", "camera-authorization-ack.json",
-         ".camera-authorization-ack.test", "permission-launcher.log"].map(root.appendingPathComponent)
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    func sensitiveArtifacts(for scenario: String) throws -> [URL] {
+        let names: Set = ["camera-authorization-launch.json", "camera-authorization-ack.json",
+                          ".camera-authorization-ack.test", "permission-launcher.log"]
+        let base = parent.appendingPathComponent(scenario)
+        return [base, URL(fileURLWithPath: base.path + ".original-test")].flatMap { root -> [URL] in
+            guard let enumerator = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: nil, options: []
+            ) else { return [] }
+            return enumerator.compactMap { $0 as? URL }.filter { names.contains($0.lastPathComponent) }
+        }
+    }
+
+    func namedArtifact(_ name: String, for scenario: String) throws -> Bool {
+        let base = parent.appendingPathComponent(scenario)
+        return try #require(FileManager.default.enumerator(at: base,
+            includingPropertiesForKeys: nil)).contains { ($0 as? URL)?.lastPathComponent == name }
     }
 
     func remove() { try? FileManager.default.removeItem(at: parent) }

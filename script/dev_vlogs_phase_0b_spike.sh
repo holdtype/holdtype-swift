@@ -49,13 +49,18 @@ permission_supervision_uncertain=0
 permission_preserve_root=0
 permission_quiet_rescan_complete=0
 permission_supervision_started=0
+permission_cleanup_active=0
 permission_result_category=""
 permission_result_bundle=""
 permission_result_executable=""
 permission_result_identifier=""
 permission_result_digest=""
-permission_sensitive_remove_executable="/bin/rm"
-permission_root_remove_executable="/bin/rm"
+permission_root_parent=""
+permission_root_name=""
+permission_parent_identity=""
+permission_root_identity=""
+permission_root_guard_executable="/usr/bin/python3"
+permission_root_guard_test_action=""
 observed_permission_ppid=""
 observed_permission_executable=""
 observed_permission_command=""
@@ -84,7 +89,297 @@ usage() {
 }
 
 timeout_command() {
+    if [[ "$permission_cleanup_active" == 1 ]]; then
+        permission_hard_timeout_command "$@"
+        return
+    fi
     "$timeout_executable" "$@"
+}
+
+permission_hard_timeout_command() {
+    local -F 6 total_seconds="$1"
+    shift
+    (( total_seconds >= 0.200000 )) || return 125
+    local -F 6 kill_seconds=$(( total_seconds / 4.0 ))
+    (( kill_seconds >= 0.050000 )) || kill_seconds=0.050000
+    local -F 6 verify_seconds=$(( total_seconds / 4.0 ))
+    (( verify_seconds >= 0.050000 )) || verify_seconds=0.050000
+    local -F 6 term_seconds=$(( total_seconds - kill_seconds - verify_seconds ))
+    (( term_seconds >= 0.050000 )) || return 125
+    local term_text kill_text
+    printf -v term_text '%.6fs' "$term_seconds"
+    printf -v kill_text '%.6fs' "$kill_seconds"
+    local -F 6 started_at="$SECONDS"
+    "$timeout_executable" --signal=TERM --kill-after="$kill_text" "$term_text" "$@" &
+    local timeout_pid=$!
+    local result=0
+    wait "$timeout_pid" || result=$?
+    local -F 6 verification_deadline=$(( started_at + total_seconds ))
+    zmodload zsh/zselect
+    while kill -0 -- "-$timeout_pid" 2>/dev/null; do
+        (( SECONDS < verification_deadline )) || {
+            kill -KILL -- "-$timeout_pid" 2>/dev/null || true
+            return 125
+        }
+        kill -KILL -- "-$timeout_pid" 2>/dev/null || true
+        zselect -t 1 2>/dev/null || true
+    done
+    (( result == 137 )) && return 124
+    return "$result"
+}
+
+permission_root_guard_source=""
+read -r -d '' permission_root_guard_source <<'PY' || true
+import ctypes
+import os
+import re
+import secrets
+import signal
+import stat
+import sys
+import time
+
+O_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+OPEN_DIRECTORY = os.O_RDONLY | O_DIRECTORY | O_NOFOLLOW
+RENAME_EXCL = 0x00000004
+SENSITIVE = re.compile(r"(?:camera-authorization-launch\.json|camera-authorization-ack\.json|permission-launcher\.log|\.camera-authorization-ack\.[A-Za-z0-9]+)")
+
+def identity(value):
+    return (value.st_dev, value.st_ino, value.st_uid, stat.S_IMODE(value.st_mode))
+
+def expected(name):
+    parts = os.environ[name].split(":")
+    if len(parts) != 4 or any(not part.isdigit() for part in parts):
+        raise ValueError("identity")
+    return tuple(int(part) for part in parts)
+
+def open_parent(path, wanted=None):
+    descriptor = os.open(path, OPEN_DIRECTORY)
+    value = os.fstat(descriptor)
+    if not stat.S_ISDIR(value.st_mode) or (wanted is not None and identity(value) != wanted):
+        os.close(descriptor)
+        raise ValueError("parent")
+    return descriptor, value
+
+def open_root(parent, name, wanted=None):
+    descriptor = os.open(name, OPEN_DIRECTORY, dir_fd=parent)
+    value = os.fstat(descriptor)
+    if not stat.S_ISDIR(value.st_mode) or (wanted is not None and identity(value) != wanted):
+        os.close(descriptor)
+        raise ValueError("root")
+    return descriptor, value
+
+def sensitive_names():
+    raw = os.environ.get("DV_ROOT_SENSITIVE", "")
+    values = [value for value in raw.split(":") if value]
+    if len(values) > 4 or len(values) != len(set(values)):
+        raise ValueError("sensitive")
+    if any(SENSITIVE.fullmatch(value) is None for value in values):
+        raise ValueError("sensitive")
+    return values
+
+def scrub(root, names):
+    for name in names:
+        try:
+            value = os.stat(name, dir_fd=root, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        if (not stat.S_ISREG(value.st_mode) or value.st_uid != os.getuid() or
+                stat.S_IMODE(value.st_mode) != 0o600 or value.st_nlink != 1):
+            raise ValueError("sensitive")
+        os.unlink(name, dir_fd=root)
+    for name in names:
+        try:
+            os.stat(name, dir_fd=root, follow_symlinks=False)
+        except FileNotFoundError:
+            continue
+        raise ValueError("sensitive")
+
+def remove_contents(directory, top_level=False, test_action=""):
+    with os.scandir(directory) as entries:
+        names = [entry.name for entry in entries]
+    for name in names:
+        if top_level:
+            allowed = (name in {"home", "camera-authorization-launcher"} or
+                       SENSITIVE.fullmatch(name) is not None or
+                       re.fullmatch(r"dv-p0b-camera-authorization-[A-Za-z0-9-]+", name) is not None or
+                       (test_action == "timeout_fixture" and
+                        re.fullmatch(r"timeout-(?:worker|parent-[1-3]|child-[1-3])", name) is not None))
+            if not allowed:
+                raise ValueError("name")
+        value = os.stat(name, dir_fd=directory, follow_symlinks=False)
+        if value.st_uid != os.getuid() or stat.S_IMODE(value.st_mode) & 0o022:
+            raise ValueError("ownership")
+        if stat.S_ISDIR(value.st_mode):
+            child = os.open(name, OPEN_DIRECTORY, dir_fd=directory)
+            try:
+                if identity(os.fstat(child)) != identity(value):
+                    raise ValueError("replacement")
+                remove_contents(child)
+            finally:
+                os.close(child)
+            os.rmdir(name, dir_fd=directory)
+        elif stat.S_ISREG(value.st_mode) and value.st_nlink == 1:
+            os.unlink(name, dir_fd=directory)
+        else:
+            raise ValueError("type")
+
+def rename_exclusive(parent, source, destination):
+    libc = ctypes.CDLL(None, use_errno=True)
+    call = libc.renameatx_np
+    call.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    call.restype = ctypes.c_int
+    result = call(parent, os.fsencode(source), parent, os.fsencode(destination), RENAME_EXCL)
+    if result != 0:
+        raise OSError(ctypes.get_errno(), "rename")
+
+def path_identity(parent, name):
+    try:
+        return identity(os.stat(name, dir_fd=parent, follow_symlinks=False))
+    except FileNotFoundError:
+        return None
+
+def capture():
+    parent_path = os.environ["DV_ROOT_PARENT"]
+    root_name = os.environ["DV_ROOT_NAME"]
+    if "/" in root_name or not root_name.startswith("holdtype-dv-p0b."):
+        raise ValueError("name")
+    parent, parent_value = open_parent(parent_path)
+    try:
+        root, root_value = open_root(parent, root_name)
+        try:
+            if root_value.st_uid != os.getuid() or stat.S_IMODE(root_value.st_mode) != 0o700:
+                raise ValueError("mode")
+            print(":".join(str(value) for value in identity(parent_value) + identity(root_value)))
+        finally:
+            os.close(root)
+    finally:
+        os.close(parent)
+
+def cleanup(action):
+    parent_path = os.environ["DV_ROOT_PARENT"]
+    root_name = os.environ["DV_ROOT_NAME"]
+    parent_wanted = expected("DV_ROOT_PARENT_IDENTITY")
+    root_wanted = expected("DV_ROOT_IDENTITY")
+    test_action = os.environ.get("DV_ROOT_TEST_ACTION", "")
+    if test_action == "parent_replaced":
+        grand_path, parent_leaf = os.path.split(parent_path)
+        grand, _ = open_parent(grand_path)
+        try:
+            current, _ = open_root(grand, parent_leaf, parent_wanted)
+            os.close(current)
+            rename_exclusive(grand, parent_leaf, parent_leaf + ".original-test")
+            os.mkdir(parent_leaf, 0o700, dir_fd=grand)
+        finally:
+            os.close(grand)
+    parent, _ = open_parent(parent_path, parent_wanted)
+    try:
+        if test_action in ("root_symlink", "root_replaced"):
+            preserved = ".dv-p0b-original-test"
+            rename_exclusive(parent, root_name, preserved)
+            if test_action == "root_symlink":
+                target = ".dv-p0b-sibling-test"
+                os.mkdir(target, 0o700, dir_fd=parent)
+                os.symlink(target, root_name, dir_fd=parent)
+            else:
+                os.mkdir(root_name, 0o700, dir_fd=parent)
+        root, _ = open_root(parent, root_name, root_wanted)
+        try:
+            if test_action == "scrub_timeout":
+                signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                time.sleep(10)
+            if test_action == "scrub_failure":
+                raise ValueError("test")
+            if test_action == "swap_after_open":
+                preserved = ".dv-p0b-original-test"
+                rename_exclusive(parent, root_name, preserved)
+                os.mkdir(root_name, 0o700, dir_fd=parent)
+            names = sensitive_names()
+            if test_action in ("sensitive_symlink", "sensitive_hardlink", "sensitive_type"):
+                name = names[0]
+                try:
+                    os.unlink(name, dir_fd=root)
+                except FileNotFoundError:
+                    pass
+                if test_action == "sensitive_symlink":
+                    os.symlink("permission-launcher.log", name, dir_fd=root)
+                elif test_action == "sensitive_hardlink":
+                    os.link("permission-launcher.log", name, src_dir_fd=root, dst_dir_fd=root)
+                else:
+                    os.mkdir(name, 0o700, dir_fd=root)
+            scrub(root, names)
+            if action == "remove" and test_action == "unexpected_name":
+                descriptor = os.open("unexpected-private", os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                     0o600, dir_fd=root)
+                os.close(descriptor)
+        finally:
+            os.close(root)
+        if action == "retain":
+            check, _ = open_root(parent, root_name, root_wanted)
+            os.close(check)
+            print("root_guard=scrubbed_retained")
+            return
+        if test_action == "remove_timeout":
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            time.sleep(10)
+        if test_action == "remove_failure":
+            raise ValueError("test")
+        tombstone = (".dv-p0b-cleanup-collision" if test_action == "tombstone_collision"
+                     else ".dv-p0b-cleanup-" + secrets.token_hex(12))
+        if test_action == "tombstone_collision":
+            os.mkdir(tombstone, 0o700, dir_fd=parent)
+        rename_exclusive(parent, root_name, tombstone)
+        if test_action == "post_rename_mismatch":
+            rename_exclusive(parent, tombstone, ".dv-p0b-original-test")
+            os.mkdir(tombstone, 0o700, dir_fd=parent)
+        tombstone_identity = path_identity(parent, tombstone)
+        if tombstone_identity != root_wanted:
+            if path_identity(parent, root_name) is None:
+                try:
+                    rename_exclusive(parent, tombstone, root_name)
+                except OSError:
+                    pass
+            raise ValueError("quarantine")
+        tombstone_fd, _ = open_root(parent, tombstone, root_wanted)
+        try:
+            remove_contents(tombstone_fd, True, test_action)
+        finally:
+            os.close(tombstone_fd)
+        os.rmdir(tombstone, dir_fd=parent)
+        if path_identity(parent, tombstone) is not None or path_identity(parent, root_name) is not None:
+            raise ValueError("residual")
+        print("root_guard=removed")
+    finally:
+        os.close(parent)
+
+try:
+    operation = sys.argv[1]
+    if operation == "capture":
+        capture()
+    elif operation in ("retain", "remove"):
+        cleanup(operation)
+    else:
+        raise ValueError("operation")
+except BaseException:
+    os._exit(65)
+PY
+
+capture_permission_root_identity() {
+    local capture
+    local cap="$1"
+    capture=$(permission_hard_timeout_command "$cap" env \
+        DV_ROOT_PARENT="$permission_root_parent" \
+        DV_ROOT_NAME="$permission_root_name" \
+        "$permission_root_guard_executable" -c "$permission_root_guard_source" capture) || return 1
+    local -a values=("${(@s.:.)capture}")
+    (( ${#values} == 8 )) || return 1
+    local value
+    for value in "${values[@]}"; do
+        [[ "$value" == <-> ]] || return 1
+    done
+    permission_parent_identity="${(j.:.)values[1,4]}"
+    permission_root_identity="${(j.:.)values[5,8]}"
 }
 
 case "$mode" in
@@ -157,9 +452,31 @@ else
     exit 127
 fi
 
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-}" ]]; then
+        [[ "$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS" == <-> ]] &&
+            (( HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS >
+                    permission_cleanup_reserve_seconds &&
+               HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS <= 420 )) || exit 64
+        permission_timeout_seconds="$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS"
+    fi
+fi
 run_root=$(mktemp -d "${TMPDIR%/}/holdtype-dv-p0b.XXXXXX")
 resolved_temp_root=${TMPDIR:A}
 resolved_run_root=${run_root:A}
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    permission_deadline=$(( SECONDS + permission_timeout_seconds ))
+    permission_work_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))
+    permission_root_parent="$resolved_temp_root"
+    permission_root_name="${resolved_run_root:t}"
+    local_root_capture_cap=$(( permission_work_deadline - SECONDS ))
+    (( local_root_capture_cap <= 2.0 )) || local_root_capture_cap=2.0
+    (( local_root_capture_cap >= 0.2 )) &&
+        capture_permission_root_identity "$local_root_capture_cap" || {
+        print -u2 -r -- "cleanup failed: private Camera permission run-root identity unavailable"
+        exit 70
+    }
+fi
 
 terminate_capture_supervisor() {
     local child_pid="$capture_supervisor_pid"
@@ -194,6 +511,7 @@ permission_timeout_cap() {
 
 begin_permission_deadline() {
     local total_seconds="$1"
+    [[ -z "$permission_deadline" ]] || return 0
     permission_deadline=$(( SECONDS + total_seconds ))
     permission_work_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))
     (( permission_work_deadline > SECONDS ))
@@ -204,7 +522,11 @@ permission_sleep() {
     permission_timeout_cap "$deadline" 1 || return 1
     local -F 6 sleep_seconds="$REPLY"
     (( sleep_seconds < 0.1 )) || sleep_seconds=0.1
-    sleep "$sleep_seconds"
+    if [[ "$permission_cleanup_active" == 1 ]]; then
+        permission_hard_timeout_command "$REPLY" sleep "$sleep_seconds" || return 1
+    else
+        sleep "$sleep_seconds"
+    fi
     (( SECONDS <= deadline ))
 }
 
@@ -806,7 +1128,11 @@ run_permission_cleanup_self_test() {
     local scenario="${HOLDTYPE_DEV_VLOGS_PHASE_0B_SCRIPT_RESULT_TEST:-}"
     case "$scenario" in
         cleanup_normal|cleanup_uncertain|cleanup_scrub_timeout|cleanup_scrub_failure|\
-        cleanup_root_timeout|cleanup_root_failure|cleanup_deadline_expired|cleanup_term|cleanup_int) ;;
+        cleanup_root_timeout|cleanup_root_failure|cleanup_deadline_expired|cleanup_term|cleanup_int|\
+        cleanup_root_symlink|cleanup_root_replaced|cleanup_parent_replaced|cleanup_swap_after_open|\
+        cleanup_tombstone_collision|cleanup_post_rename_mismatch|cleanup_sensitive_symlink|\
+        cleanup_sensitive_hardlink|cleanup_sensitive_type|cleanup_unexpected_name|\
+        cleanup_hard_timeout_matrix) ;;
         *) exit 64 ;;
     esac
     permission_timeout_seconds="${HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS:-14}"
@@ -825,23 +1151,31 @@ run_permission_cleanup_self_test() {
     print -rn -- "$permission_launch_token" > "$permission_acknowledgment_temporary"
     print -rn -- "$permission_launch_token" > "$permission_operator_log"
 
-    local slow_remover="$resolved_run_root/slow-remove"
-    if [[ "$scenario" == cleanup_scrub_timeout || "$scenario" == cleanup_root_timeout ]]; then
-        print -r -- '#!/bin/zsh' > "$slow_remover"
-        print -r -- 'sleep 5' >> "$slow_remover"
-        permission_timeout_cap "$permission_work_deadline" 1 || exit 124
-        timeout_command "$REPLY" chmod 0700 "$slow_remover" || exit 1
-    fi
     case "$scenario" in
         cleanup_uncertain)
             permission_supervision_uncertain=1
             permission_preserve_root=1
             ;;
-        cleanup_scrub_timeout) permission_sensitive_remove_executable="$slow_remover" ;;
-        cleanup_scrub_failure) permission_sensitive_remove_executable="/usr/bin/false" ;;
-        cleanup_root_timeout) permission_root_remove_executable="$slow_remover" ;;
-        cleanup_root_failure) permission_root_remove_executable="/usr/bin/false" ;;
+        cleanup_scrub_timeout) permission_root_guard_test_action="scrub_timeout" ;;
+        cleanup_scrub_failure) permission_root_guard_test_action="scrub_failure" ;;
+        cleanup_root_timeout) permission_root_guard_test_action="remove_timeout" ;;
+        cleanup_root_failure) permission_root_guard_test_action="remove_failure" ;;
         cleanup_deadline_expired) permission_deadline="$SECONDS" ;;
+        cleanup_root_symlink) permission_root_guard_test_action="root_symlink" ;;
+        cleanup_root_replaced) permission_root_guard_test_action="root_replaced" ;;
+        cleanup_parent_replaced) permission_root_guard_test_action="parent_replaced" ;;
+        cleanup_swap_after_open) permission_root_guard_test_action="swap_after_open" ;;
+        cleanup_tombstone_collision) permission_root_guard_test_action="tombstone_collision" ;;
+        cleanup_post_rename_mismatch) permission_root_guard_test_action="post_rename_mismatch" ;;
+        cleanup_sensitive_symlink) permission_root_guard_test_action="sensitive_symlink" ;;
+        cleanup_sensitive_hardlink) permission_root_guard_test_action="sensitive_hardlink" ;;
+        cleanup_sensitive_type) permission_root_guard_test_action="sensitive_type" ;;
+        cleanup_unexpected_name) permission_root_guard_test_action="unexpected_name" ;;
+        cleanup_hard_timeout_matrix)
+            permission_root_guard_test_action="timeout_fixture"
+            run_permission_hard_timeout_self_test
+            exit 0
+            ;;
     esac
     print -r -- "permission_cleanup_test=$scenario"
     case "$scenario" in
@@ -851,45 +1185,110 @@ run_permission_cleanup_self_test() {
     esac
 }
 
-permission_verify_run_root() {
-    local deadline="$1"
-    [[ "$resolved_run_root" == "$resolved_temp_root"/holdtype-dv-p0b.* ]] || return 1
-    permission_timeout_cap "$deadline" "$permission_cleanup_root_probe_seconds" || return 1
-    local metadata
-    metadata=$(timeout_command "$REPLY" stat -f '%u:%Lp:%HT' "$resolved_run_root") || return 1
-    [[ "$metadata" == "$EUID:700:Directory" ]]
+run_permission_hard_timeout_self_test() {
+    local worker="$resolved_run_root/timeout-worker"
+    print -r -- '#!/bin/zsh' > "$worker"
+    print -r -- 'trap "" TERM' >> "$worker"
+    print -r -- 'print -r -- "$$" > "$1"' >> "$worker"
+    print -r -- '( trap "" TERM; while true; do sleep 10; done ) &' >> "$worker"
+    print -r -- 'print -r -- "$!" > "$2"' >> "$worker"
+    print -r -- 'wait' >> "$worker"
+    permission_timeout_cap "$permission_work_deadline" 1 || exit 124
+    timeout_command "$REPLY" chmod 0700 "$worker" || exit 1
+    local attempt parent_record child_record timeout_status=1
+    for attempt in 1 2 3; do
+        parent_record="$resolved_run_root/timeout-parent-$attempt"
+        child_record="$resolved_run_root/timeout-child-$attempt"
+        set +e
+        permission_hard_timeout_command 1.000000 "$worker" "$parent_record" "$child_record"
+        timeout_status=$?
+        set -e
+        (( timeout_status == 124 )) || {
+            print -r -- "permission_hard_timeout_test=failed_timeout"
+            exit 1
+        }
+        [[ -s "$parent_record" && -s "$child_record" ]] && break
+    done
+    [[ -s "$parent_record" && -s "$child_record" ]] || {
+        print -r -- "permission_hard_timeout_test=failed_records"
+        exit 1
+    }
+    [[ "$(<"$parent_record")" == <-> && "$(<"$child_record")" == <-> ]] || {
+        print -r -- "permission_hard_timeout_test=failed_record"
+        exit 1
+    }
+    permission_hard_timeout_command 0.500000 /usr/bin/true || {
+        print -r -- "permission_hard_timeout_test=failed_normal"
+        exit 1
+    }
+    local original_timeout="$timeout_executable"
+    timeout_executable="/usr/bin/false"
+    set +e
+    permission_hard_timeout_command 0.500000 /usr/bin/true
+    local wrapper_status=$?
+    set -e
+    timeout_executable="$original_timeout"
+    (( wrapper_status != 0 && wrapper_status != 124 )) || {
+        print -r -- "permission_hard_timeout_test=failed_wrapper"
+        exit 1
+    }
+    print -r -- "permission_hard_timeout_test=pass"
+}
+
+permission_sensitive_names() {
+    local -a names=()
+    local artifact name
+    for artifact in "$permission_launcher_result" "$permission_acknowledgment" \
+        "$permission_acknowledgment_temporary" "$permission_operator_log"; do
+        [[ -n "$artifact" ]] || continue
+        [[ "${artifact:h}" == "$resolved_run_root" ]] || return 1
+        name="${artifact:t}"
+        [[ "$name" != *:* && "$name" != */* ]] || return 1
+        names+=("$name")
+    done
+    REPLY="${(j.:.)names}"
+}
+
+permission_run_root_guard() {
+    local operation="$1"
+    local deadline="$2"
+    local maximum_seconds="$3"
+    [[ "$operation" == retain || "$operation" == remove ]] || return 1
+    [[ -n "$permission_parent_identity" && -n "$permission_root_identity" ]] || return 1
+    permission_sensitive_names || return 1
+    local sensitive="$REPLY"
+    permission_timeout_cap "$deadline" "$maximum_seconds" || return 1
+    local output
+    output=$(permission_hard_timeout_command "$REPLY" env \
+        DV_ROOT_PARENT="$permission_root_parent" \
+        DV_ROOT_NAME="$permission_root_name" \
+        DV_ROOT_PARENT_IDENTITY="$permission_parent_identity" \
+        DV_ROOT_IDENTITY="$permission_root_identity" \
+        DV_ROOT_SENSITIVE="$sensitive" \
+        DV_ROOT_TEST_ACTION="$permission_root_guard_test_action" \
+        "$permission_root_guard_executable" -c "$permission_root_guard_source" "$operation") || return 1
+    [[ "$output" == "root_guard=scrubbed_retained" && "$operation" == retain ||
+       "$output" == "root_guard=removed" && "$operation" == remove ]] || return 1
 }
 
 permission_scrub_sensitive_artifacts() {
     local deadline="$1"
-    local -a artifacts=()
-    local artifact
-    for artifact in "$permission_launcher_result" "$permission_acknowledgment" \
-        "$permission_acknowledgment_temporary" "$permission_operator_log"; do
-        [[ -n "$artifact" ]] || continue
-        [[ "$artifact" == "$resolved_run_root"/* ]] || return 1
-        artifacts+=("$artifact")
-    done
-    if (( ${#artifacts} > 0 )); then
-        permission_timeout_cap "$deadline" "$permission_cleanup_sensitive_delete_seconds" || return 1
-        timeout_command "$REPLY" "$permission_sensitive_remove_executable" -f -- "${artifacts[@]}" || return 1
-    fi
-    for artifact in "${artifacts[@]}"; do
-        [[ ! -e "$artifact" && ! -L "$artifact" ]] || return 1
-    done
+    permission_run_root_guard retain "$deadline" $((
+        permission_cleanup_root_probe_seconds + permission_cleanup_sensitive_delete_seconds
+    )) || return 1
     permission_launch_token=""
 }
 
 permission_remove_run_root() {
     local deadline="$1"
-    permission_verify_run_root "$deadline" || return 1
-    permission_timeout_cap "$deadline" "$permission_cleanup_root_delete_seconds" || return 1
-    timeout_command "$REPLY" "$permission_root_remove_executable" -rf -- "$resolved_run_root" || return 1
-    [[ ! -e "$resolved_run_root" && ! -L "$resolved_run_root" ]]
+    permission_run_root_guard remove "$deadline" $((
+        permission_cleanup_root_probe_seconds + permission_cleanup_root_delete_seconds
+    ))
 }
 
 cleanup_permission_mode() {
     local cleanup_status=0
+    permission_cleanup_active=1
     if [[ -n "$permission_deadline" &&
           ( "$permission_helper_pid" == <-> || ${#permission_registry_pids} > 0 ) ]]; then
         if [[ -z "$permission_helper_pid" && "$permission_quiet_rescan_complete" == 1 ]]; then
@@ -903,8 +1302,7 @@ cleanup_permission_mode() {
             }
         fi
     fi
-    permission_verify_run_root "$permission_deadline" &&
-        permission_scrub_sensitive_artifacts "$permission_deadline" || {
+    permission_scrub_sensitive_artifacts "$permission_deadline" || {
         print -u2 -r -- "cleanup failed: sensitive Camera permission artifacts remain in a private run root"
         permission_preserve_root=1
         return 1
@@ -959,7 +1357,12 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
 fi
 
 cd "$repository_root"
-timeout_command "$build_timeout_seconds" xcodebuild \
+current_build_timeout="$build_timeout_seconds"
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    permission_timeout_cap "$permission_work_deadline" "$build_timeout_seconds" || exit 124
+    current_build_timeout="$REPLY"
+fi
+timeout_command "$current_build_timeout" xcodebuild \
     -project HoldType.xcodeproj \
     -scheme HoldType \
     -configuration Debug \
@@ -971,7 +1374,12 @@ if [[ "$mode" == "--build-only" ]]; then
     exit 0
 fi
 
-build_settings=$(timeout_command "$build_timeout_seconds" xcodebuild \
+current_build_timeout="$build_timeout_seconds"
+if [[ "$mode" == "--request-camera-permission" ]]; then
+    permission_timeout_cap "$permission_work_deadline" "$build_timeout_seconds" || exit 124
+    current_build_timeout="$REPLY"
+fi
+build_settings=$(timeout_command "$current_build_timeout" xcodebuild \
     -project HoldType.xcodeproj \
     -scheme HoldType \
     -configuration Debug \
@@ -999,6 +1407,7 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
         permission_timeout_seconds="$HOLDTYPE_DEV_VLOGS_PHASE_0B_PERMISSION_TIMEOUT_SECONDS"
     fi
     begin_permission_deadline "$permission_timeout_seconds" || exit 124
+    umask 077
     sanitized_home="$resolved_run_root/home"
     permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     timeout_command "$REPLY" mkdir -p -- "$sanitized_home" || exit 1
