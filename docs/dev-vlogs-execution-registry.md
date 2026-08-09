@@ -142,8 +142,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
 | `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 | no writable scope | pending | — | Choose a narrow permission-only retained-root residual or a privileged/different-UID cleanup boundary. |
 | `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
-| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | review | `7fbeab8`; receipt below | Explicit Continuity capture reached playable camera/final probes and passthrough, then failed strict stored-sample preservation; watcher missed detailed events. |
-| `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | running | — | Classify preservation failure and watcher loss; return exact repair/evidence dependency before any retry. |
+| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | rejected | `7fbeab8`; receipt below | Functional fail is supported, but evidence incorrectly attributes all unavailable details to watcher loss. |
+| `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | rejected | receipt below | Three-path evidence-only causal-wording repair required; no runtime retry. |
+| `DV-P0B-CAPTURE-R06-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected R06 review | exact R06 summary, residuals, and measurements only | running | — | Preserve functional fail/nulls; distinguish collapsed failure evidence from separate watcher loss. |
+| `DV-P0B-CAPTURE-R06-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | R06 evidence repair | read-only exact three-path repair | queued | — | Accept evidence truthfulness before diagnostic/handoff implementation. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -257,8 +259,11 @@ new HoldType preset or control; HoldType simply does not downsample it.
   authorization was reached as authorized; camera-only and final media probes
   were playable and passthrough completed, but the strict stored-sample
   comparator failed and the watcher missed detailed event/media metrics. Raw
-  media and run-owned processes were cleaned. Independent review is running;
-  no retry precedes its classification. The
+  media and run-owned processes were cleaned. Independent review accepted the
+  functional fail but rejected watcher-only causal wording: the current failure
+  route also collapses typed preservation errors and omits probe evidence. A
+  three-path evidence-only repair is running; no retry or source change precedes
+  repeat review. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2624,6 +2629,41 @@ runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAPTURE-R06-REVIEW` of `7fbeab8`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06-REVIEW
+status: done
+verdict: reject
+
+outcome: The functional Continuity cell is truthfully fail: exactly one
+explicit attempt reached authorized camera routing, passed camera-only probe,
+passthrough finalization, and final 1V/1A probe, then failed
+stored_sample_exact_v1 with zero Ready clips. Evidence is rejected only because
+it incorrectly attributes unavailable probe metrics and mismatch diagnosis to
+watcher loss.
+evidence_integrity: Exact eight-file commit 7fbeab8 and parent verified;
+current blobs match; structured parsing, cross-counts, diff, redaction, media,
+private-identity, and cleanup checks pass.
+authorization_classification: Route-time authorized is supported by ordering;
+it does not establish durable TCC state.
+media_classification: Probe and passthrough passes plus preservation failure are
+supported. Exact failed dimension is unobservable because all comparator errors
+collapse to video_preservation_failed; comparator, finalizer, and platform
+causes remain unproven.
+watcher_root_cause: Hardware provides no deterministic event handoff before
+cleanup. The ad-hoc watcher mechanism is unretained, but watcher repair alone
+would not recover mismatch/probe details because failed terminals omit them.
+cleanup_classification: Supported; zero run roots/caffeinate, preserved
+pre-existing HoldType, protected counts match R06.
+exact_repair: R06 summary.md, residuals.md, and measurements.csv only. Preserve
+functional fail and nulls; state that collapsed failure evidence omits mismatch
+and probes while watcher loss separately removed raw event/path timing.
+next_dependency: Evidence-only three-path repair and repeat review, then an
+independently reviewed diagnostic/handoff repair before any hardware retry.
+changed_paths: none
+```
 
 ### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` of `f989aa8`
 
