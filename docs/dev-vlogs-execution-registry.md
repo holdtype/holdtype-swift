@@ -161,8 +161,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
-| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | running | pending | Produce the minimal bounded `DV-P0B-E05` implementation and QA envelope; no product UI or runtime. |
-| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01`; accepted `DV-P0B-UI-E02` required | bounded prototype/evidence paths assigned after E02 | queued | — | Dispatch only from the reviewed E02 envelope; Phase 0B evidence only, not product UI. |
+| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | review | receipt below | SwiftUI frame-rendering path and exact seven-path W01 envelope returned; independent review required. |
+| `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | running | pending | Accept, narrow, or reject the W01 envelope before any UI spike. |
+| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01`; accepted `DV-P0B-UI-E02-REVIEW` required | bounded prototype/evidence paths assigned after E02 review | queued | — | Dispatch only from the independently accepted E02 envelope; Phase 0B evidence only, not product UI. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -298,9 +299,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   current Build macOS Apps package and has been read together with its
   windowing, settings, split-view, menu-bar, and commands references. The
   historical unavailable-skill receipt remains valid for its earlier
-  environment, but the gate is now resolved. `DV-P0B-UI-E02` is the only
-  running UI packet and is read-only; it must return the exact bounded E05
-  prototype/QA envelope before any UI spike is dispatched.
+  environment, but the gate is now resolved. Read-only `DV-P0B-UI-E02`
+  returned a pure SwiftUI frame-rendering candidate and exact bounded spike
+  envelope. Independent `DV-P0B-UI-E02-REVIEW` is running; no E05 source or
+  runtime packet may start before that review is accepted.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2805,6 +2807,52 @@ deviations: none
 residual: The UI source/platform ownership map and bounded E05 spike remain.
 next_dependency: DV-P0B-UI-E02, then independent review before E05 execution.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-UI-E02`
+
+```text
+packet_id: DV-P0B-UI-E02
+status: done
+verdict: ready_for_one_bounded_W01_spike
+
+outcome: Current macOS 14+ APIs support a SwiftUI-visible live preview without
+an AppKit view adapter: AVCaptureVideoDataOutput frames can be converted through
+CVPixelBuffer/CIImage/one reused CIContext to CGImage and rendered by SwiftUI
+Image. A dedicated Debug-only application/window can prove E05 without adding a
+normal menu item, product scene, media output, or capture-owner coupling.
+specified_expectation: Explicit Start/Stop only; mirror the SwiftUI preview
+only; write no media; release Camera before reporting stopped; all visible
+controls, state, layout, and feedback remain SwiftUI.
+observed_evidence: HoldTypeApp owns early Debug application routing and normal
+SwiftUI scenes; SettingsScene/SettingsView supply the later singleton-window
+and NavigationSplitView patterns; menu presentation owns dismiss/activate/
+openWindow sequencing; the accepted camera harness owns recording semantics and
+must remain untouched. Filesystem-synchronized app/test groups need no project
+edit. Debug alone has Camera purpose/entitlement; Release remains isolated.
+platform_evidence: AVCaptureVideoDataOutput, CIImage pixel-buffer conversion,
+CIContext CGImage creation, SwiftUI Image(CGImage), and off-main synchronous
+AVCaptureSession stop are supported before the macOS 14 deployment minimum.
+AVCaptureVideoPreviewLayer would require a visible NSView hosting boundary and
+is not technically necessary for this spike.
+proposed_writable_paths: HoldType/HoldTypeApp.swift; three new Debug preview
+files (Launch, Session, View); two new focused preview test files; one W01 QA
+summary. No project, plist, entitlement, script, Settings, MenuBar, dictation,
+recording/finalizer/probe/preservation, permission, storage, Release, or iOS
+path.
+required_checks: Router/isolation, explicit action, permission/device/no-
+fallback, frame conversion/coalescing, display-only mirroring, exact-once
+cleanup/reacquisition, deterministic SwiftUI previews/accessibility, structure,
+focused tests, Debug/unsigned Release isolation, then separately authorized
+Computer Use runtime with caffeinate and sanitized launch.
+scope_check: Read-only source/platform evidence only; no edit, build, runtime,
+Camera, TCC, Computer Use, process, media, or commit.
+deviations: none
+residual: Actual cadence, Continuity orientation, visual mirroring,
+responsiveness, and release remain runtime evidence after implementation review.
+next_dependency: DV-P0B-UI-E02-REVIEW, then one bounded W01 spike.
+runtime_or_visual_handoff: One controlled asymmetric non-sensitive marker;
+retain at most one redacted screenshot and no device ID, path, media, or speech.
 ```
 
 ## Rejected Receipts
