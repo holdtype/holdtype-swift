@@ -235,8 +235,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01@8d1c48a` | read-only exact implementation review | rejected | receipt below | Repair event-derived parsing, bounds, pins, redaction and summary truthfulness. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | rejected | `2a25dd3`; receipt below | Parser/pins pass; terminal evidence, cleanup, exact types, outer binding and summary remain open. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | running | — | Close terminal evidence/cleanup state machine, exact JSON types, outer binding and summary truth. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2` terminal artifact | read-only exact repair review | queued | — | No runtime before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | review | `84aec4d`; receipt below | Terminal evidence/cleanup, exact types, outer binding and summary repaired; review pending. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | running | — | No runtime before acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7152,5 +7152,46 @@ residual: No shipping audio lease or real hardware/media/storage/provider
 behavior is proven.
 next_dependency: Record acceptance; DV-P0B-CAPTURE-R07 is dependency-ready
 subject to separate serialized coordinator authorization.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R2
+status: implementation_complete_pending_independent_review
+commit: 84aec4db3eaf6214ccf4f76440425e363e9eab67
+parent: ca862ae2d600942d70e3a5cf80abee8cc62da51e
+
+outcome: Every terminal classification now flows through the closed eight-file
+evidence state machine; cleanup uncertainty overrides success; schema/sequence
+require exact JSON integer types; and only the public outer-supervised
+--execute route can reach controller execution. The summary retains only
+bounded known facts about excluded verification routes.
+
+changed_paths: The protected-storage observer controller script, its controller
+tests and the W01 summary only. All seven accepted W01 paths remain frozen.
+
+evidence: Closed parser rejects Boolean/float schema numbers; event-derived
+classification and uncertainty priority remain green. Absolute inner/outer
+timeout and TERM-ignoring fixtures pass. Stable/replacement cleanup, sibling
+survival, pinned artifacts, private-output suppression and terminal evidence
+fixtures pass.
+
+checks: Controller 11/11; ordinary inert-host/protected regressions 87/87;
+observer-configured hosted confinement 1/1; signed Debug/codesign; unsigned
+Release and observer-symbol/key absence; structure at 499 lines, Swift parse,
+zsh syntax, CLI negatives, diff, frozen blobs, process/root/residue audits.
+
+scope_check: Exact three paths; no observer --execute, external volume,
+protected-content inspection, product runtime, Camera/TCC/Keychain/provider/
+media action.
+deviations: One intermediate hosted verification omitted explicit result-bundle
+routing, so Xcode wrote result metadata under the default user DerivedData.
+It was not inspected or removed. The summary records this; final qualifying
+reruns used task-owned private result bundles.
+residual: Independent review remains mandatory. No task-owned roots/processes
+remain and no runtime authority is granted.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
 runtime_or_visual_handoff: none
 ```
