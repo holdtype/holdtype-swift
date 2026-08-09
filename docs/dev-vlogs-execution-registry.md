@@ -165,7 +165,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
 | `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | accepted_with_residual | `085fa26`; receipt below | Fake/build implementation accepted; real preview behavior remains. |
 | `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
-| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | running | pending | Prove explicit selection, Start/Stop, display-only mirroring, release, and reacquisition once. |
+| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | review | `771b309`; receipt below | Exact selection and UI Start passed; app-scoped Camera remained notDetermined, so live frames/Stop/reacquisition await independent review as unavailable evidence. |
 | `DV-P0B-UI` | unassigned reviewer | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01` | read-only exact runtime evidence | queued | — | Review R01 evidence; Phase 0B only, not product UI acceptance. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -308,9 +308,13 @@ new HoldType preset or control; HoldType simply does not downsample it.
   seven-path packet with runtime residuals. `DV-P0B-UI-W01@085fa26` completed
   the isolated SwiftUI frame spike with focused/full fake tests and Debug/
   Release isolation. Independent `DV-P0B-UI-W01-REVIEW` accepted the exact
-  implementation with runtime residuals. One controlled `DV-P0B-UI-R01`
-  Camera/Computer Use packet is running; it may only test the isolated preview
-  and must not touch product UI, TCC settings, recording, or W07 cleanup.
+  implementation with runtime residuals. Controlled `DV-P0B-UI-R01@771b309`
+  launched the isolated SwiftUI preview, selected the sole explicit external
+  camera, and exercised Start through Computer Use. The app reported its own
+  Camera status as notDetermined and correctly made no permission request,
+  capture, media, or retry; live frames, Stop, mirroring, release, and
+  reacquisition remain unavailable. Exact cleanup completed and the evidence
+  is awaiting independent review.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2992,6 +2996,56 @@ reacquisition remain controlled runtime evidence. No source-capture coexistence
 claim.
 next_dependency: DV-P0B-UI-R01 and independent evidence review.
 runtime_or_visual_handoff: Required later; none performed in review.
+```
+
+### `DV-P0B-UI-R01`
+
+```text
+packet_id: DV-P0B-UI-R01
+status: done
+functional_result: not_available
+
+outcome: The isolated Debug SwiftUI preview launched and remained passive until
+one explicit camera selection and Start action. The selected external camera
+was exact and had no fallback, but the isolated signed app identity reported
+Camera authorization notDetermined. The preview returned its typed
+authorizationRequired state without requestAccess, prompt, graph, frame,
+capture, media, retry, or Stop/reacquisition action.
+specified_expectation: Explicit selection and Start/Stop; no passive capture,
+permission request, fallback, or media; changing mirrored SwiftUI frames;
+release before Stopped; one Stop-to-Start reacquisition.
+observed_evidence: Computer Use operated the real SwiftUI Picker and Start
+button. Idle/released state and UI responsiveness were observed. Start reached
+one typed authorization terminal. Frame, mirroring, post-capture release,
+indicator, Stop, and reacquisition evidence are unavailable.
+discrepancy_classification: environment_or_signing_residual
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E04/E05/E06/E08; accepted
+UI-W01@085fa26 and its independent review; exact root clarification permitting
+one read-only Apple-native enumeration with the private device ID retained only
+in memory for the launch.
+changed_paths: Eight redacted evidence files only under
+docs/qa/runs/dev-vlogs-phase-0b-ui-preview-r01/**.
+checks_run: Accepted ancestry and blob proof; Debug/Release configuration,
+purpose, entitlement, and signing checks; fresh bounded Debug build; JSON,
+JSONL, CSV, redaction, no-media, exact-scope, diff, process, root, and cleanup
+audits.
+cleanup_receipt: Zero run-owned app, guard, helper, Computer Use, build, or
+temporary-root residue; pre-existing HoldType preserved; no raw media or
+screenshot created; protected storage count/size rows unchanged.
+scope_check: Evidence only; no source, spec, plan, registry, TCC, product,
+permission, W07, storage, Release, or iOS delta in the worker commit.
+deviations: Computer Use attachment delayed visual inspection, but the total UI
+session remained below five minutes. Window close left one windowless run-owned
+process, which was terminated only after fresh exact identity validation.
+residual: The isolated app identity remains Camera notDetermined. Live-frame,
+mirroring, indicator, release-after-capture, and reacquisition evidence is not
+available. Shared-preferences size/digest changed while a pre-existing HoldType
+process remained active, so attribution is explicitly unresolved.
+next_dependency: DV-P0B-UI-R01-REVIEW
+runtime_or_visual_handoff: Review only the committed redacted evidence; no
+further runtime is authorized by this packet.
+commit: 771b309b9feed0107af93957133fb62c624e39e6
+parent: 00e847594863a27bb641c85617f3e918b0fa0ba1
 ```
 
 ## Rejected Receipts
