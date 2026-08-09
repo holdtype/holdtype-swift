@@ -209,8 +209,8 @@ other external root remain unauthorized.
 | `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
 | `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
 | `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
-| `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | running | — | Return the smallest source-truth packet for E07 without build, test, runtime, or edits. |
-| `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | queued | — | Accept a non-invented paired E07 route and exact future packet before implementation. |
+| `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | review | receipt below | Test-only paired fixture is feasible without product/Debug source changes. |
+| `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | running | — | Accept a non-invented paired E07 route and exact future packet before implementation. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | review | receipt below | Phase-separated closed-provenance observer design returned; no runtime or live protected access. |
@@ -3933,6 +3933,54 @@ independently reviewed read-only observer design before any runtime.
 runtime_or_visual_handoff: none
 reviewed_commit: bec67515ed855f1fba5ad3f63c91ac09146434da
 parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
+```
+
+### `DV-P0B-E07-E01`
+
+```text
+packet_id: DV-P0B-E07-E01
+status: done
+outcome: E07 can be proven through a new test-only paired fixture and redacted
+QA receipt. No product or existing Debug-spike source change is required.
+
+specified_expectation: Paired baseline and spike-enabled attempts compare
+start, stop, finalized-audio ownership, provider dispatch, correction,
+translation, accepted output, cancellation, History/cache effects and terminal
+cleanup. Camera, destination and mux failures remain subordinate; one dictation
+recorder stays authoritative and temporary vlog access ends on every path.
+observed_evidence: DictationSessionController plus the existing recorder,
+journal, transcript pipeline and injectable provider/post-processing/output
+boundaries already support deterministic fake-backed verification. Existing
+dictation and Dev Vlogs suites prove their branches separately but never pair
+and compare them. The isolated DevVlogsPhase0BHarness is not an E07 orchestrator
+because it owns separate audio and never enters normal provider/output flow.
+discrepancy_classification: Not-exercised QA/acceptance gap; no spec conflict or
+product implementation defect is established.
+future_scope: Add only
+HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift,
+HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift, and a new
+eight-file redacted QA root under
+docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/. All HoldType product/Debug,
+scripts, project, existing tests/evidence, specs and runtime surfaces are
+forbidden.
+paired_matrix: Standard, correction and translation success; explicit cancel;
+camera unavailable, busy and slow/timeout; destination unavailable and
+disconnect; mux failure. Each pair compares action states, recorder counts and
+artifact identity, journal ownership/leases, provider checkpoint/seal/accept,
+provider request, correction/translation, output, terminal cause, History/cache
+effects and exact cleanup.
+checks_required: Structure; bounded focused E07, controller-action and accepted
+launch suites; diff/allowlist and protected-blob audit; no real service/device/
+wait/file mutation; structured artifact and redaction validation; exact-one
+terminal and zero outstanding operation/lease. Any unequal snapshot is a
+functional E07 fail, not evidence_only.
+scope_check: Read-only source/QA inspection. No edit, build, test, runtime,
+process, hardware, provider, Keychain, media or storage action.
+residual: A pass would prove deterministic fake-backed E07 only. It would not
+prove the shipping shared-audio lease, hardware timing/preservation, protected
+storage closure or quantitative measurements.
+next_dependency: DV-P0B-E07-E01-REVIEW, then exact W01 plus independent review.
+runtime_or_visual_handoff: none
 ```
 
 ### `DV-P0B-STORAGE-OBSERVER-E01`
