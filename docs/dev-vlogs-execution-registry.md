@@ -221,8 +221,8 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
 | `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | rejected | `0e3b3ad`; receipt below | Scope/provenance pass; cancellation, cleanup ordering and schema closure require narrow R1. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | rejected | receipt below | Return exact two-test-path R1 to the original owner; runtime remains blocked. |
-| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | running | — | Repair three findings and truthfully refresh only the source-manifest digest; all other QA blobs frozen. |
-| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1` terminal receipt | read-only exact repair review | queued | — | Independent acceptance required before E07 can unblock capture review. |
+| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | review | `8f21b2e`; receipt below | Three findings repaired; seven other QA blobs frozen; independent review pending. |
+| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1@8f21b2e` | read-only exact repair review | running | — | Independent acceptance required before E07 can unblock capture review. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
@@ -6898,5 +6898,44 @@ shipping audio lease and real hardware/media/storage/provider behavior remain
 unproven.
 next_dependency: DV-P0B-E07-W01-R1, then independent
 DV-P0B-E07-W01-REVIEW-R1. DV-P0B-CAPTURE-R07 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-R1`
+
+```text
+packet_id: DV-P0B-E07-W01-R1
+status: implementation_complete_pending_independent_review
+commit: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+parent: f1183f71581e8a9b8330ebfaaf8f0bd8bf08d599
+
+outcome: The three W01 review blockers were repaired in the exact two Swift
+test paths plus one manifest-only environment update. Both gate methods now
+join cancellation observation, tuple state and flag closure in one mutex
+transition; temporary artifact access is released and snapshotted before
+cleaned/cleanupCount; the validator closes pass|fail and all eight ordered
+measurement metrics.
+
+changed_paths:
+- HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift
+- HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+- docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/environment.json
+
+evidence_integrity: environment.json changed only its derived source-manifest
+digest, now bb53c9851dff5ecc36e0582da6fc612b78471b45e3b8ad5e97efabacea71b47c.
+The seven other retained QA blobs remain frozen.
+
+checks: Focused 11-test E07 suite, adjacent controller/Phase0B launch suites,
+structure, signed Debug build, target membership, DEBUG/line bounds, 33/33
+protected blobs, manifest-only environment delta, redaction, forbidden APIs,
+recorder witnesses and diff hygiene passed.
+
+scope_check: No product, Debug harness, script, project, specification,
+registry, runtime, camera, microphone, provider, Keychain, media or storage
+action. Concurrent Storage Observer paths were preserved.
+deviations: none.
+residual: Deterministic fake-backed E07 only; no shipping lease or real
+hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01-REVIEW-R1.
 runtime_or_visual_handoff: none
 ```
