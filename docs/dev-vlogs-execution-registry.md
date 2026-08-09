@@ -237,8 +237,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | rejected | `84aec4d`; receipt below | Five prior defects pass; raw-event and write-failure evidence integrity require R3. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | rejected | receipt below | Return exact three-path evidence-integrity R3; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | review | `a9cd237`; receipt below | Validated-events-only and exact eight-file fail-closed writing implemented; review pending. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | running | — | No runtime before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | rejected | `a9cd237`; receipt below | Raw events close; partial artifacts can still retain success-looking claims. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | running | — | No retained partial may claim success/cleanup complete before atomic evidence commit. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4` terminal artifact | read-only exact repair review | queued | — | Review must use production-configured private host from first launch. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7280,5 +7282,57 @@ that Xcode did not propagate; final proof reran through production-configured
 task-owned and cleaned.
 residual: Independent review required; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3
+status: rejected_with_review_procedure_deviation
+reviewed_commit: a9cd23707a20f09eba898141f06915eeed3d3a1a
+parent: 5f476a73445c171a60d696def296267ca5dab9a4
+
+accepted_repairs: Exact three paths/current blobs/modes, seven frozen W01 blobs
+and external-wrapper provenance pass. Valid streams canonicalize retained
+events; malformed/pre-hosted streams produce empty JSONL and omit sentinels.
+Each evidence operation and final eight-path check is explicit; summary is
+written last and identity-removed on postcondition failure. Accepted R2
+classifier, types, outer route, deadlines, cleanup ordering, pins, redaction
+and summary disclosures remain intact.
+
+blocking_finding: Evidence files are initially rendered from the successful
+terminal state. When a later mid-write or postcondition failure changes the
+in-memory result to evidence_write_failed, already-retained partial files keep
+success-looking fields. A production measurements.csv failure retained
+environment cleanup=complete, matrix pass_unchanged/complete and
+source-feasibility terminal_class pass_unchanged. Summary absence is
+insufficient and tests only checked that absence. The ninth-file case has the
+same weakness.
+
+smallest_repair: Every partial artifact must remain in a closed uncommitted or
+failure-safe state with no cleanup=complete or successful terminal claim until
+the complete eight-file set and postconditions atomically commit. Tests must
+scan every retained partial file for forbidden success markers under both
+mid-write and ninth-file failures. Preserve exact three paths and accepted R3
+repairs.
+
+review_procedure_deviation: The first hosted reviewer test set HOME/CFFIX/
+TMPDIR only on xcodebuild; Xcode did not propagate them. The failed log proves
+the app host used live HOME and normal TMPDIR, then Swift Testing continued and
+constructed TranscriptionFailureRecoveryStore at its default recovery URL.
+Protected metadata/content access or repair mutation cannot be ruled out. The
+reviewer did not inspect/stat/repair the protected path. The process exited;
+only a later production-configured private .xctestrun passed and qualifies.
+This excluded invocation is not evidence of protected-scope closure.
+
+scope_check: Read-only review; no observer --execute, external volume,
+Camera/TCC/Keychain/provider/media action or repository edit. Task roots and
+processes were removed.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked; protected effect from the excluded reviewer
+invocation is unknown and must not be silently cleared.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R4, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4 using the private host from first launch.
 runtime_or_visual_handoff: none
 ```
