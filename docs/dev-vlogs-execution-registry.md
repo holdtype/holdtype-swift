@@ -243,8 +243,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | rejected | `0058993`; receipt below | Atomic swap exists; creation, cleanup, commit reconciliation and success truth remain unsafe. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | rejected | receipt below | Return syscall-boundary and terminal-truth R6; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | running | — | Exclusive fd creation, post-swap reconciliation, safe cleanup and residual-aware success. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | review | `cbbd9e0`; receipt below | Exclusive fd creation, post-swap reconciliation, safe cleanup and residual-aware success implemented; independent review running. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7517,5 +7517,44 @@ residual: Non-run-owned writers may remain still_unknown. Implementation and
 observer runtime remain blocked.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R6, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R6`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R6
+status: implementation_complete_pending_independent_review
+commit: cbbd9e0741210688734584db9b56c651bc2a5860
+parent: 2b6a9e381942e71f3db7f81549c7366b060dda5b
+
+outcome: The exact three-path Debug observer repair now creates evidence files
+through descriptor-relative O_CREAT|O_EXCL|O_NOFOLLOW writes with full identity
+pins, reconciles exact pre/post identities after every swap result, cleans only
+through one no-follow descriptor-relative identity helper, and suppresses
+public success whenever any displaced or staging residual remains.
+
+adversarial_evidence: Write replacement, retained/staged/events directory
+replacement, validation-to-cleanup replacement, helper pre-swap failure,
+actual post-swap nonzero/timeout, cleanup failure and false-public-success
+fixtures pass. A replacement at cleanup restores a separately pinned complete
+failure-safe tree as authoritative evidence; original, replacement and sibling
+survive; status is failure and public success is silent.
+
+checks: Controller 11/11; production-private protected/inert/hosted 19/19;
+zsh and strict C syntax; structure at 500 lines; signed Debug/codesign; unsigned
+Release isolation; frozen seven W01 hashes; diff, redaction, path, process and
+root audits. All qualifying hosted runs used a production-configured private
+.xctestrun and explicit task-owned result bundle.
+
+scope_check: Exact controller script, controller tests and W01 summary only;
+no observer --execute, external volume, protected-content inspection, Camera,
+TCC, Keychain, provider, media or product runtime.
+deviations: One excluded focused rerun omitted resultBundlePath and Xcode wrote
+test-result metadata under the default user DerivedData. Host HOME/CFFIX/TMP
+remained private; protected content was not inspected. The summary records the
+excluded route and final qualifying runs are private.
+residual: Independent review only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
 runtime_or_visual_handoff: none
 ```
