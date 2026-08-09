@@ -77,10 +77,17 @@ struct HoldTypeApp: App {
 private enum HoldTypeDebugEntryPoint {
     @MainActor
     static func main() {
-        DevVlogsPhase0BLaunch.startApplication(
-            environment: ProcessInfo.processInfo.environment,
-            startNormalApplication: { HoldTypeApp.main() },
-            startHarnessApplication: { DevVlogsPhase0BHarnessApplication.main() }
+        let environment = ProcessInfo.processInfo.environment
+        DevVlogsPhase0BPreviewLaunch.startApplication(
+            environment: environment,
+            startPreviewApplication: { DevVlogsPhase0BPreviewApplication.main() },
+            startExistingApplication: {
+                DevVlogsPhase0BLaunch.startApplication(
+                    environment: environment,
+                    startNormalApplication: { HoldTypeApp.main() },
+                    startHarnessApplication: { DevVlogsPhase0BHarnessApplication.main() }
+                )
+            }
         )
     }
 }
