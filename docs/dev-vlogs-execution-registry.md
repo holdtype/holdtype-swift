@@ -198,7 +198,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
 | `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | accepted_evidence / mandatory_guard_stop | `9e2a3ee`; receipt below | Truthful pre-functional stop accepted; exact-root authority remained unexercised. |
 | `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | accepted_with_residual | receipt below | Use one noninteractive single-shot controller for the final runtime. |
-| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | running | — | Final protected-scope runtime via one stable-parent controller; no retry. |
+| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | review / protected-scope-fail | `bec6751`; receipt below | SSD mechanics pass; protected metadata changed; HDD stopped. Review required. |
+| `DV-P0B-STORAGE-R05-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R05@bec6751` | read-only exact seven-file evidence plus accepted W05-R1 provenance | running | — | Classify protected change and guard-evidence residual; no runtime. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -379,10 +380,11 @@ other external root remain unauthorized.
   preflight when its one guard lost parent identity after the persistent PTY
   closed. No cell, wrapper, Xcode, hosted test, or external I/O occurred. Its
   exact evidence review accepted the fail-closed stop and confirmed that the
-  existing exact-root authority remained unexercised. R05 is the final runtime
-  attempt through one prevalidated noninteractive single-shot controller that
-  remains the stable guard parent throughout. Mechanics remain accepted and no
-  restorative action is authorized.
+  existing exact-root authority remained unexercised. R05 used one
+  noninteractive controller and completed the SSD mechanics/private-HOME/
+  DerivedData path, but the immediate protected metadata comparison changed;
+  HDD was not invoked. The packet is in review. Mechanics remain accepted and
+  no restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3822,6 +3824,47 @@ no incremental PTY injection, replacement, retry, or broader authority.
 runtime_or_visual_handoff: none
 reviewed_commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
 parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
+```
+
+### `DV-P0B-STORAGE-R05`
+
+```text
+packet_id: DV-P0B-STORAGE-R05
+status: failed / protected-domain dependency
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=not_invoked_protected_stop
+packet_scope_result: fail / protected_metadata=changed
+
+outcome: One SSD invocation passed accepted mechanics, private-HOME
+confinement, shared identity-pinned DerivedData, and wrapper cleanup. Immediate
+metadata-only protected comparison differed from baseline, so the single
+controller stopped and HDD remained uninvoked. No retry, replacement,
+attribution, or restoration occurred.
+observed_evidence: Accepted provenance exact; one noninteractive controller and
+one direct-child guard; baseline/SSD preflight pass; wrapper exit 0; build and
+hosted test pass; one wrapper pass/cleanup terminal; scratch/task-HOME/process
+absence; protected comparison changed; controller exit 71; HDD invocations 0.
+mechanics: Bookmark-after-rename, positive capacity, exclusive promotion,
+collision preservation, exact destination/no fallback, fixture hashes and
+cleanup pass. Measurements remain evidence_only.
+protected_metadata: Changed after SSD. Exact private delta was not inspected or
+retained; no protected content was read, hashed, parsed, attributed, restored,
+or repaired.
+guard: Controller and guard identities passed five checkpoints and final counts
+are zero. Controller finalizer did not retain explicit pre-stop identity plus
+TERM/wait reap facts, so that subclaim is not made.
+cleanup: Both scratch prefixes, task homes, controller/guard and run-owned app/
+build/test processes absent; private raw controller root removed; clean
+worktree.
+scope_check: Exact seven redacted R05 evidence paths; no source/test/script/
+spec/registry/project/product/TCC/Keychain/camera/audio/media/UI/iOS/Release or
+protected corrective action; no external deletion outside accepted scratch.
+residual: Protected boundary failed closed; cause/delta unknown; explicit guard
+TERM/wait proof unavailable; HDD uninvoked.
+next_dependency: DV-P0B-STORAGE-R05-REVIEW
+runtime_or_visual_handoff: none
+commit: bec67515ed855f1fba5ad3f63c91ac09146434da
+parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
 ```
 
 ## Rejected Receipts
