@@ -33,8 +33,14 @@ host_temporary_root=""
 deadline=0.000
 cleanup_started=false
 terminal_class="still_unknown"
+terminal_phase="initializing"
+terminal_exit_status=70
+terminal_finalizing=false
+terminal_finalized=false
+cleanup_state="incomplete_retained"
+evidence_write_state="not_attempted"
 build_comparison="uncertain"
-hosted_comparison="uncertain"
+hosted_comparison="not_run"
 observer_events=""
 run_id=""
 timeout_executable=""
@@ -44,6 +50,7 @@ outer_timeout_seconds=930
 outer_kill_after_seconds=5
 controller_pid=""
 controller_parent_pid=""
+durable_evidence_root=""
 
 usage() {
     print -r -- "usage: $program_name --execute"
@@ -226,15 +233,10 @@ stop_guard() {
     guard_pid=""; guard_identity=""
 }
 
-cleanup() {
-    local status=$?
-    trap - EXIT INT TERM
-    cleanup_started=true
-    stop_supervisor || status=70
-    if ! cleanup_run_root; then terminal_class=cleanup_uncertain; status=70; fi
-    stop_guard || status=70
-    unset run_id task_home task_home_identity derived_data derived_data_identity temporary_root
-    exit "$status"
+record_terminal() {
+    terminal_class="$1"
+    terminal_phase="$2"
+    terminal_exit_status="$3"
 }
 
 run_bounded() {
@@ -285,42 +287,91 @@ evidence_relative_paths() {
 }
 
 write_runtime_evidence() {
-    local evidence_root="$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01"
+    local evidence_root="${1:-$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01}"
     local relative
-    [[ ! -e "$evidence_root" && ! -L "$evidence_root" && -n "$observer_events" ]] || return 70
+    remaining_budget 0 >/dev/null || return 124
+    [[ ! -e "$evidence_root" && ! -L "$evidence_root" ]] || return 70
     run_metadata_probe /bin/mkdir -m 755 "$evidence_root" "$evidence_root/events" \
         >/dev/null || return 70
+    remaining_budget 0 >/dev/null || return 124
     print -r -- "# Phase 0B protected-storage observer R01
 
 terminal_class: $terminal_class
+terminal_phase: $terminal_phase
 build_window: $build_comparison
 hosted_window: $hosted_comparison
-cleanup: complete
+cleanup: $cleanup_state
 " >"$evidence_root/summary.md"
+    remaining_budget 0 >/dev/null || return 124
     print -r -- "# Source feasibility
 
 controller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh
 probe: script/dev_vlogs_phase_0_b_protected_storage_probe.c
 observer: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift
 route_schema: stderr-json-v1
-checks: pass
+terminal_class: $terminal_class
 " >"$evidence_root/source-feasibility.md"
-    print -r -- '{"schema_version":1,"mode":"nonexternal","private_home":true,"guard":"continuous"}' \
+    remaining_budget 0 >/dev/null || return 124
+    print -r -- "{\"schema_version\":1,\"mode\":\"nonexternal\",\"private_home\":true,\"cleanup\":\"$cleanup_state\"}" \
         >"$evidence_root/environment.json"
-    print -r -- "case_id,terminal_class,cleanup
-protected_metadata,$terminal_class,complete" >"$evidence_root/matrix.csv"
+    remaining_budget 0 >/dev/null || return 124
+    print -r -- "case_id,terminal_class,terminal_phase,cleanup
+protected_metadata,$terminal_class,$terminal_phase,$cleanup_state" >"$evidence_root/matrix.csv"
+    remaining_budget 0 >/dev/null || return 124
     print -r -- "phase,result
 build,$build_comparison
 hosted,$hosted_comparison" >"$evidence_root/measurements.csv"
+    remaining_budget 0 >/dev/null || return 124
     print -r -- "path,status" >"$evidence_root/artifacts.csv"
     for relative in "${(@f)$(evidence_relative_paths)}"; do
-        print -r -- "$relative,present" >>"$evidence_root/artifacts.csv"
+        remaining_budget 0 >/dev/null || return 124
+        print -r -- "$relative,$cleanup_state" >>"$evidence_root/artifacts.csv"
     done
+    remaining_budget 0 >/dev/null || return 124
     print -r -- "# Residuals
 
 Arbitrary non-run-owned writers remain unattributed and classify as still_unknown.
 " >"$evidence_root/residuals.md"
-    print -r -- "$observer_events" >"$evidence_root/events/storage-observer-r01.jsonl"
+    remaining_budget 0 >/dev/null || return 124
+    print -rn -- "$observer_events" >"$evidence_root/events/storage-observer-r01.jsonl"
+}
+
+finalize_controller() {
+    local evidence_root="$1" cleanup_failed=false
+    [[ "$terminal_finalizing" == false && "$terminal_finalized" == false ]] || return 70
+    terminal_finalizing=true
+    cleanup_started=true
+    stop_supervisor || cleanup_failed=true
+    cleanup_run_root || cleanup_failed=true
+    stop_guard || cleanup_failed=true
+    if [[ "$cleanup_failed" == true ]]; then
+        cleanup_state=incomplete_retained
+        record_terminal cleanup_uncertain cleanup 70
+    else
+        cleanup_state=complete
+    fi
+    if write_runtime_evidence "$evidence_root"; then
+        evidence_write_state=complete
+    else
+        evidence_write_state=failed_retained
+        record_terminal evidence_write_failed evidence 74
+    fi
+    terminal_finalized=true
+    terminal_finalizing=false
+    unset run_id task_home task_home_identity derived_data derived_data_identity temporary_root
+    return "$terminal_exit_status"
+}
+
+finalize_unexpected_exit() {
+    local incoming_status=$?
+    trap - EXIT INT TERM
+    (( incoming_status != 0 )) || incoming_status=70
+    if [[ "$terminal_finalized" == false && "$terminal_finalizing" == false ]]; then
+        [[ "$terminal_class" != still_unknown ]] || \
+            record_terminal metadata_uncertain controller "$incoming_status"
+        finalize_controller "$durable_evidence_root" || incoming_status=$?
+    fi
+    exit "$incoming_status"
 }
 
 configure_hosted_xctestrun() {
@@ -425,7 +476,9 @@ for number, line in enumerate(lines, 1):
         if not isinstance(pairs, list) or [key for key, _ in pairs] != keys: raise SystemExit(65)
         value = closed_object(pairs)
     except (json.JSONDecodeError, ValueError, TypeError): raise SystemExit(65)
-    if value["schema_version"] != 1 or value["case_id"] != "protected_metadata" or value["sequence"] != number: raise SystemExit(65)
+    if type(value["schema_version"]) is not int or value["schema_version"] != 1: raise SystemExit(65)
+    if type(value["sequence"]) is not int or value["sequence"] != number: raise SystemExit(65)
+    if value["case_id"] != "protected_metadata": raise SystemExit(65)
     try: parsed = uuid.UUID(value["run_id"])
     except (ValueError, TypeError, AttributeError): raise SystemExit(65)
     if str(parsed) != value["run_id"] or value["run_id"] != expected_run_id: raise SystemExit(65)
@@ -491,58 +544,90 @@ classify_observer_stream_result() {
 run_controller() {
     local baseline after_build after_hosted build_compare hosted_compare
     local hosted_state=passed concurrent_state=clear
-    validate_controller || fail "controller identity unavailable"
+    validate_controller || { record_terminal guard_discontinuity controller 70; return 0; }
     /usr/bin/caffeinate -dimsu -w $$ &
     guard_pid=$!
-    guard_identity=$(process_identity "$guard_pid") || fail "guard identity unavailable"
-    validate_guard || fail "guard continuity unavailable"
+    guard_identity=$(process_identity "$guard_pid") || {
+        record_terminal guard_discontinuity guard 70; return 0
+    }
+    validate_guard || { record_terminal guard_discontinuity guard 70; return 0; }
     run_root=$(run_metadata_probe /usr/bin/mktemp -d \
-        /private/tmp/holdtype-dev-vlogs-observer.XXXXXXXX) || fail "private root unavailable"
-    run_metadata_probe /bin/chmod 700 "$run_root" >/dev/null || fail "private root unavailable"
-    run_root_identity=$(identity "$run_root" 700) || fail "private root identity unavailable"
+        /private/tmp/holdtype-dev-vlogs-observer.XXXXXXXX) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    run_metadata_probe /bin/chmod 700 "$run_root" >/dev/null || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    run_root_identity=$(identity "$run_root" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
     task_home="$run_root/home"; temporary_root="$task_home/tmp"; derived_data="$task_home/DerivedData"
     bin_root="$run_root/bin"; logs_root="$run_root/logs"; probe="$bin_root/probe"
     run_metadata_probe /bin/mkdir -m 700 "$task_home" "$temporary_root" "$derived_data" \
-        "$bin_root" "$logs_root" >/dev/null || fail "private layout unavailable"
-    task_home_identity=$(identity "$task_home" 700) || fail "task HOME identity unavailable"
-    derived_data_identity=$(identity "$derived_data" 700) || fail "DerivedData identity unavailable"
-    temporary_root_identity=$(identity "$temporary_root" 700) || fail "TMP identity unavailable"
-    bin_root_identity=$(identity "$bin_root" 700) || fail "bin identity unavailable"
-    logs_root_identity=$(identity "$logs_root" 700) || fail "logs identity unavailable"
-    run_id=$(run_metadata_probe /usr/bin/uuidgen) || fail "run token unavailable"
+        "$bin_root" "$logs_root" >/dev/null || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    task_home_identity=$(identity "$task_home" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    derived_data_identity=$(identity "$derived_data" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    temporary_root_identity=$(identity "$temporary_root" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    bin_root_identity=$(identity "$bin_root" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    logs_root_identity=$(identity "$logs_root" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
+    run_id=$(run_metadata_probe /usr/bin/uuidgen) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
     run_id="${run_id:l}"
     run_bounded_to_log 60 "$logs_root/probe-build.log" \
         /usr/bin/clang -std=c11 -Wall -Wextra -Werror -O2 \
         "$script_directory/dev_vlogs_phase_0_b_protected_storage_probe.c" -o "$probe" \
         || {
-        terminal_class=build_failed; return 70
+        record_terminal build_failed probe_build 70; return 0
     }
-    run_metadata_probe /bin/chmod 700 "$probe" >/dev/null || return 70
-    probe_identity=$(regular_file_identity "$probe" 700) || return 70
-    validate_roots || return 70
-    product_census_clear || { terminal_class=environment_conflict; return 70; }
-    baseline=$(probe_snapshot) || { terminal_class=metadata_uncertain; return 70; }
+    run_metadata_probe /bin/chmod 700 "$probe" >/dev/null || {
+        record_terminal metadata_uncertain probe_build 70; return 0
+    }
+    probe_identity=$(regular_file_identity "$probe" 700) || {
+        record_terminal metadata_uncertain probe_build 70; return 0
+    }
+    validate_roots || { record_terminal metadata_uncertain setup 70; return 0; }
+    product_census_clear || { record_terminal environment_conflict baseline 70; return 0; }
+    baseline=$(probe_snapshot) || { record_terminal metadata_uncertain baseline 70; return 0; }
     run_bounded_to_log 600 "$logs_root/build.log" \
         /usr/bin/xcodebuild -project "$repository_root/HoldType.xcodeproj" \
         -scheme HoldType -configuration Debug -destination 'platform=macOS' \
         -derivedDataPath "$derived_data" build-for-testing \
         || {
-        terminal_class=build_failed; return 70
+        record_terminal build_failed build 70; return 0
     }
     product_census_clear || concurrent_state=uncertain
-    after_build=$(probe_snapshot) || { terminal_class=metadata_uncertain; return 70; }
+    after_build=$(probe_snapshot) || { record_terminal metadata_uncertain build 70; return 0; }
     build_compare=$(compare_snapshot "$baseline" "$after_build"); build_comparison="$build_compare"
     [[ "$build_compare" == unchanged || "$build_compare" == missing_unchanged ]] || {
-        terminal_class=$(classify_observer_result clear continuous passed "$build_compare" \
+        local build_terminal
+        build_terminal=$(classify_observer_result clear continuous passed "$build_compare" \
             passed unchanged valid none absent none certain "$concurrent_state")
-        return 70
+        record_terminal "$build_terminal" build 70
+        return 0
     }
-    [[ "$concurrent_state" == clear ]] || { terminal_class=environment_conflict; return 70; }
+    [[ "$concurrent_state" == clear ]] || {
+        record_terminal environment_conflict build 70; return 0
+    }
     if (( $+functions[observer_before_hosted_validation_test_hook] )); then
         observer_before_hosted_validation_test_hook
     fi
-    validate_roots || { terminal_class=metadata_uncertain; return 70; }
-    configure_hosted_xctestrun || { terminal_class=hosted_test_failed; return 70; }
+    validate_roots || { record_terminal metadata_uncertain hosted_setup 70; return 0; }
+    configure_hosted_xctestrun || {
+        record_terminal hosted_test_failed hosted_setup 70; return 0
+    }
     run_bounded_to_log 180 "$logs_root/hosted.log" \
         /usr/bin/xcodebuild -xctestrun "$configured_xctestrun" \
         -destination 'platform=macOS' -parallel-testing-enabled NO \
@@ -550,16 +635,22 @@ run_controller() {
         -only-testing:HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverHostedTests \
         || hosted_state=failed
     product_census_clear || concurrent_state=uncertain
-    after_hosted=$(probe_snapshot) || { terminal_class=metadata_uncertain; return 70; }
+    after_hosted=$(probe_snapshot) || {
+        record_terminal metadata_uncertain hosted 70; return 0
+    }
     hosted_compare=$(compare_snapshot "$after_build" "$after_hosted"); hosted_comparison="$hosted_compare"
     set +e
     observer_events=$(run_metadata_probe /usr/bin/grep \
         '^HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 ' "$logs_root/hosted.log")
     set -e
-    terminal_class=$(classify_observer_stream_result "$logs_root/hosted.log" "$run_id" \
+    local hosted_terminal hosted_status=70
+    hosted_terminal=$(classify_observer_stream_result "$logs_root/hosted.log" "$run_id" \
         "$build_compare" "$hosted_state" "$hosted_compare" "$concurrent_state")
     unset baseline after_build after_hosted
-    [[ "$terminal_class" == pass_unchanged || "$terminal_class" == owner_exposed_no_mutation ]]
+    [[ "$hosted_terminal" == pass_unchanged || \
+       "$hosted_terminal" == owner_exposed_no_mutation ]] && hosted_status=0
+    record_terminal "$hosted_terminal" hosted "$hosted_status"
+    return 0
 }
 
 outer_supervise() {
@@ -569,28 +660,28 @@ outer_supervise() {
 
 run_inner_controller() {
     deadline=$(( SECONDS + 900 ))
-    pin_controller || fail "controller identity unavailable"
-    trap cleanup EXIT
-    trap 'exit 130' INT
-    trap 'exit 143' TERM
-    cd "$repository_root"
-    run_controller
-    cleanup_run_root || { terminal_class=cleanup_uncertain; exit 70; }
-    write_runtime_evidence || exit 70
-    print -r -- "protected_storage_observer result=$terminal_class cleanup=complete"
+    durable_evidence_root="$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01"
+    trap finalize_unexpected_exit EXIT
+    trap 'record_terminal guard_discontinuity signal 130; exit 130' INT
+    trap 'record_terminal guard_discontinuity signal 143; exit 143' TERM
+    if ! pin_controller; then
+        record_terminal guard_discontinuity controller 70
+    elif ! cd "$repository_root"; then
+        record_terminal metadata_uncertain controller 70
+    else
+        run_controller
+    fi
+    local final_status=0
+    finalize_controller "$durable_evidence_root" || final_status=$?
+    trap - EXIT INT TERM
+    if (( final_status == 0 )) && [[ "$cleanup_state" == complete &&
+          "$evidence_write_state" == complete ]]; then
+        print -r -- "protected_storage_observer result=$terminal_class cleanup=complete"
+    fi
+    return "$final_status"
 }
 
 if [[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]]; then
-    if [[ "${HOLDTYPE_DEV_VLOGS_PROTECTED_STORAGE_OBSERVER_INNER:-}" == 1 &&
-          "${1:-}" == --controller-inner && $# == 1 ]]; then
-        unset HOLDTYPE_DEV_VLOGS_PROTECTED_STORAGE_OBSERVER_INNER
-        if command -v timeout >/dev/null 2>&1; then timeout_executable=$(command -v timeout)
-        elif command -v gtimeout >/dev/null 2>&1; then timeout_executable=$(command -v gtimeout)
-        else fail "a bounded timeout command is required"
-        fi
-        run_inner_controller
-        exit
-    fi
     while (( $# > 0 )); do
         case "$1" in
             --help|-h) usage; exit 0 ;;
@@ -605,12 +696,18 @@ if [[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]]; then
     else fail "a bounded timeout command is required"
     fi
     set +e
-    outer_supervise /usr/bin/env HOLDTYPE_DEV_VLOGS_PROTECTED_STORAGE_OBSERVER_INNER=1 \
-        "$script_directory/$program_name" --controller-inner
-    status=$?
+    outer_supervise /bin/zsh -c '
+        source "$1"
+        script_directory="${1:A:h}"
+        repository_root="${script_directory:h}"
+        program_name="${1:t}"
+        timeout_executable="$2"
+        run_inner_controller
+    ' protected-storage-observer-inner "$script_directory/$program_name" "$timeout_executable"
+    controller_status=$?
     set -e
-    if (( status != 0 )); then
+    if (( controller_status != 0 )); then
         print -u2 -r -- "error: protected storage observer controller failed"
     fi
-    exit "$status"
+    exit "$controller_status"
 fi

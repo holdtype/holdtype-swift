@@ -4,12 +4,12 @@ Status: implementation evidence only. No observer `--execute` runtime,
 external volume, protected-content inspection, Camera, TCC, Keychain,
 provider, or media action was performed.
 
-One rejected pre-repair diagnostic test-host route inherited the live user
-Home and let Xcode select its default DerivedData/result-metadata location.
-The inert route failed closed before constructing a recovery owner. No
-protected content was inspected, and no `Recovery.json` stat, open, read,
-write, repair, or deletion was performed. Final hosted verification used only
-the controller-owned private Home, TMPDIR, explicit DerivedData, and result bundle.
+Excluded diagnostic and verification routes exposed the live user Home or
+default Xcode result-metadata location.
+No protected content was inspected by the worker or reviewer,
+but host metadata access was not proven absent. Final qualifying verification
+used only the controller-owned private Home, TMPDIR, explicit DerivedData, and
+result bundle.
 
 ## Implemented boundary
 
@@ -41,7 +41,11 @@ the controller-owned private Home, TMPDIR, explicit DerivedData, and result bund
   first-applicable classifier. One monotonic 900-second inner deadline and a
   real 930-second outer supervisor bound every stage and cleanup. TMPDIR,
   logs, bin, and the compiled probe are creation-identity pinned; cleanup
-  quarantines and revalidates the exact run-root identity before deletion.
+  quarantines and revalidates the exact run-root identity before deletion. A
+  single terminal state machine reaps the supervisor, resolves exact root
+  cleanup while the guard remains proven, reaps the guard, then attempts the
+  closed eight-file evidence write. Cleanup or
+  evidence uncertainty overrides success before any durable success claim.
 
 ## Implementation verification
 

@@ -12,8 +12,12 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(normal.status == 64)
         let invalid = try run([scriptPath, "--unknown"])
         #expect(invalid.status == 64)
+        var innerEnvironment = ProcessInfo.processInfo.environment
+        innerEnvironment["HOLDTYPE_DEV_VLOGS_PROTECTED_STORAGE_OBSERVER_INNER"] = "1"
+        let inner = try run([scriptPath, "--controller-inner"], environment: innerEnvironment)
+        #expect(inner.status == 64)
         #expect(try privateObserverRoots() == before)
-        for output in [help.output, normal.output, invalid.output] {
+        for output in [help.output, normal.output, invalid.output, inner.output] {
             #expect(!output.contains("/private/tmp/holdtype-dev-vlogs-observer."))
         }
     }
@@ -103,6 +107,10 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
                 with: "\"sequence\":2,\"sequence\":2")],
             [readyLine, observerLine(3, "owner_initialized", "none", "recovery_directory",
                 "private_task_home", "observed")],
+            [readyLine.replacingOccurrences(of: "\"schema_version\":1", with: "\"schema_version\":true")],
+            [readyLine.replacingOccurrences(of: "\"schema_version\":1", with: "\"schema_version\":1.0")],
+            [readyLine.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":false")],
+            [readyLine.replacingOccurrences(of: "\"sequence\":1", with: "\"sequence\":1.0")],
         ]
         for lines in invalid { #expect(try parseStream(lines).status != 0) }
     }
@@ -189,30 +197,61 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
 
     @Test func summaryTruthfullyDisclosesTheRejectedLiveHomeDiagnostic() throws {
         let summary = try String(contentsOfFile: summaryPath, encoding: .utf8)
-        #expect(summary.contains("inherited the live user\nHome"))
-        #expect(summary.contains("No\nprotected content was inspected"))
-        #expect(summary.contains("no `Recovery.json` stat, open, read,\nwrite"))
-        #expect(!summary.contains("No observer runtime, external volume,\nlive user Home"))
+        let normalized = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        #expect(normalized.contains("exposed the live user Home or default Xcode result-metadata location"))
+        #expect(normalized.contains("No protected content was inspected by the worker or reviewer"))
+        #expect(normalized.contains("host metadata access was not proven absent"))
+        #expect(!summary.contains("inert route failed closed"))
     }
 
-    @Test func exactEvidenceAllowlistAndGuardFirstOrderingAreSourcePinned() throws {
-        let source = try String(contentsOfFile: scriptPath, encoding: .utf8)
-        let guardStart = try #require(source.range(of: "/usr/bin/caffeinate -dimsu -w $$ &"))
-        let privateRoot = try #require(source.range(of: "/usr/bin/mktemp -d"))
-        let compile = try #require(source.range(of: "run_bounded_to_log 60"))
-        let build = try #require(source.range(of: "build-for-testing"))
-        let hosted = try #require(source.range(of: "test-without-building"))
-        #expect(guardStart.lowerBound < privateRoot.lowerBound)
-        #expect(privateRoot.lowerBound < compile.lowerBound)
-        #expect(compile.lowerBound < build.lowerBound)
-        #expect(build.lowerBound < hosted.lowerBound)
-        let result = try run(["/bin/zsh", "-c",
-            "source \(shellQuote(scriptPath)); evidence_relative_paths"])
-        #expect(result.output.split(separator: "\n").map(String.init) == [
-            "summary.md", "source-feasibility.md", "environment.json", "matrix.csv",
-            "measurements.csv", "artifacts.csv", "residuals.md",
-            "events/storage-observer-r01.jsonl",
-        ])
+    @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
+        let result = try run(["/bin/zsh", "-c", """
+            source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
+            deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d \
+                /private/tmp/holdtype-observer-terminal.XXXXXXXX)
+            /bin/chmod 700 "$fixture"
+            stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }
+            stop_guard() { trace+=g }
+            for item in environment_conflict:baseline:uncertain:not_run:70 \
+                guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
+                build_window_change_correlated:build:changed:not_run:70 \
+                run_owned_canonical_recovery_write_correlated:hosted:unchanged:changed:70 \
+                still_unknown:hosted:unchanged:changed:70 evidence_conflict:hosted:unchanged:unchanged:70 \
+                observer_invalid:hosted:unchanged:unchanged:70 metadata_uncertain:build:uncertain:not_run:70 \
+                hosted_test_failed:hosted:unchanged:unchanged:70 pass_unchanged:hosted:unchanged:unchanged:0 \
+                owner_exposed_no_mutation:hosted:unchanged:unchanged:0; do
+                values=(${(s/:/)item}); terminal_class=$values[1]; terminal_phase=$values[2]
+                build_comparison=$values[3]; hosted_comparison=$values[4]
+                terminal_exit_status=$values[5]; terminal_finalized=false; terminal_finalizing=false
+                cleanup_state=incomplete_retained; evidence_write_state=not_attempted; trace=""
+                observer_events=$([[ "$terminal_phase" == hosted ]] && print fixture || true)
+                evidence="$fixture/$terminal_class"; final_status=0
+                finalize_controller "$evidence" || final_status=$?
+                [[ $final_status == $terminal_exit_status && "$trace" == srg &&
+                   $(/usr/bin/find "$evidence" -type f | /usr/bin/wc -l) -eq 8 ]] || exit 71
+                /usr/bin/grep -q "terminal_class: $terminal_class" "$evidence/summary.md" || exit 72
+                /usr/bin/grep -q "cleanup: complete" "$evidence/summary.md" || exit 73
+            done
+            cleanup_run_root() { trace+=r; return 70 }
+            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0
+            terminal_finalized=false; terminal_finalizing=false; trace=""; observer_events=fixture
+            cleanup_evidence="$fixture/cleanup-override"; cleanup_status=0
+            finalize_controller "$cleanup_evidence" || cleanup_status=$?
+            [[ $cleanup_status == 70 && "$trace" == srg ]] || exit 74
+            /usr/bin/grep -q 'terminal_class: cleanup_uncertain' \
+                "$cleanup_evidence/summary.md" || exit 75
+            /usr/bin/grep -q 'cleanup: incomplete_retained' \
+                "$cleanup_evidence/summary.md" || exit 76
+            cleanup_run_root() { trace+=r }; failed_evidence="$fixture/evidence-failure"
+            /bin/mkdir -m 700 "$failed_evidence"; terminal_class=pass_unchanged
+            terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
+            failure_status=0; finalize_controller "$failed_evidence" || failure_status=$?
+            [[ $failure_status == 74 && "$terminal_class" == evidence_write_failed &&
+               -d "$failed_evidence" ]] || exit 77
+            print terminal_evidence=pass; /bin/rm -rf -- "$fixture"
+            """])
+        #expect(result.status == 0)
+        #expect(result.output == "terminal_evidence=pass\n")
     }
 
     @Test func cleanupDeletesStableIdentityAndRetainsReplacementAndSibling() throws {
