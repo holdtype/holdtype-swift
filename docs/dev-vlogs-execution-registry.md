@@ -178,8 +178,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
-| `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | running | — | Run serialized bounded SSD/HDD cells; unplug/remount remains not_available. |
-| `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-R01` | read-only exact runtime evidence and accepted seam provenance | queued | — | Accept only truthful external-root evidence and exact cleanup/scope proof. |
+| `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | review / protected-scope-fail | `f7bbc9d`; receipt below | Both storage cells pass, but an existing TranscriptionRecovery artifact changed mtime during the HDD test-host window. |
+| `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | running | — | Classify protected-artifact attribution and decide external-cell evidence acceptance without another runtime. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -325,7 +325,12 @@ other external root remain unauthorized.
   recorded above, and only inside newly created run-owned scratch directories.
   The accepted seam remains unaffected by the quality delta. No physical
   unplug/remount or write/delete outside those scratch directories is
-  authorized.
+  authorized. `DV-P0B-STORAGE-R01@f7bbc9d` completed both exact cells with
+  functional pass and zero external scratch/process residue. Packet-level
+  scope remains failed pending review because one pre-existing
+  TranscriptionRecovery artifact received a new mtime during the HDD test-host
+  window while count/path-set stayed unchanged; no retry or restorative action
+  is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3262,6 +3267,40 @@ separate and nonblocking for this deterministic repair.
 next_dependency: DV-P0B-STORAGE-R01
 runtime_or_visual_handoff: none
 reviewed_commit: a90f88809b569aaf07151b58d40f8394ae81f330
+```
+
+### `DV-P0B-STORAGE-R01`
+
+```text
+packet_id: DV-P0B-STORAGE-R01
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=pass
+
+outcome: Both bounded external-storage mechanics cells passed bookmark-after-
+rename, positive useful capacity, exclusive promotion/collision preservation,
+exact destination/no fallback, and exact scratch cleanup. Packet-level
+protected-scope check failed because an existing TranscriptionRecovery artifact
+received a new mtime during the HDD test-host window; cause is unattributed.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E03/E04/E08; accepted W02/R4
+seam; exact user authorization for the two recorded roots and new scratch only.
+changed_paths: Exactly seven redacted text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-r01/**.
+checks_run: Accepted wrapper provenance and syntax/help; exact-root bounded
+preflight; two serialized wrapper invocations; focused test results; artifact
+checksums/size cap; JSON/JSONL/CSV, redaction, no-media, path, diff, process,
+scratch, and commit audits.
+cleanup: Both external scratch prefixes absent; run-owned HoldType/xcodebuild/
+xctest/caffeinate zero; no cleanup outside owned scratch.
+deviations: First outer session guard exited with its shell, though the accepted
+wrapper guard covered SSD; a replacement outer guard covered HDD. Counts/path
+set stayed unchanged, but protected artifact/directory mtime changed during HDD.
+residual: Independent review must classify the protected artifact. Physical
+unplug/remount/read-only/true-stale/low-capacity/media remain not_available.
+next_dependency: DV-P0B-STORAGE-R01-REVIEW
+runtime_or_visual_handoff: none
+commit: f7bbc9d803e802e2564f3943cd7725cffe4bc5b1
+parent: ea8b92b4ea792b653f617bfe87dd61a5ef445f8f
 ```
 
 ## Rejected Receipts
