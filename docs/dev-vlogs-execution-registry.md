@@ -137,8 +137,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `10804b6` | read-only exact three-path repair commit | rejected | receipt below | Hard-bound TERM-ignoring cleanup and no-follow root-identity repair required. |
 | `DV-P0B-CAMERA-AUTH-W06-R3` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R2 review | permission script, LaunchServices tests, W01 summary only | rejected | `68b9bc3`; receipt below | Hard timeout closed; destructive-boundary TOCTOU and pipeline timeout defects remain. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `68b9bc3` | read-only exact three-path repair commit | rejected | receipt below | Return exact three-path R4 repair to original owner before permission runtime. |
-| `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | review | `f989aa8`; receipt below | Pipeline and destructive-boundary repair implemented; independent review running. |
-| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | running | — | Reproduce full-pipeline timeout and replacement-survival guarantees before runtime. |
+| `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | rejected | `f989aa8`; receipt below | Full-pipeline timeout closed; exact-object deletion remains unproven. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
+| `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | running | — | Determine whether exact inode deletion is possible or define the narrowest truthful fail-closed cleanup. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -238,8 +239,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   and pathname deletion races for sensitive artifacts, recursive children,
   and the final tombstone. Focused R4 repair `f989aa8` puts whole pipelines
   inside the hard timeout group and adds exclusive quarantine plus identity
-  revalidation at destructive boundaries; independent review is running and
-  capture remains blocked. The
+  revalidation at destructive boundaries, but repeat review found every final
+  unlink/rmdir still consumes a mutable pathname after validation. Read-only
+  Darwin cleanup API exploration is running before another repair; capture
+  remains blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2437,6 +2440,46 @@ commit: f989aa857be7505972b05d1077da32245c9428da
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` of `f989aa8`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R4
+status: done
+verdict: reject
+
+outcome: Complete cleanup pipelines are hard-owned and bounded, but exact-
+object deletion remains unproven because quarantine helpers return a mutable
+pathname after validation and callers later delete by that pathname.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R3 rejection and R4.
+reviewed_commit_and_parent: f989aa857be7505972b05d1077da32245c9428da;
+79f42972e0508c660de86db17ebf431c8ba4be2e.
+changed_paths: none
+checks_run: Exact three-path scope/current blobs; structure and syntax; 24
+production cleanup scenarios; independent complete-pipeline timeout; 9 focused
+LaunchServices tests; signed Debug build-only; parser/hook/help/error routes;
+hardware hash; diff, process, root, and worktree cleanup.
+closed: Identity pipelines execute in one hard-owned zsh process group. A
+TERM-ignoring producer, consumer, and child returned truthful 124 within the
+reduced cap and left no process-group survivor. Parser/hook isolation and
+protected app/helper/project/hardware behavior remain intact.
+findings: Sensitive and regular quarantine validation is followed by pathname
+unlink. Directory second-quarantine validation is followed by pathname rmdir.
+Final root tombstone validation is also followed by pathname rmdir. A same-type
+replacement after final validation can therefore be deleted. New hooks mutate
+before final validation and do not exercise this destructive window; the
+summary overclaims replacement safety.
+scope_check: Exact Debug tooling/test/evidence review; no runtime, TCC, camera,
+microphone, media, product, storage, UI, iOS, Build, or publication action.
+deviations: Full 68 and unsigned Release were not repeated after deterministic
+rejection; parent-identical app/helper/project blobs establish no product delta.
+residual: Real LaunchServices Camera permission/TCC remains future evidence,
+blocked first by exact cleanup semantics.
+next_dependency: Read-only Darwin exact-object deletion/API exploration before
+another repair packet.
+runtime_or_visual_handoff: none
+reviewed_commit: f989aa857be7505972b05d1077da32245c9428da
+```
 
 ### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` of `68b9bc3`
 
