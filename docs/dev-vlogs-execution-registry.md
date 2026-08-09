@@ -149,6 +149,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
+| `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | running | — | Find the official installed/available source and activation path for `build-macos-apps:swiftui-patterns`, or return an exact external dependency. |
 | `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
@@ -258,7 +259,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 - E01 observed writable external SSD and HDD classes. Exact authorized scratch
   bases and runtime availability remain pending for the storage packet.
 - `build-macos-apps:swiftui-patterns` was unavailable during planning; do not
-  dispatch UI design or implementation until resolved.
+  dispatch UI design or implementation until resolved. A read-only skill-
+  availability packet is running to find its official activation path without
+  substituting generic UI guidance.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
